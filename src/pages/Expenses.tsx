@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Filter, FileDown, Edit2, Trash2 } from 'lucide-react';
+import { Plus, FileDown, Edit2 } from 'lucide-react';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Table from '../components/common/Table';
@@ -140,11 +140,10 @@ const Expenses = () => {
     );
   }
 
-  // Calculate summary stats
+  // Normalize category casing during summary stats calculation
   const summaryStats = expenses.reduce((acc, expense) => {
-    if (expense.category === 'delivery') acc.delivery += expense.amount;
-    if (expense.category === 'purchase') acc.purchase += expense.amount;
-    if (expense.category === 'other') acc.other += expense.amount;
+    const normalizedCategory = expense.category.toLowerCase();
+    acc[normalizedCategory] = (acc[normalizedCategory] || 0) + expense.amount;
     return acc;
   }, { delivery: 0, purchase: 0, other: 0 });
 
@@ -190,41 +189,26 @@ const Expenses = () => {
       </div>
       
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <Card className="bg-blue-50 border border-blue-100">
-          <div className="flex justify-between items-center">
-            <div>
-              <p className="text-sm font-medium text-blue-700">Delivery Expenses</p>
-              <p className="mt-1 text-2xl font-semibold text-blue-900">
-                {summaryStats.delivery.toLocaleString()} XAF
-              </p>
-            </div>
-            <Badge variant="info">Delivery</Badge>
-          </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+        <Card>
+          <p className="text-sm font-medium text-blue-700">Delivery Expenses</p>
+          <p className="text-xl font-semibold text-gray-900">
+            {summaryStats.delivery.toLocaleString()} XAF
+          </p>
         </Card>
         
-        <Card className="bg-red-50 border border-red-100">
-          <div className="flex justify-between items-center">
-            <div>
-              <p className="text-sm font-medium text-red-700">Purchase Expenses</p>
-              <p className="mt-1 text-2xl font-semibold text-red-900">
-                {summaryStats.purchase.toLocaleString()} XAF
-              </p>
-            </div>
-            <Badge variant="error">Purchase</Badge>
-          </div>
+        <Card>
+          <p className="text-sm font-medium text-red-700">Purchase Expenses</p>
+          <p className="text-xl font-semibold text-gray-900">
+            {summaryStats.purchase.toLocaleString()} XAF
+          </p>
         </Card>
         
-        <Card className="bg-yellow-50 border border-yellow-100">
-          <div className="flex justify-between items-center">
-            <div>
-              <p className="text-sm font-medium text-yellow-700">Other Expenses</p>
-              <p className="mt-1 text-2xl font-semibold text-yellow-900">
-                {summaryStats.other.toLocaleString()} XAF
-              </p>
-            </div>
-            <Badge variant="warning">Other</Badge>
-          </div>
+        <Card>
+          <p className="text-sm font-medium text-yellow-700">Other Expenses</p>
+          <p className="text-xl font-semibold text-gray-900">
+            {summaryStats.other.toLocaleString()} XAF
+          </p>
         </Card>
       </div>
       
