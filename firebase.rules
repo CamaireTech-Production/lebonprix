@@ -1,0 +1,110 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    function isManager() {
+      return isAuthenticated() && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'manager';
+    }
+    
+    // User profiles
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      allow update: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      allow delete: if isAdmin();
+    }
+    
+    // Products
+    match /products/{productId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated() && (isAdmin() || isManager());
+      allow delete: if isAdmin();
+      
+      // Validate product data
+      function isValidProduct() {
+        let data = request.resource.data;
+        return data.name is string && data.name.size() > 0 &&
+               data.costPrice is number && data.costPrice >= 0 &&
+               data.sellingPrice is number && data.sellingPrice >= data.costPrice &&
+               data.stock is number && data.stock >= 0 &&
+               data.category is string &&
+               (!('imageUrl' in data) || data.imageUrl is string) &&
+               data.isAvailable is bool;
+      }
+      
+      allow create: if isValidProduct();
+      allow update: if isValidProduct();
+    }
+    
+    // Sales
+    match /sales/{saleId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && (
+        isAdmin() || 
+        isManager() || 
+        resource.data.createdBy == request.auth.uid
+      );
+      allow delete: if isAdmin();
+      
+      // Validate sale data
+      function isValidSale() {
+        let data = request.resource.data;
+        return data.productId is string &&
+               data.quantity is number && data.quantity > 0 &&
+               data.basePrice is number && data.basePrice >= 0 &&
+               data.negotiatedPrice is number && data.negotiatedPrice >= 0 &&
+               data.totalAmount is number && data.totalAmount >= 0 &&
+               data.profit is number &&
+               data.status in ['commande', 'under_delivery', 'paid'] &&
+               data.paymentStatus in ['pending', 'paid', 'cancelled'] &&
+               data.customerInfo.name is string && data.customerInfo.name.size() > 0 &&
+               data.customerInfo.phone is string;
+      }
+      
+      allow create: if isValidSale();
+      allow update: if isValidSale();
+    }
+    
+    // Expenses
+    match /expenses/{expenseId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && (isAdmin() || isManager());
+      allow update: if isAuthenticated() && (
+        isAdmin() || 
+        isManager() || 
+        resource.data.createdBy == request.auth.uid
+      );
+      allow delete: if isAdmin();
+      
+      // Validate expense data
+      function isValidExpense() {
+        let data = request.resource.data;
+        return data.description is string && data.description.size() > 0 &&
+               data.amount is number && data.amount > 0 &&
+               data.category in ['delivery', 'purchase', 'other'] &&
+               data.date is timestamp &&
+               (!('attachments' in data) || (data.attachments is list && data.attachments.size() <= 5));
+      }
+      
+      allow create: if isValidExpense();
+      allow update: if isValidExpense();
+    }
+    
+    // Dashboard stats
+    match /dashboardStats/{document=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+  }
+}

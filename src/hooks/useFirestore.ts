@@ -1,0 +1,205 @@
+import { useState, useEffect } from 'react';
+import { 
+  collection,
+  doc,
+  query,
+  where,
+  orderBy,
+  getDocs,
+  addDoc,
+  updateDoc,
+  onSnapshot,
+  serverTimestamp
+} from 'firebase/firestore';
+import { db } from '../services/firebase';
+import { 
+  createSale, 
+  updateSaleStatus, 
+  subscribeToSales,
+  subscribeToCategories,
+  createCategory,
+  subscribeToProducts,
+  createProduct,
+  updateProduct,
+  subscribeToExpenses,
+  createExpense,
+  updateExpense,
+  subscribeToDashboardStats
+} from '../services/firestore';
+import type {
+  Product,
+  Sale,
+  Expense,
+  Category,
+  DashboardStats,
+  OrderStatus,
+  PaymentStatus
+} from '../types/models';
+
+// Products Hook
+export const useProducts = () => {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToProducts((data) => {
+      setProducts(data);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const addProduct = async (productData: Omit<Product, 'id' | 'createdAt'>) => {
+    try {
+      // TODO: Get actual user ID from auth context
+      const userId = 'current-user';
+      await createProduct(productData, userId);
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
+  };
+
+  const updateProductData = async (productId: string, data: Partial<Product>) => {
+    try {
+      // TODO: Get actual user ID from auth context
+      const userId = 'current-user';
+      await updateProduct(productId, data, userId);
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
+  };
+
+  return { products, loading, error, addProduct, updateProduct: updateProductData };
+};
+
+// Categories Hook
+export const useCategories = () => {
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToCategories((data) => {
+      setCategories(data);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const addCategory = async (name: string) => {
+    try {
+      // TODO: Get actual user ID from auth context
+      const userId = 'current-user';
+      await createCategory({ name }, userId);
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
+  };
+
+  return { categories, loading, error, addCategory };
+};
+
+// Sales Hook
+export const useSales = () => {
+  const [sales, setSales] = useState<Sale[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToSales((data) => {
+      setSales(data);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const addSale = async (data: Omit<Sale, 'id' | 'createdAt' | 'updatedAt'>) => {
+    try {
+      // TODO: Get actual user ID from auth context
+      const userId = 'current-user';
+      await createSale(data, userId);
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
+  };
+
+  const updateStatus = async (id: string, status: OrderStatus, paymentStatus: PaymentStatus) => {
+    try {
+      // TODO: Get actual user ID from auth context
+      const userId = 'current-user';
+      await updateSaleStatus(id, status, paymentStatus, userId);
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
+  };
+
+  return { sales, loading, error, addSale, updateStatus };
+};
+
+// Expenses Hook
+export const useExpenses = () => {
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToExpenses((data) => {
+      setExpenses(data);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const addExpense = async (data: Omit<Expense, 'id' | 'createdAt' | 'updatedAt'>) => {
+    try {
+      // TODO: Get actual user ID from auth context
+      const userId = 'current-user';
+      await createExpense(data, userId);
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
+  };
+
+  const updateExpenseData = async (id: string, data: Partial<Expense>) => {
+    try {
+      // TODO: Get actual user ID from auth context
+      const userId = 'current-user';
+      await updateExpense(id, data, userId);
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
+  };
+
+  return { expenses, loading, error, addExpense, updateExpense: updateExpenseData };
+};
+
+// Dashboard Stats Hook
+export const useDashboardStats = () => {
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToDashboardStats((data) => {
+      setStats(data);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  return { stats, loading, error };
+};
+
