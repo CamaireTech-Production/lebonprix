@@ -1,8 +1,7 @@
 import { useState } from 'react';
-import { Grid, List, Plus, Search, Filter, Edit2, Trash2 } from 'lucide-react';
+import { Grid, List, Plus, Search, Edit2 } from 'lucide-react';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
-import Table from '../components/common/Table';
 import Badge from '../components/common/Badge';
 import Modal, { ModalFooter } from '../components/common/Modal';
 import Input from '../components/common/Input';
@@ -27,7 +26,8 @@ const Products = () => {
     sellingPrice: '',
     category: '',
     stock: '',
-    imageUrl: ''
+    imageUrl: '',
+    imageFile: null as File | null // Updated type
   });
   
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -42,46 +42,54 @@ const Products = () => {
       sellingPrice: '',
       category: '',
       stock: '',
-      imageUrl: ''
+      imageUrl: '',
+      imageFile: null
     });
   };
 
   // Get unique categories from products
   const categories = ['All', ...new Set(products?.map(p => p.category) || [])];
-  const categoryOptions = categories
-    .filter(cat => cat !== 'All')
-    .map(cat => ({ label: cat, value: cat }));
 
   const handleCategoryChange = (option: any) => {
     setFormData(prev => ({
       ...prev,
-      category: option?.value || ''
+      category: option?.label || '' // Use label instead of value
     }));
-  };
-
-  const handleCreateCategory = (inputValue: string) => {
-    const newCategory = inputValue.trim();
-    if (newCategory) {
-      setFormData(prev => ({
-        ...prev,
-        category: newCategory
-      }));
-    }
   };
   
   const handleAddProduct = async () => {
     try {
-      await addProduct({
-        name: formData.name,
-        costPrice: parseFloat(formData.costPrice),
-        sellingPrice: parseFloat(formData.sellingPrice),
-        category: formData.category,
-        stock: parseInt(formData.stock),
-        imageUrl: formData.imageUrl || 'https://images.pexels.com/photos/161520/wine-cheese-food-eat-161520.jpeg?auto=compress&cs=tinysrgb&w=600',
-        isAvailable: true
-      });
-      setIsAddModalOpen(false);
-      resetForm();
+      let imageBase64 = '';
+      if (formData.imageFile) {
+        const reader = new FileReader();
+        reader.onload = async () => {
+          imageBase64 = reader.result?.toString() || '';
+          await addProduct({
+            name: formData.name,
+            costPrice: parseFloat(formData.costPrice),
+            sellingPrice: parseFloat(formData.sellingPrice),
+            category: formData.category,
+            stock: parseInt(formData.stock),
+            imageUrl: imageBase64 || '/placeholder.png',
+            isAvailable: true
+          });
+          setIsAddModalOpen(false);
+          resetForm();
+        };
+        reader.readAsDataURL(formData.imageFile);
+      } else {
+        await addProduct({
+          name: formData.name,
+          costPrice: parseFloat(formData.costPrice),
+          sellingPrice: parseFloat(formData.sellingPrice),
+          category: formData.category,
+          stock: parseInt(formData.stock),
+          imageUrl: '/placeholder.png',
+          isAvailable: true
+        });
+        setIsAddModalOpen(false);
+        resetForm();
+      }
     } catch (err) {
       console.error('Failed to add product:', err);
     }
@@ -109,13 +117,14 @@ const Products = () => {
   const openEditModal = (product: any) => {
     setCurrentProduct(product);
     setFormData({
-      name: product.name,
-      costPrice: product.costPrice.toString(),
-      sellingPrice: product.sellingPrice.toString(),
-      category: product.category,
-      stock: product.stock.toString(),
-      imageUrl: product.imageUrl
-    });
+          name: product.name,
+          costPrice: product.costPrice.toString(),
+          sellingPrice: product.sellingPrice.toString(),
+          category: product.category,
+          stock: product.stock.toString(),
+          imageUrl: product.imageUrl,
+          imageFile: null
+        });
     setIsEditModalOpen(true);
   };
   
@@ -207,7 +216,7 @@ const Products = () => {
               <div className="flex flex-col h-full">
                 <div className="relative pb-[65%] overflow-hidden rounded-md mb-3">
                   <img
-                    src={product.imageUrl}
+                    src={product.imageUrl || '/placeholder.png'}
                     alt={product.name}
                     className="absolute h-full w-full object-cover"
                   />
@@ -362,10 +371,9 @@ const Products = () => {
             </label>
             <CreatableSelect
               value={formData.category ? { label: formData.category, value: formData.category } : null}
-              options={categoryOptions}
               onChange={handleCategoryChange}
-              onCreateOption={handleCreateCategory}
               placeholder="Select or create a category..."
+              className="custom-select"
             />
           </div>
           
@@ -378,13 +386,24 @@ const Products = () => {
             required
           />
           
-          <Input
-            label="Product Image URL"
-            name="imageUrl"
-            value={formData.imageUrl}
-            onChange={handleInputChange}
-            helpText="Leave empty to use default image"
-          />
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Product Image
+            </label>
+            <input
+              type="file"
+              name="imageFile"
+              accept="image/*"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  setFormData(prev => ({ ...prev, imageFile: file }));
+                }
+              }}
+              className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border file:border-gray-300 file:text-sm file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
+            />
+            <p className="mt-1 text-sm text-gray-500">Upload an image file for the product</p>
+          </div>
         </div>
       </Modal>
       
@@ -435,10 +454,9 @@ const Products = () => {
             </label>
             <CreatableSelect
               value={formData.category ? { label: formData.category, value: formData.category } : null}
-              options={categoryOptions}
               onChange={handleCategoryChange}
-              onCreateOption={handleCreateCategory}
               placeholder="Select or create a category..."
+              className="custom-select"
             />
           </div>
           
@@ -451,12 +469,24 @@ const Products = () => {
             required
           />
           
-          <Input
-            label="Product Image URL"
-            name="imageUrl"
-            value={formData.imageUrl}
-            onChange={handleInputChange}
-          />
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Product Image
+            </label>
+            <input
+              type="file"
+              name="imageFile"
+              accept="image/*"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  setFormData(prev => ({ ...prev, imageFile: file }));
+                }
+              }}
+              className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border file:border-gray-300 file:text-sm file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
+            />
+            <p className="mt-1 text-sm text-gray-500">Upload an image file for the product</p>
+          </div>
         </div>
       </Modal>
     </div>
