@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import Select, { components } from 'react-select';
+import Select, { components, MenuProps } from 'react-select';
 import { Plus } from 'lucide-react';
 import { useCategories } from '../../hooks/useFirestore';
 
@@ -15,21 +15,22 @@ interface CreatableSelectProps {
   className?: string;
 }
 
-const Menu = (props: any) => {
+const Menu = (props: MenuProps<Option, false> & { selectProps: any }) => {
   const { children, ...rest } = props;
-  
+
   return (
     <components.Menu {...rest}>
       {children}
       {props.selectProps.inputValue && !props.selectProps.options.find(
-        (opt: Option) => opt.label.toLowerCase() === props.selectProps.inputValue.toLowerCase()
+        (opt: Option) =>
+          opt.label.toLowerCase() === props.selectProps.inputValue.toLowerCase()
       ) && (
         <div 
           className="py-2 px-3 border-t border-gray-200 text-sm text-gray-600 flex items-center cursor-pointer hover:bg-gray-50"
           onClick={() => {
             const input = props.selectProps.inputValue;
-            if (input) {
-              props.selectProps.onCreateOption(input);
+            if (input && props.selectProps.onCustomCreateOption) {
+              props.selectProps.onCustomCreateOption(input);
             }
           }}
         >
@@ -47,44 +48,29 @@ const CreatableSelect = ({
   placeholder = "Select or create a category...",
   className = ""
 }: CreatableSelectProps) => {
-  const { categories, loading, addCategory } = useCategories();
+  const { categories } = useCategories();
   const [inputValue, setInputValue] = useState("");
-  
+
   const options = categories.map(cat => ({
     label: cat.name,
     value: cat.id
   }));
 
-  const handleCreateOption = async (inputValue: string) => {
-    try {
-      await addCategory(inputValue);
-      setInputValue("");
-    } catch (err) {
-      console.error('Failed to create category:', err);
-      // TODO: Add proper error handling
-    }
+  const handleChange = (newValue: Option | null) => {
+    onChange(newValue);
   };
-
-  if (loading) {
-    return (
-      <div className="h-9 bg-gray-100 rounded-md animate-pulse" />
-    );
-  }
 
   return (
     <Select
-      value={value}
-      options={options}
-      onChange={onChange}
-      onInputChange={(newValue) => setInputValue(newValue)}
-      inputValue={inputValue}
-      onCreateOption={handleCreateOption}
       components={{ Menu }}
+      value={value}
+      onChange={handleChange}
+      options={options}
+      inputValue={inputValue}
+      onInputChange={setInputValue}
       placeholder={placeholder}
       className={className}
       isClearable
-      isSearchable
-      classNamePrefix="react-select"
     />
   );
 };

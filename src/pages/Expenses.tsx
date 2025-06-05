@@ -41,8 +41,7 @@ const Expenses = () => {
       await addExpense({
         description: formData.description,
         amount: parseFloat(formData.amount),
-        category: formData.category as 'delivery' | 'purchase' | 'other',
-        date: new Date(),
+        category: formData.category.toLowerCase() as 'delivery' | 'purchase' | 'other',
         createdBy: 'Current User', // In a real app, get from auth context
       });
       setIsAddModalOpen(false);
@@ -83,7 +82,7 @@ const Expenses = () => {
   const columns = [
     { 
       header: 'Description', 
-      accessor: 'description',
+      accessor: 'description' as const,
     },
     { 
       header: 'Amount', 
@@ -110,7 +109,7 @@ const Expenses = () => {
     },
     { 
       header: 'Created By', 
-      accessor: 'createdBy',
+      accessor: 'createdBy' as const,
     },
     { 
       header: 'Actions', 
@@ -140,10 +139,12 @@ const Expenses = () => {
     );
   }
 
-  // Normalize category casing during summary stats calculation
-  const summaryStats = expenses.reduce((acc, expense) => {
-    const normalizedCategory = expense.category.toLowerCase();
-    acc[normalizedCategory] = (acc[normalizedCategory] || 0) + expense.amount;
+  type CategoryKey = 'delivery' | 'purchase' | 'other';
+  const summaryStats = expenses.reduce((acc: Record<CategoryKey, number>, expense) => {
+    const normalizedCategory = expense.category.toLowerCase() as CategoryKey;
+    if (acc[normalizedCategory] !== undefined) {
+      acc[normalizedCategory] += expense.amount;
+    }
     return acc;
   }, { delivery: 0, purchase: 0, other: 0 });
 

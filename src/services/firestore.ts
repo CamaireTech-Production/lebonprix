@@ -1,5 +1,5 @@
-import { 
-  collection, 
+import {
+  collection,
   doc,
   query,
   where,
@@ -7,25 +7,20 @@ import {
   getDocs,
   getDoc,
   addDoc,
-  updateDoc,
   onSnapshot,
-  writeBatch,
   serverTimestamp,
-  type QueryConstraint,
-  type DocumentData,
+  writeBatch,
   type WriteBatch
 } from 'firebase/firestore';
 import { db } from './firebase';
-import type { 
-  Product, 
-  Sale, 
+import type {
+  Product,
+  Sale,
   Expense,
   Category,
   DashboardStats,
   OrderStatus,
-  PaymentStatus,
-  ExpenseCategory,
-  AuditLog
+  PaymentStatus
 } from '../types/models';
 
 // Categories
@@ -93,12 +88,20 @@ export const subscribeToExpenses = (callback: (expenses: Expense[]) => void): ((
 };
 
 // Dashboard Stats
-export const subscribeToDashboardStats = (callback: (stats: DashboardStats) => void): (() => void) => {
+export const subscribeToDashboardStats = (callback: (stats: Partial<DashboardStats>) => void): (() => void) => {
   const docRef = doc(db, 'dashboardStats', 'current');
-  
+
   return onSnapshot(docRef, (snapshot) => {
     if (snapshot.exists()) {
-      callback({ id: snapshot.id, ...snapshot.data() } as DashboardStats);
+      const data = snapshot.data();
+      callback({
+        totalSales: data.totalSales || 0,
+        totalExpenses: data.totalExpenses || 0,
+        totalProfit: data.totalProfit || 0,
+        activeOrders: data.activeOrders || 0,
+        completedOrders: data.completedOrders || 0,
+        cancelledOrders: data.cancelledOrders || 0,
+      });
     }
   });
 };
@@ -381,43 +384,24 @@ export const createExpense = async (
 export const updateDashboardStats = async (): Promise<void> => {
   const batch = writeBatch(db);
   const statsRef = doc(db, 'dashboardStats', 'current');
-  
-  // Get all required data
-  const [salesSnap, expensesSnap, productsSnap] = await Promise.all([
+
+  const [salesSnap, expensesSnap] = await Promise.all([
     getDocs(collection(db, 'sales')),
     getDocs(collection(db, 'expenses')),
-    getDocs(collection(db, 'products'))
   ]);
-  
+
   const sales = salesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Sale[];
   const expenses = expensesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Expense[];
-  const products = productsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Product[];
-  
-  // Calculate stats
+
   const stats: Partial<DashboardStats> = {
     totalSales: sales.reduce((sum, sale) => sum + sale.totalAmount, 0),
     totalExpenses: expenses.reduce((sum, expense) => sum + expense.amount, 0),
-    totalProfit: sales.reduce((sum, sale) => sum + sale.profit, 0),
-    
+    totalProfit: sales.reduce((sum, sale) => sum + (sale.totalAmount - (sale.negotiatedPrice || sale.basePrice)), 0),
     activeOrders: sales.filter(sale => sale.status !== 'paid').length,
     completedOrders: sales.filter(sale => sale.status === 'paid').length,
     cancelledOrders: sales.filter(sale => sale.paymentStatus === 'cancelled').length,
-    
-    totalProducts: products.length,
-    lowStockProducts: products
-      .filter(p => p.stock <= (p.minimumStock || 10))
-      .map(p => p.id),
-    outOfStockProducts: products
-      .filter(p => p.stock === 0)
-      .map(p => p.id),
-    
-    averageOrderValue: sales.length > 0
-      ? sales.reduce((sum, sale) => sum + sale.totalAmount, 0) / sales.length
-      : 0,
-    
-    lastUpdated: serverTimestamp()
   };
-  
+
   batch.update(statsRef, stats);
   await batch.commit();
 };
@@ -429,11 +413,11 @@ export const getLowStockProducts = async (threshold?: number): Promise<Product[]
     where('stock', '<=', threshold || 10),
     orderBy('stock', 'asc')
   );
-  
+
   const snapshot = await getDocs(q);
   return snapshot.docs.map(doc => ({
     id: doc.id,
-    ...doc.data()
+    ...doc.data(),
   })) as Product[];
 };
 
@@ -445,89 +429,59 @@ export const getProductPerformance = async (productId: string): Promise<{
 }> => {
   const salesRef = collection(db, 'sales');
   const q = query(salesRef, where('productId', '==', productId));
-  
+
   const snapshot = await getDocs(q);
   const sales = snapshot.docs.map(doc => doc.data() as Sale);
-  
+
   return {
     totalSales: sales.length,
     totalRevenue: sales.reduce((sum, sale) => sum + sale.totalAmount, 0),
-    totalProfit: sales.reduce((sum, sale) => sum + sale.profit, 0),
+    totalProfit: sales.reduce((sum, sale) => sum + (sale.totalAmount - (sale.negotiatedPrice || sale.basePrice)), 0),
     averagePrice: sales.length > 0
-      ? sales.reduce((sum, sale) => sum + sale.negotiatedPrice, 0) / sales.length
-      : 0
+      ? sales.reduce((sum, sale) => sum + (sale.negotiatedPrice || sale.basePrice), 0) / sales.length
+      : 0,
   };
 };
 
-export const getAuditLogs = async (
-  entityType?: 'product' | 'sale' | 'expense' | 'category',
-  entityId?: string,
-  startDate?: Date,
-  endDate?: Date
-): Promise<AuditLog[]> => {
-  const constraints: QueryConstraint[] = [orderBy('createdAt', 'desc')];
-  
-  if (entityType) {
-    constraints.push(where('entityType', '==', entityType));
-  }
-  
-  if (entityId) {
-    constraints.push(where('entityId', '==', entityId));
-  }
-  
-  if (startDate) {
-    constraints.push(where('createdAt', '>=', startDate));
-  }
-  
-  if (endDate) {
-    constraints.push(where('createdAt', '<=', endDate));
-  }
-  
-  const q = query(collection(db, 'auditLogs'), ...constraints);
-  const snapshot = await getDocs(q);
-  
-  return snapshot.docs.map(doc => ({
-    id: doc.id,
-    ...doc.data()
-  })) as AuditLog[];
-};
-
-export const updateExpense = async (
-  id: string,
-  data: Partial<Expense>,
-  userId: string
-): Promise<void> => {
-  const batch = writeBatch(db);
-  const expenseRef = doc(db, 'expenses', id);
-
-  // Get current expense data for audit log
-  const currentExpense = await getDoc(expenseRef);
-  if (!currentExpense.exists()) {
-    throw new Error('Expense not found');
+export const addSaleWithValidation = async (sale: Sale) => {
+  const productDoc = await getDoc(doc(db, 'products', sale.productId));
+  if (!productDoc.exists()) {
+    throw new Error('Product does not exist.');
   }
 
-  const updateData = {
-    ...data,
+  const product = productDoc.data() as Product;
+
+  // Validate quantity
+  if (sale.quantity <= 0 || sale.quantity > product.stock) {
+    throw new Error('Invalid quantity.');
+  }
+
+  // Validate negotiated price
+  if (sale.negotiatedPrice && sale.negotiatedPrice > product.sellingPrice) {
+    throw new Error('Negotiated price exceeds standard selling price.');
+  }
+
+  // Validate delivery fee (if applicable)
+  if (sale.deliveryFee !== undefined && sale.deliveryFee < 0) {
+    throw new Error('Delivery fee must be a non-negative number.');
+  }
+
+  // Proceed with adding the sale
+  return await addDoc(collection(db, 'sales'), {
+    ...sale,
+    createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()
+  });
+};
+
+export const getSaleDetails = async (saleId: string): Promise<Sale> => {
+  const saleDoc = await getDoc(doc(db, 'sales', saleId));
+  if (!saleDoc.exists()) {
+    throw new Error('Sale not found');
+  }
+  const saleData = saleDoc.data() as Sale;
+  return {
+    ...saleData,
+    statusHistory: [], // Provide a default empty array for statusHistory
   };
-
-  batch.update(expenseRef, updateData);
-
-  // Create audit log
-  await createAuditLog(
-    batch,
-    'update',
-    'expense',
-    id,
-    Object.keys(data).reduce((acc, key) => ({
-      ...acc,
-      [key]: {
-        oldValue: currentExpense.data()[key],
-        newValue: data[key as keyof Expense]
-      }
-    }), {}),
-    userId
-  );
-
-  await batch.commit();
 };

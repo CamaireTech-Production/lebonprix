@@ -1,18 +1,5 @@
 import { useState, useEffect } from 'react';
 import { 
-  collection,
-  doc,
-  query,
-  where,
-  orderBy,
-  getDocs,
-  addDoc,
-  updateDoc,
-  onSnapshot,
-  serverTimestamp
-} from 'firebase/firestore';
-import { db } from '../services/firebase';
-import { 
   createSale, 
   updateSaleStatus, 
   subscribeToSales,
@@ -23,7 +10,6 @@ import {
   updateProduct,
   subscribeToExpenses,
   createExpense,
-  updateExpense,
   subscribeToDashboardStats
 } from '../services/firestore';
 import type {
@@ -95,7 +81,7 @@ export const useCategories = () => {
     try {
       // TODO: Get actual user ID from auth context
       const userId = 'current-user';
-      await createCategory({ name }, userId);
+      await createCategory({ name, createdBy: userId }, userId); // Added `createdBy` property
     } catch (err) {
       setError(err as Error);
       throw err;
@@ -120,11 +106,11 @@ export const useSales = () => {
     return () => unsubscribe();
   }, []);
 
-  const addSale = async (data: Omit<Sale, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const addSale = async (data: Omit<Sale, 'id' | 'createdAt' | 'updatedAt'>): Promise<Sale> => {
     try {
       // TODO: Get actual user ID from auth context
       const userId = 'current-user';
-      await createSale(data, userId);
+      return await createSale(data, userId);
     } catch (err) {
       setError(err as Error);
       throw err;
@@ -171,15 +157,9 @@ export const useExpenses = () => {
     }
   };
 
-  const updateExpenseData = async (id: string, data: Partial<Expense>) => {
-    try {
-      // TODO: Get actual user ID from auth context
-      const userId = 'current-user';
-      await updateExpense(id, data, userId);
-    } catch (err) {
-      setError(err as Error);
-      throw err;
-    }
+  // updateExpense is not implemented in services/firestore, so we provide a stub that throws
+  const updateExpenseData = async (_id: string, _data: Partial<Expense>) => {
+    throw new Error('updateExpense is not implemented. Please implement it in services/firestore.ts');
   };
 
   return { expenses, loading, error, addExpense, updateExpense: updateExpenseData };
@@ -189,11 +169,18 @@ export const useExpenses = () => {
 export const useDashboardStats = () => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
+  const [error] = useState<Error | null>(null);
 
   useEffect(() => {
     const unsubscribe = subscribeToDashboardStats((data) => {
-      setStats(data);
+      setStats({
+        totalSales: data.totalSales || 0,
+        totalExpenses: data.totalExpenses || 0,
+        totalProfit: data.totalProfit || 0,
+        activeOrders: data.activeOrders || 0,
+        completedOrders: data.completedOrders || 0,
+        cancelledOrders: data.cancelledOrders || 0,
+      });
       setLoading(false);
     });
 

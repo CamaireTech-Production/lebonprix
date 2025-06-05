@@ -71,7 +71,11 @@ const Products = () => {
             category: formData.category,
             stock: parseInt(formData.stock),
             imageUrl: imageBase64 || '/placeholder.png',
-            isAvailable: true
+            isAvailable: true,
+            updatedAt: {
+              seconds: 0,
+              nanoseconds: 0
+            }
           });
           setIsAddModalOpen(false);
           resetForm();
@@ -85,7 +89,11 @@ const Products = () => {
           category: formData.category,
           stock: parseInt(formData.stock),
           imageUrl: '/placeholder.png',
-          isAvailable: true
+          isAvailable: true,
+          updatedAt: {
+            seconds: 0,
+            nanoseconds: 0
+          }
         });
         setIsAddModalOpen(false);
         resetForm();
