@@ -1,16 +1,50 @@
-
-import { ShoppingCart, DollarSign, TrendingUp, Package2 } from 'lucide-react';
+import { ShoppingCart, DollarSign, TrendingUp, Package2, BarChart2 } from 'lucide-react';
 import StatCard from '../components/dashboard/StatCard';
 import SalesChart from '../components/dashboard/SalesChart';
 import ActivityList from '../components/dashboard/ActivityList';
-import { useDashboardStats, useSales, useExpenses } from '../hooks/useFirestore';
+import Table from '../components/common/Table';
+import Card from '../components/common/Card';
+import { useSales, useExpenses, useProducts } from '../hooks/useFirestore';
 import LoadingScreen from '../components/common/LoadingScreen';
 
 const Dashboard = () => {
-  const { stats, loading: statsLoading } = useDashboardStats();
   const { sales, loading: salesLoading } = useSales();
   const { expenses, loading: expensesLoading } = useExpenses();
-  
+  const { products, loading: productsLoading } = useProducts();
+
+  // Calculate gross profit (selling price - cost price) * quantity for all sales
+  const grossProfit = sales?.reduce((sum, sale) => {
+    const product = products?.find(p => p.id === sale.productId);
+    if (!product) return sum;
+    return sum + (product.sellingPrice - product.costPrice) * sale.quantity;
+  }, 0) || 0;
+
+  // Calculate net profit (gross profit - total expenses)
+  const totalExpenses = expenses?.reduce((sum, exp) => sum + exp.amount, 0) || 0;
+  const netProfit = grossProfit - totalExpenses;
+
+  // Total orders
+  const totalOrders = sales?.length || 0;
+
+  // Total delivery expenses
+  const totalDeliveryExpenses = expenses?.filter(e => e.category.toLowerCase() === 'delivery').reduce((sum, e) => sum + e.amount, 0) || 0;
+
+  // Total sales amount
+  const totalSalesAmount = sales?.reduce((sum, sale) => sum + sale.totalAmount, 0) || 0;
+
+  // Best selling products (by quantity sold)
+  const productSalesMap: Record<string, { name: string; quantity: number; sales: number }> = {};
+  sales?.forEach(sale => {
+    const product = products?.find(p => p.id === sale.productId);
+    if (!product) return;
+    if (!productSalesMap[product.id]) {
+      productSalesMap[product.id] = { name: product.name, quantity: 0, sales: 0 };
+    }
+    productSalesMap[product.id].quantity += sale.quantity;
+    productSalesMap[product.id].sales += sale.totalAmount;
+  });
+  const bestSellingProducts = Object.values(productSalesMap).sort((a, b) => b.quantity - a.quantity).slice(0, 5);
+
   // Process sales and expenses data for the chart
   const processChartData = () => {
     const today = new Date();
@@ -33,8 +67,8 @@ const Dashboard = () => {
     });
 
     expenses?.forEach(expense => {
-      if (!expense.date?.seconds) return;
-      const expenseDate = new Date(expense.date.seconds * 1000);
+      if (!expense.createdAt?.seconds) return;
+      const expenseDate = new Date(expense.createdAt.seconds * 1000);
       const dayIndex = Math.floor((today.getTime() - expenseDate.getTime()) / (1000 * 60 * 60 * 24));
       if (dayIndex >= 0 && dayIndex < 7) {
         expensesData[6 - dayIndex] += expense.amount;
@@ -46,7 +80,7 @@ const Dashboard = () => {
 
   const chartData = processChartData();
 
-  if ( salesLoading || expensesLoading) {
+  if (salesLoading || expensesLoading || productsLoading) {
     return <LoadingScreen />;
   }
 
@@ -63,10 +97,17 @@ const Dashboard = () => {
       id: expense.id,
       title: 'Expense added',
       description: `${expense.description}: ${expense.amount.toLocaleString()} XAF`,
-      timestamp: expense.date?.seconds ? new Date(expense.date.seconds * 1000) : new Date(),
+      timestamp: expense.createdAt?.seconds ? new Date(expense.createdAt.seconds * 1000) : new Date(),
       type: 'expense' as const,
     })) || []),
   ].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+
+  // Table columns for best selling products
+  const bestProductColumns = [
+    { header: 'Product', accessor: (row: any) => row.name },
+    { header: 'Quantity Sold', accessor: (row: any) => row.quantity },
+    { header: 'Total Sales', accessor: (row: any) => `${row.sales.toLocaleString()} XAF` },
+  ];
 
   return (
     <div className="pb-16 md:pb-0">
@@ -74,34 +115,39 @@ const Dashboard = () => {
         <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
         <p className="text-gray-600">Welcome back! Here's what's happening with your business today.</p>
       </div>
-      
       {/* Stats section */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <StatCard 
-          title="Total Sales"
-          value={`${stats?.totalSales?.toLocaleString() || 0} XAF`}
-          icon={<ShoppingCart size={24} />}
-          trend={{ value: 12, isPositive: true }}
-        />
-        <StatCard 
-          title="Total Expenses"
-          value={`${stats?.totalExpenses?.toLocaleString() || 0} XAF`}
-          icon={<DollarSign size={24} />}
-          trend={{ value: 5, isPositive: false }}
+          title="Gross Profit"
+          value={`${grossProfit.toLocaleString()} XAF`}
+          icon={<BarChart2 size={24} />}
         />
         <StatCard 
           title="Net Profit"
-          value={`${((stats?.totalSales || 0) - (stats?.totalExpenses || 0)).toLocaleString()} XAF`}
+          value={`${netProfit.toLocaleString()} XAF`}
           icon={<TrendingUp size={24} />}
-          trend={{ value: 8, isPositive: true }}
         />
         <StatCard 
-          title="Active Orders"
-          value={stats?.activeOrders || 0}
+          title="Total Orders"
+          value={totalOrders}
           icon={<Package2 size={24} />}
         />
+        <StatCard 
+          title="Delivery Expenses"
+          value={`${totalDeliveryExpenses.toLocaleString()} XAF`}
+          icon={<DollarSign size={24} />}
+        />
+        <StatCard 
+          title="Total Sales (Amount)"
+          value={`${totalSalesAmount.toLocaleString()} XAF`}
+          icon={<ShoppingCart size={24} />}
+        />
+        <StatCard 
+          title="Total Sales (Count)"
+          value={totalOrders}
+          icon={<ShoppingCart size={24} />}
+        />
       </div>
-      
       {/* Chart section */}
       <div className="mb-6">
         <SalesChart
@@ -110,7 +156,17 @@ const Dashboard = () => {
           expensesData={chartData.expensesData}
         />
       </div>
-      
+      {/* Best Selling Products Table */}
+      <div className="mb-6">
+        <Card title="Best Selling Products">
+          <Table
+            data={bestSellingProducts}
+            columns={bestProductColumns}
+            keyExtractor={row => row.name}
+            emptyMessage="No sales data available"
+          />
+        </Card>
+      </div>
       {/* Activity section */}
       <div>
         <ActivityList activities={recentActivities} />

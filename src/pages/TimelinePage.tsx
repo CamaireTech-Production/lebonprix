@@ -14,11 +14,6 @@ const STATUS_ORDER = [
   { key: 'paid', label: 'Payé' },
 ];
 
-const statusColors: Record<string, string> = {
-  commande: 'bg-indigo-500 text-white',
-  under_delivery: 'bg-emerald-500 text-white',
-  paid: 'bg-emerald-700 text-white',
-};
 
 const TimelinePage = () => {
   const { id } = useParams<{ id: string }>();
@@ -100,7 +95,6 @@ const TimelinePage = () => {
             {STATUS_ORDER.map((status, idx) => {
               const isDone = idx < currentStatusIndex;
               const isCurrent = idx === currentStatusIndex;
-              const isFuture = idx > currentStatusIndex;
               const timestamp = statusTimestamps[status.key];
               return (
                 <li key={status.key} className="relative flex items-start">
