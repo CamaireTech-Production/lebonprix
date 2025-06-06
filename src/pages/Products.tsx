@@ -117,15 +117,52 @@ const Products = () => {
       setIsEditModalOpen(false);
       resetForm();
 
-      await updateProduct(currentProduct.id, {
-        name: formData.name,
-        costPrice: parseFloat(formData.costPrice),
-        sellingPrice: parseFloat(formData.sellingPrice),
-        category: formData.category,
-        stock: parseInt(formData.stock),
-        imageUrl: formData.imageUrl || currentProduct.imageUrl
-      });
-      showSuccessToast('Product updated successfully!');
+      if (formData.imageFile) {
+        const reader = new FileReader();
+        reader.onload = async () => {
+          const imageBase64 = reader.result?.toString() || '';
+          try {
+            await updateProduct(currentProduct.id, {
+              name: formData.name,
+              costPrice: parseFloat(formData.costPrice),
+              sellingPrice: parseFloat(formData.sellingPrice),
+              category: formData.category,
+              stock: parseInt(formData.stock),
+              imageUrl: imageBase64,
+              isAvailable: currentProduct.isAvailable,
+              updatedAt: {
+                seconds: 0,
+                nanoseconds: 0
+              }
+            });
+            showSuccessToast('Product updated successfully!');
+          } catch (err) {
+            console.error('Failed to update product:', err);
+            showErrorToast('Failed to update product. Please try again.');
+            setIsEditModalOpen(true);
+          }
+        };
+        reader.onerror = () => {
+          showErrorToast('Failed to read image file. Please try again.');
+          setIsEditModalOpen(true);
+        };
+        reader.readAsDataURL(formData.imageFile);
+      } else {
+        await updateProduct(currentProduct.id, {
+          name: formData.name,
+          costPrice: parseFloat(formData.costPrice),
+          sellingPrice: parseFloat(formData.sellingPrice),
+          category: formData.category,
+          stock: parseInt(formData.stock),
+          imageUrl: formData.imageUrl || currentProduct.imageUrl,
+          isAvailable: currentProduct.isAvailable,
+          updatedAt: {
+            seconds: 0,
+            nanoseconds: 0
+          }
+        });
+        showSuccessToast('Product updated successfully!');
+      }
     } catch (err) {
       console.error('Failed to update product:', err);
       showErrorToast('Failed to update product. Please try again.');
