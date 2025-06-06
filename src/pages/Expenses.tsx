@@ -8,6 +8,7 @@ import Modal, { ModalFooter } from '../components/common/Modal';
 import Input from '../components/common/Input';
 import { useExpenses } from '../hooks/useFirestore';
 import LoadingScreen from '../components/common/LoadingScreen';
+import { showSuccessToast, showErrorToast, showWarningToast } from '../utils/toast';
 
 const Expenses = () => {
   const { expenses, loading, error, addExpense, updateExpense } = useExpenses();
@@ -38,17 +39,22 @@ const Expenses = () => {
   
   const handleAddExpense = async () => {
     try {
+      // Close modal and reset form immediately
+      setIsAddModalOpen(false);
+      resetForm();
+
       await addExpense({
         description: formData.description,
         amount: parseFloat(formData.amount),
         category: formData.category.toLowerCase() as 'delivery' | 'purchase' | 'other',
         createdBy: 'Current User', // In a real app, get from auth context
       });
-      setIsAddModalOpen(false);
-      resetForm();
+      showSuccessToast('Expense added successfully!');
     } catch (err) {
       console.error('Failed to add expense:', err);
-      // Add proper error handling
+      showErrorToast('Failed to add expense. Please try again.');
+      // Reopen modal if there's an error
+      setIsAddModalOpen(true);
     }
   };
   
@@ -56,16 +62,21 @@ const Expenses = () => {
     if (!currentExpense) return;
     
     try {
+      // Close modal and reset form immediately
+      setIsEditModalOpen(false);
+      resetForm();
+
       await updateExpense(currentExpense.id, {
         description: formData.description,
         amount: parseFloat(formData.amount),
         category: formData.category as 'delivery' | 'purchase' | 'other',
       });
-      setIsEditModalOpen(false);
-      resetForm();
+      showSuccessToast('Expense updated successfully!');
     } catch (err) {
       console.error('Failed to update expense:', err);
-      // Add proper error handling
+      showErrorToast('Failed to update expense. Please try again.');
+      // Reopen modal if there's an error
+      setIsEditModalOpen(true);
     }
   };
   
@@ -132,11 +143,8 @@ const Expenses = () => {
   }
 
   if (error) {
-    return (
-      <div className="p-4 bg-red-50 text-red-800 rounded-md">
-        Error loading expenses: {error.message}
-      </div>
-    );
+    showErrorToast('Failed to load expenses. Please refresh the page.');
+    return null;
   }
 
   type CategoryKey = 'delivery' | 'purchase' | 'other';

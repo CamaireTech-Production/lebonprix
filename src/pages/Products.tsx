@@ -8,6 +8,7 @@ import Input from '../components/common/Input';
 import CreatableSelect from '../components/common/CreatableSelect';
 import { useProducts } from '../hooks/useFirestore';
 import LoadingScreen from '../components/common/LoadingScreen';
+import { showSuccessToast, showErrorToast, showWarningToast } from '../utils/toast';
 
 const Products = () => {
   const { products, loading, error, addProduct, updateProduct } = useProducts();
@@ -27,7 +28,7 @@ const Products = () => {
     category: '',
     stock: '',
     imageUrl: '',
-    imageFile: null as File | null // Updated type
+    imageFile: null as File | null
   });
   
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -53,12 +54,16 @@ const Products = () => {
   const handleCategoryChange = (option: any) => {
     setFormData(prev => ({
       ...prev,
-      category: option?.label || '' // Use label instead of value
+      category: option?.label || ''
     }));
   };
   
   const handleAddProduct = async () => {
     try {
+      // Close modal and reset form immediately
+      setIsAddModalOpen(false);
+      resetForm();
+
       let imageBase64 = '';
       if (formData.imageFile) {
         const reader = new FileReader();
@@ -77,8 +82,7 @@ const Products = () => {
               nanoseconds: 0
             }
           });
-          setIsAddModalOpen(false);
-          resetForm();
+          showSuccessToast('Product added successfully!');
         };
         reader.readAsDataURL(formData.imageFile);
       } else {
@@ -95,11 +99,13 @@ const Products = () => {
             nanoseconds: 0
           }
         });
-        setIsAddModalOpen(false);
-        resetForm();
+        showSuccessToast('Product added successfully!');
       }
     } catch (err) {
       console.error('Failed to add product:', err);
+      showErrorToast('Failed to add product. Please try again.');
+      // Reopen modal if there's an error
+      setIsAddModalOpen(true);
     }
   };
   
@@ -107,6 +113,10 @@ const Products = () => {
     if (!currentProduct) return;
     
     try {
+      // Close modal and reset form immediately
+      setIsEditModalOpen(false);
+      resetForm();
+
       await updateProduct(currentProduct.id, {
         name: formData.name,
         costPrice: parseFloat(formData.costPrice),
@@ -115,24 +125,26 @@ const Products = () => {
         stock: parseInt(formData.stock),
         imageUrl: formData.imageUrl || currentProduct.imageUrl
       });
-      setIsEditModalOpen(false);
-      resetForm();
+      showSuccessToast('Product updated successfully!');
     } catch (err) {
       console.error('Failed to update product:', err);
+      showErrorToast('Failed to update product. Please try again.');
+      // Reopen modal if there's an error
+      setIsEditModalOpen(true);
     }
   };
   
   const openEditModal = (product: any) => {
     setCurrentProduct(product);
     setFormData({
-          name: product.name,
-          costPrice: product.costPrice.toString(),
-          sellingPrice: product.sellingPrice.toString(),
-          category: product.category,
-          stock: product.stock.toString(),
-          imageUrl: product.imageUrl,
-          imageFile: null
-        });
+      name: product.name,
+      costPrice: product.costPrice.toString(),
+      sellingPrice: product.sellingPrice.toString(),
+      category: product.category,
+      stock: product.stock.toString(),
+      imageUrl: product.imageUrl,
+      imageFile: null
+    });
     setIsEditModalOpen(true);
   };
   
@@ -148,11 +160,8 @@ const Products = () => {
   }
 
   if (error) {
-    return (
-      <div className="p-4 bg-red-50 text-red-800 rounded-md">
-        Error loading products: {error.message}
-      </div>
-    );
+    showErrorToast('Failed to load products. Please refresh the page.');
+    return null;
   }
 
   return (

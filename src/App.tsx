@@ -5,6 +5,7 @@ import AuthLayout from './components/layout/AuthLayout';
 import MainLayout from './components/layout/MainLayout';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import LoadingScreen from './components/common/LoadingScreen';
+import { Toaster } from 'react-hot-toast';
 
 // Lazy load pages
 const Login = lazy(() => import('./pages/auth/Login'));
@@ -22,6 +23,7 @@ function App() {
     <AuthProvider>
       <BrowserRouter>
         <Suspense fallback={<LoadingScreen />}>
+          <Toaster />
           <Routes>
             {/* Auth Routes */}
             <Route element={<AuthLayout />}>
@@ -45,7 +47,7 @@ function App() {
             </Route>
             
             {/* Redirect to login if no route matches */}
-            <Route path="*" element={<Navigate to="/auth/login\" replace />} />
+            <Route path="*" element={<Navigate to="/auth/login" replace />} />
           </Routes>
         </Suspense>
       </BrowserRouter>

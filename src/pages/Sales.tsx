@@ -11,7 +11,7 @@ import { useSales, useProducts } from '../hooks/useFirestore';
 import type { Product, OrderStatus, Sale } from '../types/models';
 import type { Column } from '../components/common/Table';
 import LoadingScreen from '../components/common/LoadingScreen';
-import Swal from 'sweetalert2';
+import { showSuccessToast, showErrorToast, showWarningToast } from '../utils/toast';
 
 const Sales = () => {
   const { sales, loading: salesLoading, error: salesError, addSale, updateStatus } = useSales();
@@ -33,7 +33,7 @@ const Sales = () => {
     negotiatedPrice: '',
     customerName: '',
     customerPhone: '',
-    status: 'commande' as OrderStatus, // Explicitly type as OrderStatus
+    status: 'commande' as OrderStatus,
     deliveryFee: ''
   });
   
@@ -106,11 +106,15 @@ const Sales = () => {
 
     const errors = validateForm();
     if (Object.keys(errors).length > 0) {
-      console.error('Validation errors:', errors);
+      Object.values(errors).forEach(error => showWarningToast(error));
       return;
     }
 
     try {
+      // Close modal and reset form immediately
+      setIsAddModalOpen(false);
+      resetForm();
+
       const quantity = parseInt(formData.quantity);
       const totalAmount = calculateTotal();
 
@@ -132,12 +136,13 @@ const Sales = () => {
 
       if (newSale && newSale.id) {
         handleGenerateLink(newSale.id);
+        showSuccessToast('Sale added successfully!');
       }
-
-      setIsAddModalOpen(false);
-      resetForm();
     } catch (err) {
       console.error('Failed to add sale:', err);
+      showErrorToast('Failed to add sale. Please try again.');
+      // Reopen modal if there's an error
+      setIsAddModalOpen(true);
     }
   };
   
@@ -158,28 +163,29 @@ const Sales = () => {
     if (!currentSale) return;
 
     try {
+      // Close modal and reset form immediately
+      setIsEditModalOpen(false);
+      resetForm();
+
       await updateStatus(currentSale.id, formData.status, 'pending');
       await addSale({
         ...currentSale,
         ...formData,
         totalAmount: calculateTotal(),
       });
-      setIsEditModalOpen(false);
+      showSuccessToast('Sale updated successfully!');
     } catch (err) {
       console.error('Failed to update sale:', err);
+      showErrorToast('Failed to update sale. Please try again.');
+      // Reopen modal if there's an error
+      setIsEditModalOpen(true);
     }
   };
   
   const handleCopyLink = (saleId: string) => {
     const link = `${window.location.origin}/track/${saleId}`;
     navigator.clipboard.writeText(link).then(() => {
-      Swal.fire({
-        icon: 'success',
-        title: 'Link Copied',
-        text: 'The shareable link has been copied to your clipboard.',
-        timer: 2000,
-        showConfirmButton: false
-      });
+      showSuccessToast('Link copied to clipboard!');
     });
   };
 
@@ -256,11 +262,8 @@ const Sales = () => {
   }
 
   if (salesError) {
-    return (
-      <div className="p-4 bg-red-50 text-red-800 rounded-md">
-        Error loading sales: {salesError.message}
-      </div>
-    );
+    showErrorToast('Failed to load sales. Please refresh the page.');
+    return null;
   }
 
   const availableProducts = products?.filter(p => p.isAvailable && p.stock > 0) || [];
