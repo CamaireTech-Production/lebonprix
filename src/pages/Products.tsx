@@ -58,33 +58,83 @@ const Products = () => {
     }));
   };
   
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          
+          // Calculate new dimensions while maintaining aspect ratio
+          const MAX_WIDTH = 800;
+          const MAX_HEIGHT = 800;
+          
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height = Math.round((height * MAX_WIDTH) / width);
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width = Math.round((width * MAX_HEIGHT) / height);
+              height = MAX_HEIGHT;
+            }
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+          
+          // Convert to base64 with reduced quality
+          const base64 = canvas.toDataURL('image/jpeg', 0.7);
+          resolve(base64);
+        };
+        img.onerror = reject;
+      };
+      reader.onerror = reject;
+    });
+  };
+
   const handleAddProduct = async () => {
     try {
-      // Close modal and reset form immediately
-      setIsAddModalOpen(false);
-      resetForm();
+      if (!formData.name || !formData.costPrice || !formData.sellingPrice || !formData.category || !formData.stock) {
+        showWarningToast('Please fill in all required fields');
+        return;
+      }
 
-      let imageBase64 = '';
+      let imageBase64 = '/placeholder.png';
+      
       if (formData.imageFile) {
-        const reader = new FileReader();
-        reader.onload = async () => {
-          imageBase64 = reader.result?.toString() || '';
+        try {
+          imageBase64 = await compressImage(formData.imageFile);
           await addProduct({
             name: formData.name,
             costPrice: parseFloat(formData.costPrice),
             sellingPrice: parseFloat(formData.sellingPrice),
             category: formData.category,
             stock: parseInt(formData.stock),
-            imageUrl: imageBase64 || '/placeholder.png',
+            imageUrl: imageBase64,
             isAvailable: true,
             updatedAt: {
               seconds: 0,
               nanoseconds: 0
             }
           });
+          setIsAddModalOpen(false);
+          resetForm();
           showSuccessToast('Product added successfully!');
-        };
-        reader.readAsDataURL(formData.imageFile);
+        } catch (err) {
+          console.error('Failed to add product:', err);
+          showErrorToast('Failed to add product. Please try again.');
+          setIsAddModalOpen(true);
+        }
       } else {
         await addProduct({
           name: formData.name,
@@ -92,19 +142,20 @@ const Products = () => {
           sellingPrice: parseFloat(formData.sellingPrice),
           category: formData.category,
           stock: parseInt(formData.stock),
-          imageUrl: '/placeholder.png',
+          imageUrl: imageBase64,
           isAvailable: true,
           updatedAt: {
             seconds: 0,
             nanoseconds: 0
           }
         });
+        setIsAddModalOpen(false);
+        resetForm();
         showSuccessToast('Product added successfully!');
       }
     } catch (err) {
       console.error('Failed to add product:', err);
       showErrorToast('Failed to add product. Please try again.');
-      // Reopen modal if there's an error
       setIsAddModalOpen(true);
     }
   };
@@ -113,40 +164,37 @@ const Products = () => {
     if (!currentProduct) return;
     
     try {
-      // Close modal and reset form immediately
-      setIsEditModalOpen(false);
-      resetForm();
+      if (!formData.name || !formData.costPrice || !formData.sellingPrice || !formData.category || !formData.stock) {
+        showWarningToast('Please fill in all required fields');
+        return;
+      }
+
+      let imageBase64 = currentProduct.imageUrl;
 
       if (formData.imageFile) {
-        const reader = new FileReader();
-        reader.onload = async () => {
-          const imageBase64 = reader.result?.toString() || '';
-          try {
-            await updateProduct(currentProduct.id, {
-              name: formData.name,
-              costPrice: parseFloat(formData.costPrice),
-              sellingPrice: parseFloat(formData.sellingPrice),
-              category: formData.category,
-              stock: parseInt(formData.stock),
-              imageUrl: imageBase64,
-              isAvailable: currentProduct.isAvailable,
-              updatedAt: {
-                seconds: 0,
-                nanoseconds: 0
-              }
-            });
-            showSuccessToast('Product updated successfully!');
-          } catch (err) {
-            console.error('Failed to update product:', err);
-            showErrorToast('Failed to update product. Please try again.');
-            setIsEditModalOpen(true);
-          }
-        };
-        reader.onerror = () => {
-          showErrorToast('Failed to read image file. Please try again.');
+        try {
+          imageBase64 = await compressImage(formData.imageFile);
+          await updateProduct(currentProduct.id, {
+            name: formData.name,
+            costPrice: parseFloat(formData.costPrice),
+            sellingPrice: parseFloat(formData.sellingPrice),
+            category: formData.category,
+            stock: parseInt(formData.stock),
+            imageUrl: imageBase64,
+            isAvailable: currentProduct.isAvailable,
+            updatedAt: {
+              seconds: 0,
+              nanoseconds: 0
+            }
+          });
+          setIsEditModalOpen(false);
+          resetForm();
+          showSuccessToast('Product updated successfully!');
+        } catch (err) {
+          console.error('Failed to update product:', err);
+          showErrorToast('Failed to update product. Please try again.');
           setIsEditModalOpen(true);
-        };
-        reader.readAsDataURL(formData.imageFile);
+        }
       } else {
         await updateProduct(currentProduct.id, {
           name: formData.name,
@@ -154,19 +202,20 @@ const Products = () => {
           sellingPrice: parseFloat(formData.sellingPrice),
           category: formData.category,
           stock: parseInt(formData.stock),
-          imageUrl: formData.imageUrl || currentProduct.imageUrl,
+          imageUrl: imageBase64,
           isAvailable: currentProduct.isAvailable,
           updatedAt: {
             seconds: 0,
             nanoseconds: 0
           }
         });
+        setIsEditModalOpen(false);
+        resetForm();
         showSuccessToast('Product updated successfully!');
       }
     } catch (err) {
       console.error('Failed to update product:', err);
       showErrorToast('Failed to update product. Please try again.');
-      // Reopen modal if there's an error
       setIsEditModalOpen(true);
     }
   };
