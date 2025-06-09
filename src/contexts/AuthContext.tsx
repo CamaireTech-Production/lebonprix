@@ -5,9 +5,10 @@ import {
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword, 
   signOut as firebaseSignOut, 
-  onAuthStateChanged 
+  onAuthStateChanged,
+  updatePassword
 } from 'firebase/auth';
-import { doc, setDoc, getDoc, Timestamp } from 'firebase/firestore';
+import { doc, setDoc, getDoc, updateDoc, Timestamp } from 'firebase/firestore';
 import type { Company } from '../types/models';
 
 interface AuthContextType {
@@ -18,6 +19,8 @@ interface AuthContextType {
   signUp: (email: string, password: string, companyData: Omit<Company, 'id' | 'createdAt' | 'updatedAt' | 'userId'>) => Promise<User>;
   signIn: (email: string, password: string) => Promise<User>;
   signOut: () => Promise<void>;
+  updateCompany: (data: Partial<Omit<Company, 'id' | 'createdAt' | 'updatedAt' | 'userId'>>) => Promise<void>;
+  updateUserPassword: (currentPassword: string, newPassword: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -90,6 +93,33 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     return firebaseSignOut(auth);
   };
 
+  const updateCompany = async (data: Partial<Omit<Company, 'id' | 'createdAt' | 'updatedAt' | 'userId'>>) => {
+    if (!user) {
+      throw new Error('No user logged in');
+    }
+
+    const companyRef = doc(db, 'companies', user.uid);
+    const updateData = {
+      ...data,
+      updatedAt: Timestamp.now()
+    };
+
+    await updateDoc(companyRef, updateData);
+    
+    // Update local state
+    setCompany(prev => prev ? { ...prev, ...updateData } : null);
+  };
+
+  const updateUserPassword = async (currentPassword: string, newPassword: string) => {
+    if (!user) {
+      throw new Error('No user logged in');
+    }
+
+    // Reauthenticate user before changing password
+    const credential = await signInWithEmailAndPassword(auth, user.email!, currentPassword);
+    await updatePassword(credential.user, newPassword);
+  };
+
   const value = {
     user,
     currentUser: user, // For backward compatibility
@@ -97,7 +127,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     loading,
     signUp,
     signIn,
-    signOut
+    signOut,
+    updateCompany,
+    updateUserPassword
   };
 
   return (

@@ -51,6 +51,13 @@ const Sales = () => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.replace(/\D/g, ''); // Remove non-digits
+    if (value.length <= 9) { // Only allow 9 digits after +237
+      setFormData(prev => ({ ...prev, customerPhone: value }));
+    }
+  };
+
   const handleProductChange = (index: number, option: any) => {
     setFormData(prev => {
       const newProducts = [...prev.products];
@@ -607,13 +614,26 @@ const Sales = () => {
               required
             />
             
-            <Input
-              label="Customer Phone"
-              name="customerPhone"
-              value={formData.customerPhone}
-              onChange={handleInputChange}
-              required
-            />
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Customer Phone
+              </label>
+              <div className="flex rounded-md shadow-sm">
+                <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 sm:text-sm">
+                  +237
+                </span>
+                <Input
+                  type="tel"
+                  name="customerPhone"
+                  value={formData.customerPhone}
+                  onChange={handlePhoneChange}
+                  placeholder="678904568"
+                  className="flex-1 rounded-l-none"
+                  required
+                  helpText="Enter 9 digits after +237"
+                />
+              </div>
+            </div>
           </div>
           
           {/* Products Section */}
@@ -833,13 +853,26 @@ const Sales = () => {
             required
           />
             
-          <Input
-            label="Customer Phone"
-            name="customerPhone"
-            value={formData.customerPhone}
-            onChange={handleInputChange}
-            required
-          />
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Customer Phone
+            </label>
+            <div className="flex rounded-md shadow-sm">
+              <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 sm:text-sm">
+                +237
+              </span>
+              <Input
+                type="tel"
+                name="customerPhone"
+                value={formData.customerPhone}
+                onChange={handlePhoneChange}
+                placeholder="678904568"
+                className="flex-1 rounded-l-none"
+                required
+                helpText="Enter 9 digits after +237"
+              />
+            </div>
+          </div>
           </div>
 
           {/* Products Section */}
