@@ -1,13 +1,12 @@
 import { useParams } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { getSaleDetails } from '../services/firestore';
-import type { SaleDetails } from '../types/models';
+import { getSaleDetails, getCompanyByUserId } from '../services/firestore';
+import type { SaleDetails, Company } from '../types/models';
 import LoadingScreen from '../components/common/LoadingScreen';
 import Card from '../components/common/Card';
 import Badge from '../components/common/Badge';
 import { useProducts } from '../hooks/useFirestore';
 import { CheckCircle, Circle } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
 
 const STATUS_ORDER = [
   { key: 'commande', label: 'Commande' },
@@ -15,31 +14,37 @@ const STATUS_ORDER = [
   { key: 'paid', label: 'Payé' },
 ];
 
-
 const TimelinePage = () => {
   const { id } = useParams<{ id: string }>();
   const [saleDetails, setSaleDetails] = useState<SaleDetails | null>(null);
+  const [company, setCompany] = useState<Company | null>(null);
   const [loading, setLoading] = useState(true);
   const { products } = useProducts();
-  const { company } = useAuth();
 
   useEffect(() => {
-    const fetchSaleDetails = async () => {
+    const fetchData = async () => {
       if (!id) return;
       try {
+        // Fetch sale details
         const details = await getSaleDetails(id);
         const transformedDetails: SaleDetails = {
           ...details,
           statusHistory: details.statusHistory || [],
         };
         setSaleDetails(transformedDetails);
+
+        // Fetch company details using the sale's userId
+        if (details.userId) {
+          const companyData = await getCompanyByUserId(details.userId);
+          setCompany(companyData);
+        }
       } catch (error) {
-        console.error('Failed to fetch sale details:', error);
+        console.error('Failed to fetch data:', error);
       } finally {
         setLoading(false);
       }
     };
-    fetchSaleDetails();
+    fetchData();
   }, [id]);
 
   if (loading) {
@@ -92,8 +97,8 @@ const TimelinePage = () => {
             )}
             <div>
               <h2 className="text-lg font-semibold mb-2 text-indigo-700">Company</h2>
-              <p className="text-sm text-gray-600">{company?.name}</p>
-              <p className="text-sm text-gray-600">{company?.phone}</p>
+              <p className="text-sm text-gray-600">{company?.name || 'Loading...'}</p>
+              <p className="text-sm text-gray-600">{company?.phone || 'Loading...'}</p>
             </div>
           </div>
 

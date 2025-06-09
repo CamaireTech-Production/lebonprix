@@ -20,7 +20,8 @@ import type {
   Category,
   DashboardStats,
   OrderStatus,
-  PaymentStatus
+  PaymentStatus,
+  Company
 } from '../types/models';
 import { useState, useEffect } from 'react';
 import { Timestamp } from 'firebase/firestore';
@@ -718,4 +719,20 @@ export const useSales = () => {
   };
 
   return { sales, loading, error, addSale, updateSale, updateStatus };
+};
+
+export const getCompanyByUserId = async (userId: string): Promise<Company> => {
+  const companiesRef = collection(db, 'companies');
+  const q = query(companiesRef, where('userId', '==', userId));
+  const snapshot = await getDocs(q);
+  
+  if (snapshot.empty) {
+    throw new Error('Company not found');
+  }
+  
+  const companyDoc = snapshot.docs[0];
+  return {
+    id: companyDoc.id,
+    ...companyDoc.data()
+  } as Company;
 };
