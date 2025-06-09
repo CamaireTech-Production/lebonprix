@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Edit2, Eye, Trash2 } from 'lucide-react';
+import { Plus, Edit2, Eye, Trash2, Download, Share2 } from 'lucide-react';
 import Select from 'react-select';
 import Table from '../components/common/Table';
 import Modal, { ModalFooter } from '../components/common/Modal';
@@ -12,6 +12,8 @@ import type { Product, OrderStatus, Sale, SaleProduct } from '../types/models';
 import type { Column } from '../components/common/Table';
 import LoadingScreen from '../components/common/LoadingScreen';
 import { showSuccessToast, showErrorToast, showWarningToast } from '../utils/toast';
+import Invoice from '../components/sales/Invoice';
+import { generatePDF, sharePDF } from '../utils/pdf';
 
 interface FormProduct {
   product: Product | null;
@@ -410,9 +412,35 @@ const Sales = () => {
         isOpen={isViewModalOpen}
         onClose={() => setIsViewModalOpen(false)}
         title="Sale Details"
+        size="lg"
       >
         {viewedSale && (
           <div className="space-y-6">
+            {/* Invoice Actions */}
+            <div className="flex justify-end space-x-2 mb-4 sticky top-0 bg-white z-10 py-2">
+              <Button
+                variant="outline"
+                icon={<Download size={16} />}
+                onClick={() => generatePDF('invoice-content', `invoice-${viewedSale.id}`)}
+              >
+                Download PDF
+              </Button>
+              <Button
+                variant="outline"
+                icon={<Share2 size={16} />}
+                onClick={() => sharePDF('invoice-content', `invoice-${viewedSale.id}`)}
+              >
+                Share Invoice
+              </Button>
+            </div>
+
+            {/* Invoice Preview */}
+            <div className="border rounded-lg overflow-hidden">
+              <div className="max-h-[calc(100vh-200px)] overflow-y-auto">
+                <Invoice sale={viewedSale} products={products || []} />
+              </div>
+            </div>
+
             {/* Customer Information Card */}
             <Card>
               <div className="p-4">
@@ -704,24 +732,57 @@ const Sales = () => {
       <Modal
         isOpen={isLinkModalOpen}
         onClose={() => setIsLinkModalOpen(false)}
-        title="Shareable Link"
+        title="Sale Confirmation"
+        size="lg"
       >
-        {shareableLink && (
-          <div className="space-y-4">
-            <p>Share this link with the client:</p>
-            <div className="flex items-center space-x-2">
-              <input
-                type="text"
-                value={shareableLink}
-                readOnly
-                className="border rounded-md p-2 w-full"
-              />
-              <button
-                onClick={() => navigator.clipboard.writeText(shareableLink)}
-                className="bg-blue-500 text-white px-4 py-2 rounded-md"
+        {shareableLink && currentSale && (
+          <div className="space-y-6">
+            <div className="bg-emerald-50 p-4 rounded-lg">
+              <p className="text-emerald-700 font-medium">Sale added successfully!</p>
+            </div>
+
+            {/* Invoice Actions */}
+            <div className="flex justify-end space-x-2 sticky top-0 bg-white z-10 py-2">
+              <Button
+                variant="outline"
+                icon={<Download size={16} />}
+                onClick={() => generatePDF('invoice-content', `invoice-${currentSale.id}`)}
               >
-                Copy
-              </button>
+                Download Invoice
+              </Button>
+              <Button
+                variant="outline"
+                icon={<Share2 size={16} />}
+                onClick={() => sharePDF('invoice-content', `invoice-${currentSale.id}`)}
+              >
+                Share Invoice
+              </Button>
+            </div>
+
+            {/* Invoice Preview */}
+            <div className="border rounded-lg overflow-hidden">
+              <div className="max-h-[calc(100vh-200px)] overflow-y-auto">
+                <Invoice sale={currentSale} products={products || []} />
+              </div>
+            </div>
+
+            {/* Shareable Link */}
+            <div className="space-y-4 sticky bottom-0 bg-white z-10 pt-2 border-t">
+              <p className="font-medium text-gray-900">Share this tracking link with the client:</p>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="text"
+                  value={shareableLink}
+                  readOnly
+                  className="border rounded-md p-2 w-full"
+                />
+                <button
+                  onClick={() => navigator.clipboard.writeText(shareableLink)}
+                  className="bg-blue-500 text-white px-4 py-2 rounded-md"
+                >
+                  Copy
+                </button>
+              </div>
             </div>
           </div>
         )}
