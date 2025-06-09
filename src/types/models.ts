@@ -7,6 +7,7 @@ export interface BaseModel {
   id: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
+  userId: string; // Reference to the user who owns this record
 }
 
 export interface Company extends BaseModel {
@@ -16,13 +17,11 @@ export interface Company extends BaseModel {
   phone: string;
   location?: string;
   email: string;
-  userId: string; // Reference to the user who owns this company
 }
 
 export interface Category extends BaseModel {
   name: string;
   description?: string;
-  createdBy: string;
   productCount?: number;
 }
 
@@ -60,10 +59,9 @@ export interface Expense extends BaseModel {
   description: string;
   amount: number;
   category: 'delivery' | 'purchase' | 'other';
-  createdBy: string;
 }
 
-export interface DashboardStats {
+export interface DashboardStats extends BaseModel {
   totalSales: number;
   totalExpenses: number;
   totalProfit: number;

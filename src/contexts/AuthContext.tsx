@@ -11,7 +11,8 @@ import { doc, setDoc, getDoc, Timestamp } from 'firebase/firestore';
 import type { Company } from '../types/models';
 
 interface AuthContextType {
-  currentUser: User | null;
+  user: User | null;
+  currentUser: User | null; // For backward compatibility
   company: Company | null;
   loading: boolean;
   signUp: (email: string, password: string, companyData: Omit<Company, 'id' | 'createdAt' | 'updatedAt' | 'userId'>) => Promise<User>;
@@ -34,13 +35,13 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider = ({ children }: AuthProviderProps) => {
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [company, setCompany] = useState<Company | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setCurrentUser(user);
+      setUser(user);
       if (user) {
         // Fetch company data when user is logged in
         const companyDoc = await getDoc(doc(db, 'companies', user.uid));
@@ -90,7 +91,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   };
 
   const value = {
-    currentUser,
+    user,
+    currentUser: user, // For backward compatibility
     company,
     loading,
     signUp,

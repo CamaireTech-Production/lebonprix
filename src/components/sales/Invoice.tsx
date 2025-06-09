@@ -1,24 +1,16 @@
 import { Sale, Product } from '../../types/models';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface InvoiceProps {
   sale: Sale;
   products: Product[];
-  companyInfo?: {
-    name: string;
-    address: string;
-    phone: string;
-    email?: string;
-  };
 }
 
-const Invoice = ({ sale, products, companyInfo = {
-  name: "Le Bon Prix",
-  address: "Douala, Cameroun",
-  phone: "+237 XXX XXX XXX",
-  email: "contact@lebonprix.com"
-} }: InvoiceProps) => {
+const Invoice = ({ sale, products }: InvoiceProps) => {
+  const { company } = useAuth();
+
   const formatDate = (timestamp: any) => {
     if (!timestamp?.seconds) return 'N/A';
     return format(new Date(timestamp.seconds * 1000), 'PPP', { locale: fr });
@@ -31,15 +23,32 @@ const Invoice = ({ sale, products, companyInfo = {
     }, 0);
   };
 
+  if (!company) {
+    return (
+      <div className="p-4 text-red-600">
+        Company information not available. Please contact support.
+      </div>
+    );
+  }
+
   return (
     <div className="p-4 md:p-8 w-full max-w-4xl mx-auto bg-white" id="invoice-content">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:justify-between md:items-start mb-8">
-        <div className="mb-4 md:mb-0">
-          <h1 className="text-xl md:text-2xl font-bold text-gray-900">{companyInfo.name}</h1>
-          <p className="text-sm md:text-base text-gray-600">{companyInfo.address}</p>
-          <p className="text-sm md:text-base text-gray-600">Tel: {companyInfo.phone}</p>
-          {companyInfo.email && <p className="text-sm md:text-base text-gray-600">Email: {companyInfo.email}</p>}
+        <div className="mb-4 md:mb-0 flex items-start space-x-4">
+          {company.logo && (
+            <img 
+              src={company.logo} 
+              alt={`${company.name} logo`}
+              className="w-16 h-16 object-contain"
+            />
+          )}
+          <div>
+            <h1 className="text-xl md:text-2xl font-bold text-gray-900">{company.name}</h1>
+            <p className="text-sm md:text-base text-gray-600">{company.location || 'Location not specified'}</p>
+            <p className="text-sm md:text-base text-gray-600">Tel: {company.phone}</p>
+            {company.email && <p className="text-sm md:text-base text-gray-600">Email: {company.email}</p>}
+          </div>
         </div>
         <div className="text-left md:text-right">
           <h2 className="text-lg md:text-xl font-semibold text-gray-900">Facture</h2>

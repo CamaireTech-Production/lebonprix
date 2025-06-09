@@ -114,10 +114,11 @@ export const createCategory = async (
 ): Promise<Category> => {
   const batch = writeBatch(db);
   
-  // Check if category already exists
+  // Check if category already exists for this user
   const existingQuery = query(
     collection(db, 'categories'),
-    where('name', '==', data.name)
+    where('name', '==', data.name),
+    where('userId', '==', userId)
   );
   const existingDocs = await getDocs(existingQuery);
   
@@ -129,9 +130,9 @@ export const createCategory = async (
   const categoryRef = doc(collection(db, 'categories'));
   const categoryData = {
     ...data,
+    userId,
     createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-    createdBy: userId
+    updatedAt: serverTimestamp()
   };
   
   batch.set(categoryRef, categoryData);
@@ -194,6 +195,7 @@ export const createProduct = async (
   const productRef = doc(collection(db, 'products'));
   const productData = {
     ...data,
+    userId,
     isAvailable: true,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()
@@ -228,6 +230,12 @@ export const updateProduct = async (
   const currentProduct = await getDoc(productRef);
   if (!currentProduct.exists()) {
     throw new Error('Product not found');
+  }
+
+  // Verify ownership
+  const productData = currentProduct.data() as Product;
+  if (productData.userId !== userId) {
+    throw new Error('Unauthorized to update this product');
   }
   
   const updateData = {
@@ -272,6 +280,10 @@ export const createSale = async (
     }
     
     const productData = productSnap.data() as Product;
+    // Verify product ownership
+    if (productData.userId !== userId) {
+      throw new Error(`Unauthorized to sell product ${productData.name}`);
+    }
     if (productData.stock < product.quantity) {
       throw new Error(`Insufficient stock for product ${productData.name}`);
     }
@@ -287,6 +299,7 @@ export const createSale = async (
   const saleRef = doc(collection(db, 'sales'));
   const saleData = {
     ...data,
+    userId,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   };
@@ -321,6 +334,12 @@ export const updateSaleStatus = async (
   const currentSale = await getDoc(saleRef);
   if (!currentSale.exists()) {
     throw new Error('Sale not found');
+  }
+
+  // Verify ownership
+  const saleData = currentSale.data() as Sale;
+  if (saleData.userId !== userId) {
+    throw new Error('Unauthorized to update this sale');
   }
   
   const updateData = {
@@ -364,6 +383,7 @@ export const createExpense = async (
   const expenseRef = doc(collection(db, 'expenses'));
   const expenseData = {
     ...data,
+    userId,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   };
@@ -398,6 +418,12 @@ export const updateExpense = async (
   if (!currentExpense.exists()) {
     throw new Error('Expense not found');
   }
+
+  // Verify ownership
+  const expenseData = currentExpense.data() as Expense;
+  if (expenseData.userId !== userId) {
+    throw new Error('Unauthorized to update this expense');
+  }
   
   const updateData = {
     ...data,
@@ -425,19 +451,20 @@ export const updateExpense = async (
   await batch.commit();
 };
 
-export const updateDashboardStats = async (): Promise<void> => {
+export const updateDashboardStats = async (userId: string): Promise<void> => {
   const batch = writeBatch(db);
-  const statsRef = doc(db, 'dashboardStats', 'current');
+  const statsRef = doc(db, 'dashboardStats', userId);
 
   const [salesSnap, expensesSnap] = await Promise.all([
-    getDocs(collection(db, 'sales')),
-    getDocs(collection(db, 'expenses')),
+    getDocs(query(collection(db, 'sales'), where('userId', '==', userId))),
+    getDocs(query(collection(db, 'expenses'), where('userId', '==', userId))),
   ]);
 
   const sales = salesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Sale[];
   const expenses = expensesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Expense[];
 
   const stats: Partial<DashboardStats> = {
+    userId,
     totalSales: sales.reduce((sum, sale) => sum + sale.totalAmount, 0),
     totalExpenses: expenses.reduce((sum, expense) => sum + expense.amount, 0),
     totalProfit: sales.reduce((sum, sale) => 
@@ -446,16 +473,19 @@ export const updateDashboardStats = async (): Promise<void> => {
     activeOrders: sales.filter(sale => sale.status !== 'paid').length,
     completedOrders: sales.filter(sale => sale.status === 'paid').length,
     cancelledOrders: sales.filter(sale => sale.paymentStatus === 'cancelled').length,
+    createdAt: Timestamp.now(),
+    updatedAt: Timestamp.now()
   };
 
-  batch.update(statsRef, stats);
+  batch.set(statsRef, stats, { merge: true });
   await batch.commit();
 };
 
-export const getLowStockProducts = async (threshold?: number): Promise<Product[]> => {
+export const getLowStockProducts = async (userId: string, threshold?: number): Promise<Product[]> => {
   const productsRef = collection(db, 'products');
   const q = query(
     productsRef,
+    where('userId', '==', userId),
     where('stock', '<=', threshold || 10),
     orderBy('stock', 'asc')
   );
@@ -467,14 +497,18 @@ export const getLowStockProducts = async (threshold?: number): Promise<Product[]
   })) as Product[];
 };
 
-export const getProductPerformance = async (productId: string): Promise<{
+export const getProductPerformance = async (userId: string, productId: string): Promise<{
   totalSales: number;
   totalRevenue: number;
   totalProfit: number;
   averagePrice: number;
 }> => {
   const salesRef = collection(db, 'sales');
-  const q = query(salesRef, where('products', 'array-contains', { productId }));
+  const q = query(
+    salesRef,
+    where('userId', '==', userId),
+    where('products', 'array-contains', { productId })
+  );
 
   const snapshot = await getDocs(q);
   const sales = snapshot.docs.map(doc => doc.data() as Sale);
@@ -542,13 +576,20 @@ export const getSaleDetails = async (saleId: string): Promise<Sale> => {
 
 export const updateSaleDocument = async (
   saleId: string,
-  data: Partial<Sale>
+  data: Partial<Sale>,
+  userId: string
 ): Promise<void> => {
   const saleRef = doc(db, 'sales', saleId);
   const currentSale = await getDoc(saleRef);
   
   if (!currentSale.exists()) {
     throw new Error('Sale not found');
+  }
+
+  // Verify ownership
+  const saleData = currentSale.data() as Sale;
+  if (saleData.userId !== userId) {
+    throw new Error('Unauthorized to update this sale');
   }
 
   const currentData = currentSale.data() as Sale;
@@ -584,13 +625,15 @@ export const updateSaleDocument = async (
       }
 
       const productData = productSnap.data() as Product;
+      // Verify product ownership
+      if (productData.userId !== userId) {
+        throw new Error(`Unauthorized to modify product ${productData.name}`);
+      }
+
       const currentQuantity = currentProductQuantities.get(productId) || 0;
       const newQuantity = newProductQuantities.get(productId) || 0;
       
       // Calculate the stock change
-      // If product was in old sale but not in new sale, add back its quantity
-      // If product is in new sale but wasn't in old sale, subtract its quantity
-      // If product is in both, calculate the difference
       const stockChange = currentQuantity - newQuantity;
       const newStock = productData.stock + stockChange;
 
@@ -656,7 +699,7 @@ export const useSales = () => {
   const updateSale = async (saleId: string, data: Partial<Sale>): Promise<void> => {
     try {
       // Only update in Firestore - the subscription will handle the state update
-      await updateSaleDocument(saleId, data);
+      await updateSaleDocument(saleId, data, 'current-user');
     } catch (err) {
       console.error('Error in updateSale:', err);
       setError(err as Error);

@@ -14,6 +14,7 @@ import LoadingScreen from '../components/common/LoadingScreen';
 import { showSuccessToast, showErrorToast, showWarningToast } from '../utils/toast';
 import Invoice from '../components/sales/Invoice';
 import { generatePDF, sharePDF } from '../utils/pdf';
+import { useAuth } from '../contexts/AuthContext';
 
 interface FormProduct {
   product: Product | null;
@@ -24,6 +25,7 @@ interface FormProduct {
 const Sales = () => {
   const { sales, loading: salesLoading, error: salesError, addSale, updateSale } = useSales();
   const { products, loading: productsLoading } = useProducts();
+  const { user } = useAuth();
   
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -165,6 +167,11 @@ const Sales = () => {
       return;
     }
 
+    if (!user) {
+      showErrorToast('You must be logged in to create a sale');
+      return;
+    }
+
     try {
       setIsSubmitting(true);
       const totalAmount = calculateTotal();
@@ -185,10 +192,12 @@ const Sales = () => {
           phone: formData.customerPhone
         },
         deliveryFee: formData.deliveryFee ? parseFloat(formData.deliveryFee) : 0,
-        paymentStatus: 'pending'
+        paymentStatus: 'pending',
+        userId: user.uid
       });
 
       if (newSale && newSale.id) {
+        setCurrentSale(newSale);
         setIsAddModalOpen(false);
         resetForm();
         handleGenerateLink(newSale.id);
@@ -739,6 +748,12 @@ const Sales = () => {
           <div className="space-y-6">
             <div className="bg-emerald-50 p-4 rounded-lg">
               <p className="text-emerald-700 font-medium">Sale added successfully!</p>
+              <p className="text-sm text-emerald-600 mt-1">
+                Customer: {currentSale.customerInfo.name}
+              </p>
+              <p className="text-sm text-emerald-600">
+                Total Amount: {currentSale.totalAmount.toLocaleString()} XAF
+              </p>
             </div>
 
             {/* Invoice Actions */}
@@ -769,20 +784,26 @@ const Sales = () => {
             {/* Shareable Link */}
             <div className="space-y-4 sticky bottom-0 bg-white z-10 pt-2 border-t">
               <p className="font-medium text-gray-900">Share this tracking link with the client:</p>
-            <div className="flex items-center space-x-2">
-              <input
-                type="text"
-                value={shareableLink}
-                readOnly
-                className="border rounded-md p-2 w-full"
-              />
-              <button
-                onClick={() => navigator.clipboard.writeText(shareableLink)}
-                className="bg-blue-500 text-white px-4 py-2 rounded-md"
-              >
-                Copy
-              </button>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="text"
+                  value={shareableLink}
+                  readOnly
+                  className="border rounded-md p-2 w-full"
+                />
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(shareableLink);
+                    showSuccessToast('Link copied to clipboard!');
+                  }}
+                  className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600"
+                >
+                  Copy
+                </button>
               </div>
+              <p className="text-sm text-gray-500">
+                The client can use this link to track their order status.
+              </p>
             </div>
           </div>
         )}

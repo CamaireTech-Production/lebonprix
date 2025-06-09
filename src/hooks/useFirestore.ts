@@ -24,27 +24,34 @@ import type {
   PaymentStatus
 } from '../types/models';
 import { serverTimestamp, Timestamp } from 'firebase/firestore';
+import { useAuth } from '../contexts/AuthContext';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../services/firebase';
 
 // Products Hook
 export const useProducts = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const { user } = useAuth();
 
   useEffect(() => {
+    if (!user) return;
+    
     const unsubscribe = subscribeToProducts((data) => {
-      setProducts(data);
+      // Filter products for the current user
+      const userProducts = data.filter(product => product.userId === user.uid);
+      setProducts(userProducts);
       setLoading(false);
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [user]);
 
   const addProduct = async (productData: Omit<Product, 'id' | 'createdAt'>) => {
+    if (!user) throw new Error('User not authenticated');
     try {
-      // TODO: Get actual user ID from auth context
-      const userId = 'current-user';
-      await createProduct(productData, userId);
+      await createProduct(productData, user.uid);
     } catch (err) {
       setError(err as Error);
       throw err;
@@ -52,10 +59,9 @@ export const useProducts = () => {
   };
 
   const updateProductData = async (productId: string, data: Partial<Product>) => {
+    if (!user) throw new Error('User not authenticated');
     try {
-      // TODO: Get actual user ID from auth context
-      const userId = 'current-user';
-      await updateProduct(productId, data, userId);
+      await updateProduct(productId, data, user.uid);
     } catch (err) {
       setError(err as Error);
       throw err;
@@ -70,21 +76,25 @@ export const useCategories = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const { user } = useAuth();
 
   useEffect(() => {
+    if (!user) return;
+    
     const unsubscribe = subscribeToCategories((data) => {
-      setCategories(data);
+      // Filter categories for the current user
+      const userCategories = data.filter(category => category.userId === user.uid);
+      setCategories(userCategories);
       setLoading(false);
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [user]);
 
   const addCategory = async (name: string) => {
+    if (!user) throw new Error('User not authenticated');
     try {
-      // TODO: Get actual user ID from auth context
-      const userId = 'current-user';
-      const category = await createCategory({ name, createdBy: userId }, userId);
+      const category = await createCategory({ name, userId: user.uid }, user.uid);
       return category;
     } catch (err) {
       setError(err as Error);
@@ -97,6 +107,7 @@ export const useCategories = () => {
 
 // Sales Hook
 export const useSales = () => {
+  const { user } = useAuth();
   const [sales, setSales] = useState<Sale[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -111,19 +122,22 @@ export const useSales = () => {
   };
 
   useEffect(() => {
+    if (!user) return;
+    
     const unsubscribe = subscribeToSales((data) => {
-      setSales(data);
+      // Filter sales for the current user
+      const userSales = data.filter(sale => sale.userId === user.uid);
+      setSales(userSales);
       setLoading(false);
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [user]);
 
   const addSale = async (data: Omit<Sale, 'id' | 'createdAt' | 'updatedAt'>): Promise<Sale> => {
+    if (!user) throw new Error('User not authenticated');
     try {
-      const userId = 'current-user';
-      const newSale = await createSale(data, userId);
-      // The subscription will handle updating the local state
+      const newSale = await createSale({ ...data, userId: user.uid }, user.uid);
       return newSale;
     } catch (err) {
       setError(err as Error);
@@ -132,35 +146,44 @@ export const useSales = () => {
   };
 
   const updateSale = async (saleId: string, data: Partial<Sale>): Promise<void> => {
+    if (!user) {
+      throw new Error('User must be authenticated to update a sale');
+    }
+
     try {
-      // Get the current sale data
-      const currentSale = sales.find(s => s.id === saleId);
-      if (!currentSale) {
-        throw new Error('Sale not found in local state');
+      const saleRef = doc(db, 'sales', saleId);
+      const saleDoc = await getDoc(saleRef);
+      
+      if (!saleDoc.exists()) {
+        throw new Error('Sale not found');
       }
 
-      // Create the updated sale object
-      const updatedSale: Sale = {
-        ...currentSale,
+      const saleData = saleDoc.data() as Sale;
+      if (saleData.userId !== user.uid) {
+        throw new Error('You do not have permission to update this sale');
+      }
+
+      const updatedSale = {
+        ...saleData,
         ...data,
         updatedAt: Timestamp.now()
       };
 
       // Update in Firestore
-      await updateSaleDocument(saleId, data);
+      await updateSaleDocument(saleId, updatedSale, user.uid);
 
       // Update local state
       updateLocalSale(updatedSale);
     } catch (err) {
-      setError(err as Error);
+      console.error('Error updating sale:', err);
       throw err;
     }
   };
 
   const updateStatus = async (id: string, status: OrderStatus, paymentStatus: PaymentStatus) => {
+    if (!user) throw new Error('User not authenticated');
     try {
-      const userId = 'current-user';
-      await updateSaleStatus(id, status, paymentStatus, userId);
+      await updateSaleStatus(id, status, paymentStatus, user.uid);
       
       // Update local state
       setSales(currentSales => 
@@ -184,21 +207,25 @@ export const useExpenses = () => {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const { user } = useAuth();
 
   useEffect(() => {
+    if (!user) return;
+    
     const unsubscribe = subscribeToExpenses((data) => {
-      setExpenses(data);
+      // Filter expenses for the current user
+      const userExpenses = data.filter(expense => expense.userId === user.uid);
+      setExpenses(userExpenses);
       setLoading(false);
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [user]);
 
   const addExpense = async (data: Omit<Expense, 'id' | 'createdAt' | 'updatedAt'>) => {
+    if (!user) throw new Error('User not authenticated');
     try {
-      // TODO: Get actual user ID from auth context
-      const userId = 'current-user';
-      await createExpense(data, userId);
+      await createExpense({ ...data, userId: user.uid }, user.uid);
     } catch (err) {
       setError(err as Error);
       throw err;
@@ -206,10 +233,9 @@ export const useExpenses = () => {
   };
 
   const updateExpenseData = async (id: string, data: Partial<Expense>) => {
+    if (!user) throw new Error('User not authenticated');
     try {
-      // TODO: Get actual user ID from auth context
-      const userId = 'current-user';
-      await updateExpense(id, data, userId);
+      await updateExpense(id, { ...data, userId: user.uid }, user.uid);
     } catch (err) {
       setError(err as Error);
       throw err;
@@ -221,25 +247,41 @@ export const useExpenses = () => {
 
 // Dashboard Stats Hook
 export const useDashboardStats = () => {
+  const { user } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error] = useState<Error | null>(null);
+  const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
     const unsubscribe = subscribeToDashboardStats((data) => {
-      setStats({
+      // Filter stats for the current user
+      const userStats = {
         totalSales: data.totalSales || 0,
         totalExpenses: data.totalExpenses || 0,
         totalProfit: data.totalProfit || 0,
         activeOrders: data.activeOrders || 0,
         completedOrders: data.completedOrders || 0,
-        cancelledOrders: data.cancelledOrders || 0,
-      });
+        cancelledOrders: data.cancelledOrders || 0
+      };
+
+      const dashboardStats: DashboardStats = {
+        id: 'dashboard-stats',
+        ...userStats,
+        userId: user.uid,
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now()
+      };
+      setStats(dashboardStats);
       setLoading(false);
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [user]);
 
   return { stats, loading, error };
 };

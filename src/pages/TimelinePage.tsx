@@ -7,6 +7,7 @@ import Card from '../components/common/Card';
 import Badge from '../components/common/Badge';
 import { useProducts } from '../hooks/useFirestore';
 import { CheckCircle, Circle } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 
 const STATUS_ORDER = [
   { key: 'commande', label: 'Commande' },
@@ -20,6 +21,7 @@ const TimelinePage = () => {
   const [saleDetails, setSaleDetails] = useState<SaleDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const { products } = useProducts();
+  const { company } = useAuth();
 
   useEffect(() => {
     const fetchSaleDetails = async () => {
@@ -52,7 +54,14 @@ const TimelinePage = () => {
     );
   }
 
-  const orderedProduct = products?.find(p => p.id === saleDetails.productId);
+  // Get all products in the sale
+  const saleProducts = saleDetails.products.map(saleProduct => {
+    const product = products?.find(p => p.id === saleProduct.productId);
+    return {
+      ...saleProduct,
+      product
+    };
+  });
 
   // Map statusHistory to a dictionary for quick lookup
   const statusTimestamps: Record<string, string> = {};
@@ -68,19 +77,87 @@ const TimelinePage = () => {
   return (
     <div className="p-6 max-w-2xl mx-auto bg-gray-50 min-h-screen rounded-lg shadow-lg">
       <h1 className="text-3xl font-bold mb-8 text-emerald-700">Order Tracking</h1>
-      {/* Order Details Card */}
-      <Card className="mb-8 bg-emerald-50 border-l-4 border-emerald-500">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <h2 className="text-lg font-semibold mb-3 text-emerald-700">Customer</h2>
-            <p className="mb-2"><span className="font-medium">Name:</span> {saleDetails.customerInfo.name}</p>
-            <p className="mb-2"><span className="font-medium">Phone:</span> {saleDetails.customerInfo.phone}</p>
+      
+      {/* Combined Info Card */}
+      <Card className="mb-8 bg-white">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Company Info */}
+          <div className="flex items-start space-x-3">
+            {company?.logo && (
+              <img 
+                src={company.logo} 
+                alt={`${company.name} logo`}
+                className="w-12 h-12 object-contain"
+              />
+            )}
+            <div>
+              <h2 className="text-lg font-semibold mb-2 text-indigo-700">Company</h2>
+              <p className="text-sm text-gray-600">{company?.name}</p>
+              <p className="text-sm text-gray-600">{company?.phone}</p>
+            </div>
           </div>
+
+          {/* Customer Info */}
           <div>
-            <h2 className="text-lg font-semibold mb-3 text-emerald-700">Order</h2>
-            <p className="mb-2"><span className="font-medium">Product:</span> {orderedProduct?.name || 'Unknown'}</p>
-            <p className="mb-2"><span className="font-medium">Quantity:</span> {saleDetails.quantity}</p>
-            <p className="mb-2"><span className="font-medium">Total Amount:</span> {saleDetails.totalAmount.toLocaleString()} XAF</p>
+            <h2 className="text-lg font-semibold mb-2 text-emerald-700">Customer</h2>
+            <p className="text-sm text-gray-600">{saleDetails.customerInfo.name}</p>
+            <p className="text-sm text-gray-600">{saleDetails.customerInfo.phone}</p>
+          </div>
+
+          {/* Order Info */}
+          <div>
+            <h2 className="text-lg font-semibold mb-2 text-emerald-700">Order #{saleDetails.id}</h2>
+            <p className="text-sm text-gray-600">Total: {saleDetails.totalAmount.toLocaleString()} XAF</p>
+            <p className="text-sm text-gray-600">Status: {saleDetails.status}</p>
+          </div>
+        </div>
+      </Card>
+
+      {/* Products Summary */}
+      <Card className="mb-8 bg-white">
+        <h2 className="text-lg font-semibold mb-4 text-emerald-700">Ordered Products</h2>
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {saleProducts.map((saleProduct, index) => {
+              const unitPrice = saleProduct.negotiatedPrice || saleProduct.basePrice;
+              const subtotal = unitPrice * saleProduct.quantity;
+              return (
+                <div key={index} className="p-3 bg-gray-50 rounded-lg">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="font-medium text-gray-900">{saleProduct.product?.name || 'Unknown Product'}</p>
+                      <p className="text-sm text-gray-500">Qty: {saleProduct.quantity}</p>
+                      <p className="text-sm text-gray-500">Unit Price: {unitPrice.toLocaleString()} XAF</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-medium text-emerald-600">
+                        {subtotal.toLocaleString()} XAF
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Order Totals */}
+          <div className="mt-4 pt-4 border-t border-gray-200">
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm text-gray-600">
+                <span>Subtotal</span>
+                <span>{saleDetails.totalAmount.toLocaleString()} XAF</span>
+              </div>
+              {saleDetails.deliveryFee && saleDetails.deliveryFee > 0 && (
+                <div className="flex justify-between text-sm text-gray-600">
+                  <span>Delivery Fee</span>
+                  <span>{saleDetails.deliveryFee.toLocaleString()} XAF</span>
+                </div>
+              )}
+              <div className="flex justify-between text-base font-semibold text-emerald-700 pt-2 border-t border-gray-200">
+                <span>Total Amount</span>
+                <span>{(saleDetails.totalAmount + (saleDetails.deliveryFee || 0)).toLocaleString()} XAF</span>
+              </div>
+            </div>
           </div>
         </div>
       </Card>
@@ -118,12 +195,16 @@ const TimelinePage = () => {
                     )}
                   </span>
                   <div className={`ml-6 flex-1 ${isDone ? 'opacity-100' : isCurrent ? 'opacity-100' : 'opacity-60'}`}>
-                    <div className={`text-lg font-semibold ${isCurrent ? 'text-emerald-700' : isDone ? 'text-gray-900' : 'text-gray-500'}`}>{status.label}</div>
-                    {timestamp && (
-                      <div className="text-sm text-gray-500 mt-1">
-                        {new Date(timestamp).toLocaleString()}
+                    <div className="flex justify-between items-center">
+                      <div className={`text-lg font-semibold ${isCurrent ? 'text-emerald-700' : isDone ? 'text-gray-900' : 'text-gray-500'}`}>
+                        {status.label}
                       </div>
-                    )}
+                      {timestamp && (
+                        <div className="text-sm text-gray-500">
+                          {new Date(timestamp).toLocaleString()}
+                        </div>
+                      )}
+                    </div>
                     {isCurrent && (
                       <div className="mt-2">
                         <Badge variant="info">Current Status</Badge>
