@@ -1,4 +1,4 @@
-import { ShoppingCart, DollarSign, TrendingUp, Package2, BarChart2 } from 'lucide-react';
+import { ShoppingCart, DollarSign, TrendingUp, Package2, BarChart2, Info, Receipt } from 'lucide-react';
 import StatCard from '../components/dashboard/StatCard';
 import SalesChart from '../components/dashboard/SalesChart';
 import ActivityList from '../components/dashboard/ActivityList';
@@ -6,17 +6,24 @@ import Table from '../components/common/Table';
 import Card from '../components/common/Card';
 import { useSales, useExpenses, useProducts } from '../hooks/useFirestore';
 import LoadingScreen from '../components/common/LoadingScreen';
+import { useState } from 'react';
+import Modal from '../components/common/Modal';
+import Button from '../components/common/Button';
 
 const Dashboard = () => {
   const { sales, loading: salesLoading } = useSales();
   const { expenses, loading: expensesLoading } = useExpenses();
   const { products, loading: productsLoading } = useProducts();
+  const [showCalculationsModal, setShowCalculationsModal] = useState(false);
 
   // Calculate gross profit (selling price - cost price) * quantity for all sales
   const grossProfit = sales?.reduce((sum, sale) => {
-    const product = products?.find(p => p.id === sale.productId);
-    if (!product) return sum;
-    return sum + (product.sellingPrice - product.costPrice) * sale.quantity;
+    return sum + sale.products.reduce((productSum, product) => {
+      const productData = products?.find(p => p.id === product.productId);
+      if (!productData) return productSum;
+      const sellingPrice = product.negotiatedPrice || product.basePrice;
+      return productSum + (sellingPrice - productData.costPrice) * product.quantity;
+    }, 0);
   }, 0) || 0;
 
   // Calculate net profit (gross profit - total expenses)
@@ -35,13 +42,15 @@ const Dashboard = () => {
   // Best selling products (by quantity sold)
   const productSalesMap: Record<string, { name: string; quantity: number; sales: number }> = {};
   sales?.forEach(sale => {
-    const product = products?.find(p => p.id === sale.productId);
-    if (!product) return;
-    if (!productSalesMap[product.id]) {
-      productSalesMap[product.id] = { name: product.name, quantity: 0, sales: 0 };
-    }
-    productSalesMap[product.id].quantity += sale.quantity;
-    productSalesMap[product.id].sales += sale.totalAmount;
+    sale.products.forEach(product => {
+      const productData = products?.find(p => p.id === product.productId);
+      if (!productData) return;
+      if (!productSalesMap[product.productId]) {
+        productSalesMap[product.productId] = { name: productData.name, quantity: 0, sales: 0 };
+      }
+      productSalesMap[product.productId].quantity += product.quantity;
+      productSalesMap[product.productId].sales += (product.negotiatedPrice || product.basePrice) * product.quantity;
+    });
   });
   const bestSellingProducts = Object.values(productSalesMap).sort((a, b) => b.quantity - a.quantity).slice(0, 5);
 
@@ -111,9 +120,18 @@ const Dashboard = () => {
 
   return (
     <div className="pb-16 md:pb-0">
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
-        <p className="text-gray-600">Welcome back! Here's what's happening with your business today.</p>
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
+          <p className="text-gray-600">Welcome back! Here's what's happening with your business today.</p>
+        </div>
+        <Button
+          variant="outline"
+          icon={<Info size={16} />}
+          onClick={() => setShowCalculationsModal(true)}
+        >
+          How are these calculated?
+        </Button>
       </div>
       {/* Stats section */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -121,31 +139,43 @@ const Dashboard = () => {
           title="Gross Profit"
           value={`${grossProfit.toLocaleString()} XAF`}
           icon={<BarChart2 size={24} />}
+          tooltip="Total revenue minus cost of goods sold. For each product: (Selling Price - Cost Price) × Quantity Sold"
         />
         <StatCard 
           title="Net Profit"
           value={`${netProfit.toLocaleString()} XAF`}
           icon={<TrendingUp size={24} />}
+          tooltip="Gross Profit minus all expenses (including delivery, utilities, etc.)"
+        />
+        <StatCard 
+          title="Total Expenses"
+          value={`${totalExpenses.toLocaleString()} XAF`}
+          icon={<Receipt size={24} />}
+          tooltip="Sum of all business expenses across all categories"
         />
         <StatCard 
           title="Total Orders"
           value={totalOrders}
           icon={<Package2 size={24} />}
+          tooltip="Total number of sales transactions recorded"
         />
         <StatCard 
           title="Delivery Expenses"
           value={`${totalDeliveryExpenses.toLocaleString()} XAF`}
           icon={<DollarSign size={24} />}
+          tooltip="Sum of all expenses categorized as 'delivery'"
         />
         <StatCard 
           title="Total Sales (Amount)"
           value={`${totalSalesAmount.toLocaleString()} XAF`}
           icon={<ShoppingCart size={24} />}
+          tooltip="Sum of all sales amounts, including negotiated prices"
         />
         <StatCard 
           title="Total Sales (Count)"
           value={totalOrders}
           icon={<ShoppingCart size={24} />}
+          tooltip="Total number of sales transactions (same as Total Orders)"
         />
       </div>
       {/* Chart section */}
@@ -171,6 +201,95 @@ const Dashboard = () => {
       <div>
         <ActivityList activities={recentActivities} />
       </div>
+      {/* Calculations Explanation Modal */}
+      <Modal
+        isOpen={showCalculationsModal}
+        onClose={() => setShowCalculationsModal(false)}
+        title="Dashboard Calculations Explained"
+        size="lg"
+      >
+        <div className="space-y-6">
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Gross Profit</h3>
+            <p className="text-gray-600">
+              Gross profit is calculated by subtracting the cost price from the selling price for each product sold, then multiplying by the quantity sold.
+              <br /><br />
+              Formula: Σ((Selling Price - Cost Price) × Quantity Sold) for each product in each sale
+              <br /><br />
+              Example: If you sell 5 units of a product that costs 1000 XAF and sells for 1500 XAF:
+              <br />
+              Gross Profit = (1500 - 1000) × 5 = 2500 XAF
+            </p>
+          </div>
+
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Net Profit</h3>
+            <p className="text-gray-600">
+              Net profit is the gross profit minus all business expenses.
+              <br /><br />
+              Formula: Gross Profit - Total Expenses
+              <br /><br />
+              Example: If your gross profit is 100,000 XAF and total expenses are 30,000 XAF:
+              <br />
+              Net Profit = 100,000 - 30,000 = 70,000 XAF
+            </p>
+          </div>
+
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Total Expenses</h3>
+            <p className="text-gray-600">
+              The sum of all business expenses across all categories.
+              <br /><br />
+              Formula: Σ(Expense Amount) for all expenses
+              <br /><br />
+              This includes all types of expenses such as:
+              <br />
+              - Delivery expenses
+              <br />
+              - Utility bills
+              <br />
+              - Rent
+              <br />
+              - Other operational costs
+            </p>
+          </div>
+
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Total Sales Amount</h3>
+            <p className="text-gray-600">
+              The total revenue from all sales, including any negotiated prices.
+              <br /><br />
+              Formula: Σ(Sale Amount) for each sale
+              <br /><br />
+              Note: If a product was sold at a negotiated price, that price is used instead of the standard selling price.
+            </p>
+          </div>
+
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Delivery Expenses</h3>
+            <p className="text-gray-600">
+              The sum of all expenses categorized as 'delivery'.
+              <br /><br />
+              Formula: Σ(Expense Amount) for all expenses with category = 'delivery'
+            </p>
+          </div>
+
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Best Selling Products</h3>
+            <p className="text-gray-600">
+              Products are ranked by the total quantity sold.
+              <br /><br />
+              For each product:
+              <br />
+              - Total Quantity = Σ(Quantity Sold) across all sales
+              <br />
+              - Total Sales = Σ(Selling Price × Quantity Sold) across all sales
+              <br /><br />
+              Products are then sorted by total quantity in descending order.
+            </p>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

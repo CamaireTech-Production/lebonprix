@@ -26,11 +26,15 @@ export interface Product extends BaseModel {
   isAvailable: boolean;
 }
 
-export interface Sale extends BaseModel {
+export interface SaleProduct {
   productId: string;
   quantity: number;
   basePrice: number;
   negotiatedPrice?: number;
+}
+
+export interface Sale extends BaseModel {
+  products: SaleProduct[];
   totalAmount: number;
   status: 'commande' | 'under_delivery' | 'paid';
   paymentStatus: 'pending' | 'paid' | 'cancelled';
@@ -38,8 +42,8 @@ export interface Sale extends BaseModel {
     name: string;
     phone: string;
   };
-  deliveryFee?: number; // Add deliveryFee property
-  statusHistory?: Array<{ status: string; timestamp: string }>; // Optional statusHistory property
+  deliveryFee?: number;
+  statusHistory?: Array<{ status: string; timestamp: string }>;
 }
 
 export interface Expense extends BaseModel {

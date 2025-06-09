@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Edit2, Eye } from 'lucide-react';
+import { Plus, Edit2, Eye, Trash2 } from 'lucide-react';
 import Select from 'react-select';
 import Table from '../components/common/Table';
 import Modal, { ModalFooter } from '../components/common/Modal';
@@ -8,13 +8,19 @@ import Badge from '../components/common/Badge';
 import Button from '../components/common/Button';
 import Card from '../components/common/Card';
 import { useSales, useProducts } from '../hooks/useFirestore';
-import type { Product, OrderStatus, Sale } from '../types/models';
+import type { Product, OrderStatus, Sale, SaleProduct } from '../types/models';
 import type { Column } from '../components/common/Table';
 import LoadingScreen from '../components/common/LoadingScreen';
 import { showSuccessToast, showErrorToast, showWarningToast } from '../utils/toast';
 
+interface FormProduct {
+  product: Product | null;
+  quantity: string;
+  negotiatedPrice: string;
+}
+
 const Sales = () => {
-  const { sales, loading: salesLoading, error: salesError, addSale, updateStatus } = useSales();
+  const { sales, loading: salesLoading, error: salesError, addSale, updateSale } = useSales();
   const { products, loading: productsLoading } = useProducts();
   
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -23,73 +29,122 @@ const Sales = () => {
   const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
   const [currentSale, setCurrentSale] = useState<any>(null);
   const [viewedSale, setViewedSale] = useState<Sale | null>(null);
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
   const [shareableLink, setShareableLink] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Form state
   const [formData, setFormData] = useState({
-    quantity: '',
-    negotiatedPrice: '',
     customerName: '',
     customerPhone: '',
     status: 'commande' as OrderStatus,
-    deliveryFee: ''
+    deliveryFee: '',
+    products: [{ product: null, quantity: '', negotiatedPrice: '' }] as FormProduct[]
   });
   
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
+
+  const handleProductChange = (index: number, option: any) => {
+    setFormData(prev => {
+      const newProducts = [...prev.products];
+      newProducts[index] = {
+        ...newProducts[index],
+        product: option?.value || null,
+        negotiatedPrice: option?.value ? option.value.sellingPrice.toString() : ''
+      };
+      return { ...prev, products: newProducts };
+    });
+  };
+
+  const handleProductInputChange = (index: number, field: keyof FormProduct, value: string) => {
+    setFormData(prev => {
+      const newProducts = [...prev.products];
+      newProducts[index] = {
+        ...newProducts[index],
+        [field]: value
+      };
+      return { ...prev, products: newProducts };
+    });
+  };
+
+  const addProductField = () => {
+    setFormData(prev => ({
+      ...prev,
+      products: [...prev.products, { product: null, quantity: '', negotiatedPrice: '' }]
+    }));
+  };
+
+  const removeProductField = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      products: prev.products.filter((_, i) => i !== index)
+    }));
+  };
   
   const resetForm = () => {
     setFormData({
-      quantity: '',
-      negotiatedPrice: '',
       customerName: '',
       customerPhone: '',
       status: 'commande' as OrderStatus,
-      deliveryFee: ''
+      deliveryFee: '',
+      products: [{ product: null, quantity: '', negotiatedPrice: '' }]
     });
-    setSelectedProduct(null);
   };
   
-  const handleProductSelect = (option: any) => {
-    setSelectedProduct(option?.value || null);
+  const calculateProductTotal = (product: FormProduct) => {
+    if (!product.product || !product.quantity) return 0;
+    const quantity = parseInt(product.quantity);
+    const price = product.negotiatedPrice 
+      ? parseFloat(product.negotiatedPrice)
+      : product.product.sellingPrice;
+    return quantity * price;
   };
   
   const calculateTotal = () => {
-    if (!selectedProduct || !formData.quantity) return 0;
-    const quantity = parseInt(formData.quantity);
-    const price = formData.negotiatedPrice 
-      ? parseFloat(formData.negotiatedPrice)
-      : selectedProduct.sellingPrice;
-    return quantity * price;
+    return formData.products.reduce((total, product) => total + calculateProductTotal(product), 0);
   };
   
   const validateForm = () => {
     const errors: Record<string, string> = {};
 
-    // Validate quantity
-    const quantity = parseInt(formData.quantity);
-    if (isNaN(quantity) || quantity <= 0) {
-      errors.quantity = 'Quantity must be greater than zero.';
+    // Validate customer info
+    if (!formData.customerName.trim()) {
+      errors.customerName = 'Customer name is required.';
+    }
+    if (!formData.customerPhone.trim()) {
+      errors.customerPhone = 'Customer phone is required.';
     }
 
-    // Validate negotiated price
-    const negotiatedPrice = parseFloat(formData.negotiatedPrice);
+    // Validate products
+    formData.products.forEach((product, index) => {
+      if (!product.product) {
+        errors[`product_${index}`] = 'Please select a product.';
+      }
+
+      const quantity = parseInt(product.quantity);
+    if (isNaN(quantity) || quantity <= 0) {
+        errors[`quantity_${index}`] = 'Quantity must be greater than zero.';
+      } else if (product.product && quantity > product.product.stock) {
+        errors[`quantity_${index}`] = `Cannot exceed available stock (${product.product.stock}).`;
+      }
+
+      const negotiatedPrice = parseFloat(product.negotiatedPrice);
     if (
       !isNaN(negotiatedPrice) &&
-      selectedProduct &&
-      negotiatedPrice > selectedProduct.sellingPrice
+        product.product &&
+        negotiatedPrice > product.product.sellingPrice
     ) {
-      errors.negotiatedPrice = 'Negotiated price cannot exceed the standard selling price.';
+        errors[`price_${index}`] = 'Negotiated price cannot exceed the standard selling price.';
     }
+    });
 
-    // Validate shipping fee
+    // Validate delivery fee
     const deliveryFee = parseFloat(formData.deliveryFee);
     if (!isNaN(deliveryFee) && deliveryFee < 0) {
-      errors.deliveryFee = 'Shipping fee must be a non-negative number.';
+      errors.deliveryFee = 'Delivery fee must be a non-negative number.';
     }
 
     return errors;
@@ -102,8 +157,6 @@ const Sales = () => {
   };
 
   const handleAddSale = async () => {
-    if (!selectedProduct) return;
-
     const errors = validateForm();
     if (Object.keys(errors).length > 0) {
       Object.values(errors).forEach(error => showWarningToast(error));
@@ -111,38 +164,39 @@ const Sales = () => {
     }
 
     try {
-      // Close modal and reset form immediately
-      setIsAddModalOpen(false);
-      resetForm();
-
-      const quantity = parseInt(formData.quantity);
+      setIsSubmitting(true);
       const totalAmount = calculateTotal();
 
+      const saleProducts: SaleProduct[] = formData.products.map(p => ({
+        productId: p.product!.id,
+        quantity: parseInt(p.quantity),
+        basePrice: p.product!.sellingPrice,
+        negotiatedPrice: p.negotiatedPrice ? parseFloat(p.negotiatedPrice) : p.product!.sellingPrice,
+      }));
+
       const newSale = await addSale({
-        productId: selectedProduct.id,
-        quantity,
-        basePrice: selectedProduct.sellingPrice,
-        negotiatedPrice: formData.negotiatedPrice
-          ? parseFloat(formData.negotiatedPrice)
-          : selectedProduct.sellingPrice,
+        products: saleProducts,
         totalAmount,
-        status: formData.status as 'commande' | 'under_delivery' | 'paid',
+        status: formData.status,
         customerInfo: {
           name: formData.customerName,
           phone: formData.customerPhone
         },
-        paymentStatus: 'paid'
+        deliveryFee: formData.deliveryFee ? parseFloat(formData.deliveryFee) : 0,
+        paymentStatus: 'pending'
       });
 
       if (newSale && newSale.id) {
+        setIsAddModalOpen(false);
+        resetForm();
         handleGenerateLink(newSale.id);
         showSuccessToast('Sale added successfully!');
       }
     } catch (err) {
       console.error('Failed to add sale:', err);
       showErrorToast('Failed to add sale. Please try again.');
-      // Reopen modal if there's an error
-      setIsAddModalOpen(true);
+    } finally {
+      setIsSubmitting(false);
     }
   };
   
@@ -162,26 +216,72 @@ const Sales = () => {
   const handleEditSale = async () => {
     if (!currentSale) return;
 
-    try {
-      // Close modal and reset form immediately
-      setIsEditModalOpen(false);
-      resetForm();
+    const errors = validateForm();
+    if (Object.keys(errors).length > 0) {
+      Object.values(errors).forEach(error => showWarningToast(error));
+      return;
+    }
 
-      await updateStatus(currentSale.id, formData.status, 'pending');
-      await addSale({
-        ...currentSale,
-        ...formData,
-        totalAmount: calculateTotal(),
-      });
+    try {
+      setIsSubmitting(true);
+      const totalAmount = calculateTotal();
+
+      // Create the updated sale products array
+      const saleProducts: SaleProduct[] = formData.products.map(p => ({
+        productId: p.product!.id,
+        quantity: parseInt(p.quantity),
+        basePrice: p.product!.sellingPrice,
+        negotiatedPrice: p.negotiatedPrice ? parseFloat(p.negotiatedPrice) : undefined,
+      }));
+
+      // Prepare the update data
+      const updateData: Partial<Sale> = {
+        products: saleProducts,
+        totalAmount,
+        status: formData.status,
+        customerInfo: {
+          name: formData.customerName,
+          phone: formData.customerPhone
+        },
+        deliveryFee: formData.deliveryFee ? parseFloat(formData.deliveryFee) : 0,
+      };
+
+      // Update the sale
+      await updateSale(currentSale.id, updateData);
+
+      // Close modal and reset form only after successful update
+      setIsEditModalOpen(false);
+      setCurrentSale(null);
+      resetForm();
       showSuccessToast('Sale updated successfully!');
     } catch (err) {
       console.error('Failed to update sale:', err);
-      showErrorToast('Failed to update sale. Please try again.');
-      // Reopen modal if there's an error
-      setIsEditModalOpen(true);
+      showErrorToast(err instanceof Error ? err.message : 'Failed to update sale. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
-  
+
+  // Update the edit button click handler in the table
+  const handleEditClick = (sale: Sale) => {
+    setCurrentSale(sale);
+    setFormData({
+      customerName: sale.customerInfo.name,
+      customerPhone: sale.customerInfo.phone,
+      status: sale.status,
+      deliveryFee: sale.deliveryFee?.toString() || '',
+      products: sale.products.map(p => {
+        const product = products?.find(prod => prod.id === p.productId);
+        return {
+          product: product || null,
+          quantity: p.quantity.toString(),
+          negotiatedPrice: p.negotiatedPrice?.toString() || ''
+        };
+      })
+    });
+    setIsEditModalOpen(true);
+  };
+
   const handleCopyLink = (saleId: string) => {
     const link = `${window.location.origin}/track/${saleId}`;
     navigator.clipboard.writeText(link).then(() => {
@@ -192,7 +292,7 @@ const Sales = () => {
   const columns: Column<Sale>[] = [
     {
       header: 'Nom',
-      accessor: (sale: Sale) => sale.customerInfo.name, // Use function accessor to get customer name
+      accessor: (sale: Sale) => sale.customerInfo.name,
     },
     {
       header: 'Numéro Client',
@@ -200,6 +300,14 @@ const Sales = () => {
         <a href={`tel:${sale.customerInfo.phone}`} className="text-blue-600 hover:underline">
           {sale.customerInfo.phone}
         </a>
+      ),
+    },
+    {
+      header: 'Produits',
+      accessor: (sale: Sale) => (
+        <span className="text-sm text-gray-600">
+          {sale.products.length} {sale.products.length === 1 ? 'produit' : 'produits'}
+        </span>
       ),
     },
     {
@@ -229,19 +337,7 @@ const Sales = () => {
             <Eye size={16} />
           </button>
           <button
-            onClick={() => {
-              setCurrentSale(sale);
-              setIsEditModalOpen(true);
-              setFormData({
-                quantity: sale.quantity.toString(),
-                negotiatedPrice: sale.negotiatedPrice?.toString() || '',
-                customerName: sale.customerInfo.name,
-                customerPhone: sale.customerInfo.phone,
-                status: sale.status,
-                deliveryFee: sale.deliveryFee?.toString() || ''
-              });
-              setSelectedProduct(products?.find(p => p.id === sale.productId) || null);
-            }}
+            onClick={() => handleEditClick(sale)}
             className="text-indigo-600 hover:text-indigo-900"
           >
             <Edit2 size={16} />
@@ -316,13 +412,136 @@ const Sales = () => {
         title="Sale Details"
       >
         {viewedSale && (
+          <div className="space-y-6">
+            {/* Customer Information Card */}
+            <Card>
+              <div className="p-4">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Customer Information</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Name</p>
+                    <p className="mt-1 text-sm text-gray-900">{viewedSale.customerInfo.name}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Phone</p>
+                    <a 
+                      href={`tel:${viewedSale.customerInfo.phone}`}
+                      className="mt-1 text-sm text-blue-600 hover:text-blue-900"
+                    >
+                      {viewedSale.customerInfo.phone}
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </Card>
+
+            {/* Products Card */}
+            <Card>
+              <div className="p-4">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Products</h3>
           <div className="space-y-4">
-            <p><strong>Customer Name:</strong> {viewedSale.customerInfo.name}</p>
-            <p><strong>Customer Phone:</strong> {viewedSale.customerInfo.phone}</p>
-            <p><strong>Product Name:</strong> {products?.find(p => p.id === viewedSale.productId)?.name || 'Unknown'}</p>
-            <p><strong>Quantity:</strong> {viewedSale.quantity}</p>
-            <p><strong>Total Amount:</strong> {viewedSale.totalAmount.toLocaleString()} XAF</p>
-            <p><strong>Status:</strong> {viewedSale.status}</p>
+                  {viewedSale.products.map((product, index) => {
+                    const productData = products?.find(p => p.id === product.productId);
+                    return (
+                      <div key={index} className="p-4 bg-gray-50 rounded-lg">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <p className="font-medium text-gray-900">{productData?.name}</p>
+                            <p className="text-sm text-gray-500">Quantity: {product.quantity}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm text-gray-500">Base Price</p>
+                            <p className="font-medium text-gray-900">{product.basePrice.toLocaleString()} XAF</p>
+                            {product.negotiatedPrice && (
+                              <>
+                                <p className="text-sm text-gray-500 mt-1">Negotiated Price</p>
+                                <p className="font-medium text-emerald-600">{product.negotiatedPrice.toLocaleString()} XAF</p>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        <div className="mt-2 pt-2 border-t border-gray-200">
+                          <p className="text-sm text-gray-500">Product Total</p>
+                          <p className="font-medium text-emerald-600">
+                            {((product.negotiatedPrice || product.basePrice) * product.quantity).toLocaleString()} XAF
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </Card>
+
+            {/* Order Summary Card */}
+            <Card>
+              <div className="p-4">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Order Summary</h3>
+                <div className="space-y-3">
+                  <div className="flex justify-between">
+                    <p className="text-sm text-gray-500">Subtotal</p>
+                    <p className="text-sm text-gray-900">{viewedSale.totalAmount.toLocaleString()} XAF</p>
+                  </div>
+                  {(viewedSale.deliveryFee ?? 0) > 0 && (
+                    <div className="flex justify-between">
+                      <p className="text-sm text-gray-500">Delivery Fee</p>
+                      <p className="text-sm text-gray-900">{viewedSale.deliveryFee?.toLocaleString()} XAF</p>
+                    </div>
+                  )}
+                  <div className="pt-3 border-t border-gray-200">
+                    <div className="flex justify-between">
+                      <p className="font-medium text-gray-900">Total Amount</p>
+                      <p className="font-medium text-emerald-600">
+                        {(viewedSale.totalAmount + (viewedSale.deliveryFee ?? 0)).toLocaleString()} XAF
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </Card>
+
+            {/* Status Information */}
+            <div className="flex justify-between items-center">
+              <div>
+                <p className="text-sm font-medium text-gray-500">Order Status</p>
+                <Badge variant={
+                  viewedSale.status === 'paid' ? 'success' :
+                  viewedSale.status === 'under_delivery' ? 'info' : 'warning'
+                }>
+                  {viewedSale.status}
+                </Badge>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-500">Payment Status</p>
+                <Badge variant={
+                  viewedSale.paymentStatus === 'paid' ? 'success' :
+                  viewedSale.paymentStatus === 'cancelled' ? 'error' : 'warning'
+                }>
+                  {viewedSale.paymentStatus}
+                </Badge>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  handleCopyLink(viewedSale.id);
+                  setIsViewModalOpen(false);
+                }}
+              >
+                Copy Tracking Link
+              </Button>
+              <Button
+                onClick={() => {
+                  handleEditClick(viewedSale);
+                  setIsViewModalOpen(false);
+                }}
+              >
+                Edit Sale
+              </Button>
+            </div>
           </div>
         )}
       </Modal>
@@ -337,69 +556,11 @@ const Sales = () => {
             onCancel={() => setIsAddModalOpen(false)}
             onConfirm={handleAddSale}
             confirmText="Add Sale"
+            isLoading={isSubmitting}
           />
         }
       >
         <div className="space-y-6">
-          {/* Product Selection */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Product
-            </label>
-            <Select
-              options={productOptions}
-              value={productOptions.find(option => option.value === selectedProduct)}
-              onChange={handleProductSelect}
-              isSearchable
-              placeholder="Select a product..."
-              className="text-sm"
-            />
-          </div>
-          
-          {selectedProduct && (
-            <>
-              <div className="grid grid-cols-2 gap-4 p-3 bg-gray-50 rounded-md">
-                <div>
-                  <span className="text-sm font-medium text-gray-700">Standard Price:</span>
-                  <span className="ml-2">{selectedProduct.sellingPrice.toLocaleString()} XAF</span>
-                </div>
-                <div>
-                  <span className="text-sm font-medium text-gray-700">Available Stock:</span>
-                  <span className="ml-2">{selectedProduct.stock}</span>
-                </div>
-              </div>
-              
-              <Input
-                label="Quantity"
-                name="quantity"
-                type="number"
-                min="1"
-                max={selectedProduct.stock.toString()}
-                value={formData.quantity}
-                onChange={handleInputChange}
-                required
-                helpText={`Cannot exceed ${selectedProduct.stock}`}
-              />
-              
-              <Input
-                label="Negotiated Price (Optional)"
-                name="negotiatedPrice"
-                type="number"
-                max={selectedProduct.sellingPrice.toString()}
-                value={formData.negotiatedPrice}
-                onChange={handleInputChange}
-                helpText={`Cannot exceed ${selectedProduct.sellingPrice.toLocaleString()} XAF`}
-              />
-              
-              {formData.quantity && (
-                <div className="p-3 bg-emerald-50 rounded-md">
-                  <span className="text-sm font-medium text-emerald-700">Total Amount:</span>
-                  <span className="ml-2 text-emerald-900">{calculateTotal().toLocaleString()} XAF</span>
-                </div>
-              )}
-            </>
-          )}
-          
           <div className="grid grid-cols-2 gap-4">
             <Input
               label="Customer Name"
@@ -418,18 +579,107 @@ const Sales = () => {
             />
           </div>
           
-          {/* New Input for Delivery Fee */}
-          <div>
+          {/* Products Section */}
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-medium text-gray-900">Products</h3>
+              <Button
+                variant="outline"
+                icon={<Plus size={16} />}
+                onClick={addProductField}
+              >
+                Add Product
+              </Button>
+            </div>
+
+            {formData.products.map((product, index) => (
+              <div key={index} className="p-4 border rounded-lg space-y-4">
+                <div className="flex justify-between items-start">
+                  <div className="flex-1">
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Delivery Fee
+                      Product {index + 1}
             </label>
+                    <Select
+                      options={productOptions}
+                      value={productOptions.find(option => option.value.id === product.product?.id)}
+                      onChange={(option) => handleProductChange(index, option)}
+                      isSearchable
+                      placeholder="Select a product..."
+                      className="text-sm"
+                    />
+                  </div>
+                  {index > 0 && (
+                    <button
+                      onClick={() => removeProductField(index)}
+                      className="ml-2 p-2 text-red-600 hover:text-red-900"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  )}
+                </div>
+
+                {product.product && (
+                  <>
+                    <div className="grid grid-cols-2 gap-4 p-3 bg-gray-50 rounded-md">
+                      <div>
+                        <span className="text-sm font-medium text-gray-700">Standard Price:</span>
+                        <span className="ml-2">{product.product.sellingPrice.toLocaleString()} XAF</span>
+                      </div>
+                      <div>
+                        <span className="text-sm font-medium text-gray-700">Available Stock:</span>
+                        <span className="ml-2">{product.product.stock}</span>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <Input
+                        label="Quantity"
+                        type="number"
+                        min="1"
+                        max={product.product.stock.toString()}
+                        value={product.quantity}
+                        onChange={(e) => handleProductInputChange(index, 'quantity', e.target.value)}
+                        required
+                        helpText={`Cannot exceed ${product.product.stock}`}
+                      />
+                      
+                      <Input
+                        label="Negotiated Price (Optional)"
+                        type="number"
+                        max={product.product.sellingPrice.toString()}
+                        value={product.negotiatedPrice}
+                        onChange={(e) => handleProductInputChange(index, 'negotiatedPrice', e.target.value)}
+                        helpText={`Cannot exceed ${product.product.sellingPrice.toLocaleString()} XAF`}
+                      />
+                    </div>
+
+                    {product.quantity && (
+                      <div className="p-3 bg-emerald-50 rounded-md">
+                        <span className="text-sm font-medium text-emerald-700">Product Total:</span>
+                        <span className="ml-2 text-emerald-900">{calculateProductTotal(product).toLocaleString()} XAF</span>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            ))}
+
+            {formData.products.some(p => p.quantity) && (
+              <div className="p-4 bg-emerald-50 rounded-md">
+                <span className="text-lg font-medium text-emerald-700">Total Amount:</span>
+                <span className="ml-2 text-emerald-900 text-lg">{calculateTotal().toLocaleString()} XAF</span>
+              </div>
+            )}
+          </div>
+          
+          <div className="grid grid-cols-2 gap-4">
             <Input
+              label="Delivery Fee"
               name="deliveryFee"
               type="number"
               value={formData.deliveryFee}
               onChange={handleInputChange}
             />
-          </div>
           
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -445,6 +695,7 @@ const Sales = () => {
               <option value="under_delivery">Under Delivery</option>
               <option value="paid">Paid</option>
             </select>
+            </div>
           </div>
         </div>
       </Modal>
@@ -486,25 +737,12 @@ const Sales = () => {
             onCancel={() => setIsEditModalOpen(false)}
             onConfirm={handleEditSale}
             confirmText="Update Sale"
+            isLoading={isSubmitting}
           />
         }
       >
         <div className="space-y-6">
-          <Input
-            label="Quantity"
-            name="quantity"
-            type="number"
-            value={formData.quantity}
-            onChange={handleInputChange}
-            required
-          />
-          <Input
-            label="Negotiated Price"
-            name="negotiatedPrice"
-            type="number"
-            value={formData.negotiatedPrice}
-            onChange={handleInputChange}
-          />
+          <div className="grid grid-cols-2 gap-4">
           <Input
             label="Customer Name"
             name="customerName"
@@ -512,6 +750,7 @@ const Sales = () => {
             onChange={handleInputChange}
             required
           />
+            
           <Input
             label="Customer Phone"
             name="customerPhone"
@@ -519,6 +758,102 @@ const Sales = () => {
             onChange={handleInputChange}
             required
           />
+          </div>
+
+          {/* Products Section */}
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-medium text-gray-900">Products</h3>
+              <Button
+                variant="outline"
+                icon={<Plus size={16} />}
+                onClick={addProductField}
+              >
+                Add Product
+              </Button>
+            </div>
+
+            {formData.products.map((product, index) => (
+              <div key={index} className="p-4 border rounded-lg space-y-4">
+                <div className="flex justify-between items-start">
+                  <div className="flex-1">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Product {index + 1}
+                    </label>
+                    <Select
+                      options={productOptions}
+                      value={productOptions.find(option => option.value.id === product.product?.id)}
+                      onChange={(option) => handleProductChange(index, option)}
+                      isSearchable
+                      placeholder="Select a product..."
+                      className="text-sm"
+                    />
+                  </div>
+                  {index > 0 && (
+                    <button
+                      onClick={() => removeProductField(index)}
+                      className="ml-2 p-2 text-red-600 hover:text-red-900"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  )}
+                </div>
+
+                {product.product && (
+                  <>
+                    <div className="grid grid-cols-2 gap-4 p-3 bg-gray-50 rounded-md">
+                      <div>
+                        <span className="text-sm font-medium text-gray-700">Standard Price:</span>
+                        <span className="ml-2">{product.product.sellingPrice.toLocaleString()} XAF</span>
+                      </div>
+                      <div>
+                        <span className="text-sm font-medium text-gray-700">Available Stock:</span>
+                        <span className="ml-2">{product.product.stock}</span>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <Input
+                        label="Quantity"
+                        type="number"
+                        min="1"
+                        max={product.product.stock.toString()}
+                        value={product.quantity}
+                        onChange={(e) => handleProductInputChange(index, 'quantity', e.target.value)}
+                        required
+                        helpText={`Cannot exceed ${product.product.stock}`}
+                      />
+                      
+                      <Input
+                        label="Negotiated Price (Optional)"
+                        type="number"
+                        max={product.product.sellingPrice.toString()}
+                        value={product.negotiatedPrice}
+                        onChange={(e) => handleProductInputChange(index, 'negotiatedPrice', e.target.value)}
+                        helpText={`Cannot exceed ${product.product.sellingPrice.toLocaleString()} XAF`}
+                      />
+                    </div>
+
+                    {product.quantity && (
+                      <div className="p-3 bg-emerald-50 rounded-md">
+                        <span className="text-sm font-medium text-emerald-700">Product Total:</span>
+                        <span className="ml-2 text-emerald-900">{calculateProductTotal(product).toLocaleString()} XAF</span>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            ))}
+
+            {formData.products.some(p => p.quantity) && (
+              <div className="p-4 bg-emerald-50 rounded-md">
+                <span className="text-lg font-medium text-emerald-700">Total Amount:</span>
+                <span className="ml-2 text-emerald-900 text-lg">{calculateTotal().toLocaleString()} XAF</span>
+              </div>
+            )}
+          </div>
+          
+          <div className="grid grid-cols-2 gap-4">
           <Input
             label="Delivery Fee"
             name="deliveryFee"
@@ -526,6 +861,11 @@ const Sales = () => {
             value={formData.deliveryFee}
             onChange={handleInputChange}
           />
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Status
+              </label>
           <select
             name="status"
             className="w-full rounded-md border border-gray-300 shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
@@ -536,6 +876,8 @@ const Sales = () => {
             <option value="under_delivery">Under Delivery</option>
             <option value="paid">Paid</option>
           </select>
+            </div>
+          </div>
         </div>
       </Modal>
     </div>

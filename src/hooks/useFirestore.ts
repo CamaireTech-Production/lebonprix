@@ -11,7 +11,8 @@ import {
   subscribeToExpenses,
   createExpense,
   updateExpense,
-  subscribeToDashboardStats
+  subscribeToDashboardStats,
+  updateSaleDocument
 } from '../services/firestore';
 import type {
   Product,
@@ -22,6 +23,7 @@ import type {
   OrderStatus,
   PaymentStatus
 } from '../types/models';
+import { serverTimestamp, Timestamp } from 'firebase/firestore';
 
 // Products Hook
 export const useProducts = () => {
@@ -99,6 +101,15 @@ export const useSales = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
+  // Function to update local state after a sale is modified
+  const updateLocalSale = (updatedSale: Sale) => {
+    setSales(currentSales => 
+      currentSales.map(sale => 
+        sale.id === updatedSale.id ? updatedSale : sale
+      )
+    );
+  };
+
   useEffect(() => {
     const unsubscribe = subscribeToSales((data) => {
       setSales(data);
@@ -110,9 +121,36 @@ export const useSales = () => {
 
   const addSale = async (data: Omit<Sale, 'id' | 'createdAt' | 'updatedAt'>): Promise<Sale> => {
     try {
-      // TODO: Get actual user ID from auth context
       const userId = 'current-user';
-      return await createSale(data, userId);
+      const newSale = await createSale(data, userId);
+      // The subscription will handle updating the local state
+      return newSale;
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
+  };
+
+  const updateSale = async (saleId: string, data: Partial<Sale>): Promise<void> => {
+    try {
+      // Get the current sale data
+      const currentSale = sales.find(s => s.id === saleId);
+      if (!currentSale) {
+        throw new Error('Sale not found in local state');
+      }
+
+      // Create the updated sale object
+      const updatedSale: Sale = {
+        ...currentSale,
+        ...data,
+        updatedAt: Timestamp.now()
+      };
+
+      // Update in Firestore
+      await updateSaleDocument(saleId, data);
+
+      // Update local state
+      updateLocalSale(updatedSale);
     } catch (err) {
       setError(err as Error);
       throw err;
@@ -121,16 +159,24 @@ export const useSales = () => {
 
   const updateStatus = async (id: string, status: OrderStatus, paymentStatus: PaymentStatus) => {
     try {
-      // TODO: Get actual user ID from auth context
       const userId = 'current-user';
       await updateSaleStatus(id, status, paymentStatus, userId);
+      
+      // Update local state
+      setSales(currentSales => 
+        currentSales.map(sale => 
+          sale.id === id 
+            ? { ...sale, status, paymentStatus, updatedAt: Timestamp.now() }
+            : sale
+        )
+      );
     } catch (err) {
       setError(err as Error);
       throw err;
     }
   };
 
-  return { sales, loading, error, addSale, updateStatus };
+  return { sales, loading, error, addSale, updateSale, updateStatus };
 };
 
 // Expenses Hook

@@ -22,6 +22,8 @@ import type {
   OrderStatus,
   PaymentStatus
 } from '../types/models';
+import { useState, useEffect } from 'react';
+import { Timestamp } from 'firebase/firestore';
 
 // Categories
 export const subscribeToCategories = (callback: (categories: Category[]) => void): (() => void) => {
@@ -260,17 +262,25 @@ export const createSale = async (
 ): Promise<Sale> => {
   const batch = writeBatch(db);
   
-  // Validate product stock
-  const productRef = doc(db, 'products', data.productId);
-  const productSnap = await getDoc(productRef);
-  
-  if (!productSnap.exists()) {
-    throw new Error('Product not found');
-  }
-  
-  const product = productSnap.data() as Product;
-  if (product.stock < data.quantity) {
-    throw new Error('Insufficient stock');
+  // Validate product stock for all products
+  for (const product of data.products) {
+    const productRef = doc(db, 'products', product.productId);
+    const productSnap = await getDoc(productRef);
+    
+    if (!productSnap.exists()) {
+      throw new Error(`Product with ID ${product.productId} not found`);
+    }
+    
+    const productData = productSnap.data() as Product;
+    if (productData.stock < product.quantity) {
+      throw new Error(`Insufficient stock for product ${productData.name}`);
+    }
+    
+    // Update product stock
+    batch.update(productRef, {
+      stock: productData.stock - product.quantity,
+      updatedAt: serverTimestamp()
+    });
   }
   
   // Create sale
@@ -281,12 +291,6 @@ export const createSale = async (
     updatedAt: serverTimestamp()
   };
   batch.set(saleRef, saleData);
-  
-  // Update product stock
-  batch.update(productRef, {
-    stock: product.stock - data.quantity,
-    updatedAt: serverTimestamp()
-  });
   
   // Create audit log
   await createAuditLog(
@@ -436,7 +440,9 @@ export const updateDashboardStats = async (): Promise<void> => {
   const stats: Partial<DashboardStats> = {
     totalSales: sales.reduce((sum, sale) => sum + sale.totalAmount, 0),
     totalExpenses: expenses.reduce((sum, expense) => sum + expense.amount, 0),
-    totalProfit: sales.reduce((sum, sale) => sum + (sale.totalAmount - (sale.negotiatedPrice || sale.basePrice)), 0),
+    totalProfit: sales.reduce((sum, sale) => 
+      sum + sale.products.reduce((productSum, product) => 
+        productSum + ((product.negotiatedPrice || product.basePrice) - product.basePrice) * product.quantity, 0), 0),
     activeOrders: sales.filter(sale => sale.status !== 'paid').length,
     completedOrders: sales.filter(sale => sale.status === 'paid').length,
     cancelledOrders: sales.filter(sale => sale.paymentStatus === 'cancelled').length,
@@ -468,37 +474,45 @@ export const getProductPerformance = async (productId: string): Promise<{
   averagePrice: number;
 }> => {
   const salesRef = collection(db, 'sales');
-  const q = query(salesRef, where('productId', '==', productId));
+  const q = query(salesRef, where('products', 'array-contains', { productId }));
 
   const snapshot = await getDocs(q);
   const sales = snapshot.docs.map(doc => doc.data() as Sale);
 
+  const productSales = sales.flatMap(sale => 
+    sale.products.filter(p => p.productId === productId)
+  );
+
   return {
-    totalSales: sales.length,
-    totalRevenue: sales.reduce((sum, sale) => sum + sale.totalAmount, 0),
-    totalProfit: sales.reduce((sum, sale) => sum + (sale.totalAmount - (sale.negotiatedPrice || sale.basePrice)), 0),
-    averagePrice: sales.length > 0
-      ? sales.reduce((sum, sale) => sum + (sale.negotiatedPrice || sale.basePrice), 0) / sales.length
+    totalSales: productSales.length,
+    totalRevenue: productSales.reduce((sum, sale) => sum + (sale.negotiatedPrice || sale.basePrice) * sale.quantity, 0),
+    totalProfit: productSales.reduce((sum, sale) => 
+      sum + ((sale.negotiatedPrice || sale.basePrice) - sale.basePrice) * sale.quantity, 0),
+    averagePrice: productSales.length > 0
+      ? productSales.reduce((sum, sale) => sum + (sale.negotiatedPrice || sale.basePrice), 0) / productSales.length
       : 0,
   };
 };
 
 export const addSaleWithValidation = async (sale: Sale) => {
-  const productDoc = await getDoc(doc(db, 'products', sale.productId));
-  if (!productDoc.exists()) {
-    throw new Error('Product does not exist.');
-  }
+  // Validate all products
+  for (const product of sale.products) {
+    const productDoc = await getDoc(doc(db, 'products', product.productId));
+    if (!productDoc.exists()) {
+      throw new Error(`Product with ID ${product.productId} does not exist.`);
+    }
 
-  const product = productDoc.data() as Product;
+    const productData = productDoc.data() as Product;
 
-  // Validate quantity
-  if (sale.quantity <= 0 || sale.quantity > product.stock) {
-    throw new Error('Invalid quantity.');
-  }
+    // Validate quantity
+    if (product.quantity <= 0 || product.quantity > productData.stock) {
+      throw new Error(`Invalid quantity for product ${productData.name}.`);
+    }
 
-  // Validate negotiated price
-  if (sale.negotiatedPrice && sale.negotiatedPrice > product.sellingPrice) {
-    throw new Error('Negotiated price exceeds standard selling price.');
+    // Validate negotiated price
+    if (product.negotiatedPrice && product.negotiatedPrice > product.basePrice) {
+      throw new Error(`Negotiated price exceeds standard selling price for product ${productData.name}.`);
+    }
   }
 
   // Validate delivery fee (if applicable)
@@ -524,4 +538,141 @@ export const getSaleDetails = async (saleId: string): Promise<Sale> => {
     ...saleData,
     statusHistory: [], // Provide a default empty array for statusHistory
   };
+};
+
+export const updateSaleDocument = async (
+  saleId: string,
+  data: Partial<Sale>
+): Promise<void> => {
+  const saleRef = doc(db, 'sales', saleId);
+  const currentSale = await getDoc(saleRef);
+  
+  if (!currentSale.exists()) {
+    throw new Error('Sale not found');
+  }
+
+  const currentData = currentSale.data() as Sale;
+  const batch = writeBatch(db);
+
+  // Handle product stock changes if products are being updated
+  if (data.products) {
+    // Create a map of product IDs to their current quantities in the sale
+    const currentProductQuantities = new Map<string, number>();
+    currentData.products.forEach(product => {
+      currentProductQuantities.set(product.productId, product.quantity);
+    });
+
+    // Create a map of product IDs to their new quantities
+    const newProductQuantities = new Map<string, number>();
+    data.products.forEach(product => {
+      newProductQuantities.set(product.productId, product.quantity);
+    });
+
+    // Get all unique product IDs involved in the update
+    const allProductIds = new Set([
+      ...currentProductQuantities.keys(),
+      ...newProductQuantities.keys()
+    ]);
+
+    // Process each product's stock changes
+    for (const productId of allProductIds) {
+      const productRef = doc(db, 'products', productId);
+      const productSnap = await getDoc(productRef);
+      
+      if (!productSnap.exists()) {
+        throw new Error(`Product with ID ${productId} not found`);
+      }
+
+      const productData = productSnap.data() as Product;
+      const currentQuantity = currentProductQuantities.get(productId) || 0;
+      const newQuantity = newProductQuantities.get(productId) || 0;
+      
+      // Calculate the stock change
+      // If product was in old sale but not in new sale, add back its quantity
+      // If product is in new sale but wasn't in old sale, subtract its quantity
+      // If product is in both, calculate the difference
+      const stockChange = currentQuantity - newQuantity;
+      const newStock = productData.stock + stockChange;
+
+      if (newStock < 0) {
+        throw new Error(`Insufficient stock for product ${productData.name}`);
+      }
+
+      // Update the product's stock
+      batch.update(productRef, {
+        stock: newStock,
+        updatedAt: serverTimestamp()
+      });
+    }
+  }
+
+  // Update the sale document
+  const updateData = {
+    ...data,
+    updatedAt: serverTimestamp()
+  };
+
+  batch.update(saleRef, updateData);
+
+  try {
+    await batch.commit();
+  } catch (error) {
+    console.error('Error updating sale:', error);
+    throw new Error('Failed to update sale. Please try again.');
+  }
+};
+
+// Update the useSales hook
+export const useSales = () => {
+  const [sales, setSales] = useState<Sale[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToSales((data) => {
+      // Sort sales by createdAt to ensure consistent order
+      const sortedSales = [...data].sort((a, b) => {
+        const aTime = a.createdAt instanceof Timestamp ? a.createdAt.toMillis() : 0;
+        const bTime = b.createdAt instanceof Timestamp ? b.createdAt.toMillis() : 0;
+        return bTime - aTime;
+      });
+      setSales(sortedSales);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const addSale = async (data: Omit<Sale, 'id' | 'createdAt' | 'updatedAt'>): Promise<Sale> => {
+    try {
+      const userId = 'current-user';
+      return await createSale(data, userId);
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
+  };
+
+  const updateSale = async (saleId: string, data: Partial<Sale>): Promise<void> => {
+    try {
+      // Only update in Firestore - the subscription will handle the state update
+      await updateSaleDocument(saleId, data);
+    } catch (err) {
+      console.error('Error in updateSale:', err);
+      setError(err as Error);
+      throw err;
+    }
+  };
+
+  const updateStatus = async (id: string, status: OrderStatus, paymentStatus: PaymentStatus) => {
+    try {
+      const userId = 'current-user';
+      await updateSaleStatus(id, status, paymentStatus, userId);
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
+  };
+
+  return { sales, loading, error, addSale, updateSale, updateStatus };
 };
