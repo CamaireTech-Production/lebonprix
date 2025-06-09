@@ -9,6 +9,16 @@ export interface BaseModel {
   updatedAt: Timestamp;
 }
 
+export interface Company extends BaseModel {
+  name: string;
+  logo?: string; // Base64 string for logo
+  description?: string;
+  phone: string;
+  location?: string;
+  email: string;
+  userId: string; // Reference to the user who owns this company
+}
+
 export interface Category extends BaseModel {
   name: string;
   description?: string;

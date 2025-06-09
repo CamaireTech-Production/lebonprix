@@ -131,7 +131,7 @@ const Sales = () => {
         errors[`quantity_${index}`] = 'Quantity must be greater than zero.';
       } else if (product.product && quantity > product.product.stock) {
         errors[`quantity_${index}`] = `Cannot exceed available stock (${product.product.stock}).`;
-      }
+    }
 
       const negotiatedPrice = parseFloat(product.negotiatedPrice);
     if (
@@ -283,7 +283,7 @@ const Sales = () => {
     });
     setIsEditModalOpen(true);
   };
-
+  
   const handleCopyLink = (saleId: string) => {
     const link = `${window.location.origin}/track/${saleId}`;
     navigator.clipboard.writeText(link).then(() => {
@@ -769,19 +769,19 @@ const Sales = () => {
             {/* Shareable Link */}
             <div className="space-y-4 sticky bottom-0 bg-white z-10 pt-2 border-t">
               <p className="font-medium text-gray-900">Share this tracking link with the client:</p>
-              <div className="flex items-center space-x-2">
-                <input
-                  type="text"
-                  value={shareableLink}
-                  readOnly
-                  className="border rounded-md p-2 w-full"
-                />
-                <button
-                  onClick={() => navigator.clipboard.writeText(shareableLink)}
-                  className="bg-blue-500 text-white px-4 py-2 rounded-md"
-                >
-                  Copy
-                </button>
+            <div className="flex items-center space-x-2">
+              <input
+                type="text"
+                value={shareableLink}
+                readOnly
+                className="border rounded-md p-2 w-full"
+              />
+              <button
+                onClick={() => navigator.clipboard.writeText(shareableLink)}
+                className="bg-blue-500 text-white px-4 py-2 rounded-md"
+              >
+                Copy
+              </button>
               </div>
             </div>
           </div>

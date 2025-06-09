@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { auth } from '../services/firebase';
+import { auth, db } from '../services/firebase';
 import { 
   User, 
   createUserWithEmailAndPassword, 
@@ -7,11 +7,14 @@ import {
   signOut as firebaseSignOut, 
   onAuthStateChanged 
 } from 'firebase/auth';
+import { doc, setDoc, getDoc, Timestamp } from 'firebase/firestore';
+import type { Company } from '../types/models';
 
 interface AuthContextType {
   currentUser: User | null;
+  company: Company | null;
   loading: boolean;
-  signUp: (email: string, password: string) => Promise<User>;
+  signUp: (email: string, password: string, companyData: Omit<Company, 'id' | 'createdAt' | 'updatedAt' | 'userId'>) => Promise<User>;
   signIn: (email: string, password: string) => Promise<User>;
   signOut: () => Promise<void>;
 }
@@ -32,20 +35,49 @@ interface AuthProviderProps {
 
 export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [company, setCompany] = useState<Company | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
+      if (user) {
+        // Fetch company data when user is logged in
+        const companyDoc = await getDoc(doc(db, 'companies', user.uid));
+        if (companyDoc.exists()) {
+          setCompany({ id: companyDoc.id, ...companyDoc.data() } as Company);
+        }
+      } else {
+        setCompany(null);
+      }
       setLoading(false);
     });
 
     return unsubscribe;
   }, []);
 
-  const signUp = async (email: string, password: string): Promise<User> => {
+  const signUp = async (
+    email: string, 
+    password: string, 
+    companyData: Omit<Company, 'id' | 'createdAt' | 'updatedAt' | 'userId'>
+  ): Promise<User> => {
     const response = await createUserWithEmailAndPassword(auth, email, password);
-    return response.user;
+    const user = response.user;
+
+    // Create company document
+    const companyDoc = {
+      ...companyData,
+      userId: user.uid,
+      createdAt: Timestamp.now(),
+      updatedAt: Timestamp.now()
+    };
+
+    await setDoc(doc(db, 'companies', user.uid), companyDoc);
+
+    // Set company in state
+    setCompany({ id: user.uid, ...companyDoc } as Company);
+
+    return user;
   };
 
   const signIn = async (email: string, password: string): Promise<User> => {
@@ -59,6 +91,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const value = {
     currentUser,
+    company,
     loading,
     signUp,
     signIn,
