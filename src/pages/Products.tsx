@@ -19,6 +19,7 @@ const Products = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [currentProduct, setCurrentProduct] = useState<any>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Form state
   const [formData, setFormData] = useState({
@@ -109,6 +110,7 @@ const Products = () => {
         return;
       }
 
+      setIsSubmitting(true);
       let imageBase64 = '/placeholder.png';
       
       if (formData.imageFile) {
@@ -157,6 +159,8 @@ const Products = () => {
       console.error('Failed to add product:', err);
       showErrorToast('Failed to add product. Please try again.');
       setIsAddModalOpen(true);
+    } finally {
+      setIsSubmitting(false);
     }
   };
   
@@ -169,6 +173,7 @@ const Products = () => {
         return;
       }
 
+      setIsSubmitting(true);
       let imageBase64 = currentProduct.imageUrl;
 
       if (formData.imageFile) {
@@ -217,6 +222,8 @@ const Products = () => {
       console.error('Failed to update product:', err);
       showErrorToast('Failed to update product. Please try again.');
       setIsEditModalOpen(true);
+    } finally {
+      setIsSubmitting(false);
     }
   };
   
@@ -437,6 +444,7 @@ const Products = () => {
             onCancel={() => setIsAddModalOpen(false)}
             onConfirm={handleAddProduct}
             confirmText="Add Product"
+            isLoading={isSubmitting}
           />
         }
       >
@@ -520,6 +528,7 @@ const Products = () => {
             onCancel={() => setIsEditModalOpen(false)}
             onConfirm={handleEditProduct}
             confirmText="Update Product"
+            isLoading={isSubmitting}
           />
         }
       >

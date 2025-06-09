@@ -81,7 +81,8 @@ export const useCategories = () => {
     try {
       // TODO: Get actual user ID from auth context
       const userId = 'current-user';
-      await createCategory({ name, createdBy: userId }, userId); // Added `createdBy` property
+      const category = await createCategory({ name, createdBy: userId }, userId);
+      return category;
     } catch (err) {
       setError(err as Error);
       throw err;
