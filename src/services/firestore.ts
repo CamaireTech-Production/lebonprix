@@ -75,7 +75,7 @@ export const subscribeToSales = (callback: (sales: Sale[]) => void): (() => void
 export const subscribeToExpenses = (callback: (expenses: Expense[]) => void): (() => void) => {
   const q = query(
     collection(db, 'expenses'),
-    orderBy('date', 'desc')
+    orderBy('createdAt', 'desc')
   );
   
   return onSnapshot(q, (snapshot) => {
@@ -379,6 +379,46 @@ export const createExpense = async (
   
   const newExpense = await getDoc(expenseRef);
   return { id: newExpense.id, ...newExpense.data() } as Expense;
+};
+
+export const updateExpense = async (
+  id: string,
+  data: Partial<Expense>,
+  userId: string
+): Promise<void> => {
+  const batch = writeBatch(db);
+  const expenseRef = doc(db, 'expenses', id);
+  
+  // Get current expense data for audit log
+  const currentExpense = await getDoc(expenseRef);
+  if (!currentExpense.exists()) {
+    throw new Error('Expense not found');
+  }
+  
+  const updateData = {
+    ...data,
+    updatedAt: serverTimestamp()
+  };
+  
+  batch.update(expenseRef, updateData);
+  
+  // Create audit log
+  await createAuditLog(
+    batch,
+    'update',
+    'expense',
+    id,
+    Object.keys(data).reduce((acc, key) => ({
+      ...acc,
+      [key]: {
+        oldValue: currentExpense.data()[key],
+        newValue: data[key as keyof Expense]
+      }
+    }), {}),
+    userId
+  );
+  
+  await batch.commit();
 };
 
 export const updateDashboardStats = async (): Promise<void> => {

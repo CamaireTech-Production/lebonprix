@@ -16,6 +16,7 @@ const Expenses = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [currentExpense, setCurrentExpense] = useState<any>(null);
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Form state
   const [formData, setFormData] = useState({
@@ -39,22 +40,27 @@ const Expenses = () => {
   
   const handleAddExpense = async () => {
     try {
-      // Close modal and reset form immediately
-      setIsAddModalOpen(false);
-      resetForm();
+      if (!formData.description || !formData.amount || !formData.category) {
+        showWarningToast('Please fill in all required fields');
+        return;
+      }
 
+      setIsSubmitting(true);
       await addExpense({
         description: formData.description,
         amount: parseFloat(formData.amount),
         category: formData.category.toLowerCase() as 'delivery' | 'purchase' | 'other',
         createdBy: 'Current User', // In a real app, get from auth context
       });
+      
+      setIsAddModalOpen(false);
+      resetForm();
       showSuccessToast('Expense added successfully!');
     } catch (err) {
       console.error('Failed to add expense:', err);
       showErrorToast('Failed to add expense. Please try again.');
-      // Reopen modal if there's an error
-      setIsAddModalOpen(true);
+    } finally {
+      setIsSubmitting(false);
     }
   };
   
@@ -62,21 +68,26 @@ const Expenses = () => {
     if (!currentExpense) return;
     
     try {
-      // Close modal and reset form immediately
-      setIsEditModalOpen(false);
-      resetForm();
+      if (!formData.description || !formData.amount || !formData.category) {
+        showWarningToast('Please fill in all required fields');
+        return;
+      }
 
+      setIsSubmitting(true);
       await updateExpense(currentExpense.id, {
         description: formData.description,
         amount: parseFloat(formData.amount),
-        category: formData.category as 'delivery' | 'purchase' | 'other',
+        category: formData.category.toLowerCase() as 'delivery' | 'purchase' | 'other',
       });
+      
+      setIsEditModalOpen(false);
+      resetForm();
       showSuccessToast('Expense updated successfully!');
     } catch (err) {
       console.error('Failed to update expense:', err);
       showErrorToast('Failed to update expense. Please try again.');
-      // Reopen modal if there's an error
-      setIsEditModalOpen(true);
+    } finally {
+      setIsSubmitting(false);
     }
   };
   
@@ -114,8 +125,8 @@ const Expenses = () => {
     { 
       header: 'Date', 
       accessor: (expense: any) => {
-        if (!expense.date?.seconds) return 'N/A';
-        return new Date(expense.date.seconds * 1000).toLocaleDateString();
+        if (!expense.createdAt?.seconds) return 'N/A';
+        return new Date(expense.createdAt.seconds * 1000).toLocaleDateString();
       },
     },
     { 
@@ -240,6 +251,7 @@ const Expenses = () => {
             onCancel={() => setIsAddModalOpen(false)}
             onConfirm={handleAddExpense}
             confirmText="Add Expense"
+            isLoading={isSubmitting}
           />
         }
       >
@@ -289,6 +301,7 @@ const Expenses = () => {
             onCancel={() => setIsEditModalOpen(false)}
             onConfirm={handleEditExpense}
             confirmText="Update Expense"
+            isLoading={isSubmitting}
           />
         }
       >

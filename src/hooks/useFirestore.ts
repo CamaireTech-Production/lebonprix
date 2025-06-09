@@ -10,6 +10,7 @@ import {
   updateProduct,
   subscribeToExpenses,
   createExpense,
+  updateExpense,
   subscribeToDashboardStats
 } from '../services/firestore';
 import type {
@@ -158,9 +159,15 @@ export const useExpenses = () => {
     }
   };
 
-  // updateExpense is not implemented in services/firestore, so we provide a stub that throws
-  const updateExpenseData = async (_id: string, _data: Partial<Expense>) => {
-    throw new Error('updateExpense is not implemented. Please implement it in services/firestore.ts');
+  const updateExpenseData = async (id: string, data: Partial<Expense>) => {
+    try {
+      // TODO: Get actual user ID from auth context
+      const userId = 'current-user';
+      await updateExpense(id, data, userId);
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
   };
 
   return { expenses, loading, error, addExpense, updateExpense: updateExpenseData };
