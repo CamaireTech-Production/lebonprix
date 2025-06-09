@@ -1,5 +1,7 @@
 import { useLocation, Link } from 'react-router-dom';
 import { LayoutDashboard, ShoppingCart, DollarSign, Package2, FileBarChart, Settings, X } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
+import UserAvatar from '../common/UserAvatar';
 
 interface SidebarProps {
   onClose: () => void;
@@ -7,6 +9,7 @@ interface SidebarProps {
 
 const Sidebar = ({ onClose }: SidebarProps) => {
   const location = useLocation();
+  const { company } = useAuth();
   
   const isActive = (path: string) => {
     return location.pathname === path;
@@ -37,7 +40,7 @@ const Sidebar = ({ onClose }: SidebarProps) => {
       </div>
       
       {/* Navigation items */}
-      <nav className="flex-1 pt-4 pb-4 overflow-y-auto">
+      <nav className="flex-1 overflow-y-auto py-4">
         <ul className="space-y-1 px-2">
           {navigationItems.map((item) => (
             <li key={item.path}>
@@ -61,12 +64,14 @@ const Sidebar = ({ onClose }: SidebarProps) => {
       {/* User section */}
       <div className="border-t border-gray-200 p-4">
         <div className="flex items-center">
-          <div className="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center text-white font-medium">
-            U
-          </div>
-          <div className="ml-3 flex-1">
-            <p className="text-sm font-medium text-gray-700">User Name</p>
-            <p className="text-xs text-gray-500">user@lebonprix.com</p>
+          <UserAvatar company={company} size="sm" />
+          <div className="ml-3 flex-1 min-w-0">
+            <p className="text-sm font-medium text-gray-700 truncate">
+              {company?.name || 'Loading...'}
+            </p>
+            <p className="text-xs text-gray-500 truncate">
+              {company?.email || 'Loading...'}
+            </p>
           </div>
         </div>
       </div>
