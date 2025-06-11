@@ -16,35 +16,6 @@ interface CreatableSelectProps {
   className?: string;
 }
 
-const Menu = (props: MenuProps<Option, false, GroupBase<Option>> & { selectProps: any }) => {
-  const { children, ...rest } = props;
-
-  const handleCreateClick = () => {
-    const input = props.selectProps.inputValue;
-    if (input) {
-      props.selectProps.onKeyDown({ key: 'Enter', preventDefault: () => {} });
-    }
-  };
-
-  return (
-    <components.Menu {...rest}>
-      {children}
-      {props.selectProps.inputValue && !props.selectProps.options.find(
-        (opt: Option) =>
-          opt.label.toLowerCase() === props.selectProps.inputValue.toLowerCase()
-      ) && (
-        <div 
-          className="py-2 px-3 border-t border-gray-200 text-sm text-gray-600 flex items-center cursor-pointer hover:bg-gray-50"
-          onClick={handleCreateClick}
-        >
-          <Plus size={16} className="mr-2" />
-          Create "{props.selectProps.inputValue}"
-        </div>
-      )}
-    </components.Menu>
-  );
-};
-
 const CreatableSelect = ({
   value,
   onChange,
@@ -82,16 +53,53 @@ const CreatableSelect = ({
         showSuccessToast('Category created successfully');
       }
     } catch (error: any) {
-      console.error('Failed to create category:', error);
       showErrorToast(error.message || 'Failed to create category');
     } finally {
       setIsCreating(false);
     }
   };
 
+  const CustomMenu = (props: MenuProps<Option, false, GroupBase<Option>>) => {
+    const { children, ...rest } = props;
+
+    const handleCreateClick = (e: React.MouseEvent | React.TouchEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (inputValue) {
+        handleCreateOption(inputValue);
+      }
+    };
+
+    return (
+      <components.Menu {...rest}>
+        {children}
+        {inputValue && !options.find(
+          (opt: Option) =>
+            opt.label.toLowerCase() === inputValue.toLowerCase()
+        ) && (
+          <div 
+            role="button"
+            tabIndex={0}
+            className="w-full py-4 px-4 border-t border-gray-200 text-sm text-gray-600 flex items-center justify-center cursor-pointer bg-gray-50 hover:bg-gray-100 active:bg-gray-200 touch-manipulation"
+            onClick={handleCreateClick}
+            onTouchEnd={handleCreateClick}
+            style={{ 
+              WebkitTapHighlightColor: 'transparent',
+              touchAction: 'manipulation',
+              minHeight: '44px' // Minimum touch target size
+            }}
+          >
+            <Plus size={20} className="mr-2" />
+            <span className="font-medium">Create "{inputValue}"</span>
+          </div>
+        )}
+      </components.Menu>
+    );
+  };
+
   return (
     <Select
-      components={{ Menu }}
+      components={{ Menu: CustomMenu }}
       value={value}
       onChange={handleChange}
       options={options}
@@ -108,6 +116,13 @@ const CreatableSelect = ({
       isClearable
       isLoading={isCreating}
       isDisabled={isCreating}
+      menuIsOpen={isCreating ? false : undefined}
+      styles={{
+        menu: (base) => ({
+          ...base,
+          zIndex: 9999 // Ensure menu is above other elements
+        })
+      }}
     />
   );
 };

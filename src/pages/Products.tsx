@@ -7,11 +7,13 @@ import Modal, { ModalFooter } from '../components/common/Modal';
 import Input from '../components/common/Input';
 import CreatableSelect from '../components/common/CreatableSelect';
 import { useProducts } from '../hooks/useFirestore';
+import { useAuth } from '../contexts/AuthContext';
 import LoadingScreen from '../components/common/LoadingScreen';
 import { showSuccessToast, showErrorToast, showWarningToast } from '../utils/toast';
 
 const Products = () => {
   const { products, loading, error, addProduct, updateProduct } = useProducts();
+  const { user } = useAuth();
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -110,6 +112,11 @@ const Products = () => {
         return;
       }
 
+      if (!user?.uid) {
+        showErrorToast('You must be logged in to add a product');
+        return;
+      }
+
       setIsSubmitting(true);
       let imageBase64 = '/placeholder.png';
       
@@ -124,6 +131,7 @@ const Products = () => {
             stock: parseInt(formData.stock),
             imageUrl: imageBase64,
             isAvailable: true,
+            userId: user.uid,
             updatedAt: {
               seconds: 0,
               nanoseconds: 0
@@ -146,6 +154,7 @@ const Products = () => {
           stock: parseInt(formData.stock),
           imageUrl: imageBase64,
           isAvailable: true,
+          userId: user.uid,
           updatedAt: {
             seconds: 0,
             nanoseconds: 0
@@ -173,6 +182,11 @@ const Products = () => {
         return;
       }
 
+      if (!user?.uid) {
+        showErrorToast('You must be logged in to update a product');
+        return;
+      }
+
       setIsSubmitting(true);
       let imageBase64 = currentProduct.imageUrl;
 
@@ -187,6 +201,7 @@ const Products = () => {
             stock: parseInt(formData.stock),
             imageUrl: imageBase64,
             isAvailable: currentProduct.isAvailable,
+            userId: user.uid,
             updatedAt: {
               seconds: 0,
               nanoseconds: 0
@@ -209,6 +224,7 @@ const Products = () => {
           stock: parseInt(formData.stock),
           imageUrl: imageBase64,
           isAvailable: currentProduct.isAvailable,
+          userId: user.uid,
           updatedAt: {
             seconds: 0,
             nanoseconds: 0
