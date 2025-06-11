@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Edit2, Eye, Trash2, Download, Share2 } from 'lucide-react';
+import { Plus, Edit2, Eye, Trash2, Download, Share } from 'lucide-react';
 import Select from 'react-select';
 import Table from '../components/common/Table';
 import Modal, { ModalFooter } from '../components/common/Modal';
@@ -13,7 +13,7 @@ import type { Column } from '../components/common/Table';
 import LoadingScreen from '../components/common/LoadingScreen';
 import { showSuccessToast, showErrorToast, showWarningToast } from '../utils/toast';
 import Invoice from '../components/sales/Invoice';
-import { generatePDF, sharePDF } from '../utils/pdf';
+import { generatePDF } from '../utils/pdf';
 import { useAuth } from '../contexts/AuthContext';
 
 interface FormProduct {
@@ -309,9 +309,61 @@ const Sales = () => {
   
   const handleCopyLink = (saleId: string) => {
     const link = `${window.location.origin}/track/${saleId}`;
-    navigator.clipboard.writeText(link).then(() => {
-      showSuccessToast('Link copied to clipboard!');
+    const message = `Bonjour! 👋\n\nSuivez l'état de votre commande en temps réel via ce lien :\n${link}\n\nMerci de votre confiance! 🙏\n\nPour toute question, n'hésitez pas à nous contacter.`;
+    navigator.clipboard.writeText(message).then(() => {
+      showSuccessToast('Message copié avec succès!');
     });
+  };
+
+  const handleShareInvoice = async (sale: Sale) => {
+    try {
+      // Generate PDF blob
+      const result = await generatePDF('invoice-content', `facture-${sale.id}`, true);
+      if (!result || !(result instanceof Blob)) {
+        throw new Error('Failed to generate PDF');
+      }
+
+      const pdfFile = new File([result], `facture-${sale.id}.pdf`, { type: 'application/pdf' });
+
+      // Check if Web Share API is available
+      if (navigator.share) {
+        try {
+          await navigator.share({
+            files: [pdfFile],
+            title: `Facture - ${sale.customerInfo.name}`,
+            text: `Facture pour la commande de ${sale.customerInfo.name}`,
+          });
+          showSuccessToast('Facture partagée avec succès!');
+        } catch (err) {
+          if (err instanceof Error && err.name !== 'AbortError') {
+            // If sharing fails, fall back to download
+            const url = URL.createObjectURL(result);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `facture-${sale.id}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showSuccessToast('Facture téléchargée avec succès!');
+          }
+        }
+      } else {
+        // Fallback for browsers that don't support Web Share API
+        const url = URL.createObjectURL(result);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `facture-${sale.id}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showSuccessToast('Facture téléchargée avec succès!');
+      }
+    } catch (error) {
+      console.error('Error sharing invoice:', error);
+      showErrorToast('Erreur lors du partage de la facture');
+    }
   };
 
   const columns: Column<Sale>[] = [
@@ -444,16 +496,16 @@ const Sales = () => {
               <Button
                 variant="outline"
                 icon={<Download size={16} />}
-                onClick={() => generatePDF('invoice-content', `invoice-${viewedSale.id}`)}
+                onClick={() => generatePDF('invoice-content', `facture-${viewedSale.id}`)}
               >
-                Download PDF
+                Télécharger PDF
               </Button>
               <Button
                 variant="outline"
-                icon={<Share2 size={16} />}
-                onClick={() => sharePDF('invoice-content', `invoice-${viewedSale.id}`)}
+                icon={<Share size={16} />}
+                onClick={() => handleShareInvoice(viewedSale)}
               >
-                Share Invoice
+                Partager Facture
               </Button>
             </div>
 
@@ -774,18 +826,18 @@ const Sales = () => {
       <Modal
         isOpen={isLinkModalOpen}
         onClose={() => setIsLinkModalOpen(false)}
-        title="Sale Confirmation"
+        title="Partager le lien de suivi"
         size="lg"
       >
         {shareableLink && currentSale && (
           <div className="space-y-6">
             <div className="bg-emerald-50 p-4 rounded-lg">
-              <p className="text-emerald-700 font-medium">Sale added successfully!</p>
+              <p className="text-emerald-700 font-medium">Commande ajoutée avec succès!</p>
               <p className="text-sm text-emerald-600 mt-1">
-                Customer: {currentSale.customerInfo.name}
+                Client: {currentSale.customerInfo.name}
               </p>
               <p className="text-sm text-emerald-600">
-                Total Amount: {currentSale.totalAmount.toLocaleString()} XAF
+                Montant total: {currentSale.totalAmount.toLocaleString()} XAF
               </p>
             </div>
 
@@ -794,16 +846,16 @@ const Sales = () => {
               <Button
                 variant="outline"
                 icon={<Download size={16} />}
-                onClick={() => generatePDF('invoice-content', `invoice-${currentSale.id}`)}
+                onClick={() => generatePDF('invoice-content', `facture-${currentSale.id}`)}
               >
-                Download Invoice
+                Télécharger PDF
               </Button>
               <Button
                 variant="outline"
-                icon={<Share2 size={16} />}
-                onClick={() => sharePDF('invoice-content', `invoice-${currentSale.id}`)}
+                icon={<Share size={16} />}
+                onClick={() => handleShareInvoice(currentSale)}
               >
-                Share Invoice
+                Partager Facture
               </Button>
             </div>
 
@@ -814,28 +866,49 @@ const Sales = () => {
               </div>
             </div>
 
-            {/* Shareable Link */}
+            {/* Shareable Link with Message */}
             <div className="space-y-4 sticky bottom-0 bg-white z-10 pt-2 border-t">
-              <p className="font-medium text-gray-900">Share this tracking link with the client:</p>
-              <div className="flex items-center space-x-2">
-                <input
-                  type="text"
-                  value={shareableLink}
-                  readOnly
-                  className="border rounded-md p-2 w-full"
-                />
+              <p className="font-medium text-gray-900">Message à partager avec le client :</p>
+              
+              {/* Message Preview */}
+              <div className="bg-gray-50 p-4 rounded-lg text-sm">
+                <p className="whitespace-pre-line">
+                  Bonjour! 👋
+
+                  Suivez l'état de votre commande en temps réel via ce lien :
+                  {shareableLink}
+
+                  Merci de votre confiance! 🙏
+
+                  Pour toute question, n'hésitez pas à nous contacter.
+                </p>
+              </div>
+
+              {/* Copy Options */}
+              <div className="flex flex-col sm:flex-row gap-2">
                 <button
                   onClick={() => {
                     navigator.clipboard.writeText(shareableLink);
-                    showSuccessToast('Link copied to clipboard!');
+                    showSuccessToast('Lien copié!');
                   }}
-                  className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600"
+                  className="flex-1 bg-gray-100 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-200 transition-colors"
                 >
-                  Copy
+                  Copier le lien uniquement
+                </button>
+                <button
+                  onClick={() => {
+                    const message = `Salut! 👋\n\nSuivez l'état de votre commande en temps réel via ce lien :\n${shareableLink}\n\nMerci de votre confiance! 🙏\n\nPour toute question, n'hésitez pas à nous contacter.`;
+                    navigator.clipboard.writeText(message);
+                    showSuccessToast('Message copié avec succès!');
+                  }}
+                  className="flex-1 bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition-colors"
+                >
+                  Copier avec message
                 </button>
               </div>
+
               <p className="text-sm text-gray-500">
-                The client can use this link to track their order status.
+                Le message est formaté pour WhatsApp et inclut un lien de suivi convivial.
               </p>
             </div>
           </div>

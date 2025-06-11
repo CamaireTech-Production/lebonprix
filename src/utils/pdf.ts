@@ -2,9 +2,13 @@ import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { Share } from '@capacitor/share';
 
-export const generatePDF = async (elementId: string, filename: string) => {
+export const generatePDF = async (
+  elementId: string, 
+  filename: string, 
+  returnBlob = false
+): Promise<Blob | jsPDF | undefined> => {
   const element = document.getElementById(elementId);
-  if (!element) return;
+  if (!element) return undefined;
 
   try {
     // Create canvas from the element
@@ -22,10 +26,15 @@ export const generatePDF = async (elementId: string, filename: string) => {
     const pdf = new jsPDF('p', 'mm', 'a4');
     pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, imgWidth, imgHeight);
 
-    // Save the PDF
-    pdf.save(`${filename}.pdf`);
-
-    return pdf;
+    if (returnBlob) {
+      // Return PDF as Blob
+      const blob = pdf.output('blob');
+      return blob;
+    } else {
+      // Save the PDF
+      pdf.save(`${filename}.pdf`);
+      return pdf;
+    }
   } catch (error) {
     console.error('Error generating PDF:', error);
     throw error;
