@@ -9,12 +9,17 @@ import Input from '../components/common/Input';
 import { useExpenses } from '../hooks/useFirestore';
 import LoadingScreen from '../components/common/LoadingScreen';
 import { showSuccessToast, showErrorToast, showWarningToast } from '../utils/toast';
+import { useAuth } from '../contexts/AuthContext';
+import { useTranslation } from 'react-i18next';
+import type { Expense } from '../types/models';
 
 const Expenses = () => {
+  const { t } = useTranslation();
+  const { user } = useAuth();
   const { expenses, loading, error, addExpense, updateExpense } = useExpenses();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [currentExpense, setCurrentExpense] = useState<any>(null);
+  const [currentExpense, setCurrentExpense] = useState<Expense | null>(null);
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [isSubmitting, setIsSubmitting] = useState(false);
   
@@ -39,9 +44,14 @@ const Expenses = () => {
   };
   
   const handleAddExpense = async () => {
+    if (!user) {
+      showErrorToast(t('errors.notAuthenticated'));
+      return;
+    }
+
     try {
       if (!formData.description || !formData.amount || !formData.category) {
-        showWarningToast('Please fill in all required fields');
+        showWarningToast(t('errors.fillAllFields'));
         return;
       }
 
@@ -50,26 +60,31 @@ const Expenses = () => {
         description: formData.description,
         amount: parseFloat(formData.amount),
         category: formData.category.toLowerCase() as 'delivery' | 'purchase' | 'other',
-        createdBy: 'Current User', // In a real app, get from auth context
+        userId: user.uid,
       });
       
       setIsAddModalOpen(false);
       resetForm();
-      showSuccessToast('Expense added successfully!');
+      showSuccessToast(t('expenses.messages.addSuccess'));
     } catch (err) {
       console.error('Failed to add expense:', err);
-      showErrorToast('Failed to add expense. Please try again.');
+      showErrorToast(t('expenses.messages.addError'));
     } finally {
       setIsSubmitting(false);
     }
   };
   
   const handleEditExpense = async () => {
+    if (!user) {
+      showErrorToast(t('errors.notAuthenticated'));
+      return;
+    }
+
     if (!currentExpense) return;
     
     try {
       if (!formData.description || !formData.amount || !formData.category) {
-        showWarningToast('Please fill in all required fields');
+        showWarningToast(t('errors.fillAllFields'));
         return;
       }
 
@@ -82,16 +97,16 @@ const Expenses = () => {
       
       setIsEditModalOpen(false);
       resetForm();
-      showSuccessToast('Expense updated successfully!');
+      showSuccessToast(t('expenses.messages.updateSuccess'));
     } catch (err) {
       console.error('Failed to update expense:', err);
-      showErrorToast('Failed to update expense. Please try again.');
+      showErrorToast(t('expenses.messages.updateError'));
     } finally {
       setIsSubmitting(false);
     }
   };
   
-  const openEditModal = (expense: any) => {
+  const openEditModal = (expense: Expense) => {
     setCurrentExpense(expense);
     setFormData({
       description: expense.description,
@@ -103,39 +118,35 @@ const Expenses = () => {
   
   const columns = [
     { 
-      header: 'Description', 
+      header: t('expenses.table.description'), 
       accessor: 'description' as const,
     },
     { 
-      header: 'Amount', 
-      accessor: (expense: any) => (
+      header: t('expenses.table.amount'), 
+      accessor: (expense: Expense) => (
         <span>{expense.amount.toLocaleString()} XAF</span>
       ),
     },
     { 
-      header: 'Category', 
-      accessor: (expense: any) => {
+      header: t('expenses.table.category'), 
+      accessor: (expense: Expense) => {
         let variant: 'info' | 'error' | 'warning' = 'info';
         if (expense.category === 'purchase') variant = 'error';
         if (expense.category === 'other') variant = 'warning';
         
-        return <Badge variant={variant}>{expense.category}</Badge>;
+        return <Badge variant={variant}>{t(`expenses.categories.${expense.category}`)}</Badge>;
       },
     },
     { 
-      header: 'Date', 
-      accessor: (expense: any) => {
+      header: t('expenses.table.date'), 
+      accessor: (expense: Expense) => {
         if (!expense.createdAt?.seconds) return 'N/A';
         return new Date(expense.createdAt.seconds * 1000).toLocaleDateString();
       },
     },
     { 
-      header: 'Created By', 
-      accessor: 'createdBy' as const,
-    },
-    { 
-      header: 'Actions', 
-      accessor: (expense: any) => (
+      header: t('expenses.table.actions'), 
+      accessor: (expense: Expense) => (
         <div className="flex space-x-2">
           <button 
             onClick={() => openEditModal(expense)}
@@ -154,7 +165,7 @@ const Expenses = () => {
   }
 
   if (error) {
-    showErrorToast('Failed to load expenses. Please refresh the page.');
+    showErrorToast(t('expenses.messages.loadError'));
     return null;
   }
 
@@ -176,8 +187,8 @@ const Expenses = () => {
     <div className="pb-16 md:pb-0">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Expenses</h1>
-          <p className="text-gray-600">Track and manage your business expenses</p>
+          <h1 className="text-2xl font-semibold text-gray-900">{t('expenses.title')}</h1>
+          <p className="text-gray-600">{t('expenses.subtitle')}</p>
         </div>
         
         <div className="mt-4 md:mt-0 flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
@@ -186,24 +197,24 @@ const Expenses = () => {
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
           >
-            <option value="All">All Categories</option>
-            <option value="delivery">Delivery</option>
-            <option value="purchase">Purchase</option>
-            <option value="other">Other</option>
+            <option value="All">{t('expenses.filters.allCategories')}</option>
+            <option value="delivery">{t('expenses.categories.delivery')}</option>
+            <option value="purchase">{t('expenses.categories.purchase')}</option>
+            <option value="other">{t('expenses.categories.other')}</option>
           </select>
           
           <Button 
             variant="outline" 
             icon={<FileDown size={16} />}
           >
-            Export
+            {t('expenses.actions.export')}
           </Button>
           
           <Button 
             icon={<Plus size={16} />}
             onClick={() => setIsAddModalOpen(true)}
           >
-            Add Expense
+            {t('expenses.actions.add')}
           </Button>
         </div>
       </div>
@@ -211,21 +222,21 @@ const Expenses = () => {
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
         <Card>
-          <p className="text-sm font-medium text-blue-700">Delivery Expenses</p>
+          <p className="text-sm font-medium text-blue-700">{t('expenses.summary.delivery')}</p>
           <p className="text-xl font-semibold text-gray-900">
             {summaryStats.delivery.toLocaleString()} XAF
           </p>
         </Card>
         
         <Card>
-          <p className="text-sm font-medium text-red-700">Purchase Expenses</p>
+          <p className="text-sm font-medium text-red-700">{t('expenses.summary.purchase')}</p>
           <p className="text-xl font-semibold text-gray-900">
             {summaryStats.purchase.toLocaleString()} XAF
           </p>
         </Card>
         
         <Card>
-          <p className="text-sm font-medium text-yellow-700">Other Expenses</p>
+          <p className="text-sm font-medium text-yellow-700">{t('expenses.summary.other')}</p>
           <p className="text-xl font-semibold text-gray-900">
             {summaryStats.other.toLocaleString()} XAF
           </p>
@@ -237,7 +248,7 @@ const Expenses = () => {
           data={filteredExpenses}
           columns={columns}
           keyExtractor={(expense) => expense.id}
-          emptyMessage="No expense records found"
+          emptyMessage={t('expenses.messages.noExpenses')}
         />
       </Card>
       
@@ -245,19 +256,19 @@ const Expenses = () => {
       <Modal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
-        title="Add New Expense"
+        title={t('expenses.modals.add.title')}
         footer={
           <ModalFooter 
             onCancel={() => setIsAddModalOpen(false)}
             onConfirm={handleAddExpense}
-            confirmText="Add Expense"
+            confirmText={t('expenses.modals.add.confirm')}
             isLoading={isSubmitting}
           />
         }
       >
         <div className="space-y-4">
           <Input
-            label="Description"
+            label={t('expenses.form.description')}
             name="description"
             value={formData.description}
             onChange={handleInputChange}
@@ -265,7 +276,7 @@ const Expenses = () => {
           />
           
           <Input
-            label="Amount (XAF)"
+            label={t('expenses.form.amount')}
             name="amount"
             type="number"
             value={formData.amount}
@@ -275,7 +286,7 @@ const Expenses = () => {
           
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Category
+              {t('expenses.form.category')}
             </label>
             <select
               name="category"
@@ -283,9 +294,9 @@ const Expenses = () => {
               value={formData.category}
               onChange={handleInputChange}
             >
-              <option value="delivery">Delivery</option>
-              <option value="purchase">Purchase</option>
-              <option value="other">Other</option>
+              <option value="delivery">{t('expenses.categories.delivery')}</option>
+              <option value="purchase">{t('expenses.categories.purchase')}</option>
+              <option value="other">{t('expenses.categories.other')}</option>
             </select>
           </div>
         </div>
@@ -295,19 +306,19 @@ const Expenses = () => {
       <Modal
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
-        title="Edit Expense"
+        title={t('expenses.modals.edit.title')}
         footer={
           <ModalFooter 
             onCancel={() => setIsEditModalOpen(false)}
             onConfirm={handleEditExpense}
-            confirmText="Update Expense"
+            confirmText={t('expenses.modals.edit.confirm')}
             isLoading={isSubmitting}
           />
         }
       >
         <div className="space-y-4">
           <Input
-            label="Description"
+            label={t('expenses.form.description')}
             name="description"
             value={formData.description}
             onChange={handleInputChange}
@@ -315,7 +326,7 @@ const Expenses = () => {
           />
           
           <Input
-            label="Amount (XAF)"
+            label={t('expenses.form.amount')}
             name="amount"
             type="number"
             value={formData.amount}
@@ -325,7 +336,7 @@ const Expenses = () => {
           
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Category
+              {t('expenses.form.category')}
             </label>
             <select
               name="category"
@@ -333,9 +344,9 @@ const Expenses = () => {
               value={formData.category}
               onChange={handleInputChange}
             >
-              <option value="delivery">Delivery</option>
-              <option value="purchase">Purchase</option>
-              <option value="other">Other</option>
+              <option value="delivery">{t('expenses.categories.delivery')}</option>
+              <option value="purchase">{t('expenses.categories.purchase')}</option>
+              <option value="other">{t('expenses.categories.other')}</option>
             </select>
           </div>
         </div>
