@@ -1,4 +1,4 @@
-import { ShoppingCart, DollarSign, TrendingUp, Package2, BarChart2, Info, Receipt } from 'lucide-react';
+import { ShoppingCart, DollarSign, TrendingUp, Package2, BarChart2, Info, Receipt, Copy, Check, ExternalLink } from 'lucide-react';
 import StatCard from '../components/dashboard/StatCard';
 import SalesChart from '../components/dashboard/SalesChart';
 import ActivityList from '../components/dashboard/ActivityList';
@@ -9,12 +9,18 @@ import LoadingScreen from '../components/common/LoadingScreen';
 import { useState } from 'react';
 import Modal from '../components/common/Modal';
 import Button from '../components/common/Button';
+import { useAuth } from '../contexts/AuthContext';
+import type { DashboardStats } from '../types/models';
+import { showSuccessToast, showErrorToast } from '../utils/toast';
 
 const Dashboard = () => {
   const { sales, loading: salesLoading } = useSales();
   const { expenses, loading: expensesLoading } = useExpenses();
   const { products, loading: productsLoading } = useProducts();
   const [showCalculationsModal, setShowCalculationsModal] = useState(false);
+  const { company } = useAuth();
+  const [] = useState<Partial<DashboardStats>>({});
+  const [copied, setCopied] = useState(false);
 
   // Calculate gross profit (selling price - cost price) * quantity for all sales
   const grossProfit = sales?.reduce((sum, sale) => {
@@ -89,6 +95,39 @@ const Dashboard = () => {
 
   const chartData = processChartData();
 
+  // Generate the company's product page URL
+  const productPageUrl = company ? `${window.location.origin}/company/${company.id}/products` : '';
+
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(productPageUrl);
+      setCopied(true);
+      showSuccessToast('Lien copié avec succès!');
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      showErrorToast('Erreur lors de la copie du lien');
+    }
+  };
+
+  const handleShareLink = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `Produits de ${company?.name}`,
+          text: `Découvrez les produits de ${company?.name}`,
+          url: productPageUrl
+        });
+      } catch (err) {
+        if ((err as Error).name !== 'AbortError') {
+          showErrorToast('Erreur lors du partage');
+        }
+      }
+    } else {
+      // Fallback to copy if Web Share API is not available
+      handleCopyLink();
+    }
+  };
+
   if (salesLoading || expensesLoading || productsLoading) {
     return <LoadingScreen />;
   }
@@ -120,7 +159,66 @@ const Dashboard = () => {
 
   return (
     <div className="pb-16 md:pb-0">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0 mb-6">
+      {/* Company Products Link Section */}
+      {company && (
+        <div className="bg-white rounded-lg shadow-sm p-6 mt-6">
+          <div className="flex flex-col gap-4">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 mb-1">
+                Page Publique des Produits
+              </h2>
+              <p className="text-sm text-gray-600">
+                Partagez le lien de votre catalogue de produits avec vos clients
+              </p>
+            </div>
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex-grow">
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={productPageUrl}
+                      readOnly
+                      className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 bg-gray-50 text-sm"
+                    />
+                    <button
+                      onClick={handleCopyLink}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                      title="Copier le lien"
+                    >
+                      {copied ? (
+                        <Check className="h-5 w-5 text-emerald-500" />
+                      ) : (
+                        <Copy className="h-5 w-5" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+                <div className="flex gap-2 sm:w-auto">
+                  <Button
+                    variant="outline"
+                    onClick={handleShareLink}
+                    className="flex-1 sm:flex-none whitespace-nowrap"
+                  >
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    Partager
+                  </Button>
+                  <a
+                    href={productPageUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 sm:flex-none inline-flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
+                  >
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    Ouvrir
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0 mb-6 mt-6">
         <div>
           <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
           <p className="text-gray-600">Welcome back! Here's what's happening with your business today.</p>

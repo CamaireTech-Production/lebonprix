@@ -16,7 +16,8 @@ const Expenses = lazy(() => import('./pages/Expenses'));
 const Products = lazy(() => import('./pages/Products'));
 const Reports = lazy(() => import('./pages/Reports'));
 const Settings = lazy(() => import('./pages/Settings'));
-const TimelinePage = lazy(() => import('./pages/TimelinePage'))
+const TimelinePage = lazy(() => import('./pages/TimelinePage'));
+const CompanyProducts = lazy(() => import('./pages/CompanyProducts'));
 
 function App() {
   return (
@@ -33,6 +34,7 @@ function App() {
             
             {/* Public Routes */}
             <Route path="/track/:id" element={<TimelinePage />} />
+            <Route path="/company/:companyId/products" element={<CompanyProducts />} />
 
             {/* Protected Routes */}
             <Route element={<ProtectedRoute />}>
