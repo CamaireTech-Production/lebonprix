@@ -21,7 +21,8 @@ import type {
   DashboardStats,
   OrderStatus,
   PaymentStatus,
-  Company
+  Company,
+  SaleDetails
 } from '../types/models';
 import { useState, useEffect } from 'react';
 import { Timestamp } from 'firebase/firestore';
@@ -735,4 +736,21 @@ export const getCompanyByUserId = async (userId: string): Promise<Company> => {
     id: companyDoc.id,
     ...companyDoc.data()
   } as Company;
+};
+
+export const subscribeToSaleUpdates = (
+  saleId: string,
+  callback: (sale: SaleDetails) => void
+): (() => void) => {
+  const saleRef = doc(db, 'sales', saleId);
+  
+  return onSnapshot(saleRef, (doc) => {
+    if (doc.exists()) {
+      const saleData = doc.data() as SaleDetails;
+      callback({
+        ...saleData,
+        id: doc.id,
+      });
+    }
+  });
 };

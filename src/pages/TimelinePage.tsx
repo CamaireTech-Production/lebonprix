@@ -1,6 +1,6 @@
 import { useParams } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { getSaleDetails, getCompanyByUserId } from '../services/firestore';
+import { getSaleDetails, getCompanyByUserId, subscribeToSaleUpdates } from '../services/firestore';
 import type { SaleDetails, Company } from '../types/models';
 import LoadingScreen from '../components/common/LoadingScreen';
 import Card from '../components/common/Card';
@@ -22,10 +22,21 @@ const TimelinePage = () => {
   const { products } = useProducts();
 
   useEffect(() => {
+    let unsubscribe: (() => void) | undefined;
+
     const fetchData = async () => {
       if (!id) return;
       try {
-        // Fetch sale details
+        // Set up real-time listener for sale updates
+        unsubscribe = subscribeToSaleUpdates(id, (updatedSale: SaleDetails) => {
+          const transformedDetails: SaleDetails = {
+            ...updatedSale,
+            statusHistory: updatedSale.statusHistory || [],
+          };
+          setSaleDetails(transformedDetails);
+        });
+
+        // Initial fetch of sale details
         const details = await getSaleDetails(id);
         const transformedDetails: SaleDetails = {
           ...details,
@@ -44,7 +55,15 @@ const TimelinePage = () => {
         setLoading(false);
       }
     };
+
     fetchData();
+
+    // Cleanup subscription when component unmounts
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
   }, [id]);
 
   if (loading) {
@@ -115,7 +134,9 @@ const TimelinePage = () => {
           {/* Order Info */}
           <div>
             <h2 className="text-lg font-semibold mb-2 text-emerald-700">Order #{saleDetails.id}</h2>
-            <p className="text-sm text-gray-600">Total: {saleDetails.totalAmount.toLocaleString()} XAF</p>
+            <p className="text-sm text-gray-600">
+              Total: {(saleDetails.totalAmount + (saleDetails.deliveryFee || 0)).toLocaleString()} XAF
+            </p>
             <p className="text-sm text-gray-600">Status: {saleDetails.status}</p>
           </div>
         </div>

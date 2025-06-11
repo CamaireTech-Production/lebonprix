@@ -81,22 +81,16 @@ const Invoice = ({ sale, products }: InvoiceProps) => {
             </tr>
           </thead>
           <tbody>
-            {sale.products.map((product, index) => {
-              const productData = products.find(p => p.id === product.productId);
-              const price = product.negotiatedPrice || product.basePrice;
-              const total = price * product.quantity;
-
+            {sale.products.map((saleProduct, index) => {
+              const product = products.find(p => p.id === saleProduct.productId);
+              const unitPrice = saleProduct.negotiatedPrice || saleProduct.basePrice;
+              const total = unitPrice * saleProduct.quantity;
               return (
                 <tr key={index} className="border-b border-gray-100">
-                  <td className="py-2 md:py-3 px-2 md:px-4">
-                    <p className="font-medium text-sm md:text-base text-gray-900">{productData?.name}</p>
-                    {product.negotiatedPrice && (
-                      <p className="text-xs md:text-sm text-gray-500">Prix négocié</p>
-                    )}
-                  </td>
-                  <td className="text-right py-2 md:py-3 px-2 md:px-4 text-sm md:text-base text-gray-600">{product.quantity}</td>
-                  <td className="text-right py-2 md:py-3 px-2 md:px-4 text-sm md:text-base text-gray-600">{price.toLocaleString()} XAF</td>
-                  <td className="text-right py-2 md:py-3 px-2 md:px-4 font-medium text-sm md:text-base text-gray-900">{total.toLocaleString()} XAF</td>
+                  <td className="py-2 md:py-3 px-2 md:px-4 text-sm text-gray-900">{product?.name || 'Unknown Product'}</td>
+                  <td className="py-2 md:py-3 px-2 md:px-4 text-sm text-gray-900 text-right">{saleProduct.quantity}</td>
+                  <td className="py-2 md:py-3 px-2 md:px-4 text-sm text-gray-900 text-right">{unitPrice.toLocaleString()} XAF</td>
+                  <td className="py-2 md:py-3 px-2 md:px-4 text-sm text-gray-900 text-right">{total.toLocaleString()} XAF</td>
                 </tr>
               );
             })}
