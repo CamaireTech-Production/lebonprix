@@ -1,7 +1,9 @@
 import { Link, useLocation } from 'react-router-dom';
 import { LayoutDashboard, ShoppingCart, DollarSign, Package2, FileBarChart } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 const MobileNav = () => {
+  const { t } = useTranslation();
   const location = useLocation();
   
   const isActive = (path: string) => {
@@ -9,11 +11,11 @@ const MobileNav = () => {
   };
 
   const navigationItems = [
-    { name: 'Dashboard', path: '/', icon: <LayoutDashboard size={20} /> },
-    { name: 'Sales', path: '/sales', icon: <ShoppingCart size={20} /> },
-    { name: 'Expenses', path: '/expenses', icon: <DollarSign size={20} /> },
-    { name: 'Products', path: '/products', icon: <Package2 size={20} /> },
-    { name: 'Reports', path: '/reports', icon: <FileBarChart size={20} /> },
+    { name: t('navigation.dashboard'), path: '/', icon: <LayoutDashboard size={20} /> },
+    { name: t('navigation.sales'), path: '/sales', icon: <ShoppingCart size={20} /> },
+    { name: t('navigation.expenses'), path: '/expenses', icon: <DollarSign size={20} /> },
+    { name: t('navigation.products'), path: '/products', icon: <Package2 size={20} /> },
+    { name: t('navigation.reports'), path: '/reports', icon: <FileBarChart size={20} /> },
   ];
 
   return (

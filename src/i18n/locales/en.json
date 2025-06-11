@@ -28,7 +28,130 @@
     "dashboard": "Dashboard",
     "products": "Products",
     "sales": "Sales",
+    "expenses": "Expenses",
+    "customers": "Customers",
     "reports": "Reports",
-    "settings": "Settings"
+    "settings": "Settings",
+    "profile": "Profile",
+    "logout": "Logout",
+    "menu": "Menu",
+    "close": "Close"
+  },
+  "header": {
+    "welcome": "Welcome",
+    "notifications": "Notifications",
+    "noNotifications": "No new notifications",
+    "viewAll": "View all notifications",
+    "profile": "Your Profile",
+    "settings": "Settings",
+    "help": "Help & Support",
+    "search": "Search..."
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "welcome": "Welcome back! Here's what's happening with your business today.",
+    "howCalculated": "How are these calculated?",
+    "stats": {
+      "grossProfit": "Gross Profit",
+      "netProfit": "Net Profit",
+      "totalExpenses": "Total Expenses",
+      "totalOrders": "Total Orders",
+      "deliveryExpenses": "Delivery Expenses",
+      "totalSalesAmount": "Total Sales (Amount)",
+      "totalSalesCount": "Total Sales (Count)",
+      "trend": {
+        "fromLastMonth": "from last month"
+      }
+    },
+    "tooltips": {
+      "grossProfit": "Total revenue minus cost of goods sold",
+      "netProfit": "Gross profit minus all expenses",
+      "totalExpenses": "Sum of all business expenses",
+      "totalOrders": "Total number of sales transactions",
+      "deliveryExpenses": "Total expenses related to product delivery",
+      "totalSalesAmount": "Total revenue from all sales",
+      "totalSalesCount": "Total number of sales transactions"
+    },
+    "bestSellingProducts": {
+      "title": "Best Selling Products",
+      "product": "Product",
+      "quantitySold": "Quantity Sold",
+      "totalSales": "Total Sales",
+      "noData": "No sales data available"
+    },
+    "calculations": {
+      "title": "Dashboard Calculations Explained",
+      "grossProfit": {
+        "title": "Gross Profit",
+        "description": "Gross profit is calculated by subtracting the cost price from the selling price for each product sold, then multiplying by the quantity sold.",
+        "formula": "Formula: Σ((Selling Price - Cost Price) × Quantity Sold) for each product in each sale",
+        "example": "Example: If you sell 5 units of a product that costs 1000 XAF and sells for 1500 XAF: Gross Profit = (1500 - 1000) × 5 = 2500 XAF"
+      },
+      "netProfit": {
+        "title": "Net Profit",
+        "description": "Net profit is the gross profit minus all business expenses.",
+        "formula": "Formula: Gross Profit - Total Expenses",
+        "example": "Example: If your gross profit is 100,000 XAF and total expenses are 30,000 XAF: Net Profit = 100,000 - 30,000 = 70,000 XAF"
+      },
+      "totalExpenses": {
+        "title": "Total Expenses",
+        "description": "The sum of all business expenses across all categories.",
+        "formula": "Formula: Σ(Expense Amount) for all expenses",
+        "includes": "This includes all types of expenses such as: Delivery expenses, Utility bills, Rent, Other operational costs"
+      },
+      "totalSalesAmount": {
+        "title": "Total Sales Amount",
+        "description": "The total revenue from all sales, including any negotiated prices.",
+        "formula": "Formula: Σ(Sale Amount) for each sale",
+        "note": "Note: If a product was sold at a negotiated price, that price is used instead of the standard selling price."
+      },
+      "deliveryExpenses": {
+        "title": "Delivery Expenses",
+        "description": "The sum of all expenses categorized as 'delivery'.",
+        "formula": "Formula: Σ(Expense Amount) for all expenses with category = 'delivery'"
+      },
+      "bestSellingProducts": {
+        "title": "Best Selling Products",
+        "description": "Products are ranked by the total quantity sold.",
+        "formula": "For each product: Total Quantity = Σ(Quantity Sold) across all sales, Total Sales = Σ(Selling Price × Quantity Sold) across all sales",
+        "note": "Products are then sorted by total quantity in descending order."
+      }
+    },
+    "publicProducts": {
+      "title": "Public Products Page",
+      "description": "Share your product catalog link with your customers",
+      "copySuccess": "Link copied successfully!",
+      "copyError": "Error copying link",
+      "shareError": "Error sharing",
+      "copyLink": "Copy link",
+      "share": "Share",
+      "open": "Open"
+    },
+    "chart": {
+      "title": "Sales & Expenses Overview",
+      "sales": "Sales",
+      "expenses": "Expenses",
+      "amount": "Amount (XAF)",
+      "period": "Last 7 Days",
+      "noData": "No data available for the selected period"
+    },
+    "activity": {
+      "title": "Recent Activity",
+      "noActivities": "No recent activities",
+      "types": {
+        "sale": "Sale",
+        "expense": "Expense",
+        "product": "Product",
+        "user": "User"
+      },
+      "titles": {
+        "newSale": "New sale recorded",
+        "expenseAdded": "Expense added",
+        "productAdded": "New product added",
+        "productUpdated": "Product updated",
+        "userAdded": "New user added",
+        "userUpdated": "User updated"
+      }
+    }
   }
 } 

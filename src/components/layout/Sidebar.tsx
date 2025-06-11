@@ -2,12 +2,14 @@ import { useLocation, Link } from 'react-router-dom';
 import { LayoutDashboard, ShoppingCart, DollarSign, Package2, FileBarChart, Settings, X } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import UserAvatar from '../common/UserAvatar';
+import { useTranslation } from 'react-i18next';
 
 interface SidebarProps {
   onClose: () => void;
 }
 
 const Sidebar = ({ onClose }: SidebarProps) => {
+  const { t } = useTranslation();
   const location = useLocation();
   const { company } = useAuth();
   
@@ -16,12 +18,12 @@ const Sidebar = ({ onClose }: SidebarProps) => {
   };
   
   const navigationItems = [
-    { name: 'Dashboard', path: '/', icon: <LayoutDashboard size={20} /> },
-    { name: 'Sales', path: '/sales', icon: <ShoppingCart size={20} /> },
-    { name: 'Expenses', path: '/expenses', icon: <DollarSign size={20} /> },
-    { name: 'Products', path: '/products', icon: <Package2 size={20} /> },
-    { name: 'Reports', path: '/reports', icon: <FileBarChart size={20} /> },
-    { name: 'Settings', path: '/settings', icon: <Settings size={20} /> },
+    { name: t('navigation.dashboard'), path: '/', icon: <LayoutDashboard size={20} /> },
+    { name: t('navigation.sales'), path: '/sales', icon: <ShoppingCart size={20} /> },
+    { name: t('navigation.expenses'), path: '/expenses', icon: <DollarSign size={20} /> },
+    { name: t('navigation.products'), path: '/products', icon: <Package2 size={20} /> },
+    { name: t('navigation.reports'), path: '/reports', icon: <FileBarChart size={20} /> },
+    { name: t('navigation.settings'), path: '/settings', icon: <Settings size={20} /> },
   ];
 
   return (
@@ -34,6 +36,7 @@ const Sidebar = ({ onClose }: SidebarProps) => {
         <button 
           className="md:hidden text-gray-500 hover:text-gray-700"
           onClick={onClose}
+          aria-label={t('navigation.close')}
         >
           <X size={20} />
         </button>
@@ -68,10 +71,10 @@ const Sidebar = ({ onClose }: SidebarProps) => {
           <UserAvatar company={company} size="sm" />
           <div className="ml-3 flex-1 min-w-0">
             <p className="text-sm font-medium text-gray-700 truncate">
-              {company?.name || 'Loading...'}
+              {company?.name || t('header.welcome')}
             </p>
             <p className="text-xs text-gray-500 truncate">
-              {company?.email || 'Loading...'}
+              {company?.email || t('header.welcome')}
             </p>
           </div>
         </div>

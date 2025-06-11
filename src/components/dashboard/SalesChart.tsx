@@ -11,6 +11,7 @@ import {
   ChartOptions
 } from 'chart.js';
 import Card from '../common/Card';
+import { useTranslation } from 'react-i18next';
 
 // Register Chart.js components
 ChartJS.register(
@@ -30,11 +31,13 @@ interface SalesChartProps {
 }
 
 const SalesChart = ({ salesData, expensesData, labels }: SalesChartProps) => {
+  const { t, i18n } = useTranslation();
+
   const data = {
     labels,
     datasets: [
       {
-        label: 'Sales',
+        label: t('dashboard.chart.sales'),
         data: salesData,
         borderColor: '#10B981', // emerald-500
         backgroundColor: 'rgba(16, 185, 129, 0.1)',
@@ -43,7 +46,7 @@ const SalesChart = ({ salesData, expensesData, labels }: SalesChartProps) => {
         borderWidth: 2,
       },
       {
-        label: 'Expenses',
+        label: t('dashboard.chart.expenses'),
         data: expensesData,
         borderColor: '#EF4444', // red-500
         backgroundColor: 'rgba(239, 68, 68, 0.1)',
@@ -72,7 +75,7 @@ const SalesChart = ({ salesData, expensesData, labels }: SalesChartProps) => {
               label += ': ';
             }
             if (context.parsed.y !== null) {
-              label += new Intl.NumberFormat('en-US', { 
+              label += new Intl.NumberFormat(i18n.language, { 
                 style: 'currency', 
                 currency: 'XAF' 
               }).format(context.parsed.y);
@@ -91,12 +94,11 @@ const SalesChart = ({ salesData, expensesData, labels }: SalesChartProps) => {
       y: {
         beginAtZero: true,
         grid: {
-          borderDash: [2, 4],
           color: 'rgba(0, 0, 0, 0.06)',
         },
         ticks: {
           callback: function(value) {
-            return new Intl.NumberFormat('en-US', { 
+            return new Intl.NumberFormat(i18n.language, { 
               style: 'currency', 
               currency: 'XAF',
               maximumSignificantDigits: 3
@@ -112,9 +114,15 @@ const SalesChart = ({ salesData, expensesData, labels }: SalesChartProps) => {
   };
 
   return (
-    <Card title="Sales & Expenses Overview">
+    <Card title={t('dashboard.chart.title')}>
       <div className="h-64">
-        <Line data={data} options={options} />
+        {salesData.length === 0 && expensesData.length === 0 ? (
+          <div className="h-full flex items-center justify-center text-gray-500">
+            {t('dashboard.chart.noData')}
+          </div>
+        ) : (
+          <Line data={data} options={options} />
+        )}
       </div>
     </Card>
   );

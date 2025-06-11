@@ -28,7 +28,129 @@
     "dashboard": "Tableau de bord",
     "products": "Produits",
     "sales": "Ventes",
-    "reports": "Rapports",
-    "settings": "Paramètres"
+    "expenses": "Dépenses",
+    "customers": "Clients",
+    "settings": "Paramètres",
+    "profile": "Profil",
+    "logout": "Déconnexion",
+    "menu": "Menu",
+    "close": "Fermer"
+  },
+  "header": {
+    "welcome": "Bienvenue",
+    "notifications": "Notifications",
+    "noNotifications": "Aucune nouvelle notification",
+    "viewAll": "Voir toutes les notifications",
+    "profile": "Votre Profil",
+    "settings": "Paramètres",
+    "help": "Aide & Support",
+    "search": "Rechercher..."
+  },
+  "dashboard": {
+    "title": "Tableau de bord",
+    "welcome": "Bienvenue ! Voici ce qui se passe dans votre entreprise aujourd'hui.",
+    "howCalculated": "Comment sont calculées ces valeurs ?",
+    "stats": {
+      "grossProfit": "Bénéfice brut",
+      "netProfit": "Bénéfice net",
+      "totalExpenses": "Dépenses totales",
+      "totalOrders": "Commandes totales",
+      "deliveryExpenses": "Frais de livraison",
+      "totalSalesAmount": "Ventes totales (Montant)",
+      "totalSalesCount": "Ventes totales (Nombre)",
+      "trend": {
+        "fromLastMonth": "par rapport au mois dernier"
+      }
+    },
+    "tooltips": {
+      "grossProfit": "Revenu total moins le coût des marchandises vendues",
+      "netProfit": "Bénéfice brut moins toutes les dépenses",
+      "totalExpenses": "Somme de toutes les dépenses d'entreprise",
+      "totalOrders": "Nombre total de transactions de vente",
+      "deliveryExpenses": "Dépenses totales liées à la livraison des produits",
+      "totalSalesAmount": "Revenu total de toutes les ventes",
+      "totalSalesCount": "Nombre total de transactions de vente"
+    },
+    "bestSellingProducts": {
+      "title": "Meilleurs produits",
+      "product": "Produit",
+      "quantitySold": "Quantité vendue",
+      "totalSales": "Ventes totales",
+      "noData": "Aucune donnée de vente disponible"
+    },
+    "calculations": {
+      "title": "Explication des calculs du tableau de bord",
+      "grossProfit": {
+        "title": "Bénéfice brut",
+        "description": "Le bénéfice brut est calculé en soustrayant le prix de revient du prix de vente pour chaque produit vendu, puis en multipliant par la quantité vendue.",
+        "formula": "Formule : Σ((Prix de vente - Prix de revient) × Quantité vendue) pour chaque produit dans chaque vente",
+        "example": "Exemple : Si vous vendez 5 unités d'un produit qui coûte 1000 XAF et se vend 1500 XAF : Bénéfice brut = (1500 - 1000) × 5 = 2500 XAF"
+      },
+      "netProfit": {
+        "title": "Bénéfice net",
+        "description": "Le bénéfice net est le bénéfice brut moins toutes les dépenses de l'entreprise.",
+        "formula": "Formule : Bénéfice brut - Dépenses totales",
+        "example": "Exemple : Si votre bénéfice brut est de 100 000 XAF et les dépenses totales de 30 000 XAF : Bénéfice net = 100 000 - 30 000 = 70 000 XAF"
+      },
+      "totalExpenses": {
+        "title": "Dépenses totales",
+        "description": "La somme de toutes les dépenses de l'entreprise dans toutes les catégories.",
+        "formula": "Formule : Σ(Montant de la dépense) pour toutes les dépenses",
+        "includes": "Cela inclut tous les types de dépenses tels que : Frais de livraison, Factures de services publics, Loyer, Autres coûts opérationnels"
+      },
+      "totalSalesAmount": {
+        "title": "Montant total des ventes",
+        "description": "Le revenu total de toutes les ventes, y compris les prix négociés.",
+        "formule": "Formule : Σ(Montant de la vente) pour chaque vente",
+        "note": "Note : Si un produit a été vendu à un prix négocié, ce prix est utilisé au lieu du prix de vente standard."
+      },
+      "deliveryExpenses": {
+        "title": "Frais de livraison",
+        "description": "La somme de toutes les dépenses catégorisées comme 'livraison'.",
+        "formula": "Formule : Σ(Montant de la dépense) pour toutes les dépenses avec catégorie = 'livraison'"
+      },
+      "bestSellingProducts": {
+        "title": "Meilleurs produits",
+        "description": "Les produits sont classés par la quantité totale vendue.",
+        "formula": "Pour chaque produit : Quantité totale = Σ(Quantité vendue) sur toutes les ventes, Ventes totales = Σ(Prix de vente × Quantité vendue) sur toutes les ventes",
+        "note": "Les produits sont ensuite triés par quantité totale en ordre décroissant."
+      }
+    },
+    "publicProducts": {
+      "title": "Page publique des produits",
+      "description": "Partagez le lien de votre catalogue de produits avec vos clients",
+      "copySuccess": "Lien copié avec succès !",
+      "copyError": "Erreur lors de la copie du lien",
+      "shareError": "Erreur lors du partage",
+      "copyLink": "Copier le lien",
+      "share": "Partager",
+      "open": "Ouvrir"
+    },
+    "chart": {
+      "title": "Aperçu des Ventes et Dépenses",
+      "sales": "Ventes",
+      "expenses": "Dépenses",
+      "amount": "Montant (XAF)",
+      "period": "7 Derniers Jours",
+      "noData": "Aucune donnée disponible pour la période sélectionnée"
+    },
+    "activity": {
+      "title": "Activité Récente",
+      "noActivities": "Aucune activité récente",
+      "types": {
+        "sale": "Vente",
+        "expense": "Dépense",
+        "product": "Produit",
+        "user": "Utilisateur"
+      },
+      "titles": {
+        "newSale": "Nouvelle vente enregistrée",
+        "expenseAdded": "Dépense ajoutée",
+        "productAdded": "Nouveau produit ajouté",
+        "productUpdated": "Produit mis à jour",
+        "userAdded": "Nouvel utilisateur ajouté",
+        "userUpdated": "Utilisateur mis à jour"
+      }
+    }
   }
 } 

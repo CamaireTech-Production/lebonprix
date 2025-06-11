@@ -12,8 +12,10 @@ import Button from '../components/common/Button';
 import { useAuth } from '../contexts/AuthContext';
 import type { DashboardStats } from '../types/models';
 import { showSuccessToast, showErrorToast } from '../utils/toast';
+import { useTranslation } from 'react-i18next';
 
 const Dashboard = () => {
+  const { t } = useTranslation();
   const { sales, loading: salesLoading } = useSales();
   const { expenses, loading: expensesLoading } = useExpenses();
   const { products, loading: productsLoading } = useProducts();
@@ -152,9 +154,9 @@ const Dashboard = () => {
 
   // Table columns for best selling products
   const bestProductColumns = [
-    { header: 'Product', accessor: (row: any) => row.name },
-    { header: 'Quantity Sold', accessor: (row: any) => row.quantity },
-    { header: 'Total Sales', accessor: (row: any) => `${row.sales.toLocaleString()} XAF` },
+    { header: t('dashboard.bestSellingProducts.product'), accessor: (row: any) => row.name },
+    { header: t('dashboard.bestSellingProducts.quantitySold'), accessor: (row: any) => row.quantity },
+    { header: t('dashboard.bestSellingProducts.totalSales'), accessor: (row: any) => `${row.sales.toLocaleString()} XAF` },
   ];
 
   return (
@@ -165,10 +167,10 @@ const Dashboard = () => {
           <div className="flex flex-col gap-4">
             <div>
               <h2 className="text-lg font-semibold text-gray-900 mb-1">
-                Page Publique des Produits
+                {t('dashboard.publicProducts.title')}
               </h2>
               <p className="text-sm text-gray-600">
-                Partagez le lien de votre catalogue de produits avec vos clients
+                {t('dashboard.publicProducts.description')}
               </p>
             </div>
             <div className="flex flex-col gap-4">
@@ -184,7 +186,7 @@ const Dashboard = () => {
                     <button
                       onClick={handleCopyLink}
                       className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                      title="Copier le lien"
+                      title={t('dashboard.publicProducts.copyLink')}
                     >
                       {copied ? (
                         <Check className="h-5 w-5 text-emerald-500" />
@@ -195,23 +197,22 @@ const Dashboard = () => {
                   </div>
                 </div>
                 <div className="flex gap-2 sm:w-auto">
-                  <Button
-                    variant="outline"
-                    onClick={handleShareLink}
-                    className="flex-1 sm:flex-none whitespace-nowrap"
-                  >
-                    <ExternalLink className="h-4 w-4 mr-2" />
-                    Partager
-                  </Button>
                   <a
                     href={productPageUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex-1 sm:flex-none inline-flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
+                    className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
                   >
-                    <ExternalLink className="h-4 w-4 mr-2" />
-                    Ouvrir
+                    <ExternalLink className="h-4 w-4" />
+                    {t('dashboard.publicProducts.open')}
                   </a>
+                  <button
+                    onClick={handleShareLink}
+                    className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    {t('dashboard.publicProducts.share')}
+                  </button>
                 </div>
               </div>
             </div>
@@ -220,60 +221,67 @@ const Dashboard = () => {
       )}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0 mb-6 mt-6">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
-          <p className="text-gray-600">Welcome back! Here's what's happening with your business today.</p>
+          <h1 className="text-2xl font-semibold text-gray-900">{t('dashboard.title')}</h1>
+          <p className="text-gray-600">{t('dashboard.welcome')}</p>
         </div>
         <Button
           variant="outline"
           icon={<Info size={16} />}
           onClick={() => setShowCalculationsModal(true)}
         >
-          How are these calculated?
+          {t('dashboard.howCalculated')}
         </Button>
       </div>
       {/* Stats section */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <StatCard 
-          title="Gross Profit"
+          title={t('dashboard.stats.grossProfit')}
           value={`${grossProfit.toLocaleString()} XAF`}
-          icon={<BarChart2 size={24} />}
-          tooltip="Total revenue minus cost of goods sold. For each product: (Selling Price - Cost Price) × Quantity Sold"
+          icon={<BarChart2 size={20} />}
+          tooltipKey="grossProfit"
+          type="profit"
         />
         <StatCard 
-          title="Net Profit"
+          title={t('dashboard.stats.netProfit')}
           value={`${netProfit.toLocaleString()} XAF`}
-          icon={<TrendingUp size={24} />}
-          tooltip="Gross Profit minus all expenses (including delivery, utilities, etc.)"
+          icon={<TrendingUp size={20} />}
+          tooltipKey="netProfit"
+          type="profit"
         />
         <StatCard 
-          title="Total Expenses"
+          title={t('dashboard.stats.totalExpenses')}
           value={`${totalExpenses.toLocaleString()} XAF`}
-          icon={<Receipt size={24} />}
-          tooltip="Sum of all business expenses across all categories"
+          icon={<Receipt size={20} />}
+          tooltipKey="totalExpenses"
+          type="expenses"
         />
         <StatCard 
-          title="Total Orders"
+          title={t('dashboard.stats.totalOrders')}
           value={totalOrders}
-          icon={<Package2 size={24} />}
-          tooltip="Total number of sales transactions recorded"
+          icon={<Package2 size={20} />}
+          tooltipKey="totalOrders"
+          type="orders"
         />
         <StatCard 
-          title="Delivery Expenses"
+          title={t('dashboard.stats.deliveryExpenses')}
           value={`${totalDeliveryExpenses.toLocaleString()} XAF`}
-          icon={<DollarSign size={24} />}
-          tooltip="Sum of all expenses categorized as 'delivery'"
+          icon={<DollarSign size={20} />}
+          tooltipKey="deliveryExpenses"
+          type="delivery"
         />
         <StatCard 
-          title="Total Sales (Amount)"
+          title={t('dashboard.stats.totalSalesAmount')}
           value={`${totalSalesAmount.toLocaleString()} XAF`}
-          icon={<ShoppingCart size={24} />}
-          tooltip="Sum of all sales amounts, including negotiated prices"
+          icon={<ShoppingCart size={20} />}
+          tooltipKey="totalSalesAmount"
+          type="sales"
         />
         <StatCard 
-          title="Total Sales (Count)"
+          title={t('dashboard.stats.totalSalesCount')}
           value={totalOrders}
-          icon={<ShoppingCart size={24} />}
-          tooltip="Total number of sales transactions (same as Total Orders)"
+          icon={<ShoppingCart size={20} />}
+          tooltipKey="totalSalesCount"
+          type="sales"
         />
       </div>
       {/* Chart section */}
@@ -286,12 +294,12 @@ const Dashboard = () => {
       </div>
       {/* Best Selling Products Table */}
       <div className="mb-6">
-        <Card title="Best Selling Products">
+        <Card title={t('dashboard.bestSellingProducts.title')}>
           <Table
             data={bestSellingProducts}
             columns={bestProductColumns}
             keyExtractor={row => row.name}
-            emptyMessage="No sales data available"
+            emptyMessage={t('dashboard.bestSellingProducts.noData')}
           />
         </Card>
       </div>
@@ -303,87 +311,71 @@ const Dashboard = () => {
       <Modal
         isOpen={showCalculationsModal}
         onClose={() => setShowCalculationsModal(false)}
-        title="Dashboard Calculations Explained"
+        title={t('dashboard.calculations.title')}
         size="lg"
       >
         <div className="space-y-6">
           <div className="bg-gray-50 p-4 rounded-lg">
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Gross Profit</h3>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">{t('dashboard.calculations.grossProfit.title')}</h3>
             <p className="text-gray-600">
-              Gross profit is calculated by subtracting the cost price from the selling price for each product sold, then multiplying by the quantity sold.
+              {t('dashboard.calculations.grossProfit.description')}
               <br /><br />
-              Formula: Σ((Selling Price - Cost Price) × Quantity Sold) for each product in each sale
+              {t('dashboard.calculations.grossProfit.formula')}
               <br /><br />
-              Example: If you sell 5 units of a product that costs 1000 XAF and sells for 1500 XAF:
-              <br />
-              Gross Profit = (1500 - 1000) × 5 = 2500 XAF
+              {t('dashboard.calculations.grossProfit.example')}
             </p>
           </div>
 
           <div className="bg-gray-50 p-4 rounded-lg">
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Net Profit</h3>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">{t('dashboard.calculations.netProfit.title')}</h3>
             <p className="text-gray-600">
-              Net profit is the gross profit minus all business expenses.
+              {t('dashboard.calculations.netProfit.description')}
               <br /><br />
-              Formula: Gross Profit - Total Expenses
+              {t('dashboard.calculations.netProfit.formula')}
               <br /><br />
-              Example: If your gross profit is 100,000 XAF and total expenses are 30,000 XAF:
-              <br />
-              Net Profit = 100,000 - 30,000 = 70,000 XAF
+              {t('dashboard.calculations.netProfit.example')}
             </p>
           </div>
 
           <div className="bg-gray-50 p-4 rounded-lg">
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Total Expenses</h3>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">{t('dashboard.calculations.totalExpenses.title')}</h3>
             <p className="text-gray-600">
-              The sum of all business expenses across all categories.
+              {t('dashboard.calculations.totalExpenses.description')}
               <br /><br />
-              Formula: Σ(Expense Amount) for all expenses
+              {t('dashboard.calculations.totalExpenses.formula')}
               <br /><br />
-              This includes all types of expenses such as:
-              <br />
-              - Delivery expenses
-              <br />
-              - Utility bills
-              <br />
-              - Rent
-              <br />
-              - Other operational costs
+              {t('dashboard.calculations.totalExpenses.includes')}
             </p>
           </div>
 
           <div className="bg-gray-50 p-4 rounded-lg">
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Total Sales Amount</h3>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">{t('dashboard.calculations.totalSalesAmount.title')}</h3>
             <p className="text-gray-600">
-              The total revenue from all sales, including any negotiated prices.
+              {t('dashboard.calculations.totalSalesAmount.description')}
               <br /><br />
-              Formula: Σ(Sale Amount) for each sale
+              {t('dashboard.calculations.totalSalesAmount.formula')}
               <br /><br />
-              Note: If a product was sold at a negotiated price, that price is used instead of the standard selling price.
+              {t('dashboard.calculations.totalSalesAmount.note')}
             </p>
           </div>
 
           <div className="bg-gray-50 p-4 rounded-lg">
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Delivery Expenses</h3>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">{t('dashboard.calculations.deliveryExpenses.title')}</h3>
             <p className="text-gray-600">
-              The sum of all expenses categorized as 'delivery'.
+              {t('dashboard.calculations.deliveryExpenses.description')}
               <br /><br />
-              Formula: Σ(Expense Amount) for all expenses with category = 'delivery'
+              {t('dashboard.calculations.deliveryExpenses.formula')}
             </p>
           </div>
 
           <div className="bg-gray-50 p-4 rounded-lg">
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Best Selling Products</h3>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">{t('dashboard.calculations.bestSellingProducts.title')}</h3>
             <p className="text-gray-600">
-              Products are ranked by the total quantity sold.
+              {t('dashboard.calculations.bestSellingProducts.description')}
               <br /><br />
-              For each product:
-              <br />
-              - Total Quantity = Σ(Quantity Sold) across all sales
-              <br />
-              - Total Sales = Σ(Selling Price × Quantity Sold) across all sales
+              {t('dashboard.calculations.bestSellingProducts.formula')}
               <br /><br />
-              Products are then sorted by total quantity in descending order.
+              {t('dashboard.calculations.bestSellingProducts.note')}
             </p>
           </div>
         </div>
