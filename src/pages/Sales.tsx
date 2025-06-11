@@ -41,6 +41,7 @@ const Sales = () => {
   const [formData, setFormData] = useState({
     customerName: '',
     customerPhone: '',
+    customerQuarter: '',
     status: 'commande' as OrderStatus,
     deliveryFee: '',
     products: [{ product: null, quantity: '', negotiatedPrice: '' }] as FormProduct[]
@@ -52,10 +53,9 @@ const Sales = () => {
   };
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.replace(/\D/g, ''); // Remove non-digits
-    if (value.length <= 9) { // Only allow 9 digits after +237
-      setFormData(prev => ({ ...prev, customerPhone: value }));
-    }
+    // Remove all non-digit characters
+    const value = e.target.value.replace(/\D/g, '');
+    setFormData(prev => ({ ...prev, customerPhone: value }));
   };
 
   const handleProductChange = (index: number, option: any) => {
@@ -99,6 +99,7 @@ const Sales = () => {
     setFormData({
       customerName: '',
       customerPhone: '',
+      customerQuarter: '',
       status: 'commande' as OrderStatus,
       deliveryFee: '',
       products: [{ product: null, quantity: '', negotiatedPrice: '' }]
@@ -190,14 +191,17 @@ const Sales = () => {
         negotiatedPrice: p.negotiatedPrice ? parseFloat(p.negotiatedPrice) : p.product!.sellingPrice,
       }));
 
+      const customerInfo = {
+        name: formData.customerName,
+        phone: formData.customerPhone,
+        ...(formData.customerQuarter && { quarter: formData.customerQuarter })
+      };
+
       const newSale = await addSale({
         products: saleProducts,
         totalAmount,
         status: formData.status,
-        customerInfo: {
-          name: formData.customerName,
-          phone: formData.customerPhone
-        },
+        customerInfo,
         deliveryFee: formData.deliveryFee ? parseFloat(formData.deliveryFee) : 0,
         paymentStatus: 'pending',
         userId: user.uid
@@ -244,7 +248,6 @@ const Sales = () => {
       setIsSubmitting(true);
       const totalAmount = calculateTotal();
 
-      // Create the updated sale products array
       const saleProducts: SaleProduct[] = formData.products.map(p => ({
         productId: p.product!.id,
         quantity: parseInt(p.quantity),
@@ -252,15 +255,18 @@ const Sales = () => {
         negotiatedPrice: p.negotiatedPrice ? parseFloat(p.negotiatedPrice) : undefined,
       }));
 
+      const customerInfo = {
+        name: formData.customerName,
+        phone: formData.customerPhone,
+        ...(formData.customerQuarter && { quarter: formData.customerQuarter })
+      };
+
       // Prepare the update data
       const updateData: Partial<Sale> = {
         products: saleProducts,
         totalAmount,
         status: formData.status,
-        customerInfo: {
-          name: formData.customerName,
-          phone: formData.customerPhone
-        },
+        customerInfo,
         deliveryFee: formData.deliveryFee ? parseFloat(formData.deliveryFee) : 0,
       };
 
@@ -286,6 +292,7 @@ const Sales = () => {
     setFormData({
       customerName: sale.customerInfo.name,
       customerPhone: sale.customerInfo.phone,
+      customerQuarter: sale.customerInfo.quarter || '',
       status: sale.status,
       deliveryFee: sale.deliveryFee?.toString() || '',
       products: sale.products.map(p => {
@@ -605,34 +612,40 @@ const Sales = () => {
         }
       >
         <div className="space-y-6">
-          <div className="grid grid-cols-2 gap-4">
-            <Input
-              label="Customer Name"
-              name="customerName"
-              value={formData.customerName}
-              onChange={handleInputChange}
-              required
-            />
-            
+          {/* Customer Information Section */}
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Input
+                label="Customer Name"
+                name="customerName"
+                value={formData.customerName}
+                onChange={handleInputChange}
+                required
+              />
+              
+              <Input
+                label="Customer Quarter"
+                name="customerQuarter"
+                value={formData.customerQuarter}
+                onChange={handleInputChange}
+                placeholder="Enter customer's quarter"
+              />
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Customer Phone
               </label>
-              <div className="flex rounded-md shadow-sm">
-                <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 sm:text-sm">
-                  +237
-                </span>
-                <Input
-                  type="tel"
-                  name="customerPhone"
-                  value={formData.customerPhone}
-                  onChange={handlePhoneChange}
-                  placeholder="678904568"
-                  className="flex-1 rounded-l-none"
-                  required
-                  helpText="Enter 9 digits after +237"
-                />
-              </div>
+              <Input
+                type="tel"
+                name="customerPhone"
+                value={formData.customerPhone}
+                onChange={handlePhoneChange}
+                placeholder="Enter phone number"
+                className="w-full"
+                required
+                helpText="Enter or paste any phone number format"
+              />
             </div>
           </div>
           
@@ -844,35 +857,41 @@ const Sales = () => {
         }
       >
         <div className="space-y-6">
-          <div className="grid grid-cols-2 gap-4">
-          <Input
-            label="Customer Name"
-            name="customerName"
-            value={formData.customerName}
-            onChange={handleInputChange}
-            required
-          />
-            
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Customer Phone
-            </label>
-            <div className="flex rounded-md shadow-sm">
-              <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 sm:text-sm">
-                +237
-              </span>
+          {/* Customer Information Section */}
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Input
+                label="Customer Name"
+                name="customerName"
+                value={formData.customerName}
+                onChange={handleInputChange}
+                required
+              />
+              
+              <Input
+                label="Customer Quarter"
+                name="customerQuarter"
+                value={formData.customerQuarter}
+                onChange={handleInputChange}
+                placeholder="Enter customer's quarter"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Customer Phone
+              </label>
               <Input
                 type="tel"
                 name="customerPhone"
                 value={formData.customerPhone}
                 onChange={handlePhoneChange}
-                placeholder="678904568"
-                className="flex-1 rounded-l-none"
+                placeholder="Enter phone number"
+                className="w-full"
                 required
-                helpText="Enter 9 digits after +237"
+                helpText="Enter or paste any phone number format"
               />
             </div>
-          </div>
           </div>
 
           {/* Products Section */}
@@ -969,28 +988,28 @@ const Sales = () => {
           </div>
           
           <div className="grid grid-cols-2 gap-4">
-          <Input
-            label="Delivery Fee"
-            name="deliveryFee"
-            type="number"
-            value={formData.deliveryFee}
-            onChange={handleInputChange}
-          />
+            <Input
+              label="Delivery Fee"
+              name="deliveryFee"
+              type="number"
+              value={formData.deliveryFee}
+              onChange={handleInputChange}
+            />
             
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Status
               </label>
-          <select
-            name="status"
-            className="w-full rounded-md border border-gray-300 shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-            value={formData.status}
-            onChange={handleInputChange}
-          >
-            <option value="commande">Commande</option>
-            <option value="under_delivery">Under Delivery</option>
-            <option value="paid">Paid</option>
-          </select>
+              <select
+                name="status"
+                className="w-full rounded-md border border-gray-300 shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                value={formData.status}
+                onChange={handleInputChange}
+              >
+                <option value="commande">Commande</option>
+                <option value="under_delivery">Under Delivery</option>
+                <option value="paid">Paid</option>
+              </select>
             </div>
           </div>
         </div>

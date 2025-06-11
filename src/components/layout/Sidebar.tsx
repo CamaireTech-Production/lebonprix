@@ -46,6 +46,7 @@ const Sidebar = ({ onClose }: SidebarProps) => {
             <li key={item.path}>
               <Link
                 to={item.path}
+                onClick={onClose}
                 className={`
                   flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors
                   ${isActive(item.path)

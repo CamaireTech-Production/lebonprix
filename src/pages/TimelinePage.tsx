@@ -107,6 +107,9 @@ const TimelinePage = () => {
             <h2 className="text-lg font-semibold mb-2 text-emerald-700">Customer</h2>
             <p className="text-sm text-gray-600">{saleDetails.customerInfo.name}</p>
             <p className="text-sm text-gray-600">{saleDetails.customerInfo.phone}</p>
+            {saleDetails.customerInfo.quarter && (
+              <p className="text-sm text-gray-600">Quartier: {saleDetails.customerInfo.quarter}</p>
+            )}
           </div>
 
           {/* Order Info */}

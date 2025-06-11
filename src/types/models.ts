@@ -50,6 +50,7 @@ export interface Sale extends BaseModel {
   customerInfo: {
     name: string;
     phone: string;
+    quarter?: string;
   };
   deliveryFee?: number;
   statusHistory?: Array<{ status: string; timestamp: string }>;

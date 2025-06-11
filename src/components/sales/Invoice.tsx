@@ -63,6 +63,9 @@ const Invoice = ({ sale, products }: InvoiceProps) => {
         <div className="bg-gray-50 p-3 md:p-4 rounded-lg">
           <p className="font-medium text-gray-900">{sale.customerInfo.name}</p>
           <p className="text-sm md:text-base text-gray-600">Tel: {sale.customerInfo.phone}</p>
+          {sale.customerInfo.quarter && (
+            <p className="text-sm md:text-base text-gray-600">Quartier: {sale.customerInfo.quarter}</p>
+          )}
         </div>
       </div>
 
