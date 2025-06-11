@@ -15,6 +15,7 @@ import { showSuccessToast, showErrorToast, showWarningToast } from '../utils/toa
 import Invoice from '../components/sales/Invoice';
 import { generatePDF } from '../utils/pdf';
 import { useAuth } from '../contexts/AuthContext';
+import { useTranslation } from 'react-i18next';
 
 interface FormProduct {
   product: Product | null;
@@ -23,6 +24,7 @@ interface FormProduct {
 }
 
 const Sales = () => {
+  const { t } = useTranslation();
   const { sales, loading: salesLoading, error: salesError, addSale, updateSale } = useSales();
   const { products, loading: productsLoading } = useProducts();
   const { user } = useAuth();
@@ -122,41 +124,34 @@ const Sales = () => {
   const validateForm = () => {
     const errors: Record<string, string> = {};
 
-    // Validate customer info
     if (!formData.customerName.trim()) {
-      errors.customerName = 'Customer name is required.';
+      errors.customerName = t('sales.messages.warnings.customerName');
     }
     if (!formData.customerPhone.trim()) {
-      errors.customerPhone = 'Customer phone is required.';
+      errors.customerPhone = t('sales.messages.warnings.customerPhone');
     }
 
-    // Validate products
     formData.products.forEach((product, index) => {
       if (!product.product) {
-        errors[`product_${index}`] = 'Please select a product.';
+        errors[`product_${index}`] = t('sales.messages.warnings.productRequired');
       }
 
       const quantity = parseInt(product.quantity);
-    if (isNaN(quantity) || quantity <= 0) {
-        errors[`quantity_${index}`] = 'Quantity must be greater than zero.';
+      if (isNaN(quantity) || quantity <= 0) {
+        errors[`quantity_${index}`] = t('sales.messages.warnings.quantityInvalid');
       } else if (product.product && quantity > product.product.stock) {
-        errors[`quantity_${index}`] = `Cannot exceed available stock (${product.product.stock}).`;
-    }
+        errors[`quantity_${index}`] = t('sales.messages.warnings.quantityExceeded', { stock: product.product.stock });
+      }
 
       const negotiatedPrice = parseFloat(product.negotiatedPrice);
-    if (
-      !isNaN(negotiatedPrice) &&
-        product.product &&
-        negotiatedPrice > product.product.sellingPrice
-    ) {
-        errors[`price_${index}`] = 'Negotiated price cannot exceed the standard selling price.';
-    }
+      if (!isNaN(negotiatedPrice) && product.product && negotiatedPrice > product.product.sellingPrice) {
+        errors[`price_${index}`] = t('sales.messages.warnings.priceExceeded');
+      }
     });
 
-    // Validate delivery fee
     const deliveryFee = parseFloat(formData.deliveryFee);
     if (!isNaN(deliveryFee) && deliveryFee < 0) {
-      errors.deliveryFee = 'Delivery fee must be a non-negative number.';
+      errors.deliveryFee = t('sales.messages.warnings.deliveryFeeInvalid');
     }
 
     return errors;
@@ -176,7 +171,7 @@ const Sales = () => {
     }
 
     if (!user) {
-      showErrorToast('You must be logged in to create a sale');
+      showErrorToast(t('sales.messages.errors.notLoggedIn'));
       return;
     }
 
@@ -212,11 +207,11 @@ const Sales = () => {
         setIsAddModalOpen(false);
         resetForm();
         handleGenerateLink(newSale.id);
-        showSuccessToast('Sale added successfully!');
+        showSuccessToast(t('sales.messages.saleAdded'));
       }
     } catch (err) {
       console.error('Failed to add sale:', err);
-      showErrorToast('Failed to add sale. Please try again.');
+      showErrorToast(t('sales.messages.errors.addSale'));
     } finally {
       setIsSubmitting(false);
     }
@@ -277,10 +272,10 @@ const Sales = () => {
       setIsEditModalOpen(false);
       setCurrentSale(null);
       resetForm();
-      showSuccessToast('Sale updated successfully!');
+      showSuccessToast(t('sales.messages.saleUpdated'));
     } catch (err) {
       console.error('Failed to update sale:', err);
-      showErrorToast(err instanceof Error ? err.message : 'Failed to update sale. Please try again.');
+      showErrorToast(t('sales.messages.errors.updateSale'));
     } finally {
       setIsSubmitting(false);
     }
@@ -309,9 +304,9 @@ const Sales = () => {
   
   const handleCopyLink = (saleId: string) => {
     const link = `${window.location.origin}/track/${saleId}`;
-    const message = `Bonjour! 👋\n\nSuivez l'état de votre commande en temps réel via ce lien :\n${link}\n\nMerci de votre confiance! 🙏\n\nPour toute question, n'hésitez pas à nous contacter.`;
+    const message = t('sales.modals.link.message.preview', { link });
     navigator.clipboard.writeText(message).then(() => {
-      showSuccessToast('Message copié avec succès!');
+      showSuccessToast(t('sales.messages.messageCopied'));
     });
   };
 
@@ -333,7 +328,7 @@ const Sales = () => {
             title: `Facture - ${sale.customerInfo.name}`,
             text: `Facture pour la commande de ${sale.customerInfo.name}`,
           });
-          showSuccessToast('Facture partagée avec succès!');
+          showSuccessToast(t('sales.messages.invoiceShared'));
         } catch (err) {
           if (err instanceof Error && err.name !== 'AbortError') {
             // If sharing fails, fall back to download
@@ -345,7 +340,7 @@ const Sales = () => {
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
-            showSuccessToast('Facture téléchargée avec succès!');
+            showSuccessToast(t('sales.messages.invoiceDownloaded'));
           }
         }
       } else {
@@ -358,21 +353,21 @@ const Sales = () => {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-        showSuccessToast('Facture téléchargée avec succès!');
+        showSuccessToast(t('sales.messages.invoiceDownloaded'));
       }
     } catch (error) {
       console.error('Error sharing invoice:', error);
-      showErrorToast('Erreur lors du partage de la facture');
+      showErrorToast(t('sales.messages.errors.shareInvoice'));
     }
   };
 
   const columns: Column<Sale>[] = [
     {
-      header: 'Nom',
+      header: t('sales.table.columns.name'),
       accessor: (sale: Sale) => sale.customerInfo.name,
     },
     {
-      header: 'Numéro Client',
+      header: t('sales.table.columns.phone'),
       accessor: (sale: Sale) => (
         <a href={`tel:${sale.customerInfo.phone}`} className="text-blue-600 hover:underline">
           {sale.customerInfo.phone}
@@ -380,50 +375,53 @@ const Sales = () => {
       ),
     },
     {
-      header: 'Produits',
+      header: t('sales.table.columns.products'),
       accessor: (sale: Sale) => (
         <span className="text-sm text-gray-600">
-          {sale.products.length} {sale.products.length === 1 ? 'produit' : 'produits'}
+          {t('sales.table.productCount', { count: sale.products.length, defaultValue: `${sale.products.length} products` })}
         </span>
       ),
     },
     {
-      header: 'Montant',
+      header: t('sales.table.columns.amount'),
       accessor: (sale: Sale) => (
         <span>{sale.totalAmount.toLocaleString()} XAF</span>
       ),
     },
     {
-      header: 'Status',
+      header: t('sales.table.columns.status'),
       accessor: (sale: Sale) => {
         let variant: 'success' | 'warning' | 'info' = 'warning';
         if (sale.status === 'paid') variant = 'success';
         if (sale.status === 'under_delivery') variant = 'info';
 
-        return <Badge variant={variant}>{sale.status}</Badge>;
+        return <Badge variant={variant}>{t(`sales.filters.status.${sale.status}`)}</Badge>;
       }
     },
     {
-      header: 'Actions',
+      header: t('sales.table.columns.actions'),
       accessor: (sale: Sale) => (
         <div className="flex space-x-2">
           <button
             onClick={() => handleViewSale(sale)}
             className="text-blue-600 hover:text-blue-900"
+            title={t('sales.actions.viewSale')}
           >
             <Eye size={16} />
           </button>
           <button
             onClick={() => handleEditClick(sale)}
             className="text-indigo-600 hover:text-indigo-900"
+            title={t('sales.actions.editSale')}
           >
             <Edit2 size={16} />
           </button>
           <button
             onClick={() => handleCopyLink(sale.id)}
             className="text-green-600 hover:text-green-900"
+            title={t('sales.actions.copyLink')}
           >
-            Copy Link
+            {t('sales.actions.copyLink')}
           </button>
         </div>
       ),
@@ -435,13 +433,13 @@ const Sales = () => {
   }
 
   if (salesError) {
-    showErrorToast('Failed to load sales. Please refresh the page.');
+    showErrorToast(t('sales.messages.errors.loadSales'));
     return null;
   }
 
   const availableProducts = products?.filter(p => p.isAvailable && p.stock > 0) || [];
   const productOptions = availableProducts.map(product => ({
-    label: `${product.name} (${product.stock} in stock)`,
+    label: `${product.name} (${product.stock} ${t('sales.modals.add.products.inStock')})`,
     value: product
   }));
 
@@ -449,8 +447,8 @@ const Sales = () => {
     <div className="pb-16 md:pb-0">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Sales</h1>
-          <p className="text-gray-600">Manage your sales transactions</p>
+          <h1 className="text-2xl font-semibold text-gray-900">{t('sales.title')}</h1>
+          <p className="text-gray-600">{t('sales.subtitle')}</p>
         </div>
 
         <div className="mt-4 md:mt-0 flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
@@ -459,16 +457,16 @@ const Sales = () => {
             onChange={handleFilterChange}
             value={filterStatus || ''}
           >
-            <option value="">All Statuses</option>
-            <option value="commande">Commande</option>
-            <option value="under_delivery">Under Delivery</option>
-            <option value="paid">Paid</option>
+            <option value="">{t('sales.filters.allStatuses')}</option>
+            <option value="commande">{t('sales.filters.status.commande')}</option>
+            <option value="under_delivery">{t('sales.filters.status.under_delivery')}</option>
+            <option value="paid">{t('sales.filters.status.paid')}</option>
           </select>
           <Button
             icon={<Plus size={16} />}
             onClick={() => setIsAddModalOpen(true)}
           >
-            Add Sale
+            {t('sales.actions.addSale')}
           </Button>
         </div>
       </div>
@@ -478,7 +476,7 @@ const Sales = () => {
           data={filteredSales || []}
           columns={columns}
           keyExtractor={(sale) => sale.id}
-          emptyMessage="No sales records found"
+          emptyMessage={t('sales.table.emptyMessage')}
         />
       </Card>
       
@@ -486,7 +484,7 @@ const Sales = () => {
       <Modal
         isOpen={isViewModalOpen}
         onClose={() => setIsViewModalOpen(false)}
-        title="Sale Details"
+        title={t('sales.modals.view.title')}
         size="lg"
       >
         {viewedSale && (
@@ -498,14 +496,14 @@ const Sales = () => {
                 icon={<Download size={16} />}
                 onClick={() => generatePDF('invoice-content', `facture-${viewedSale.id}`)}
               >
-                Télécharger PDF
+                {t('sales.modals.view.actions.downloadPDF')}
               </Button>
               <Button
                 variant="outline"
                 icon={<Share size={16} />}
                 onClick={() => handleShareInvoice(viewedSale)}
               >
-                Partager Facture
+                {t('sales.modals.view.actions.shareInvoice')}
               </Button>
             </div>
 
@@ -519,14 +517,14 @@ const Sales = () => {
             {/* Customer Information Card */}
             <Card>
               <div className="p-4">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Customer Information</h3>
+                <h3 className="text-lg font-medium text-gray-900 mb-4">{t('sales.modals.view.customerInfo.title')}</h3>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <p className="text-sm font-medium text-gray-500">Name</p>
+                    <p className="text-sm font-medium text-gray-500">{t('sales.modals.view.customerInfo.name')}</p>
                     <p className="mt-1 text-sm text-gray-900">{viewedSale.customerInfo.name}</p>
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-gray-500">Phone</p>
+                    <p className="text-sm font-medium text-gray-500">{t('sales.modals.view.customerInfo.phone')}</p>
                     <a 
                       href={`tel:${viewedSale.customerInfo.phone}`}
                       className="mt-1 text-sm text-blue-600 hover:text-blue-900"
@@ -541,8 +539,8 @@ const Sales = () => {
             {/* Products Card */}
             <Card>
               <div className="p-4">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Products</h3>
-          <div className="space-y-4">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">{t('sales.modals.view.products.title')}</h3>
+                <div className="space-y-4">
                   {viewedSale.products.map((product, index) => {
                     const productData = products?.find(p => p.id === product.productId);
                     return (
@@ -550,21 +548,21 @@ const Sales = () => {
                         <div className="flex justify-between items-start">
                           <div>
                             <p className="font-medium text-gray-900">{productData?.name}</p>
-                            <p className="text-sm text-gray-500">Quantity: {product.quantity}</p>
+                            <p className="text-sm text-gray-500">{t('sales.modals.view.products.quantity')}: {product.quantity}</p>
                           </div>
                           <div className="text-right">
-                            <p className="text-sm text-gray-500">Base Price</p>
+                            <p className="text-sm text-gray-500">{t('sales.modals.view.products.basePrice')}</p>
                             <p className="font-medium text-gray-900">{product.basePrice.toLocaleString()} XAF</p>
                             {product.negotiatedPrice && (
                               <>
-                                <p className="text-sm text-gray-500 mt-1">Negotiated Price</p>
+                                <p className="text-sm text-gray-500 mt-1">{t('sales.modals.view.products.negotiatedPrice')}</p>
                                 <p className="font-medium text-emerald-600">{product.negotiatedPrice.toLocaleString()} XAF</p>
                               </>
                             )}
                           </div>
                         </div>
                         <div className="mt-2 pt-2 border-t border-gray-200">
-                          <p className="text-sm text-gray-500">Product Total</p>
+                          <p className="text-sm text-gray-500">{t('sales.modals.view.products.productTotal')}</p>
                           <p className="font-medium text-emerald-600">
                             {((product.negotiatedPrice || product.basePrice) * product.quantity).toLocaleString()} XAF
                           </p>
@@ -579,21 +577,21 @@ const Sales = () => {
             {/* Order Summary Card */}
             <Card>
               <div className="p-4">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Order Summary</h3>
+                <h3 className="text-lg font-medium text-gray-900 mb-4">{t('sales.modals.view.orderSummary.title')}</h3>
                 <div className="space-y-3">
                   <div className="flex justify-between">
-                    <p className="text-sm text-gray-500">Subtotal</p>
+                    <p className="text-sm text-gray-500">{t('sales.modals.view.orderSummary.subtotal')}</p>
                     <p className="text-sm text-gray-900">{viewedSale.totalAmount.toLocaleString()} XAF</p>
                   </div>
                   {(viewedSale.deliveryFee ?? 0) > 0 && (
                     <div className="flex justify-between">
-                      <p className="text-sm text-gray-500">Delivery Fee</p>
+                      <p className="text-sm text-gray-500">{t('sales.modals.view.orderSummary.deliveryFee')}</p>
                       <p className="text-sm text-gray-900">{viewedSale.deliveryFee?.toLocaleString()} XAF</p>
                     </div>
                   )}
                   <div className="pt-3 border-t border-gray-200">
                     <div className="flex justify-between">
-                      <p className="font-medium text-gray-900">Total Amount</p>
+                      <p className="font-medium text-gray-900">{t('sales.modals.view.orderSummary.totalAmount')}</p>
                       <p className="font-medium text-emerald-600">
                         {(viewedSale.totalAmount + (viewedSale.deliveryFee ?? 0)).toLocaleString()} XAF
                       </p>
@@ -606,23 +604,23 @@ const Sales = () => {
             {/* Status Information */}
             <div className="flex justify-between items-center">
               <div>
-                <p className="text-sm font-medium text-gray-500">Order Status</p>
+                <p className="text-sm font-medium text-gray-500">{t('sales.modals.view.status.orderStatus')}</p>
                 <Badge variant={
                   viewedSale.status === 'paid' ? 'success' :
                   viewedSale.status === 'under_delivery' ? 'info' : 'warning'
                 }>
-                  {viewedSale.status}
+                  {t(`sales.filters.status.${viewedSale.status}`)}
                 </Badge>
               </div>
-              <div>
-                <p className="text-sm font-medium text-gray-500">Payment Status</p>
+              {/* <div>
+                <p className="text-sm font-medium text-gray-500">{t('sales.modals.view.status.paymentStatus')}</p>
                 <Badge variant={
                   viewedSale.paymentStatus === 'paid' ? 'success' :
                   viewedSale.paymentStatus === 'cancelled' ? 'error' : 'warning'
                 }>
-                  {viewedSale.paymentStatus}
+                  {t(`sales.filters.status.${viewedSale.paymentStatus}`)}
                 </Badge>
-              </div>
+              </div> */}
             </div>
 
             {/* Action Buttons */}
@@ -634,7 +632,7 @@ const Sales = () => {
                   setIsViewModalOpen(false);
                 }}
               >
-                Copy Tracking Link
+                {t('sales.modals.view.actions.copyTrackingLink')}
               </Button>
               <Button
                 onClick={() => {
@@ -642,7 +640,7 @@ const Sales = () => {
                   setIsViewModalOpen(false);
                 }}
               >
-                Edit Sale
+                {t('sales.modals.view.actions.editSale')}
               </Button>
             </div>
           </div>
@@ -653,12 +651,13 @@ const Sales = () => {
       <Modal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
-        title="Add New Sale"
+        title={t('sales.modals.add.title')}
         footer={
           <ModalFooter 
             onCancel={() => setIsAddModalOpen(false)}
             onConfirm={handleAddSale}
-            confirmText="Add Sale"
+            confirmText={t('sales.actions.addSale')}
+            cancelText={t('sales.modals.common.cancel')}
             isLoading={isSubmitting}
           />
         }
@@ -668,7 +667,7 @@ const Sales = () => {
           <div className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Input
-                label="Customer Name"
+                label={t('sales.modals.add.customerInfo.name')}
                 name="customerName"
                 value={formData.customerName}
                 onChange={handleInputChange}
@@ -676,27 +675,27 @@ const Sales = () => {
               />
               
               <Input
-                label="Customer Quarter"
+                label={t('sales.modals.add.customerInfo.quarter')}
                 name="customerQuarter"
                 value={formData.customerQuarter}
                 onChange={handleInputChange}
-                placeholder="Enter customer's quarter"
+                placeholder={t('sales.modals.add.customerInfo.quarterPlaceholder')}
               />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Customer Phone
+                {t('sales.modals.add.customerInfo.phone')}
               </label>
               <Input
                 type="tel"
                 name="customerPhone"
                 value={formData.customerPhone}
                 onChange={handlePhoneChange}
-                placeholder="Enter phone number"
+                placeholder={t('sales.modals.add.customerInfo.phone')}
                 className="w-full"
                 required
-                helpText="Enter or paste any phone number format"
+                helpText={t('sales.modals.add.customerInfo.phoneHelp')}
               />
             </div>
           </div>
@@ -704,13 +703,13 @@ const Sales = () => {
           {/* Products Section */}
           <div className="space-y-4">
             <div className="flex justify-between items-center">
-              <h3 className="text-lg font-medium text-gray-900">Products</h3>
+              <h3 className="text-lg font-medium text-gray-900">{t('sales.modals.add.products.title')}</h3>
               <Button
                 variant="outline"
                 icon={<Plus size={16} />}
                 onClick={addProductField}
               >
-                Add Product
+                {t('sales.modals.add.products.addProduct')}
               </Button>
             </div>
 
@@ -718,15 +717,15 @@ const Sales = () => {
               <div key={index} className="p-4 border rounded-lg space-y-4">
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Product {index + 1}
-            </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      {t('sales.modals.add.products.product')} {index + 1}
+                    </label>
                     <Select
                       options={productOptions}
                       value={productOptions.find(option => option.value.id === product.product?.id)}
                       onChange={(option) => handleProductChange(index, option)}
                       isSearchable
-                      placeholder="Select a product..."
+                      placeholder={t('sales.modals.add.products.selectPlaceholder')}
                       className="text-sm"
                     />
                   </div>
@@ -744,40 +743,40 @@ const Sales = () => {
                   <>
                     <div className="grid grid-cols-2 gap-4 p-3 bg-gray-50 rounded-md">
                       <div>
-                        <span className="text-sm font-medium text-gray-700">Standard Price:</span>
+                        <span className="text-sm font-medium text-gray-700">{t('sales.modals.add.products.standardPrice')}:</span>
                         <span className="ml-2">{product.product.sellingPrice.toLocaleString()} XAF</span>
                       </div>
                       <div>
-                        <span className="text-sm font-medium text-gray-700">Available Stock:</span>
+                        <span className="text-sm font-medium text-gray-700">{t('sales.modals.add.products.availableStock')}:</span>
                         <span className="ml-2">{product.product.stock}</span>
                       </div>
                     </div>
                     
                     <div className="grid grid-cols-2 gap-4">
                       <Input
-                        label="Quantity"
+                        label={t('sales.modals.add.products.quantity')}
                         type="number"
                         min="1"
                         max={product.product.stock.toString()}
                         value={product.quantity}
                         onChange={(e) => handleProductInputChange(index, 'quantity', e.target.value)}
                         required
-                        helpText={`Cannot exceed ${product.product.stock}`}
+                        helpText={t('sales.modals.add.products.cannotExceed', { stock: product.product.stock })}
                       />
                       
                       <Input
-                        label="Negotiated Price (Optional)"
+                        label={t('sales.modals.add.products.negotiatedPrice')}
                         type="number"
                         max={product.product.sellingPrice.toString()}
                         value={product.negotiatedPrice}
                         onChange={(e) => handleProductInputChange(index, 'negotiatedPrice', e.target.value)}
-                        helpText={`Cannot exceed ${product.product.sellingPrice.toLocaleString()} XAF`}
+                        helpText={t('sales.modals.add.products.cannotExceed', { price: product.product.sellingPrice.toLocaleString() })}
                       />
                     </div>
 
                     {product.quantity && (
                       <div className="p-3 bg-emerald-50 rounded-md">
-                        <span className="text-sm font-medium text-emerald-700">Product Total:</span>
+                        <span className="text-sm font-medium text-emerald-700">{t('sales.modals.add.products.productTotal')}:</span>
                         <span className="ml-2 text-emerald-900">{calculateProductTotal(product).toLocaleString()} XAF</span>
                       </div>
                     )}
@@ -788,7 +787,7 @@ const Sales = () => {
 
             {formData.products.some(p => p.quantity) && (
               <div className="p-4 bg-emerald-50 rounded-md">
-                <span className="text-lg font-medium text-emerald-700">Total Amount:</span>
+                <span className="text-lg font-medium text-emerald-700">{t('sales.modals.add.products.totalAmount')}:</span>
                 <span className="ml-2 text-emerald-900 text-lg">{calculateTotal().toLocaleString()} XAF</span>
               </div>
             )}
@@ -796,27 +795,27 @@ const Sales = () => {
           
           <div className="grid grid-cols-2 gap-4">
             <Input
-              label="Delivery Fee"
+              label={t('sales.modals.add.delivery.fee')}
               name="deliveryFee"
               type="number"
               value={formData.deliveryFee}
               onChange={handleInputChange}
             />
           
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Status
-            </label>
-            <select
-              name="status"
-              className="w-full rounded-md border border-gray-300 shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-              value={formData.status}
-              onChange={handleInputChange}
-            >
-              <option value="commande">Commande</option>
-              <option value="under_delivery">Under Delivery</option>
-              <option value="paid">Paid</option>
-            </select>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {t('sales.modals.add.status.label')}
+              </label>
+              <select
+                name="status"
+                className="w-full rounded-md border border-gray-300 shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                value={formData.status}
+                onChange={handleInputChange}
+              >
+                <option value="commande">{t('sales.filters.status.commande')}</option>
+                <option value="under_delivery">{t('sales.filters.status.under_delivery')}</option>
+                <option value="paid">{t('sales.filters.status.paid')}</option>
+              </select>
             </div>
           </div>
         </div>
@@ -826,18 +825,18 @@ const Sales = () => {
       <Modal
         isOpen={isLinkModalOpen}
         onClose={() => setIsLinkModalOpen(false)}
-        title="Partager le lien de suivi"
+        title={t('sales.modals.link.title')}
         size="lg"
       >
         {shareableLink && currentSale && (
           <div className="space-y-6">
             <div className="bg-emerald-50 p-4 rounded-lg">
-              <p className="text-emerald-700 font-medium">Commande ajoutée avec succès!</p>
+              <p className="text-emerald-700 font-medium">{t('sales.modals.link.success.title')}</p>
               <p className="text-sm text-emerald-600 mt-1">
-                Client: {currentSale.customerInfo.name}
+                {t('sales.modals.link.success.customer')}: {currentSale.customerInfo.name}
               </p>
               <p className="text-sm text-emerald-600">
-                Montant total: {currentSale.totalAmount.toLocaleString()} XAF
+                {t('sales.modals.link.success.totalAmount')}: {currentSale.totalAmount.toLocaleString()} XAF
               </p>
             </div>
 
@@ -848,14 +847,14 @@ const Sales = () => {
                 icon={<Download size={16} />}
                 onClick={() => generatePDF('invoice-content', `facture-${currentSale.id}`)}
               >
-                Télécharger PDF
+                {t('sales.modals.link.actions.downloadPDF')}
               </Button>
               <Button
                 variant="outline"
                 icon={<Share size={16} />}
                 onClick={() => handleShareInvoice(currentSale)}
               >
-                Partager Facture
+                {t('sales.modals.link.actions.shareInvoice')}
               </Button>
             </div>
 
@@ -868,19 +867,12 @@ const Sales = () => {
 
             {/* Shareable Link with Message */}
             <div className="space-y-4 sticky bottom-0 bg-white z-10 pt-2 border-t">
-              <p className="font-medium text-gray-900">Message à partager avec le client :</p>
+              <p className="font-medium text-gray-900">{t('sales.modals.link.message.title')}</p>
               
               {/* Message Preview */}
               <div className="bg-gray-50 p-4 rounded-lg text-sm">
                 <p className="whitespace-pre-line">
-                  Bonjour! 👋
-
-                  Suivez l'état de votre commande en temps réel via ce lien :
-                  {shareableLink}
-
-                  Merci de votre confiance! 🙏
-
-                  Pour toute question, n'hésitez pas à nous contacter.
+                  {t('sales.modals.link.message.preview', { link: shareableLink })}
                 </p>
               </div>
 
@@ -889,26 +881,26 @@ const Sales = () => {
                 <button
                   onClick={() => {
                     navigator.clipboard.writeText(shareableLink);
-                    showSuccessToast('Lien copié!');
+                    showSuccessToast(t('sales.messages.linkCopied'));
                   }}
                   className="flex-1 bg-gray-100 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-200 transition-colors"
                 >
-                  Copier le lien uniquement
+                  {t('sales.modals.link.actions.copyLinkOnly')}
                 </button>
                 <button
                   onClick={() => {
-                    const message = `Salut! 👋\n\nSuivez l'état de votre commande en temps réel via ce lien :\n${shareableLink}\n\nMerci de votre confiance! 🙏\n\nPour toute question, n'hésitez pas à nous contacter.`;
+                    const message = t('sales.modals.link.message.preview', { link: shareableLink });
                     navigator.clipboard.writeText(message);
-                    showSuccessToast('Message copié avec succès!');
+                    showSuccessToast(t('sales.messages.messageCopied'));
                   }}
                   className="flex-1 bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition-colors"
                 >
-                  Copier avec message
+                  {t('sales.modals.link.actions.copyWithMessage')}
                 </button>
               </div>
 
               <p className="text-sm text-gray-500">
-                Le message est formaté pour WhatsApp et inclut un lien de suivi convivial.
+                {t('sales.modals.link.message.help')}
               </p>
             </div>
           </div>
@@ -919,12 +911,13 @@ const Sales = () => {
       <Modal
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
-        title="Edit Sale"
+        title={t('sales.modals.edit.title')}
         footer={
           <ModalFooter
             onCancel={() => setIsEditModalOpen(false)}
             onConfirm={handleEditSale}
-            confirmText="Update Sale"
+            confirmText={t('sales.modals.edit.updateSale')}
+            cancelText={t('sales.modals.common.cancel')}
             isLoading={isSubmitting}
           />
         }
@@ -934,7 +927,7 @@ const Sales = () => {
           <div className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Input
-                label="Customer Name"
+                label={t('sales.modals.edit.customerInfo.name')}
                 name="customerName"
                 value={formData.customerName}
                 onChange={handleInputChange}
@@ -942,27 +935,27 @@ const Sales = () => {
               />
               
               <Input
-                label="Customer Quarter"
+                label={t('sales.modals.edit.customerInfo.quarter')}
                 name="customerQuarter"
                 value={formData.customerQuarter}
                 onChange={handleInputChange}
-                placeholder="Enter customer's quarter"
+                placeholder={t('sales.modals.edit.customerInfo.quarterPlaceholder')}
               />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Customer Phone
+                {t('sales.modals.edit.customerInfo.phone')}
               </label>
               <Input
                 type="tel"
                 name="customerPhone"
                 value={formData.customerPhone}
                 onChange={handlePhoneChange}
-                placeholder="Enter phone number"
+                placeholder={t('sales.modals.edit.customerInfo.phone')}
                 className="w-full"
                 required
-                helpText="Enter or paste any phone number format"
+                helpText={t('sales.modals.edit.customerInfo.phoneHelp')}
               />
             </div>
           </div>
@@ -970,13 +963,13 @@ const Sales = () => {
           {/* Products Section */}
           <div className="space-y-4">
             <div className="flex justify-between items-center">
-              <h3 className="text-lg font-medium text-gray-900">Products</h3>
+              <h3 className="text-lg font-medium text-gray-900">{t('sales.modals.edit.products.title')}</h3>
               <Button
                 variant="outline"
                 icon={<Plus size={16} />}
                 onClick={addProductField}
               >
-                Add Product
+                {t('sales.modals.edit.products.addProduct')}
               </Button>
             </div>
 
@@ -985,14 +978,14 @@ const Sales = () => {
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Product {index + 1}
+                      {t('sales.modals.edit.products.product')} {index + 1}
                     </label>
                     <Select
                       options={productOptions}
                       value={productOptions.find(option => option.value.id === product.product?.id)}
                       onChange={(option) => handleProductChange(index, option)}
                       isSearchable
-                      placeholder="Select a product..."
+                      placeholder={t('sales.modals.edit.products.selectPlaceholder')}
                       className="text-sm"
                     />
                   </div>
@@ -1010,40 +1003,40 @@ const Sales = () => {
                   <>
                     <div className="grid grid-cols-2 gap-4 p-3 bg-gray-50 rounded-md">
                       <div>
-                        <span className="text-sm font-medium text-gray-700">Standard Price:</span>
+                        <span className="text-sm font-medium text-gray-700">{t('sales.modals.edit.products.standardPrice')}:</span>
                         <span className="ml-2">{product.product.sellingPrice.toLocaleString()} XAF</span>
                       </div>
                       <div>
-                        <span className="text-sm font-medium text-gray-700">Available Stock:</span>
+                        <span className="text-sm font-medium text-gray-700">{t('sales.modals.edit.products.availableStock')}:</span>
                         <span className="ml-2">{product.product.stock}</span>
                       </div>
                     </div>
                     
                     <div className="grid grid-cols-2 gap-4">
                       <Input
-                        label="Quantity"
+                        label={t('sales.modals.edit.products.quantity')}
                         type="number"
                         min="1"
                         max={product.product.stock.toString()}
                         value={product.quantity}
                         onChange={(e) => handleProductInputChange(index, 'quantity', e.target.value)}
                         required
-                        helpText={`Cannot exceed ${product.product.stock}`}
+                        helpText={t('sales.modals.edit.products.cannotExceed', { value: product.product.stock })}
                       />
                       
                       <Input
-                        label="Negotiated Price (Optional)"
+                        label={t('sales.modals.edit.products.negotiatedPrice')}
                         type="number"
                         max={product.product.sellingPrice.toString()}
                         value={product.negotiatedPrice}
                         onChange={(e) => handleProductInputChange(index, 'negotiatedPrice', e.target.value)}
-                        helpText={`Cannot exceed ${product.product.sellingPrice.toLocaleString()} XAF`}
+                        helpText={t('sales.modals.edit.products.cannotExceed', { value: product.product.sellingPrice.toLocaleString() })}
                       />
                     </div>
 
                     {product.quantity && (
                       <div className="p-3 bg-emerald-50 rounded-md">
-                        <span className="text-sm font-medium text-emerald-700">Product Total:</span>
+                        <span className="text-sm font-medium text-emerald-700">{t('sales.modals.edit.products.productTotal')}:</span>
                         <span className="ml-2 text-emerald-900">{calculateProductTotal(product).toLocaleString()} XAF</span>
                       </div>
                     )}
@@ -1054,7 +1047,7 @@ const Sales = () => {
 
             {formData.products.some(p => p.quantity) && (
               <div className="p-4 bg-emerald-50 rounded-md">
-                <span className="text-lg font-medium text-emerald-700">Total Amount:</span>
+                <span className="text-lg font-medium text-emerald-700">{t('sales.modals.edit.products.totalAmount')}:</span>
                 <span className="ml-2 text-emerald-900 text-lg">{calculateTotal().toLocaleString()} XAF</span>
               </div>
             )}
@@ -1062,7 +1055,7 @@ const Sales = () => {
           
           <div className="grid grid-cols-2 gap-4">
             <Input
-              label="Delivery Fee"
+              label={t('sales.modals.edit.delivery.fee')}
               name="deliveryFee"
               type="number"
               value={formData.deliveryFee}
@@ -1071,7 +1064,7 @@ const Sales = () => {
             
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Status
+                {t('sales.modals.edit.status.label')}
               </label>
               <select
                 name="status"
@@ -1079,9 +1072,9 @@ const Sales = () => {
                 value={formData.status}
                 onChange={handleInputChange}
               >
-                <option value="commande">Commande</option>
-                <option value="under_delivery">Under Delivery</option>
-                <option value="paid">Paid</option>
+                <option value="commande">{t('sales.filters.status.commande')}</option>
+                <option value="under_delivery">{t('sales.filters.status.under_delivery')}</option>
+                <option value="paid">{t('sales.filters.status.paid')}</option>
               </select>
             </div>
           </div>

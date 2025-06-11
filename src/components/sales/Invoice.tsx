@@ -2,6 +2,7 @@ import { Sale, Product } from '../../types/models';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTranslation } from 'react-i18next';
 
 interface InvoiceProps {
   sale: Sale;
@@ -10,10 +11,13 @@ interface InvoiceProps {
 
 const Invoice = ({ sale, products }: InvoiceProps) => {
   const { company } = useAuth();
+  const { t, i18n } = useTranslation();
 
   const formatDate = (timestamp: any) => {
     if (!timestamp?.seconds) return 'N/A';
-    return format(new Date(timestamp.seconds * 1000), 'PPP', { locale: fr });
+    return format(new Date(timestamp.seconds * 1000), 'PPP', { 
+      locale: i18n.language === 'fr' ? fr : undefined 
+    });
   };
 
   const calculateSubtotal = () => {
@@ -26,7 +30,7 @@ const Invoice = ({ sale, products }: InvoiceProps) => {
   if (!company) {
     return (
       <div className="p-4 text-red-600">
-        Company information not available. Please contact support.
+        {t('invoice.errors.companyInfo')}
       </div>
     );
   }
@@ -45,26 +49,26 @@ const Invoice = ({ sale, products }: InvoiceProps) => {
           )}
           <div>
             <h1 className="text-xl md:text-2xl font-bold text-gray-900">{company.name}</h1>
-            <p className="text-sm md:text-base text-gray-600">{company.location || 'Location not specified'}</p>
-            <p className="text-sm md:text-base text-gray-600">Tel: {company.phone}</p>
+            <p className="text-sm md:text-base text-gray-600">{company.location || t('invoice.locationNotSpecified')}</p>
+            <p className="text-sm md:text-base text-gray-600">{t('invoice.phone')}: {company.phone}</p>
             {company.email && <p className="text-sm md:text-base text-gray-600">Email: {company.email}</p>}
           </div>
         </div>
         <div className="text-left md:text-right">
-          <h2 className="text-lg md:text-xl font-semibold text-gray-900">Facture</h2>
-          <p className="text-sm md:text-base text-gray-600">N° {sale.id}</p>
-          <p className="text-sm md:text-base text-gray-600">Date: {formatDate(sale.createdAt)}</p>
+          <h2 className="text-lg md:text-xl font-semibold text-gray-900">{t('invoice.title')}</h2>
+          <p className="text-sm md:text-base text-gray-600">{t('invoice.number')} {sale.id}</p>
+          <p className="text-sm md:text-base text-gray-600">{t('invoice.date')}: {formatDate(sale.createdAt)}</p>
         </div>
       </div>
 
       {/* Customer Info */}
       <div className="mb-8">
-        <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-2">Client</h3>
+        <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-2">{t('invoice.customer')}</h3>
         <div className="bg-gray-50 p-3 md:p-4 rounded-lg">
           <p className="font-medium text-gray-900">{sale.customerInfo.name}</p>
-          <p className="text-sm md:text-base text-gray-600">Tel: {sale.customerInfo.phone}</p>
+          <p className="text-sm md:text-base text-gray-600">{t('invoice.phone')}: {sale.customerInfo.phone}</p>
           {sale.customerInfo.quarter && (
-            <p className="text-sm md:text-base text-gray-600">Quartier: {sale.customerInfo.quarter}</p>
+            <p className="text-sm md:text-base text-gray-600">{t('invoice.quarter')}: {sale.customerInfo.quarter}</p>
           )}
         </div>
       </div>
@@ -74,10 +78,10 @@ const Invoice = ({ sale, products }: InvoiceProps) => {
         <table className="w-full min-w-[600px]">
           <thead>
             <tr className="border-b border-gray-200">
-              <th className="text-left py-2 md:py-3 px-2 md:px-4 text-xs md:text-sm font-medium text-gray-500">Produit</th>
-              <th className="text-right py-2 md:py-3 px-2 md:px-4 text-xs md:text-sm font-medium text-gray-500">Quantité</th>
-              <th className="text-right py-2 md:py-3 px-2 md:px-4 text-xs md:text-sm font-medium text-gray-500">Prix Unitaire</th>
-              <th className="text-right py-2 md:py-3 px-2 md:px-4 text-xs md:text-sm font-medium text-gray-500">Total</th>
+              <th className="text-left py-2 md:py-3 px-2 md:px-4 text-xs md:text-sm font-medium text-gray-500">{t('invoice.products.name')}</th>
+              <th className="text-right py-2 md:py-3 px-2 md:px-4 text-xs md:text-sm font-medium text-gray-500">{t('invoice.products.quantity')}</th>
+              <th className="text-right py-2 md:py-3 px-2 md:px-4 text-xs md:text-sm font-medium text-gray-500">{t('invoice.products.unitPrice')}</th>
+              <th className="text-right py-2 md:py-3 px-2 md:px-4 text-xs md:text-sm font-medium text-gray-500">{t('invoice.products.total')}</th>
             </tr>
           </thead>
           <tbody>
@@ -87,7 +91,7 @@ const Invoice = ({ sale, products }: InvoiceProps) => {
               const total = unitPrice * saleProduct.quantity;
               return (
                 <tr key={index} className="border-b border-gray-100">
-                  <td className="py-2 md:py-3 px-2 md:px-4 text-sm text-gray-900">{product?.name || 'Unknown Product'}</td>
+                  <td className="py-2 md:py-3 px-2 md:px-4 text-sm text-gray-900">{product?.name || t('invoice.products.unknown')}</td>
                   <td className="py-2 md:py-3 px-2 md:px-4 text-sm text-gray-900 text-right">{saleProduct.quantity}</td>
                   <td className="py-2 md:py-3 px-2 md:px-4 text-sm text-gray-900 text-right">{unitPrice.toLocaleString()} XAF</td>
                   <td className="py-2 md:py-3 px-2 md:px-4 text-sm text-gray-900 text-right">{total.toLocaleString()} XAF</td>
@@ -103,17 +107,17 @@ const Invoice = ({ sale, products }: InvoiceProps) => {
         <div className="w-full md:w-64">
           <div className="space-y-2">
             <div className="flex justify-between text-sm md:text-base text-gray-600">
-              <span>Sous-total</span>
+              <span>{t('invoice.summary.subtotal')}</span>
               <span>{calculateSubtotal().toLocaleString()} XAF</span>
             </div>
             {(sale.deliveryFee ?? 0) > 0 && (
               <div className="flex justify-between text-sm md:text-base text-gray-600">
-                <span>Frais de livraison</span>
+                <span>{t('invoice.summary.deliveryFee')}</span>
                 <span>{(sale.deliveryFee ?? 0).toLocaleString()} XAF</span>
               </div>
             )}
             <div className="border-t border-gray-200 pt-2 flex justify-between font-semibold text-sm md:text-base text-gray-900">
-              <span>Total</span>
+              <span>{t('invoice.summary.total')}</span>
               <span>{(calculateSubtotal() + (sale.deliveryFee ?? 0)).toLocaleString()} XAF</span>
             </div>
           </div>
@@ -123,7 +127,7 @@ const Invoice = ({ sale, products }: InvoiceProps) => {
       {/* Footer */}
       <div className="mt-8 md:mt-12 pt-4 md:pt-8 border-t border-gray-200">
         <p className="text-center text-xs md:text-sm text-gray-500">
-          Merci de votre confiance! Pour toute question, n'hésitez pas à nous contacter.
+          {t('invoice.footer')}
         </p>
       </div>
     </div>

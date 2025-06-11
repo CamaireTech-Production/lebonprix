@@ -153,5 +153,208 @@
         "userUpdated": "User updated"
       }
     }
+  },
+  "sales": {
+    "title": "Sales",
+    "subtitle": "Manage your sales transactions",
+    "filters": {
+      "allStatuses": "All Statuses",
+      "status": {
+        "commande": "Order",
+        "under_delivery": "Under Delivery",
+        "paid": "Paid"
+      }
+    },
+    "actions": {
+      "addSale": "Add Sale",
+      "editSale": "Edit Sale",
+      "viewSale": "View Sale",
+      "copyLink": "Copy Link",
+      "downloadPDF": "Download PDF",
+      "shareInvoice": "Share Invoice",
+      "copyTrackingLink": "Copy Tracking Link",
+      "copyLinkOnly": "Copy link only",
+      "copyWithMessage": "Copy with message"
+    },
+    "table": {
+      "columns": {
+        "name": "Name",
+        "phone": "Phone Number",
+        "products": "Products",
+        "amount": "Amount",
+        "status": "Status",
+        "actions": "Actions"
+      },
+      "productCount_one": "{{count}} product",
+      "productCount_other": "{{count}} products",
+      "emptyMessage": "No sales records found"
+    },
+    "modals": {
+      "add": {
+        "title": "Add New Sale",
+        "customerInfo": {
+          "title": "Customer Information",
+          "name": "Customer Name",
+          "phone": "Customer Phone",
+          "phoneHelp": "Enter or paste any phone number format",
+          "quarter": "Customer Quarter",
+          "quarterPlaceholder": "Enter customer's quarter"
+        },
+        "products": {
+          "title": "Products",
+          "addProduct": "Add Product",
+          "product": "Product",
+          "selectPlaceholder": "Select a product...",
+          "standardPrice": "Standard Price",
+          "availableStock": "Available Stock",
+          "quantity": "Quantity",
+          "negotiatedPrice": "Negotiated Price (Optional)",
+          "productTotal": "Product Total",
+          "totalAmount": "Total Amount",
+          "cannotExceed": "Cannot exceed",
+          "inStock": "in stock"
+        },
+        "delivery": {
+          "fee": "Delivery Fee"
+        },
+        "status": {
+          "label": "Status"
+        }
+      },
+      "edit": {
+        "title": "Edit Sale",
+        "updateSale": "Update Sale",
+        "customerInfo": {
+          "name": "Customer Name",
+          "phone": "Customer Phone",
+          "quarter": "Customer Quarter",
+          "quarterPlaceholder": "Enter customer's quarter",
+          "phoneHelp": "Enter or paste any phone number format"
+        },
+        "products": {
+          "title": "Products",
+          "addProduct": "Add Product",
+          "product": "Product",
+          "quantity": "Quantity",
+          "negotiatedPrice": "Negotiated Price (Optional)",
+          "standardPrice": "Standard Price",
+          "availableStock": "Available Stock",
+          "productTotal": "Product Total",
+          "totalAmount": "Total Amount",
+          "cannotExceed": "Cannot exceed {{value}}",
+          "inStock": "in stock",
+          "selectPlaceholder": "Select a product..."
+        },
+        "delivery": {
+          "fee": "Delivery Fee"
+        },
+        "status": {
+          "label": "Status"
+        }
+      },
+      "view": {
+        "title": "Sale Details",
+        "customerInfo": {
+          "title": "Customer Information",
+          "name": "Name",
+          "phone": "Phone"
+        },
+        "products": {
+          "title": "Products",
+          "quantity": "Quantity",
+          "basePrice": "Base Price",
+          "negotiatedPrice": "Negotiated Price",
+          "productTotal": "Product Total"
+        },
+        "orderSummary": {
+          "title": "Order Summary",
+          "subtotal": "Subtotal",
+          "deliveryFee": "Delivery Fee",
+          "totalAmount": "Total Amount"
+        },
+        "status": {
+          "orderStatus": "Order Status",
+          "paymentStatus": "Payment Status"
+        },
+        "actions": {
+          "copyTrackingLink": "Copy Tracking Link",
+          "editSale": "Edit Sale",
+          "downloadPDF": "Download PDF",
+          "shareInvoice": "Share Invoice"
+        }
+      },
+      "link": {
+        "title": "Share Tracking Link",
+        "success": {
+          "title": "Order Added Successfully!",
+          "customer": "Customer",
+          "totalAmount": "Total Amount"
+        },
+        "message": {
+          "title": "Message to share with the customer",
+          "preview": "Hello! 👋\n\nTrack your order status in real-time via this link:\n{{link}}\n\nThank you for your trust! 🙏\n\nFor any questions, please don't hesitate to contact us.",
+          "help": "The message is formatted for WhatsApp and includes a user-friendly tracking link."
+        },
+        "actions": {
+          "copyLinkOnly": "Copy link only",
+          "copyWithMessage": "Copy with message",
+          "downloadPDF": "Download PDF",
+          "shareInvoice": "Share Invoice"
+        }
+      },
+      "common": {
+        "cancel": "Cancel"
+      }
+    },
+    "messages": {
+      "saleAdded": "Sale added successfully!",
+      "saleUpdated": "Sale updated successfully!",
+      "linkCopied": "Link copied!",
+      "messageCopied": "Message copied successfully!",
+      "invoiceShared": "Invoice shared successfully!",
+      "invoiceDownloaded": "Invoice downloaded successfully!",
+      "errors": {
+        "addSale": "Failed to add sale. Please try again.",
+        "updateSale": "Failed to update sale. Please try again.",
+        "loadSales": "Failed to load sales. Please refresh the page.",
+        "shareInvoice": "Error sharing invoice",
+        "notLoggedIn": "You must be logged in to create a sale"
+      },
+      "warnings": {
+        "customerName": "Customer name is required.",
+        "customerPhone": "Customer phone is required.",
+        "productRequired": "Please select a product.",
+        "quantityInvalid": "Quantity must be greater than zero.",
+        "quantityExceeded": "Cannot exceed available stock ({stock}).",
+        "priceExceeded": "Negotiated price cannot exceed the standard selling price.",
+        "deliveryFeeInvalid": "Delivery fee must be a non-negative number."
+      }
+    }
+  },
+  "invoice": {
+    "title": "Invoice",
+    "number": "No.",
+    "date": "Date",
+    "customer": "Customer",
+    "phone": "Phone",
+    "quarter": "Quarter",
+    "products": {
+      "title": "Products",
+      "name": "Product",
+      "quantity": "Quantity",
+      "unitPrice": "Unit Price",
+      "total": "Total",
+      "unknown": "Unknown Product"
+    },
+    "summary": {
+      "subtotal": "Subtotal",
+      "deliveryFee": "Delivery Fee",
+      "total": "Total"
+    },
+    "footer": "Thank you for your trust! For any questions, please don't hesitate to contact us.",
+    "errors": {
+      "companyInfo": "Company information not available. Please contact support."
+    },
+    "locationNotSpecified": "Location not specified"
   }
 } 

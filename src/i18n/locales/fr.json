@@ -152,5 +152,208 @@
         "userUpdated": "Utilisateur mis à jour"
       }
     }
+  },
+  "sales": {
+    "title": "Ventes",
+    "subtitle": "Gérez vos transactions de vente",
+    "filters": {
+      "allStatuses": "Tous les statuts",
+      "status": {
+        "commande": "Commande",
+        "under_delivery": "En livraison",
+        "paid": "Payé"
+      }
+    },
+    "actions": {
+      "addSale": "Ajouter une vente",
+      "editSale": "Modifier la vente",
+      "viewSale": "Voir la vente",
+      "copyLink": "Copier le lien",
+      "downloadPDF": "Télécharger PDF",
+      "shareInvoice": "Partager la facture",
+      "copyTrackingLink": "Copier le lien de suivi",
+      "copyLinkOnly": "Copier le lien uniquement",
+      "copyWithMessage": "Copier avec message"
+    },
+    "table": {
+      "columns": {
+        "name": "Nom",
+        "phone": "Numéro de téléphone",
+        "products": "Produits",
+        "amount": "Montant",
+        "status": "Statut",
+        "actions": "Actions"
+      },
+      "productCount_one": "{{count}} produit",
+      "productCount_other": "{{count}} produits",
+      "emptyMessage": "Aucune vente trouvée"
+    },
+    "modals": {
+      "add": {
+        "title": "Ajouter une nouvelle vente",
+        "customerInfo": {
+          "title": "Informations client",
+          "name": "Nom du client",
+          "phone": "Téléphone du client",
+          "phoneHelp": "Entrez ou collez n'importe quel format de numéro de téléphone",
+          "quarter": "Quartier du client",
+          "quarterPlaceholder": "Entrez le quartier du client"
+        },
+        "products": {
+          "title": "Produits",
+          "addProduct": "Ajouter un produit",
+          "product": "Produit",
+          "standardPrice": "Prix standard",
+          "availableStock": "Stock disponible",
+          "quantity": "Quantité",
+          "negotiatedPrice": "Prix négocié (Optionnel)",
+          "productTotal": "Total produit",
+          "totalAmount": "Montant total",
+          "cannotExceed": "Ne peut pas dépasser",
+          "inStock": "en stock",
+          "selectPlaceholder": "Sélectionner un produit..."
+        },
+        "delivery": {
+          "fee": "Frais de livraison"
+        },
+        "status": {
+          "label": "Statut"
+        }
+      },
+      "edit": {
+        "title": "Modifier la Vente",
+        "updateSale": "Mettre à jour la Vente",
+        "customerInfo": {
+          "name": "Nom du Client",
+          "phone": "Téléphone du Client",
+          "quarter": "Quartier du Client",
+          "quarterPlaceholder": "Entrez le quartier du client",
+          "phoneHelp": "Entrez ou collez n'importe quel format de numéro de téléphone"
+        },
+        "products": {
+          "title": "Produits",
+          "addProduct": "Ajouter un Produit",
+          "product": "Produit",
+          "quantity": "Quantité",
+          "negotiatedPrice": "Prix Négocié (Optionnel)",
+          "standardPrice": "Prix Standard",
+          "availableStock": "Stock Disponible",
+          "productTotal": "Total du Produit",
+          "totalAmount": "Montant Total",
+          "cannotExceed": "Ne peut pas dépasser {{value}}",
+          "inStock": "en stock",
+          "selectPlaceholder": "Sélectionner un produit..."
+        },
+        "delivery": {
+          "fee": "Frais de Livraison"
+        },
+        "status": {
+          "label": "Statut"
+        }
+      },
+      "view": {
+        "title": "Détails de la Vente",
+        "customerInfo": {
+          "title": "Informations Client",
+          "name": "Nom",
+          "phone": "Téléphone"
+        },
+        "products": {
+          "title": "Produits",
+          "quantity": "Quantité",
+          "basePrice": "Prix de Base",
+          "negotiatedPrice": "Prix Négocié",
+          "productTotal": "Total Produit"
+        },
+        "orderSummary": {
+          "title": "Résumé de la Commande",
+          "subtotal": "Sous-total",
+          "deliveryFee": "Frais de Livraison",
+          "totalAmount": "Montant Total"
+        },
+        "status": {
+          "orderStatus": "Statut de la Commande",
+          "paymentStatus": "Statut du Paiement"
+        },
+        "actions": {
+          "copyTrackingLink": "Copier le Lien de Suivi",
+          "editSale": "Modifier la Vente",
+          "downloadPDF": "Télécharger PDF",
+          "shareInvoice": "Partager la Facture"
+        }
+      },
+      "link": {
+        "title": "Partager le Lien de Suivi",
+        "success": {
+          "title": "Commande Ajoutée avec Succès !",
+          "customer": "Client",
+          "totalAmount": "Montant Total"
+        },
+        "message": {
+          "title": "Message à partager avec le client",
+          "preview": "Bonjour ! 👋\n\nSuivez l'état de votre commande en temps réel via ce lien :\n{{link}}\n\nMerci de votre confiance ! 🙏\n\nPour toute question, n'hésitez pas à nous contacter.",
+          "help": "Le message est formaté pour WhatsApp et inclut un lien de suivi convivial."
+        },
+        "actions": {
+          "copyLinkOnly": "Copier le lien uniquement",
+          "copyWithMessage": "Copier avec message",
+          "downloadPDF": "Télécharger PDF",
+          "shareInvoice": "Partager la Facture"
+        }
+      },
+      "common": {
+        "cancel": "Annuler"
+      }
+    },
+    "messages": {
+      "saleAdded": "Vente ajoutée avec succès !",
+      "saleUpdated": "Vente mise à jour avec succès !",
+      "linkCopied": "Lien copié !",
+      "messageCopied": "Message copié avec succès !",
+      "invoiceShared": "Facture partagée avec succès !",
+      "invoiceDownloaded": "Facture téléchargée avec succès !",
+      "errors": {
+        "addSale": "Échec de l'ajout de la vente. Veuillez réessayer.",
+        "updateSale": "Échec de la mise à jour de la vente. Veuillez réessayer.",
+        "loadSales": "Échec du chargement des ventes. Veuillez actualiser la page.",
+        "shareInvoice": "Erreur lors du partage de la facture",
+        "notLoggedIn": "Vous devez être connecté pour créer une vente"
+      },
+      "warnings": {
+        "customerName": "Le nom du client est requis.",
+        "customerPhone": "Le téléphone du client est requis.",
+        "productRequired": "Veuillez sélectionner un produit.",
+        "quantityInvalid": "La quantité doit être supérieure à zéro.",
+        "quantityExceeded": "Ne peut pas dépasser le stock disponible ({stock}).",
+        "priceExceeded": "Le prix négocié ne peut pas dépasser le prix de vente standard.",
+        "deliveryFeeInvalid": "Les frais de livraison doivent être un nombre positif."
+      }
+    }
+  },
+  "invoice": {
+    "title": "Facture",
+    "number": "N°",
+    "date": "Date",
+    "customer": "Client",
+    "phone": "Téléphone",
+    "quarter": "Quartier",
+    "products": {
+      "title": "Produits",
+      "name": "Produit",
+      "quantity": "Quantité",
+      "unitPrice": "Prix Unitaire",
+      "total": "Total",
+      "unknown": "Produit inconnu"
+    },
+    "summary": {
+      "subtotal": "Sous-total",
+      "deliveryFee": "Frais de livraison",
+      "total": "Total"
+    },
+    "footer": "Merci de votre confiance! Pour toute question, n'hésitez pas à nous contacter.",
+    "errors": {
+      "companyInfo": "Informations de l'entreprise non disponibles. Veuillez contacter le support."
+    },
+    "locationNotSpecified": "Emplacement non spécifié"
   }
 } 

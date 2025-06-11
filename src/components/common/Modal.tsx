@@ -1,6 +1,7 @@
 import { Fragment, ReactNode } from 'react';
 import { X } from 'lucide-react';
 import Button from './Button';
+import { useTranslation } from 'react-i18next';
 
 interface ModalProps {
   isOpen: boolean;
@@ -42,6 +43,7 @@ const Modal = ({ isOpen, onClose, title, children, footer, size = 'md' }: ModalP
               <button
                 onClick={onClose}
                 className="text-gray-400 hover:text-gray-500 focus:outline-none"
+                aria-label="Close"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -63,25 +65,37 @@ const Modal = ({ isOpen, onClose, title, children, footer, size = 'md' }: ModalP
   );
 };
 
-export const ModalFooter = ({ onCancel, onConfirm, confirmText = 'Save', isLoading = false, isDanger = false }: {
+export const ModalFooter = ({ 
+  onCancel, 
+  onConfirm, 
+  confirmText = 'Save', 
+  cancelText = 'Cancel',
+  isLoading = false, 
+  isDanger = false 
+}: {
   onCancel: () => void;
   onConfirm: () => void;
   confirmText?: string;
+  cancelText?: string;
   isLoading?: boolean;
   isDanger?: boolean;
-}) => (
-  <>
-    <Button variant="outline" onClick={onCancel}>
-      Cancel
-    </Button>
-    <Button 
-      variant={isDanger ? 'danger' : 'primary'} 
-      onClick={onConfirm} 
-      isLoading={isLoading}
-    >
-      {confirmText}
-    </Button>
-  </>
-);
+}) => {
+  useTranslation();
+  
+  return (
+    <>
+      <Button variant="outline" onClick={onCancel}>
+        {cancelText}
+      </Button>
+      <Button 
+        variant={isDanger ? 'danger' : 'primary'} 
+        onClick={onConfirm} 
+        isLoading={isLoading}
+      >
+        {confirmText}
+      </Button>
+    </>
+  );
+};
 
 export default Modal;
