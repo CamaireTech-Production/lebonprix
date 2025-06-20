@@ -164,6 +164,20 @@
     },
     "makeSale": "Faire une vente"
   },
+  "dateRanges": {
+    "today": "Aujourd'hui",
+    "yesterday": "Hier",
+    "thisWeek": "Cette semaine",
+    "last7Days": "7 derniers jours",
+    "thisMonth": "Ce mois-ci",
+    "last30Days": "30 derniers jours",
+    "thisYear": "Cette année",
+    "custom": "Personnalisé",
+    "selectPeriod": "Sélectionner une période",
+    "pickDate": "Choisir une date",
+    "selectCustomRange": "Sélectionner une plage personnalisée",
+    "filterTitle": "Filtrer par période"
+  },
   "sales": {
     "title": "Ventes",
     "subtitle": "Gérez vos transactions de vente",

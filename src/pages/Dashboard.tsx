@@ -13,6 +13,8 @@ import { useAuth } from '../contexts/AuthContext';
 import type { DashboardStats } from '../types/models';
 import { showSuccessToast, showErrorToast } from '../utils/toast';
 import { useTranslation } from 'react-i18next';
+import { startOfMonth, endOfMonth, differenceInDays, format, startOfWeek, endOfWeek, addDays, addWeeks, startOfMonth as startMonth, endOfMonth as endMonth, addMonths, isSameMonth, isSameWeek, isSameDay } from 'date-fns';
+import DateRangePicker from '../components/common/DateRangePicker';
 
 const Dashboard = () => {
   const { t } = useTranslation();
@@ -23,9 +25,26 @@ const Dashboard = () => {
   const { company } = useAuth();
   const [] = useState<Partial<DashboardStats>>({});
   const [copied, setCopied] = useState(false);
+  const [dateRange, setDateRange] = useState({
+    from: startOfMonth(new Date()),
+    to: endOfMonth(new Date()),
+  });
+
+  // Filter sales and expenses by selected date range
+  const filteredSales = sales?.filter(sale => {
+    if (!sale.createdAt?.seconds) return false;
+    const saleDate = new Date(sale.createdAt.seconds * 1000);
+    return saleDate >= dateRange.from && saleDate <= dateRange.to;
+  });
+
+  const filteredExpenses = expenses?.filter(expense => {
+    if (!expense.createdAt?.seconds) return false;
+    const expenseDate = new Date(expense.createdAt.seconds * 1000);
+    return expenseDate >= dateRange.from && expenseDate <= dateRange.to;
+  });
 
   // Calculate gross profit (selling price - purchase price) * quantity for all sales
-  const grossProfit = sales?.reduce((sum, sale) => {
+  const grossProfit = filteredSales?.reduce((sum, sale) => {
     return sum + sale.products.reduce((productSum, product) => {
       const productData = products?.find(p => p.id === product.productId);
       if (!productData) return productSum;
@@ -35,24 +54,24 @@ const Dashboard = () => {
   }, 0) || 0;
 
   // Calculate net profit (gross profit - total expenses)
-  const totalExpenses = expenses?.reduce((sum, exp) => sum + exp.amount, 0) || 0;
+  const totalExpenses = filteredExpenses?.reduce((sum, exp) => sum + exp.amount, 0) || 0;
   const netProfit = grossProfit - totalExpenses;
 
   // Total orders
-  const totalOrders = sales?.length || 0;
+  const totalOrders = filteredSales?.length || 0;
 
   // Total delivery expenses
-  const totalDeliveryExpenses = expenses?.filter(e => e.category.toLowerCase() === 'delivery').reduce((sum, e) => sum + e.amount, 0) || 0;
+  const totalDeliveryExpenses = filteredExpenses?.filter(e => e.category.toLowerCase() === 'delivery').reduce((sum, e) => sum + e.amount, 0) || 0;
 
   // Total sales amount
-  const totalSalesAmount = sales?.reduce((sum, sale) => sum + sale.totalAmount, 0) || 0;
+  const totalSalesAmount = filteredSales?.reduce((sum, sale) => sum + sale.totalAmount, 0) || 0;
 
-  // Calculate total purchase price for all products in stock
+  // Calculate total purchase price for all products in stock (not filtered by date)
   const totalPurchasePrice = products?.reduce((sum, product) => sum + (product.costPrice * product.stock), 0) || 0;
 
   // Best selling products (by quantity sold)
   const productSalesMap: Record<string, { name: string; quantity: number; sales: number }> = {};
-  sales?.forEach(sale => {
+  filteredSales?.forEach(sale => {
     sale.products.forEach(product => {
       const productData = products?.find(p => p.id === product.productId);
       if (!productData) return;
@@ -67,34 +86,75 @@ const Dashboard = () => {
 
   // Process sales and expenses data for the chart
   const processChartData = () => {
-    const today = new Date();
-    const labels = Array.from({ length: 7 }, (_, i) => {
-      const date = new Date(today);
-      date.setDate(date.getDate() - (6 - i));
-      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    });
+    if (!filteredSales || !filteredExpenses) {
+      return { labels: [], salesData: [], expensesData: [] };
+    }
+    const days = differenceInDays(dateRange.to, dateRange.from) + 1;
+    let labels: string[] = [];
+    let salesData: number[] = [];
+    let expensesData: number[] = [];
 
-    const salesData = Array(7).fill(0);
-    const expensesData = Array(7).fill(0);
-
-    sales?.forEach(sale => {
-      if (!sale.createdAt?.seconds) return;
-      const saleDate = new Date(sale.createdAt.seconds * 1000);
-      const dayIndex = Math.floor((today.getTime() - saleDate.getTime()) / (1000 * 60 * 60 * 24));
-      if (dayIndex >= 0 && dayIndex < 7) {
-        salesData[6 - dayIndex] += sale.totalAmount;
+    if (days <= 31) {
+      // Group by day
+      for (let i = 0; i < days; i++) {
+        const d = addDays(dateRange.from, i);
+        labels.push(format(d, 'dd/MM'));
+        const salesSum = filteredSales.filter(sale => {
+          if (!sale.createdAt?.seconds) return false;
+          return isSameDay(new Date(sale.createdAt.seconds * 1000), d);
+        }).reduce((sum, sale) => sum + sale.totalAmount, 0);
+        const expensesSum = filteredExpenses.filter(exp => {
+          if (!exp.createdAt?.seconds) return false;
+          return isSameDay(new Date(exp.createdAt.seconds * 1000), d);
+        }).reduce((sum, exp) => sum + exp.amount, 0);
+        salesData.push(salesSum);
+        expensesData.push(expensesSum);
       }
-    });
-
-    expenses?.forEach(expense => {
-      if (!expense.createdAt?.seconds) return;
-      const expenseDate = new Date(expense.createdAt.seconds * 1000);
-      const dayIndex = Math.floor((today.getTime() - expenseDate.getTime()) / (1000 * 60 * 60 * 24));
-      if (dayIndex >= 0 && dayIndex < 7) {
-        expensesData[6 - dayIndex] += expense.amount;
+    } else if (days <= 180) {
+      // Group by week
+      let weekStart = startOfWeek(dateRange.from);
+      let weekEnd = endOfWeek(weekStart);
+      while (weekStart <= dateRange.to) {
+        labels.push(format(weekStart, 'dd/MM') + ' - ' + format(weekEnd, 'dd/MM'));
+        const salesSum = filteredSales.filter(sale => {
+          if (!sale.createdAt?.seconds) return false;
+          const d = new Date(sale.createdAt.seconds * 1000);
+          return d >= weekStart && d <= weekEnd;
+        }).reduce((sum, sale) => sum + sale.totalAmount, 0);
+        const expensesSum = filteredExpenses.filter(exp => {
+          if (!exp.createdAt?.seconds) return false;
+          const d = new Date(exp.createdAt.seconds * 1000);
+          return d >= weekStart && d <= weekEnd;
+        }).reduce((sum, exp) => sum + exp.amount, 0);
+        salesData.push(salesSum);
+        expensesData.push(expensesSum);
+        weekStart = addWeeks(weekStart, 1);
+        weekEnd = endOfWeek(weekStart);
+        if (weekEnd > dateRange.to) weekEnd = dateRange.to;
       }
-    });
-
+    } else {
+      // Group by month
+      let monthStart = startMonth(dateRange.from);
+      let monthEnd = endMonth(monthStart);
+      while (monthStart <= dateRange.to) {
+        labels.push(format(monthStart, 'MMM yyyy'));
+        const salesSum = filteredSales.filter(sale => {
+          if (!sale.createdAt?.seconds) return false;
+          const d = new Date(sale.createdAt.seconds * 1000);
+          return isSameMonth(d, monthStart);
+        }).reduce((sum, sale) => sum + sale.totalAmount, 0);
+        const expensesSum = filteredExpenses.filter(exp => {
+          if (!exp.createdAt?.seconds) return false;
+          const d = new Date(exp.createdAt.seconds * 1000);
+          return isSameMonth(d, monthStart);
+        }).reduce((sum, exp) => sum + exp.amount, 0);
+        salesData.push(salesSum);
+        expensesData.push(expensesSum);
+        monthStart = addMonths(monthStart, 1);
+        monthEnd = endMonth(monthStart);
+        if (monthEnd > dateRange.to) monthEnd = dateRange.to;
+      }
+    }
     return { labels, salesData, expensesData };
   };
 
@@ -139,14 +199,14 @@ const Dashboard = () => {
 
   // Process recent activities
   const recentActivities = [
-    ...(sales?.slice(0, 3).map(sale => ({
+    ...(filteredSales?.slice(0, 3).map(sale => ({
       id: sale.id,
       title: 'New sale recorded',
       description: `${sale.customerInfo.name} purchased items for ${sale.totalAmount.toLocaleString()} XAF`,
       timestamp: sale.createdAt?.seconds ? new Date(sale.createdAt.seconds * 1000) : new Date(),
       type: 'sale' as const,
     })) || []),
-    ...(expenses?.slice(0, 3).map(expense => ({
+    ...(filteredExpenses?.slice(0, 3).map(expense => ({
       id: expense.id,
       title: 'Expense added',
       description: `${expense.description}: ${expense.amount.toLocaleString()} XAF`,
@@ -242,6 +302,9 @@ const Dashboard = () => {
             {t('dashboard.makeSale')}
           </Button>
         </div>
+      </div>
+      <div className="mb-6">
+        <DateRangePicker onChange={setDateRange} />
       </div>
       {/* Stats section */}
       <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">

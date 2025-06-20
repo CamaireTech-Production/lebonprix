@@ -10,6 +10,7 @@ interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
   label?: string;
   error?: string;
   helpText?: string;
+  fullWidth?: boolean;
 }
 
 const Select: React.FC<SelectProps> = ({
@@ -18,10 +19,11 @@ const Select: React.FC<SelectProps> = ({
   error,
   helpText,
   className = '',
+  fullWidth = true,
   ...props
 }) => {
   return (
-    <div className="w-full">
+    <div className={`${fullWidth ? 'w-full' : 'inline-block w-auto'}`}>
       {label && (
         <label className="block text-sm font-medium text-gray-700 mb-1">
           {label}

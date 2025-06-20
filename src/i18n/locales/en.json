@@ -162,6 +162,20 @@
       }
     }
   },
+  "dateRanges": {
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "thisWeek": "This Week",
+    "last7Days": "Last 7 Days",
+    "thisMonth": "This Month",
+    "last30Days": "Last 30 Days",
+    "thisYear": "This Year",
+    "custom": "Custom",
+    "selectPeriod": "Select a period",
+    "pickDate": "Pick a date",
+    "selectCustomRange": "Select Custom Range",
+    "filterTitle": "Filter by period"
+  },
   "sales": {
     "title": "Sales",
     "subtitle": "Manage your sales transactions",
