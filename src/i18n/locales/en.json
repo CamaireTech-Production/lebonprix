@@ -390,5 +390,23 @@
     "totalCostPrice": "The total amount of purchase prices for all products sold",
     "totalPurchasePrice": "The total amount of purchase prices for all products sold",
     "purchasePrice": "Purchase Price"
+  },
+  "objectives": {
+    "add": "Add Objective",
+    "edit": "Edit Objective",
+    "view": "View Objectives",
+    "titleList": "Your Objectives",
+    "overallProgress": "Overall progress: {{pct}}%",
+    "title": "Title",
+    "description": "Description",
+    "metric": "Metric",
+    "target": "Target Amount",
+    "progress": "Progress",
+    "periodType": "Period Type",
+    "predefined": "Predefined",
+    "custom": "Custom Range",
+    "confirmDelete": "Are you sure you want to delete this objective?",
+    "empty": "No objectives yet",
+    "filterByRange": "Use dashboard period"
   }
 } 

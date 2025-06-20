@@ -88,4 +88,16 @@ export interface Customer {
   createdAt: Date;
 }
 
+export interface Objective extends BaseModel {
+  title: string;
+  description?: string;
+  metric: string; // key of stat
+  targetAmount: number;
+  periodType: 'predefined' | 'custom';
+  predefined?: string; // this_month, this_year, etc.
+  startAt?: any; // Firebase Timestamp
+  endAt?: any;
+  userId: string;
+}
+
 // Rest of the existing interfaces...

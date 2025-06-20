@@ -15,6 +15,8 @@ import { showSuccessToast, showErrorToast } from '../utils/toast';
 import { useTranslation } from 'react-i18next';
 import { startOfMonth, endOfMonth, differenceInDays, format, startOfWeek, endOfWeek, addDays, addWeeks, startOfMonth as startMonth, endOfMonth as endMonth, addMonths, isSameMonth, isSameWeek, isSameDay } from 'date-fns';
 import DateRangePicker from '../components/common/DateRangePicker';
+import ObjectivesBar from '../components/objectives/ObjectivesBar';
+import ObjectivesModal from '../components/objectives/ObjectivesModal';
 
 const Dashboard = () => {
   const { t } = useTranslation();
@@ -29,6 +31,17 @@ const Dashboard = () => {
     from: startOfMonth(new Date()),
     to: endOfMonth(new Date()),
   });
+  const [showObjectivesModal, setShowObjectivesModal] = useState(false);
+  const [applyDateFilter, setApplyDateFilter] = useState(true);
+  const metricsOptions = [
+    { value: 'grossProfit', label: t('dashboard.stats.grossProfit') },
+    { value: 'netProfit', label: t('dashboard.stats.netProfit') },
+    { value: 'totalExpenses', label: t('dashboard.stats.totalExpenses') },
+    { value: 'totalOrders', label: t('dashboard.stats.totalOrders') },
+    { value: 'deliveryExpenses', label: t('dashboard.stats.deliveryExpenses') },
+    { value: 'totalSalesAmount', label: t('dashboard.stats.totalSalesAmount') },
+    { value: 'totalSalesCount', label: t('dashboard.stats.totalSalesCount') },
+  ];
 
   // Filter sales and expenses by selected date range
   const filteredSales = sales?.filter(sale => {
@@ -222,6 +235,16 @@ const Dashboard = () => {
     { header: t('dashboard.bestSellingProducts.totalSales'), accessor: (row: any) => `${row.sales.toLocaleString()} XAF` },
   ];
 
+  const statsMap = {
+    grossProfit,
+    netProfit,
+    totalExpenses,
+    totalOrders,
+    deliveryExpenses: totalDeliveryExpenses,
+    totalSalesAmount,
+    totalSalesCount: totalOrders,
+  };
+
   return (
     <div className="pb-16 md:pb-0">
       {/* Company Products Link Section */}
@@ -306,6 +329,31 @@ const Dashboard = () => {
       <div className="mb-6">
         <DateRangePicker onChange={setDateRange} />
       </div>
+      {/* Objectives global bar */}
+      <ObjectivesBar
+        onAdd={() => { setShowObjectivesModal(true); }}
+        onView={() => { setShowObjectivesModal(true); }}
+        stats={statsMap}
+        dateRange={dateRange}
+        applyDateFilter={applyDateFilter}
+        onToggleFilter={setApplyDateFilter}
+        sales={sales}
+        expenses={expenses}
+        products={products}
+      />
+      {showObjectivesModal && (
+        <ObjectivesModal
+          isOpen={showObjectivesModal}
+          onClose={() => setShowObjectivesModal(false)}
+          stats={statsMap}
+          dateRange={dateRange}
+          metricsOptions={metricsOptions}
+          applyDateFilter={applyDateFilter}
+          sales={sales}
+          expenses={expenses}
+          products={products}
+        />
+      )}
       {/* Stats section */}
       <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <StatCard 

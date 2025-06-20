@@ -458,5 +458,23 @@
         "actions": "Actions"
       }
     }
+  },
+  "objectives": {
+    "add": "Ajouter un objectif",
+    "edit": "Modifier l'objectif",
+    "view": "Voir les objectifs",
+    "titleList": "Vos objectifs",
+    "overallProgress": "Progression globale : {{pct}}%",
+    "title": "Titre",
+    "description": "Description",
+    "metric": "Métrique",
+    "target": "Montant cible",
+    "progress": "Progression",
+    "periodType": "Type de période",
+    "predefined": "Période prédéfinie",
+    "custom": "Plage personnalisée",
+    "confirmDelete": "Voulez-vous vraiment supprimer cet objectif ?",
+    "empty": "Aucun objectif pour le moment",
+    "filterByRange": "Utiliser la période du tableau de bord"
   }
 } 

@@ -1,0 +1,118 @@
+import React, { useState } from 'react';
+import Modal from '../common/Modal';
+import Input from '../common/Input';
+import Textarea from '../common/Textarea';
+import Select from '../common/Select';
+import Button from '../common/Button';
+import DateRangePicker from '../common/DateRangePicker';
+import { useTranslation } from 'react-i18next';
+import { Objective } from '../../types/models';
+import { useObjectives } from '../../hooks/useObjectives';
+
+interface ObjectiveFormProps {
+  isOpen: boolean;
+  onClose: () => void;
+  objective?: Objective | null;
+  metricsOptions: { value: string; label: string }[];
+}
+
+const ObjectiveForm: React.FC<ObjectiveFormProps> = ({ isOpen, onClose, objective, metricsOptions }) => {
+  const { t } = useTranslation();
+  const { addObjective, updateObjective } = useObjectives();
+
+  const [formData, setFormData] = useState<{ [key: string]: any }>({
+    title: objective?.title || '',
+    description: objective?.description || '',
+    metric: objective?.metric || metricsOptions[0]?.value || '',
+    targetAmount: objective?.targetAmount?.toString() || '',
+    periodType: objective?.periodType || 'predefined',
+    predefined: objective?.predefined || 'this_month',
+    customRange: objective?.startAt ? { from: objective.startAt.toDate(), to: objective.endAt.toDate() } : null,
+  });
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleSelectChange = (name: string, value: string) => {
+    setFormData({ ...formData, [name]: value });
+  };
+
+  const handleSubmit = async () => {
+    const payload: any = {
+      title: formData.title,
+      description: formData.description,
+      metric: formData.metric,
+      targetAmount: parseFloat(formData.targetAmount),
+      periodType: formData.periodType,
+    };
+    if (formData.periodType === 'predefined') {
+      payload.predefined = formData.predefined;
+    } else if (formData.customRange) {
+      payload.startAt = formData.customRange.from;
+      payload.endAt = formData.customRange.to;
+    }
+    try {
+      if (objective) await updateObjective(objective.id!, payload);
+      else await addObjective(payload);
+      onClose();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title={objective ? t('objectives.edit') : t('objectives.add')} size="md">
+      <div className="space-y-5">
+        <Input label={t('objectives.title')} name="title" value={formData.title} onChange={handleChange} required />
+        <Textarea label={t('objectives.description')} name="description" value={formData.description} onChange={handleChange} />
+        <Input label={t('objectives.target')} name="targetAmount" type="number" value={formData.targetAmount} onChange={handleChange} required />
+        <div className="space-y-4">
+          <Select
+            label={t('objectives.metric')}
+            options={metricsOptions}
+            value={formData.metric}
+            onChange={(e) => handleSelectChange('metric', e.target.value)}
+            fullWidth={true}
+            className="px-3 py-2 border border-gray-300 rounded-md focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+          />
+          <Select
+            label={t('objectives.periodType')}
+            options={[
+              { value: 'predefined', label: t('objectives.predefined') },
+              { value: 'custom', label: t('objectives.custom') },
+            ]}
+            value={formData.periodType}
+            onChange={(e) => handleSelectChange('periodType', e.target.value)}
+            fullWidth={true}
+            className="px-3 py-2 border border-gray-300 rounded-md focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+          />
+          {formData.periodType === 'predefined' ? (
+            <Select
+              label={t('objectives.predefined')}
+              options={[
+                { value: 'this_month', label: t('dateRanges.thisMonth') },
+                { value: 'this_year', label: t('dateRanges.thisYear') },
+              ]}
+              value={formData.predefined}
+              onChange={(e) => handleSelectChange('predefined', e.target.value)}
+              fullWidth={true}
+              className="px-3 py-2 border border-gray-300 rounded-md focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+            />
+          ) : (
+            <DateRangePicker
+              className="mt-2"
+              onChange={(range) => setFormData({ ...formData, customRange: range })}
+            />
+          )}
+        </div>
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={onClose}>{t('common.cancel')}</Button>
+          <Button onClick={handleSubmit}>{t('common.save')}</Button>
+        </div>
+      </div>
+    </Modal>
+  );
+};
+
+export default ObjectiveForm; 
