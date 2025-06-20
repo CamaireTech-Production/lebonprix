@@ -47,14 +47,8 @@ const Dashboard = () => {
   // Total sales amount
   const totalSalesAmount = sales?.reduce((sum, sale) => sum + sale.totalAmount, 0) || 0;
 
-  // Calculate total purchase price for all sales
-  const totalPurchasePrice = sales?.reduce((sum, sale) => {
-    return sum + sale.products.reduce((productSum, product) => {
-      const productData = products?.find(p => p.id === product.productId);
-      if (!productData) return productSum;
-      return productSum + productData.costPrice * product.quantity;
-    }, 0);
-  }, 0) || 0;
+  // Calculate total purchase price for all products in stock
+  const totalPurchasePrice = products?.reduce((sum, product) => sum + (product.costPrice * product.stock), 0) || 0;
 
   // Best selling products (by quantity sold)
   const productSalesMap: Record<string, { name: string; quantity: number; sales: number }> = {};
@@ -380,6 +374,17 @@ const Dashboard = () => {
               {t('dashboard.calculations.totalSalesAmount.formula')}
               <br /><br />
               {t('dashboard.calculations.totalSalesAmount.note')}
+            </p>
+          </div>
+
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <h3 className="text-lg font-medium text-gray-900 mb-2">{t('dashboard.calculations.totalPurchasePrice.title')}</h3>
+            <p className="text-gray-600">
+              {t('dashboard.calculations.totalPurchasePrice.description')}
+              <br /><br />
+              {t('dashboard.calculations.totalPurchasePrice.formula')}
+              <br /><br />
+              {t('dashboard.calculations.totalPurchasePrice.example')}
             </p>
           </div>
 
