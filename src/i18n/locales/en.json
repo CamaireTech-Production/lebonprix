@@ -61,7 +61,8 @@
       "totalSalesCount": "Total Sales (Count)",
       "trend": {
         "fromLastMonth": "from last month"
-      }
+      },
+      "totalPurchasePrice": "Total Purchase Price"
     },
     "tooltips": {
       "grossProfit": "Total revenue minus cost of goods sold",
@@ -70,7 +71,8 @@
       "totalOrders": "Total number of sales transactions",
       "deliveryExpenses": "Total expenses related to product delivery",
       "totalSalesAmount": "Total revenue from all sales",
-      "totalSalesCount": "Total number of sales transactions"
+      "totalSalesCount": "Total number of sales transactions",
+      "totalPurchasePrice": "The total amount of purchase prices for all products sold"
     },
     "bestSellingProducts": {
       "title": "Best Selling Products",
@@ -83,8 +85,8 @@
       "title": "Dashboard Calculations Explained",
       "grossProfit": {
         "title": "Gross Profit",
-        "description": "Gross profit is calculated by subtracting the cost price from the selling price for each product sold, then multiplying by the quantity sold.",
-        "formula": "Formula: Σ((Selling Price - Cost Price) × Quantity Sold) for each product in each sale",
+        "description": "Gross profit is calculated by subtracting the purchase price from the selling price for each product sold, then multiplying by the quantity sold.",
+        "formula": "Formula: Σ((Selling Price - Purchase Price) × Quantity Sold) for each product in each sale",
         "example": "Example: If you sell 5 units of a product that costs 1000 XAF and sells for 1500 XAF: Gross Profit = (1500 - 1000) × 5 = 2500 XAF"
       },
       "netProfit": {
@@ -364,6 +366,9 @@
     "errors": {
       "companyInfo": "Company information not available. Please contact support."
     },
-    "locationNotSpecified": "Location not specified"
+    "locationNotSpecified": "Location not specified",
+    "totalCostPrice": "The total amount of purchase prices for all products sold",
+    "totalPurchasePrice": "The total amount of purchase prices for all products sold",
+    "purchasePrice": "Purchase Price"
   }
 } 

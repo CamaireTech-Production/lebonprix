@@ -24,7 +24,7 @@ const Dashboard = () => {
   const [] = useState<Partial<DashboardStats>>({});
   const [copied, setCopied] = useState(false);
 
-  // Calculate gross profit (selling price - cost price) * quantity for all sales
+  // Calculate gross profit (selling price - purchase price) * quantity for all sales
   const grossProfit = sales?.reduce((sum, sale) => {
     return sum + sale.products.reduce((productSum, product) => {
       const productData = products?.find(p => p.id === product.productId);
@@ -47,8 +47,8 @@ const Dashboard = () => {
   // Total sales amount
   const totalSalesAmount = sales?.reduce((sum, sale) => sum + sale.totalAmount, 0) || 0;
 
-  // Calculate total cost price for all sales
-  const totalCostPrice = sales?.reduce((sum, sale) => {
+  // Calculate total purchase price for all sales
+  const totalPurchasePrice = sales?.reduce((sum, sale) => {
     return sum + sale.products.reduce((productSum, product) => {
       const productData = products?.find(p => p.id === product.productId);
       if (!productData) return productSum;
@@ -301,11 +301,11 @@ const Dashboard = () => {
           type="sales"
         />
         <StatCard 
-          title={t('dashboard.stats.totalCostPrice')}
-          value={`${totalCostPrice.toLocaleString()} XAF`}
+          title={t('dashboard.stats.totalPurchasePrice')}
+          value={`${totalPurchasePrice.toLocaleString()} XAF`}
           icon={<DollarSign size={20} />}
-          tooltipKey="totalCostPrice"
-          type="cost"
+          tooltipKey="totalPurchasePrice"
+          type="products"
         />
       </div>
       {/* Chart section */}

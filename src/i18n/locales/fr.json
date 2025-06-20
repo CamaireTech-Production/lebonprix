@@ -61,7 +61,8 @@
       "trend": {
         "fromLastMonth": "par rapport au mois dernier"
       },
-      "totalCostPrice": "Prix de revient total"
+      "totalCostPrice": "Prix d'achat total",
+      "totalPurchasePrice": "Prix d'achat total"
     },
     "tooltips": {
       "grossProfit": "Revenu total moins le coût des marchandises vendues",
@@ -71,7 +72,8 @@
       "deliveryExpenses": "Dépenses totales liées à la livraison des produits",
       "totalSalesAmount": "Revenu total de toutes les ventes",
       "totalSalesCount": "Nombre total de transactions de vente",
-      "totalCostPrice": "Le montant total des prix de revient pour tous les produits vendus"
+      "totalCostPrice": "Le montant total des prix d'achat pour tous les produits vendus",
+      "totalPurchasePrice": "Le montant total des prix d'achat pour tous les produits vendus"
     },
     "bestSellingProducts": {
       "title": "Meilleurs produits",
@@ -84,8 +86,8 @@
       "title": "Explication des calculs du tableau de bord",
       "grossProfit": {
         "title": "Bénéfice brut",
-        "description": "Le bénéfice brut est calculé en soustrayant le prix de revient du prix de vente pour chaque produit vendu, puis en multipliant par la quantité vendue.",
-        "formula": "Formule : Σ((Prix de vente - Prix de revient) × Quantité vendue) pour chaque produit dans chaque vente",
+        "description": "Le bénéfice brut est calculé en soustrayant le prix d'achat du prix de vente pour chaque produit vendu, puis en multipliant par la quantité vendue.",
+        "formula": "Formule : Σ((Prix de vente - Prix d'achat) × Quantité vendue) pour chaque produit dans chaque vente",
         "example": "Exemple : Si vous vendez 5 unités d'un produit qui coûte 1000 XAF et se vend 1500 XAF : Bénéfice brut = (1500 - 1000) × 5 = 2500 XAF"
       },
       "netProfit": {
@@ -379,14 +381,14 @@
     "form": {
       "name": "Nom du produit",
       "reference": "Référence du produit",
-      "costPrice": "Prix de revient (XAF)",
+      "costPrice": "Prix d'achat (XAF)",
       "sellingPrice": "Prix de vente (XAF)",
       "category": "Catégorie",
       "stock": "Quantité en stock",
       "image": "Image du produit",
       "imageHelp": "Téléchargez une image pour le produit",
       "categoryPlaceholder": "Sélectionnez ou créez une catégorie...",
-      "sellingPriceHelp": "Doit être supérieur au prix de revient"
+      "sellingPriceHelp": "Doit être supérieur au prix d'achat"
     },
     "import": {
       "title": "Importer des produits depuis CSV",
@@ -399,7 +401,7 @@
       "fields": {
         "name": "Nom du produit",
         "reference": "Référence du produit",
-        "costPrice": "Prix de revient",
+        "costPrice": "Prix d'achat",
         "sellingPrice": "Prix de vente",
         "category": "Catégorie",
         "stock": "Stock"
@@ -429,7 +431,7 @@
     "table": {
       "columns": {
         "product": "Produit",
-        "costPrice": "Prix de d'achat",
+        "costPrice": "Prix d'achat",
         "sellingPrice": "Prix de vente",
         "stock": "Stock",
         "category": "Catégorie",
