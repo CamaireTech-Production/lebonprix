@@ -4,7 +4,7 @@ import SalesChart from '../components/dashboard/SalesChart';
 import ActivityList from '../components/dashboard/ActivityList';
 import Table from '../components/common/Table';
 import Card from '../components/common/Card';
-import { useSales, useExpenses, useProducts } from '../hooks/useFirestore';
+import { useSales, useExpenses, useProducts, useStockChanges } from '../hooks/useFirestore';
 import LoadingScreen from '../components/common/LoadingScreen';
 import { useState } from 'react';
 import Modal from '../components/common/Modal';
@@ -23,6 +23,7 @@ const Dashboard = () => {
   const { sales, loading: salesLoading } = useSales();
   const { expenses, loading: expensesLoading } = useExpenses();
   const { products, loading: productsLoading } = useProducts();
+  const { stockChanges, loading: stockChangesLoading } = useStockChanges();
   const [showCalculationsModal, setShowCalculationsModal] = useState(false);
   const { company } = useAuth();
   const [] = useState<Partial<DashboardStats>>({});
@@ -79,8 +80,17 @@ const Dashboard = () => {
   // Total sales amount
   const totalSalesAmount = filteredSales?.reduce((sum, sale) => sum + sale.totalAmount, 0) || 0;
 
-  // Calculate total purchase price for all products in stock (not filtered by date)
-  const totalPurchasePrice = products?.reduce((sum, product) => sum + (product.costPrice * product.stock), 0) || 0;
+  // Calculate total purchase price for all products in stock as of the end of the selected period
+  const getStockAtDate = (productId: string, date: Date) => {
+    // Sum all stock changes for this product up to and including the date
+    return stockChanges
+      .filter((sc: any) => sc.productId === productId && sc.createdAt?.seconds && new Date(sc.createdAt.seconds * 1000) <= date)
+      .reduce((sum: number, sc: any) => sum + sc.change, 0);
+  };
+  const totalPurchasePrice = products?.reduce((sum, product) => {
+    const stockAtDate = getStockAtDate(product.id, dateRange.to);
+    return sum + (product.costPrice * stockAtDate);
+  }, 0) || 0;
 
   // Best selling products (by quantity sold)
   const productSalesMap: Record<string, { name: string; quantity: number; sales: number }> = {};
@@ -206,7 +216,7 @@ const Dashboard = () => {
     }
   };
 
-  if (salesLoading || expensesLoading || productsLoading) {
+  if (salesLoading || expensesLoading || productsLoading || stockChangesLoading) {
     return <LoadingScreen />;
   }
 

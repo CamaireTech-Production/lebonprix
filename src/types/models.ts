@@ -100,4 +100,14 @@ export interface Objective extends BaseModel {
   userId: string;
 }
 
+// Stock change event for product inventory tracking
+export interface StockChange {
+  id: string;
+  productId: string;
+  change: number; // + for restock, - for sale, etc.
+  reason: 'sale' | 'restock' | 'adjustment';
+  createdAt: Timestamp;
+  userId: string;
+}
+
 // Rest of the existing interfaces...

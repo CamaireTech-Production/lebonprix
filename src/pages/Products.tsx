@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Grid, List, Plus, Search, Edit2, Upload, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import Card from '../components/common/Card';
@@ -7,7 +7,7 @@ import Badge from '../components/common/Badge';
 import Modal, { ModalFooter } from '../components/common/Modal';
 import Input from '../components/common/Input';
 import CreatableSelect from '../components/common/CreatableSelect';
-import { useProducts } from '../hooks/useFirestore';
+import { useProducts, useStockChanges } from '../hooks/useFirestore';
 import { useAuth } from '../contexts/AuthContext';
 import LoadingScreen from '../components/common/LoadingScreen';
 import { showSuccessToast, showErrorToast, showWarningToast } from '../utils/toast';
@@ -21,8 +21,9 @@ interface CsvRow {
 }
 
 const Products = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { products, loading, error, addProduct, updateProduct, deleteProduct } = useProducts();
+  const { stockChanges, loading: stockChangesLoading } = useStockChanges();
   const { user } = useAuth();
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [searchQuery, setSearchQuery] = useState('');
@@ -55,6 +56,12 @@ const Products = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  
+  const [editTab, setEditTab] = useState<'details' | 'stock'>('details');
+  // State for stock adjustment tab
+  const [stockAdjustment, setStockAdjustment] = useState('');
+  const [stockReason, setStockReason] = useState<'restock' | 'adjustment'>('restock');
+  const [isStockSubmitting, setIsStockSubmitting] = useState(false);
   
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -113,68 +120,41 @@ const Products = () => {
   };
 
   const handleAddProduct = async () => {
+    if (!user?.uid) return;
+    if (!formData.name || !formData.reference || !formData.costPrice || !formData.sellingPrice || !formData.category) {
+      showWarningToast(t('products.messages.warnings.requiredFields'));
+      return;
+    }
+    setIsSubmitting(true);
+    let imageBase64 = '/placeholder.png';
+    if (formData.imageFile) {
+      try {
+        imageBase64 = await compressImage(formData.imageFile);
+      } catch (err) {
+        showErrorToast(t('products.messages.errors.addProduct'));
+        setIsSubmitting(false);
+        return;
+      }
+    }
+    const productData = {
+      name: formData.name,
+      reference: formData.reference,
+      costPrice: parseFloat(formData.costPrice),
+      sellingPrice: parseFloat(formData.sellingPrice),
+      category: formData.category,
+      stock: 0,
+      imageUrl: imageBase64,
+      isAvailable: true,
+      userId: user.uid,
+      updatedAt: { seconds: 0, nanoseconds: 0 }
+    };
     try {
-      if (!formData.name || !formData.reference || !formData.costPrice || !formData.sellingPrice || !formData.category || !formData.stock) {
-        showWarningToast(t('products.messages.warnings.requiredFields'));
-        return;
-      }
-
-      if (!user?.uid) {
-        showErrorToast(t('products.messages.errors.notLoggedIn'));
-        return;
-      }
-
-      setIsSubmitting(true);
-      let imageBase64 = '/placeholder.png';
-      
-      if (formData.imageFile) {
-        try {
-          imageBase64 = await compressImage(formData.imageFile);
-          await addProduct({
-            name: formData.name,
-            reference: formData.reference,
-            costPrice: parseFloat(formData.costPrice),
-            sellingPrice: parseFloat(formData.sellingPrice),
-            category: formData.category,
-            stock: parseInt(formData.stock),
-            imageUrl: `data:image/jpeg;base64,${imageBase64}`,
-            isAvailable: true,
-            userId: user.uid,
-            updatedAt: {
-              seconds: 0,
-              nanoseconds: 0
-            }
-          });
-          setIsAddModalOpen(false);
-          resetForm();
-          showSuccessToast(t('products.messages.productAdded'));
-        } catch (err) {
-          console.error('Failed to add product:', err);
-          showErrorToast(t('products.messages.errors.addProduct'));
-          setIsAddModalOpen(true);
-        }
-      } else {
-        await addProduct({
-          name: formData.name,
-          reference: formData.reference,
-          costPrice: parseFloat(formData.costPrice),
-          sellingPrice: parseFloat(formData.sellingPrice),
-          category: formData.category,
-          stock: parseInt(formData.stock),
-          imageUrl: imageBase64,
-          isAvailable: true,
-          userId: user.uid,
-          updatedAt: {
-            seconds: 0,
-            nanoseconds: 0
-          }
-        });
-        setIsAddModalOpen(false);
-        resetForm();
-        showSuccessToast(t('products.messages.productAdded'));
-      }
+      await addProduct(productData);
+      // After add, refetch products and set initial stock if needed (migration will handle this)
+      setIsAddModalOpen(false);
+      resetForm();
+      showSuccessToast(t('products.messages.productAdded'));
     } catch (err) {
-      console.error('Failed to add product:', err);
       showErrorToast(t('products.messages.errors.addProduct'));
       setIsAddModalOpen(true);
     } finally {
@@ -183,70 +163,38 @@ const Products = () => {
   };
   
   const handleEditProduct = async () => {
-    if (!currentProduct) return;
-    
+    if (!currentProduct || !user?.uid) return;
+    if (!formData.name || !formData.reference || !formData.costPrice || !formData.sellingPrice || !formData.category) {
+      showWarningToast(t('products.messages.warnings.requiredFields'));
+      return;
+    }
+    setIsSubmitting(true);
+    let imageBase64 = currentProduct.imageUrl;
+    if (formData.imageFile) {
+      try {
+        imageBase64 = await compressImage(formData.imageFile);
+      } catch (err) {
+        showErrorToast(t('products.messages.errors.updateProduct'));
+        setIsSubmitting(false);
+        return;
+      }
+    }
     try {
-      if (!formData.name || !formData.reference || !formData.costPrice || !formData.sellingPrice || !formData.category || !formData.stock) {
-        showWarningToast(t('products.messages.warnings.requiredFields'));
-        return;
-      }
-
-      if (!user?.uid) {
-        showErrorToast(t('products.messages.errors.notLoggedIn'));
-        return;
-      }
-
-      setIsSubmitting(true);
-      let imageBase64 = currentProduct.imageUrl;
-
-      if (formData.imageFile) {
-        try {
-          imageBase64 = await compressImage(formData.imageFile);
-          await updateProduct(currentProduct.id, {
-            name: formData.name,
-            reference: formData.reference,
-            costPrice: parseFloat(formData.costPrice),
-            sellingPrice: parseFloat(formData.sellingPrice),
-            category: formData.category,
-            stock: parseInt(formData.stock),
-            imageUrl: `data:image/jpeg;base64,${imageBase64}`,
-            isAvailable: currentProduct.isAvailable,
-            userId: user.uid,
-            updatedAt: {
-              seconds: 0,
-              nanoseconds: 0
-            }
-          });
-          setIsEditModalOpen(false);
-          resetForm();
-          showSuccessToast(t('products.messages.productUpdated'));
-        } catch (err) {
-          console.error('Failed to update product:', err);
-          showErrorToast(t('products.messages.errors.updateProduct'));
-          setIsEditModalOpen(true);
-        }
-      } else {
-        await updateProduct(currentProduct.id, {
-          name: formData.name,
-          reference: formData.reference,
-          costPrice: parseFloat(formData.costPrice),
-          sellingPrice: parseFloat(formData.sellingPrice),
-          category: formData.category,
-          stock: parseInt(formData.stock),
-          imageUrl: imageBase64,
-          isAvailable: currentProduct.isAvailable,
-          userId: user.uid,
-          updatedAt: {
-            seconds: 0,
-            nanoseconds: 0
-          }
-        });
-        setIsEditModalOpen(false);
-        resetForm();
-        showSuccessToast(t('products.messages.productUpdated'));
-      }
+      await updateProduct(currentProduct.id, {
+        name: formData.name,
+        reference: formData.reference,
+        costPrice: parseFloat(formData.costPrice),
+        sellingPrice: parseFloat(formData.sellingPrice),
+        category: formData.category,
+        imageUrl: imageBase64,
+        isAvailable: currentProduct.isAvailable,
+        userId: user.uid,
+        updatedAt: { seconds: 0, nanoseconds: 0 }
+      }, user.uid);
+      setIsEditModalOpen(false);
+      resetForm();
+      showSuccessToast(t('products.messages.productUpdated'));
     } catch (err) {
-      console.error('Failed to update product:', err);
       showErrorToast(t('products.messages.errors.updateProduct'));
       setIsEditModalOpen(true);
     } finally {
@@ -262,11 +210,13 @@ const Products = () => {
       costPrice: product.costPrice.toString(),
       sellingPrice: product.sellingPrice.toString(),
       category: product.category,
-      stock: product.stock.toString(),
+      stock: '', // Not used in edit details, reset to avoid issues
       imageUrl: product.imageUrl || '/placeholder.png',
       imageFile: null
     });
     setIsEditModalOpen(true);
+    setEditTab('details'); // Reset to details tab on open
+    setStockAdjustment(''); // Reset stock adjustment field
   };
   
   // Filter products by search query and category
@@ -480,8 +430,7 @@ const Products = () => {
   };
 
   const handleDeleteProduct = async () => {
-    if (!productToDelete) return;
-    
+    if (!productToDelete || !user?.uid) return;
     try {
       setIsDeleting(true);
       await deleteProduct(productToDelete.id);
@@ -489,10 +438,62 @@ const Products = () => {
       setIsDeleteModalOpen(false);
       setProductToDelete(null);
     } catch (error) {
-      console.error('Failed to delete product:', error);
       showErrorToast(t('products.messages.errors.deleteProduct'));
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  // Submit stock adjustment from stock tab
+  const handleStockSubmit = async () => {
+    if (!currentProduct || !user?.uid || !stockAdjustment) return;
+
+    const adjustmentAmount = parseInt(stockAdjustment, 10);
+    if (isNaN(adjustmentAmount)) {
+      showErrorToast(t('products.messages.errors.invalidStock'));
+      return;
+    }
+
+    setIsStockSubmitting(true);
+
+    let newStock: number;
+    let change: number;
+
+    if (stockReason === 'restock') {
+      if (adjustmentAmount <= 0) {
+        showErrorToast(t('products.messages.warnings.positiveQuantity'));
+        setIsStockSubmitting(false);
+        return;
+      }
+      change = adjustmentAmount;
+      newStock = currentProduct.stock + change;
+    } else { // 'adjustment'
+      if (adjustmentAmount < 0) {
+        showErrorToast(t('products.messages.warnings.nonNegativeStock'));
+        setIsStockSubmitting(false);
+        return;
+      }
+      newStock = adjustmentAmount;
+      change = newStock - currentProduct.stock;
+    }
+
+    if (change === 0) {
+      showWarningToast(t('products.messages.warnings.noStockChange'));
+      setIsStockSubmitting(false);
+      return;
+    }
+
+    try {
+      await updateProduct(currentProduct.id, { stock: newStock }, user.uid, stockReason, change);
+      showSuccessToast(t('products.messages.productUpdated'));
+      
+      // Dynamically update UI
+      setCurrentProduct(prev => prev ? { ...prev, stock: newStock } : null);
+      setStockAdjustment('');
+    } catch (err) {
+      showErrorToast(t('products.messages.errors.updateProduct'));
+    } finally {
+      setIsStockSubmitting(false);
     }
   };
 
@@ -500,6 +501,24 @@ const Products = () => {
     setProductToDelete(product);
     setIsDeleteModalOpen(true);
   };
+
+  // Migration: create initial StockChange for products with stock > 0 and no StockChange
+  useEffect(() => {
+    if (!products?.length || !stockChanges?.length || !user?.uid) return;
+    products.forEach(async (product) => {
+      const hasStockChange = stockChanges.some((sc) => sc.productId === product.id);
+      if (product.stock > 0 && !hasStockChange) {
+        // Create an initial adjustment with 'creation' reason
+        try {
+          await updateProduct(product.id, { stock: product.stock }, user.uid, 'creation', product.stock);
+        } catch (e) { console.error(`Failed to create initial stock for ${product.id}:`, e) }
+      }
+    });
+  }, [products, stockChanges, user]);
+
+  useEffect(() => {
+    setSelectedCategory(t('products.filters.allCategories'));
+  }, [i18n.language]);
 
   if (loading) {
     return <LoadingScreen />;
@@ -815,90 +834,93 @@ const Products = () => {
         onClose={() => setIsEditModalOpen(false)}
         title={t('products.actions.editProduct')}
         footer={
-          <ModalFooter 
-            onCancel={() => setIsEditModalOpen(false)}
-            onConfirm={handleEditProduct}
-            confirmText={t('products.actions.editProduct')}
-            isLoading={isSubmitting}
-          />
+          editTab === 'details' ? (
+            <ModalFooter
+              onCancel={() => setIsEditModalOpen(false)}
+              onConfirm={handleEditProduct}
+              confirmText={t('products.actions.editProduct')}
+              isLoading={isSubmitting}
+            />
+          ) : null
         }
       >
-        <div className="space-y-4">
-          <Input
-            label={t('products.form.name')}
-            name="name"
-            value={formData.name}
-            onChange={handleInputChange}
-            required
-          />
-          
-          <Input
-            label={t('products.form.reference')}
-            name="reference"
-            value={formData.reference}
-            onChange={handleInputChange}
-            required
-          />
-          
-          <Input
-            label={t('products.form.costPrice')}
-            name="costPrice"
-            type="number"
-            value={formData.costPrice}
-            onChange={handleInputChange}
-            required
-          />
-          
-          <Input
-            label={t('products.form.sellingPrice')}
-            name="sellingPrice"
-            type="number"
-            value={formData.sellingPrice}
-            onChange={handleInputChange}
-            required
-            helpText={t('products.form.sellingPriceHelp')}
-          />
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              {t('products.form.category')}
-            </label>
-            <CreatableSelect
-              value={formData.category ? { label: formData.category, value: formData.category } : null}
-              onChange={handleCategoryChange}
-              placeholder={t('products.form.categoryPlaceholder')}
-              className="custom-select"
-            />
-          </div>
-          
-          <Input
-            label={t('products.form.stock')}
-            name="stock"
-            type="number"
-            value={formData.stock}
-            onChange={handleInputChange}
-            required
-          />
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              {t('products.form.image')}
-            </label>
-            <input
-              type="file"
-              name="imageFile"
-              accept="image/*"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) {
-                  setFormData(prev => ({ ...prev, imageFile: file }));
-                }
-              }}
-              className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border file:border-gray-300 file:text-sm file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
-            />
-            <p className="mt-1 text-sm text-gray-500">{t('products.form.imageHelp')}</p>
-          </div>
+        <div className="mb-4 flex border-b">
+          <button onClick={() => setEditTab('details')} className={`px-4 py-2 ${editTab === 'details' ? 'font-bold border-b-2 border-emerald-500' : ''}`}>{t('common.edit')}</button>
+          <button onClick={() => setEditTab('stock')} className={`px-4 py-2 ${editTab === 'stock' ? 'font-bold border-b-2 border-emerald-500' : ''}`}>{t('products.table.columns.stock')}</button>
         </div>
+        {editTab === 'details' ? (
+          <div className="space-y-4">
+            <Input label={t('products.form.name')} name="name" value={formData.name} onChange={handleInputChange} required />
+            <Input label={t('products.form.reference')} name="reference" value={formData.reference} onChange={handleInputChange} required />
+            <Input label={t('products.form.costPrice')} name="costPrice" type="number" value={formData.costPrice} onChange={handleInputChange} required />
+            <Input label={t('products.form.sellingPrice')} name="sellingPrice" type="number" value={formData.sellingPrice} onChange={handleInputChange} required helpText={t('products.form.sellingPriceHelp')} />
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{t('products.form.category')}</label>
+              <CreatableSelect value={formData.category ? { label: formData.category, value: formData.category } : null} onChange={handleCategoryChange} placeholder={t('products.form.categoryPlaceholder')} className="custom-select" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{t('products.form.image')}</label>
+              <input type="file" name="imageFile" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (file) { setFormData(prev => ({ ...prev, imageFile: file })); } }} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border file:border-gray-300 file:text-sm file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200" />
+              <p className="mt-1 text-sm text-gray-500">{t('products.form.imageHelp')}</p>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div>
+              <span className="block text-sm font-medium text-gray-700 mb-1">{currentProduct?.name}</span>
+              <span className="block text-xs text-gray-500 mb-2">{t('products.table.columns.stock')}: {currentProduct?.stock}</span>
+            </div>
+            <Input 
+              label={stockReason === 'restock' ? t('products.actions.quantityToAdd') : t('products.actions.newTotalStock')}
+              name="stockAdjustment" 
+              type="number" 
+              value={stockAdjustment} 
+              onChange={e => setStockAdjustment(e.target.value)} 
+              required 
+            />
+            <select className="block w-full rounded-md border border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm px-3 py-2" value={stockReason} onChange={e => setStockReason(e.target.value as 'restock' | 'adjustment')}>
+              <option value="restock">{t('products.actions.restock')}</option>
+              <option value="adjustment">{t('products.actions.adjustment')}</option>
+            </select>
+            <p className="mt-2 text-sm text-gray-500">
+              <span className="block mb-2">
+                <strong>{t('products.actions.restock')}:</strong> {t('products.actions.restockHelp')}
+              </span>
+              <span className="block">
+                <strong>{t('products.actions.adjustment')}:</strong> {t('products.actions.adjustmentHelp')}
+              </span>
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setIsEditModalOpen(false)}>{t('common.cancel')}</Button>
+              <Button onClick={handleStockSubmit} isLoading={isStockSubmitting}>{t('common.save')}</Button>
+            </div>
+            <div className="mt-6">
+              <h4 className="font-semibold mb-2">{t('products.actions.stockHistory')}</h4>
+              {(stockChanges.filter(sc => sc.productId === currentProduct?.id).length === 0) ? (
+                <span className="text-sm text-gray-500">{t('products.messages.noStockHistory')}</span>
+              ) : (
+                <table className="min-w-full text-sm">
+                  <thead>
+                    <tr>
+                      <th className="text-left">{t('products.actions.date')}</th>
+                      <th className="text-left">{t('products.actions.change')}</th>
+                      <th className="text-left">{t('products.actions.reason')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stockChanges.filter(sc => sc.productId === currentProduct?.id).map(sc => (
+                      <tr key={sc.id}>
+                        <td>{sc.createdAt?.seconds ? new Date(sc.createdAt.seconds * 1000).toLocaleString() : ''}</td>
+                        <td>{sc.change > 0 ? '+' : ''}{sc.change}</td>
+                        <td>{t('products.actions.' + sc.reason)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        )}
       </Modal>
 
       {/* Import CSV Modal */}
@@ -1045,7 +1067,7 @@ const Products = () => {
             onConfirm={handleDeleteProduct}
             confirmText={t('products.actions.delete')}
             isLoading={isDeleting}
-            variant="danger"
+            isDanger
           />
         }
       >

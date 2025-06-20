@@ -25,7 +25,7 @@ import type {
 } from '../types/models';
 import { Timestamp } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
-import { doc, getDoc, deleteDoc, collection, query, where, orderBy, getDocs } from 'firebase/firestore';
+import { doc, getDoc, deleteDoc, collection, query, where, orderBy, getDocs, onSnapshot } from 'firebase/firestore';
 import { db } from '../services/firebase';
 
 // Products Hook
@@ -341,5 +341,24 @@ export const useDashboardStats = () => {
   }, [user]);
 
   return { stats, loading, error };
+};
+
+// Stock Changes Hook
+export const useStockChanges = () => {
+  const { user } = useAuth();
+  const [stockChanges, setStockChanges] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user) return;
+    const q = query(collection(db, 'stockChanges'), where('userId', '==', user.uid), orderBy('createdAt', 'asc'));
+    const unsub = onSnapshot(q, snapshot => {
+      setStockChanges(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+      setLoading(false);
+    });
+    return () => unsub();
+  }, [user]);
+
+  return { stockChanges, loading };
 };
 

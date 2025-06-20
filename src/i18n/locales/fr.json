@@ -124,7 +124,9 @@
         "description": "Le prix d'achat total est la somme des prix d'achat de tous les produits actuellement en stock. Pour chaque produit, on multiplie le prix d'achat par la quantité en stock, puis on additionne le tout.",
         "formula": "Formule : Σ(Prix d'achat × Quantité en stock) pour chaque produit",
         "example": "Exemple : Si vous avez 10 unités d'un produit dont le prix d'achat est 1000 XAF, et 5 unités d'un autre à 2000 XAF : Prix d'achat total = (10 × 1000) + (5 × 2000) = 10 000 + 10 000 = 20 000 XAF."
-      }
+      },
+      "restockHelp": "Utilisez ceci pour ajouter du stock (par ex. nouvelle livraison du fournisseur).",
+      "adjustmentHelp": "Utilisez ceci pour corriger des erreurs ou des écarts d'inventaire."
     },
     "publicProducts": {
       "title": "Page publique des produits",
@@ -384,69 +386,33 @@
   "products": {
     "title": "Produits",
     "subtitle": "Gérez votre inventaire de produits",
+    "filters": {
+      "allCategories": "Toutes les catégories",
+      "search": "Rechercher par nom ou référence..."
+    },
     "actions": {
       "addProduct": "Ajouter un produit",
       "editProduct": "Modifier le produit",
-      "importCSV": "Importer CSV",
+      "deleteProduct": "Supprimer le produit",
+      "importCSV": "Importer depuis CSV",
+      "exportCSV": "Exporter vers CSV",
       "gridView": "Vue grille",
       "listView": "Vue liste",
-      "deleteProduct": "Supprimer le produit",
-      "delete": "Supprimer"
-    },
-    "filters": {
-      "search": "Rechercher des produits...",
-      "category": "Catégorie",
-      "allCategories": "Toutes les catégories"
-    },
-    "form": {
-      "name": "Nom du produit",
-      "reference": "Référence du produit",
-      "costPrice": "Prix d'achat (XAF)",
-      "sellingPrice": "Prix de vente (XAF)",
-      "category": "Catégorie",
-      "stock": "Quantité en stock",
-      "image": "Image du produit",
-      "imageHelp": "Téléchargez une image pour le produit",
-      "categoryPlaceholder": "Sélectionnez ou créez une catégorie...",
-      "sellingPriceHelp": "Doit être supérieur au prix d'achat"
-    },
-    "import": {
-      "title": "Importer des produits depuis CSV",
-      "upload": "Télécharger le fichier CSV",
-      "uploadHelp": "Téléchargez un fichier CSV contenant vos produits. La première ligne doit contenir les en-têtes.",
-      "mapping": "Mapper les colonnes CSV",
-      "preview": "Aperçu",
-      "previewHelp": "Affichage des 5 premières lignes sur {{total}} lignes au total",
-      "progress": "Importation des produits...",
-      "fields": {
-        "name": "Nom du produit",
-        "reference": "Référence du produit",
-        "costPrice": "Prix d'achat",
-        "sellingPrice": "Prix de vente",
-        "category": "Catégorie",
-        "stock": "Stock"
-      }
-    },
-    "messages": {
-      "productAdded": "Produit ajouté avec succès !",
-      "productUpdated": "Produit mis à jour avec succès !",
-      "importSuccess": "{{count}} produits importés avec succès",
-      "errors": {
-        "addProduct": "Échec de l'ajout du produit. Veuillez réessayer.",
-        "updateProduct": "Échec de la mise à jour du produit. Veuillez réessayer.",
-        "importFailed": "Échec de l'importation des produits",
-        "parseError": "Erreur lors de l'analyse du fichier CSV : {{error}}",
-        "notLoggedIn": "Vous devez être connecté pour ajouter un produit"
-      },
-      "warnings": {
-        "requiredFields": "Veuillez remplir tous les champs obligatoires",
-        "invalidData": "Données invalides dans la ligne",
-        "mapField": "Veuillez mapper le champ {{field}}"
-      },
-      "productDeleted": "Produit supprimé avec succès",
-      "deleteConfirmation": "Êtes-vous sûr de vouloir supprimer le produit {{name}} ({{reference}}) ?",
-      "deleteWarning": "Cette action est irréversible.",
-      "deleteProduct": "Erreur lors de la suppression du produit"
+      "delete": "Supprimer",
+      "adjustAmount": "Quantité d'ajustement",
+      "restock": "Réapprovisionnement",
+      "adjustment": "Ajustement manuel",
+      "restockHelp": "Ajouter de nouveaux articles. Ex : Entrez '5' pour ajouter 5 unités au stock.",
+      "adjustmentHelp": "Corriger le stock total. Ex : Entrez '8' si le nouveau total est 8 unités.",
+      "stockHistory": "Historique du stock",
+      "date": "Date",
+      "change": "Changement",
+      "reason": "Raison",
+      "creation": "Création du produit",
+      "sale": "Vente",
+      "Initial stock": "Stock initial",
+      "quantityToAdd": "Quantité à ajouter",
+      "newTotalStock": "Nouveau stock total"
     },
     "table": {
       "columns": {
@@ -456,6 +422,67 @@
         "stock": "Stock",
         "category": "Catégorie",
         "actions": "Actions"
+      }
+    },
+    "form": {
+      "name": "Nom du produit",
+      "reference": "Référence",
+      "costPrice": "Prix d'achat (XAF)",
+      "sellingPrice": "Prix de vente (XAF)",
+      "sellingPriceHelp": "C'est le prix que vos clients verront.",
+      "category": "Catégorie",
+      "categoryPlaceholder": "Sélectionner ou créer une catégorie",
+      "stock": "Stock initial",
+      "image": "Image du produit",
+      "imageHelp": "Optionnel, max 500KB. Sera compressé."
+    },
+    "import": {
+      "title": "Importer des produits depuis un CSV",
+      "upload": "Télécharger un fichier CSV",
+      "uploadHelp": "Le fichier doit contenir des en-têtes. Champs recommandés : name, reference, costPrice, sellingPrice, category, stock.",
+      "mapping": "Mapper les colonnes",
+      "preview": "Aperçu (5 premières lignes)",
+      "previewHelp": "...et {{total}} autres lignes.",
+      "progress": "Importation en cours...",
+      "fields": {
+        "name": "Nom du produit",
+        "reference": "Référence",
+        "costPrice": "Prix d'achat",
+        "sellingPrice": "Prix de vente",
+        "category": "Catégorie",
+        "stock": "Stock"
+      }
+    },
+    "messages": {
+      "productAdded": "Produit ajouté avec succès",
+      "productUpdated": "Produit mis à jour avec succès",
+      "productDeleted": "Produit supprimé avec succès",
+      "importSuccess": "{{count}} sur {{total}} produits importés avec succès ({{errors}} erreurs).",
+      "deleteConfirmation": "Êtes-vous sûr de vouloir supprimer le produit : {{name}} (Réf: {{reference}}) ?",
+      "deleteWarning": "Cette action est irréversible. Toutes les données de ventes associées resteront mais le lien avec le produit sera rompu.",
+      "noStockHistory": "Aucun historique de stock pour ce produit.",
+      "errors": {
+        "loadProducts": "Échec du chargement des produits.",
+        "addProduct": "Erreur lors de l'ajout du produit",
+        "updateProduct": "Erreur lors de la mise à jour du produit",
+        "deleteProduct": "Erreur lors de la suppression du produit",
+        "emptyFile": "Le fichier sélectionné est vide ou invalide.",
+        "parseError": "Erreur d'analyse du fichier CSV : {{error}}",
+        "importFailed": "L'importation a échoué. Veuillez vérifier le fichier et réessayer.",
+        "notLoggedIn": "Utilisateur non connecté"
+      },
+      "warnings": {
+        "requiredFields": "Veuillez remplir tous les champs obligatoires.",
+        "mapField": "Veuillez mapper le champ '{{field}}'.",
+        "emptyMapping": "Le champ '{{field}}' ne peut pas être mappé à partir d'une colonne CSV vide.",
+        "missingName": "Nom de produit manquant dans une ligne.",
+        "missingReference": "Référence de produit manquante dans une ligne.",
+        "invalidCostPrice": "Prix d'achat invalide détecté dans une ligne.",
+        "invalidSellingPrice": "Prix de vente invalide détecté dans une ligne.",
+        "invalidStock": "Valeur de stock invalide détectée dans une ligne.",
+        "positiveQuantity": "La quantité à ajouter doit être positive.",
+        "nonNegativeStock": "Le stock total ne peut pas être négatif.",
+        "noStockChange": "Aucun changement de stock."
       }
     }
   },

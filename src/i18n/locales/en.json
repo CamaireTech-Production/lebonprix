@@ -408,5 +408,196 @@
     "confirmDelete": "Are you sure you want to delete this objective?",
     "empty": "No objectives yet",
     "filterByRange": "Use dashboard period"
+  },
+  "products": {
+    "title": "Products",
+    "subtitle": "Manage your product inventory",
+    "filters": {
+      "allCategories": "All Categories",
+      "search": "Search by name or reference..."
+    },
+    "actions": {
+      "addProduct": "Add Product",
+      "editProduct": "Edit Product",
+      "deleteProduct": "Delete Product",
+      "importCSV": "Import from CSV",
+      "exportCSV": "Export to CSV",
+      "gridView": "Grid View",
+      "listView": "List View",
+      "delete": "Delete",
+      "adjustAmount": "Adjustment Amount",
+      "restock": "Restock",
+      "adjustment": "Manual Adjustment",
+      "restockHelp": "Add new items. Ex: Enter '5' to add 5 units to the current stock.",
+      "adjustmentHelp": "Correct the total stock. Ex: Enter '8' if the new total is 8 units.",
+      "stockHistory": "Stock History",
+      "date": "Date",
+      "change": "Change",
+      "reason": "Reason",
+      "creation": "Product Creation",
+      "sale": "Sale",
+      "Initial stock": "Initial stock",
+      "quantityToAdd": "Quantity to Add",
+      "newTotalStock": "New Total Stock"
+    },
+    "table": {
+      "columns": {
+        "product": "Product",
+        "costPrice": "Cost Price",
+        "sellingPrice": "Selling Price",
+        "stock": "Stock",
+        "category": "Category",
+        "actions": "Actions"
+      }
+    },
+    "form": {
+      "name": "Product Name",
+      "reference": "Reference",
+      "costPrice": "Cost Price (XAF)",
+      "sellingPrice": "Selling Price (XAF)",
+      "sellingPriceHelp": "This is the price your customers will see.",
+      "category": "Category",
+      "categoryPlaceholder": "Select or create a category",
+      "stock": "Initial Stock",
+      "image": "Product Image",
+      "imageHelp": "Optional, max 500KB. Will be compressed."
+    },
+    "import": {
+      "title": "Import Products from CSV",
+      "upload": "Upload CSV file",
+      "uploadHelp": "The file must contain headers. Recommended fields: name, reference, costPrice, sellingPrice, category, stock.",
+      "mapping": "Map Columns",
+      "preview": "Preview (first 5 rows)",
+      "previewHelp": "...and {{total}} more rows.",
+      "progress": "Importing...",
+      "fields": {
+        "name": "Product Name",
+        "reference": "Reference",
+        "costPrice": "Cost Price",
+        "sellingPrice": "Selling Price",
+        "category": "Category",
+        "stock": "Stock"
+      }
+    },
+    "messages": {
+      "productAdded": "Product added successfully",
+      "productUpdated": "Product updated successfully",
+      "productDeleted": "Product deleted successfully",
+      "importSuccess": "{{count}} out of {{total}} products imported successfully ({{errors}} errors).",
+      "deleteConfirmation": "Are you sure you want to delete the product: {{name}} (Ref: {{reference}})?",
+      "deleteWarning": "This action cannot be undone. All associated sales data will remain but the product link will be broken.",
+      "noStockHistory": "No stock history for this product.",
+      "errors": {
+        "loadProducts": "Failed to load products.",
+        "addProduct": "Error adding product",
+        "updateProduct": "Error updating product",
+        "deleteProduct": "Error deleting product",
+        "emptyFile": "The selected file is empty or invalid.",
+        "parseError": "Error parsing CSV file: {{error}}",
+        "importFailed": "Import failed. Please check the file and try again.",
+        "notLoggedIn": "User not logged in"
+      },
+      "warnings": {
+        "requiredFields": "Please fill in all required fields.",
+        "mapField": "Please map the '{{field}}' field.",
+        "emptyMapping": "The '{{field}}' field cannot be mapped from an empty column.",
+        "missingName": "Missing product name in a row.",
+        "missingReference": "Missing product reference in a row.",
+        "invalidCostPrice": "Invalid cost price detected in a row.",
+        "invalidSellingPrice": "Invalid selling price detected in a row.",
+        "invalidStock": "Invalid stock value detected in a row.",
+        "positiveQuantity": "Quantity to add must be positive.",
+        "nonNegativeStock": "Total stock cannot be negative.",
+        "noStockChange": "No change in stock."
+      }
+    }
+  },
+  "expenses": {
+    "title": "Expenses",
+    "subtitle": "Manage your business expenses",
+    "filters": {
+      "allCategories": "All Categories",
+      "search": "Search by name or reference..."
+    },
+    "actions": {
+      "addExpense": "Add Expense",
+      "editExpense": "Edit Expense",
+      "deleteExpense": "Delete Expense",
+      "importCSV": "Import from CSV",
+      "exportCSV": "Export to CSV",
+      "gridView": "Grid View",
+      "listView": "List View",
+      "delete": "Delete",
+      "adjustAmount": "Adjustment Amount",
+      "restock": "Restock",
+      "adjustment": "Manual Adjustment",
+      "restockHelp": "Add new items. Ex: Enter '5' to add 5 units to the current stock.",
+      "adjustmentHelp": "Correct the total stock. Ex: Enter '8' if the new total is 8 units.",
+      "stockHistory": "Stock History",
+      "date": "Date",
+      "change": "Change",
+      "reason": "Reason",
+      "creation": "Expense Creation",
+      "sale": "Expense",
+      "Initial stock": "Initial stock"
+    },
+    "table": {
+      "columns": {
+        "expense": "Expense",
+        "amount": "Amount",
+        "category": "Category",
+        "actions": "Actions"
+      }
+    },
+    "form": {
+      "name": "Expense Name",
+      "reference": "Reference",
+      "amount": "Amount (XAF)",
+      "category": "Category",
+      "categoryPlaceholder": "Select or create a category",
+      "image": "Expense Image",
+      "imageHelp": "Optional, max 500KB. Will be compressed."
+    },
+    "import": {
+      "title": "Import Expenses from CSV",
+      "upload": "Upload CSV file",
+      "uploadHelp": "The file must contain headers. Recommended fields: name, amount, category.",
+      "mapping": "Map Columns",
+      "preview": "Preview (first 5 rows)",
+      "previewHelp": "...and {{total}} more rows.",
+      "progress": "Importing...",
+      "fields": {
+        "name": "Expense Name",
+        "amount": "Amount",
+        "category": "Category"
+      }
+    },
+    "messages": {
+      "expenseAdded": "Expense added successfully",
+      "expenseUpdated": "Expense updated successfully",
+      "expenseDeleted": "Expense deleted successfully",
+      "importSuccess": "{{count}} out of {{total}} expenses imported successfully ({{errors}} errors).",
+      "deleteConfirmation": "Are you sure you want to delete the expense: {{name}} (Ref: {{reference}})?",
+      "deleteWarning": "This action cannot be undone. All associated data will remain but the expense link will be broken.",
+      "noStockHistory": "No stock history for this expense.",
+      "errors": {
+        "loadExpenses": "Failed to load expenses.",
+        "addExpense": "Error adding expense",
+        "updateExpense": "Error updating expense",
+        "deleteExpense": "Error deleting expense",
+        "emptyFile": "The selected file is empty or invalid.",
+        "parseError": "Error parsing CSV file: {{error}}",
+        "importFailed": "Import failed. Please check the file and try again.",
+        "notLoggedIn": "User not logged in"
+      },
+      "warnings": {
+        "requiredFields": "Please fill in all required fields.",
+        "mapField": "Please map the '{{field}}' field.",
+        "emptyMapping": "The '{{field}}' field cannot be mapped from an empty column.",
+        "missingName": "Missing expense name in a row.",
+        "missingReference": "Missing expense reference in a row.",
+        "invalidAmount": "Invalid amount detected in a row."
+      }
+    }
   }
 } 

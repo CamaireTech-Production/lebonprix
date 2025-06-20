@@ -177,6 +177,17 @@ const createAuditLog = async (
   });
 };
 
+const createStockChange = (batch: WriteBatch, productId: string, change: number, reason: 'sale' | 'restock' | 'adjustment' | 'creation', userId: string) => {
+  const stockChangeRef = doc(collection(db, 'stockChanges'));
+  batch.set(stockChangeRef, {
+    productId,
+    change,
+    reason,
+    userId,
+    createdAt: serverTimestamp(),
+  });
+};
+
 export const createProduct = async (
   data: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>,
   userId: string
@@ -205,6 +216,11 @@ export const createProduct = async (
   };
   batch.set(productRef, productData);
   
+  // Add initial stock change if stock > 0
+  if (data.stock && data.stock > 0) {
+    createStockChange(batch, productRef.id, data.stock, 'restock', userId);
+  }
+  
   // Create audit log
   await createAuditLog(
     batch,
@@ -224,7 +240,9 @@ export const createProduct = async (
 export const updateProduct = async (
   id: string,
   data: Partial<Product>,
-  userId: string
+  userId: string,
+  stockReason?: 'sale' | 'restock' | 'adjustment' | 'creation',
+  stockChange?: number
 ): Promise<void> => {
   const batch = writeBatch(db);
   const productRef = doc(db, 'products', id);
@@ -247,6 +265,11 @@ export const updateProduct = async (
   };
   
   batch.update(productRef, updateData);
+  
+  // If stock is being updated, record the change
+  if (typeof data.stock === 'number' && typeof stockChange === 'number' && stockReason) {
+    createStockChange(batch, id, stockChange, stockReason, userId);
+  }
   
   // Create audit log
   await createAuditLog(
@@ -296,6 +319,8 @@ export const createSale = async (
       stock: productData.stock - product.quantity,
       updatedAt: serverTimestamp()
     });
+    // Add stock change for sale
+    createStockChange(batch, product.productId, -product.quantity, 'sale', userId);
   }
   
   // Create sale
