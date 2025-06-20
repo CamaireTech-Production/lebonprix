@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Grid, List, Plus, Search, Edit2 } from 'lucide-react';
+import { Grid, List, Plus, Search, Edit2, Upload, Trash2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Badge from '../components/common/Badge';
@@ -10,22 +11,32 @@ import { useProducts } from '../hooks/useFirestore';
 import { useAuth } from '../contexts/AuthContext';
 import LoadingScreen from '../components/common/LoadingScreen';
 import { showSuccessToast, showErrorToast, showWarningToast } from '../utils/toast';
+import imageCompression from 'browser-image-compression';
+import Papa from 'papaparse';
+import type { Product } from '../types/models';
+import type { ParseResult } from 'papaparse';
+
+interface CsvRow {
+  [key: string]: string;
+}
 
 const Products = () => {
-  const { products, loading, error, addProduct, updateProduct } = useProducts();
+  const { t } = useTranslation();
+  const { products, loading, error, addProduct, updateProduct, deleteProduct } = useProducts();
   const { user } = useAuth();
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [selectedCategory, setSelectedCategory] = useState(t('products.filters.allCategories'));
   
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [currentProduct, setCurrentProduct] = useState<any>(null);
+  const [currentProduct, setCurrentProduct] = useState<Product | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Form state
   const [formData, setFormData] = useState({
     name: '',
+    reference: '',
     costPrice: '',
     sellingPrice: '',
     category: '',
@@ -33,6 +44,17 @@ const Products = () => {
     imageUrl: '',
     imageFile: null as File | null
   });
+  
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [csvData, setCsvData] = useState<CsvRow[]>([]);
+  const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
+  const [columnMapping, setColumnMapping] = useState<Record<string, string>>({});
+  const [isImporting, setIsImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState(0);
+  
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [productToDelete, setProductToDelete] = useState<Product | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -42,6 +64,7 @@ const Products = () => {
   const resetForm = () => {
     setFormData({
       name: '',
+      reference: '',
       costPrice: '',
       sellingPrice: '',
       category: '',
@@ -52,68 +75,52 @@ const Products = () => {
   };
 
   // Get unique categories from products
-  const categories = ['All', ...new Set(products?.map(p => p.category) || [])];
+  const categories = [t('products.filters.allCategories'), ...new Set(products?.map(p => p.category) || [])];
 
-  const handleCategoryChange = (option: any) => {
+  const handleCategoryChange = (option: { label: string; value: string } | null) => {
     setFormData(prev => ({
       ...prev,
-      category: option?.label || ''
+      category: option?.label ?? ''
     }));
   };
   
-  const compressImage = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = (event) => {
-        const img = new Image();
-        img.src = event.target?.result as string;
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          let width = img.width;
-          let height = img.height;
-          
-          // Calculate new dimensions while maintaining aspect ratio
-          const MAX_WIDTH = 800;
-          const MAX_HEIGHT = 800;
-          
-          if (width > height) {
-            if (width > MAX_WIDTH) {
-              height = Math.round((height * MAX_WIDTH) / width);
-              width = MAX_WIDTH;
-            }
-          } else {
-            if (height > MAX_HEIGHT) {
-              width = Math.round((width * MAX_HEIGHT) / height);
-              height = MAX_HEIGHT;
-            }
-          }
-          
-          canvas.width = width;
-          canvas.height = height;
-          
-          const ctx = canvas.getContext('2d');
-          ctx?.drawImage(img, 0, 0, width, height);
-          
-          // Convert to base64 with reduced quality
-          const base64 = canvas.toDataURL('image/jpeg', 0.7);
-          resolve(base64);
-        };
-        img.onerror = reject;
+  const compressImage = async (file: File): Promise<string> => {
+    try {
+      const options = {
+        maxSizeMB: 0.5,
+        maxWidthOrHeight: 600,
+        useWebWorker: true,
+        initialQuality: 0.7,
+        alwaysKeepResolution: false
       };
-      reader.onerror = reject;
-    });
+
+      const compressedFile = await imageCompression(file, options);
+      
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(compressedFile);
+        reader.onload = () => {
+          const base64 = reader.result as string;
+          const base64Data = base64.split(',')[1];
+          resolve(base64Data);
+        };
+        reader.onerror = reject;
+      });
+    } catch (error) {
+      console.error('Error compressing image:', error);
+      throw error;
+    }
   };
 
   const handleAddProduct = async () => {
     try {
-      if (!formData.name || !formData.costPrice || !formData.sellingPrice || !formData.category || !formData.stock) {
-        showWarningToast('Please fill in all required fields');
+      if (!formData.name || !formData.reference || !formData.costPrice || !formData.sellingPrice || !formData.category || !formData.stock) {
+        showWarningToast(t('products.messages.warnings.requiredFields'));
         return;
       }
 
       if (!user?.uid) {
-        showErrorToast('You must be logged in to add a product');
+        showErrorToast(t('products.messages.errors.notLoggedIn'));
         return;
       }
 
@@ -125,11 +132,12 @@ const Products = () => {
           imageBase64 = await compressImage(formData.imageFile);
           await addProduct({
             name: formData.name,
+            reference: formData.reference,
             costPrice: parseFloat(formData.costPrice),
             sellingPrice: parseFloat(formData.sellingPrice),
             category: formData.category,
             stock: parseInt(formData.stock),
-            imageUrl: imageBase64,
+            imageUrl: `data:image/jpeg;base64,${imageBase64}`,
             isAvailable: true,
             userId: user.uid,
             updatedAt: {
@@ -139,15 +147,16 @@ const Products = () => {
           });
           setIsAddModalOpen(false);
           resetForm();
-          showSuccessToast('Product added successfully!');
+          showSuccessToast(t('products.messages.productAdded'));
         } catch (err) {
           console.error('Failed to add product:', err);
-          showErrorToast('Failed to add product. Please try again.');
+          showErrorToast(t('products.messages.errors.addProduct'));
           setIsAddModalOpen(true);
         }
       } else {
         await addProduct({
           name: formData.name,
+          reference: formData.reference,
           costPrice: parseFloat(formData.costPrice),
           sellingPrice: parseFloat(formData.sellingPrice),
           category: formData.category,
@@ -162,11 +171,11 @@ const Products = () => {
         });
         setIsAddModalOpen(false);
         resetForm();
-        showSuccessToast('Product added successfully!');
+        showSuccessToast(t('products.messages.productAdded'));
       }
     } catch (err) {
       console.error('Failed to add product:', err);
-      showErrorToast('Failed to add product. Please try again.');
+      showErrorToast(t('products.messages.errors.addProduct'));
       setIsAddModalOpen(true);
     } finally {
       setIsSubmitting(false);
@@ -177,13 +186,13 @@ const Products = () => {
     if (!currentProduct) return;
     
     try {
-      if (!formData.name || !formData.costPrice || !formData.sellingPrice || !formData.category || !formData.stock) {
-        showWarningToast('Please fill in all required fields');
+      if (!formData.name || !formData.reference || !formData.costPrice || !formData.sellingPrice || !formData.category || !formData.stock) {
+        showWarningToast(t('products.messages.warnings.requiredFields'));
         return;
       }
 
       if (!user?.uid) {
-        showErrorToast('You must be logged in to update a product');
+        showErrorToast(t('products.messages.errors.notLoggedIn'));
         return;
       }
 
@@ -195,11 +204,12 @@ const Products = () => {
           imageBase64 = await compressImage(formData.imageFile);
           await updateProduct(currentProduct.id, {
             name: formData.name,
+            reference: formData.reference,
             costPrice: parseFloat(formData.costPrice),
             sellingPrice: parseFloat(formData.sellingPrice),
             category: formData.category,
             stock: parseInt(formData.stock),
-            imageUrl: imageBase64,
+            imageUrl: `data:image/jpeg;base64,${imageBase64}`,
             isAvailable: currentProduct.isAvailable,
             userId: user.uid,
             updatedAt: {
@@ -209,15 +219,16 @@ const Products = () => {
           });
           setIsEditModalOpen(false);
           resetForm();
-          showSuccessToast('Product updated successfully!');
+          showSuccessToast(t('products.messages.productUpdated'));
         } catch (err) {
           console.error('Failed to update product:', err);
-          showErrorToast('Failed to update product. Please try again.');
+          showErrorToast(t('products.messages.errors.updateProduct'));
           setIsEditModalOpen(true);
         }
       } else {
         await updateProduct(currentProduct.id, {
           name: formData.name,
+          reference: formData.reference,
           costPrice: parseFloat(formData.costPrice),
           sellingPrice: parseFloat(formData.sellingPrice),
           category: formData.category,
@@ -232,26 +243,27 @@ const Products = () => {
         });
         setIsEditModalOpen(false);
         resetForm();
-        showSuccessToast('Product updated successfully!');
+        showSuccessToast(t('products.messages.productUpdated'));
       }
     } catch (err) {
       console.error('Failed to update product:', err);
-      showErrorToast('Failed to update product. Please try again.');
+      showErrorToast(t('products.messages.errors.updateProduct'));
       setIsEditModalOpen(true);
     } finally {
       setIsSubmitting(false);
     }
   };
   
-  const openEditModal = (product: any) => {
+  const openEditModal = (product: Product) => {
     setCurrentProduct(product);
     setFormData({
       name: product.name,
+      reference: product.reference,
       costPrice: product.costPrice.toString(),
       sellingPrice: product.sellingPrice.toString(),
       category: product.category,
       stock: product.stock.toString(),
-      imageUrl: product.imageUrl,
+      imageUrl: product.imageUrl || '/placeholder.png',
       imageFile: null
     });
     setIsEditModalOpen(true);
@@ -259,17 +271,242 @@ const Products = () => {
   
   // Filter products by search query and category
   const filteredProducts = products?.filter(product => {
-    const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === 'All' || product.category === selectedCategory;
+    const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         product.reference.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = selectedCategory === t('products.filters.allCategories') || product.category === selectedCategory;
     return matchesSearch && matchesCategory;
   }) || [];
+
+  const resetImportState = () => {
+    setCsvData([]);
+    setCsvHeaders([]);
+    setColumnMapping({});
+    setImportProgress(0);
+  };
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      transformHeader: (header: string) => header.trim(),
+      transform: (value: string) => value.trim(),
+      complete: (results: ParseResult<CsvRow>) => {
+        if (results.data && results.data.length > 0) {
+          console.log('Parsed CSV data:', results.data);
+          setCsvData(results.data);
+          const headers = Object.keys(results.data[0]);
+          setCsvHeaders(headers);
+          
+          // Initialize column mapping with empty values
+          const initialMapping: Record<string, string> = {};
+          headers.forEach(header => {
+            initialMapping[header] = '';
+          });
+          
+          // Try to automatically map columns based on common patterns
+          headers.forEach(header => {
+            const lowerHeader = header.toLowerCase();
+            // Reference/ID patterns
+            if (lowerHeader.includes('ref') || lowerHeader.includes('id') || lowerHeader.includes('code')) {
+              initialMapping[header] = 'reference';
+            }
+            // Name patterns
+            else if (lowerHeader.includes('name') || lowerHeader.includes('designation') || lowerHeader.includes('product') || lowerHeader.includes('description')) {
+              initialMapping[header] = 'name';
+            }
+            // Cost price patterns
+            else if (lowerHeader.includes('cost') || lowerHeader.includes('buy') || lowerHeader.includes('purchase') || lowerHeader.includes('prix d\'achat')) {
+              initialMapping[header] = 'costPrice';
+            }
+            // Selling price patterns
+            else if (lowerHeader.includes('price') || lowerHeader.includes('sell') || lowerHeader.includes('prix de vente')) {
+              initialMapping[header] = 'sellingPrice';
+            }
+            // Stock patterns
+            else if (lowerHeader.includes('stock') || lowerHeader.includes('quantity') || lowerHeader.includes('qty') || lowerHeader.includes('inventory')) {
+              initialMapping[header] = 'stock';
+            }
+            // Category patterns
+            else if (lowerHeader.includes('category') || lowerHeader.includes('type') || lowerHeader.includes('catégorie')) {
+              initialMapping[header] = 'category';
+            }
+          });
+          
+          setColumnMapping(initialMapping);
+        } else {
+          showErrorToast(t('products.messages.errors.emptyFile'));
+        }
+      },
+      error: (error: Error) => {
+        console.error('CSV parsing error:', error);
+        showErrorToast(t('products.messages.errors.parseError', { error: error.message }));
+      }
+    });
+  };
+
+  const handleColumnMappingChange = (csvColumn: string, productField: string) => {
+    setColumnMapping(prev => ({
+      ...prev,
+      [csvColumn]: productField
+    }));
+  };
+
+  const validateMapping = () => {
+    const requiredFields = ['name', 'reference', 'costPrice', 'sellingPrice', 'category', 'stock'];
+    const mappedFields = Object.values(columnMapping);
+    
+    for (const field of requiredFields) {
+      if (!mappedFields.includes(field)) {
+        showWarningToast(t('products.messages.warnings.mapField', { field: t(`products.import.fields.${field}`) }));
+        return false;
+      }
+    }
+
+    // Validate that all required fields are mapped to non-empty CSV columns
+    for (const [csvColumn, productField] of Object.entries(columnMapping)) {
+      if (requiredFields.includes(productField) && !csvColumn) {
+        showWarningToast(t('products.messages.warnings.emptyMapping', { field: t(`products.import.fields.${productField}`) }));
+        return false;
+      }
+    }
+
+    return true;
+  };
+
+  const formatCategory = (category: string): string => {
+    return category
+      .trim()
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
+  };
+
+  const handleImport = async () => {
+    if (!validateMapping()) return;
+    if (!user?.uid) {
+      showErrorToast(t('products.messages.errors.notLoggedIn'));
+      return;
+    }
+
+    try {
+      setIsImporting(true);
+      const totalProducts = csvData.length;
+      let processedCount = 0;
+      let successCount = 0;
+      let errorCount = 0;
+
+      // Process each row
+      for (const row of csvData) {
+        try {
+          // Clean and validate the data
+          const cleanData = {
+            name: row[columnMapping.name]?.trim() || '',
+            reference: row[columnMapping.reference]?.trim() || '',
+            costPrice: row[columnMapping.costPrice]?.replace(/[^0-9.-]+/g, '') || '0',
+            sellingPrice: row[columnMapping.sellingPrice]?.replace(/[^0-9.-]+/g, '') || '0',
+            stock: row[columnMapping.stock]?.replace(/[^0-9.-]+/g, '') || '0',
+            category: row[columnMapping.category]?.trim() || 'Non catégorisé'
+          };
+
+          // Validate required fields
+          if (!cleanData.name) {
+            throw new Error(t('products.messages.warnings.missingName'));
+          }
+          if (!cleanData.reference) {
+            throw new Error(t('products.messages.warnings.missingReference'));
+          }
+          if (isNaN(parseFloat(cleanData.costPrice)) || parseFloat(cleanData.costPrice) < 0) {
+            throw new Error(t('products.messages.warnings.invalidCostPrice'));
+          }
+          if (isNaN(parseFloat(cleanData.sellingPrice)) || parseFloat(cleanData.sellingPrice) < 0) {
+            throw new Error(t('products.messages.warnings.invalidSellingPrice'));
+          }
+          if (isNaN(parseInt(cleanData.stock)) || parseInt(cleanData.stock) < 0) {
+            throw new Error(t('products.messages.warnings.invalidStock'));
+          }
+
+          // Create the product data
+          const productData = {
+            name: cleanData.name,
+            reference: cleanData.reference,
+            costPrice: parseFloat(cleanData.costPrice),
+            sellingPrice: parseFloat(cleanData.sellingPrice),
+            category: formatCategory(cleanData.category),
+            stock: parseInt(cleanData.stock),
+            imageUrl: '/placeholder.png',
+            isAvailable: true,
+            userId: user.uid,
+            updatedAt: {
+              seconds: 0,
+              nanoseconds: 0
+            }
+          };
+
+          // Add the product
+          await addProduct(productData);
+          successCount++;
+          
+        } catch (error) {
+          console.error('Error processing row:', row);
+          console.error('Error details:', error);
+          errorCount++;
+        } finally {
+          processedCount++;
+          setImportProgress((processedCount / totalProducts) * 100);
+        }
+      }
+
+      if (successCount > 0) {
+        showSuccessToast(t('products.messages.importSuccess', { 
+          count: successCount,
+          total: totalProducts,
+          errors: errorCount
+        }));
+      } else {
+        showErrorToast(t('products.messages.errors.importFailed'));
+      }
+      
+      setIsImportModalOpen(false);
+      resetImportState();
+    } catch (error) {
+      console.error('Import failed:', error);
+      showErrorToast(t('products.messages.errors.importFailed'));
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  const handleDeleteProduct = async () => {
+    if (!productToDelete) return;
+    
+    try {
+      setIsDeleting(true);
+      await deleteProduct(productToDelete.id);
+      showSuccessToast(t('products.messages.productDeleted'));
+      setIsDeleteModalOpen(false);
+      setProductToDelete(null);
+    } catch (error) {
+      console.error('Failed to delete product:', error);
+      showErrorToast(t('products.messages.errors.deleteProduct'));
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const openDeleteModal = (product: Product) => {
+    setProductToDelete(product);
+    setIsDeleteModalOpen(true);
+  };
 
   if (loading) {
     return <LoadingScreen />;
   }
 
   if (error) {
-    showErrorToast('Failed to load products. Please refresh the page.');
+    showErrorToast(t('products.messages.errors.loadProducts'));
     return null;
   }
 
@@ -277,8 +514,8 @@ const Products = () => {
     <div className="pb-16 md:pb-0">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Products</h1>
-          <p className="text-gray-600">Manage your product inventory</p>
+          <h1 className="text-2xl font-semibold text-gray-900">{t('products.title')}</h1>
+          <p className="text-gray-600">{t('products.subtitle')}</p>
         </div>
         
         <div className="mt-4 md:mt-0 flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
@@ -286,22 +523,32 @@ const Products = () => {
             <button
               className={`p-2 rounded-md ${viewMode === 'grid' ? 'bg-gray-200' : 'bg-white'}`}
               onClick={() => setViewMode('grid')}
+              title={t('products.actions.gridView')}
             >
               <Grid size={18} />
             </button>
             <button
               className={`p-2 rounded-md ${viewMode === 'list' ? 'bg-gray-200' : 'bg-white'}`}
               onClick={() => setViewMode('list')}
+              title={t('products.actions.listView')}
             >
               <List size={18} />
             </button>
           </div>
           
           <Button 
+            icon={<Upload size={16} />}
+            onClick={() => setIsImportModalOpen(true)}
+            variant="outline"
+          >
+            {t('products.actions.importCSV')}
+          </Button>
+          
+          <Button 
             icon={<Plus size={16} />}
             onClick={() => setIsAddModalOpen(true)}
           >
-            Add Product
+            {t('products.actions.addProduct')}
           </Button>
         </div>
       </div>
@@ -315,7 +562,7 @@ const Products = () => {
           <input
             type="text"
             className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
-            placeholder="Search products..."
+            placeholder={t('products.filters.search')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -350,17 +597,18 @@ const Products = () => {
                 
                 <div className="flex-grow">
                   <h3 className="font-medium text-gray-900">{product.name}</h3>
+                  <p className="text-sm text-gray-500">{product.reference}</p>
                   <div className="mt-2 space-y-1">
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">Cost Price:</span>
+                      <span className="text-gray-500">{t('products.table.columns.costPrice')}:</span>
                       <span className="font-medium">{product.costPrice.toLocaleString()} XAF</span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">Selling Price:</span>
+                      <span className="text-gray-500">{t('products.table.columns.sellingPrice')}:</span>
                       <span className="text-emerald-600 font-medium">{product.sellingPrice.toLocaleString()} XAF</span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">Stock:</span>
+                      <span className="text-gray-500">{t('products.table.columns.stock')}:</span>
                       <Badge variant={product.stock > 10 ? 'success' : product.stock > 5 ? 'warning' : 'error'}>
                         {product.stock} units
                       </Badge>
@@ -373,8 +621,16 @@ const Products = () => {
                   <button 
                     onClick={() => openEditModal(product)}
                     className="text-indigo-600 hover:text-indigo-900"
+                    title={t('products.actions.editProduct')}
                   >
                     <Edit2 size={16} />
+                  </button>
+                  <button 
+                    onClick={() => openDeleteModal(product)}
+                    className="text-red-600 hover:text-red-900"
+                    title={t('products.actions.deleteProduct')}
+                  >
+                    <Trash2 size={16} />
                   </button>
                 </div>
               </div>
@@ -388,22 +644,22 @@ const Products = () => {
               <thead className="bg-gray-50">
                 <tr>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Product
+                    {t('products.table.columns.product')}
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Cost Price
+                    {t('products.table.columns.costPrice')}
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Selling Price
+                    {t('products.table.columns.sellingPrice')}
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Stock
+                    {t('products.table.columns.stock')}
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Category
+                    {t('products.table.columns.category')}
                   </th>
                   <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
+                    {t('products.table.columns.actions')}
                   </th>
                 </tr>
               </thead>
@@ -417,6 +673,7 @@ const Products = () => {
                         </div>
                         <div className="ml-4">
                           <div className="text-sm font-medium text-gray-900">{product.name}</div>
+                          <div className="text-sm text-gray-500">{product.reference}</div>
                         </div>
                       </div>
                     </td>
@@ -435,12 +692,22 @@ const Products = () => {
                       <div className="text-sm text-gray-500">{product.category}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button 
-                        onClick={() => openEditModal(product)}
-                        className="text-indigo-600 hover:text-indigo-900"
-                      >
-                        <Edit2 size={16} />
-                      </button>
+                      <div className="flex justify-end space-x-2">
+                        <button 
+                          onClick={() => openEditModal(product)}
+                          className="text-indigo-600 hover:text-indigo-900"
+                          title={t('products.actions.editProduct')}
+                        >
+                          <Edit2 size={16} />
+                        </button>
+                        <button 
+                          onClick={() => openDeleteModal(product)}
+                          className="text-red-600 hover:text-red-900"
+                          title={t('products.actions.deleteProduct')}
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -454,19 +721,19 @@ const Products = () => {
       <Modal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
-        title="Add New Product"
+        title={t('products.actions.addProduct')}
         footer={
           <ModalFooter 
             onCancel={() => setIsAddModalOpen(false)}
             onConfirm={handleAddProduct}
-            confirmText="Add Product"
+            confirmText={t('products.actions.addProduct')}
             isLoading={isSubmitting}
           />
         }
       >
         <div className="space-y-4">
           <Input
-            label="Product Name"
+            label={t('products.form.name')}
             name="name"
             value={formData.name}
             onChange={handleInputChange}
@@ -474,7 +741,15 @@ const Products = () => {
           />
           
           <Input
-            label="Cost Price (XAF)"
+            label={t('products.form.reference')}
+            name="reference"
+            value={formData.reference}
+            onChange={handleInputChange}
+            required
+          />
+          
+          <Input
+            label={t('products.form.costPrice')}
             name="costPrice"
             type="number"
             value={formData.costPrice}
@@ -483,29 +758,29 @@ const Products = () => {
           />
           
           <Input
-            label="Selling Price (XAF)"
+            label={t('products.form.sellingPrice')}
             name="sellingPrice"
             type="number"
             value={formData.sellingPrice}
             onChange={handleInputChange}
             required
-            helpText="Must be greater than cost price"
+            helpText={t('products.form.sellingPriceHelp')}
           />
           
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Category
+              {t('products.form.category')}
             </label>
             <CreatableSelect
               value={formData.category ? { label: formData.category, value: formData.category } : null}
               onChange={handleCategoryChange}
-              placeholder="Select or create a category..."
+              placeholder={t('products.form.categoryPlaceholder')}
               className="custom-select"
             />
           </div>
           
           <Input
-            label="Stock Quantity"
+            label={t('products.form.stock')}
             name="stock"
             type="number"
             value={formData.stock}
@@ -515,7 +790,7 @@ const Products = () => {
           
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Product Image
+              {t('products.form.image')}
             </label>
             <input
               type="file"
@@ -529,7 +804,7 @@ const Products = () => {
               }}
               className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border file:border-gray-300 file:text-sm file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
             />
-            <p className="mt-1 text-sm text-gray-500">Upload an image file for the product</p>
+            <p className="mt-1 text-sm text-gray-500">{t('products.form.imageHelp')}</p>
           </div>
         </div>
       </Modal>
@@ -538,19 +813,19 @@ const Products = () => {
       <Modal
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
-        title="Edit Product"
+        title={t('products.actions.editProduct')}
         footer={
           <ModalFooter 
             onCancel={() => setIsEditModalOpen(false)}
             onConfirm={handleEditProduct}
-            confirmText="Update Product"
+            confirmText={t('products.actions.editProduct')}
             isLoading={isSubmitting}
           />
         }
       >
         <div className="space-y-4">
           <Input
-            label="Product Name"
+            label={t('products.form.name')}
             name="name"
             value={formData.name}
             onChange={handleInputChange}
@@ -558,7 +833,15 @@ const Products = () => {
           />
           
           <Input
-            label="Cost Price (XAF)"
+            label={t('products.form.reference')}
+            name="reference"
+            value={formData.reference}
+            onChange={handleInputChange}
+            required
+          />
+          
+          <Input
+            label={t('products.form.costPrice')}
             name="costPrice"
             type="number"
             value={formData.costPrice}
@@ -567,29 +850,29 @@ const Products = () => {
           />
           
           <Input
-            label="Selling Price (XAF)"
+            label={t('products.form.sellingPrice')}
             name="sellingPrice"
             type="number"
             value={formData.sellingPrice}
             onChange={handleInputChange}
             required
-            helpText="Must be greater than cost price"
+            helpText={t('products.form.sellingPriceHelp')}
           />
           
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Category
+              {t('products.form.category')}
             </label>
             <CreatableSelect
               value={formData.category ? { label: formData.category, value: formData.category } : null}
               onChange={handleCategoryChange}
-              placeholder="Select or create a category..."
+              placeholder={t('products.form.categoryPlaceholder')}
               className="custom-select"
             />
           </div>
           
           <Input
-            label="Stock Quantity"
+            label={t('products.form.stock')}
             name="stock"
             type="number"
             value={formData.stock}
@@ -599,7 +882,7 @@ const Products = () => {
           
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Product Image
+              {t('products.form.image')}
             </label>
             <input
               type="file"
@@ -613,8 +896,169 @@ const Products = () => {
               }}
               className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border file:border-gray-300 file:text-sm file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
             />
-            <p className="mt-1 text-sm text-gray-500">Upload an image file for the product</p>
+            <p className="mt-1 text-sm text-gray-500">{t('products.form.imageHelp')}</p>
           </div>
+        </div>
+      </Modal>
+
+      {/* Import CSV Modal */}
+      <Modal
+        isOpen={isImportModalOpen}
+        onClose={() => {
+          setIsImportModalOpen(false);
+          resetImportState();
+        }}
+        title={t('products.import.title')}
+        size="lg"
+        footer={
+          <ModalFooter 
+            onCancel={() => {
+              setIsImportModalOpen(false);
+              resetImportState();
+            }}
+            onConfirm={handleImport}
+            confirmText={t('products.actions.importCSV')}
+            isLoading={isImporting}
+          />
+        }
+      >
+        <div className="space-y-6">
+          {/* File Upload */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {t('products.import.upload')}
+            </label>
+            <input
+              type="file"
+              accept=".csv"
+              onChange={handleFileUpload}
+              className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border file:border-gray-300 file:text-sm file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
+            />
+            <p className="mt-1 text-sm text-gray-500">
+              {t('products.import.uploadHelp')}
+            </p>
+          </div>
+
+          {/* Column Mapping */}
+          {csvHeaders.length > 0 && (
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium text-gray-900">{t('products.import.mapping')}</h3>
+              <div className="grid grid-cols-2 gap-4">
+                {csvHeaders.map(header => (
+                  <div key={header} className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      {header}
+                    </label>
+                    <select
+                      value={columnMapping[header]}
+                      onChange={(e) => handleColumnMappingChange(header, e.target.value)}
+                      className="block w-full rounded-md border border-gray-300 shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    >
+                      <option value="">{t('common.select')}</option>
+                      <option value="name">{t('products.import.fields.name')}</option>
+                      <option value="reference">{t('products.import.fields.reference')}</option>
+                      <option value="costPrice">{t('products.import.fields.costPrice')}</option>
+                      <option value="sellingPrice">{t('products.import.fields.sellingPrice')}</option>
+                      <option value="category">{t('products.import.fields.category')}</option>
+                      <option value="stock">{t('products.import.fields.stock')}</option>
+                    </select>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Preview */}
+          {csvData.length > 0 && (
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium text-gray-900">{t('products.import.preview')}</h3>
+              <div className="max-h-60 overflow-y-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      {csvHeaders.map(header => (
+                        <th
+                          key={header}
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                        >
+                          {header}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {csvData.slice(0, 5).map((row, index) => (
+                      <tr key={index}>
+                        {csvHeaders.map(header => (
+                          <td
+                            key={header}
+                            className="px-6 py-4 whitespace-nowrap text-sm text-gray-500"
+                          >
+                            {row[header]}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {csvData.length > 5 && (
+                  <p className="text-sm text-gray-500 mt-2">
+                    {t('products.import.previewHelp', { total: csvData.length })}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Progress Bar */}
+          {isImporting && (
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm text-gray-600">
+                <span>{t('products.import.progress')}</span>
+                <span>{Math.round(importProgress)}%</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div
+                  className="bg-emerald-600 h-2 rounded-full transition-all duration-300"
+                  style={{ width: `${importProgress}%` }}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={isDeleteModalOpen}
+        onClose={() => {
+          setIsDeleteModalOpen(false);
+          setProductToDelete(null);
+        }}
+        title={t('products.actions.deleteProduct')}
+        footer={
+          <ModalFooter 
+            onCancel={() => {
+              setIsDeleteModalOpen(false);
+              setProductToDelete(null);
+            }}
+            onConfirm={handleDeleteProduct}
+            confirmText={t('products.actions.delete')}
+            isLoading={isDeleting}
+            variant="danger"
+          />
+        }
+      >
+        <div className="text-center">
+          <p className="text-gray-600 mb-4">
+            {t('products.messages.deleteConfirmation', { 
+              name: productToDelete?.name,
+              reference: productToDelete?.reference 
+            })}
+          </p>
+          <p className="text-sm text-red-600">
+            {t('products.messages.deleteWarning')}
+          </p>
         </div>
       </Modal>
     </div>

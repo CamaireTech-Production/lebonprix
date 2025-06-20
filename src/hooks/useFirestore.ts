@@ -25,7 +25,7 @@ import type {
 } from '../types/models';
 import { Timestamp } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, deleteDoc, collection, query, where, orderBy, getDocs } from 'firebase/firestore';
 import { db } from '../services/firebase';
 
 // Products Hook
@@ -68,7 +68,26 @@ export const useProducts = () => {
     }
   };
 
-  return { products, loading, error, addProduct, updateProduct: updateProductData };
+  const deleteProduct = async (productId: string) => {
+    if (!user?.uid) throw new Error('User not authenticated');
+    
+    try {
+      await deleteDoc(doc(db, 'products', productId));
+      setProducts(prev => prev.filter(p => p.id !== productId));
+    } catch (err) {
+      console.error('Error deleting product:', err);
+      throw err;
+    }
+  };
+
+  return {
+    products,
+    loading,
+    error,
+    addProduct,
+    updateProduct,
+    deleteProduct
+  };
 };
 
 // Categories Hook
@@ -180,6 +199,44 @@ export const useSales = () => {
     }
   };
 
+  const fetchSales = async () => {
+    if (!user) return;
+    
+    try {
+      const salesRef = collection(db, 'sales');
+      const q = query(salesRef, where('userId', '==', user.uid), orderBy('createdAt', 'desc'));
+      const querySnapshot = await getDocs(q);
+      const salesData = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Sale[];
+      setSales(salesData);
+    } catch (error) {
+      console.error('Error fetching sales:', error);
+      throw error;
+    }
+  };
+
+  const deleteSale = async (saleId: string, userId: string) => {
+    if (!user) throw new Error('User not authenticated');
+    
+    try {
+      const saleRef = doc(db, 'sales', saleId);
+      await deleteDoc(saleRef);
+      
+      // Update local state by removing the deleted sale
+      setSales(prevSales => prevSales?.filter(sale => sale.id !== saleId) || []);
+      
+      // Refresh sales data to update dashboard
+      await fetchSales();
+      
+      return true;
+    } catch (error) {
+      console.error('Error deleting sale:', error);
+      throw error;
+    }
+  };
+
   const updateStatus = async (id: string, status: OrderStatus, paymentStatus: PaymentStatus) => {
     if (!user) throw new Error('User not authenticated');
     try {
@@ -199,7 +256,7 @@ export const useSales = () => {
     }
   };
 
-  return { sales, loading, error, addSale, updateSale, updateStatus };
+  return { sales, loading, error, addSale, updateSale, deleteSale, updateStatus };
 };
 
 // Expenses Hook

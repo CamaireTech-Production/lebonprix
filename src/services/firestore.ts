@@ -22,7 +22,8 @@ import type {
   OrderStatus,
   PaymentStatus,
   Company,
-  SaleDetails
+  SaleDetails,
+  Customer
 } from '../types/models';
 import { useState, useEffect } from 'react';
 import { Timestamp } from 'firebase/firestore';
@@ -753,4 +754,93 @@ export const subscribeToSaleUpdates = (
       });
     }
   });
+};
+
+export const deleteSale = async (saleId: string, userId: string): Promise<void> => {
+  const batch = writeBatch(db);
+  const saleRef = doc(db, 'sales', saleId);
+  
+  // Get current sale data for audit log and stock restoration
+  const currentSale = await getDoc(saleRef);
+  if (!currentSale.exists()) {
+    throw new Error('Sale not found');
+  }
+
+  // Verify ownership
+  const saleData = currentSale.data() as Sale;
+  if (saleData.userId !== userId) {
+    throw new Error('Unauthorized to delete this sale');
+  }
+
+  // Restore product stock
+  for (const product of saleData.products) {
+    const productRef = doc(db, 'products', product.productId);
+    const productSnap = await getDoc(productRef);
+    
+    if (!productSnap.exists()) {
+      throw new Error(`Product with ID ${product.productId} not found`);
+    }
+    
+    const productData = productSnap.data() as Product;
+    // Verify product ownership
+    if (productData.userId !== userId) {
+      throw new Error(`Unauthorized to modify product ${productData.name}`);
+    }
+    
+    // Restore the stock
+    batch.update(productRef, {
+      stock: productData.stock + product.quantity,
+      updatedAt: serverTimestamp()
+    });
+  }
+
+  // Delete the sale
+  batch.delete(saleRef);
+  
+  // Create audit log
+  await createAuditLog(
+    batch,
+    'delete',
+    'sale',
+    saleId,
+    { all: { oldValue: saleData, newValue: null } },
+    userId
+  );
+  
+  await batch.commit();
+};
+
+export const getCustomerByPhone = async (phone: string): Promise<Customer | null> => {
+  try {
+    const customersRef = collection(db, 'customers');
+    const q = query(customersRef, where('phone', '==', phone));
+    const querySnapshot = await getDocs(q);
+    
+    if (querySnapshot.empty) {
+      return null;
+    }
+
+    const customerDoc = querySnapshot.docs[0];
+    return {
+      id: customerDoc.id,
+      ...customerDoc.data()
+    } as Customer;
+  } catch (error) {
+    console.error('Error getting customer:', error);
+    throw error;
+  }
+};
+
+export const addCustomer = async (customerData: Omit<Customer, 'id'>): Promise<Customer> => {
+  try {
+    const customersRef = collection(db, 'customers');
+    const docRef = await addDoc(customersRef, customerData);
+    return {
+      id: docRef.id,
+      ...customerData
+    };
+  } catch (error) {
+    console.error('Error adding customer:', error);
+    throw error;
+  }
 };

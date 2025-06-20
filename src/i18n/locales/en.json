@@ -190,6 +190,12 @@
       "emptyMessage": "No sales records found"
     },
     "modals": {
+      "delete": {
+      "title": "Delete Sale",
+      "message": "Are you sure you want to delete this sale for {{customerName}} ({{amount}} XAF)?",
+      "warning": "This action cannot be undone. The sale and its data will be permanently deleted.",
+      "confirm": "Delete"
+    },
       "add": {
         "title": "Add New Sale",
         "customerInfo": {
@@ -310,11 +316,14 @@
       "saleAdded": "Sale added successfully!",
       "saleUpdated": "Sale updated successfully!",
       "linkCopied": "Link copied!",
+      "saleDeleted": "Sale deleted successfully.",
+     
       "messageCopied": "Message copied successfully!",
       "invoiceShared": "Invoice shared successfully!",
       "invoiceDownloaded": "Invoice downloaded successfully!",
       "errors": {
         "addSale": "Failed to add sale. Please try again.",
+        "deleteSale": "Failed to delete sale. Please try again.",
         "updateSale": "Failed to update sale. Please try again.",
         "loadSales": "Failed to load sales. Please refresh the page.",
         "shareInvoice": "Error sharing invoice",

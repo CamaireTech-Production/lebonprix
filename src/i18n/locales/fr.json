@@ -60,7 +60,8 @@
       "totalSalesCount": "Ventes totales (Nombre)",
       "trend": {
         "fromLastMonth": "par rapport au mois dernier"
-      }
+      },
+      "totalCostPrice": "Prix de revient total"
     },
     "tooltips": {
       "grossProfit": "Revenu total moins le coût des marchandises vendues",
@@ -69,7 +70,8 @@
       "totalOrders": "Nombre total de transactions de vente",
       "deliveryExpenses": "Dépenses totales liées à la livraison des produits",
       "totalSalesAmount": "Revenu total de toutes les ventes",
-      "totalSalesCount": "Nombre total de transactions de vente"
+      "totalSalesCount": "Nombre total de transactions de vente",
+      "totalCostPrice": "Le montant total des prix de revient pour tous les produits vendus"
     },
     "bestSellingProducts": {
       "title": "Meilleurs produits",
@@ -151,7 +153,8 @@
         "userAdded": "Nouvel utilisateur ajouté",
         "userUpdated": "Utilisateur mis à jour"
       }
-    }
+    },
+    "makeSale": "Faire une vente"
   },
   "sales": {
     "title": "Ventes",
@@ -355,5 +358,83 @@
       "companyInfo": "Informations de l'entreprise non disponibles. Veuillez contacter le support."
     },
     "locationNotSpecified": "Emplacement non spécifié"
+  },
+  "products": {
+    "title": "Produits",
+    "subtitle": "Gérez votre inventaire de produits",
+    "actions": {
+      "addProduct": "Ajouter un produit",
+      "editProduct": "Modifier le produit",
+      "importCSV": "Importer CSV",
+      "gridView": "Vue grille",
+      "listView": "Vue liste",
+      "deleteProduct": "Supprimer le produit",
+      "delete": "Supprimer"
+    },
+    "filters": {
+      "search": "Rechercher des produits...",
+      "category": "Catégorie",
+      "allCategories": "Toutes les catégories"
+    },
+    "form": {
+      "name": "Nom du produit",
+      "reference": "Référence du produit",
+      "costPrice": "Prix de revient (XAF)",
+      "sellingPrice": "Prix de vente (XAF)",
+      "category": "Catégorie",
+      "stock": "Quantité en stock",
+      "image": "Image du produit",
+      "imageHelp": "Téléchargez une image pour le produit",
+      "categoryPlaceholder": "Sélectionnez ou créez une catégorie...",
+      "sellingPriceHelp": "Doit être supérieur au prix de revient"
+    },
+    "import": {
+      "title": "Importer des produits depuis CSV",
+      "upload": "Télécharger le fichier CSV",
+      "uploadHelp": "Téléchargez un fichier CSV contenant vos produits. La première ligne doit contenir les en-têtes.",
+      "mapping": "Mapper les colonnes CSV",
+      "preview": "Aperçu",
+      "previewHelp": "Affichage des 5 premières lignes sur {{total}} lignes au total",
+      "progress": "Importation des produits...",
+      "fields": {
+        "name": "Nom du produit",
+        "reference": "Référence du produit",
+        "costPrice": "Prix de revient",
+        "sellingPrice": "Prix de vente",
+        "category": "Catégorie",
+        "stock": "Stock"
+      }
+    },
+    "messages": {
+      "productAdded": "Produit ajouté avec succès !",
+      "productUpdated": "Produit mis à jour avec succès !",
+      "importSuccess": "{{count}} produits importés avec succès",
+      "errors": {
+        "addProduct": "Échec de l'ajout du produit. Veuillez réessayer.",
+        "updateProduct": "Échec de la mise à jour du produit. Veuillez réessayer.",
+        "importFailed": "Échec de l'importation des produits",
+        "parseError": "Erreur lors de l'analyse du fichier CSV : {{error}}",
+        "notLoggedIn": "Vous devez être connecté pour ajouter un produit"
+      },
+      "warnings": {
+        "requiredFields": "Veuillez remplir tous les champs obligatoires",
+        "invalidData": "Données invalides dans la ligne",
+        "mapField": "Veuillez mapper le champ {{field}}"
+      },
+      "productDeleted": "Produit supprimé avec succès",
+      "deleteConfirmation": "Êtes-vous sûr de vouloir supprimer le produit {{name}} ({{reference}}) ?",
+      "deleteWarning": "Cette action est irréversible.",
+      "deleteProduct": "Erreur lors de la suppression du produit"
+    },
+    "table": {
+      "columns": {
+        "product": "Produit",
+        "costPrice": "Prix de d'achat",
+        "sellingPrice": "Prix de vente",
+        "stock": "Stock",
+        "category": "Catégorie",
+        "actions": "Actions"
+      }
+    }
   }
 } 

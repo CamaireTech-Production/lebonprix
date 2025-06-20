@@ -27,6 +27,7 @@ export interface Category extends BaseModel {
 
 export interface Product extends BaseModel {
   name: string;
+  reference: string;
   costPrice: number;
   sellingPrice: number;
   stock: number;
@@ -76,6 +77,15 @@ export type PaymentStatus = 'pending' | 'paid' | 'cancelled';
 
 export interface SaleDetails extends Sale {
   statusHistory: Array<{ status: string; timestamp: string }>;
+}
+
+export interface Customer {
+  id?: string;
+  phone: string;
+  name?: string;
+  quarter?: string;
+  userId: string;
+  createdAt: Date;
 }
 
 // Rest of the existing interfaces...

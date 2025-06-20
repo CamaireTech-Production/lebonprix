@@ -1,4 +1,4 @@
-import { ShoppingCart, DollarSign, TrendingUp, Package2, BarChart2, Info, Receipt, Copy, Check, ExternalLink } from 'lucide-react';
+import { ShoppingCart, DollarSign, TrendingUp, Package2, BarChart2, Info, Receipt, Copy, Check, ExternalLink, Plus } from 'lucide-react';
 import StatCard from '../components/dashboard/StatCard';
 import SalesChart from '../components/dashboard/SalesChart';
 import ActivityList from '../components/dashboard/ActivityList';
@@ -46,6 +46,15 @@ const Dashboard = () => {
 
   // Total sales amount
   const totalSalesAmount = sales?.reduce((sum, sale) => sum + sale.totalAmount, 0) || 0;
+
+  // Calculate total cost price for all sales
+  const totalCostPrice = sales?.reduce((sum, sale) => {
+    return sum + sale.products.reduce((productSum, product) => {
+      const productData = products?.find(p => p.id === product.productId);
+      if (!productData) return productSum;
+      return productSum + productData.costPrice * product.quantity;
+    }, 0);
+  }, 0) || 0;
 
   // Best selling products (by quantity sold)
   const productSalesMap: Record<string, { name: string; quantity: number; sales: number }> = {};
@@ -224,13 +233,21 @@ const Dashboard = () => {
           <h1 className="text-2xl font-semibold text-gray-900">{t('dashboard.title')}</h1>
           <p className="text-gray-600">{t('dashboard.welcome')}</p>
         </div>
-        <Button
-          variant="outline"
-          icon={<Info size={16} />}
-          onClick={() => setShowCalculationsModal(true)}
-        >
-          {t('dashboard.howCalculated')}
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            icon={<Info size={16} />}
+            onClick={() => setShowCalculationsModal(true)}
+          >
+            {t('dashboard.howCalculated')}
+          </Button>
+          <Button
+            icon={<Plus size={16} />}
+            onClick={() => window.location.href = '/sales/new'}
+          >
+            {t('dashboard.makeSale')}
+          </Button>
+        </div>
       </div>
       {/* Stats section */}
       <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -282,6 +299,13 @@ const Dashboard = () => {
           icon={<ShoppingCart size={20} />}
           tooltipKey="totalSalesCount"
           type="sales"
+        />
+        <StatCard 
+          title={t('dashboard.stats.totalCostPrice')}
+          value={`${totalCostPrice.toLocaleString()} XAF`}
+          icon={<DollarSign size={20} />}
+          tooltipKey="totalCostPrice"
+          type="cost"
         />
       </div>
       {/* Chart section */}
