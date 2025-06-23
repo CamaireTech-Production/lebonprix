@@ -196,7 +196,8 @@
       "shareInvoice": "Share Invoice",
       "copyTrackingLink": "Copy Tracking Link",
       "copyLinkOnly": "Copy link only",
-      "copyWithMessage": "Copy with message"
+      "copyWithMessage": "Copy with message",
+      "deleteSale": "Delete Sale"
     },
     "table": {
       "columns": {
@@ -213,11 +214,11 @@
     },
     "modals": {
       "delete": {
-      "title": "Delete Sale",
-      "message": "Are you sure you want to delete this sale for {{customerName}} ({{amount}} XAF)?",
-      "warning": "This action cannot be undone. The sale and its data will be permanently deleted.",
-      "confirm": "Delete"
-    },
+        "title": "Delete Sale",
+        "message": "Are you sure you want to delete this sale for {{customerName}} ({{amount}} XAF)?",
+        "warning": "This action cannot be undone. The sale and its data will be permanently deleted.",
+        "confirm": "Delete"
+      },
       "add": {
         "title": "Add New Sale",
         "customerInfo": {

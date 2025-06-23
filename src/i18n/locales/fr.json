@@ -200,7 +200,8 @@
       "shareInvoice": "Partager la facture",
       "copyTrackingLink": "Copier le lien de suivi",
       "copyLinkOnly": "Copier le lien uniquement",
-      "copyWithMessage": "Copier avec message"
+      "copyWithMessage": "Copier avec message",
+      "deleteSale": "Supprimer la vente"
     },
     "table": {
       "columns": {
@@ -335,6 +336,12 @@
       },
       "common": {
         "cancel": "Annuler"
+      },
+      "delete": {
+        "title": "Supprimer la vente",
+        "message": "Êtes-vous sûr de vouloir supprimer cette vente pour {{customerName}} ({{amount}} XAF) ?",
+        "warning": "Cette action est irréversible. La vente et ses données seront définitivement supprimées.",
+        "confirm": "Supprimer"
       }
     },
     "messages": {
