@@ -438,7 +438,13 @@
       "sale": "Sale",
       "Initial stock": "Initial stock",
       "quantityToAdd": "Quantity to Add",
-      "newTotalStock": "New Total Stock"
+      "newTotalStock": "New Total Stock",
+      "bulkSelection": "Bulk Selection",
+      "deleteSelected": "Delete Selected ({{count}})",
+      "deleteSelectedTitle": "Delete Selected Products",
+      "selectProduct": "Select product",
+      "selectAll": "Select all",
+      "cancelBulkSelection": "Cancel Bulk Selection"
     },
     "table": {
       "columns": {
@@ -477,7 +483,9 @@
         "sellingPrice": "Selling Price",
         "category": "Category",
         "stock": "Stock"
-      }
+      },
+      "productsToImport": "Number of products to import: {{count}}",
+      "saveCategories": "Save my categories from this import"
     },
     "messages": {
       "productAdded": "Product added successfully",
@@ -509,7 +517,10 @@
         "positiveQuantity": "Quantity to add must be positive.",
         "nonNegativeStock": "Total stock cannot be negative.",
         "noStockChange": "No change in stock."
-      }
+      },
+      "bulkDeleteSuccess": "{{count}} products deleted successfully.",
+      "bulkDeleteConfirmation": "Are you sure you want to delete {{count}} selected products? This will hide them from all lists but keep sales history.",
+      "bulkDeleteWarning": "This action cannot be undone. Sales history will remain intact."
     }
   },
   "expenses": {

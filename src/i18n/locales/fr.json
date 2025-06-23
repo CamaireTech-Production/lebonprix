@@ -412,7 +412,12 @@
       "sale": "Vente",
       "Initial stock": "Stock initial",
       "quantityToAdd": "Quantité à ajouter",
-      "newTotalStock": "Nouveau stock total"
+      "newTotalStock": "Nouveau stock total",
+      "bulkSelection": "Sélection multiple",
+      "deleteSelected": "Supprimer la sélection ({{count}})",
+      "deleteSelectedTitle": "Supprimer les produits sélectionnés",
+      "selectProduct": "Sélectionner le produit",
+      "selectAll": "Tout sélectionner"
     },
     "table": {
       "columns": {
@@ -451,7 +456,9 @@
         "sellingPrice": "Prix de vente",
         "category": "Catégorie",
         "stock": "Stock"
-      }
+      },
+      "productsToImport": "Nombre de produits à importer : {{count}}",
+      "saveCategories": "Enregistrer mes catégories depuis cet import"
     },
     "messages": {
       "productAdded": "Produit ajouté avec succès",
@@ -483,8 +490,12 @@
         "positiveQuantity": "La quantité à ajouter doit être positive.",
         "nonNegativeStock": "Le stock total ne peut pas être négatif.",
         "noStockChange": "Aucun changement de stock."
-      }
-    }
+      },
+      "bulkDeleteSuccess": "{{count}} produits supprimés avec succès.",
+      "bulkDeleteConfirmation": "Voulez-vous vraiment supprimer les {{count}} produits sélectionnés ? Ils seront masqués de toutes les listes mais l'historique des ventes sera conservé.",
+      "bulkDeleteWarning": "Cette action est irréversible. L'historique des ventes restera intact."
+    },
+    "cancelBulkSelection": "Annuler la sélection multiple"
   },
   "objectives": {
     "add": "Ajouter un objectif",

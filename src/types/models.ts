@@ -34,6 +34,7 @@ export interface Product extends BaseModel {
   category: string;
   imageUrl?: string;
   isAvailable: boolean;
+  isDeleted?: boolean;
 }
 
 export interface SaleProduct {

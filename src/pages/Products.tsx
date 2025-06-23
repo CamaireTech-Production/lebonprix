@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Grid, List, Plus, Search, Edit2, Upload, Trash2 } from 'lucide-react';
+import { Grid, List, Plus, Search, Edit2, Upload, Trash2, CheckSquare, Square } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
@@ -7,7 +7,7 @@ import Badge from '../components/common/Badge';
 import Modal, { ModalFooter } from '../components/common/Modal';
 import Input from '../components/common/Input';
 import CreatableSelect from '../components/common/CreatableSelect';
-import { useProducts, useStockChanges } from '../hooks/useFirestore';
+import { useProducts, useStockChanges, useCategories } from '../hooks/useFirestore';
 import { useAuth } from '../contexts/AuthContext';
 import LoadingScreen from '../components/common/LoadingScreen';
 import { showSuccessToast, showErrorToast, showWarningToast } from '../utils/toast';
@@ -24,6 +24,7 @@ const Products = () => {
   const { t, i18n } = useTranslation();
   const { products, loading, error, addProduct, updateProduct, deleteProduct } = useProducts();
   const { stockChanges, loading: stockChangesLoading } = useStockChanges();
+  const { addCategory } = useCategories();
   const { user } = useAuth();
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [searchQuery, setSearchQuery] = useState('');
@@ -62,6 +63,13 @@ const Products = () => {
   const [stockAdjustment, setStockAdjustment] = useState('');
   const [stockReason, setStockReason] = useState<'restock' | 'adjustment'>('restock');
   const [isStockSubmitting, setIsStockSubmitting] = useState(false);
+  
+  const [isBulkSelection, setIsBulkSelection] = useState(false);
+  const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
+  const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
+  
+  // Add state for saveCategories
+  const [saveCategories, setSaveCategories] = useState(false);
   
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -142,7 +150,7 @@ const Products = () => {
       costPrice: parseFloat(formData.costPrice),
       sellingPrice: parseFloat(formData.sellingPrice),
       category: formData.category,
-      stock: 0,
+      stock: parseInt(formData.stock) || 0,
       imageUrl: imageBase64,
       isAvailable: true,
       userId: user.uid,
@@ -150,7 +158,6 @@ const Products = () => {
     };
     try {
       await addProduct(productData);
-      // After add, refetch products and set initial stock if needed (migration will handle this)
       setIsAddModalOpen(false);
       resetForm();
       showSuccessToast(t('products.messages.productAdded'));
@@ -165,35 +172,35 @@ const Products = () => {
   const handleEditProduct = async () => {
     if (!currentProduct || !user?.uid) return;
     if (!formData.name || !formData.reference || !formData.costPrice || !formData.sellingPrice || !formData.category) {
-      showWarningToast(t('products.messages.warnings.requiredFields'));
-      return;
-    }
-    setIsSubmitting(true);
-    let imageBase64 = currentProduct.imageUrl;
-    if (formData.imageFile) {
-      try {
-        imageBase64 = await compressImage(formData.imageFile);
-      } catch (err) {
-        showErrorToast(t('products.messages.errors.updateProduct'));
-        setIsSubmitting(false);
+        showWarningToast(t('products.messages.warnings.requiredFields'));
         return;
       }
+      setIsSubmitting(true);
+      let imageBase64 = currentProduct.imageUrl;
+      if (formData.imageFile) {
+        try {
+          imageBase64 = await compressImage(formData.imageFile);
+        } catch (err) {
+          showErrorToast(t('products.messages.errors.updateProduct'));
+        setIsSubmitting(false);
+        return;
+        }
     }
     try {
-      await updateProduct(currentProduct.id, {
-        name: formData.name,
-        reference: formData.reference,
-        costPrice: parseFloat(formData.costPrice),
-        sellingPrice: parseFloat(formData.sellingPrice),
-        category: formData.category,
-        imageUrl: imageBase64,
-        isAvailable: currentProduct.isAvailable,
-        userId: user.uid,
+        await updateProduct(currentProduct.id, {
+          name: formData.name,
+          reference: formData.reference,
+          costPrice: parseFloat(formData.costPrice),
+          sellingPrice: parseFloat(formData.sellingPrice),
+          category: formData.category,
+          imageUrl: imageBase64,
+          isAvailable: currentProduct.isAvailable,
+          userId: user.uid,
         updatedAt: { seconds: 0, nanoseconds: 0 }
       }, user.uid);
-      setIsEditModalOpen(false);
-      resetForm();
-      showSuccessToast(t('products.messages.productUpdated'));
+        setIsEditModalOpen(false);
+        resetForm();
+        showSuccessToast(t('products.messages.productUpdated'));
     } catch (err) {
       showErrorToast(t('products.messages.errors.updateProduct'));
       setIsEditModalOpen(true);
@@ -221,6 +228,7 @@ const Products = () => {
   
   // Filter products by search query and category
   const filteredProducts = products?.filter(product => {
+    if (typeof product.isAvailable !== 'undefined' && product.isAvailable === false) return false;
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          product.reference.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = selectedCategory === t('products.filters.allCategories') || product.category === selectedCategory;
@@ -386,7 +394,7 @@ const Products = () => {
             sellingPrice: parseFloat(cleanData.sellingPrice),
             category: formatCategory(cleanData.category),
             stock: parseInt(cleanData.stock),
-            imageUrl: '/placeholder.png',
+            imageUrl: '', // No image provided in CSV, so leave empty
             isAvailable: true,
             userId: user.uid,
             updatedAt: {
@@ -395,10 +403,8 @@ const Products = () => {
             }
           };
 
-          // Add the product
           await addProduct(productData);
           successCount++;
-          
         } catch (error) {
           console.error('Error processing row:', row);
           console.error('Error details:', error);
@@ -418,9 +424,26 @@ const Products = () => {
       } else {
         showErrorToast(t('products.messages.errors.importFailed'));
       }
-      
       setIsImportModalOpen(false);
       resetImportState();
+
+      // In handleImport, after importing products, if saveCategories is true, save new categories
+      if (saveCategories) {
+        // Collect unique categories from csvData
+        const csvCategories = Array.from(new Set(csvData.map(row => row[columnMapping.category]?.trim()).filter(Boolean)));
+        // Get existing categories from products
+        const existingCategories = new Set(products.map(p => p.category));
+        // Find new categories
+        const newCategories = csvCategories.filter(cat => !existingCategories.has(cat));
+        // Save new categories (assume addCategory is available from useCategories)
+        for (const cat of newCategories) {
+          if (cat) {
+            try {
+              await addCategory(cat);
+            } catch (e) { /* ignore errors for duplicates */ }
+          }
+        }
+      }
     } catch (error) {
       console.error('Import failed:', error);
       showErrorToast(t('products.messages.errors.importFailed'));
@@ -433,7 +456,7 @@ const Products = () => {
     if (!productToDelete || !user?.uid) return;
     try {
       setIsDeleting(true);
-      await deleteProduct(productToDelete.id);
+      await updateProduct(productToDelete.id, { isAvailable: false }, user.uid);
       showSuccessToast(t('products.messages.productDeleted'));
       setIsDeleteModalOpen(false);
       setProductToDelete(null);
@@ -520,6 +543,43 @@ const Products = () => {
     setSelectedCategory(t('products.filters.allCategories'));
   }, [i18n.language]);
 
+  const toggleBulkSelection = () => {
+    setIsBulkSelection((prev) => !prev);
+    setSelectedProducts([]);
+  };
+
+  const handleSelectProduct = (id: string) => {
+    setSelectedProducts((prev) =>
+      prev.includes(id) ? prev.filter((pid) => pid !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAll = () => {
+    if (selectedProducts.length === filteredProducts.length) {
+      setSelectedProducts([]);
+    } else {
+      setSelectedProducts(filteredProducts.map((p) => p.id));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (!user?.uid) return;
+    try {
+      setIsDeleting(true);
+      for (const id of selectedProducts) {
+        await updateProduct(id, { isAvailable: false }, user.uid);
+      }
+      showSuccessToast(t('products.messages.bulkDeleteSuccess', { count: selectedProducts.length }));
+      setIsBulkDeleteModalOpen(false);
+      setSelectedProducts([]);
+      setIsBulkSelection(false);
+    } catch (error) {
+      showErrorToast(t('products.messages.errors.deleteProduct'));
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   if (loading) {
     return <LoadingScreen />;
   }
@@ -600,15 +660,56 @@ const Products = () => {
         </div>
       </div>
       
+      {/* Bulk selection actions below filters */}
+      <div className="flex space-x-2 mb-6">
+        <Button
+          icon={<CheckSquare size={16} />}
+          variant={isBulkSelection ? 'primary' : 'outline'}
+          onClick={toggleBulkSelection}
+        >
+          {isBulkSelection ? t('products.actions.cancelBulkSelection') : t('products.actions.bulkSelection')}
+        </Button>
+        {isBulkSelection && (
+          <Button
+            icon={<Square size={16} />}
+            variant="outline"
+            onClick={handleSelectAll}
+          >
+            {t('products.actions.selectAll')}
+          </Button>
+        )}
+        {isBulkSelection && selectedProducts.length > 0 && (
+          <Button
+            icon={<Trash2 size={16} />}
+            variant="danger"
+            onClick={() => setIsBulkDeleteModalOpen(true)}
+          >
+            {t('products.actions.deleteSelected', { count: selectedProducts.length })}
+          </Button>
+        )}
+      </div>
+      
       {/* Products */}
       {viewMode === 'grid' ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {filteredProducts.map(product => (
-            <Card key={product.id} className="h-full">
+            <Card key={product.id} className="h-full relative">
+              {isBulkSelection && !selectedProducts.includes(product.id) && (
+                <div className="absolute inset-0 bg-black bg-opacity-20 z-10 rounded-md transition-opacity" />
+              )}
+              {isBulkSelection && (
+                <button
+                  className="absolute top-2 left-2 z-20 bg-white rounded-full p-1 border border-gray-300 shadow"
+                  onClick={() => handleSelectProduct(product.id)}
+                  aria-label={t('products.actions.selectProduct')}
+                >
+                  {selectedProducts.includes(product.id) ? <CheckSquare size={20} className="text-emerald-600" /> : <Square size={20} className="text-gray-400" />}
+                </button>
+              )}
               <div className="flex flex-col h-full">
                 <div className="relative pb-[65%] overflow-hidden rounded-md mb-3">
                   <img
-                    src={product.imageUrl || '/placeholder.png'}
+                    src={product.imageUrl?.startsWith('data:image') ? product.imageUrl : product.imageUrl ? `data:image/jpeg;base64,${product.imageUrl}` : '/placeholder.png'}
                     alt={product.name}
                     className="absolute h-full w-full object-cover"
                   />
@@ -662,6 +763,13 @@ const Products = () => {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
+                  {isBulkSelection && (
+                    <th className="px-4 py-3">
+                      <button onClick={handleSelectAll} aria-label={t('products.actions.selectAll')}>
+                        {selectedProducts.length === filteredProducts.length && filteredProducts.length > 0 ? <CheckSquare size={18} className="text-emerald-600" /> : <Square size={18} className="text-gray-400" />}
+                      </button>
+                    </th>
+                  )}
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     {t('products.table.columns.product')}
                   </th>
@@ -684,11 +792,21 @@ const Products = () => {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredProducts.map((product) => (
-                  <tr key={product.id}>
+                  <tr key={product.id} className={isBulkSelection && !selectedProducts.includes(product.id) ? 'relative' : ''}>
+                    {isBulkSelection && !selectedProducts.includes(product.id) && (
+                      <td className="absolute left-0 top-0 w-full h-full bg-black bg-opacity-20 z-10" colSpan={7} />
+                    )}
+                    {isBulkSelection && (
+                      <td className="px-4 py-4 relative z-20">
+                        <button onClick={() => handleSelectProduct(product.id)} aria-label={t('products.actions.selectProduct')}>
+                          {selectedProducts.includes(product.id) ? <CheckSquare size={18} className="text-emerald-600" /> : <Square size={18} className="text-gray-400" />}
+                        </button>
+                      </td>
+                    )}
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="h-10 w-10 flex-shrink-0">
-                          <img className="h-10 w-10 rounded-md object-cover" src={product.imageUrl} alt="" />
+                          <img className="h-10 w-10 rounded-md object-cover" src={product.imageUrl?.startsWith('data:image') ? product.imageUrl : product.imageUrl ? `data:image/jpeg;base64,${product.imageUrl}` : '/placeholder.png'} alt="" />
                         </div>
                         <div className="ml-4">
                           <div className="text-sm font-medium text-gray-900">{product.name}</div>
@@ -835,12 +953,12 @@ const Products = () => {
         title={t('products.actions.editProduct')}
         footer={
           editTab === 'details' ? (
-            <ModalFooter
-              onCancel={() => setIsEditModalOpen(false)}
-              onConfirm={handleEditProduct}
-              confirmText={t('products.actions.editProduct')}
-              isLoading={isSubmitting}
-            />
+          <ModalFooter 
+            onCancel={() => setIsEditModalOpen(false)}
+            onConfirm={handleEditProduct}
+            confirmText={t('products.actions.editProduct')}
+            isLoading={isSubmitting}
+          />
           ) : null
         }
       >
@@ -849,15 +967,15 @@ const Products = () => {
           <button onClick={() => setEditTab('stock')} className={`px-4 py-2 ${editTab === 'stock' ? 'font-bold border-b-2 border-emerald-500' : ''}`}>{t('products.table.columns.stock')}</button>
         </div>
         {editTab === 'details' ? (
-          <div className="space-y-4">
+        <div className="space-y-4">
             <Input label={t('products.form.name')} name="name" value={formData.name} onChange={handleInputChange} required />
             <Input label={t('products.form.reference')} name="reference" value={formData.reference} onChange={handleInputChange} required />
             <Input label={t('products.form.costPrice')} name="costPrice" type="number" value={formData.costPrice} onChange={handleInputChange} required />
             <Input label={t('products.form.sellingPrice')} name="sellingPrice" type="number" value={formData.sellingPrice} onChange={handleInputChange} required helpText={t('products.form.sellingPriceHelp')} />
-            <div>
+          <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">{t('products.form.category')}</label>
               <CreatableSelect value={formData.category ? { label: formData.category, value: formData.category } : null} onChange={handleCategoryChange} placeholder={t('products.form.categoryPlaceholder')} className="custom-select" />
-            </div>
+          </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">{t('products.form.image')}</label>
               <input type="file" name="imageFile" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (file) { setFormData(prev => ({ ...prev, imageFile: file })); } }} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border file:border-gray-300 file:text-sm file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200" />
@@ -870,14 +988,14 @@ const Products = () => {
               <span className="block text-sm font-medium text-gray-700 mb-1">{currentProduct?.name}</span>
               <span className="block text-xs text-gray-500 mb-2">{t('products.table.columns.stock')}: {currentProduct?.stock}</span>
             </div>
-            <Input 
+          <Input
               label={stockReason === 'restock' ? t('products.actions.quantityToAdd') : t('products.actions.newTotalStock')}
               name="stockAdjustment" 
-              type="number" 
+            type="number"
               value={stockAdjustment} 
               onChange={e => setStockAdjustment(e.target.value)} 
-              required 
-            />
+            required
+          />
             <select className="block w-full rounded-md border border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm px-3 py-2" value={stockReason} onChange={e => setStockReason(e.target.value as 'restock' | 'adjustment')}>
               <option value="restock">{t('products.actions.restock')}</option>
               <option value="adjustment">{t('products.actions.adjustment')}</option>
@@ -893,7 +1011,7 @@ const Products = () => {
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setIsEditModalOpen(false)}>{t('common.cancel')}</Button>
               <Button onClick={handleStockSubmit} isLoading={isStockSubmitting}>{t('common.save')}</Button>
-            </div>
+          </div>
             <div className="mt-6">
               <h4 className="font-semibold mb-2">{t('products.actions.stockHistory')}</h4>
               {(stockChanges.filter(sc => sc.productId === currentProduct?.id).length === 0) ? (
@@ -918,7 +1036,7 @@ const Products = () => {
                   </tbody>
                 </table>
               )}
-            </div>
+        </div>
           </div>
         )}
       </Modal>
@@ -993,7 +1111,9 @@ const Products = () => {
           {/* Preview */}
           {csvData.length > 0 && (
             <div className="space-y-4">
-              <h3 className="text-lg font-medium text-gray-900">{t('products.import.preview')}</h3>
+              <div className="text-sm text-gray-700 font-medium mb-2">
+                {t('products.import.productsToImport', { count: csvData.length })}
+              </div>
               <div className="max-h-60 overflow-y-auto">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
@@ -1047,6 +1167,20 @@ const Products = () => {
               </div>
             </div>
           )}
+
+          {/* Save Categories Checkbox */}
+          <div className="flex items-center space-x-2 mt-4">
+            <input
+              type="checkbox"
+              id="saveCategoriesCheckbox"
+              checked={saveCategories}
+              onChange={e => setSaveCategories(e.target.checked)}
+              className="form-checkbox h-4 w-4 text-emerald-600 border-gray-300 rounded"
+            />
+            <label htmlFor="saveCategoriesCheckbox" className="text-sm text-gray-700">
+              {t('products.import.saveCategories')}
+            </label>
+          </div>
         </div>
       </Modal>
 
@@ -1080,6 +1214,36 @@ const Products = () => {
           </p>
           <p className="text-sm text-red-600">
             {t('products.messages.deleteWarning')}
+          </p>
+        </div>
+      </Modal>
+
+      {/* Bulk Delete Confirmation Modal */}
+      <Modal
+        isOpen={isBulkDeleteModalOpen}
+        onClose={() => setIsBulkDeleteModalOpen(false)}
+        title={t('products.actions.deleteSelectedTitle')}
+        footer={
+          <ModalFooter
+            onCancel={() => setIsBulkDeleteModalOpen(false)}
+            onConfirm={handleBulkDelete}
+            confirmText={t('products.actions.delete')}
+            isLoading={isDeleting}
+            isDanger
+          />
+        }
+      >
+        <div className="text-center">
+          <p className="text-gray-600 mb-4">
+            {t('products.messages.bulkDeleteConfirmation', { count: selectedProducts.length })}
+          </p>
+          <ul className="text-sm text-gray-500 mb-2 max-h-32 overflow-y-auto">
+            {filteredProducts.filter(p => selectedProducts.includes(p.id)).map(p => (
+              <li key={p.id}>{p.name} ({p.reference})</li>
+            ))}
+          </ul>
+          <p className="text-sm text-red-600">
+            {t('products.messages.bulkDeleteWarning')}
           </p>
         </div>
       </Modal>
