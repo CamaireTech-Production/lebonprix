@@ -160,7 +160,8 @@
         "userAdded": "New user added",
         "userUpdated": "User updated"
       }
-    }
+    },
+    "makeSale": "Make a Sale"
   },
   "dateRanges": {
     "today": "Today",
@@ -174,7 +175,12 @@
     "selectPeriod": "Select a period",
     "pickDate": "Pick a date",
     "selectCustomRange": "Select Custom Range",
-    "filterTitle": "Filter by period"
+    "filterTitle": "Filter by period",
+    "period": "Period",
+    "noPeriod": "No period defined",
+    "lastWeek": "Last Week",
+    "lastMonth": "Last Month",
+    "lastYear": "Last Year"
   },
   "sales": {
     "title": "Sales",
@@ -214,11 +220,11 @@
     },
     "modals": {
       "delete": {
-        "title": "Delete Sale",
-        "message": "Are you sure you want to delete this sale for {{customerName}} ({{amount}} XAF)?",
-        "warning": "This action cannot be undone. The sale and its data will be permanently deleted.",
-        "confirm": "Delete"
-      },
+      "title": "Delete Sale",
+      "message": "Are you sure you want to delete this sale for {{customerName}} ({{amount}} XAF)?",
+      "warning": "This action cannot be undone. The sale and its data will be permanently deleted.",
+      "confirm": "Delete"
+    },
       "add": {
         "title": "Add New Sale",
         "customerInfo": {

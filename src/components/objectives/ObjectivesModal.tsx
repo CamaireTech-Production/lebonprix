@@ -27,7 +27,25 @@ const ObjectivesModal: React.FC<ObjectivesModalProps> = ({ isOpen, onClose, stat
   const [openObjectiveId, setOpenObjectiveId] = useState<string | null>(null);
 
   const isOverlapping = (obj: any) => {
-    if (obj.periodType === 'predefined') return true;
+    if (obj.periodType === 'predefined') {
+      const now = new Date();
+      if (obj.predefined === 'this_year') {
+        // Only show if dashboard filter is within this year
+        return (
+          dateRange.from.getFullYear() === now.getFullYear() &&
+          dateRange.to.getFullYear() === now.getFullYear()
+        );
+      } else if (obj.predefined === 'this_month') {
+        // Only show if dashboard filter is within this month
+        return (
+          dateRange.from.getFullYear() === now.getFullYear() &&
+          dateRange.from.getMonth() === now.getMonth() &&
+          dateRange.to.getFullYear() === now.getFullYear() &&
+          dateRange.to.getMonth() === now.getMonth()
+        );
+      }
+      return false;
+    }
     if (!obj.startAt || !obj.endAt) return true;
     const start = obj.startAt.toDate ? obj.startAt.toDate() : new Date(obj.startAt);
     const end = obj.endAt.toDate ? obj.endAt.toDate() : new Date(obj.endAt);

@@ -23,7 +23,8 @@ import type {
   PaymentStatus,
   Company,
   SaleDetails,
-  Customer
+  Customer,
+  Objective
 } from '../types/models';
 import { useState, useEffect } from 'react';
 import { Timestamp } from 'firebase/firestore';
@@ -161,7 +162,7 @@ export const createCategory = async (
 const createAuditLog = async (
   batch: WriteBatch,
   action: 'create' | 'update' | 'delete',
-  entityType: 'product' | 'sale' | 'expense' | 'category',
+  entityType: 'product' | 'sale' | 'expense' | 'category' | 'objective',
   entityId: string,
   changes: any,
   performedBy: string
@@ -890,4 +891,51 @@ export const subscribeToCustomers = (userId: string, callback: (customers: Custo
     })) as Customer[];
     callback(customers);
   });
+};
+
+// Objectives
+export const subscribeToObjectives = (userId: string, callback: (objectives: Objective[]) => void): (() => void) => {
+  const q = query(
+    collection(db, 'objectives'),
+    where('userId', '==', userId),
+    orderBy('createdAt', 'desc')
+  );
+  return onSnapshot(q, (snapshot) => {
+    const objectives = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    })) as Objective[];
+    // Only return objectives that are not soft-deleted
+    callback(objectives.filter(obj => obj.isAvailable !== false));
+  });
+};
+
+export const deleteObjective = async (objectiveId: string, userId: string): Promise<void> => {
+  const batch = writeBatch(db);
+  const objectiveRef = doc(db, 'objectives', objectiveId);
+  // Get current objective data for audit log
+  const currentObjective = await getDoc(objectiveRef);
+  if (!currentObjective.exists()) {
+    throw new Error('Objective not found');
+  }
+  // Verify ownership
+  const objectiveData = currentObjective.data() as Objective;
+  if (objectiveData.userId !== userId) {
+    throw new Error('Unauthorized to delete this objective');
+  }
+  // Soft delete the objective (set isAvailable: false)
+  batch.update(objectiveRef, {
+    isAvailable: false,
+    updatedAt: serverTimestamp()
+  });
+  // Create audit log
+  await createAuditLog(
+    batch,
+    'delete',
+    'objective',
+    objectiveId,
+    { all: { oldValue: objectiveData, newValue: { ...objectiveData, isAvailable: false } } },
+    userId
+  );
+  await batch.commit();
 };

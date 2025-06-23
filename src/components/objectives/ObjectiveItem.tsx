@@ -4,6 +4,7 @@ import Button from '../common/Button';
 import { ChevronDown, Pencil, Trash2 } from 'lucide-react';
 import { Objective } from '../../types/models';
 import { useTranslation } from 'react-i18next';
+import { format } from 'date-fns';
 
 interface ObjectiveItemProps {
   objective: Objective & { progress: number };
@@ -59,6 +60,17 @@ const ObjectiveItem: React.FC<ObjectiveItemProps> = ({ objective, onEdit, onDele
           </div>
           <div className="text-sm text-gray-600">
             {t('objectives.progress')}: <span className="font-medium text-gray-800">{objective.progress}%</span>
+          </div>
+          <div className="text-sm text-gray-600">
+            {t('objectives.period')}: <span className="font-medium text-gray-800">{
+              objective.periodType === 'predefined'
+                ? (objective.predefined === 'this_year'
+                    ? t('dateRanges.thisYear')
+                    : t('dateRanges.thisMonth'))
+                : (objective.startAt && objective.endAt
+                    ? `${format(objective.startAt.toDate ? objective.startAt.toDate() : new Date(objective.startAt), 'dd/MM/yyyy')} - ${format(objective.endAt.toDate ? objective.endAt.toDate() : new Date(objective.endAt), 'dd/MM/yyyy')}`
+                    : t('objectives.noPeriod'))
+            }</span>
           </div>
           <div className="flex gap-2 pt-2">
             <Button size="sm" variant="outline" icon={<Pencil size={14} />} onClick={() => onEdit(objective)}>

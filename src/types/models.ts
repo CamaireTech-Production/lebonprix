@@ -100,6 +100,7 @@ export interface Objective extends BaseModel {
   startAt?: any; // Firebase Timestamp
   endAt?: any;
   userId: string;
+  isAvailable?: boolean;
 }
 
 // Stock change event for product inventory tracking

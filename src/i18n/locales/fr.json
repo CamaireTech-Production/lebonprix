@@ -178,7 +178,12 @@
     "selectPeriod": "Sélectionner une période",
     "pickDate": "Choisir une date",
     "selectCustomRange": "Sélectionner une plage personnalisée",
-    "filterTitle": "Filtrer par période"
+    "filterTitle": "Filtrer par période",
+    "period": "Période",
+    "noPeriod": "Aucune période définie",
+    "lastWeek": "Semaine dernière",
+    "lastMonth": "Mois dernier",
+    "lastYear": "Année dernière"
   },
   "sales": {
     "title": "Ventes",
@@ -521,6 +526,8 @@
     "metric": "Métrique",
     "target": "Montant cible",
     "progress": "Progression",
+    "period": "Période",
+    "noPeriod": "Aucune période définie",
     "periodType": "Type de période",
     "predefined": "Période prédéfinie",
     "custom": "Plage personnalisée",

@@ -26,7 +26,10 @@ type Period =
   | 'this_month'
   | 'last_30_days'
   | 'this_year'
-  | 'custom';
+  | 'custom'
+  | 'last_week'
+  | 'last_month'
+  | 'last_year';
 
 interface DateRangePickerProps {
   onChange: (range: { from: Date; to: Date }) => void;
@@ -71,6 +74,13 @@ const DateRangePicker = ({ onChange, className }: DateRangePickerProps) => {
         from = startOfDay(yesterday);
         to = endOfDay(yesterday);
         break;
+      case 'last_week': {
+        const lastWeekStart = startOfWeek(subDays(now, 7));
+        const lastWeekEnd = endOfWeek(subDays(now, 7));
+        from = startOfDay(lastWeekStart);
+        to = endOfDay(lastWeekEnd);
+        break;
+      }
       case 'this_week':
         from = startOfWeek(now);
         to = endOfWeek(now);
@@ -79,6 +89,12 @@ const DateRangePicker = ({ onChange, className }: DateRangePickerProps) => {
         from = startOfDay(subDays(now, 6));
         to = endOfDay(now);
         break;
+      case 'last_month': {
+        const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        from = startOfMonth(lastMonth);
+        to = endOfMonth(lastMonth);
+        break;
+      }
       case 'this_month':
         from = startOfMonth(now);
         to = endOfMonth(now);
@@ -87,6 +103,12 @@ const DateRangePicker = ({ onChange, className }: DateRangePickerProps) => {
         from = startOfDay(subDays(now, 29));
         to = endOfDay(now);
         break;
+      case 'last_year': {
+        const lastYear = now.getFullYear() - 1;
+        from = startOfYear(new Date(lastYear, 0, 1));
+        to = endOfYear(new Date(lastYear, 0, 1));
+        break;
+      }
       case 'this_year':
         from = startOfYear(now);
         to = endOfYear(now);
@@ -132,10 +154,13 @@ const DateRangePicker = ({ onChange, className }: DateRangePickerProps) => {
   const periodOptions = [
     { value: 'today', label: t('dateRanges.today') },
     { value: 'yesterday', label: t('dateRanges.yesterday') },
+    { value: 'last_week', label: t('dateRanges.lastWeek') },
     { value: 'this_week', label: t('dateRanges.thisWeek') },
     { value: 'last_7_days', label: t('dateRanges.last7Days') },
+    { value: 'last_month', label: t('dateRanges.lastMonth') },
     { value: 'this_month', label: t('dateRanges.thisMonth') },
     { value: 'last_30_days', label: t('dateRanges.last30Days') },
+    { value: 'last_year', label: t('dateRanges.lastYear') },
     { value: 'this_year', label: t('dateRanges.thisYear') },
     { value: 'custom', label: t('dateRanges.custom') },
   ];
