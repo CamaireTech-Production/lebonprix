@@ -580,7 +580,8 @@
       "category": "Category",
       "categoryPlaceholder": "Select or create a category",
       "image": "Expense Image",
-      "imageHelp": "Optional, max 500KB. Will be compressed."
+      "imageHelp": "Optional, max 500KB. Will be compressed.",
+      "description": "Description"
     },
     "import": {
       "title": "Import Expenses from CSV",
@@ -622,6 +623,45 @@
         "missingReference": "Missing expense reference in a row.",
         "invalidAmount": "Invalid amount detected in a row."
       }
+    },
+    "table": {
+      "description": "Description",
+      "amount": "Amount",
+      "category": "Category",
+      "date": "Date",
+      "actions": "Actions"
+    },
+    "categories": {
+      "delivery": "Delivery",
+      "purchase": "Purchase",
+      "other": "Other"
+    },
+    "actions": {
+      "export": "Export",
+      "add": "Add Expense"
+    },
+    "summary": {
+      "delivery": "Delivery Expenses",
+      "purchase": "Purchase Expenses",
+      "other": "Other Expenses"
+    },
+    "messages": {
+      "noExpenses": "No expenses found."
+    },
+    "modals": {
+      "add": {
+        "title": "Add Expense",
+        "confirm": "Add"
+      },
+      "edit": {
+        "title": "Edit Expense",
+        "confirm": "Save Changes"
+      }
+    },
+    "form": {
+      "description": "Description",
+      "amount": "Amount",
+      "category": "Category"
     }
   }
 } 

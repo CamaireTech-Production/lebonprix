@@ -457,7 +457,9 @@
       "categoryPlaceholder": "Sélectionner ou créer une catégorie",
       "stock": "Stock initial",
       "image": "Image du produit",
-      "imageHelp": "Optionnel, max 500KB. Sera compressé."
+      "imageHelp": "Optionnel, max 500KB. Sera compressé.",
+      "description": "Description",
+      "amount": "Montant"
     },
     "import": {
       "title": "Importer des produits depuis un CSV",
