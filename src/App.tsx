@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import AuthLayout from './components/layout/AuthLayout';
@@ -6,6 +6,8 @@ import MainLayout from './components/layout/MainLayout';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import LoadingScreen from './components/common/LoadingScreen';
 import { Toaster } from 'react-hot-toast';
+import { FloatingActionButton } from './components/common/Button';
+import AddSaleModal from './components/sales/AddSaleModal';
 
 // Lazy load pages
 const Login = lazy(() => import('./pages/auth/Login'));
@@ -20,8 +22,11 @@ const TimelinePage = lazy(() => import('./pages/TimelinePage'));
 const CompanyProducts = lazy(() => import('./pages/CompanyProducts'));
 
 function App() {
+  const [isAddSaleModalOpen, setIsAddSaleModalOpen] = useState(false);
   return (
     <AuthProvider>
+      <FloatingActionButton onClick={() => setIsAddSaleModalOpen(true)} label="Add Sale" />
+      <AddSaleModal isOpen={isAddSaleModalOpen} onClose={() => setIsAddSaleModalOpen(false)} />
       <BrowserRouter>
         <Suspense fallback={<LoadingScreen />}>
           <Toaster />

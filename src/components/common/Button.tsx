@@ -1,5 +1,6 @@
 import { ButtonHTMLAttributes, ReactNode } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Plus } from 'lucide-react';
+import React from 'react';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'danger' | 'outline';
@@ -60,6 +61,29 @@ const Button = ({
         </>
       )}
     </button>
+  );
+};
+
+export const FloatingActionButton: React.FC<{ onClick: () => void; label?: string }> = ({ onClick, label }) => {
+  const [hovered, setHovered] = React.useState(false);
+  return (
+    <div className="fixed bottom-20 right-6 z-50 flex flex-col items-end">
+      {hovered && label && (
+        <div className="mb-2 px-3 py-1 rounded bg-gray-900 text-white text-xs shadow-lg animate-fade-in">
+          {label}
+        </div>
+      )}
+      <button
+        onClick={onClick}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-full shadow-lg w-16 h-16 flex items-center justify-center transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+        aria-label={label || 'Add'}
+        title={label || 'Add'}
+      >
+        <Plus size={32} />
+      </button>
+    </div>
   );
 };
 

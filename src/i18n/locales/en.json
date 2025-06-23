@@ -69,7 +69,7 @@
       "netProfit": "Gross profit minus all expenses",
       "totalExpenses": "Sum of all business expenses",
       "totalOrders": "Total number of sales transactions",
-      "deliveryExpenses": "Total expenses related to product delivery",
+      "deliveryExpenses": "Total expenses related to product delivery.",
       "totalSalesAmount": "Total revenue from all sales",
       "totalSalesCount": "Total number of sales transactions",
       "totalPurchasePrice": "The total amount of purchase prices for all products sold"

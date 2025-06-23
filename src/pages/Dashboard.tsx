@@ -328,12 +328,12 @@ const Dashboard = () => {
           >
             {t('dashboard.howCalculated')}
           </Button>
-          <Button
+          {/* <Button
             icon={<Plus size={16} />}
             onClick={() => window.location.href = '/sales/new'}
           >
             {t('dashboard.makeSale')}
-          </Button>
+          </Button> */}
         </div>
       </div>
       <div className="mb-6">
