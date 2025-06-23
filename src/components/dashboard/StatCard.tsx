@@ -1,4 +1,5 @@
 import { ReactNode, useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import Card from '../common/Card';
 import { Info } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -19,21 +20,26 @@ interface StatCardProps {
 const StatCard = ({ title, value, icon, trend, tooltipKey, type, className = '' }: StatCardProps) => {
   const { t } = useTranslation();
   const [showTooltip, setShowTooltip] = useState(false);
-  const tooltipRef = useRef<HTMLDivElement>(null);
+  const [tooltipPosition, setTooltipPosition] = useState({ top: 0, left: 0, placement: 'top' as 'top' | 'bottom' });
   const triggerRef = useRef<HTMLDivElement>(null);
 
   // Handle tooltip positioning
   useEffect(() => {
-    if (!showTooltip || !tooltipRef.current || !triggerRef.current) return;
+    if (!showTooltip || !triggerRef.current) return;
 
-    const tooltip = tooltipRef.current;
     const trigger = triggerRef.current;
     const rect = trigger.getBoundingClientRect();
-    const tooltipRect = tooltip.getBoundingClientRect();
+    
+    // Tooltip dimensions (approximate)
+    const tooltipWidth = 288; // w-72 = 18rem = 288px
+    const tooltipHeight = 80; // Approximate height
+    const gap = 2; // Minimal gap for very close positioning
 
-    // Calculate initial position (centered above the trigger)
-    let top = rect.top - tooltipRect.height - 8; // 8px gap
-    let left = rect.left + (rect.width / 2) - (tooltipRect.width / 2);
+    // Calculate position centered above the info icon
+    const iconCenterX = rect.left + (rect.width / 2);
+    let top = rect.top - tooltipHeight - gap;
+    let left = iconCenterX - (tooltipWidth / 2);
+    let placement: 'top' | 'bottom' = 'top';
 
     // Check if tooltip would go off the left edge
     if (left < 8) {
@@ -41,37 +47,25 @@ const StatCard = ({ title, value, icon, trend, tooltipKey, type, className = '' 
     }
 
     // Check if tooltip would go off the right edge
-    const rightEdge = left + tooltipRect.width;
+    const rightEdge = left + tooltipWidth;
     if (rightEdge > window.innerWidth - 8) {
-      left = window.innerWidth - tooltipRect.width - 8;
+      left = window.innerWidth - tooltipWidth - 8;
     }
 
     // Check if tooltip would go off the top edge
     if (top < 8) {
       // Position below the trigger instead
-      top = rect.bottom + 8;
-      tooltip.classList.remove('bottom-full');
-      tooltip.classList.add('top-full');
-      // Move the arrow to the top
-      const arrow = tooltip.querySelector('.tooltip-arrow');
-      if (arrow) {
-        arrow.classList.remove('bottom-0', 'translate-y-1/2', 'rotate-45');
-        arrow.classList.add('top-0', '-translate-y-1/2', '-rotate-45');
-      }
-    } else {
-      tooltip.classList.remove('top-full');
-      tooltip.classList.add('bottom-full');
-      // Move the arrow to the bottom
-      const arrow = tooltip.querySelector('.tooltip-arrow');
-      if (arrow) {
-        arrow.classList.remove('top-0', '-translate-y-1/2', '-rotate-45');
-        arrow.classList.add('bottom-0', 'translate-y-1/2', 'rotate-45');
-      }
+      top = rect.bottom + gap;
+      placement = 'bottom';
     }
 
-    tooltip.style.position = 'fixed';
-    tooltip.style.top = `${top}px`;
-    tooltip.style.left = `${left}px`;
+    // Ensure tooltip doesn't go off the bottom edge
+    const bottomEdge = top + tooltipHeight;
+    if (bottomEdge > window.innerHeight - 8) {
+      top = window.innerHeight - tooltipHeight - 8;
+    }
+
+    setTooltipPosition({ top, left, placement });
   }, [showTooltip]);
 
   // Determine icon color based on the type
@@ -94,8 +88,48 @@ const StatCard = ({ title, value, icon, trend, tooltipKey, type, className = '' 
     }
   };
 
+  const renderTooltip = () => {
+    if (!showTooltip || !tooltipKey) return null;
+
+    // Get translation with fallback and debugging
+    const translationKey = `dashboard.stats.tooltips.${tooltipKey}`;
+    const tooltipText = t(translationKey, {
+      defaultValue: `Tooltip for ${tooltipKey}`,
+      fallbackLng: 'en'
+    });
+
+    // Debug logging in development
+    if (process.env.NODE_ENV === 'development' && tooltipText === translationKey) {
+      console.warn(`Missing translation key: ${translationKey}`);
+    }
+
+    return createPortal(
+      <div 
+        className="fixed z-[9999] w-64 sm:w-72 max-w-sm p-2 sm:p-3 bg-gray-900 text-white text-xs rounded-lg shadow-xl border border-gray-700 transition-opacity duration-200"
+        style={{
+          top: tooltipPosition.top,
+          left: tooltipPosition.left,
+          pointerEvents: 'none',
+          maxWidth: 'calc(100vw - 16px)', // Ensure it doesn't overflow on mobile
+        }}
+      >
+        <div className="break-words whitespace-normal leading-relaxed">
+          {tooltipText}
+        </div>
+        <div 
+          className={`absolute w-2 h-2 sm:w-3 sm:h-3 bg-gray-900 border-r border-b border-gray-700 transform rotate-45 ${
+            tooltipPosition.placement === 'top' 
+              ? 'bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2' 
+              : 'top-0 left-1/2 -translate-x-1/2 -translate-y-1/2'
+          }`}
+        />
+      </div>,
+      document.body
+    );
+  };
+
   return (
-    <Card className={`${className}`}>
+    <Card className={`${className} relative`}>
       <div className="flex items-start">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1">
@@ -106,19 +140,10 @@ const StatCard = ({ title, value, icon, trend, tooltipKey, type, className = '' 
                 className="relative inline-flex items-center"
                 onMouseEnter={() => setShowTooltip(true)}
                 onMouseLeave={() => setShowTooltip(false)}
+                onTouchStart={() => setShowTooltip(true)}
+                onTouchEnd={() => setTimeout(() => setShowTooltip(false), 2000)}
               >
                 <Info size={12} className="text-gray-400 cursor-help hover:text-gray-600 flex-shrink-0" />
-                {showTooltip && (
-                  <div 
-                    ref={tooltipRef}
-                    className="fixed z-50 w-64 p-2 bg-gray-900 text-white text-xs rounded shadow-lg transition-opacity duration-200"
-                  >
-                    <div className="break-words whitespace-normal">
-                      {t(`dashboard.stats.tooltips.${tooltipKey}`)}
-                    </div>
-                    <div className="tooltip-arrow absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-1/2 rotate-45 w-2 h-2 bg-gray-900"></div>
-                  </div>
-                )}
               </div>
             )}
           </div>
@@ -144,6 +169,7 @@ const StatCard = ({ title, value, icon, trend, tooltipKey, type, className = '' 
           <div className="w-5 h-5 sm:w-6 sm:h-6">{icon}</div>
         </div>
       </div>
+      {renderTooltip()}
     </Card>
   );
 };
