@@ -240,7 +240,10 @@
           "productTotal": "Product Total",
           "totalAmount": "Total Amount",
           "cannotExceed": "Cannot exceed",
-          "inStock": "in stock"
+          "inStock": "in stock",
+          "selectedProducts": "Selected Products",
+          "searchPlaceholder": "Search for a product...",
+          "viewMore": "View more products"
         },
         "delivery": {
           "fee": "Delivery Fee"

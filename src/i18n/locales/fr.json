@@ -238,7 +238,10 @@
           "totalAmount": "Montant total",
           "cannotExceed": "Ne peut pas dépasser",
           "inStock": "en stock",
-          "selectPlaceholder": "Sélectionner un produit..."
+          "selectPlaceholder": "Sélectionner un produit...",
+          "selectedProducts": "Produits sélectionnés",
+          "searchPlaceholder": "Rechercher un produit...",
+          "viewMore": "Voir plus de produits"
         },
         "delivery": {
           "fee": "Frais de livraison"

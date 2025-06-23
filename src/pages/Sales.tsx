@@ -776,7 +776,7 @@ const Sales = () => {
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
         title={t('sales.modals.add.title')}
-        size="lg"
+        size="xl"
         footer={
           <ModalFooter 
             onCancel={() => setIsAddModalOpen(false)}
@@ -787,7 +787,7 @@ const Sales = () => {
           />
         }
       >
-        <div className="flex flex-col lg:flex-row gap-6">
+        <div className="flex flex-col lg:flex-row gap-6 max-w-4xl mx-auto">
           {/* Main Form */}
           <div className="flex-1 space-y-6">
             {/* Customer Information Section */}
@@ -925,9 +925,6 @@ const Sales = () => {
                 <div key={index} className="p-4 border rounded-lg space-y-4">
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        {t('sales.modals.add.products.product')} {index + 1}
-                      </label>
                       <Select
                         options={productOptions}
                         value={productOptions.find(option => option.value.id === product.product?.id)}
@@ -1260,9 +1257,6 @@ const Sales = () => {
               <div key={index} className="p-4 border rounded-lg space-y-4">
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      {t('sales.modals.edit.products.product')} {index + 1}
-                    </label>
                     <Select
                       options={productOptions}
                       value={productOptions.find(option => option.value.id === product.product?.id)}
