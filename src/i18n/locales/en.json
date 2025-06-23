@@ -663,5 +663,62 @@
       "amount": "Amount",
       "category": "Category"
     }
+  },
+  "settings": {
+    "title": "Settings",
+    "subtitle": "Manage your account settings and preferences",
+    "tabs": {
+      "account": "Account Settings",
+      "activity": "Activity Logs"
+    },
+    "account": {
+      "companyLogo": "Company Logo",
+      "noLogo": "No logo",
+      "companyInformation": "Company Information",
+      "companyName": "Company Name",
+      "description": "Description",
+      "descriptionHelp": "Optional",
+      "phoneNumber": "Phone Number",
+      "phoneHelp": "Enter 9 digits after +237",
+      "location": "Location",
+      "locationHelp": "Optional",
+      "emailAddress": "Email Address",
+      "changePassword": "Change Password",
+      "currentPassword": "Current Password",
+      "currentPasswordHelp": "Required only if changing password",
+      "newPassword": "New Password",
+      "newPasswordHelp": "Leave blank to keep current password",
+      "confirmNewPassword": "Confirm New Password",
+      "confirmNewPasswordHelp": "Leave blank to keep current password",
+      "preferences": "Preferences",
+      "emailNotifications": "Email Notifications",
+      "emailNotificationsHelp": "Receive email notifications for important events",
+      "language": "Language",
+      "saveChanges": "Save Changes",
+      "cancel": "Cancel"
+    },
+    "messages": {
+      "settingsUpdated": "Settings updated successfully",
+      "updateFailed": "Failed to update settings",
+      "currentPasswordRequired": "Current password is required to change password",
+      "passwordsDoNotMatch": "New passwords do not match",
+      "passwordTooShort": "New password must be at least 6 characters"
+    },
+    "activity": {
+      "title": "Activity Logs",
+      "noActivities": "No recent activities"
+    },
+    "mockActivities": {
+      "newSaleCreated": "New Sale Created",
+      "newSaleDescription": "Created a new sale for John Doe",
+      "productStockUpdated": "Product Stock Updated",
+      "productStockDescription": "Updated stock for Product XYZ",
+      "newExpenseAdded": "New Expense Added",
+      "newExpenseDescription": "Added delivery expense of 5000 XAF"
+    }
+  },
+  "languages": {
+    "en": "English",
+    "fr": "French"
   }
 } 

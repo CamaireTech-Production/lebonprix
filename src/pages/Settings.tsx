@@ -5,36 +5,38 @@ import Button from '../components/common/Button';
 import Input from '../components/common/Input';
 import ActivityList from '../components/dashboard/ActivityList';
 import { showSuccessToast, showErrorToast } from '../utils/toast';
-
-// Mock activities for now - will be replaced with real data
-const mockActivities = [
-  {
-    id: '1',
-    title: 'New Sale Created',
-    description: 'Created a new sale for John Doe',
-    timestamp: new Date('2024-03-12T14:30:00'),
-    type: 'sale' as const,
-  },
-  {
-    id: '2',
-    title: 'Product Stock Updated',
-    description: 'Updated stock for Product XYZ',
-    timestamp: new Date('2024-03-12T12:15:00'),
-    type: 'product' as const,
-  },
-  {
-    id: '3',
-    title: 'New Expense Added',
-    description: 'Added delivery expense of 5000 XAF',
-    timestamp: new Date('2024-03-11T14:10:00'),
-    type: 'expense' as const,
-  },
-];
+import { useTranslation } from 'react-i18next';
 
 const Settings = () => {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('account');
   const { company, user, updateCompany, updateUserPassword } = useAuth();
   
+  // Mock activities with translations
+  const mockActivities = [
+    {
+      id: '1',
+      title: t('settings.mockActivities.newSaleCreated'),
+      description: t('settings.mockActivities.newSaleDescription'),
+      timestamp: new Date('2024-03-12T14:30:00'),
+      type: 'sale' as const,
+    },
+    {
+      id: '2',
+      title: t('settings.mockActivities.productStockUpdated'),
+      description: t('settings.mockActivities.productStockDescription'),
+      timestamp: new Date('2024-03-12T12:15:00'),
+      type: 'product' as const,
+    },
+    {
+      id: '3',
+      title: t('settings.mockActivities.newExpenseAdded'),
+      description: t('settings.mockActivities.newExpenseDescription'),
+      timestamp: new Date('2024-03-11T14:10:00'),
+      type: 'expense' as const,
+    },
+  ];
+
   // Form state for company settings
   const [formData, setFormData] = useState({
     name: company?.name || '',
@@ -80,17 +82,17 @@ const Settings = () => {
   
   const validatePasswordChange = () => {
     if (!formData.currentPassword && (formData.newPassword || formData.confirmPassword)) {
-      setPasswordError('Current password is required to change password');
+      setPasswordError(t('settings.messages.currentPasswordRequired'));
       return false;
     }
     
     if (formData.newPassword !== formData.confirmPassword) {
-      setPasswordError('New passwords do not match');
+      setPasswordError(t('settings.messages.passwordsDoNotMatch'));
       return false;
     }
     
     if (formData.newPassword && formData.newPassword.length < 6) {
-      setPasswordError('New password must be at least 6 characters');
+      setPasswordError(t('settings.messages.passwordTooShort'));
       return false;
     }
     
@@ -124,7 +126,7 @@ const Settings = () => {
         await updateUserPassword(formData.currentPassword, formData.newPassword);
       }
 
-      showSuccessToast('Settings updated successfully');
+      showSuccessToast(t('settings.messages.settingsUpdated'));
       
       // Reset password fields after successful update
       setFormData(prev => ({
@@ -135,7 +137,7 @@ const Settings = () => {
       }));
     } catch (error: any) {
       console.error('Error updating settings:', error);
-      showErrorToast(error.message || 'Failed to update settings');
+      showErrorToast(error.message || t('settings.messages.updateFailed'));
     } finally {
       setIsLoading(false);
     }
@@ -159,8 +161,8 @@ const Settings = () => {
   return (
     <div className="pb-16 md:pb-0">
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-gray-900">Settings</h1>
-        <p className="text-gray-600">Manage your account settings and preferences</p>
+        <h1 className="text-2xl font-semibold text-gray-900">{t('settings.title')}</h1>
+        <p className="text-gray-600">{t('settings.subtitle')}</p>
       </div>
       
       {/* Tabs */}
@@ -175,7 +177,7 @@ const Settings = () => {
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
             `}
           >
-            Account Settings
+            {t('settings.tabs.account')}
           </button>
           <button
             onClick={() => setActiveTab('activity')}
@@ -186,7 +188,7 @@ const Settings = () => {
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
             `}
           >
-            Activity Logs
+            {t('settings.tabs.activity')}
           </button>
         </nav>
       </div>
@@ -200,7 +202,7 @@ const Settings = () => {
                 {/* Company Logo */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Company Logo
+                    {t('settings.account.companyLogo')}
                   </label>
                   <div className="mt-1 flex items-center space-x-4">
                     <div className="flex-shrink-0">
@@ -212,7 +214,7 @@ const Settings = () => {
                         />
                       ) : (
                         <div className="h-16 w-16 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center">
-                          <span className="text-gray-400">No logo</span>
+                          <span className="text-gray-400">{t('settings.account.noLogo')}</span>
                         </div>
                       )}
                     </div>
@@ -227,25 +229,25 @@ const Settings = () => {
 
                 {/* Company Information */}
                 <div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">Company Information</h3>
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">{t('settings.account.companyInformation')}</h3>
                   <div className="space-y-4">
                     <Input
-                      label="Company Name"
+                      label={t('settings.account.companyName')}
                       name="name"
                       value={formData.name}
                       onChange={handleInputChange}
                       required
                     />
                     <Input
-                      label="Description"
+                      label={t('settings.account.description')}
                       name="description"
                       value={formData.description}
                       onChange={handleInputChange}
-                      helpText="Optional"
+                      helpText={t('settings.account.descriptionHelp')}
                     />
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Phone Number
+                        {t('settings.account.phoneNumber')}
                       </label>
                       <div className="flex rounded-md shadow-sm">
                         <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 sm:text-sm">
@@ -259,19 +261,19 @@ const Settings = () => {
                           placeholder="678904568"
                           className="flex-1 rounded-l-none"
                           required
-                          helpText="Enter 9 digits after +237"
+                          helpText={t('settings.account.phoneHelp')}
                         />
                       </div>
                     </div>
                     <Input
-                      label="Location"
+                      label={t('settings.account.location')}
                       name="location"
                       value={formData.location}
                       onChange={handleInputChange}
-                      helpText="Optional"
+                      helpText={t('settings.account.locationHelp')}
                     />
                     <Input
-                      label="Email Address"
+                      label={t('settings.account.emailAddress')}
                       name="email"
                       type="email"
                       value={formData.email}
@@ -283,7 +285,7 @@ const Settings = () => {
                 
                 {/* Password Change */}
                 <div className="pt-5 border-t border-gray-200">
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">Change Password</h3>
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">{t('settings.account.changePassword')}</h3>
                   {passwordError && (
                     <div className="mb-4 bg-red-50 text-red-800 p-3 rounded-md text-sm">
                       {passwordError}
@@ -291,35 +293,35 @@ const Settings = () => {
                   )}
                   <div className="space-y-4">
                     <Input
-                      label="Current Password"
+                      label={t('settings.account.currentPassword')}
                       name="currentPassword"
                       type="password"
                       value={formData.currentPassword}
                       onChange={handleInputChange}
-                      helpText="Required only if changing password"
+                      helpText={t('settings.account.currentPasswordHelp')}
                     />
                     <Input
-                      label="New Password"
+                      label={t('settings.account.newPassword')}
                       name="newPassword"
                       type="password"
                       value={formData.newPassword}
                       onChange={handleInputChange}
-                      helpText="Leave blank to keep current password"
+                      helpText={t('settings.account.newPasswordHelp')}
                     />
                     <Input
-                      label="Confirm New Password"
+                      label={t('settings.account.confirmNewPassword')}
                       name="confirmPassword"
                       type="password"
                       value={formData.confirmPassword}
                       onChange={handleInputChange}
-                      helpText="Leave blank to keep current password"
+                      helpText={t('settings.account.confirmNewPasswordHelp')}
                     />
                   </div>
                 </div>
                 
                 {/* Preferences */}
                 <div className="pt-5 border-t border-gray-200">
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">Preferences</h3>
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">{t('settings.account.preferences')}</h3>
                   <div className="space-y-4">
                     <div className="flex items-start">
                       <div className="flex items-center h-5">
@@ -333,21 +335,21 @@ const Settings = () => {
                       </div>
                       <div className="ml-3">
                         <label htmlFor="email-notifications" className="text-sm font-medium text-gray-700">
-                          Email Notifications
+                          {t('settings.account.emailNotifications')}
                         </label>
                         <p className="text-sm text-gray-500">
-                          Receive email notifications for important events
+                          {t('settings.account.emailNotificationsHelp')}
                         </p>
                       </div>
                     </div>
                     
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Language
+                        {t('settings.account.language')}
                       </label>
                       <select className="w-full rounded-md border border-gray-300 shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                        <option value="en">English</option>
-                        <option value="fr">French</option>
+                        <option value="en">{t('languages.en')}</option>
+                        <option value="fr">{t('languages.fr')}</option>
                       </select>
                     </div>
                   </div>
@@ -361,14 +363,14 @@ const Settings = () => {
                     onClick={handleCancel}
                     disabled={isLoading}
                   >
-                    Cancel
+                    {t('settings.account.cancel')}
                   </Button>
                   <Button 
                     type="submit" 
                     isLoading={isLoading}
                     disabled={isLoading}
                   >
-                    Save Changes
+                    {t('settings.account.saveChanges')}
                   </Button>
                 </div>
               </div>

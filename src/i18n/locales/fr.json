@@ -536,5 +536,62 @@
     "confirmDelete": "Voulez-vous vraiment supprimer cet objectif ?",
     "empty": "Aucun objectif pour le moment",
     "filterByRange": "Utiliser la période du tableau de bord"
+  },
+  "settings": {
+    "title": "Paramètres",
+    "subtitle": "Gérez les paramètres et préférences de votre compte",
+    "tabs": {
+      "account": "Paramètres du compte",
+      "activity": "Journaux d'activité"
+    },
+    "account": {
+      "companyLogo": "Logo de l'entreprise",
+      "noLogo": "Aucun logo",
+      "companyInformation": "Informations de l'entreprise",
+      "companyName": "Nom de l'entreprise",
+      "description": "Description",
+      "descriptionHelp": "Optionnel",
+      "phoneNumber": "Numéro de téléphone",
+      "phoneHelp": "Entrez 9 chiffres après +237",
+      "location": "Localisation",
+      "locationHelp": "Optionnel",
+      "emailAddress": "Adresse e-mail",
+      "changePassword": "Changer le mot de passe",
+      "currentPassword": "Mot de passe actuel",
+      "currentPasswordHelp": "Requis seulement si vous changez le mot de passe",
+      "newPassword": "Nouveau mot de passe",
+      "newPasswordHelp": "Laissez vide pour garder le mot de passe actuel",
+      "confirmNewPassword": "Confirmer le nouveau mot de passe",
+      "confirmNewPasswordHelp": "Laissez vide pour garder le mot de passe actuel",
+      "preferences": "Préférences",
+      "emailNotifications": "Notifications par e-mail",
+      "emailNotificationsHelp": "Recevoir des notifications par e-mail pour les événements importants",
+      "language": "Langue",
+      "saveChanges": "Enregistrer les modifications",
+      "cancel": "Annuler"
+    },
+    "messages": {
+      "settingsUpdated": "Paramètres mis à jour avec succès",
+      "updateFailed": "Échec de la mise à jour des paramètres",
+      "currentPasswordRequired": "Le mot de passe actuel est requis pour changer le mot de passe",
+      "passwordsDoNotMatch": "Les nouveaux mots de passe ne correspondent pas",
+      "passwordTooShort": "Le nouveau mot de passe doit contenir au moins 6 caractères"
+    },
+    "activity": {
+      "title": "Journaux d'activité",
+      "noActivities": "Aucune activité récente"
+    },
+    "mockActivities": {
+      "newSaleCreated": "Nouvelle vente créée",
+      "newSaleDescription": "Créé une nouvelle vente pour John Doe",
+      "productStockUpdated": "Stock de produit mis à jour",
+      "productStockDescription": "Stock mis à jour pour le produit XYZ",
+      "newExpenseAdded": "Nouvelle dépense ajoutée",
+      "newExpenseDescription": "Ajouté une dépense de livraison de 5000 XAF"
+    }
+  },
+  "languages": {
+    "en": "Anglais",
+    "fr": "Français"
   }
 } 
