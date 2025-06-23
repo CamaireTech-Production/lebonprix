@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Plus, Edit2, Eye, Trash2, Download, Share, Save } from 'lucide-react';
 import Select from 'react-select';
 import Table from '../components/common/Table';
@@ -7,7 +7,7 @@ import Input from '../components/common/Input';
 import Badge from '../components/common/Badge';
 import Button from '../components/common/Button';
 import Card from '../components/common/Card';
-import { useSales, useProducts } from '../hooks/useFirestore';
+import { useSales, useProducts, useCustomers } from '../hooks/useFirestore';
 import type { Product, OrderStatus, Sale, SaleProduct, Customer } from '../types/models';
 import type { Column } from '../components/common/Table';
 import LoadingScreen from '../components/common/LoadingScreen';
@@ -17,6 +17,7 @@ import { generatePDF } from '../utils/pdf';
 import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { deleteSale as deleteSaleFromFirestore, getCustomerByPhone, addCustomer } from '../services/firestore';
+import { createPortal } from 'react-dom';
 
 interface FormProduct {
   product: Product | null;
@@ -33,6 +34,7 @@ const Sales = () => {
   const { t } = useTranslation();
   const { sales, loading: salesLoading, error: salesError, addSale, updateSale, deleteSale } = useSales();
   const { products, loading: productsLoading } = useProducts();
+  const { customers } = useCustomers();
   const { user } = useAuth();
   
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -50,6 +52,9 @@ const Sales = () => {
   const [isSavingCustomer, setIsSavingCustomer] = useState(false);
   const [showAllProducts, setShowAllProducts] = useState(false);
   const [productSearchQuery, setProductSearchQuery] = useState('');
+  const [autoSaveCustomer, setAutoSaveCustomer] = useState(true);
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
+  const [customerSearch, setCustomerSearch] = useState('');
   
   // Form state
   const [formData, setFormData] = useState({
@@ -61,36 +66,34 @@ const Sales = () => {
     products: [{ product: null, quantity: '', negotiatedPrice: '' }] as FormProduct[]
   });
   
+  // Helper to get the position of the phone input for dropdown placement
+  const [customerDropdownPos, setCustomerDropdownPos] = useState<{ top: number; left: number; width: number } | null>(null);
+  const phoneInputRef = useRef<HTMLInputElement>(null);
+
+  // Helper to normalize phone numbers for search
+  const normalizePhone = (phone: string) => phone.replace(/\D/g, '');
+
+  useEffect(() => {
+    if (showCustomerDropdown && phoneInputRef.current) {
+      const rect = phoneInputRef.current.getBoundingClientRect();
+      setCustomerDropdownPos({
+        top: rect.bottom + window.scrollY,
+        left: rect.left + window.scrollX,
+        width: rect.width
+      });
+    }
+  }, [showCustomerDropdown, formData.customerPhone]);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handlePhoneChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Remove all non-digit characters
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.replace(/\D/g, '');
     setFormData(prev => ({ ...prev, customerPhone: value }));
-
-    // If phone number is complete (e.g., 10 digits), search for customer
-    if (value.length >= 10) {
-      try {
-        const customer = await getCustomerByPhone(value);
-        if (customer) {
-          setFoundCustomer(customer);
-          setFormData(prev => ({
-            ...prev,
-            customerName: customer.name || '',
-            customerQuarter: customer.quarter || ''
-          }));
-        } else {
-          setFoundCustomer(null);
-        }
-      } catch (err) {
-        console.error('Error searching for customer:', err);
-      }
-    } else {
-      setFoundCustomer(null);
-    }
+    setCustomerSearch(value);
+    setShowCustomerDropdown(!!value);
   };
 
   const handleProductChange = (index: number, option: ProductOption | null) => {
@@ -142,6 +145,9 @@ const Sales = () => {
       deliveryFee: '',
       products: [{ product: null, quantity: '', negotiatedPrice: '' }]
     });
+    setFoundCustomer(null);
+    setShowCustomerDropdown(false);
+    setCustomerSearch('');
   };
   
   const calculateProductTotal = (product: FormProduct) => {
@@ -235,8 +241,9 @@ const Sales = () => {
 
       console.log('Creating sale with products:', saleProducts); // Debug log
 
+      const customerName = formData.customerName.trim() || t('sales.modals.add.customerInfo.divers');
       const customerInfo = {
-        name: formData.customerName,
+        name: customerName,
         phone: formData.customerPhone,
         ...(formData.customerQuarter && { quarter: formData.customerQuarter })
       };
@@ -257,6 +264,25 @@ const Sales = () => {
         resetForm();
         handleGenerateLink(newSale.id);
         showSuccessToast(t('sales.messages.saleAdded'));
+
+        if (autoSaveCustomer && formData.customerPhone && customerName) {
+          try {
+            await addCustomer({
+              phone: formData.customerPhone,
+              name: customerName,
+              quarter: formData.customerQuarter,
+              userId: user.uid,
+              createdAt: new Date()
+            });
+            setFoundCustomer({
+              phone: formData.customerPhone,
+              name: customerName,
+              quarter: formData.customerQuarter,
+              userId: user.uid,
+              createdAt: new Date()
+            });
+          } catch (e) { /* ignore duplicate errors */ }
+        }
       }
     } catch (err) {
       console.error('Failed to add sale:', err);
@@ -567,6 +593,17 @@ const Sales = () => {
     }
   };
 
+  const handleSelectCustomer = (customer: Customer) => {
+    setFormData(prev => ({
+      ...prev,
+      customerPhone: customer.phone,
+      customerName: customer.name || '',
+      customerQuarter: customer.quarter || ''
+    }));
+    setShowCustomerDropdown(false);
+    setFoundCustomer(customer);
+  };
+
   return (
     <div className="pb-16 md:pb-0">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
@@ -806,6 +843,7 @@ const Sales = () => {
                     className="flex-1"
                     required
                     helpText={t('sales.modals.add.customerInfo.phoneHelp')}
+                    ref={phoneInputRef}
                   />
                   {!foundCustomer && formData.customerPhone.length >= 10 && (
                     <Button
@@ -825,6 +863,19 @@ const Sales = () => {
                     </p>
                   </div>
                 )}
+              </div>
+
+              <div className="flex items-center space-x-2 mb-2">
+                <input
+                  type="checkbox"
+                  id="autoSaveCustomerCheckbox"
+                  checked={autoSaveCustomer}
+                  onChange={e => setAutoSaveCustomer(e.target.checked)}
+                  className="form-checkbox h-4 w-4 text-emerald-600 border-gray-300 rounded"
+                />
+                <label htmlFor="autoSaveCustomerCheckbox" className="text-sm text-gray-700">
+                  {t('sales.modals.add.customerInfo.autoSave')}
+                </label>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1388,6 +1439,42 @@ const Sales = () => {
           </div>
         </div>
       </Modal>
+
+      {/* Customer Dropdown */}
+      {showCustomerDropdown && customerSearch && customerDropdownPos &&
+        createPortal(
+          <div
+            className="bg-white border border-gray-200 rounded shadow z-50 max-h-48 overflow-y-auto mt-1"
+            style={{
+              position: 'absolute',
+              top: customerDropdownPos.top,
+              left: customerDropdownPos.left,
+              width: customerDropdownPos.width,
+            }}
+          >
+            {customers.filter(c =>
+              normalizePhone(c.phone).startsWith(normalizePhone(customerSearch)) ||
+              (c.name && c.name.toLowerCase().includes(customerSearch.toLowerCase()))
+            ).slice(0, 5).map(c => (
+              <button
+                key={c.id}
+                className="block w-full text-left px-4 py-2 hover:bg-emerald-50"
+                onClick={() => handleSelectCustomer(c)}
+              >
+                <div className="font-medium">{c.name || t('sales.modals.add.customerInfo.divers')}</div>
+                <div className="text-xs text-gray-500">{c.phone}{c.quarter ? ` • ${c.quarter}` : ''}</div>
+              </button>
+            ))}
+            {customers.filter(c =>
+              normalizePhone(c.phone).startsWith(normalizePhone(customerSearch)) ||
+              (c.name && c.name.toLowerCase().includes(customerSearch.toLowerCase()))
+            ).length === 0 && (
+              <div className="px-4 py-2 text-gray-400 text-sm">{t('common.noResults')}</div>
+            )}
+          </div>,
+          document.body
+        )
+      }
     </div>
   );
 };

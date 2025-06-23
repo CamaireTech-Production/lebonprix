@@ -12,7 +12,8 @@ import {
   createExpense,
   updateExpense,
   subscribeToDashboardStats,
-  updateSaleDocument
+  updateSaleDocument,
+  subscribeToCustomers
 } from '../services/firestore';
 import type {
   Product,
@@ -21,7 +22,8 @@ import type {
   Category,
   DashboardStats,
   OrderStatus,
-  PaymentStatus
+  PaymentStatus,
+  Customer
 } from '../types/models';
 import { Timestamp } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
@@ -360,5 +362,24 @@ export const useStockChanges = () => {
   }, [user]);
 
   return { stockChanges, loading };
+};
+
+// Customers Hook
+export const useCustomers = () => {
+  const { user } = useAuth();
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    const unsubscribe = subscribeToCustomers(user.uid, (data: Customer[]) => {
+      setCustomers(data);
+      setLoading(false);
+    });
+    return () => unsubscribe();
+  }, [user]);
+
+  return { customers, loading, error };
 };
 

@@ -56,6 +56,7 @@ export interface Sale extends BaseModel {
   };
   deliveryFee?: number;
   statusHistory?: Array<{ status: string; timestamp: string }>;
+  isAvailable?: boolean;
 }
 
 export interface Expense extends BaseModel {

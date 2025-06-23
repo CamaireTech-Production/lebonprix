@@ -226,7 +226,9 @@
           "phone": "Customer Phone",
           "phoneHelp": "Enter or paste any phone number format",
           "quarter": "Customer Quarter",
-          "quarterPlaceholder": "Enter customer's quarter"
+          "quarterPlaceholder": "Enter customer's quarter",
+          "divers": "Divers",
+          "autoSave": "Save customer automatically"
         },
         "products": {
           "title": "Products",
@@ -362,7 +364,8 @@
         "quantityExceeded": "Cannot exceed available stock ({stock}).",
         "priceExceeded": "Negotiated price cannot exceed the standard selling price.",
         "deliveryFeeInvalid": "Delivery fee must be a non-negative number."
-      }
+      },
+      "customerFound": "Customer found: {{name}}"
     }
   },
   "invoice": {

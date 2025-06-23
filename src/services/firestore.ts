@@ -72,7 +72,8 @@ export const subscribeToSales = (callback: (sales: Sale[]) => void): (() => void
       id: doc.id,
       ...doc.data()
     })) as Sale[];
-    callback(sales);
+    // Only return sales that are not soft-deleted
+    callback(sales.filter(sale => sale.isAvailable !== false));
   });
 };
 
@@ -488,7 +489,10 @@ export const updateDashboardStats = async (userId: string): Promise<void> => {
     getDocs(query(collection(db, 'expenses'), where('userId', '==', userId))),
   ]);
 
-  const sales = salesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Sale[];
+  // Exclude soft-deleted sales
+  const sales = salesSnap.docs
+    .map(doc => ({ id: doc.id, ...doc.data() }))
+    .filter((sale: any) => sale.isAvailable !== false) as Sale[];
   const expenses = expensesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Expense[];
 
   const stats: Partial<DashboardStats> = {
@@ -819,16 +823,19 @@ export const deleteSale = async (saleId: string, userId: string): Promise<void> 
     });
   }
 
-  // Delete the sale
-  batch.delete(saleRef);
-  
+  // Soft delete the sale (set isAvailable: false)
+  batch.update(saleRef, {
+    isAvailable: false,
+    updatedAt: serverTimestamp()
+  });
+
   // Create audit log
   await createAuditLog(
     batch,
     'delete',
     'sale',
     saleId,
-    { all: { oldValue: saleData, newValue: null } },
+    { all: { oldValue: saleData, newValue: { ...saleData, isAvailable: false } } },
     userId
   );
   
@@ -868,4 +875,19 @@ export const addCustomer = async (customerData: Omit<Customer, 'id'>): Promise<C
     console.error('Error adding customer:', error);
     throw error;
   }
+};
+
+export const subscribeToCustomers = (userId: string, callback: (customers: Customer[]) => void) => {
+  const q = query(
+    collection(db, 'customers'),
+    where('userId', '==', userId),
+    orderBy('createdAt', 'desc')
+  );
+  return onSnapshot(q, (snapshot) => {
+    const customers = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    })) as Customer[];
+    callback(customers);
+  });
 };

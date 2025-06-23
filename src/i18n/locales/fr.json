@@ -224,7 +224,9 @@
           "phone": "Téléphone du client",
           "phoneHelp": "Entrez ou collez n'importe quel format de numéro de téléphone",
           "quarter": "Quartier du client",
-          "quarterPlaceholder": "Entrez le quartier du client"
+          "quarterPlaceholder": "Entrez le quartier du client",
+          "divers": "Divers",
+          "autoSave": "Enregistrer automatiquement le client"
         },
         "products": {
           "title": "Produits",
@@ -357,7 +359,8 @@
         "quantityExceeded": "Ne peut pas dépasser le stock disponible ({stock}).",
         "priceExceeded": "Le prix négocié ne peut pas dépasser le prix de vente standard.",
         "deliveryFeeInvalid": "Les frais de livraison doivent être un nombre positif."
-      }
+      },
+      "customerFound": "Client trouvé : {{name}}"
     }
   },
   "invoice": {
