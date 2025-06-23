@@ -6,36 +6,33 @@ import Input from '../components/common/Input';
 import ActivityList from '../components/dashboard/ActivityList';
 import { showSuccessToast, showErrorToast } from '../utils/toast';
 import { useTranslation } from 'react-i18next';
+import { useSales, useExpenses } from '../hooks/useFirestore';
+import i18n from '../i18n/config';
 
 const Settings = () => {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('account');
   const { company, user, updateCompany, updateUserPassword } = useAuth();
+  const { sales } = useSales();
+  const { expenses } = useExpenses();
   
-  // Mock activities with translations
-  const mockActivities = [
-    {
-      id: '1',
-      title: t('settings.mockActivities.newSaleCreated'),
-      description: t('settings.mockActivities.newSaleDescription'),
-      timestamp: new Date('2024-03-12T14:30:00'),
+  // Combine and sort recent activities (like Dashboard)
+  const activities = [
+    ...(sales?.slice(0, 3).map(sale => ({
+      id: sale.id,
+      title: t('dashboard.activity.titles.newSale'),
+      description: `${sale.customerInfo.name} purchased items for ${sale.totalAmount.toLocaleString()} XAF`,
+      timestamp: sale.createdAt?.seconds ? new Date(sale.createdAt.seconds * 1000) : new Date(),
       type: 'sale' as const,
-    },
-    {
-      id: '2',
-      title: t('settings.mockActivities.productStockUpdated'),
-      description: t('settings.mockActivities.productStockDescription'),
-      timestamp: new Date('2024-03-12T12:15:00'),
-      type: 'product' as const,
-    },
-    {
-      id: '3',
-      title: t('settings.mockActivities.newExpenseAdded'),
-      description: t('settings.mockActivities.newExpenseDescription'),
-      timestamp: new Date('2024-03-11T14:10:00'),
+    })) || []),
+    ...(expenses?.slice(0, 3).map(expense => ({
+      id: expense.id,
+      title: t('dashboard.activity.titles.expenseAdded'),
+      description: `${expense.description}: ${expense.amount.toLocaleString()} XAF`,
+      timestamp: expense.createdAt?.seconds ? new Date(expense.createdAt.seconds * 1000) : new Date(),
       type: 'expense' as const,
-    },
-  ];
+    })) || []),
+  ].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
 
   // Form state for company settings
   const [formData, setFormData] = useState({
@@ -156,6 +153,11 @@ const Settings = () => {
       confirmPassword: '',
     });
     setPasswordError('');
+  };
+
+  // Language change handler
+  const handleLanguageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    i18n.changeLanguage(e.target.value);
   };
 
   return (
@@ -347,7 +349,11 @@ const Settings = () => {
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         {t('settings.account.language')}
                       </label>
-                      <select className="w-full rounded-md border border-gray-300 shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                      <select
+                        className="w-full rounded-md border border-gray-300 shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                        value={i18n.language}
+                        onChange={handleLanguageChange}
+                      >
                         <option value="en">{t('languages.en')}</option>
                         <option value="fr">{t('languages.fr')}</option>
                       </select>
@@ -381,7 +387,7 @@ const Settings = () => {
       
       {/* Activity Logs Tab */}
       {activeTab === 'activity' && (
-        <ActivityList activities={mockActivities} />
+        <ActivityList activities={activities} />
       )}
     </div>
   );
