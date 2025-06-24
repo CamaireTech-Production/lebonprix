@@ -169,10 +169,6 @@ const Sales = () => {
     const errors: Record<string, string> = {};
     console.log('Validating form data:', formData); // Debug log
 
-    if (!formData.customerPhone.trim()) {
-      errors.customerPhone = t('sales.messages.warnings.customerPhone');
-    }
-
     // Check if there's at least one product selected
     const hasSelectedProducts = formData.products.some(p => p.product !== null);
     console.log('Has selected products:', hasSelectedProducts); // Debug log
@@ -868,9 +864,9 @@ const Sales = () => {
                     </div>
 
                     {product.quantity && (
-                      <div className="p-3 bg-emerald-50 rounded-md">
-                        <span className="text-sm font-medium text-emerald-700">{t('sales.modals.edit.products.productTotal')}:</span>
-                        <span className="ml-2 text-emerald-900">{calculateProductTotal(product).toLocaleString()} XAF</span>
+                      <div className="p-3 bg-blue-50 rounded-md">
+                        <span className="text-sm font-medium text-blue-700">{t('sales.modals.edit.products.productTotal')}:</span>
+                        <span className="ml-2 text-blue-900">{calculateProductTotal(product).toLocaleString()} XAF</span>
                       </div>
                     )}
                   </>
