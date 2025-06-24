@@ -131,7 +131,6 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
   /* -------------------------- Validation -------------------------- */
   const validateForm = () => {
     const errors: Record<string, string> = {};
-    if (!formData.customerPhone.trim()) errors.customerPhone = t('sales.messages.warnings.customerPhone');
     const hasProduct = formData.products.some(p => p.product);
     if (!hasProduct) {
       errors.products = t('sales.messages.warnings.atLeastOneProduct');
@@ -155,11 +154,11 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
     const errs = validateForm();
     if (Object.keys(errs).length) {
       Object.values(errs).forEach(showWarningToast);
-      return;
+      return undefined;
     }
     if (!user?.uid) {
       showErrorToast(t('sales.messages.errors.notLoggedIn'));
-      return;
+      return undefined;
     }
     try {
       setIsSubmitting(true);
@@ -173,7 +172,9 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
           negotiatedPrice: p.negotiatedPrice ? parseFloat(p.negotiatedPrice) : p.product!.sellingPrice,
         }));
       const customerName = formData.customerName.trim() || t('sales.modals.add.customerInfo.divers');
-      const customerInfo = { name: customerName, phone: formData.customerPhone, ...(formData.customerQuarter && { quarter: formData.customerQuarter }) };
+      const customerPhone = formData.customerPhone.trim() || '';
+      const customerQuarter = formData.customerQuarter || '';
+      const customerInfo = { name: customerName, phone: customerPhone, ...(customerQuarter && { quarter: customerQuarter }) };
       const newSale = await addSale({
         products: saleProducts,
         totalAmount,
@@ -184,15 +185,19 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
         userId: user.uid,
       });
       showSuccessToast(t('sales.messages.saleAdded'));
-      if (onSaleAdded && newSale) onSaleAdded(newSale);
       resetForm();
-      if (autoSaveCustomer && formData.customerPhone && customerName) {
+      if (autoSaveCustomer && customerPhone && customerName) {
         try {
-          await addCustomer({ phone: formData.customerPhone, name: customerName, quarter: formData.customerQuarter, userId: user.uid, createdAt: new Date() });
+          const existing = customers.find(c => normalizePhone(c.phone) === normalizePhone(customerPhone));
+          if (!existing) {
+            await addCustomer({ phone: customerPhone, name: customerName, quarter: customerQuarter, userId: user.uid, createdAt: new Date() });
+          }
         } catch { /* ignore duplicate errors */ }
       }
+      return newSale;
     } catch {
       showErrorToast(t('sales.messages.errors.addSale'));
+      return undefined;
     } finally {
       setIsSubmitting(false);
     }
@@ -203,10 +208,18 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
     if (!user?.uid || !formData.customerPhone) return;
     try {
       setIsSavingCustomer(true);
-      const data: Customer = { phone: formData.customerPhone, name: formData.customerName, quarter: formData.customerQuarter, userId: user.uid, createdAt: new Date() };
-      await addCustomer(data);
-      setFoundCustomer(data);
-      showSuccessToast(t('sales.messages.customerSaved'));
+      const customerName = formData.customerName.trim() || t('sales.modals.add.customerInfo.divers');
+      const customerQuarter = formData.customerQuarter || '';
+      const existing = customers.find(c => normalizePhone(c.phone) === normalizePhone(formData.customerPhone));
+      if (!existing) {
+        const data: Customer = { phone: formData.customerPhone, name: customerName, quarter: customerQuarter, userId: user.uid, createdAt: new Date() };
+        await addCustomer(data);
+        setFoundCustomer(data);
+        showSuccessToast(t('sales.messages.customerSaved'));
+      } else {
+        setFoundCustomer(existing);
+        showWarningToast(t('sales.messages.warnings.customerExists'));
+      }
     } catch {
       showErrorToast(t('sales.messages.errors.saveCustomer'));
     } finally {

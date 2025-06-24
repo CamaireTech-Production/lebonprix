@@ -19,6 +19,7 @@ import { useTranslation } from 'react-i18next';
 import { deleteSale as deleteSaleFromFirestore, getCustomerByPhone, addCustomer } from '../services/firestore';
 import { createPortal } from 'react-dom';
 import AddSaleModal from '../components/sales/AddSaleModal';
+import SaleDetailsModal from '../components/sales/SaleDetailsModal';
 
 interface FormProduct {
   product: Product | null;
@@ -646,175 +647,15 @@ const Sales = () => {
       <AddSaleModal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
-        onSaleAdded={() => setIsAddModalOpen(false)}
       />
       
       {/* View Sale Modal */}
-      <Modal
+      <SaleDetailsModal
         isOpen={isViewModalOpen}
         onClose={() => setIsViewModalOpen(false)}
-        title={t('sales.modals.view.title')}
-        size="lg"
-      >
-        {viewedSale && (
-          <div className="space-y-6">
-            {/* Invoice Actions */}
-            <div className="flex justify-end space-x-2 mb-4 sticky top-0 bg-white z-10 py-2">
-              <Button
-                variant="outline"
-                icon={<Download size={16} />}
-                onClick={() => generatePDF('invoice-content', `facture-${viewedSale.id}`)}
-              >
-                {t('sales.modals.view.actions.downloadPDF')}
-              </Button>
-              <Button
-                variant="outline"
-                icon={<Share size={16} />}
-                onClick={() => handleShareInvoice(viewedSale)}
-              >
-                {t('sales.modals.view.actions.shareInvoice')}
-              </Button>
-            </div>
-
-            {/* Invoice Preview */}
-            <div className="border rounded-lg overflow-hidden">
-              <div className="max-h-[calc(100vh-200px)] overflow-y-auto">
-                <Invoice sale={viewedSale} products={products || []} />
-              </div>
-            </div>
-
-            {/* Customer Information Card */}
-            <Card>
-              <div className="p-4">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">{t('sales.modals.view.customerInfo.title')}</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">{t('sales.modals.view.customerInfo.name')}</p>
-                    <p className="mt-1 text-sm text-gray-900">{viewedSale.customerInfo.name}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">{t('sales.modals.view.customerInfo.phone')}</p>
-                    <a 
-                      href={`tel:${viewedSale.customerInfo.phone}`}
-                      className="mt-1 text-sm text-blue-600 hover:text-blue-900"
-                    >
-                      {viewedSale.customerInfo.phone}
-                    </a>
-                  </div>
-                </div>
-              </div>
-            </Card>
-
-            {/* Products Card */}
-            <Card>
-              <div className="p-4">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">{t('sales.modals.view.products.title')}</h3>
-                <div className="space-y-4">
-                  {viewedSale.products.map((product, index) => {
-                    const productData = products?.find(p => p.id === product.productId);
-                    return (
-                      <div key={index} className="p-4 bg-gray-50 rounded-lg">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <p className="font-medium text-gray-900">{productData?.name}</p>
-                            <p className="text-sm text-gray-500">{t('sales.modals.view.products.quantity')}: {product.quantity}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-sm text-gray-500">{t('sales.modals.view.products.basePrice')}</p>
-                            <p className="font-medium text-gray-900">{product.basePrice.toLocaleString()} XAF</p>
-                            {product.negotiatedPrice && (
-                              <>
-                                <p className="text-sm text-gray-500 mt-1">{t('sales.modals.view.products.negotiatedPrice')}</p>
-                                <p className="font-medium text-emerald-600">{product.negotiatedPrice.toLocaleString()} XAF</p>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                        <div className="mt-2 pt-2 border-t border-gray-200">
-                          <p className="text-sm text-gray-500">{t('sales.modals.view.products.productTotal')}</p>
-                          <p className="font-medium text-emerald-600">
-                            {((product.negotiatedPrice || product.basePrice) * product.quantity).toLocaleString()} XAF
-                          </p>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </Card>
-
-            {/* Order Summary Card */}
-            <Card>
-              <div className="p-4">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">{t('sales.modals.view.orderSummary.title')}</h3>
-                <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <p className="text-sm text-gray-500">{t('sales.modals.view.orderSummary.subtotal')}</p>
-                    <p className="text-sm text-gray-900">{viewedSale.totalAmount.toLocaleString()} XAF</p>
-                  </div>
-                  {(viewedSale.deliveryFee ?? 0) > 0 && (
-                    <div className="flex justify-between">
-                      <p className="text-sm text-gray-500">{t('sales.modals.view.orderSummary.deliveryFee')}</p>
-                      <p className="text-sm text-gray-900">{viewedSale.deliveryFee?.toLocaleString()} XAF</p>
-                    </div>
-                  )}
-                  <div className="pt-3 border-t border-gray-200">
-                    <div className="flex justify-between">
-                      <p className="font-medium text-gray-900">{t('sales.modals.view.orderSummary.totalAmount')}</p>
-                      <p className="font-medium text-emerald-600">
-                        {(viewedSale.totalAmount + (viewedSale.deliveryFee ?? 0)).toLocaleString()} XAF
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </Card>
-
-            {/* Status Information */}
-            <div className="flex justify-between items-center">
-              <div>
-                <p className="text-sm font-medium text-gray-500">{t('sales.modals.view.status.orderStatus')}</p>
-                <Badge variant={
-                  viewedSale.status === 'paid' ? 'success' :
-                  viewedSale.status === 'under_delivery' ? 'info' : 'warning'
-                }>
-                  {t(`sales.filters.status.${viewedSale.status}`)}
-                </Badge>
-              </div>
-              {/* <div>
-                <p className="text-sm font-medium text-gray-500">{t('sales.modals.view.status.paymentStatus')}</p>
-                <Badge variant={
-                  viewedSale.paymentStatus === 'paid' ? 'success' :
-                  viewedSale.paymentStatus === 'cancelled' ? 'error' : 'warning'
-                }>
-                  {t(`sales.filters.status.${viewedSale.paymentStatus}`)}
-                </Badge>
-              </div> */}
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  handleCopyLink(viewedSale.id);
-                  setIsViewModalOpen(false);
-                }}
-              >
-                {t('sales.modals.view.actions.copyTrackingLink')}
-              </Button>
-              <Button
-                onClick={() => {
-                  handleEditClick(viewedSale);
-                  setIsViewModalOpen(false);
-                }}
-              >
-                {t('sales.modals.view.actions.editSale')}
-              </Button>
-            </div>
-          </div>
-        )}
-      </Modal>
+        sale={viewedSale}
+        products={products || []}
+      />
       
       {/* Link Modal */}
       <Modal
