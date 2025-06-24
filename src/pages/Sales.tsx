@@ -67,7 +67,7 @@ const Sales = () => {
     deliveryFee: '',
     products: [{ product: null, quantity: '', negotiatedPrice: '' }] as FormProduct[],
   });
-
+  
   // Helper to get the position of the phone input for dropdown placement
   const [customerDropdownPos, setCustomerDropdownPos] = useState<{ top: number; left: number; width: number } | null>(null);
   const phoneInputRef = useRef<HTMLInputElement>(null);

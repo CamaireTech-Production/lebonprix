@@ -5,9 +5,10 @@ import Badge from '../common/Badge';
 import Button from '../common/Button';
 import type { Sale, Product } from '../../types/models';
 import { Download, Share } from 'lucide-react';
-import { generatePDF } from '../../utils/pdf';
+import { generatePDF, generatePDFBlob } from '../../utils/pdf';
 import { useTranslation } from 'react-i18next';
 import { useState } from 'react';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface SaleDetailsModalProps {
   isOpen: boolean;
@@ -20,37 +21,33 @@ interface SaleDetailsModalProps {
 const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({ isOpen, onClose, sale, products, title }) => {
   const { t } = useTranslation();
   const [isSharing, setIsSharing] = useState(false);
+  const { company } = useAuth();
 
   if (!sale) return null;
 
   const handleDownloadPDF = () => {
-    generatePDF('invoice-content', `facture-${sale.id}`);
+    if (!company) return;
+    generatePDF(sale, products, company, `facture-${sale.id}`);
   };
 
   const handleShareInvoice = async () => {
     setIsSharing(true);
     try {
-      const result = await generatePDF('invoice-content', `facture-${sale.id}`, true);
-      if (!result || !(result instanceof Blob)) throw new Error('Failed to generate PDF');
-      const pdfFile = new File([result], `facture-${sale.id}.pdf`, { type: 'application/pdf' });
-      if (navigator.share) {
+      if (!company) throw new Error('No company info');
+      // Generate PDF as Blob
+      const pdfBlob = await generatePDFBlob(sale, products, company, `facture-${sale.id}`);
+      const pdfFile = new File([pdfBlob], `facture-${sale.id}.pdf`, { type: 'application/pdf' });
+      if (navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
         await navigator.share({
           files: [pdfFile],
-          title: `Facture - ${sale.customerInfo.name}`,
-          text: `Facture pour la commande de ${sale.customerInfo.name}`,
+          title: `Invoice ${sale.id}`,
+          text: 'Here is your invoice.'
         });
       } else {
-        const url = URL.createObjectURL(result);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `facture-${sale.id}.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+        alert('Sharing is not supported on this device/browser. Please download the PDF and share it manually.');
       }
     } catch (e) {
-      // handle error
+      alert('Failed to share PDF.');
     } finally {
       setIsSharing(false);
     }
@@ -66,8 +63,8 @@ const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({ isOpen, onClose, sa
         <ModalFooter
           onCancel={onClose}
           onConfirm={onClose}
-          confirmText={t('common.close')}
-          cancelText={t('common.close')}
+          confirmText={t('common.cancel')}
+          cancelText={t('common.cancel')}
         />
       }
     >
