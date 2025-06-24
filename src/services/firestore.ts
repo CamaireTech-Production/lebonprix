@@ -282,8 +282,8 @@ export const updateProduct = async (
     Object.keys(data).reduce((acc, key) => ({
       ...acc,
       [key]: {
-        oldValue: currentProduct.data()[key],
-        newValue: data[key as keyof Product]
+        oldValue: currentProduct.data()[key] === undefined ? null : currentProduct.data()[key],
+        newValue: data[key as keyof Product] === undefined ? null : data[key as keyof Product]
       }
     }), {}),
     userId

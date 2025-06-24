@@ -129,7 +129,7 @@ const Products = () => {
 
   const handleAddProduct = async () => {
     if (!user?.uid) return;
-    if (!formData.name || !formData.reference || !formData.costPrice || !formData.sellingPrice || !formData.category) {
+    if (!formData.name || !formData.costPrice || !formData.sellingPrice || !formData.category) {
       showWarningToast(t('products.messages.warnings.requiredFields'));
       return;
     }
@@ -171,36 +171,48 @@ const Products = () => {
   
   const handleEditProduct = async () => {
     if (!currentProduct || !user?.uid) return;
-    if (!formData.name || !formData.reference || !formData.costPrice || !formData.sellingPrice || !formData.category) {
-        showWarningToast(t('products.messages.warnings.requiredFields'));
-        return;
-      }
-      setIsSubmitting(true);
-      let imageBase64 = currentProduct.imageUrl;
-      if (formData.imageFile) {
-        try {
-          imageBase64 = await compressImage(formData.imageFile);
-        } catch (err) {
-          showErrorToast(t('products.messages.errors.updateProduct'));
+    if (!formData.name || !formData.costPrice || !formData.sellingPrice || !formData.category) {
+      showWarningToast(t('products.messages.warnings.requiredFields'));
+      return;
+    }
+    setIsSubmitting(true);
+    let imageBase64 = currentProduct.imageUrl || '/placeholder.png';
+    if (formData.imageFile) {
+      try {
+        imageBase64 = await compressImage(formData.imageFile);
+      } catch (err) {
+        showErrorToast(t('products.messages.errors.updateProduct'));
         setIsSubmitting(false);
         return;
-        }
+      }
+    }
+    // Ensure all required fields are present for legacy products
+    const safeProduct = {
+      ...currentProduct,
+      isAvailable: typeof currentProduct.isAvailable === 'boolean' ? currentProduct.isAvailable : true,
+      imageUrl: currentProduct.imageUrl || '/placeholder.png',
+      userId: currentProduct.userId || user.uid,
+      updatedAt: currentProduct.updatedAt || { seconds: 0, nanoseconds: 0 },
+    };
+    // Only include reference if it is a non-empty string
+    const updateData: any = {
+      name: formData.name,
+      costPrice: parseFloat(formData.costPrice),
+      sellingPrice: parseFloat(formData.sellingPrice),
+      category: formData.category,
+      imageUrl: imageBase64,
+      isAvailable: safeProduct.isAvailable,
+      userId: safeProduct.userId,
+      updatedAt: { seconds: 0, nanoseconds: 0 }
+    };
+    if (formData.reference && formData.reference.trim() !== '') {
+      updateData.reference = formData.reference;
     }
     try {
-        await updateProduct(currentProduct.id, {
-          name: formData.name,
-          reference: formData.reference,
-          costPrice: parseFloat(formData.costPrice),
-          sellingPrice: parseFloat(formData.sellingPrice),
-          category: formData.category,
-          imageUrl: imageBase64,
-          isAvailable: currentProduct.isAvailable,
-          userId: user.uid,
-        updatedAt: { seconds: 0, nanoseconds: 0 }
-      }, user.uid);
-        setIsEditModalOpen(false);
-        resetForm();
-        showSuccessToast(t('products.messages.productUpdated'));
+      await updateProduct(currentProduct.id, updateData, user.uid);
+      setIsEditModalOpen(false);
+      resetForm();
+      showSuccessToast(t('products.messages.productUpdated'));
     } catch (err) {
       showErrorToast(t('products.messages.errors.updateProduct'));
       setIsEditModalOpen(true);
@@ -452,36 +464,16 @@ const Products = () => {
     }
   };
 
-  const handleDeleteProduct = async () => {
-    if (!productToDelete || !user?.uid) return;
-    try {
-      setIsDeleting(true);
-      await updateProduct(productToDelete.id, { isAvailable: false }, user.uid);
-      showSuccessToast(t('products.messages.productDeleted'));
-      setIsDeleteModalOpen(false);
-      setProductToDelete(null);
-    } catch (error) {
-      showErrorToast(t('products.messages.errors.deleteProduct'));
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
-  // Submit stock adjustment from stock tab
   const handleStockSubmit = async () => {
     if (!currentProduct || !user?.uid || !stockAdjustment) return;
-
     const adjustmentAmount = parseInt(stockAdjustment, 10);
     if (isNaN(adjustmentAmount)) {
       showErrorToast(t('products.messages.errors.invalidStock'));
       return;
     }
-
     setIsStockSubmitting(true);
-
     let newStock: number;
     let change: number;
-
     if (stockReason === 'restock') {
       if (adjustmentAmount <= 0) {
         showErrorToast(t('products.messages.warnings.positiveQuantity'));
@@ -499,18 +491,22 @@ const Products = () => {
       newStock = adjustmentAmount;
       change = newStock - currentProduct.stock;
     }
-
     if (change === 0) {
       showWarningToast(t('products.messages.warnings.noStockChange'));
       setIsStockSubmitting(false);
       return;
     }
-
+    const safeProduct = {
+      ...currentProduct,
+      isAvailable: typeof currentProduct.isAvailable === 'boolean' ? currentProduct.isAvailable : true,
+      imageUrl: currentProduct.imageUrl || '/placeholder.png',
+      userId: currentProduct.userId || user.uid,
+      updatedAt: currentProduct.updatedAt || { seconds: 0, nanoseconds: 0 },
+    };
+    const updateData = { stock: newStock, isAvailable: safeProduct.isAvailable, imageUrl: safeProduct.imageUrl, userId: safeProduct.userId, updatedAt: { seconds: 0, nanoseconds: 0 } };
     try {
-      await updateProduct(currentProduct.id, { stock: newStock }, user.uid, stockReason, change);
+      await updateProduct(currentProduct.id, updateData, user.uid, stockReason, change);
       showSuccessToast(t('products.messages.productUpdated'));
-      
-      // Dynamically update UI
       setCurrentProduct(prev => prev ? { ...prev, stock: newStock } : null);
       setStockAdjustment('');
     } catch (err) {
@@ -567,12 +563,45 @@ const Products = () => {
     try {
       setIsDeleting(true);
       for (const id of selectedProducts) {
-        await updateProduct(id, { isAvailable: false }, user.uid);
+        const product = products.find(p => p.id === id);
+        if (!product) continue;
+        const safeProduct = {
+          ...product,
+          isAvailable: typeof product.isAvailable === 'boolean' ? product.isAvailable : true,
+          imageUrl: product.imageUrl || '/placeholder.png',
+          userId: product.userId || user.uid,
+          updatedAt: product.updatedAt || { seconds: 0, nanoseconds: 0 },
+        };
+        const updateData = { isAvailable: false, imageUrl: safeProduct.imageUrl, userId: safeProduct.userId, updatedAt: { seconds: 0, nanoseconds: 0 } };
+        await updateProduct(id, updateData, user.uid);
       }
       showSuccessToast(t('products.messages.bulkDeleteSuccess', { count: selectedProducts.length }));
       setIsBulkDeleteModalOpen(false);
       setSelectedProducts([]);
       setIsBulkSelection(false);
+    } catch (error) {
+      showErrorToast(t('products.messages.errors.deleteProduct'));
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleDeleteProduct = async () => {
+    if (!productToDelete || !user?.uid) return;
+    const safeProduct = {
+      ...productToDelete,
+      isAvailable: typeof productToDelete.isAvailable === 'boolean' ? productToDelete.isAvailable : true,
+      imageUrl: productToDelete.imageUrl || '/placeholder.png',
+      userId: productToDelete.userId || user.uid,
+      updatedAt: productToDelete.updatedAt || { seconds: 0, nanoseconds: 0 },
+    };
+    const updateData = { isAvailable: false, imageUrl: safeProduct.imageUrl, userId: safeProduct.userId, updatedAt: { seconds: 0, nanoseconds: 0 } };
+    try {
+      setIsDeleting(true);
+      await updateProduct(productToDelete.id, updateData, user.uid);
+      showSuccessToast(t('products.messages.productDeleted'));
+      setIsDeleteModalOpen(false);
+      setProductToDelete(null);
     } catch (error) {
       showErrorToast(t('products.messages.errors.deleteProduct'));
     } finally {
