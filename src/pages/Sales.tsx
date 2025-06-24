@@ -18,6 +18,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { deleteSale as deleteSaleFromFirestore, getCustomerByPhone, addCustomer } from '../services/firestore';
 import { createPortal } from 'react-dom';
+import AddSaleModal from '../components/sales/AddSaleModal';
 
 interface FormProduct {
   product: Product | null;
@@ -56,16 +57,16 @@ const Sales = () => {
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const [customerSearch, setCustomerSearch] = useState('');
   
-  // Form state
+  // Form state used for editing an existing sale (Add sale now handled by AddSaleModal)
   const [formData, setFormData] = useState({
     customerName: '',
     customerPhone: '',
     customerQuarter: '',
     status: 'commande' as OrderStatus,
     deliveryFee: '',
-    products: [{ product: null, quantity: '', negotiatedPrice: '' }] as FormProduct[]
+    products: [{ product: null, quantity: '', negotiatedPrice: '' }] as FormProduct[],
   });
-  
+
   // Helper to get the position of the phone input for dropdown placement
   const [customerDropdownPos, setCustomerDropdownPos] = useState<{ top: number; left: number; width: number } | null>(null);
   const phoneInputRef = useRef<HTMLInputElement>(null);
@@ -641,6 +642,13 @@ const Sales = () => {
         />
       </Card>
       
+      {/* Add Sale Modal (centralized) */}
+      <AddSaleModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        onSaleAdded={() => setIsAddModalOpen(false)}
+      />
+      
       {/* View Sale Modal */}
       <Modal
         isOpen={isViewModalOpen}
@@ -806,350 +814,6 @@ const Sales = () => {
             </div>
           </div>
         )}
-      </Modal>
-
-      {/* Add Sale Modal */}
-      <Modal
-        isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
-        title={t('sales.modals.add.title')}
-        size="xl"
-        footer={
-          <ModalFooter 
-            onCancel={() => setIsAddModalOpen(false)}
-            onConfirm={handleAddSale}
-            confirmText={t('sales.actions.addSale')}
-            cancelText={t('sales.modals.common.cancel')}
-            isLoading={isSubmitting}
-          />
-        }
-      >
-        <div className="flex flex-col lg:flex-row gap-6 max-w-4xl mx-auto">
-          {/* Main Form */}
-          <div className="flex-1 space-y-6">
-            {/* Customer Information Section */}
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {t('sales.modals.add.customerInfo.phone')}
-                </label>
-                <div className="flex space-x-2">
-                  <Input
-                    type="tel"
-                    name="customerPhone"
-                    value={formData.customerPhone}
-                    onChange={handlePhoneChange}
-                    placeholder={t('sales.modals.add.customerInfo.phone')}
-                    className="flex-1"
-                    required
-                    helpText={t('sales.modals.add.customerInfo.phoneHelp')}
-                    ref={phoneInputRef}
-                  />
-                  {!foundCustomer && formData.customerPhone.length >= 10 && (
-                    <Button
-                      variant="outline"
-                      icon={<Save size={16} />}
-                      onClick={handleSaveCustomer}
-                      isLoading={isSavingCustomer}
-                    >
-                      {t('sales.actions.saveCustomer')}
-                    </Button>
-                  )}
-                </div>
-                {foundCustomer && (
-                  <div className="mt-2 p-2 bg-emerald-50 rounded-md">
-                    <p className="text-sm text-emerald-700">
-                      {t('sales.messages.customerFound', { name: foundCustomer.name || t('sales.messages.unnamedCustomer') })}
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex items-center space-x-2 mb-2">
-                <input
-                  type="checkbox"
-                  id="autoSaveCustomerCheckbox"
-                  checked={autoSaveCustomer}
-                  onChange={e => setAutoSaveCustomer(e.target.checked)}
-                  className="form-checkbox h-4 w-4 text-emerald-600 border-gray-300 rounded"
-                />
-                <label htmlFor="autoSaveCustomerCheckbox" className="text-sm text-gray-700">
-                  {t('sales.modals.add.customerInfo.autoSave')}
-                </label>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Input
-                  label={t('sales.modals.add.customerInfo.name')}
-                  name="customerName"
-                  value={formData.customerName}
-                  onChange={handleInputChange}
-                />
-                
-                <Input
-                  label={t('sales.modals.add.customerInfo.quarter')}
-                  name="customerQuarter"
-                  value={formData.customerQuarter}
-                  onChange={handleInputChange}
-                  placeholder={t('sales.modals.add.customerInfo.quarterPlaceholder')}
-                />
-              </div>
-            </div>
-            
-            {/* Selected Products Section - Desktop View */}
-            <div className="hidden lg:block space-y-4">
-              <h3 className="text-lg font-medium text-gray-900">{t('sales.modals.add.products.selectedProducts')}</h3>
-              <div className="space-y-4">
-                {formData.products.map((product, index) => (
-                  product.product && (
-                    <div key={index} className="p-4 border rounded-lg space-y-4">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0">
-                          <img 
-                            src={product.product.imageUrl || '/placeholder.png'} 
-                            alt={product.product.name}
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                        <div className="flex-1">
-                          <p className="font-medium">{product.product.name}</p>
-                          <p className="text-sm text-gray-500">
-                            {product.product.stock} {t('sales.modals.add.products.inStock')} - {product.product.sellingPrice.toLocaleString()} XAF
-                          </p>
-                        </div>
-                        <button
-                          onClick={() => removeProductField(index)}
-                          className="p-2 text-red-600 hover:text-red-900"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4">
-                        <Input
-                          label={t('sales.modals.add.products.quantity')}
-                          type="number"
-                          min="1"
-                          max={product.product.stock.toString()}
-                          value={product.quantity}
-                          onChange={(e) => handleProductInputChange(index, 'quantity', e.target.value)}
-                          required
-                          helpText={t('sales.modals.add.products.cannotExceed', { stock: product.product.stock })}
-                        />
-                        
-                        <Input
-                          label={t('sales.modals.add.products.negotiatedPrice')}
-                          type="number"
-                          max={product.product.sellingPrice.toString()}
-                          value={product.negotiatedPrice}
-                          onChange={(e) => handleProductInputChange(index, 'negotiatedPrice', e.target.value)}
-                          helpText={t('sales.modals.add.products.cannotExceed', { price: product.product.sellingPrice.toLocaleString() })}
-                        />
-                      </div>
-
-                      {product.quantity && (
-                        <div className="p-3 bg-emerald-50 rounded-md">
-                          <span className="text-sm font-medium text-emerald-700">{t('sales.modals.add.products.productTotal')}:</span>
-                          <span className="ml-2 text-emerald-900">{calculateProductTotal(product).toLocaleString()} XAF</span>
-                        </div>
-                      )}
-                    </div>
-                  )
-                ))}
-              </div>
-            </div>
-            
-            {/* Products Section - Mobile View */}
-            <div className="lg:hidden space-y-4">
-              <div className="flex justify-between items-center">
-                <h3 className="text-lg font-medium text-gray-900">{t('sales.modals.add.products.title')}</h3>
-                <Button
-                  variant="outline"
-                  icon={<Plus size={16} />}
-                  onClick={addProductField}
-                >
-                  {t('sales.modals.add.products.addProduct')}
-                </Button>
-              </div>
-
-              {formData.products.map((product, index) => (
-                <div key={index} className="p-4 border rounded-lg space-y-4">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <Select
-                        options={productOptions}
-                        value={productOptions.find(option => option.value.id === product.product?.id)}
-                        onChange={(option) => handleProductChange(index, option)}
-                        isSearchable
-                        placeholder={t('sales.modals.add.products.searchPlaceholder')}
-                        className="text-sm"
-                        classNamePrefix="select"
-                        noOptionsMessage={() => t('sales.modals.add.products.noProductsFound')}
-                        formatOptionLabel={(option) => option.label}
-                      />
-                    </div>
-                    {index > 0 && (
-                      <button
-                        onClick={() => removeProductField(index)}
-                        className="ml-2 p-2 text-red-600 hover:text-red-900"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    )}
-                  </div>
-
-                  {product.product && (
-                    <>
-                      <div className="grid grid-cols-2 gap-4 p-3 bg-gray-50 rounded-md">
-                        <div>
-                          <span className="text-sm font-medium text-gray-700">{t('sales.modals.add.products.standardPrice')}:</span>
-                          <span className="ml-2">{product.product.sellingPrice.toLocaleString()} XAF</span>
-                        </div>
-                        <div>
-                          <span className="text-sm font-medium text-gray-700">{t('sales.modals.add.products.availableStock')}:</span>
-                          <span className="ml-2">{product.product.stock}</span>
-                        </div>
-                      </div>
-                      
-                      <div className="grid grid-cols-2 gap-4">
-                        <Input
-                          label={t('sales.modals.add.products.quantity')}
-                          type="number"
-                          min="1"
-                          max={product.product.stock.toString()}
-                          value={product.quantity}
-                          onChange={(e) => handleProductInputChange(index, 'quantity', e.target.value)}
-                          required
-                          helpText={t('sales.modals.add.products.cannotExceed', { stock: product.product.stock })}
-                        />
-                        
-                        <Input
-                          label={t('sales.modals.add.products.negotiatedPrice')}
-                          type="number"
-                          max={product.product.sellingPrice.toString()}
-                          value={product.negotiatedPrice}
-                          onChange={(e) => handleProductInputChange(index, 'negotiatedPrice', e.target.value)}
-                          helpText={t('sales.modals.add.products.cannotExceed', { price: product.product.sellingPrice.toLocaleString() })}
-                        />
-                      </div>
-
-                      {product.quantity && (
-                        <div className="p-3 bg-emerald-50 rounded-md">
-                          <span className="text-sm font-medium text-emerald-700">{t('sales.modals.add.products.productTotal')}:</span>
-                          <span className="ml-2 text-emerald-900">{calculateProductTotal(product).toLocaleString()} XAF</span>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              ))}
-
-              {formData.products.some(p => p.quantity) && (
-                <div className="p-4 bg-emerald-50 rounded-md">
-                  <span className="text-lg font-medium text-emerald-700">{t('sales.modals.add.products.totalAmount')}:</span>
-                  <span className="ml-2 text-emerald-900 text-lg">{calculateTotal().toLocaleString()} XAF</span>
-                </div>
-              )}
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <Input
-                label={t('sales.modals.add.delivery.fee')}
-                name="deliveryFee"
-                type="number"
-                value={formData.deliveryFee}
-                onChange={handleInputChange}
-              />
-            
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {t('sales.modals.add.status.label')}
-                </label>
-                <select
-                  name="status"
-                  className="w-full rounded-md border border-gray-300 shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                  value={formData.status}
-                  onChange={handleInputChange}
-                >
-                  <option value="commande">{t('sales.filters.status.commande')}</option>
-                  <option value="under_delivery">{t('sales.filters.status.under_delivery')}</option>
-                  <option value="paid">{t('sales.filters.status.paid')}</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          {/* Products Side Panel - Desktop View */}
-          <div className="hidden lg:block w-80 border-l pl-6">
-            <div className="sticky top-0">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">{t('sales.modals.add.products.title')}</h3>
-              
-              {/* Search Bar */}
-              <div className="mb-4">
-                <Input
-                  type="text"
-                  placeholder={t('sales.modals.add.products.searchPlaceholder')}
-                  value={productSearchQuery}
-                  onChange={(e) => setProductSearchQuery(e.target.value)}
-                  className="w-full"
-                />
-              </div>
-
-              {/* Available Products */}
-              <div className="space-y-2">
-                <div className="space-y-2 max-h-[calc(100vh-400px)] overflow-y-auto">
-                  {filteredProducts.map(product => (
-                    <button
-                      key={product.id}
-                      onClick={() => {
-                        const newProduct = { product, quantity: '1', negotiatedPrice: '' };
-                        setFormData(prev => ({
-                          ...prev,
-                          products: [...prev.products, newProduct]
-                        }));
-                      }}
-                      className="w-full p-3 bg-white border rounded-lg hover:bg-gray-50 transition-colors text-left"
-                    >
-                      <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0">
-                          <img 
-                            src={product.imageUrl || '/placeholder.png'} 
-                            alt={product.name}
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm truncate">{product.name}</p>
-                          <p className="text-sm text-gray-500">
-                            {product.stock} {t('sales.modals.add.products.inStock')} - {product.sellingPrice.toLocaleString()} XAF
-                          </p>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-
-                {/* View More Button */}
-                {!showAllProducts && availableProducts.length > 10 && (
-                  <button
-                    onClick={() => setShowAllProducts(true)}
-                    className="w-full p-2 text-center text-sm text-blue-600 hover:text-blue-900 border-t"
-                  >
-                    {t('sales.modals.add.products.viewMore')}
-                  </button>
-                )}
-              </div>
-
-              {/* Total Amount */}
-              {formData.products.some(p => p.quantity) && (
-                <div className="mt-6 p-4 bg-emerald-50 rounded-md">
-                  <span className="text-lg font-medium text-emerald-700">{t('sales.modals.add.products.totalAmount')}:</span>
-                  <span className="ml-2 text-emerald-900 text-lg">{calculateTotal().toLocaleString()} XAF</span>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
       </Modal>
       
       {/* Link Modal */}
