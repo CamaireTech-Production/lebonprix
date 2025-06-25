@@ -55,25 +55,27 @@
       "netProfit": "Bénéfice net",
       "totalExpenses": "Dépenses totales",
       "totalOrders": "Commandes totales",
-      "deliveryExpenses": "Frais de livraison",
+      "deliveryFee": "Frais de livraison",
       "totalSalesAmount": "Ventes totales (Montant)",
       "totalSalesCount": "Ventes totales (Nombre)",
       "trend": {
         "fromLastMonth": "par rapport au mois dernier"
       },
       "totalCostPrice": "Prix d'achat total",
-      "totalPurchasePrice": "Prix d'achat total"
+      "totalPurchasePrice": "Prix d'achat total",
+      "totalProductsSold": "Nombre total de produits vendus"
     },
     "tooltips": {
       "grossProfit": "Revenu total moins le coût des marchandises vendues",
       "netProfit": "Bénéfice brut moins toutes les dépenses",
       "totalExpenses": "Somme de toutes les dépenses d'entreprise",
       "totalOrders": "Nombre total de transactions de vente",
-      "deliveryExpenses": "Dépenses totales liées à la livraison des produits",
+      "deliveryFee": "La somme de tous les frais de livraison collectés sur les ventes.",
       "totalSalesAmount": "Revenu total de toutes les ventes",
       "totalSalesCount": "Nombre total de transactions de vente",
       "totalCostPrice": "Le montant total des prix d'achat pour tous les produits vendus",
-      "totalPurchasePrice": "Le montant total des prix d'achat pour tous les produits vendus"
+      "totalPurchasePrice": "Le montant total des prix d'achat pour tous les produits vendus",
+      "totalProductsSold": "Le nombre total de produits vendus (somme de toutes les quantités de produits dans toutes les ventes)."
     },
     "bestSellingProducts": {
       "title": "Meilleurs produits",
@@ -108,10 +110,10 @@
         "formule": "Formule : Σ(Montant de la vente) pour chaque vente",
         "note": "Note : Si un produit a été vendu à un prix négocié, ce prix est utilisé au lieu du prix de vente standard."
       },
-      "deliveryExpenses": {
+      "deliveryFee": {
         "title": "Frais de livraison",
-        "description": "La somme de toutes les dépenses catégorisées comme 'livraison'.",
-        "formula": "Formule : Σ(Montant de la dépense) pour toutes les dépenses avec catégorie = 'livraison'"
+        "description": "La somme de tous les frais de livraison collectés sur les ventes.",
+        "formula": "Formule : Σ(Frais de livraison) pour chaque vente"
       },
       "bestSellingProducts": {
         "title": "Meilleurs produits",

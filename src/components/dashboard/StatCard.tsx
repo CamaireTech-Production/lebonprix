@@ -91,17 +91,9 @@ const StatCard = ({ title, value, icon, trend, tooltipKey, type, className = '' 
   const renderTooltip = () => {
     if (!showTooltip || !tooltipKey) return null;
 
-    // Get translation with fallback and debugging
-    const translationKey = `dashboard.stats.tooltips.${tooltipKey}`;
-    const tooltipText = t(translationKey, {
-      defaultValue: `Tooltip for ${tooltipKey}`,
-      fallbackLng: 'en'
-    });
-
-    // Debug logging in development
-    if (process.env.NODE_ENV === 'development' && tooltipText === translationKey) {
-      console.warn(`Missing translation key: ${translationKey}`);
-    }
+    // Get translation for the tooltip
+    const translationKey = `dashboard.tooltips.${tooltipKey}`;
+    const tooltipText = t(translationKey);
 
     return createPortal(
       <div 

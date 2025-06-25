@@ -38,8 +38,8 @@ const Dashboard = () => {
     { value: 'grossProfit', label: t('dashboard.stats.grossProfit') },
     { value: 'netProfit', label: t('dashboard.stats.netProfit') },
     { value: 'totalExpenses', label: t('dashboard.stats.totalExpenses') },
-    { value: 'totalOrders', label: t('dashboard.stats.totalOrders') },
-    { value: 'deliveryExpenses', label: t('dashboard.stats.deliveryExpenses') },
+    { value: 'totalProductsSold', label: t('dashboard.stats.totalProductsSold') },
+    { value: 'deliveryFee', label: t('dashboard.stats.deliveryFee') },
     { value: 'totalSalesAmount', label: t('dashboard.stats.totalSalesAmount') },
     { value: 'totalSalesCount', label: t('dashboard.stats.totalSalesCount') },
   ];
@@ -74,8 +74,8 @@ const Dashboard = () => {
   // Total orders
   const totalOrders = filteredSales?.length || 0;
 
-  // Total delivery expenses
-  const totalDeliveryExpenses = filteredExpenses?.filter(e => e.category.toLowerCase() === 'delivery').reduce((sum, e) => sum + e.amount, 0) || 0;
+  // Total delivery fee (from sales)
+  const totalDeliveryFee = filteredSales?.reduce((sum, sale) => sum + (sale.deliveryFee || 0), 0) || 0;
 
   // Total sales amount
   const totalSalesAmount = filteredSales?.reduce((sum, sale) => sum + sale.totalAmount, 0) || 0;
@@ -245,12 +245,15 @@ const Dashboard = () => {
     { header: t('dashboard.bestSellingProducts.totalSales'), accessor: (row: any) => `${row.sales.toLocaleString()} XAF` },
   ];
 
+  // Total products sold (sum of all product quantities in filteredSales)
+  const totalProductsSold = filteredSales?.reduce((sum, sale) => sum + sale.products.reduce((pSum, p) => pSum + p.quantity, 0), 0) || 0;
+
   const statsMap = {
     grossProfit,
     netProfit,
     totalExpenses,
-    totalOrders,
-    deliveryExpenses: totalDeliveryExpenses,
+    totalProductsSold,
+    deliveryFee: totalDeliveryFee,
     totalSalesAmount,
     totalSalesCount: totalOrders,
   };
@@ -388,17 +391,17 @@ const Dashboard = () => {
           type="expenses"
         />
         <StatCard 
-          title={t('dashboard.stats.totalOrders')}
-          value={totalOrders}
+          title={t('dashboard.stats.totalProductsSold')}
+          value={totalProductsSold}
           icon={<Package2 size={20} />}
-          tooltipKey="totalOrders"
-          type="orders"
+          tooltipKey="totalProductsSold"
+          type="products"
         />
         <StatCard 
-          title={t('dashboard.stats.deliveryExpenses')}
-          value={`${totalDeliveryExpenses.toLocaleString()} XAF`}
+          title={t('dashboard.stats.deliveryFee')}
+          value={`${totalDeliveryFee.toLocaleString()} XAF`}
           icon={<DollarSign size={20} />}
-          tooltipKey="deliveryExpenses"
+          tooltipKey="deliveryFee"
           type="delivery"
         />
         <StatCard 
@@ -510,11 +513,11 @@ const Dashboard = () => {
           </div>
 
           <div className="bg-gray-50 p-4 rounded-lg">
-            <h3 className="text-lg font-medium text-gray-900 mb-2">{t('dashboard.calculations.deliveryExpenses.title')}</h3>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">{t('dashboard.calculations.deliveryFee.title')}</h3>
             <p className="text-gray-600">
-              {t('dashboard.calculations.deliveryExpenses.description')}
+              {t('dashboard.calculations.deliveryFee.description')}
               <br /><br />
-              {t('dashboard.calculations.deliveryExpenses.formula')}
+              {t('dashboard.calculations.deliveryFee.formula')}
             </p>
           </div>
 

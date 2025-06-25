@@ -62,7 +62,9 @@
       "trend": {
         "fromLastMonth": "from last month"
       },
-      "totalPurchasePrice": "Total Purchase Price"
+      "totalPurchasePrice": "Total Purchase Price",
+      "deliveryFee": "Delivery Fee",
+      "totalProductsSold": "Total Products Sold"
     },
     "tooltips": {
       "grossProfit": "Total revenue minus cost of goods sold",
@@ -72,7 +74,10 @@
       "deliveryExpenses": "Total expenses related to product delivery.",
       "totalSalesAmount": "Total revenue from all sales",
       "totalSalesCount": "Total number of sales transactions",
-      "totalPurchasePrice": "The total amount of purchase prices for all products sold"
+      "totalCostPrice": "The total amount of purchase prices for all products sold",
+      "totalPurchasePrice": "The total amount of purchase prices for all products sold",
+      "deliveryFee": "The sum of all delivery fees collected from sales.",
+      "totalProductsSold": "The total number of products sold (sum of all product quantities in all sales)."
     },
     "bestSellingProducts": {
       "title": "Best Selling Products",
@@ -107,10 +112,10 @@
         "formula": "Formula: Σ(Sale Amount) for each sale",
         "note": "Note: If a product was sold at a negotiated price, that price is used instead of the standard selling price."
       },
-      "deliveryExpenses": {
-        "title": "Delivery Expenses",
-        "description": "The sum of all expenses categorized as 'delivery'.",
-        "formula": "Formula: Σ(Expense Amount) for all expenses with category = 'delivery'"
+      "deliveryFee": {
+        "title": "Delivery Fee",
+        "description": "The sum of all delivery fees collected from sales.",
+        "formula": "Formula: Σ(Delivery Fee) for each sale"
       },
       "bestSellingProducts": {
         "title": "Best Selling Products",
