@@ -223,8 +223,8 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                     </div>
                   )
                 ))}
-              </div>
             </div>
+          </div>
           {/* Products Section - Mobile View */}
           <div className="lg:hidden space-y-4">
             <div className="flex justify-between items-center">

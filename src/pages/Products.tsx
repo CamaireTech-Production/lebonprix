@@ -172,19 +172,19 @@ const Products = () => {
   const handleEditProduct = async () => {
     if (!currentProduct || !user?.uid) return;
     if (!formData.name || !formData.costPrice || !formData.sellingPrice || !formData.category) {
-      showWarningToast(t('products.messages.warnings.requiredFields'));
-      return;
-    }
-    setIsSubmitting(true);
-    let imageBase64 = currentProduct.imageUrl || '/placeholder.png';
-    if (formData.imageFile) {
-      try {
-        imageBase64 = await compressImage(formData.imageFile);
-      } catch (err) {
-        showErrorToast(t('products.messages.errors.updateProduct'));
-        setIsSubmitting(false);
+        showWarningToast(t('products.messages.warnings.requiredFields'));
         return;
       }
+      setIsSubmitting(true);
+    let imageBase64 = currentProduct.imageUrl || '/placeholder.png';
+      if (formData.imageFile) {
+        try {
+          imageBase64 = await compressImage(formData.imageFile);
+        } catch (err) {
+          showErrorToast(t('products.messages.errors.updateProduct'));
+        setIsSubmitting(false);
+        return;
+        }
     }
     // Ensure all required fields are present for legacy products
     const safeProduct = {
@@ -196,23 +196,23 @@ const Products = () => {
     };
     // Only include reference if it is a non-empty string
     const updateData: any = {
-      name: formData.name,
-      costPrice: parseFloat(formData.costPrice),
-      sellingPrice: parseFloat(formData.sellingPrice),
-      category: formData.category,
-      imageUrl: imageBase64,
+          name: formData.name,
+          costPrice: parseFloat(formData.costPrice),
+          sellingPrice: parseFloat(formData.sellingPrice),
+          category: formData.category,
+          imageUrl: imageBase64,
       isAvailable: safeProduct.isAvailable,
       userId: safeProduct.userId,
-      updatedAt: { seconds: 0, nanoseconds: 0 }
+        updatedAt: { seconds: 0, nanoseconds: 0 }
     };
     if (formData.reference && formData.reference.trim() !== '') {
       updateData.reference = formData.reference;
     }
     try {
       await updateProduct(currentProduct.id, updateData, user.uid);
-      setIsEditModalOpen(false);
-      resetForm();
-      showSuccessToast(t('products.messages.productUpdated'));
+        setIsEditModalOpen(false);
+        resetForm();
+        showSuccessToast(t('products.messages.productUpdated'));
     } catch (err) {
       showErrorToast(t('products.messages.errors.updateProduct'));
       setIsEditModalOpen(true);

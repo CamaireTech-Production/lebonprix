@@ -535,7 +535,10 @@
     "custom": "Plage personnalisée",
     "confirmDelete": "Voulez-vous vraiment supprimer cet objectif ?",
     "empty": "Aucun objectif pour le moment",
-    "filterByRange": "Utiliser la période du tableau de bord"
+    "filterByRange": "Utiliser la période du tableau de bord",
+    "remainingDays_one": "Il reste {{count}} jour",
+    "remainingDays_other": "Il reste {{count}} jours",
+    "due": "Échu"
   },
   "settings": {
     "title": "Paramètres",

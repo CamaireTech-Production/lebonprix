@@ -420,7 +420,11 @@
     "custom": "Custom Range",
     "confirmDelete": "Are you sure you want to delete this objective?",
     "empty": "No objectives yet",
-    "filterByRange": "Use dashboard period"
+    "filterByRange": "Use dashboard period",
+    "remainingDays_one": "Remaining {{count}} day",
+    "remainingDays_other": "Remaining {{count}} days",
+    "due": "Due",
+    "period": "Period"
   },
   "products": {
     "title": "Products",
