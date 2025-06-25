@@ -27,6 +27,22 @@ const Invoice = ({ sale, products }: InvoiceProps) => {
     }, 0);
   };
 
+  // Helper to format sale number from timestamp
+  const getSaleNumber = (timestamp: any) => {
+    if (!timestamp?.seconds) return 'N/A';
+    const date = new Date(timestamp.seconds * 1000);
+    // Format as YYYYMMDDHHMMSS
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    return (
+      date.getFullYear().toString() +
+      pad(date.getMonth() + 1) +
+      pad(date.getDate()) +
+      pad(date.getHours()) +
+      pad(date.getMinutes()) +
+      pad(date.getSeconds())
+    );
+  };
+
   if (!company) {
     return (
       <div className="p-4 text-red-600">
@@ -56,7 +72,7 @@ const Invoice = ({ sale, products }: InvoiceProps) => {
         </div>
         <div className="text-left md:text-right">
           <h2 className="text-lg md:text-xl font-semibold text-gray-900">{t('invoice.title')}</h2>
-          <p className="text-sm md:text-base text-gray-600">{t('invoice.number')} {sale.id}</p>
+          <p className="text-sm md:text-base text-gray-600">{t('invoice.number')} {getSaleNumber(sale.createdAt)}</p>
           <p className="text-sm md:text-base text-gray-600">{t('invoice.date')}: {formatDate(sale.createdAt)}</p>
         </div>
       </div>
