@@ -1,23 +1,37 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
-// Helper to load image as base64 and get dimensions
-const getImageBase64AndSize = (url: string): Promise<{ base64?: string; width?: number; height?: number }> => {
+// Helper to load image as base64 and get dimensions, with compression
+const getImageBase64AndSize = (
+  url: string,
+  maxDim = 24, // max dimension in px
+  quality = 0.7 // JPEG quality (0-1)
+): Promise<{ base64?: string; width?: number; height?: number }> => {
   return new Promise((resolve) => {
     if (!url) return resolve({});
     const img = new window.Image();
     img.crossOrigin = 'Anonymous';
     img.onload = function () {
+      let { width, height } = img;
+      // Resize if needed
+      if (width > height && width > maxDim) {
+        height = (height / width) * maxDim;
+        width = maxDim;
+      } else if (height > width && height > maxDim) {
+        width = (width / height) * maxDim;
+        height = maxDim;
+      }
       const canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
+      canvas.width = width;
+      canvas.height = height;
       const ctx = canvas.getContext('2d');
       if (!ctx) return resolve({});
-      ctx.drawImage(img, 0, 0);
+      ctx.drawImage(img, 0, 0, width, height);
+      // Use JPEG for better compression
       resolve({
-        base64: canvas.toDataURL('image/png'),
-        width: img.width,
-        height: img.height,
+        base64: canvas.toDataURL('image/jpeg', quality),
+        width,
+        height,
       });
     };
     img.onerror = () => resolve({});
@@ -39,7 +53,7 @@ export const generatePDF = async (
   let logoHeight = 0;
   let logoWidth = 0;
   if (company.logo) {
-    const { base64: logoBase64, width, height } = await getImageBase64AndSize(company.logo);
+    const { base64: logoBase64, width, height } = await getImageBase64AndSize(company.logo, 120, 0.6); // 120px max, 60% quality
     if (logoBase64 && width && height) {
       // Max size in mm
       const maxDim = 24;
@@ -56,7 +70,7 @@ export const generatePDF = async (
           drawWidth = (width / height) * maxDim;
         }
       }
-      doc.addImage(logoBase64, 'PNG', margin, y, drawWidth, drawHeight);
+      doc.addImage(logoBase64, 'JPEG', margin, y, drawWidth, drawHeight);
       logoHeight = drawHeight;
       logoWidth = drawWidth;
     }
@@ -192,7 +206,7 @@ export const generatePDFBlob = async (
   let logoHeight = 0;
   let logoWidth = 0;
   if (company.logo) {
-    const { base64: logoBase64, width, height } = await getImageBase64AndSize(company.logo);
+    const { base64: logoBase64, width, height } = await getImageBase64AndSize(company.logo, 120, 0.6); // 120px max, 60% quality
     if (logoBase64 && width && height) {
       const maxDim = 24;
       let drawWidth = width;
@@ -208,7 +222,7 @@ export const generatePDFBlob = async (
           drawWidth = (width / height) * maxDim;
         }
       }
-      doc.addImage(logoBase64, 'PNG', margin, y, drawWidth, drawHeight);
+      doc.addImage(logoBase64, 'JPEG', margin, y, drawWidth, drawHeight);
       logoHeight = drawHeight;
       logoWidth = drawWidth;
     }
