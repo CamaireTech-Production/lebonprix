@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, FileDown, Edit2 } from 'lucide-react';
+import { Plus, FileDown, Edit2, Trash2 } from 'lucide-react';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Table from '../components/common/Table';
@@ -13,6 +13,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
 import type { Expense } from '../types/models';
 
+type CategoryKey = 'transportation' | 'purchase' | 'other';
+
 const Expenses = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -22,6 +24,8 @@ const Expenses = () => {
   const [currentExpense, setCurrentExpense] = useState<Expense | null>(null);
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [expenseToDelete, setExpenseToDelete] = useState<Expense | null>(null);
   
   // Form state
   const [formData, setFormData] = useState({
@@ -116,6 +120,18 @@ const Expenses = () => {
     setIsEditModalOpen(true);
   };
   
+  const handleDeleteExpense = async () => {
+    if (!expenseToDelete) return;
+    try {
+      await updateExpense(expenseToDelete.id, { isAvailable: false });
+      showSuccessToast(t('expenses.messages.deleteSuccess'));
+      setIsDeleteModalOpen(false);
+      setExpenseToDelete(null);
+    } catch (err) {
+      showErrorToast(t('expenses.messages.deleteError'));
+    }
+  };
+  
   const columns = [
     { 
       header: t('expenses.table.description'), 
@@ -155,6 +171,15 @@ const Expenses = () => {
           >
             <Edit2 size={16} />
           </button>
+          {expense.isAvailable !== false && (
+            <button
+              onClick={() => { setExpenseToDelete(expense); setIsDeleteModalOpen(true); }}
+              className="text-red-600 hover:text-red-900"
+              title={t('expenses.actions.delete')}
+            >
+              <Trash2 size={16} />
+            </button>
+          )}
         </div>
       ),
       className: 'w-24',
@@ -170,9 +195,10 @@ const Expenses = () => {
     return null;
   }
 
-  type CategoryKey = 'transportation' | 'purchase' | 'other';
+  // Filter out soft-deleted expenses everywhere
+  const visibleExpenses = expenses.filter(exp => exp.isAvailable !== false);
   const summaryStats: Record<CategoryKey, number> = { transportation: 0, purchase: 0, other: 0 };
-  expenses.forEach(expense => {
+  visibleExpenses.forEach(expense => {
     let normalizedCategory: CategoryKey = 'other';
     if (expense.category === 'purchase') normalizedCategory = 'purchase';
     else if (expense.category === 'transportation') normalizedCategory = 'transportation';
@@ -181,8 +207,8 @@ const Expenses = () => {
 
   // Filter expenses by category
   const filteredExpenses = selectedCategory === 'All'
-    ? expenses
-    : expenses.filter(expense => expense.category === selectedCategory);
+    ? visibleExpenses
+    : visibleExpenses.filter(expense => expense.category === selectedCategory);
 
   return (
     <div className="pb-16 md:pb-0">
@@ -350,6 +376,30 @@ const Expenses = () => {
               <option value="other">{t('expenses.categories.other')}</option>
             </select>
           </div>
+        </div>
+      </Modal>
+      
+      {/* Delete Expense Modal */}
+      <Modal
+        isOpen={isDeleteModalOpen}
+        onClose={() => { setIsDeleteModalOpen(false); setExpenseToDelete(null); }}
+        title={t('expenses.modals.delete.title') || 'Delete Expense'}
+        footer={
+          <ModalFooter
+            onCancel={() => { setIsDeleteModalOpen(false); setExpenseToDelete(null); }}
+            onConfirm={handleDeleteExpense}
+            confirmText={t('expenses.modals.delete.confirm') || 'Delete'}
+            isDanger
+          />
+        }
+      >
+        <div className="text-center">
+          <p className="text-gray-600 mb-4">
+            {t('expenses.messages.deleteConfirmation', { description: expenseToDelete?.description }) || `Are you sure you want to delete this expense?`}
+          </p>
+          <p className="text-sm text-red-600">
+            {t('expenses.messages.deleteWarning') || 'This action cannot be undone.'}
+          </p>
         </div>
       </Modal>
     </div>
