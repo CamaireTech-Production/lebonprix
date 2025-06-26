@@ -27,7 +27,7 @@ const Expenses = () => {
   const [formData, setFormData] = useState({
     description: '',
     amount: '',
-    category: 'Delivery',
+    category: 'transportation',
   });
   
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -39,7 +39,7 @@ const Expenses = () => {
     setFormData({
       description: '',
       amount: '',
-      category: 'Delivery',
+      category: 'transportation',
     });
   };
   
@@ -59,7 +59,7 @@ const Expenses = () => {
       await addExpense({
         description: formData.description,
         amount: parseFloat(formData.amount),
-        category: formData.category.toLowerCase() as 'delivery' | 'purchase' | 'other',
+        category: formData.category as 'transportation' | 'purchase' | 'other',
         userId: user.uid,
       });
       
@@ -92,7 +92,7 @@ const Expenses = () => {
       await updateExpense(currentExpense.id, {
         description: formData.description,
         amount: parseFloat(formData.amount),
-        category: formData.category.toLowerCase() as 'delivery' | 'purchase' | 'other',
+        category: formData.category as 'transportation' | 'purchase' | 'other',
       });
       
       setIsEditModalOpen(false);
@@ -133,6 +133,7 @@ const Expenses = () => {
         let variant: 'info' | 'error' | 'warning' = 'info';
         if (expense.category === 'purchase') variant = 'error';
         if (expense.category === 'other') variant = 'warning';
+        if (expense.category === 'transportation') variant = 'info';
         
         return <Badge variant={variant}>{t(`expenses.categories.${expense.category}`)}</Badge>;
       },
@@ -169,19 +170,19 @@ const Expenses = () => {
     return null;
   }
 
-  type CategoryKey = 'delivery' | 'purchase' | 'other';
-  const summaryStats = expenses.reduce((acc: Record<CategoryKey, number>, expense) => {
-    const normalizedCategory = expense.category.toLowerCase() as CategoryKey;
-    if (acc[normalizedCategory] !== undefined) {
-      acc[normalizedCategory] += expense.amount;
-    }
-    return acc;
-  }, { delivery: 0, purchase: 0, other: 0 });
+  type CategoryKey = 'transportation' | 'purchase' | 'other';
+  const summaryStats: Record<CategoryKey, number> = { transportation: 0, purchase: 0, other: 0 };
+  expenses.forEach(expense => {
+    let normalizedCategory: CategoryKey = 'other';
+    if (expense.category === 'purchase') normalizedCategory = 'purchase';
+    else if (expense.category === 'transportation') normalizedCategory = 'transportation';
+    summaryStats[normalizedCategory] += expense.amount;
+  });
 
   // Filter expenses by category
   const filteredExpenses = selectedCategory === 'All'
     ? expenses
-    : expenses.filter(expense => expense.category.toLowerCase() === selectedCategory.toLowerCase());
+    : expenses.filter(expense => expense.category === selectedCategory);
 
   return (
     <div className="pb-16 md:pb-0">
@@ -198,7 +199,7 @@ const Expenses = () => {
             onChange={(e) => setSelectedCategory(e.target.value)}
           >
             <option value="All">{t('expenses.filters.allCategories')}</option>
-            <option value="delivery">{t('expenses.categories.delivery')}</option>
+            <option value="transportation">{t('expenses.categories.transportation')}</option>
             <option value="purchase">{t('expenses.categories.purchase')}</option>
             <option value="other">{t('expenses.categories.other')}</option>
           </select>
@@ -222,9 +223,9 @@ const Expenses = () => {
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
         <Card>
-          <p className="text-sm font-medium text-blue-700">{t('expenses.summary.delivery')}</p>
+          <p className="text-sm font-medium text-blue-700">{t('expenses.summary.transportation')}</p>
           <p className="text-xl font-semibold text-gray-900">
-            {summaryStats.delivery.toLocaleString()} XAF
+            {summaryStats.transportation.toLocaleString()} XAF
           </p>
         </Card>
         
@@ -294,7 +295,7 @@ const Expenses = () => {
               value={formData.category}
               onChange={handleInputChange}
             >
-              <option value="delivery">{t('expenses.categories.delivery')}</option>
+              <option value="transportation">{t('expenses.categories.transportation')}</option>
               <option value="purchase">{t('expenses.categories.purchase')}</option>
               <option value="other">{t('expenses.categories.other')}</option>
             </select>
@@ -344,7 +345,7 @@ const Expenses = () => {
               value={formData.category}
               onChange={handleInputChange}
             >
-              <option value="delivery">{t('expenses.categories.delivery')}</option>
+              <option value="transportation">{t('expenses.categories.transportation')}</option>
               <option value="purchase">{t('expenses.categories.purchase')}</option>
               <option value="other">{t('expenses.categories.other')}</option>
             </select>

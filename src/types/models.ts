@@ -62,7 +62,7 @@ export interface Sale extends BaseModel {
 export interface Expense extends BaseModel {
   description: string;
   amount: number;
-  category: 'delivery' | 'purchase' | 'other';
+  category: 'transportation' | 'purchase' | 'other';
 }
 
 export interface DashboardStats extends BaseModel {

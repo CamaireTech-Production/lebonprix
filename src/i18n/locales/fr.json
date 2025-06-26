@@ -598,5 +598,17 @@
   "languages": {
     "en": "Anglais",
     "fr": "Français"
+  },
+  "expenses": {
+    "categories": {
+      "transportation": "Transport",
+      "purchase": "Achat",
+      "other": "Autre"
+    },
+    "summary": {
+      "transportation": "Frais de transport",
+      "purchase": "Frais d'achat",
+      "other": "Autres frais"
+    }
   }
 } 

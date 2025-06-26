@@ -641,7 +641,7 @@
       "actions": "Actions"
     },
     "categories": {
-      "delivery": "Delivery",
+      "transportation": "Transportation",
       "purchase": "Purchase",
       "other": "Other"
     },
@@ -650,7 +650,7 @@
       "add": "Add Expense"
     },
     "summary": {
-      "delivery": "Delivery Expenses",
+      "transportation": "Transportation Expenses",
       "purchase": "Purchase Expenses",
       "other": "Other Expenses"
     },

@@ -23,3 +23,7 @@ dist-ssr
 *.sln
 *.sw?
 .env
+
+le-bon-prix-finances-firebase-adminsdk-fbsvc-f715c394df.json
+migrateProductImages.cjs
+migrateDeliveryToTransportation.cjs
