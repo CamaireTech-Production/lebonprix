@@ -3,11 +3,13 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { getCompanyByUserId, subscribeToProducts } from '../services/firestore';
 import type { Company, Product } from '../types/models';
-import { Search, Package, AlertCircle, Grid, List, Phone, MapPin } from 'lucide-react';
+import { Search, Package, AlertCircle, Grid, List, Phone, MapPin, ChevronLeft, ChevronRight } from 'lucide-react';
 import Button from '../components/common/Button';
 import Input from '../components/common/Input';
 import Card from '../components/common/Card';
 import Badge from '../components/common/Badge';
+
+const placeholderImg = '/placeholder.png';
 
 const CompanyProducts = () => {
   const { companyId } = useParams<{ companyId: string }>();
@@ -19,7 +21,24 @@ const CompanyProducts = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
-  
+  // For image navigation in list view
+  const [mainImageIndexes, setMainImageIndexes] = useState<Record<string, number>>({});
+  const handleSetMainImage = (productId: string, idx: number) => {
+    setMainImageIndexes(prev => ({ ...prev, [productId]: idx }));
+  };
+  const handlePrevImage = (productId: string, images: string[]) => {
+    setMainImageIndexes(prev => {
+      const current = prev[productId] ?? 0;
+      return { ...prev, [productId]: (current - 1 + images.length) % images.length };
+    });
+  };
+  const handleNextImage = (productId: string, images: string[]) => {
+    setMainImageIndexes(prev => {
+      const current = prev[productId] ?? 0;
+      return { ...prev, [productId]: (current + 1) % images.length };
+    });
+  };
+
   // Search and filter state
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('');
@@ -53,7 +72,9 @@ const CompanyProducts = () => {
     if (!companyId) return;
 
     const unsubscribe = subscribeToProducts((productsData) => {
-      const companyProducts = productsData.filter(p => p.userId === companyId);
+      const companyProducts = productsData.filter(
+        p => p.userId === companyId && p.isAvailable !== false && p.isDeleted !== true
+      );
       setProducts(companyProducts);
       setLoading(false);
     });
@@ -262,17 +283,36 @@ const CompanyProducts = () => {
       ) : viewMode === 'grid' ? (
         <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {filteredProducts.map((product) => (
-            <Card key={product.id} className="h-full">
-              <div className="flex flex-col h-full">
-                {product.imageUrl && (
-                  <div className="relative pb-[65%] overflow-hidden rounded-t-lg">
+            <Card key={product.id} className="h-full" contentClassName="p-0">
+              <div className="flex flex-col h-full p-0">
+                {/* Main image: full width, edge-to-edge */}
+                <div className="relative w-full aspect-[1.35/1] overflow-hidden rounded-t-md">
+                  {(() => {
+                    const images = product.images ?? [];
+                    const mainIdx = mainImageIndexes[product.id] ?? 0;
+                    const mainImg = images.length > 0 ? (images[mainIdx]?.startsWith('data:image') ? images[mainIdx] : `data:image/jpeg;base64,${images[mainIdx]}`) : placeholderImg;
+                    return (
+                      <img
+                        src={mainImg}
+                        alt={product.name}
+                        className="absolute h-full w-full object-cover transition-all duration-300"
+                        key={mainImg}
+                      />
+                    );
+                  })()}
+                </div>
+                {/* Preview row */}
+                <div className="flex items-center gap-1 px-2 py-2 bg-white border-b border-gray-100 overflow-x-auto custom-scrollbar">
+                  {(product.images ?? []).map((img, idx) => (
                     <img
-                      src={product.imageUrl}
-                      alt={product.name}
-                      className="absolute h-full w-full object-cover"
+                      key={idx}
+                      src={img.startsWith('data:image') ? img : `data:image/jpeg;base64,${img}`}
+                      alt={`Preview ${idx + 1}`}
+                      className={`w-10 h-10 object-cover rounded border cursor-pointer transition-transform duration-200 ${mainImageIndexes[product.id] === idx ? 'ring-2 ring-emerald-500 scale-105' : 'opacity-70 hover:opacity-100'}`}
+                      onClick={() => handleSetMainImage(product.id, idx)}
                     />
-                  </div>
-                )}
+                  ))}
+                </div>
                 <div className="p-4 flex-grow">
                   <h3 className="font-medium text-gray-900 mb-1 line-clamp-2">{product.name}</h3>
                   <p className="text-sm text-gray-500 mb-2">{product.category}</p>
@@ -326,16 +366,41 @@ const CompanyProducts = () => {
                   <tr key={product.id}>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
-                        {product.imageUrl && (
-                          <div className="h-10 w-10 flex-shrink-0">
-                            <img
-                              className="h-10 w-10 rounded-md object-cover"
-                              src={product.imageUrl}
-                              alt={product.name}
-                            />
-                          </div>
-                        )}
-                        <div className="ml-4">
+                        <div className="h-10 w-10 flex-shrink-0 relative group">
+                          {(() => {
+                            const images = product.images ?? [];
+                            const mainIdx = mainImageIndexes[product.id] ?? 0;
+                            const mainImg = images.length > 0 ? (images[mainIdx]?.startsWith('data:image') ? images[mainIdx] : `data:image/jpeg;base64,${images[mainIdx]}`) : placeholderImg;
+                            return (
+                              <>
+                                {images.length > 1 && (
+                                  <button
+                                    className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white bg-opacity-80 rounded-full p-0.5 border border-gray-200 opacity-40 group-hover:opacity-90 transition-opacity duration-200"
+                                    onClick={() => handlePrevImage(product.id, images)}
+                                    style={{ left: '-20px' }}
+                                    tabIndex={-1}
+                                    aria-label="Previous image"
+                                  >
+                                    <ChevronLeft size={12} className="text-gray-400" />
+                                  </button>
+                                )}
+                                <img className="h-10 w-10 rounded-md object-cover transition-all duration-300" src={mainImg} alt="" key={mainImg} />
+                                {images.length > 1 && (
+                                  <button
+                                    className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white bg-opacity-80 rounded-full p-0.5 border border-gray-200 opacity-40 group-hover:opacity-90 transition-opacity duration-200"
+                                    onClick={() => handleNextImage(product.id, images)}
+                                    style={{ right: '-20px' }}
+                                    tabIndex={-1}
+                                    aria-label="Next image"
+                                  >
+                                    <ChevronRight size={12} className="text-gray-400" />
+                                  </button>
+                                )}
+                              </>
+                            );
+                          })()}
+                        </div>
+                        <div className="ml-6">
                           <div className="text-sm font-medium text-gray-900">{product.name}</div>
                         </div>
                       </div>

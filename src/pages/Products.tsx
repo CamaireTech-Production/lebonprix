@@ -22,8 +22,8 @@ interface CsvRow {
 
 const Products = () => {
   const { t, i18n } = useTranslation();
-  const { products, loading, error, addProduct, updateProduct, deleteProduct } = useProducts();
-  const { stockChanges, loading: stockChangesLoading } = useStockChanges();
+  const { products, loading, error, addProduct, updateProduct } = useProducts();
+  const { stockChanges } = useStockChanges();
   const { addCategory } = useCategories();
   const { user } = useAuth();
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -43,9 +43,9 @@ const Products = () => {
     sellingPrice: '',
     category: '',
     stock: '',
-    imageUrl: '',
-    imageFile: null as File | null
+    images: [] as string[],
   });
+  const [isUploadingImages, setIsUploadingImages] = useState(false);
   
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [csvData, setCsvData] = useState<CsvRow[]>([]);
@@ -71,6 +71,24 @@ const Products = () => {
   // Add state for saveCategories
   const [saveCategories, setSaveCategories] = useState(false);
   
+  // --- State for image gallery per product ---
+  const [mainImageIndexes, setMainImageIndexes] = useState<Record<string, number>>({});
+  const handleSetMainImage = (productId: string, idx: number) => {
+    setMainImageIndexes(prev => ({ ...prev, [productId]: idx }));
+  };
+  const handlePrevImage = (productId: string, images: string[]) => {
+    setMainImageIndexes(prev => {
+      const current = prev[productId] ?? 0;
+      return { ...prev, [productId]: (current - 1 + images.length) % images.length };
+    });
+  };
+  const handleNextImage = (productId: string, images: string[]) => {
+    setMainImageIndexes(prev => {
+      const current = prev[productId] ?? 0;
+      return { ...prev, [productId]: (current + 1) % images.length };
+    });
+  };
+  
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -84,8 +102,7 @@ const Products = () => {
       sellingPrice: '',
       category: '',
       stock: '',
-      imageUrl: '',
-      imageFile: null
+      images: [],
     });
   };
 
@@ -134,16 +151,6 @@ const Products = () => {
       return;
     }
     setIsSubmitting(true);
-    let imageBase64 = '/placeholder.png';
-    if (formData.imageFile) {
-      try {
-        imageBase64 = await compressImage(formData.imageFile);
-      } catch (err) {
-        showErrorToast(t('products.messages.errors.addProduct'));
-        setIsSubmitting(false);
-        return;
-      }
-    }
     const productData = {
       name: formData.name,
       reference: formData.reference,
@@ -151,7 +158,7 @@ const Products = () => {
       sellingPrice: parseFloat(formData.sellingPrice),
       category: formData.category,
       stock: parseInt(formData.stock) || 0,
-      imageUrl: imageBase64,
+      images: (formData.images ?? []).length > 0 ? formData.images : [],
       isAvailable: true,
       userId: user.uid,
       updatedAt: { seconds: 0, nanoseconds: 0 }
@@ -176,21 +183,10 @@ const Products = () => {
         return;
       }
       setIsSubmitting(true);
-    let imageBase64 = currentProduct.imageUrl || '/placeholder.png';
-      if (formData.imageFile) {
-        try {
-          imageBase64 = await compressImage(formData.imageFile);
-        } catch (err) {
-          showErrorToast(t('products.messages.errors.updateProduct'));
-        setIsSubmitting(false);
-        return;
-        }
-    }
     // Ensure all required fields are present for legacy products
     const safeProduct = {
       ...currentProduct,
       isAvailable: typeof currentProduct.isAvailable === 'boolean' ? currentProduct.isAvailable : true,
-      imageUrl: currentProduct.imageUrl || '/placeholder.png',
       userId: currentProduct.userId || user.uid,
       updatedAt: currentProduct.updatedAt || { seconds: 0, nanoseconds: 0 },
     };
@@ -200,7 +196,7 @@ const Products = () => {
           costPrice: parseFloat(formData.costPrice),
           sellingPrice: parseFloat(formData.sellingPrice),
           category: formData.category,
-          imageUrl: imageBase64,
+          images: (formData.images ?? []).length > 0 ? formData.images : [],
       isAvailable: safeProduct.isAvailable,
       userId: safeProduct.userId,
         updatedAt: { seconds: 0, nanoseconds: 0 }
@@ -230,8 +226,7 @@ const Products = () => {
       sellingPrice: product.sellingPrice.toString(),
       category: product.category,
       stock: '', // Not used in edit details, reset to avoid issues
-      imageUrl: product.imageUrl || '/placeholder.png',
-      imageFile: null
+      images: Array.isArray(product.images) ? product.images : (product.images ? [product.images] : []),
     });
     setIsEditModalOpen(true);
     setEditTab('details'); // Reset to details tab on open
@@ -406,7 +401,7 @@ const Products = () => {
             sellingPrice: parseFloat(cleanData.sellingPrice),
             category: formatCategory(cleanData.category),
             stock: parseInt(cleanData.stock),
-            imageUrl: '', // No image provided in CSV, so leave empty
+            images: [], // No images provided in CSV, so leave empty
             isAvailable: true,
             userId: user.uid,
             updatedAt: {
@@ -499,11 +494,11 @@ const Products = () => {
     const safeProduct = {
       ...currentProduct,
       isAvailable: typeof currentProduct.isAvailable === 'boolean' ? currentProduct.isAvailable : true,
-      imageUrl: currentProduct.imageUrl || '/placeholder.png',
+      images: (currentProduct.images ?? []).length > 0 ? currentProduct.images : [],
       userId: currentProduct.userId || user.uid,
       updatedAt: currentProduct.updatedAt || { seconds: 0, nanoseconds: 0 },
     };
-    const updateData = { stock: newStock, isAvailable: safeProduct.isAvailable, imageUrl: safeProduct.imageUrl, userId: safeProduct.userId, updatedAt: { seconds: 0, nanoseconds: 0 } };
+    const updateData = { stock: newStock, isAvailable: safeProduct.isAvailable, images: safeProduct.images, userId: safeProduct.userId, updatedAt: { seconds: 0, nanoseconds: 0 } };
     try {
       await updateProduct(currentProduct.id, updateData, user.uid, stockReason, change);
       showSuccessToast(t('products.messages.productUpdated'));
@@ -568,11 +563,11 @@ const Products = () => {
         const safeProduct = {
           ...product,
           isAvailable: typeof product.isAvailable === 'boolean' ? product.isAvailable : true,
-          imageUrl: product.imageUrl || '/placeholder.png',
+          images: (product.images ?? []).length > 0 ? product.images : [],
           userId: product.userId || user.uid,
           updatedAt: product.updatedAt || { seconds: 0, nanoseconds: 0 },
         };
-        const updateData = { isAvailable: false, imageUrl: safeProduct.imageUrl, userId: safeProduct.userId, updatedAt: { seconds: 0, nanoseconds: 0 } };
+        const updateData = { isAvailable: false, images: safeProduct.images, userId: safeProduct.userId, updatedAt: { seconds: 0, nanoseconds: 0 } };
         await updateProduct(id, updateData, user.uid);
       }
       showSuccessToast(t('products.messages.bulkDeleteSuccess', { count: selectedProducts.length }));
@@ -591,11 +586,11 @@ const Products = () => {
     const safeProduct = {
       ...productToDelete,
       isAvailable: typeof productToDelete.isAvailable === 'boolean' ? productToDelete.isAvailable : true,
-      imageUrl: productToDelete.imageUrl || '/placeholder.png',
+      images: (productToDelete.images ?? []).length > 0 ? productToDelete.images : [],
       userId: productToDelete.userId || user.uid,
       updatedAt: productToDelete.updatedAt || { seconds: 0, nanoseconds: 0 },
     };
-    const updateData = { isAvailable: false, imageUrl: safeProduct.imageUrl, userId: safeProduct.userId, updatedAt: { seconds: 0, nanoseconds: 0 } };
+    const updateData = { isAvailable: false, images: safeProduct.images, userId: safeProduct.userId, updatedAt: { seconds: 0, nanoseconds: 0 } };
     try {
       setIsDeleting(true);
       await updateProduct(productToDelete.id, updateData, user.uid);
@@ -607,6 +602,27 @@ const Products = () => {
     } finally {
       setIsDeleting(false);
     }
+  };
+
+  // Add new handler for multiple image upload
+  const handleImagesUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    setIsUploadingImages(true);
+    const newImages: string[] = [];
+    for (const file of files) {
+      try {
+        const base64 = await compressImage(file);
+        newImages.push(base64);
+      } catch (err) {
+        showErrorToast(t('products.messages.errors.addProduct'));
+      }
+    }
+    setFormData(prev => ({ ...prev, images: [...prev.images, ...newImages] }));
+    setIsUploadingImages(false);
+  };
+  const handleRemoveImage = (idx: number) => {
+    setFormData(prev => ({ ...prev, images: prev.images.filter((_, i) => i !== idx) }));
   };
 
   if (loading) {
@@ -722,7 +738,7 @@ const Products = () => {
       {viewMode === 'grid' ? (
         <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {filteredProducts.map(product => (
-            <Card key={product.id} className="h-full relative">
+            <Card key={product.id} className="h-full relative" contentClassName="p-0">
               {isBulkSelection && !selectedProducts.includes(product.id) && (
                 <div className="absolute inset-0 bg-black bg-opacity-20 z-10 rounded-md transition-opacity" />
               )}
@@ -735,16 +751,45 @@ const Products = () => {
                   {selectedProducts.includes(product.id) ? <CheckSquare size={20} className="text-emerald-600" /> : <Square size={20} className="text-gray-400" />}
                 </button>
               )}
-              <div className="flex flex-col h-full">
-                <div className="relative pb-[65%] overflow-hidden rounded-md mb-3">
-                  <img
-                    src={product.imageUrl?.startsWith('data:image') ? product.imageUrl : product.imageUrl ? `data:image/jpeg;base64,${product.imageUrl}` : '/placeholder.png'}
-                    alt={product.name}
-                    className="absolute h-full w-full object-cover"
-                  />
+              <div className="flex flex-col h-full p-0">
+                <div className="relative w-full aspect-[1.35/1] overflow-hidden rounded-t-md">
+                  {(() => {
+                    const images = product.images ?? [];
+                    const mainIdx = mainImageIndexes[product.id] ?? 0;
+                    const mainImg = images.length > 0 ? (images[mainIdx]?.startsWith('data:image') ? images[mainIdx] : `data:image/jpeg;base64,${images[mainIdx]}`) : '/placeholder.png';
+                    return (
+                      <img
+                        src={mainImg}
+                        alt={product.name}
+                        className="absolute h-full w-full object-cover transition-all duration-300"
+                        key={mainImg}
+                      />
+                    );
+                  })()}
                 </div>
-                
-                <div className="flex-grow">
+                <div
+                  className="flex items-center gap-1 px-2 py-2 bg-white border-b border-gray-100 overflow-x-auto custom-scrollbar"
+                >
+                  {(product.images ?? []).map((img, idx) => (
+                    <img
+                      key={idx}
+                      src={img.startsWith('data:image') ? img : `data:image/jpeg;base64,${img}`}
+                      alt={`Preview ${idx + 1}`}
+                      className={`w-10 h-10 object-cover rounded border cursor-pointer transition-transform duration-200 ${mainImageIndexes[product.id] === idx ? 'ring-2 ring-emerald-500 scale-105' : 'opacity-70 hover:opacity-100'}`}
+                      onClick={() => handleSetMainImage(product.id, idx)}
+                    />
+                  ))}
+                  {/* If less than 4 images, fill with empty slots */}
+                  {Array.from({ length: Math.max(0, 4 - (product.images?.length ?? 0)) }).map((_, idx) => (
+                    <div
+                      key={`empty-${idx}`}
+                      className="w-10 h-10 rounded border border-dashed border-gray-300 flex items-center justify-center text-gray-300 bg-gray-50 cursor-pointer hover:bg-gray-100 transition-all duration-200"
+                    >
+                      <Plus size={18} />
+                    </div>
+                  ))}
+                </div>
+                <div className="flex-grow px-4 pt-1 pb-3">
                   <h3 className="font-medium text-gray-900">{product.name}</h3>
                   <p className="text-sm text-gray-500">{product.reference}</p>
                   <div className="mt-2 space-y-1">
@@ -765,8 +810,7 @@ const Products = () => {
                   </div>
                   <p className="mt-2 text-sm text-gray-500">{product.category}</p>
                 </div>
-                
-                <div className="mt-4 flex justify-end space-x-2">
+                <div className="mt-4 flex justify-end space-x-2 px-4 pb-3">
                   <button 
                     onClick={() => openEditModal(product)}
                     className="text-indigo-600 hover:text-indigo-900"
@@ -834,10 +878,45 @@ const Products = () => {
                     )}
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
-                        <div className="h-10 w-10 flex-shrink-0">
-                          <img className="h-10 w-10 rounded-md object-cover" src={product.imageUrl?.startsWith('data:image') ? product.imageUrl : product.imageUrl ? `data:image/jpeg;base64,${product.imageUrl}` : '/placeholder.png'} alt="" />
+                        <div className="h-10 w-10 flex-shrink-0 relative group">
+                          {(() => {
+                            const images = product.images ?? [];
+                            const mainIdx = mainImageIndexes[product.id] ?? 0;
+                            const mainImg = images.length > 0 ? (images[mainIdx]?.startsWith('data:image') ? images[mainIdx] : `data:image/jpeg;base64,${images[mainIdx]}`) : '/placeholder.png';
+                            return (
+                              <>
+                                {images.length > 1 && (
+                                  <button
+                                    className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white bg-opacity-80 rounded-full p-0.5 border border-gray-200 opacity-40 group-hover:opacity-90 transition-opacity duration-200"
+                                    onClick={() => handlePrevImage(product.id, images)}
+                                    style={{ left: '-20px' }}
+                                    tabIndex={-1}
+                                    aria-label="Previous image"
+                                  >
+                                    <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="text-gray-400">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                                    </svg>
+                                  </button>
+                                )}
+                                <img className="h-10 w-10 rounded-md object-cover transition-all duration-300" src={mainImg} alt="" key={mainImg} />
+                                {images.length > 1 && (
+                                  <button
+                                    className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white bg-opacity-80 rounded-full p-0.5 border border-gray-200 opacity-40 group-hover:opacity-90 transition-opacity duration-200"
+                                    onClick={() => handleNextImage(product.id, images)}
+                                    style={{ right: '-20px' }}
+                                    tabIndex={-1}
+                                    aria-label="Next image"
+                                  >
+                                    <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="text-gray-400">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                    </svg>
+                                  </button>
+                                )}
+                              </>
+                            );
+                          })()}
                         </div>
-                        <div className="ml-4">
+                        <div className="ml-6">
                           <div className="text-sm font-medium text-gray-900">{product.name}</div>
                           <div className="text-sm text-gray-500">{product.reference}</div>
                         </div>
@@ -955,21 +1034,44 @@ const Products = () => {
           />
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              {t('products.form.image')}
-            </label>
-            <input
-              type="file"
-              name="imageFile"
-              accept="image/*"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) {
-                  setFormData(prev => ({ ...prev, imageFile: file }));
-                }
-              }}
-              className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border file:border-gray-300 file:text-sm file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
-            />
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('products.form.image')}</label>
+            <div className="flex items-center space-x-2 pb-2">
+              {/* Upload box: fixed at the start */}
+              <label className="w-20 h-20 flex items-center justify-center border-2 border-dashed border-gray-300 rounded-md cursor-pointer bg-gray-50 hover:bg-gray-100 transition-all duration-200 relative flex-shrink-0">
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="absolute inset-0 opacity-0 cursor-pointer"
+                  onChange={handleImagesUpload}
+                  disabled={isUploadingImages}
+                />
+                {isUploadingImages ? (
+                  <span className="animate-spin text-emerald-500"><Upload size={28} /></span>
+                ) : (
+                  <Upload size={28} className="text-gray-400" />
+                )}
+              </label>
+              {/* Image previews: horizontally scrollable with custom scrollbar */}
+              <div className="flex overflow-x-auto custom-scrollbar space-x-2 py-1">
+                {(formData.images ?? []).map((img, idx) => (
+                  <div key={idx} className="relative w-20 h-20 flex-shrink-0 rounded-md overflow-hidden group">
+                    <img
+                      src={img.startsWith('data:image') ? img : `data:image/jpeg;base64,${img}`}
+                      alt={`Product ${idx + 1}`}
+                      className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
+                    />
+                    <button
+                      type="button"
+                      className="absolute top-1 right-1 bg-white bg-opacity-80 rounded-full p-1 text-red-600 hover:text-red-800 shadow"
+                      onClick={() => handleRemoveImage(idx)}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
             <p className="mt-1 text-sm text-gray-500">{t('products.form.imageHelp')}</p>
           </div>
         </div>
@@ -1007,7 +1109,43 @@ const Products = () => {
           </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">{t('products.form.image')}</label>
-              <input type="file" name="imageFile" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (file) { setFormData(prev => ({ ...prev, imageFile: file })); } }} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border file:border-gray-300 file:text-sm file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200" />
+              <div className="flex items-center space-x-2 pb-2">
+                {/* Upload box: fixed at the start */}
+                <label className="w-20 h-20 flex items-center justify-center border-2 border-dashed border-gray-300 rounded-md cursor-pointer bg-gray-50 hover:bg-gray-100 transition-all duration-200 relative flex-shrink-0">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="absolute inset-0 opacity-0 cursor-pointer"
+                    onChange={handleImagesUpload}
+                    disabled={isUploadingImages}
+                  />
+                  {isUploadingImages ? (
+                    <span className="animate-spin text-emerald-500"><Upload size={28} /></span>
+                  ) : (
+                    <Upload size={28} className="text-gray-400" />
+                  )}
+                </label>
+                {/* Image previews: horizontally scrollable with custom scrollbar */}
+                <div className="flex overflow-x-auto custom-scrollbar space-x-2 py-1">
+                  {(formData.images ?? []).map((img, idx) => (
+                    <div key={idx} className="relative w-20 h-20 flex-shrink-0 rounded-md overflow-hidden group">
+                      <img
+                        src={img.startsWith('data:image') ? img : `data:image/jpeg;base64,${img}`}
+                        alt={`Product ${idx + 1}`}
+                        className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
+                      />
+                      <button
+                        type="button"
+                        className="absolute top-1 right-1 bg-white bg-opacity-80 rounded-full p-1 text-red-600 hover:text-red-800 shadow"
+                        onClick={() => handleRemoveImage(idx)}
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
               <p className="mt-1 text-sm text-gray-500">{t('products.form.imageHelp')}</p>
             </div>
           </div>

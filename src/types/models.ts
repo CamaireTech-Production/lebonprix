@@ -32,7 +32,7 @@ export interface Product extends BaseModel {
   sellingPrice: number;
   stock: number;
   category: string;
-  imageUrl?: string;
+  images?: string[];
   isAvailable: boolean;
   isDeleted?: boolean;
 }
