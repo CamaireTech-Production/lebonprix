@@ -454,6 +454,8 @@
       "reference": "Référence",
       "costPrice": "Prix d'achat (XAF)",
       "sellingPrice": "Prix de vente (XAF)",
+      "cataloguePrice": "Prix catalogue (XAF)",
+      "cataloguePriceHelp": "C'est le prix affiché dans votre catalogue public.",
       "sellingPriceHelp": "C'est le prix que vos clients verront.",
       "category": "Catégorie",
       "categoryPlaceholder": "Sélectionner ou créer une catégorie",
@@ -466,7 +468,7 @@
     "import": {
       "title": "Importer des produits depuis un CSV",
       "upload": "Télécharger un fichier CSV",
-      "uploadHelp": "Le fichier doit contenir des en-têtes. Champs recommandés : name, reference, costPrice, sellingPrice, category, stock.",
+      "uploadHelp": "Le fichier doit contenir des en-têtes. Champs recommandés : name, reference, costPrice, sellingPrice, cataloguePrice, category, stock.",
       "mapping": "Mapper les colonnes",
       "preview": "Aperçu (5 premières lignes)",
       "previewHelp": "...et {{total}} autres lignes.",
@@ -476,6 +478,7 @@
         "reference": "Référence",
         "costPrice": "Prix d'achat",
         "sellingPrice": "Prix de vente",
+        "cataloguePrice": "Prix catalogue",
         "category": "Catégorie",
         "stock": "Stock"
       },

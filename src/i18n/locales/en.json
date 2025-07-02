@@ -488,6 +488,8 @@
       "categoryPlaceholder": "Select or create a category",
       "stock": "Initial Stock",
       "image": "Product Image",
+      "imageHelp": "Optional, max 500KB. Will be compressed.",
+      "cataloguePrice": "Catalogue Price (XAF)",
       "imageHelp": "Optional, max 500KB. Will be compressed."
     },
     "import": {

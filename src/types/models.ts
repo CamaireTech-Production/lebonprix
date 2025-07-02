@@ -30,6 +30,7 @@ export interface Product extends BaseModel {
   reference: string;
   costPrice: number;
   sellingPrice: number;
+  cataloguePrice?: number;
   stock: number;
   category: string;
   images?: string[];

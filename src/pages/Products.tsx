@@ -41,6 +41,7 @@ const Products = () => {
     reference: '',
     costPrice: '',
     sellingPrice: '',
+    cataloguePrice: '',
     category: '',
     stock: '',
     images: [] as string[],
@@ -100,6 +101,7 @@ const Products = () => {
       reference: '',
       costPrice: '',
       sellingPrice: '',
+      cataloguePrice: '',
       category: '',
       stock: '',
       images: [],
@@ -151,11 +153,21 @@ const Products = () => {
       return;
     }
     setIsSubmitting(true);
+    let reference = formData.reference.trim();
+    if (!reference) {
+      // Auto-generate reference: first 3 uppercase letters of name + 3-digit number
+      const prefix = formData.name.substring(0, 3).toUpperCase();
+      // Count existing products with this prefix
+      const samePrefixCount = products.filter(p => p.reference && p.reference.startsWith(prefix)).length;
+      const nextNumber = (samePrefixCount + 1).toString().padStart(3, '0');
+      reference = `${prefix}${nextNumber}`;
+    }
     const productData = {
       name: formData.name,
-      reference: formData.reference,
+      reference,
       costPrice: parseFloat(formData.costPrice),
       sellingPrice: parseFloat(formData.sellingPrice),
+      cataloguePrice: formData.cataloguePrice ? parseFloat(formData.cataloguePrice) : undefined,
       category: formData.category,
       stock: parseInt(formData.stock) || 0,
       images: (formData.images ?? []).length > 0 ? formData.images : [],
@@ -183,32 +195,31 @@ const Products = () => {
         return;
       }
       setIsSubmitting(true);
-    // Ensure all required fields are present for legacy products
     const safeProduct = {
       ...currentProduct,
       isAvailable: typeof currentProduct.isAvailable === 'boolean' ? currentProduct.isAvailable : true,
       userId: currentProduct.userId || user.uid,
       updatedAt: currentProduct.updatedAt || { seconds: 0, nanoseconds: 0 },
     };
-    // Only include reference if it is a non-empty string
     const updateData: any = {
-          name: formData.name,
-          costPrice: parseFloat(formData.costPrice),
-          sellingPrice: parseFloat(formData.sellingPrice),
-          category: formData.category,
-          images: (formData.images ?? []).length > 0 ? formData.images : [],
+      name: formData.name,
+      costPrice: parseFloat(formData.costPrice),
+      sellingPrice: parseFloat(formData.sellingPrice),
+      cataloguePrice: formData.cataloguePrice ? parseFloat(formData.cataloguePrice) : undefined,
+      category: formData.category,
+      images: (formData.images ?? []).length > 0 ? formData.images : [],
       isAvailable: safeProduct.isAvailable,
       userId: safeProduct.userId,
-        updatedAt: { seconds: 0, nanoseconds: 0 }
+      updatedAt: { seconds: 0, nanoseconds: 0 }
     };
     if (formData.reference && formData.reference.trim() !== '') {
       updateData.reference = formData.reference;
     }
     try {
       await updateProduct(currentProduct.id, updateData, user.uid);
-        setIsEditModalOpen(false);
-        resetForm();
-        showSuccessToast(t('products.messages.productUpdated'));
+      setIsEditModalOpen(false);
+      resetForm();
+      showSuccessToast(t('products.messages.productUpdated'));
     } catch (err) {
       showErrorToast(t('products.messages.errors.updateProduct'));
       setIsEditModalOpen(true);
@@ -224,13 +235,14 @@ const Products = () => {
       reference: product.reference,
       costPrice: product.costPrice.toString(),
       sellingPrice: product.sellingPrice.toString(),
+      cataloguePrice: product.cataloguePrice?.toString() || '',
       category: product.category,
-      stock: '', // Not used in edit details, reset to avoid issues
+      stock: '',
       images: Array.isArray(product.images) ? product.images : (product.images ? [product.images] : []),
     });
     setIsEditModalOpen(true);
-    setEditTab('details'); // Reset to details tab on open
-    setStockAdjustment(''); // Reset stock adjustment field
+    setEditTab('details');
+    setStockAdjustment('');
   };
   
   // Filter products by search query and category
@@ -372,6 +384,7 @@ const Products = () => {
             reference: row[columnMapping.reference]?.trim() || '',
             costPrice: row[columnMapping.costPrice]?.replace(/[^0-9.-]+/g, '') || '0',
             sellingPrice: row[columnMapping.sellingPrice]?.replace(/[^0-9.-]+/g, '') || '0',
+            cataloguePrice: row[columnMapping.cataloguePrice]?.replace(/[^0-9.-]+/g, '') || '',
             stock: row[columnMapping.stock]?.replace(/[^0-9.-]+/g, '') || '0',
             category: row[columnMapping.category]?.trim() || 'Non catégorisé'
           };
@@ -399,6 +412,7 @@ const Products = () => {
             reference: cleanData.reference,
             costPrice: parseFloat(cleanData.costPrice),
             sellingPrice: parseFloat(cleanData.sellingPrice),
+            cataloguePrice: cleanData.cataloguePrice ? parseFloat(cleanData.cataloguePrice) : undefined,
             category: formatCategory(cleanData.category),
             stock: parseInt(cleanData.stock),
             images: [], // No images provided in CSV, so leave empty
@@ -990,7 +1004,6 @@ const Products = () => {
             name="reference"
             value={formData.reference}
             onChange={handleInputChange}
-            required
           />
           
           <Input
@@ -1010,6 +1023,15 @@ const Products = () => {
             onChange={handleInputChange}
             required
             helpText={t('products.form.sellingPriceHelp')}
+          />
+          
+          <Input
+            label={t('products.form.cataloguePrice')}
+            name="cataloguePrice"
+            type="number"
+            value={formData.cataloguePrice}
+            onChange={handleInputChange}
+            helpText={t('products.form.cataloguePriceHelp')}
           />
           
           <div>
@@ -1100,9 +1122,10 @@ const Products = () => {
         {editTab === 'details' ? (
         <div className="space-y-4">
             <Input label={t('products.form.name')} name="name" value={formData.name} onChange={handleInputChange} required />
-            <Input label={t('products.form.reference')} name="reference" value={formData.reference} onChange={handleInputChange} required />
+            <Input label={t('products.form.reference')} name="reference" value={formData.reference} onChange={handleInputChange} />
             <Input label={t('products.form.costPrice')} name="costPrice" type="number" value={formData.costPrice} onChange={handleInputChange} required />
             <Input label={t('products.form.sellingPrice')} name="sellingPrice" type="number" value={formData.sellingPrice} onChange={handleInputChange} required helpText={t('products.form.sellingPriceHelp')} />
+            <Input label={t('products.form.cataloguePrice')} name="cataloguePrice" type="number" value={formData.cataloguePrice} onChange={handleInputChange} helpText={t('products.form.cataloguePriceHelp')} />
           <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">{t('products.form.category')}</label>
               <CreatableSelect value={formData.category ? { label: formData.category, value: formData.category } : null} onChange={handleCategoryChange} placeholder={t('products.form.categoryPlaceholder')} className="custom-select" />
@@ -1266,6 +1289,7 @@ const Products = () => {
                       <option value="reference">{t('products.import.fields.reference')}</option>
                       <option value="costPrice">{t('products.import.fields.costPrice')}</option>
                       <option value="sellingPrice">{t('products.import.fields.sellingPrice')}</option>
+                      <option value="cataloguePrice">{t('products.import.fields.cataloguePrice')}</option>
                       <option value="category">{t('products.import.fields.category')}</option>
                       <option value="stock">{t('products.import.fields.stock')}</option>
                     </select>
