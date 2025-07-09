@@ -9,7 +9,7 @@ import { getFinanceEntryTypes, createFinanceEntryType, createFinanceEntry, updat
 import { useAuth } from '../contexts/AuthContext';
 import { Timestamp } from 'firebase/firestore';
 import LoadingScreen from '../components/common/LoadingScreen';
-import { Edit2, Trash2, BarChart2, TrendingUp, Receipt, Package2, DollarSign, ShoppingCart, Info } from 'lucide-react';
+import { Edit2, Trash2, BarChart2, TrendingUp, Receipt, Package2, DollarSign, ShoppingCart, Info, ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import DateRangePicker from '../components/common/DateRangePicker';
 import { useTranslation } from 'react-i18next';
 import ObjectivesBar from '../components/objectives/ObjectivesBar';
@@ -47,6 +47,12 @@ const Finance: React.FC = () => {
   const [showObjectivesModal, setShowObjectivesModal] = useState(false);
   const [applyDateFilter, setApplyDateFilter] = useState(true);
 
+  // Pagination, sorting, and filtering state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(25);
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [filterSource, setFilterSource] = useState('');
+
   // Filtered sales/expenses/products by date range
   const filteredSales = useMemo(() => sales.filter(sale => {
     if (!sale.createdAt?.seconds) return false;
@@ -75,6 +81,35 @@ const Finance: React.FC = () => {
 
   // Solde: sum of all active finance entries in the selected period
   const solde = filteredFinanceEntries.reduce((sum, entry) => sum + entry.amount, 0);
+
+  // Filtering logic
+  const filteredAndSearchedEntries = useMemo(() => {
+    return filteredFinanceEntries.filter(entry => {
+      if (filterType && entry.type !== filterType) return false;
+      if (filterSource && entry.sourceType !== filterSource) return false;
+      if (filterSearch && !entry.description?.toLowerCase().includes(filterSearch.toLowerCase())) return false;
+      return true;
+    });
+  }, [filteredFinanceEntries, filterType, filterSource, filterSearch]);
+
+  // Sorting logic
+  const sortedEntries = useMemo(() => {
+    return [...filteredAndSearchedEntries].sort((a, b) => {
+      const aDate = a.createdAt?.seconds || 0;
+      const bDate = b.createdAt?.seconds || 0;
+      return sortOrder === 'asc' ? aDate - bDate : bDate - aDate;
+    });
+  }, [filteredAndSearchedEntries, sortOrder]);
+
+  // Pagination logic
+  const totalPages = Math.ceil(sortedEntries.length / itemsPerPage);
+  const paginatedEntries = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return sortedEntries.slice(start, start + itemsPerPage);
+  }, [sortedEntries, currentPage, itemsPerPage]);
+
+  // Reset page when filters change
+  React.useEffect(() => { setCurrentPage(1); }, [filterType, filterSource, filterSearch, dateRange, itemsPerPage]);
 
   if (loading || productsLoading || salesLoading || expensesLoading) {
     return <LoadingScreen />;
@@ -310,41 +345,82 @@ const Finance: React.FC = () => {
             ))}
           </div>
         </div>
-        {/* Manual entries table and Add Entry button (unchanged) */}
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-semibold">{t('finance.historyTitle')}</h2>
+        {/* Controls above table */}
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 mb-2">
+          <div className="flex flex-wrap gap-2 items-center">
+            <input
+              type="text"
+              placeholder={t('common.search')}
+              value={filterSearch}
+              onChange={e => setFilterSearch(e.target.value)}
+              className="border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200 transition"
+              style={{ minWidth: 160 }}
+            />
+            <select
+              value={filterType}
+              onChange={e => setFilterType(e.target.value)}
+              className="border rounded px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200 transition"
+            >
+              <option value="">{t('common.allTypes')}</option>
+              {entryTypes.map(opt => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+            <select
+              value={filterSource}
+              onChange={e => setFilterSource(e.target.value)}
+              className="border rounded px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200 transition"
+            >
+              <option value="">{t('common.allSources')}</option>
+              <option value="manual">{t('finance.sourceType.manual')}</option>
+              <option value="sale">{t('finance.sourceType.sale')}</option>
+              <option value="expense">{t('finance.sourceType.expense')}</option>
+            </select>
+          </div>
+          <div className="flex gap-2 items-center">
+            <label className="text-sm">{t('common.itemsPerPage')}</label>
+            <select
+              value={itemsPerPage}
+              onChange={e => setItemsPerPage(Number(e.target.value))}
+              className="border rounded px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200 transition"
+            >
+              {[10, 25, 50, 100].map(n => (
+                <option key={n} value={n}>{n}</option>
+              ))}
+            </select>
+          </div>
         </div>
-        {/* Add Entry button under the table */}
-        <div className="flex justify-end mt-2 mb-4">
-          <Button variant="primary" onClick={() => handleOpenModal()} aria-label={t('finance.addEntry')}>
-            {t('finance.addEntry')}
-          </Button>
-        </div>
+        {/* Finance entries table with pagination and sorting */}
         <div className="bg-white rounded shadow p-4 min-h-[200px] overflow-x-auto custom-scrollbar">
           {loading ? (
             <div className="text-gray-400 text-center py-8">{t('common.loading')}</div>
-          ) : filteredManualEntries.length === 0 ? (
+          ) : paginatedEntries.length === 0 ? (
             <div className="text-gray-400 text-center py-8">{t('finance.noEntries')}</div>
           ) : (
             <table className="min-w-[600px] w-full text-sm">
               <thead>
                 <tr className="text-left border-b">
-                  <th className="py-2 px-2">{t('common.date') || 'Date'}</th>
-                  <th className="py-2 px-2">{t('common.type') || 'Type'}</th>
-                  <th className="py-2 px-2">{t('common.description') || 'Description'}</th>
-                  <th className="py-2 px-2">{t('common.amount') || 'Montant'}</th>
-                  <th className="py-2 px-2">{t('common.source') || 'Source'}</th>
-                  <th className="py-2 px-2">{t('common.actions') || 'Actions'}</th>
+                  <th className="py-2 px-2 cursor-pointer select-none" onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}>
+                    {t('common.date')}
+                    <span className="ml-1 align-middle inline-block">
+                      {sortOrder === 'asc' ? <ChevronUp size={16} className="inline" /> : <ChevronDown size={16} className="inline" />}
+                    </span>
+                  </th>
+                  <th className="py-2 px-2">{t('common.type')}</th>
+                  <th className="py-2 px-2">{t('common.description')}</th>
+                  <th className="py-2 px-2">{t('common.amount')}</th>
+                  <th className="py-2 px-2">{t('common.source')}</th>
+                  <th className="py-2 px-2">{t('common.actions')}</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredManualEntries.map(entry => (
+                {paginatedEntries.map(entry => (
                   <tr key={entry.id} className="border-b hover:bg-gray-50">
                     <td className="py-2 px-2">{entry.createdAt?.seconds ? format(new Date(entry.createdAt.seconds * 1000), 'dd/MM/yyyy') : ''}</td>
                     <td className="py-2 px-2 capitalize">{entry.type}</td>
                     <td className="py-2 px-2">{entry.description || '-'}</td>
                     <td className={`py-2 px-2 font-semibold ${entry.amount >= 0 ? 'text-green-600' : 'text-red-500'}`}>{entry.amount.toLocaleString()}</td>
-                    <td className="py-2 px-2 capitalize">{entry.sourceType}</td>
+                    <td className="py-2 px-2 capitalize">{t(`finance.sourceType.${entry.sourceType}`)}</td>
                     <td className="py-2 px-2 flex gap-2">
                       {entry.sourceType === 'manual' ? (
                         <>
@@ -374,56 +450,91 @@ const Finance: React.FC = () => {
               </tbody>
             </table>
           )}
+          {/* Pagination controls */}
+          {totalPages > 1 && (
+            <div className="flex justify-between items-center mt-4">
+              <div className="text-sm text-gray-600">
+                {t('common.page')} {currentPage} {t('common.of')} {totalPages}
+              </div>
+              <div className="flex gap-1 items-center">
+                <button
+                  className="px-2 py-1 border rounded disabled:opacity-50 flex items-center"
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  aria-label={t('common.prev')}
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                  <button
+                    key={page}
+                    className={`px-2 py-1 border rounded ${page === currentPage ? 'bg-indigo-100 border-indigo-400' : ''}`}
+                    onClick={() => setCurrentPage(page)}
+                  >
+                    {page}
+                  </button>
+                ))}
+                <button
+                  className="px-2 py-1 border rounded disabled:opacity-50 flex items-center"
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  aria-label={t('common.next')}
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
       {/* Add/Edit Finance Entry Modal, Delete Confirmation Modal, Calculations Modal (unchanged) */}
-      <Modal isOpen={modalOpen} onClose={handleCloseModal} title={form.isEdit ? 'Modifier une entrée financière' : 'Ajouter une entrée financière'} size="md"
-        footer={<ModalFooter onCancel={handleCloseModal} onConfirm={handleSubmit} isLoading={modalLoading} confirmText={form.isEdit ? t('common.save') : t('common.save')} />}
+      <Modal isOpen={modalOpen} onClose={handleCloseModal} title={form.isEdit ? t('finance.editEntry') : t('finance.addEntry')} size="md"
+        footer={<ModalFooter onCancel={handleCloseModal} onConfirm={handleSubmit} isLoading={modalLoading} confirmText={t('common.save')} />}
       >
         {modalLoading ? (
           <div className="text-center text-gray-400">{t('common.loading')}</div>
         ) : (
           <form className="space-y-4" onSubmit={e => { e.preventDefault(); handleSubmit(); }}>
             <div>
-              <label className="block text-sm font-medium mb-1">{t('common.type') || 'Type'}</label>
+              <label className="block text-sm font-medium mb-1">{t('common.type')}</label>
               <CreatableSelect
                 value={form.type}
                 onChange={handleTypeChange}
                 options={entryTypes}
                 onCreate={handleTypeCreate}
-                placeholder={t('common.type') || 'Sélectionner ou créer un type...'}
+                placeholder={t('common.type')}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">{t('common.amount') || 'Montant'}</label>
+              <label className="block text-sm font-medium mb-1">{t('common.amount')}</label>
               <input
                 type="number"
                 name="amount"
                 value={form.amount}
                 onChange={handleFormChange}
                 className="w-full border rounded px-3 py-2"
-                placeholder={t('common.amount') || 'Montant'}
+                placeholder={t('common.amount')}
                 required
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">{t('common.description') || 'Description'}</label>
+              <label className="block text-sm font-medium mb-1">{t('common.description')}</label>
               <textarea
                 name="description"
                 value={form.description}
                 onChange={handleFormChange}
                 className="w-full border rounded px-3 py-2"
-                placeholder={t('common.description') || 'Description'}
+                placeholder={t('common.description')}
                 rows={2}
               />
             </div>
           </form>
         )}
       </Modal>
-      <Modal isOpen={deleteConfirm.open} onClose={handleDeleteCancel} title={t('common.delete') || 'Confirmer la suppression'} size="sm"
+      <Modal isOpen={deleteConfirm.open} onClose={handleDeleteCancel} title={t('common.delete')} size="sm"
         footer={<ModalFooter onCancel={handleDeleteCancel} onConfirm={handleDeleteConfirm} confirmText={t('common.delete')} isDanger />}
       >
-        <div className="text-center text-gray-700">{t('finance.deleteConfirm', 'Voulez-vous vraiment supprimer cette entrée financière ?')}</div>
+        <div className="text-center text-gray-700">{t('finance.deleteConfirm')}</div>
       </Modal>
       <Modal
         isOpen={showCalculationsModal}

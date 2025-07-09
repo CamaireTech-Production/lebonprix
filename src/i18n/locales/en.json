@@ -12,7 +12,14 @@
     "noResults": "No results found",
     "required": "Required field",
     "source": "Source",
-    "actions": "Actions"
+    "actions": "Actions",
+    "date": "Date",
+    "type": "Type",
+    "description": "Description",
+    "amount": "Amount",
+    "allTypes": "All types",
+    "allSources": "All sources",
+    "itemsPerPage": "Items per page"
   },
   "auth": {
     "login": "Login",
@@ -192,7 +199,8 @@
     "noPeriod": "No period defined",
     "lastWeek": "Last Week",
     "lastMonth": "Last Month",
-    "lastYear": "Last Year"
+    "lastYear": "Last Year",
+    "allTime": "All time"
   },
   "sales": {
     "title": "Sales",
@@ -742,7 +750,13 @@
   "finance": {
     "historyTitle": "Finance Entry History",
     "addEntry": "Add Finance Entry",
+    "editEntry": "Edit Finance Entry",
     "noEntries": "No finance entries for the selected filters.",
-    "deleteConfirm": "Are you sure you want to delete this finance entry?"
+    "deleteConfirm": "Are you sure you want to delete this finance entry?",
+    "sourceType": {
+      "manual": "Manual",
+      "sale": "Sale",
+      "expense": "Expense"
+    }
   }
 } 

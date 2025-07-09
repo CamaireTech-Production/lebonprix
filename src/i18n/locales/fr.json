@@ -12,7 +12,18 @@
     "noResults": "Aucun résultat trouvé",
     "required": "Champ obligatoire",
     "source": "Source",
-    "actions": "Actions"
+    "actions": "Actions",
+    "date": "Date",
+    "type": "Type",
+    "description": "Description",
+    "amount": "Montant",
+    "allTypes": "Tous les types",
+    "allSources": "Toutes les sources",
+    "itemsPerPage": "Éléments par page",
+    "page": "Page",
+    "of": "sur",
+    "prev": "Précédent",
+    "next": "Suivant"
   },
   "auth": {
     "login": "Connexion",
@@ -193,7 +204,8 @@
     "noPeriod": "Aucune période définie",
     "lastWeek": "Semaine dernière",
     "lastMonth": "Mois dernier",
-    "lastYear": "Année dernière"
+    "lastYear": "Année dernière",
+    "allTime": "Toute la période"
   },
   "sales": {
     "title": "Ventes",
@@ -625,7 +637,13 @@
   "finance": {
     "historyTitle": "Historique des entrées financières",
     "addEntry": "Ajouter une entrée financière",
+    "editEntry": "Modifier une entrée financière",
     "noEntries": "Aucune entrée financière pour les filtres sélectionnés.",
-    "deleteConfirm": "Voulez-vous vraiment supprimer cette entrée financière ?"
+    "deleteConfirm": "Voulez-vous vraiment supprimer cette entrée financière ?",
+    "sourceType": {
+      "manual": "Manuelle",
+      "sale": "Vente",
+      "expense": "Dépense"
+    }
   }
 } 
