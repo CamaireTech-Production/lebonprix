@@ -117,7 +117,7 @@ const CompanyProducts = () => {
           comparison = a.name.localeCompare(b.name);
           break;
         case 'price':
-          comparison = a.sellingPrice - b.sellingPrice;
+          comparison = (a.cataloguePrice ?? 0) - (b.cataloguePrice ?? 0);
           break;
         case 'stock':
           comparison = a.stock - b.stock;
@@ -319,7 +319,7 @@ const CompanyProducts = () => {
                   <div className="space-y-2">
                     <div className="flex justify-between items-center">
                       <span className="text-lg font-semibold text-emerald-600">
-                        {product.sellingPrice.toLocaleString('fr-FR', {
+                        {(product.cataloguePrice ?? 0).toLocaleString('fr-FR', {
                           style: 'currency',
                           currency: 'XAF'
                         })}
@@ -410,7 +410,7 @@ const CompanyProducts = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-emerald-600">
-                        {product.sellingPrice.toLocaleString('fr-FR', {
+                        {product.cataloguePrice?.toLocaleString('fr-FR', {
                           style: 'currency',
                           currency: 'XAF'
                         })}
