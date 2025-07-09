@@ -1,11 +1,12 @@
 import { useState, FormEvent, ChangeEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
 import Textarea from '../../components/common/Textarea';
 import { Upload } from 'lucide-react';
 import { FirebaseError } from 'firebase/app';
+import LoadingScreen from '../../components/common/LoadingScreen';
 
 const Register = () => {
   // Company form state
@@ -24,8 +25,15 @@ const Register = () => {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   
-  const { signUp } = useAuth();
+  const { currentUser, loading, signUp } = useAuth();
   const navigate = useNavigate();
+
+  if (loading) {
+    return <LoadingScreen />;
+  }
+  if (currentUser) {
+    return <Navigate to="/" replace />;
+  }
 
   const handleLogoChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

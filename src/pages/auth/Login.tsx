@@ -1,8 +1,9 @@
 import { useState, FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
+import LoadingScreen from '../../components/common/LoadingScreen';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -11,8 +12,15 @@ const Login = () => {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   
-  const { signIn } = useAuth();
+  const { currentUser, loading, signIn } = useAuth();
   const navigate = useNavigate();
+
+  if (loading) {
+    return <LoadingScreen />;
+  }
+  if (currentUser) {
+    return <Navigate to="/" replace />;
+  }
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();

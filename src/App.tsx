@@ -1,5 +1,5 @@
 import { lazy, Suspense, useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import AuthLayout from './components/layout/AuthLayout';
 import MainLayout from './components/layout/MainLayout';
@@ -24,43 +24,53 @@ const CompanyProducts = lazy(() => import('./pages/CompanyProducts'));
 
 function App() {
   const [isAddSaleModalOpen, setIsAddSaleModalOpen] = useState(false);
+  // BrowserRouter must wrap AppWithFAB for useLocation to work
   return (
     <AuthProvider>
-      <FloatingActionButton onClick={() => setIsAddSaleModalOpen(true)} label="Add Sale" />
-      <AddSaleModal isOpen={isAddSaleModalOpen} onClose={() => setIsAddSaleModalOpen(false)} />
       <BrowserRouter>
-        <Suspense fallback={<LoadingScreen />}>
-          <Toaster />
-          <Routes>
-            {/* Auth Routes */}
-            <Route element={<AuthLayout />}>
-              <Route path="/auth/login" element={<Login />} />
-              <Route path="/auth/register" element={<Register />} />
-            </Route>
-            
-            {/* Public Routes */}
-            <Route path="/track/:id" element={<TimelinePage />} />
-            <Route path="/company/:companyId/products" element={<CompanyProducts />} />
-
-            {/* Protected Routes */}
-            <Route element={<ProtectedRoute />}>
-              <Route element={<MainLayout />}>
-                <Route path="/" element={<Dashboard />} />
-                <Route path="/sales" element={<Sales />} />
-                <Route path="/expenses" element={<Expenses />} />
-                <Route path="/finance" element={<Finance />} />
-                <Route path="/products" element={<Products />} />
-                <Route path="/reports" element={<Reports />} />
-                <Route path="/settings" element={<Settings />} />
-              </Route>
-            </Route>
-            
-            {/* Redirect to login if no route matches */}
-            <Route path="*" element={<Navigate to="/auth/login" replace />} />
-          </Routes>
-        </Suspense>
+        <AppWithFAB isAddSaleModalOpen={isAddSaleModalOpen} setIsAddSaleModalOpen={setIsAddSaleModalOpen} />
       </BrowserRouter>
     </AuthProvider>
+  );
+}
+
+function AppWithFAB({ isAddSaleModalOpen, setIsAddSaleModalOpen }: { isAddSaleModalOpen: boolean, setIsAddSaleModalOpen: (open: boolean) => void }) {
+  const location = useLocation();
+  const isAuthPage = location.pathname.startsWith('/auth/login') || location.pathname.startsWith('/auth/register');
+  return (
+    <>
+      {!isAuthPage && (
+        <FloatingActionButton onClick={() => setIsAddSaleModalOpen(true)} label="Add Sale" />
+      )}
+      <AddSaleModal isOpen={isAddSaleModalOpen} onClose={() => setIsAddSaleModalOpen(false)} />
+      <Suspense fallback={<LoadingScreen />}>
+        <Toaster />
+        <Routes>
+          {/* Auth Routes */}
+          <Route element={<AuthLayout />}>
+            <Route path="/auth/login" element={<Login />} />
+            <Route path="/auth/register" element={<Register />} />
+          </Route>
+          {/* Public Routes */}
+          <Route path="/track/:id" element={<TimelinePage />} />
+          <Route path="/company/:companyId/products" element={<CompanyProducts />} />
+          {/* Protected Routes */}
+          <Route element={<ProtectedRoute />}>
+            <Route element={<MainLayout />}>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/sales" element={<Sales />} />
+              <Route path="/expenses" element={<Expenses />} />
+              <Route path="/finance" element={<Finance />} />
+              <Route path="/products" element={<Products />} />
+              <Route path="/reports" element={<Reports />} />
+              <Route path="/settings" element={<Settings />} />
+            </Route>
+          </Route>
+          {/* Redirect to login if no route matches */}
+          <Route path="*" element={<Navigate to="/auth/login" replace />} />
+        </Routes>
+      </Suspense>
+    </>
   );
 }
 

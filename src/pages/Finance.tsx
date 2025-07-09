@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import StatCard from '../components/dashboard/StatCard';
 import Button from '../components/common/Button';
 import { useFinanceEntries, useProducts, useSales, useExpenses } from '../hooks/useFirestore';
-import { format, startOfYear, endOfYear } from 'date-fns';
+import { format } from 'date-fns';
 import Modal, { ModalFooter } from '../components/common/Modal';
 import CreatableSelect from '../components/common/CreatableSelect';
 import { getFinanceEntryTypes, createFinanceEntryType, createFinanceEntry, updateFinanceEntry, softDeleteFinanceEntry } from '../services/firestore';
@@ -138,10 +138,11 @@ const Finance: React.FC = () => {
   const totalProductsSold = filteredSales.reduce((sum, sale) => sum + sale.products.reduce((pSum, p) => pSum + p.quantity, 0), 0);
   // Calculate total purchase price for all products in stock as of the end of the selected period
   // (Optional: can use stock changes if needed, for now use Dashboard logic)
-  const totalPurchasePrice = products.reduce((sum, product) => {
-    // Optionally, use stock at date logic from Dashboard
-    return sum + (product.costPrice * product.stock);
-  }, 0);
+  const totalPurchasePrice = products
+    .filter(product => !product.isDeleted)
+    .reduce((sum, product) => {
+      return sum + (product.costPrice * product.stock);
+    }, 0);
 
   // Stat cards (dashboard style, now using dashboard logic)
   const statCards = [
@@ -272,9 +273,9 @@ const Finance: React.FC = () => {
 
   return (
     <>
-      <div className="px-4 py-6 max-w-7xl mx-auto">
+      <div className="px-4 py-6 w-full mx-auto">
         {/* First row: Solde (left), Objectives (right) */}
-        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6 mb-6 mt-6">
+        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-12 mb-6 mt-6">
           {/* Solde card left */}
           <div className="md:w-1/4 w-full flex flex-col items-start justify-start">
             <StatCard
@@ -330,8 +331,8 @@ const Finance: React.FC = () => {
           </div>
         </div>
         {/* Stat cards: compact, centered, max-w, clean design */}
-        <div className="mb-8 flex justify-center">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full max-w-5xl">
+        <div className="mb-8 w-full">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full">
             {statCards.map((stat) => (
               <StatCard
                 key={stat.title}
@@ -388,6 +389,14 @@ const Finance: React.FC = () => {
                 <option key={n} value={n}>{n}</option>
               ))}
             </select>
+            {/* Add Finance Button */}
+            <Button
+              variant="primary"
+              onClick={() => handleOpenModal()}
+              className="ml-2"
+            >
+              {t('finance.addEntry')}
+            </Button>
           </div>
         </div>
         {/* Finance entries table with pagination and sorting */}
