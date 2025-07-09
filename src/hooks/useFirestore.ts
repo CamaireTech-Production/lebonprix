@@ -33,6 +33,18 @@ import { useAuth } from '../contexts/AuthContext';
 import { doc, getDoc, deleteDoc, collection, query, where, orderBy, getDocs, onSnapshot } from 'firebase/firestore';
 import { db } from '../services/firebase';
 
+// Utility to deeply remove undefined fields from an object
+function removeUndefined(obj: any): any {
+  if (Array.isArray(obj)) {
+    return obj.map(removeUndefined);
+  } else if (obj && typeof obj === 'object') {
+    return Object.entries(obj)
+      .filter(([_, v]) => v !== undefined)
+      .reduce((acc, [k, v]) => ({ ...acc, [k]: removeUndefined(v) }), {});
+  }
+  return obj;
+}
+
 // Products Hook
 export const useProducts = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -194,12 +206,15 @@ export const useSales = () => {
         updatedAt: Timestamp.now()
       };
 
+      // Deeply remove undefined fields before sending to Firestore
+      const cleanedSale = removeUndefined(updatedSale);
+
       // Update in Firestore
-      await updateSaleDocument(saleId, updatedSale, user.uid);
-      await syncFinanceEntryWithSale(updatedSale);
+      await updateSaleDocument(saleId, cleanedSale, user.uid);
+      await syncFinanceEntryWithSale(cleanedSale);
 
       // Update local state
-      updateLocalSale(updatedSale);
+      updateLocalSale(cleanedSale);
     } catch (err) {
       console.error('Error updating sale:', err);
       throw err;
