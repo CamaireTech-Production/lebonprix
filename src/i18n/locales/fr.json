@@ -232,16 +232,17 @@
     },
     "table": {
       "columns": {
-        "name": "Nom",
-        "phone": "Numéro de téléphone",
+        "name": "Nom du client",
+        "phone": "Téléphone",
         "products": "Produits",
         "amount": "Montant",
         "status": "Statut",
-        "actions": "Actions"
+        "actions": "Actions",
+        "reference": "Référence"
       },
-      "productCount_one": "{{count}} produit",
-      "productCount_other": "{{count}} produits",
-      "emptyMessage": "Aucune vente trouvée"
+      "productCount": "{{count}} produits",
+      "emptyMessage": "Aucune vente trouvée.",
+      "unknownProduct": "Produit inconnu"
     },
     "modals": {
       "add": {
@@ -461,12 +462,11 @@
     },
     "table": {
       "columns": {
-        "product": "Produit",
-        "costPrice": "Prix d'achat",
+        "name": "Nom du produit",
         "sellingPrice": "Prix de vente",
-        "stock": "Stock",
-        "category": "Catégorie",
-        "actions": "Actions"
+        "reference": "Référence",
+        "costPrice": "Prix d'achat",
+        "stock": "Stock"
       }
     },
     "form": {

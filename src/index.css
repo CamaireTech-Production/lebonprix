@@ -4,14 +4,12 @@
 
 .custom-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: #d1d5db #f3f4f6; /* gray-300 thumb, gray-100 track */
+  scrollbar-color: #10b981 #f3f4f6;
 }
 /* Horizontal scrollbar */
 .custom-scrollbar::-webkit-scrollbar {
-  height: 3px !important;
-  min-height: 3px !important;
-  max-height: 3px !important;
-  width: 3px;
+  height: 8px;
+  background: #f3f4f6;
 }
 /* Vertical scrollbar (for completeness) */
 .custom-scrollbar::-webkit-scrollbar:vertical {
@@ -20,7 +18,7 @@
   max-width: 3px !important;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #d1d5db;
+  background: #10b981;
   border-radius: 4px;
 }
 .custom-scrollbar::-webkit-scrollbar-track {

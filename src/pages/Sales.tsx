@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus, Edit2, Eye, Trash2, Download, Share, Save } from 'lucide-react';
+import { Plus, Edit2, Eye, Trash2, Download, Share, ChevronDown, ChevronRight } from 'lucide-react';
 import Select from 'react-select';
-import Table from '../components/common/Table';
 import Modal, { ModalFooter } from '../components/common/Modal';
 import Input from '../components/common/Input';
 import Badge from '../components/common/Badge';
@@ -13,10 +12,10 @@ import type { Column } from '../components/common/Table';
 import LoadingScreen from '../components/common/LoadingScreen';
 import { showSuccessToast, showErrorToast, showWarningToast } from '../utils/toast';
 import Invoice from '../components/sales/Invoice';
-import { generatePDF } from '../utils/pdf';
+import { generatePDF, generatePDFBlob } from '../utils/pdf';
 import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
-import { deleteSale as deleteSaleFromFirestore, getCustomerByPhone, addCustomer } from '../services/firestore';
+import { deleteSale as deleteSaleFromFirestore, addCustomer } from '../services/firestore';
 import { createPortal } from 'react-dom';
 import AddSaleModal from '../components/sales/AddSaleModal';
 import SaleDetailsModal from '../components/sales/SaleDetailsModal';
@@ -37,7 +36,7 @@ const Sales = () => {
   const { sales, loading: salesLoading, error: salesError, addSale, updateSale, deleteSale } = useSales();
   const { products, loading: productsLoading } = useProducts();
   const { customers } = useCustomers();
-  const { user } = useAuth();
+  const { user, company } = useAuth();
   
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -57,6 +56,7 @@ const Sales = () => {
   const [autoSaveCustomer, setAutoSaveCustomer] = useState(true);
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const [customerSearch, setCustomerSearch] = useState('');
+  const [expandedSaleId, setExpandedSaleId] = useState<string | null>(null);
   
   // Form state used for editing an existing sale (Add sale now handled by AddSaleModal)
   const [formData, setFormData] = useState({
@@ -320,7 +320,7 @@ const Sales = () => {
         productId: p.product!.id,
         quantity: parseInt(p.quantity),
         basePrice: p.product!.sellingPrice,
-        negotiatedPrice: p.negotiatedPrice ? parseFloat(p.negotiatedPrice) : undefined,
+        ...(p.negotiatedPrice ? { negotiatedPrice: parseFloat(p.negotiatedPrice) } : {})
       }));
 
       const customerInfo = {
@@ -329,14 +329,13 @@ const Sales = () => {
         ...(formData.customerQuarter && { quarter: formData.customerQuarter })
       };
 
-      // Prepare the update data
-      const updateData: Partial<Sale> = {
-        products: saleProducts,
-        totalAmount,
-        status: formData.status,
-        customerInfo,
-        deliveryFee: formData.deliveryFee ? parseFloat(formData.deliveryFee) : 0,
-      };
+      // Prepare the update data, omitting undefined fields
+      const updateData: Partial<Sale> = {};
+      if (saleProducts) updateData.products = saleProducts;
+      if (totalAmount !== undefined) updateData.totalAmount = totalAmount;
+      if (formData.status) updateData.status = formData.status;
+      if (customerInfo) updateData.customerInfo = customerInfo;
+      if (formData.deliveryFee !== undefined && formData.deliveryFee !== '') updateData.deliveryFee = parseFloat(formData.deliveryFee);
 
       // Update the sale
       await updateSale(currentSale.id, updateData);
@@ -385,12 +384,11 @@ const Sales = () => {
 
   const handleShareInvoice = async (sale: Sale) => {
     try {
-      // Generate PDF blob
-      const result = await generatePDF('invoice-content', `facture-${sale.id}`, true);
-      if (!result || !(result instanceof Blob)) {
-        throw new Error('Failed to generate PDF');
+      // Generate PDF blob for sharing
+      const result = await generatePDFBlob(sale, products || [], company || {}, `facture-${sale.id}`);
+      if (!(result instanceof Blob)) {
+        throw new Error('PDF generation did not return a Blob');
       }
-
       const pdfFile = new File([result], `facture-${sale.id}.pdf`, { type: 'application/pdf' });
 
       // Check if Web Share API is available
@@ -454,6 +452,122 @@ const Sales = () => {
   const handleDeleteClick = (sale: Sale) => {
     setCurrentSale(sale);
     setIsDeleteModalOpen(true);
+  };
+
+  // Helper to get product details for a sale
+  const getProductDetails = (sale: Sale) => {
+    return sale.products.map((sp, idx) => {
+      const product = products?.find(p => p.id === sp.productId);
+      return (
+        <tr key={sp.productId + idx} className="bg-gray-50">
+          <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900 font-medium">
+            {product ? product.name : t('sales.table.unknownProduct')}
+          </td>
+          <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">
+            {sp.quantity}
+          </td>
+          <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">
+            {sp.basePrice.toLocaleString()} XAF
+          </td>
+          <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">
+            {sp.negotiatedPrice ? sp.negotiatedPrice.toLocaleString() : '-'} XAF
+          </td>
+          <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">
+            {product ? product.reference : '-'}
+          </td>
+        </tr>
+      );
+    });
+  };
+
+  // Custom row rendering for Table
+  const renderRows = (data: Sale[]) => {
+    return data.map((sale) => {
+      const isExpanded = expandedSaleId === sale.id;
+      return [
+        <tr key={sale.id} className="group hover:bg-gray-50 transition">
+          {/* Expand/collapse chevron */}
+          <td className="px-2 py-4 text-center align-middle cursor-pointer w-8" onClick={() => setExpandedSaleId(isExpanded ? null : sale.id)}>
+            {isExpanded ? <ChevronDown size={18} className="mx-auto text-emerald-600" /> : <ChevronRight size={18} className="mx-auto text-gray-400 group-hover:text-emerald-600" />}
+          </td>
+          {/* Render the rest of the columns as before */}
+          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{sale.customerInfo.name}</td>
+          <td className="px-6 py-4 whitespace-nowrap text-sm">
+            <a href={`tel:${sale.customerInfo.phone}`} className="text-blue-600 hover:underline">
+              {sale.customerInfo.phone}
+            </a>
+          </td>
+          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+            {t('sales.table.productCount', { count: sale.products.length, defaultValue: `${sale.products.length} products` })}
+          </td>
+          <td className="px-6 py-4 whitespace-nowrap text-sm">
+            {sale.totalAmount.toLocaleString()} XAF
+          </td>
+          <td className="px-6 py-4 whitespace-nowrap text-sm">
+            {(() => {
+              let variant: 'success' | 'warning' | 'info' = 'warning';
+              if (sale.status === 'paid') variant = 'success';
+              if (sale.status === 'under_delivery') variant = 'info';
+              return <Badge variant={variant}>{t(`sales.filters.status.${sale.status}`)}</Badge>;
+            })()}
+          </td>
+          <td className="px-6 py-4 whitespace-nowrap text-sm">
+            <div className="flex space-x-2">
+              <button
+                onClick={() => handleViewSale(sale)}
+                className="text-blue-600 hover:text-blue-900"
+                title={t('sales.actions.viewSale')}
+              >
+                <Eye size={16} />
+              </button>
+              <button
+                onClick={() => handleEditClick(sale)}
+                className="text-indigo-600 hover:text-indigo-900"
+                title={t('sales.actions.editSale')}
+              >
+                <Edit2 size={16} />
+              </button>
+              <button
+                onClick={() => handleCopyLink(sale.id)}
+                className="text-green-600 hover:text-green-900"
+                title={t('sales.actions.copyLink')}
+              >
+                {t('sales.actions.copyLink')}
+              </button>
+              <button
+                onClick={() => handleDeleteClick(sale)}
+                className="text-red-600 hover:text-red-900"
+                title={t('sales.actions.deleteSale')}
+              >
+                <Trash2 size={16} />
+              </button>
+            </div>
+          </td>
+        </tr>,
+        isExpanded && (
+          <tr key={sale.id + '-details'}>
+            <td colSpan={8} className="p-0 bg-white border-t-0">
+              <div className="overflow-x-auto custom-scrollbar border-t border-gray-100">
+                <table className="min-w-[600px] w-full text-sm">
+                  <thead className="bg-emerald-50">
+                    <tr>
+                      <th className="px-4 py-2 text-left font-semibold text-emerald-700">{t('products.table.columns.name')}</th>
+                      <th className="px-4 py-2 text-left font-semibold text-emerald-700">{t('sales.modals.add.products.quantity')}</th>
+                      <th className="px-4 py-2 text-left font-semibold text-emerald-700">{t('products.table.columns.sellingPrice')}</th>
+                      <th className="px-4 py-2 text-left font-semibold text-emerald-700">{t('sales.modals.add.products.negotiatedPrice')}</th>
+                      <th className="px-4 py-2 text-left font-semibold text-emerald-700">{t('products.table.columns.reference')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {getProductDetails(sale)}
+                  </tbody>
+                </table>
+              </div>
+            </td>
+          </tr>
+        )
+      ];
+    });
   };
 
   const columns: Column<Sale>[] = [
@@ -551,7 +665,7 @@ const Sales = () => {
       <div className="flex items-center space-x-2">
         <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
           <img 
-            src={product.imageUrl || '/placeholder.png'} 
+            src={product.images && product.images.length > 0 ? (product.images[0].startsWith('data:image') ? product.images[0] : `data:image/jpeg;base64,${product.images[0]}`) : '/placeholder.png'}
             alt={product.name}
             className="w-full h-full object-cover"
           />
@@ -631,12 +745,30 @@ const Sales = () => {
       </div>
 
       <Card>
-        <Table
-          data={filteredSales || []}
-          columns={columns}
-          keyExtractor={(sale) => sale.id}
-          emptyMessage={t('sales.table.emptyMessage')}
-        />
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="w-8"></th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('sales.table.columns.name')}</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('sales.table.columns.phone')}</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('sales.table.columns.products')}</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('sales.table.columns.amount')}</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('sales.table.columns.status')}</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('sales.table.columns.actions')}</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {filteredSales && filteredSales.length > 0 ? renderRows(filteredSales).flat() : (
+                <tr>
+                  <td colSpan={8} className="px-6 py-4 text-center text-sm text-gray-500">
+                    {t('sales.table.emptyMessage')}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </Card>
       
       {/* Add Sale Modal (centralized) */}
@@ -677,7 +809,7 @@ const Sales = () => {
               <Button
                 variant="outline"
                 icon={<Download size={16} />}
-                onClick={() => generatePDF('invoice-content', `facture-${currentSale.id}`)}
+                onClick={() => generatePDF(currentSale, products || [], company || {}, `facture-${currentSale.id}`)}
               >
                 {t('sales.modals.link.actions.downloadPDF')}
               </Button>

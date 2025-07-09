@@ -227,16 +227,17 @@
     },
     "table": {
       "columns": {
-        "name": "Name",
+        "name": "Customer Name",
         "phone": "Phone Number",
         "products": "Products",
         "amount": "Amount",
         "status": "Status",
-        "actions": "Actions"
+        "actions": "Actions",
+        "reference": "Reference"
       },
-      "productCount_one": "{{count}} product",
-      "productCount_other": "{{count}} products",
-      "emptyMessage": "No sales records found"
+      "productCount": "{{count}} products",
+      "emptyMessage": "No sales found.",
+      "unknownProduct": "Unknown Product"
     },
     "modals": {
       "delete": {
@@ -485,12 +486,11 @@
     },
     "table": {
       "columns": {
-        "product": "Product",
-        "costPrice": "Cost Price",
+        "name": "Product Name",
         "sellingPrice": "Selling Price",
-        "stock": "Stock",
-        "category": "Category",
-        "actions": "Actions"
+        "reference": "Reference",
+        "costPrice": "Cost Price",
+        "stock": "Stock"
       }
     },
     "form": {
