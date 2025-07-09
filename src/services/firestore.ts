@@ -10,7 +10,9 @@ import {
   onSnapshot,
   serverTimestamp,
   writeBatch,
-  type WriteBatch
+  type WriteBatch,
+  setDoc,
+  updateDoc
 } from 'firebase/firestore';
 import { db } from './firebase';
 import type {
@@ -24,7 +26,9 @@ import type {
   Company,
   SaleDetails,
   Customer,
-  Objective
+  Objective,
+  FinanceEntry,
+  FinanceEntryType
 } from '../types/models';
 import { useState, useEffect } from 'react';
 import { Timestamp } from 'firebase/firestore';
@@ -938,4 +942,97 @@ export const deleteObjective = async (objectiveId: string, userId: string): Prom
     userId
   );
   await batch.commit();
+};
+
+// --- Finance Entries ---
+
+export const createFinanceEntry = async (entry: Omit<FinanceEntry, 'id' | 'createdAt' | 'updatedAt'>): Promise<FinanceEntry> => {
+  const ref = doc(collection(db, 'finances'));
+  const now = serverTimestamp();
+  const data = { ...entry, createdAt: now, updatedAt: now };
+  await setDoc(ref, data);
+  const snap = await getDoc(ref);
+  return { id: ref.id, ...snap.data() } as FinanceEntry;
+};
+
+export const updateFinanceEntry = async (id: string, data: Partial<FinanceEntry>): Promise<void> => {
+  const ref = doc(db, 'finances', id);
+  await updateDoc(ref, { ...data, updatedAt: serverTimestamp() });
+};
+
+export const softDeleteFinanceEntry = async (id: string): Promise<void> => {
+  await updateFinanceEntry(id, { isDeleted: true });
+};
+
+// --- Sync with Sales/Expenses ---
+
+export const syncFinanceEntryWithSale = async (sale: Sale) => {
+  // Find existing finance entry for this sale
+  const q = query(collection(db, 'finances'), where('sourceType', '==', 'sale'), where('sourceId', '==', sale.id));
+  const snap = await getDocs(q);
+  const entry: Omit<FinanceEntry, 'id' | 'createdAt' | 'updatedAt'> = {
+    userId: sale.userId,
+    sourceType: 'sale',
+    sourceId: sale.id,
+    type: 'sale',
+    amount: sale.totalAmount,
+    description: `Sale to ${sale.customerInfo.name}`,
+    date: sale.createdAt,
+    isDeleted: sale.isAvailable === false,
+  };
+  if (snap.empty) {
+    await createFinanceEntry(entry);
+  } else {
+    const docId = snap.docs[0].id;
+    await updateFinanceEntry(docId, entry);
+  }
+};
+
+export const syncFinanceEntryWithExpense = async (expense: Expense) => {
+  const q = query(collection(db, 'finances'), where('sourceType', '==', 'expense'), where('sourceId', '==', expense.id));
+  const entry: Omit<FinanceEntry, 'id' | 'createdAt' | 'updatedAt'> = {
+    userId: expense.userId,
+    sourceType: 'expense',
+    sourceId: expense.id,
+    type: 'expense',
+    amount: -Math.abs(expense.amount),
+    description: expense.description,
+    date: expense.createdAt,
+    isDeleted: expense.isAvailable === false,
+  };
+  const snap = await getDocs(q);
+  if (snap.empty) {
+    await createFinanceEntry(entry);
+  } else {
+    const docId = snap.docs[0].id;
+    await updateFinanceEntry(docId, entry);
+  }
+};
+
+// --- Finance Entry Types ---
+
+export const createFinanceEntryType = async (type: Omit<FinanceEntryType, 'id' | 'createdAt'>): Promise<FinanceEntryType> => {
+  const ref = doc(collection(db, 'financeEntryTypes'));
+  const now = serverTimestamp();
+  const data = { ...type, createdAt: now };
+  await setDoc(ref, data);
+  const snap = await getDoc(ref);
+  return { id: ref.id, ...snap.data() } as FinanceEntryType;
+};
+
+export const getFinanceEntryTypes = async (userId: string): Promise<FinanceEntryType[]> => {
+  // Firestore JS SDK does not support 'or' queries directly; fetch both and merge
+  const defaultSnap = await getDocs(query(collection(db, 'financeEntryTypes'), where('isDefault', '==', true)));
+  const userSnap = await getDocs(query(collection(db, 'financeEntryTypes'), where('userId', '==', userId)));
+  const allDocs = [...defaultSnap.docs, ...userSnap.docs];
+  // Remove duplicates by id
+  const seen = new Set();
+  const types: FinanceEntryType[] = [];
+  for (const doc of allDocs) {
+    if (!seen.has(doc.id)) {
+      seen.add(doc.id);
+      types.push({ id: doc.id, ...doc.data() } as FinanceEntryType);
+    }
+  }
+  return types;
 };

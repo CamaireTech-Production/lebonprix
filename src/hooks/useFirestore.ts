@@ -13,7 +13,9 @@ import {
   updateExpense,
   subscribeToDashboardStats,
   updateSaleDocument,
-  subscribeToCustomers
+  subscribeToCustomers,
+  syncFinanceEntryWithSale,
+  syncFinanceEntryWithExpense
 } from '../services/firestore';
 import type {
   Product,
@@ -23,7 +25,8 @@ import type {
   DashboardStats,
   OrderStatus,
   PaymentStatus,
-  Customer
+  Customer,
+  FinanceEntry
 } from '../types/models';
 import { Timestamp } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
@@ -159,6 +162,7 @@ export const useSales = () => {
     if (!user) throw new Error('User not authenticated');
     try {
       const newSale = await createSale({ ...data, userId: user.uid }, user.uid);
+      await syncFinanceEntryWithSale(newSale);
       return newSale;
     } catch (err) {
       setError(err as Error);
@@ -192,6 +196,7 @@ export const useSales = () => {
 
       // Update in Firestore
       await updateSaleDocument(saleId, updatedSale, user.uid);
+      await syncFinanceEntryWithSale(updatedSale);
 
       // Update local state
       updateLocalSale(updatedSale);
@@ -225,13 +230,16 @@ export const useSales = () => {
     try {
       const saleRef = doc(db, 'sales', saleId);
       await deleteDoc(saleRef);
-      
+      // Sync finance entry (mark as deleted)
+      const saleDoc = await getDoc(saleRef);
+      if (saleDoc.exists()) {
+        const saleData = saleDoc.data() as Sale;
+        await syncFinanceEntryWithSale({ ...saleData, isAvailable: false });
+      }
       // Update local state by removing the deleted sale
       setSales(prevSales => prevSales?.filter(sale => sale.id !== saleId) || []);
-      
       // Refresh sales data to update dashboard
       await fetchSales();
-      
       return true;
     } catch (error) {
       console.error('Error deleting sale:', error);
@@ -284,7 +292,8 @@ export const useExpenses = () => {
   const addExpense = async (data: Omit<Expense, 'id' | 'createdAt' | 'updatedAt'>) => {
     if (!user) throw new Error('User not authenticated');
     try {
-      await createExpense({ ...data, userId: user.uid }, user.uid);
+      const newExpense = await createExpense({ ...data, userId: user.uid }, user.uid);
+      await syncFinanceEntryWithExpense(newExpense);
     } catch (err) {
       setError(err as Error);
       throw err;
@@ -295,6 +304,12 @@ export const useExpenses = () => {
     if (!user) throw new Error('User not authenticated');
     try {
       await updateExpense(id, { ...data, userId: user.uid }, user.uid);
+      // Fetch updated expense and sync
+      const expenseRef = doc(db, 'expenses', id);
+      const expenseDoc = await getDoc(expenseRef);
+      if (expenseDoc.exists()) {
+        await syncFinanceEntryWithExpense(expenseDoc.data() as Expense);
+      }
     } catch (err) {
       setError(err as Error);
       throw err;
@@ -381,5 +396,28 @@ export const useCustomers = () => {
   }, [user]);
 
   return { customers, loading, error };
+};
+
+export const useFinanceEntries = () => {
+  const { user } = useAuth();
+  const [entries, setEntries] = useState<FinanceEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user) return;
+    const q = query(
+      collection(db, 'finances'),
+      where('userId', '==', user.uid),
+      where('isDeleted', '==', false),
+      orderBy('createdAt', 'desc')
+    );
+    const unsub = onSnapshot(q, snap => {
+      setEntries(snap.docs.map(d => ({ id: d.id, ...d.data() } as FinanceEntry)));
+      setLoading(false);
+    });
+    return () => unsub();
+  }, [user]);
+
+  return { entries, loading };
 };
 

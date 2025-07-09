@@ -115,4 +115,26 @@ export interface StockChange {
   userId: string;
 }
 
+export interface FinanceEntry {
+  id: string;
+  userId: string;
+  sourceType: 'sale' | 'expense' | 'manual';
+  sourceId?: string; // saleId or expenseId if applicable
+  type: string; // e.g., "sale", "expense", "loan", "deposit", etc.
+  amount: number;
+  description?: string;
+  date: Timestamp;
+  isDeleted: boolean;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+export interface FinanceEntryType {
+  id: string;
+  name: string;
+  userId?: string; // undefined for default/global types
+  isDefault: boolean;
+  createdAt: Timestamp;
+}
+
 // Rest of the existing interfaces...

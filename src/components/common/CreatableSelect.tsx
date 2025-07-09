@@ -14,19 +14,23 @@ interface CreatableSelectProps {
   onChange: (newValue: Option | null) => void;
   placeholder?: string;
   className?: string;
+  options?: Option[];
+  onCreate?: (name: string) => Promise<Option | void>;
 }
 
 const CreatableSelect = ({
   value,
   onChange,
-  placeholder = "Select or create a category...",
-  className = ""
+  placeholder = "Select or create an option...",
+  className = "",
+  options: customOptions,
+  onCreate
 }: CreatableSelectProps) => {
   const { categories, addCategory } = useCategories();
   const [inputValue, setInputValue] = useState("");
   const [isCreating, setIsCreating] = useState(false);
 
-  const options = categories.map(cat => ({
+  const options = customOptions || categories.map(cat => ({
     label: cat.name,
     value: cat.id
   }));
@@ -37,23 +41,30 @@ const CreatableSelect = ({
 
   const handleCreateOption = async (inputValue: string) => {
     if (!inputValue.trim()) {
-      showErrorToast('Category name cannot be empty');
+      showErrorToast('Name cannot be empty');
       return;
     }
-
+    setIsCreating(true);
     try {
-      setIsCreating(true);
-      const newCategory = await addCategory(inputValue.trim());
-      if (newCategory) {
-        const newOption = {
-          label: newCategory.name,
-          value: newCategory.id
-        };
-        onChange(newOption);
-        showSuccessToast('Category created successfully');
+      if (onCreate) {
+        const newOption = await onCreate(inputValue.trim());
+        if (newOption) {
+          onChange(newOption);
+          showSuccessToast('Created successfully');
+        }
+      } else {
+        const newCategory = await addCategory(inputValue.trim());
+        if (newCategory) {
+          const newOption = {
+            label: newCategory.name,
+            value: newCategory.id
+          };
+          onChange(newOption);
+          showSuccessToast('Category created successfully');
+        }
       }
     } catch (error: any) {
-      showErrorToast(error.message || 'Failed to create category');
+      showErrorToast(error.message || 'Failed to create');
     } finally {
       setIsCreating(false);
     }

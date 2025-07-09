@@ -19,6 +19,7 @@ import Button from './Button';
 import Modal from './Modal';
 
 type Period =
+  | 'all_time'
   | 'today'
   | 'yesterday'
   | 'this_week'
@@ -38,13 +39,13 @@ interface DateRangePickerProps {
 
 const DateRangePicker = ({ onChange, className }: DateRangePickerProps) => {
   const { t } = useTranslation();
-  const [period, setPeriod] = useState<Period>('this_month');
+  const [period, setPeriod] = useState<Period>('all_time');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [pendingRange, setPendingRange] = useState<{ from: Date; to: Date } | null>(null);
 
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>({
-    from: startOfMonth(new Date()),
-    to: endOfMonth(new Date()),
+    from: new Date(2000, 0, 1),
+    to: new Date(2100, 0, 1),
   });
 
   const endOfDay = (date: Date) => {
@@ -65,6 +66,10 @@ const DateRangePicker = ({ onChange, className }: DateRangePickerProps) => {
     let from: Date, to: Date;
 
     switch (newPeriod) {
+      case 'all_time':
+        from = new Date(2000, 0, 1);
+        to = new Date(2100, 0, 1);
+        break;
       case 'today':
         from = startOfDay(now);
         to = endOfDay(now);
@@ -137,6 +142,16 @@ const DateRangePicker = ({ onChange, className }: DateRangePickerProps) => {
   // Show the selected range as a styled pill
   const renderRangeLabel = () => {
     if (!dateRange.from || !dateRange.to) return null;
+    if (period === 'all_time') {
+      return (
+        <span
+          className="inline-flex items-center gap-1 px-3 py-1 rounded-md bg-gray-100 border border-gray-200 text-gray-700 text-sm font-medium"
+        >
+          <CalendarIcon className="h-4 w-4 mr-1 text-emerald-500" />
+          {t('dateRanges.allTime', 'All time')}
+        </span>
+      );
+    }
     return (
       <span
         className="inline-flex items-center gap-1 px-3 py-1 rounded-md bg-gray-100 border border-gray-200 text-gray-700 text-sm font-medium cursor-pointer hover:bg-gray-200 transition"
@@ -152,6 +167,7 @@ const DateRangePicker = ({ onChange, className }: DateRangePickerProps) => {
   };
 
   const periodOptions = [
+    { value: 'all_time', label: t('dateRanges.allTime', 'All time') },
     { value: 'today', label: t('dateRanges.today') },
     { value: 'yesterday', label: t('dateRanges.yesterday') },
     { value: 'last_week', label: t('dateRanges.lastWeek') },

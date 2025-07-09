@@ -10,7 +10,9 @@
     "edit": "Modifier",
     "search": "Rechercher",
     "noResults": "Aucun résultat trouvé",
-    "required": "Champ obligatoire"
+    "required": "Champ obligatoire",
+    "source": "Source",
+    "actions": "Actions"
   },
   "auth": {
     "login": "Connexion",
@@ -34,7 +36,9 @@
     "profile": "Profil",
     "logout": "Déconnexion",
     "menu": "Menu",
-    "close": "Fermer"
+    "close": "Fermer",
+    "reports": "Rapports",
+    "finance": "Finance"
   },
   "header": {
     "welcome": "Bienvenue",
@@ -63,7 +67,11 @@
       },
       "totalCostPrice": "Prix d'achat total",
       "totalPurchasePrice": "Prix d'achat total",
-      "totalProductsSold": "Nombre total de produits vendus"
+      "totalProductsSold": "Nombre total de produits vendus",
+      "solde": "Solde",
+      "profit": "Profit",
+      "expenses": "Dépenses",
+      "productsSold": "Produits vendus"
     },
     "tooltips": {
       "grossProfit": "Revenu total moins le coût des marchandises vendues",
@@ -613,5 +621,11 @@
       "purchase": "Frais d'achat",
       "other": "Autres frais"
     }
+  },
+  "finance": {
+    "historyTitle": "Historique des entrées financières",
+    "addEntry": "Ajouter une entrée financière",
+    "noEntries": "Aucune entrée financière pour les filtres sélectionnés.",
+    "deleteConfirm": "Voulez-vous vraiment supprimer cette entrée financière ?"
   }
 } 

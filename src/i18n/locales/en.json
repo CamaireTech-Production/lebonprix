@@ -10,7 +10,9 @@
     "edit": "Edit",
     "search": "Search",
     "noResults": "No results found",
-    "required": "Required field"
+    "required": "Required field",
+    "source": "Source",
+    "actions": "Actions"
   },
   "auth": {
     "login": "Login",
@@ -35,7 +37,8 @@
     "profile": "Profile",
     "logout": "Logout",
     "menu": "Menu",
-    "close": "Close"
+    "close": "Close",
+    "finance": "Finance"
   },
   "header": {
     "welcome": "Welcome",
@@ -64,7 +67,11 @@
       },
       "totalPurchasePrice": "Total Purchase Price",
       "deliveryFee": "Delivery Fee",
-      "totalProductsSold": "Total Products Sold"
+      "totalProductsSold": "Total Products Sold",
+      "solde": "Balance",
+      "profit": "Profit",
+      "expenses": "Expenses",
+      "productsSold": "Products Sold"
     },
     "tooltips": {
       "grossProfit": "Total revenue minus cost of goods sold",
@@ -731,5 +738,11 @@
   "languages": {
     "en": "English",
     "fr": "French"
+  },
+  "finance": {
+    "historyTitle": "Finance Entry History",
+    "addEntry": "Add Finance Entry",
+    "noEntries": "No finance entries for the selected filters.",
+    "deleteConfirm": "Are you sure you want to delete this finance entry?"
   }
 } 

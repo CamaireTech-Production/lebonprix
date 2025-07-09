@@ -4,7 +4,7 @@ import SalesChart from '../components/dashboard/SalesChart';
 import ActivityList from '../components/dashboard/ActivityList';
 import Table from '../components/common/Table';
 import Card from '../components/common/Card';
-import { useSales, useExpenses, useProducts, useStockChanges } from '../hooks/useFirestore';
+import { useSales, useExpenses, useProducts, useStockChanges, useFinanceEntries } from '../hooks/useFirestore';
 import LoadingScreen from '../components/common/LoadingScreen';
 import { useState } from 'react';
 import Modal from '../components/common/Modal';
@@ -24,13 +24,14 @@ const Dashboard = () => {
   const { expenses, loading: expensesLoading } = useExpenses();
   const { products, loading: productsLoading } = useProducts();
   const { stockChanges, loading: stockChangesLoading } = useStockChanges();
+  const { entries: financeEntries, loading: financeLoading } = useFinanceEntries();
   const [showCalculationsModal, setShowCalculationsModal] = useState(false);
   const { company } = useAuth();
   const [] = useState<Partial<DashboardStats>>({});
   const [copied, setCopied] = useState(false);
   const [dateRange, setDateRange] = useState({
-    from: startOfMonth(new Date()),
-    to: endOfMonth(new Date()),
+    from: new Date(2000, 0, 1),
+    to: new Date(2100, 0, 1),
   });
   const [showObjectivesModal, setShowObjectivesModal] = useState(false);
   const [applyDateFilter, setApplyDateFilter] = useState(true);
@@ -216,7 +217,7 @@ const Dashboard = () => {
     }
   };
 
-  if (salesLoading || expensesLoading || productsLoading || stockChangesLoading) {
+  if (salesLoading || expensesLoading || productsLoading || stockChangesLoading || financeLoading) {
     return <LoadingScreen />;
   }
 
@@ -257,6 +258,18 @@ const Dashboard = () => {
     totalSalesAmount,
     totalSalesCount: totalOrders,
   };
+
+  // Calculate balance (solde) from all active finance entries (not soft deleted)
+  const activeFinanceEntries = financeEntries?.filter(entry => !entry.isDeleted) || [];
+  const solde = activeFinanceEntries.reduce((sum, entry) => sum + entry.amount, 0);
+
+  // Stat cards (show only solde, profit, depense, produit vendu)
+  const statCards: { title: string; value: string | number; icon: JSX.Element; type: 'products' | 'sales' | 'expenses' | 'profit' | 'orders' | 'delivery' | 'solde'; }[] = [
+    { title: t('dashboard.stats.solde'), value: `${solde.toLocaleString()} XAF`, icon: <DollarSign size={20} />, type: 'solde' },
+    { title: t('dashboard.stats.profit'), value: `${netProfit.toLocaleString()} XAF`, icon: <TrendingUp size={20} />, type: 'profit' },
+    { title: t('dashboard.stats.expenses'), value: `${totalExpenses.toLocaleString()} XAF`, icon: <Receipt size={20} />, type: 'expenses' },
+    { title: t('dashboard.stats.productsSold'), value: totalProductsSold, icon: <Package2 size={20} />, type: 'products' },
+  ];
 
   return (
     <div className="pb-16 md:pb-0">
@@ -331,16 +344,12 @@ const Dashboard = () => {
           >
             {t('dashboard.howCalculated')}
           </Button>
-          {/* <Button
-            icon={<Plus size={16} />}
-            onClick={() => window.location.href = '/sales/new'}
-          >
-            {t('dashboard.makeSale')}
-          </Button> */}
         </div>
       </div>
-      <div className="mb-6">
-        <DateRangePicker onChange={setDateRange} />
+      <div className="mb-6 flex">
+        <div className="max-w-md w-full">
+          <DateRangePicker onChange={setDateRange} className="w-full" />
+        </div>
       </div>
       {/* Objectives global bar */}
       <ObjectivesBar
@@ -369,62 +378,15 @@ const Dashboard = () => {
       )}
       {/* Stats section */}
       <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard 
-          title={t('dashboard.stats.grossProfit')}
-          value={`${grossProfit.toLocaleString()} XAF`}
-          icon={<BarChart2 size={20} />}
-          tooltipKey="grossProfit"
-          type="profit"
-        />
-        <StatCard 
-          title={t('dashboard.stats.netProfit')}
-          value={`${netProfit.toLocaleString()} XAF`}
-          icon={<TrendingUp size={20} />}
-          tooltipKey="netProfit"
-          type="profit"
-        />
-        <StatCard 
-          title={t('dashboard.stats.totalExpenses')}
-          value={`${totalExpenses.toLocaleString()} XAF`}
-          icon={<Receipt size={20} />}
-          tooltipKey="totalExpenses"
-          type="expenses"
-        />
-        <StatCard 
-          title={t('dashboard.stats.totalProductsSold')}
-          value={totalProductsSold}
-          icon={<Package2 size={20} />}
-          tooltipKey="totalProductsSold"
-          type="products"
-        />
-        <StatCard 
-          title={t('dashboard.stats.deliveryFee')}
-          value={`${totalDeliveryFee.toLocaleString()} XAF`}
-          icon={<DollarSign size={20} />}
-          tooltipKey="deliveryFee"
-          type="delivery"
-        />
-        <StatCard 
-          title={t('dashboard.stats.totalSalesAmount')}
-          value={`${totalSalesAmount.toLocaleString()} XAF`}
-          icon={<ShoppingCart size={20} />}
-          tooltipKey="totalSalesAmount"
-          type="sales"
-        />
-        <StatCard 
-          title={t('dashboard.stats.totalSalesCount')}
-          value={totalOrders}
-          icon={<ShoppingCart size={20} />}
-          tooltipKey="totalSalesCount"
-          type="sales"
-        />
-        <StatCard 
-          title={t('dashboard.stats.totalPurchasePrice')}
-          value={`${totalPurchasePrice.toLocaleString()} XAF`}
-          icon={<DollarSign size={20} />}
-          tooltipKey="totalPurchasePrice"
-          type="products"
-        />
+        {statCards.map((card, index) => (
+          <StatCard
+            key={index}
+            title={card.title}
+            value={card.value}
+            icon={card.icon}
+            type={card.type}
+          />
+        ))}
       </div>
       {/* Chart section */}
       <div className="mb-6">

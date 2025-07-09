@@ -8,6 +8,7 @@ import LoadingScreen from './components/common/LoadingScreen';
 import { Toaster } from 'react-hot-toast';
 import { FloatingActionButton } from './components/common/Button';
 import AddSaleModal from './components/sales/AddSaleModal';
+import Finance from './pages/Finance';
 
 // Lazy load pages
 const Login = lazy(() => import('./pages/auth/Login'));
@@ -47,6 +48,7 @@ function App() {
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/sales" element={<Sales />} />
                 <Route path="/expenses" element={<Expenses />} />
+                <Route path="/finance" element={<Finance />} />
                 <Route path="/products" element={<Products />} />
                 <Route path="/reports" element={<Reports />} />
                 <Route path="/settings" element={<Settings />} />

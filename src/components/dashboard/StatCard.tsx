@@ -13,7 +13,7 @@ interface StatCardProps {
     isPositive: boolean;
   };
   tooltipKey?: string;
-  type: 'sales' | 'expenses' | 'profit' | 'products' | 'orders' | 'delivery';
+  type: 'sales' | 'expenses' | 'profit' | 'products' | 'orders' | 'delivery' | 'solde';
   className?: string;
 }
 
