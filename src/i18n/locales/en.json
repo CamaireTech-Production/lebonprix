@@ -19,7 +19,13 @@
     "amount": "Amount",
     "allTypes": "All types",
     "allSources": "All sources",
-    "itemsPerPage": "Items per page"
+    "itemsPerPage": "Items per page",
+    "ascArrow": "▲",
+    "descArrow": "▼",
+    "first": "First",
+    "prev": "Prev",
+    "next": "Next",
+    "last": "Last"
   },
   "auth": {
     "login": "Login",
@@ -211,7 +217,8 @@
         "commande": "Order",
         "under_delivery": "Under Delivery",
         "paid": "Paid"
-      }
+      },
+      "search": "Search by name or phone..."
     },
     "actions": {
       "addSale": "Add Sale",
@@ -226,6 +233,8 @@
       "deleteSale": "Delete Sale"
     },
     "table": {
+      "rowsPerPage": "Rows per page:",
+      "showing": "Showing {{from}}-{{to}} of {{total}}",
       "columns": {
         "name": "Customer Name",
         "phone": "Phone Number",
@@ -233,7 +242,8 @@
         "amount": "Amount",
         "status": "Status",
         "actions": "Actions",
-        "reference": "Reference"
+        "reference": "Reference",
+        "date": "Date"
       },
       "productCount": "{{count}} products",
       "emptyMessage": "No sales found.",
@@ -682,12 +692,29 @@
       "edit": {
         "title": "Edit Expense",
         "confirm": "Save Changes"
+      },
+      "delete": {
+        "title": "Delete Expense",
+        "confirm": "Delete"
       }
     },
     "form": {
       "description": "Description",
       "amount": "Amount",
       "category": "Category"
+    },
+    "modals": {
+      "delete": {
+        "title": "Delete Expense",
+        "confirm": "Delete"
+      }
+    },
+    "messages": {
+      "deleteConfirmation": "Are you sure you want to delete this expense?",
+      "deleteWarning": "This action cannot be undone."
+    },
+    "actions": {
+      "delete": "Delete"
     }
   },
   "settings": {
@@ -757,6 +784,20 @@
       "manual": "Manual",
       "sale": "Sale",
       "expense": "Expense"
+    },
+    "messages": {
+      "addSuccess": "Finance entry added successfully.",
+      "updateSuccess": "Finance entry updated successfully.",
+      "deleteSuccess": "Finance entry deleted successfully.",
+      "operationError": "An error occurred. Please try again."
+    }
+  },
+  "objectives": {
+    "messages": {
+      "addSuccess": "Objective added successfully.",
+      "updateSuccess": "Objective updated successfully.",
+      "deleteSuccess": "Objective deleted successfully.",
+      "operationError": "An error occurred. Please try again."
     }
   }
 } 

@@ -4,7 +4,7 @@
 
 .custom-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: #10b981 #f3f4f6;
+  scrollbar-color: #b0b0b0 #f3f4f6;
 }
 /* Horizontal scrollbar */
 .custom-scrollbar::-webkit-scrollbar {
@@ -18,10 +18,9 @@
   max-width: 3px !important;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #10b981;
+  background: #b0b0b0;
   border-radius: 4px;
 }
 .custom-scrollbar::-webkit-scrollbar-track {
   background: #f3f4f6;
-  border-radius: 4px;
 }

@@ -37,9 +37,10 @@ function App() {
 function AppWithFAB({ isAddSaleModalOpen, setIsAddSaleModalOpen }: { isAddSaleModalOpen: boolean, setIsAddSaleModalOpen: (open: boolean) => void }) {
   const location = useLocation();
   const isAuthPage = location.pathname.startsWith('/auth/login') || location.pathname.startsWith('/auth/register');
+  const isCompanyProductsPage = /^\/company\/[^/]+\/products$/.test(location.pathname);
   return (
     <>
-      {!isAuthPage && (
+      {!isAuthPage && !isCompanyProductsPage && (
         <FloatingActionButton onClick={() => setIsAddSaleModalOpen(true)} label="Add Sale" />
       )}
       <AddSaleModal isOpen={isAddSaleModalOpen} onClose={() => setIsAddSaleModalOpen(false)} />

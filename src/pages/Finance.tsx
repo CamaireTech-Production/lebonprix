@@ -14,6 +14,7 @@ import DateRangePicker from '../components/common/DateRangePicker';
 import { useTranslation } from 'react-i18next';
 import ObjectivesBar from '../components/objectives/ObjectivesBar';
 import ObjectivesModal from '../components/objectives/ObjectivesModal';
+import { showSuccessToast, showErrorToast } from '../utils/toast';
 
 const Finance: React.FC = () => {
   const { t } = useTranslation();
@@ -138,11 +139,9 @@ const Finance: React.FC = () => {
   const totalProductsSold = filteredSales.reduce((sum, sale) => sum + sale.products.reduce((pSum, p) => pSum + p.quantity, 0), 0);
   // Calculate total purchase price for all products in stock as of the end of the selected period
   // (Optional: can use stock changes if needed, for now use Dashboard logic)
-  const totalPurchasePrice = products
-    .filter(product => !product.isDeleted)
-    .reduce((sum, product) => {
-      return sum + (product.costPrice * product.stock);
-    }, 0);
+  const availableProducts = products.filter(product => typeof product.isAvailable === 'undefined' || product.isAvailable !== false);
+  const totalPurchasePrice = availableProducts.reduce((sum, product) => sum + (product.costPrice * product.stock), 0);
+  console.log(availableProducts.length)
 
   // Stat cards (dashboard style, now using dashboard logic)
   const statCards = [
@@ -248,10 +247,14 @@ const Finance: React.FC = () => {
     try {
       if (form.isEdit && form.id) {
         await updateFinanceEntry(form.id, entryData);
+        showSuccessToast(t('finance.messages.updateSuccess'));
       } else {
         await createFinanceEntry(entryData);
+        showSuccessToast(t('finance.messages.addSuccess'));
       }
       handleCloseModal();
+    } catch (err) {
+      showErrorToast(t('finance.messages.operationError'));
     } finally {
       setModalLoading(false);
     }
@@ -263,7 +266,12 @@ const Finance: React.FC = () => {
 
   const handleDeleteConfirm = async () => {
     if (!deleteConfirm.entryId) return;
-    await softDeleteFinanceEntry(deleteConfirm.entryId);
+    try {
+      await softDeleteFinanceEntry(deleteConfirm.entryId);
+      showSuccessToast(t('finance.messages.deleteSuccess'));
+    } catch (err) {
+      showErrorToast(t('finance.messages.operationError'));
+    }
     setDeleteConfirm({ open: false, entryId: null });
   };
 
@@ -409,28 +417,28 @@ const Finance: React.FC = () => {
             <table className="min-w-[600px] w-full text-sm">
               <thead>
                 <tr className="text-left border-b">
-                  <th className="py-2 px-2 cursor-pointer select-none" onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}>
+                  <th className="py-3 px-2 cursor-pointer select-none" onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}>
                     {t('common.date')}
                     <span className="ml-1 align-middle inline-block">
                       {sortOrder === 'asc' ? <ChevronUp size={16} className="inline" /> : <ChevronDown size={16} className="inline" />}
                     </span>
                   </th>
-                  <th className="py-2 px-2">{t('common.type')}</th>
-                  <th className="py-2 px-2">{t('common.description')}</th>
-                  <th className="py-2 px-2">{t('common.amount')}</th>
-                  <th className="py-2 px-2">{t('common.source')}</th>
-                  <th className="py-2 px-2">{t('common.actions')}</th>
+                  <th className="py-3 px-2">{t('common.type')}</th>
+                  <th className="py-3 px-2">{t('common.description')}</th>
+                  <th className="py-3 px-2">{t('common.amount')}</th>
+                  <th className="py-3 px-2">{t('common.source')}</th>
+                  <th className="py-3 px-2">{t('common.actions')}</th>
                 </tr>
               </thead>
               <tbody>
                 {paginatedEntries.map(entry => (
                   <tr key={entry.id} className="border-b hover:bg-gray-50">
-                    <td className="py-2 px-2">{entry.createdAt?.seconds ? format(new Date(entry.createdAt.seconds * 1000), 'dd/MM/yyyy') : ''}</td>
-                    <td className="py-2 px-2 capitalize">{entry.type}</td>
-                    <td className="py-2 px-2">{entry.description || '-'}</td>
-                    <td className={`py-2 px-2 font-semibold ${entry.amount >= 0 ? 'text-green-600' : 'text-red-500'}`}>{entry.amount.toLocaleString()}</td>
-                    <td className="py-2 px-2 capitalize">{t(`finance.sourceType.${entry.sourceType}`)}</td>
-                    <td className="py-2 px-2 flex gap-2">
+                    <td className="py-3 px-2">{entry.createdAt?.seconds ? format(new Date(entry.createdAt.seconds * 1000), 'dd/MM/yyyy') : ''}</td>
+                    <td className="py-3 px-2 capitalize">{entry.type}</td>
+                    <td className="py-3 px-2">{entry.description || '-'}</td>
+                    <td className={`py-3 px-2 font-semibold ${entry.amount >= 0 ? 'text-green-600' : 'text-red-500'}`}>{entry.amount.toLocaleString()}</td>
+                    <td className="py-3 px-2 capitalize">{t(`finance.sourceType.${entry.sourceType}`)}</td>
+                    <td className="py-3 px-2 flex gap-2">
                       {entry.sourceType === 'manual' ? (
                         <>
                           <button

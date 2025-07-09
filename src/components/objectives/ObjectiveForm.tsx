@@ -8,6 +8,7 @@ import DateRangePicker from '../common/DateRangePicker';
 import { useTranslation } from 'react-i18next';
 import { Objective } from '../../types/models';
 import { useObjectives } from '../../hooks/useObjectives';
+import { showSuccessToast, showErrorToast } from '../../utils/toast';
 
 interface ObjectiveFormProps {
   isOpen: boolean;
@@ -53,10 +54,16 @@ const ObjectiveForm: React.FC<ObjectiveFormProps> = ({ isOpen, onClose, objectiv
       payload.endAt = formData.customRange.to;
     }
     try {
-      if (objective) await updateObjective(objective.id!, payload);
-      else await addObjective(payload);
+      if (objective) {
+        await updateObjective(objective.id!, payload);
+        showSuccessToast(t('objectives.messages.updateSuccess'));
+      } else {
+        await addObjective(payload);
+        showSuccessToast(t('objectives.messages.addSuccess'));
+      }
       onClose();
     } catch (err) {
+      showErrorToast(t('objectives.messages.operationError'));
       console.error(err);
     }
   };

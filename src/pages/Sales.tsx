@@ -19,6 +19,7 @@ import { deleteSale as deleteSaleFromFirestore, addCustomer } from '../services/
 import { createPortal } from 'react-dom';
 import AddSaleModal from '../components/sales/AddSaleModal';
 import SaleDetailsModal from '../components/sales/SaleDetailsModal';
+import { format } from 'date-fns';
 
 interface FormProduct {
   product: Product | null;
@@ -58,6 +59,13 @@ const Sales = () => {
   const [customerSearch, setCustomerSearch] = useState('');
   const [expandedSaleId, setExpandedSaleId] = useState<string | null>(null);
   
+  // Pagination and sorting state
+  const [page, setPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [sortBy, setSortBy] = useState<'date' | 'amount' | null>(null);
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+  const [search, setSearch] = useState('');
+
   // Form state used for editing an existing sale (Add sale now handled by AddSaleModal)
   const [formData, setFormData] = useState({
     customerName: '',
@@ -295,9 +303,30 @@ const Sales = () => {
     setIsViewModalOpen(true);
   };
 
-  const filteredSales = filterStatus
-    ? sales?.filter(sale => sale.status === filterStatus)
-    : sales;
+  // Filter and sort sales
+  let filteredSales = sales || [];
+  if (search.trim()) {
+    const s = search.trim().toLowerCase();
+    filteredSales = filteredSales.filter(sale =>
+      sale.customerInfo.name.toLowerCase().includes(s) ||
+      sale.customerInfo.phone.toLowerCase().includes(s)
+    );
+  }
+  if (sortBy === 'date') {
+    filteredSales = filteredSales.slice().sort((a, b) => {
+      const aTime = a.createdAt.seconds || 0;
+      const bTime = b.createdAt.seconds || 0;
+      return sortDir === 'asc' ? aTime - bTime : bTime - aTime;
+    });
+  } else if (sortBy === 'amount') {
+    filteredSales = filteredSales.slice().sort((a, b) => {
+      return sortDir === 'asc' ? a.totalAmount - b.totalAmount : b.totalAmount - a.totalAmount;
+    });
+  }
+  // Pagination
+  const totalRows = filteredSales.length;
+  const totalPages = Math.max(1, Math.ceil(totalRows / rowsPerPage));
+  const pagedSales = filteredSales.slice((page - 1) * rowsPerPage, page * rowsPerPage);
 
   const handleFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setFilterStatus(e.target.value || null);
@@ -504,6 +533,9 @@ const Sales = () => {
             {sale.totalAmount.toLocaleString()} XAF
           </td>
           <td className="px-6 py-4 whitespace-nowrap text-sm">
+            {format(new Date((sale.createdAt.seconds || 0) * 1000), 'yyyy-MM-dd HH:mm')}
+          </td>
+          <td className="px-6 py-4 whitespace-nowrap text-sm">
             {(() => {
               let variant: 'success' | 'warning' | 'info' = 'warning';
               if (sale.status === 'paid') variant = 'success';
@@ -644,6 +676,16 @@ const Sales = () => {
     },
   ];
 
+  // Table header click handlers
+  const handleSort = (col: 'date' | 'amount' | null) => {
+    if (sortBy === col) {
+      setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(col);
+      setSortDir('desc');
+    }
+  };
+
   if (salesLoading || productsLoading) {
     return <LoadingScreen />;
   }
@@ -718,6 +760,28 @@ const Sales = () => {
 
   return (
     <div className="pb-16 md:pb-0">
+      {/* Search and controls */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4 gap-2">
+        <div className="flex-1">
+          <input
+            type="text"
+            className="block w-full px-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
+            placeholder={t('sales.filters.search') || 'Search by name or phone...'}
+            value={search}
+            onChange={e => { setSearch(e.target.value); setPage(1); }}
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-gray-600">{t('sales.table.rowsPerPage') || 'Rows per page:'}</span>
+          <select
+            className="rounded-md border border-gray-300 shadow-sm py-1 px-2 bg-white focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
+            value={rowsPerPage}
+            onChange={e => { setRowsPerPage(Number(e.target.value)); setPage(1); }}
+          >
+            {[10, 20, 50, 100].map(n => <option key={n} value={n}>{n}</option>)}
+          </select>
+        </div>
+      </div>
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
         <div>
           <h1 className="text-2xl font-semibold text-gray-900">{t('sales.title')}</h1>
@@ -745,29 +809,50 @@ const Sales = () => {
       </div>
 
       <Card>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto custom-scrollbar">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
                 <th className="w-8"></th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('sales.table.columns.name')}</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort(null)}>{t('sales.table.columns.name')}</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('sales.table.columns.phone')}</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('sales.table.columns.products')}</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('sales.table.columns.amount')}</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('amount')}>
+                  {t('sales.table.columns.amount')}
+                  {sortBy === 'amount' && (sortDir === 'asc' ? ` ${t('common.ascArrow', { defaultValue: '▲' })}` : ` ${t('common.descArrow', { defaultValue: '▼' })}`)}
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('date')}>
+                  {t('sales.table.columns.date') || t('common.date') || 'Date'}
+                  {sortBy === 'date' && (sortDir === 'asc' ? ` ${t('common.ascArrow', { defaultValue: '▲' })}` : ` ${t('common.descArrow', { defaultValue: '▼' })}`)}
+                </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('sales.table.columns.status')}</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('sales.table.columns.actions')}</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredSales && filteredSales.length > 0 ? renderRows(filteredSales).flat() : (
+              {pagedSales && pagedSales.length > 0 ? renderRows(pagedSales).flat() : (
                 <tr>
-                  <td colSpan={8} className="px-6 py-4 text-center text-sm text-gray-500">
+                  <td colSpan={9} className="px-6 py-4 text-center text-sm text-gray-500">
                     {t('sales.table.emptyMessage')}
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
+        </div>
+        {/* Pagination controls */}
+        <div className="flex items-center justify-between mt-4 px-4">
+          <span className="text-sm text-gray-600">
+            {t('sales.table.showing', { from: (page - 1) * rowsPerPage + 1, to: Math.min(page * rowsPerPage, totalRows), total: totalRows }) ||
+              `Showing ${(page - 1) * rowsPerPage + 1}-${Math.min(page * rowsPerPage, totalRows)} of ${totalRows}`}
+          </span>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setPage(1)} disabled={page === 1}>{t('common.first') || 'First'}</Button>
+            <Button variant="outline" size="sm" onClick={() => setPage(page - 1)} disabled={page === 1}>{t('common.prev') || 'Prev'}</Button>
+            <span className="text-sm">{page} / {totalPages}</span>
+            <Button variant="outline" size="sm" onClick={() => setPage(page + 1)} disabled={page === totalPages}>{t('common.next') || 'Next'}</Button>
+            <Button variant="outline" size="sm" onClick={() => setPage(totalPages)} disabled={page === totalPages}>{t('common.last') || 'Last'}</Button>
+          </div>
         </div>
       </Card>
       

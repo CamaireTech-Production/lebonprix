@@ -23,7 +23,13 @@
     "page": "Page",
     "of": "sur",
     "prev": "Précédent",
-    "next": "Suivant"
+    "next": "Suivant",
+    "first": "Premier",
+    "last": "Dernier",
+    "showing": "Affichage de {{from}} à {{to}} sur {{total}}",
+    "rowsPerPage": "Lignes par page :",
+    "ascArrow": "▲",
+    "descArrow": "▼"
   },
   "auth": {
     "login": "Connexion",
@@ -216,7 +222,8 @@
         "commande": "Commande",
         "under_delivery": "En livraison",
         "paid": "Payé"
-      }
+      },
+      "search": "Recherche par nom ou téléphone..."
     },
     "actions": {
       "addSale": "Ajouter une vente",
@@ -231,6 +238,8 @@
       "deleteSale": "Supprimer la vente"
     },
     "table": {
+      "rowsPerPage": "Lignes par page :",
+      "showing": "Affichage de {{from}} à {{to}} sur {{total}}",
       "columns": {
         "name": "Nom du client",
         "phone": "Téléphone",
@@ -238,7 +247,8 @@
         "amount": "Montant",
         "status": "Statut",
         "actions": "Actions",
-        "reference": "Référence"
+        "reference": "Référence",
+        "date": "Date"
       },
       "productCount": "{{count}} produits",
       "emptyMessage": "Aucune vente trouvée.",
@@ -623,15 +633,18 @@
     "fr": "Français"
   },
   "expenses": {
-    "categories": {
-      "transportation": "Transport",
-      "purchase": "Achat",
-      "other": "Autre"
+    "modals": {
+      "delete": {
+        "title": "Supprimer la dépense",
+        "confirm": "Supprimer"
+      }
     },
-    "summary": {
-      "transportation": "Frais de transport",
-      "purchase": "Frais d'achat",
-      "other": "Autres frais"
+    "messages": {
+      "deleteConfirmation": "Êtes-vous sûr de vouloir supprimer cette dépense ?",
+      "deleteWarning": "Cette action est irréversible."
+    },
+    "actions": {
+      "delete": "Supprimer"
     }
   },
   "finance": {
@@ -644,6 +657,20 @@
       "manual": "Manuelle",
       "sale": "Vente",
       "expense": "Dépense"
+    },
+    "messages": {
+      "addSuccess": "Entrée financière ajoutée avec succès.",
+      "updateSuccess": "Entrée financière mise à jour avec succès.",
+      "deleteSuccess": "Entrée financière supprimée avec succès.",
+      "operationError": "Une erreur est survenue. Veuillez réessayer."
+    }
+  },
+  "objectives": {
+    "messages": {
+      "addSuccess": "Objectif ajouté avec succès.",
+      "updateSuccess": "Objectif mis à jour avec succès.",
+      "deleteSuccess": "Objectif supprimé avec succès.",
+      "operationError": "Une erreur est survenue. Veuillez réessayer."
     }
   }
 } 

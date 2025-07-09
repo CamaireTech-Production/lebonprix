@@ -6,6 +6,7 @@ import { Objective } from '../../types/models';
 import Button from '../common/Button';
 import ObjectiveForm from './ObjectiveForm';
 import { useTranslation } from 'react-i18next';
+import { showSuccessToast, showErrorToast } from '../../utils/toast';
 
 interface ObjectivesModalProps {
   isOpen: boolean;
@@ -112,8 +113,13 @@ const ObjectivesModal: React.FC<ObjectivesModalProps> = ({ isOpen, onClose, stat
   }, [objectives, stats, dateRange, applyDateFilter, sales, expenses, products]);
 
   const handleDelete = async (obj: Objective) => {
-    if (confirm(t('objectives.confirmDelete'))) {
-      await deleteObjective(obj.id!);
+    try {
+      if (confirm(t('objectives.confirmDelete'))) {
+        await deleteObjective(obj.id!);
+        showSuccessToast(t('objectives.messages.deleteSuccess'));
+      }
+    } catch (err) {
+      showErrorToast(t('objectives.messages.operationError'));
     }
   };
 
