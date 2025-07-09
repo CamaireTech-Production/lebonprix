@@ -436,26 +436,16 @@
     "purchasePrice": "Purchase Price"
   },
   "objectives": {
-    "add": "Add Objective",
-    "edit": "Edit Objective",
-    "view": "View Objectives",
-    "titleList": "Your Objectives",
+    "filterByRange": "Filter by date range",
+    "view": "View objectives",
+    "add": "Add objective",
     "overallProgress": "Overall progress: {{pct}}%",
-    "title": "Title",
-    "description": "Description",
-    "metric": "Metric",
-    "target": "Target Amount",
-    "progress": "Progress",
-    "periodType": "Period Type",
-    "predefined": "Predefined",
-    "custom": "Custom Range",
-    "confirmDelete": "Are you sure you want to delete this objective?",
-    "empty": "No objectives yet",
-    "filterByRange": "Use dashboard period",
-    "remainingDays_one": "Remaining {{count}} day",
-    "remainingDays_other": "Remaining {{count}} days",
-    "due": "Due",
-    "period": "Period"
+    "messages": {
+      "addSuccess": "Objective added successfully.",
+      "updateSuccess": "Objective updated successfully.",
+      "deleteSuccess": "Objective deleted successfully.",
+      "operationError": "An error occurred. Please try again."
+    }
   },
   "products": {
     "title": "Products",
@@ -789,14 +779,6 @@
       "addSuccess": "Finance entry added successfully.",
       "updateSuccess": "Finance entry updated successfully.",
       "deleteSuccess": "Finance entry deleted successfully.",
-      "operationError": "An error occurred. Please try again."
-    }
-  },
-  "objectives": {
-    "messages": {
-      "addSuccess": "Objective added successfully.",
-      "updateSuccess": "Objective updated successfully.",
-      "deleteSuccess": "Objective deleted successfully.",
       "operationError": "An error occurred. Please try again."
     }
   }

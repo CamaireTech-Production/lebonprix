@@ -553,27 +553,16 @@
     "cancelBulkSelection": "Annuler la sélection multiple"
   },
   "objectives": {
-    "add": "Ajouter un objectif",
-    "edit": "Modifier l'objectif",
+    "filterByRange": "Filtrer par période",
     "view": "Voir les objectifs",
-    "titleList": "Vos objectifs",
+    "add": "Ajouter un objectif",
     "overallProgress": "Progression globale : {{pct}}%",
-    "title": "Titre",
-    "description": "Description",
-    "metric": "Métrique",
-    "target": "Montant cible",
-    "progress": "Progression",
-    "period": "Période",
-    "noPeriod": "Aucune période définie",
-    "periodType": "Type de période",
-    "predefined": "Période prédéfinie",
-    "custom": "Plage personnalisée",
-    "confirmDelete": "Voulez-vous vraiment supprimer cet objectif ?",
-    "empty": "Aucun objectif pour le moment",
-    "filterByRange": "Utiliser la période du tableau de bord",
-    "remainingDays_one": "Il reste {{count}} jour",
-    "remainingDays_other": "Il reste {{count}} jours",
-    "due": "Échu"
+    "messages": {
+      "addSuccess": "Objectif ajouté avec succès.",
+      "updateSuccess": "Objectif mis à jour avec succès.",
+      "deleteSuccess": "Objectif supprimé avec succès.",
+      "operationError": "Une erreur est survenue. Veuillez réessayer."
+    }
   },
   "settings": {
     "title": "Paramètres",
@@ -662,14 +651,6 @@
       "addSuccess": "Entrée financière ajoutée avec succès.",
       "updateSuccess": "Entrée financière mise à jour avec succès.",
       "deleteSuccess": "Entrée financière supprimée avec succès.",
-      "operationError": "Une erreur est survenue. Veuillez réessayer."
-    }
-  },
-  "objectives": {
-    "messages": {
-      "addSuccess": "Objectif ajouté avec succès.",
-      "updateSuccess": "Objectif mis à jour avec succès.",
-      "deleteSuccess": "Objectif supprimé avec succès.",
       "operationError": "Une erreur est survenue. Veuillez réessayer."
     }
   }
