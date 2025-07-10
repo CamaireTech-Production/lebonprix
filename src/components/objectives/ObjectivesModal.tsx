@@ -103,14 +103,23 @@ const ObjectivesModal: React.FC<ObjectivesModalProps> = ({ isOpen, onClose, stat
     }
   };
 
+  const isAllTime = dateRange.from.getFullYear() === 2000 && dateRange.from.getMonth() === 0 && dateRange.from.getDate() === 1 && dateRange.to.getFullYear() === 2100 && dateRange.to.getMonth() === 0 && dateRange.to.getDate() === 1;
+
+  const filteredObjectives = useMemo(() => {
+    if (!applyDateFilter || (applyDateFilter && isAllTime)) {
+      return objectives;
+    } else {
+      return objectives.filter(isOverlapping);
+    }
+  }, [objectives, dateRange, applyDateFilter]);
+
   const objsWithProgress = useMemo(() => {
-    const list = applyDateFilter ? objectives.filter(isOverlapping) : objectives;
-    return list.map(o => {
-      let current = applyDateFilter ? (stats[o.metric] || 0) : getStatsForObjective(o);
+    return filteredObjectives.map(o => {
+      let current = getStatsForObjective(o);
       const pct = o.targetAmount ? Math.min(100, (current / o.targetAmount) * 100) : 0;
       return { ...o, progress: Math.round(pct) } as Objective & { progress: number };
     });
-  }, [objectives, stats, dateRange, applyDateFilter, sales, expenses, products]);
+  }, [filteredObjectives, sales, expenses, products]);
 
   const handleDelete = async (obj: Objective) => {
     try {

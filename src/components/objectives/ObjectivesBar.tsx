@@ -84,14 +84,23 @@ const ObjectivesBar: React.FC<ObjectivesBarProps> = ({ onAdd, onView, stats, dat
     }
   };
 
+  const isAllTime = dateRange.from.getFullYear() === 2000 && dateRange.from.getMonth() === 0 && dateRange.from.getDate() === 1 && dateRange.to.getFullYear() === 2100 && dateRange.to.getMonth() === 0 && dateRange.to.getDate() === 1;
+
+  const filteredObjectives = useMemo(() => {
+    if (!applyDateFilter || (applyDateFilter && isAllTime)) {
+      return objectives;
+    } else {
+      return objectives.filter(isOverlapping);
+    }
+  }, [objectives, dateRange, applyDateFilter]);
+
   const objectivesWithProgress = useMemo(() => {
-    let list = applyDateFilter ? objectives.filter(isOverlapping) : objectives;
-    return list.map(obj => {
-      let current = applyDateFilter ? (stats[obj.metric] || 0) : getStatsForObjective(obj);
+    return filteredObjectives.map(obj => {
+      let current = getStatsForObjective(obj);
       const pct = obj.targetAmount ? Math.min(100, (current / obj.targetAmount) * 100) : 0;
       return { ...obj, progress: Math.round(pct) };
     });
-  }, [objectives, stats, dateRange, applyDateFilter, sales, expenses, products]);
+  }, [filteredObjectives, sales, expenses, products]);
 
   const averageProgress = useMemo(() => {
     if (!objectivesWithProgress.length) return 0;
@@ -120,7 +129,7 @@ const ObjectivesBar: React.FC<ObjectivesBarProps> = ({ onAdd, onView, stats, dat
           {t('objectives.filterByRange')}
         </label>
         <Button variant="outline" icon={<List size={16} />} onClick={onView}>
-          {t('objectives.view')}
+          {t('objectives.view')} ({objectivesWithProgress.length})
         </Button>
         <Button icon={<Plus size={16} />} onClick={onAdd}>
           {t('objectives.add')}

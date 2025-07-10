@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import StatCard from '../components/dashboard/StatCard';
 import Button from '../components/common/Button';
 import { useFinanceEntries, useProducts, useSales, useExpenses } from '../hooks/useFirestore';
+import { useObjectives } from '../hooks/useObjectives';
 import { format } from 'date-fns';
 import Modal, { ModalFooter } from '../components/common/Modal';
 import CreatableSelect from '../components/common/CreatableSelect';
@@ -23,6 +24,7 @@ const Finance: React.FC = () => {
   const { expenses, loading: expensesLoading } = useExpenses();
   const { products, loading: productsLoading } = useProducts();
   const { user } = useAuth();
+  const { objectives } = useObjectives();
   const [modalOpen, setModalOpen] = useState(false);
   const [modalLoading, setModalLoading] = useState(false);
   const [entryTypes, setEntryTypes] = useState<{ label: string; value: string }[]>([]);
@@ -145,10 +147,8 @@ const Finance: React.FC = () => {
 
   // Stat cards (dashboard style, now using dashboard logic)
   const statCards = [
-    { title: t('dashboard.stats.grossProfit'), value: `${grossProfit.toLocaleString()} XAF`, icon: <BarChart2 size={20} />, tooltipKey: 'grossProfit', type: 'profit' },
-    { title: t('dashboard.stats.netProfit'), value: `${netProfit.toLocaleString()} XAF`, icon: <TrendingUp size={20} />, tooltipKey: 'netProfit', type: 'profit' },
+    { title: t('dashboard.stats.profit'), value: `${grossProfit.toLocaleString()} XAF`, icon: <BarChart2 size={20} />, tooltipKey: 'grossProfit', type: 'profit' },
     { title: t('dashboard.stats.totalExpenses'), value: `${totalExpenses.toLocaleString()} XAF`, icon: <Receipt size={20} />, tooltipKey: 'totalExpenses', type: 'expenses' },
-    { title: t('dashboard.stats.totalProductsSold'), value: totalProductsSold, icon: <Package2 size={20} />, tooltipKey: 'totalProductsSold', type: 'products' },
     { title: t('dashboard.stats.deliveryFee'), value: `${totalDeliveryFee.toLocaleString()} XAF`, icon: <DollarSign size={20} />, tooltipKey: 'deliveryFee', type: 'delivery' },
     { title: t('dashboard.stats.totalSalesAmount'), value: `${totalSalesAmount.toLocaleString()} XAF`, icon: <ShoppingCart size={20} />, tooltipKey: 'totalSalesAmount', type: 'sales' },
     { title: t('dashboard.stats.totalSalesCount'), value: totalOrders, icon: <ShoppingCart size={20} />, tooltipKey: 'totalSalesCount', type: 'sales' },
@@ -173,6 +173,65 @@ const Finance: React.FC = () => {
     deliveryFee: totalDeliveryFee,
     totalSalesAmount,
     totalSalesCount: totalOrders,
+  };
+
+  // Helper for objectives progress calculation (matches Dashboard logic)
+  const isAllTime = dateRange.from.getFullYear() === 2000 && dateRange.from.getMonth() === 0 && dateRange.from.getDate() === 1 && dateRange.to.getFullYear() === 2100 && dateRange.to.getMonth() === 0 && dateRange.to.getDate() === 1;
+  const isOverlapping = (obj: any) => {
+    if (obj.periodType === 'predefined') return true;
+    if (!obj.startAt || !obj.endAt) return true;
+    const start = obj.startAt.toDate ? obj.startAt.toDate() : new Date(obj.startAt);
+    const end = obj.endAt.toDate ? obj.endAt.toDate() : new Date(obj.endAt);
+    return start <= dateRange.to && end >= dateRange.from;
+  };
+  const getStatsForObjective = (obj: any) => {
+    let from, to;
+    if (obj.periodType === 'predefined') {
+      const now = new Date();
+      if (obj.predefined === 'this_year') {
+        from = new Date(now.getFullYear(), 0, 1);
+        to = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
+      } else {
+        from = new Date(now.getFullYear(), now.getMonth(), 1);
+        to = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+      }
+    } else {
+      from = obj.startAt?.toDate ? obj.startAt.toDate() : new Date(obj.startAt);
+      to = obj.endAt?.toDate ? obj.endAt.toDate() : new Date(obj.endAt);
+    }
+    const salesInPeriod = sales?.filter(sale => sale.createdAt?.seconds && new Date(sale.createdAt.seconds * 1000) >= from && new Date(sale.createdAt.seconds * 1000) <= to) || [];
+    const expensesInPeriod = expenses?.filter(exp => exp.createdAt?.seconds && new Date(exp.createdAt.seconds * 1000) >= from && new Date(exp.createdAt.seconds * 1000) <= to) || [];
+    switch (obj.metric) {
+      case 'grossProfit':
+        return salesInPeriod.reduce((sum, sale) => sum + sale.products.reduce((productSum, product) => {
+          const productData = products?.find(p => p.id === product.productId);
+          if (!productData) return productSum;
+          const sellingPrice = product.negotiatedPrice || product.basePrice;
+          return productSum + (sellingPrice - productData.costPrice) * product.quantity;
+        }, 0), 0);
+      case 'netProfit': {
+        const gross = salesInPeriod.reduce((sum, sale) => sum + sale.products.reduce((productSum, product) => {
+          const productData = products?.find(p => p.id === product.productId);
+          if (!productData) return productSum;
+          const sellingPrice = product.negotiatedPrice || product.basePrice;
+          return productSum + (sellingPrice - productData.costPrice) * product.quantity;
+        }, 0), 0);
+        const totalExp = expensesInPeriod.reduce((sum, exp) => sum + exp.amount, 0);
+        return gross - totalExp;
+      }
+      case 'totalExpenses':
+        return expensesInPeriod.reduce((sum, exp) => sum + exp.amount, 0);
+      case 'totalOrders':
+        return salesInPeriod.length;
+      case 'deliveryExpenses':
+        return expensesInPeriod.filter(e => e.category?.toLowerCase() === 'delivery').reduce((sum, e) => sum + e.amount, 0);
+      case 'totalSalesAmount':
+        return salesInPeriod.reduce((sum, sale) => sum + sale.totalAmount, 0);
+      case 'totalSalesCount':
+        return salesInPeriod.length;
+      default:
+        return 0;
+    }
   };
 
   // Map finance entries to sales/expenses for objectives logic
@@ -303,8 +362,8 @@ const Finance: React.FC = () => {
               dateRange={dateRange}
               applyDateFilter={applyDateFilter}
               onToggleFilter={setApplyDateFilter}
-              sales={filteredSales}
-              expenses={expensesForObjectives}
+              sales={sales}
+              expenses={expenses}
               products={products}
             />
             {showObjectivesModal && (
@@ -315,8 +374,8 @@ const Finance: React.FC = () => {
                 dateRange={dateRange}
                 metricsOptions={metricsOptions}
                 applyDateFilter={applyDateFilter}
-                sales={filteredSales}
-                expenses={expensesForObjectives}
+                sales={sales}
+                expenses={expenses}
                 products={products}
               />
             )}
@@ -561,19 +620,11 @@ const Finance: React.FC = () => {
       >
         <div className="space-y-6">
           <div className="bg-gray-50 p-4 rounded-lg">
-            <h3 className="text-lg font-medium text-gray-900 mb-2">{t('dashboard.calculations.grossProfit.title')}</h3>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">{t('dashboard.calculations.profit.title')}</h3>
             <p className="text-gray-600">
-              {t('dashboard.calculations.grossProfit.description')}<br /><br />
-              {t('dashboard.calculations.grossProfit.formula')}<br /><br />
-              {t('dashboard.calculations.grossProfit.example')}
-            </p>
-          </div>
-          <div className="bg-gray-50 p-4 rounded-lg">
-            <h3 className="text-lg font-medium text-gray-900 mb-2">{t('dashboard.calculations.netProfit.title')}</h3>
-            <p className="text-gray-600">
-              {t('dashboard.calculations.netProfit.description')}<br /><br />
-              {t('dashboard.calculations.netProfit.formula')}<br /><br />
-              {t('dashboard.calculations.netProfit.example')}
+              {t('dashboard.calculations.profit.description')}<br /><br />
+              <b>Profit = (Sum of all sales prices) - (Sum of all purchase prices for sold products)</b><br /><br />
+              {t('dashboard.calculations.profit.example')}
             </p>
           </div>
           <div className="bg-gray-50 p-4 rounded-lg">

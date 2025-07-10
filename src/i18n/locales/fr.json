@@ -153,7 +153,12 @@
         "example": "Exemple : Si vous avez 10 unités d'un produit dont le prix d'achat est 1000 XAF, et 5 unités d'un autre à 2000 XAF : Prix d'achat total = (10 × 1000) + (5 × 2000) = 10 000 + 10 000 = 20 000 XAF."
       },
       "restockHelp": "Utilisez ceci pour ajouter du stock (par ex. nouvelle livraison du fournisseur).",
-      "adjustmentHelp": "Utilisez ceci pour corriger des erreurs ou des écarts d'inventaire."
+      "adjustmentHelp": "Utilisez ceci pour corriger des erreurs ou des écarts d'inventaire.",
+      "profit": {
+        "title": "Bénéfice",
+        "description": "Le bénéfice est calculé comme le chiffre d'affaires total moins le coût d'achat total des produits vendus.",
+        "example": "Exemple : Si vous avez vendu des produits pour 50 000 XAF et que leur coût d'achat était de 30 000 XAF, alors Bénéfice = 50 000 - 30 000 = 20 000 XAF."
+      }
     },
     "publicProducts": {
       "title": "Page publique des produits",
@@ -556,13 +561,26 @@
     "filterByRange": "Filtrer par période",
     "view": "Voir les objectifs",
     "add": "Ajouter un objectif",
+    "edit": "Modifier l'objectif",
     "overallProgress": "Progression globale : {{pct}}%",
     "messages": {
       "addSuccess": "Objectif ajouté avec succès.",
       "updateSuccess": "Objectif mis à jour avec succès.",
       "deleteSuccess": "Objectif supprimé avec succès.",
       "operationError": "Une erreur est survenue. Veuillez réessayer."
-    }
+    },
+    "titleList": "Liste des objectifs",
+    "empty": "Aucun objectif trouvé.",
+    "remainingDays": "{{count}} jours restants",
+    "due": "Échéance",
+    "title": "Titre",
+    "description": "Description",
+    "target": "Objectif",
+    "metric": "Métrique",
+    "periodType": "Type de période",
+    "predefined": "Prédéfini",
+    "custom": "Personnalisé",
+    "period": "Période"
   },
   "settings": {
     "title": "Paramètres",
