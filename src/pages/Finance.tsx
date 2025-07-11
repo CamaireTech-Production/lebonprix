@@ -119,8 +119,8 @@ const Finance: React.FC = () => {
   }
 
   // --- Stat calculations (copied from Dashboard) ---
-  // Calculate gross profit (selling price - purchase price) * quantity for all sales
-  const grossProfit = filteredSales.reduce((sum, sale) => {
+  // Calculate profit (gross profit: selling price - purchase price) * quantity for all sales
+  const profit = filteredSales.reduce((sum, sale) => {
     return sum + sale.products.reduce((productSum, product) => {
       const productData = products.find(p => p.id === product.productId);
       if (!productData) return productSum;
@@ -128,9 +128,8 @@ const Finance: React.FC = () => {
       return productSum + (sellingPrice - productData.costPrice) * product.quantity;
     }, 0);
   }, 0);
-  // Calculate net profit (gross profit - total expenses)
+  // Calculate total expenses
   const totalExpenses = filteredExpenses.reduce((sum, exp) => sum + exp.amount, 0) + filteredManualEntries.filter(e => e.amount < 0).reduce((sum, e) => sum + Math.abs(e.amount), 0);
-  const netProfit = grossProfit - totalExpenses;
   // Total orders
   const totalOrders = filteredSales.length;
   // Total delivery fee (from sales)
@@ -147,7 +146,7 @@ const Finance: React.FC = () => {
 
   // Stat cards (dashboard style, now using dashboard logic)
   const statCards = [
-    { title: t('dashboard.stats.profit'), value: `${grossProfit.toLocaleString()} XAF`, icon: <BarChart2 size={20} />, tooltipKey: 'grossProfit', type: 'profit' },
+    { title: t('dashboard.stats.profit'), value: `${profit.toLocaleString()} XAF`, icon: <BarChart2 size={20} />, tooltipKey: 'profit', type: 'profit' },
     { title: t('dashboard.stats.totalExpenses'), value: `${totalExpenses.toLocaleString()} XAF`, icon: <Receipt size={20} />, tooltipKey: 'totalExpenses', type: 'expenses' },
     { title: t('dashboard.stats.deliveryFee'), value: `${totalDeliveryFee.toLocaleString()} XAF`, icon: <DollarSign size={20} />, tooltipKey: 'deliveryFee', type: 'delivery' },
     { title: t('dashboard.stats.totalSalesAmount'), value: `${totalSalesAmount.toLocaleString()} XAF`, icon: <ShoppingCart size={20} />, tooltipKey: 'totalSalesAmount', type: 'sales' },
@@ -157,8 +156,7 @@ const Finance: React.FC = () => {
 
   // Metrics options for objectives
   const metricsOptions = [
-    { value: 'grossProfit', label: t('dashboard.stats.grossProfit') },
-    { value: 'netProfit', label: t('dashboard.stats.netProfit') },
+    { value: 'profit', label: t('dashboard.stats.profit') },
     { value: 'totalExpenses', label: t('dashboard.stats.totalExpenses') },
     { value: 'totalProductsSold', label: t('dashboard.stats.totalProductsSold') },
     { value: 'deliveryFee', label: t('dashboard.stats.deliveryFee') },
@@ -166,8 +164,7 @@ const Finance: React.FC = () => {
     { value: 'totalSalesCount', label: t('dashboard.stats.totalSalesCount') },
   ];
   const statsMap = {
-    grossProfit,
-    netProfit,
+    profit,
     totalExpenses,
     totalProductsSold,
     deliveryFee: totalDeliveryFee,
@@ -202,23 +199,13 @@ const Finance: React.FC = () => {
     const salesInPeriod = sales?.filter(sale => sale.createdAt?.seconds && new Date(sale.createdAt.seconds * 1000) >= from && new Date(sale.createdAt.seconds * 1000) <= to) || [];
     const expensesInPeriod = expenses?.filter(exp => exp.createdAt?.seconds && new Date(exp.createdAt.seconds * 1000) >= from && new Date(exp.createdAt.seconds * 1000) <= to) || [];
     switch (obj.metric) {
-      case 'grossProfit':
+      case 'profit':
         return salesInPeriod.reduce((sum, sale) => sum + sale.products.reduce((productSum, product) => {
           const productData = products?.find(p => p.id === product.productId);
           if (!productData) return productSum;
           const sellingPrice = product.negotiatedPrice || product.basePrice;
           return productSum + (sellingPrice - productData.costPrice) * product.quantity;
         }, 0), 0);
-      case 'netProfit': {
-        const gross = salesInPeriod.reduce((sum, sale) => sum + sale.products.reduce((productSum, product) => {
-          const productData = products?.find(p => p.id === product.productId);
-          if (!productData) return productSum;
-          const sellingPrice = product.negotiatedPrice || product.basePrice;
-          return productSum + (sellingPrice - productData.costPrice) * product.quantity;
-        }, 0), 0);
-        const totalExp = expensesInPeriod.reduce((sum, exp) => sum + exp.amount, 0);
-        return gross - totalExp;
-      }
       case 'totalExpenses':
         return expensesInPeriod.reduce((sum, exp) => sum + exp.amount, 0);
       case 'totalOrders':

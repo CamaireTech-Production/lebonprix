@@ -52,23 +52,13 @@ const ObjectivesBar: React.FC<ObjectivesBarProps> = ({ onAdd, onView, stats, dat
     const expensesInPeriod = expenses?.filter(exp => exp.createdAt?.seconds && new Date(exp.createdAt.seconds * 1000) >= from && new Date(exp.createdAt.seconds * 1000) <= to) || [];
     // Calculate stats for this period
     switch (obj.metric) {
-      case 'grossProfit':
+      case 'profit':
         return salesInPeriod.reduce((sum: number, sale: any) => sum + sale.products.reduce((productSum: any, product: any) => {
           const productData = products?.find((p: any) => p.id === product.productId);
           if (!productData) return productSum;
           const sellingPrice = product.negotiatedPrice || product.basePrice;
           return productSum + (sellingPrice - productData.costPrice) * product.quantity;
         }, 0), 0);
-      case 'netProfit': {
-        const gross = salesInPeriod.reduce((sum: number, sale: any) => sum + sale.products.reduce((productSum: any, product: any) => {
-          const productData = products?.find((p: any) => p.id === product.productId);
-          if (!productData) return productSum;
-          const sellingPrice = product.negotiatedPrice || product.basePrice;
-          return productSum + (sellingPrice - productData.costPrice) * product.quantity;
-        }, 0), 0);
-        const totalExp = expensesInPeriod.reduce((sum, exp) => sum + exp.amount, 0);
-        return gross - totalExp;
-      }
       case 'totalExpenses':
         return expensesInPeriod.reduce((sum, exp) => sum + exp.amount, 0);
       case 'totalOrders':
@@ -97,7 +87,7 @@ const ObjectivesBar: React.FC<ObjectivesBarProps> = ({ onAdd, onView, stats, dat
   const objectivesWithProgress = useMemo(() => {
     return filteredObjectives.map(obj => {
       let current = getStatsForObjective(obj);
-      const pct = obj.targetAmount ? Math.min(100, (current / obj.targetAmount) * 100) : 0;
+      const pct = obj.targetAmount ? Math.max(0, Math.min(100, (current / obj.targetAmount) * 100)) : 0;
       return { ...obj, progress: Math.round(pct) };
     });
   }, [filteredObjectives, sales, expenses, products]);

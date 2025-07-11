@@ -71,23 +71,13 @@ const ObjectivesModal: React.FC<ObjectivesModalProps> = ({ isOpen, onClose, stat
     const salesInPeriod = sales?.filter(sale => sale.createdAt?.seconds && new Date(sale.createdAt.seconds * 1000) >= from && new Date(sale.createdAt.seconds * 1000) <= to) || [];
     const expensesInPeriod = expenses?.filter(exp => exp.createdAt?.seconds && new Date(exp.createdAt.seconds * 1000) >= from && new Date(exp.createdAt.seconds * 1000) <= to) || [];
     switch (obj.metric) {
-      case 'grossProfit':
+      case 'profit':
         return salesInPeriod.reduce((sum: number, sale: any) => sum + sale.products.reduce((productSum: any, product: any) => {
           const productData = products?.find((p: any) => p.id === product.productId);
           if (!productData) return productSum;
           const sellingPrice = product.negotiatedPrice || product.basePrice;
           return productSum + (sellingPrice - productData.costPrice) * product.quantity;
         }, 0), 0);
-      case 'netProfit': {
-        const gross = salesInPeriod.reduce((sum: number, sale: any) => sum + sale.products.reduce((productSum: any, product: any) => {
-          const productData = products?.find((p: any) => p.id === product.productId);
-          if (!productData) return productSum;
-          const sellingPrice = product.negotiatedPrice || product.basePrice;
-          return productSum + (sellingPrice - productData.costPrice) * product.quantity;
-        }, 0), 0);
-        const totalExp = expensesInPeriod.reduce((sum, exp) => sum + exp.amount, 0);
-        return gross - totalExp;
-      }
       case 'totalExpenses':
         return expensesInPeriod.reduce((sum, exp) => sum + exp.amount, 0);
       case 'totalOrders':
@@ -116,7 +106,7 @@ const ObjectivesModal: React.FC<ObjectivesModalProps> = ({ isOpen, onClose, stat
   const objsWithProgress = useMemo(() => {
     return filteredObjectives.map(o => {
       let current = getStatsForObjective(o);
-      const pct = o.targetAmount ? Math.min(100, (current / o.targetAmount) * 100) : 0;
+      const pct = o.targetAmount ? Math.max(0, Math.min(100, (current / o.targetAmount) * 100)) : 0;
       return { ...o, progress: Math.round(pct) } as Objective & { progress: number };
     });
   }, [filteredObjectives, sales, expenses, products]);

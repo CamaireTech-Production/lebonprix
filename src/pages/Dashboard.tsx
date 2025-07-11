@@ -36,8 +36,7 @@ const Dashboard = () => {
   const [showObjectivesModal, setShowObjectivesModal] = useState(false);
   const [applyDateFilter, setApplyDateFilter] = useState(true);
   const metricsOptions = [
-    { value: 'grossProfit', label: t('dashboard.stats.grossProfit') },
-    { value: 'netProfit', label: t('dashboard.stats.netProfit') },
+    { value: 'profit', label: t('dashboard.stats.profit') },
     { value: 'totalExpenses', label: t('dashboard.stats.totalExpenses') },
     { value: 'totalProductsSold', label: t('dashboard.stats.totalProductsSold') },
     { value: 'deliveryFee', label: t('dashboard.stats.deliveryFee') },
@@ -58,8 +57,8 @@ const Dashboard = () => {
     return expenseDate >= dateRange.from && expenseDate <= dateRange.to;
   });
 
-  // Calculate gross profit (selling price - purchase price) * quantity for all sales
-  const grossProfit = filteredSales?.reduce((sum, sale) => {
+  // Calculate profit (gross profit: selling price - purchase price) * quantity for all sales
+  const profit = filteredSales?.reduce((sum, sale) => {
     return sum + sale.products.reduce((productSum, product) => {
       const productData = products?.find(p => p.id === product.productId);
       if (!productData) return productSum;
@@ -68,9 +67,8 @@ const Dashboard = () => {
     }, 0);
   }, 0) || 0;
 
-  // Calculate net profit (gross profit - total expenses)
+  // Calculate total expenses
   const totalExpenses = filteredExpenses?.reduce((sum, exp) => sum + exp.amount, 0) || 0;
-  const netProfit = grossProfit - totalExpenses;
 
   // Total orders
   const totalOrders = filteredSales?.length || 0;
@@ -250,8 +248,7 @@ const Dashboard = () => {
   const totalProductsSold = filteredSales?.reduce((sum, sale) => sum + sale.products.reduce((pSum, p) => pSum + p.quantity, 0), 0) || 0;
 
   const statsMap = {
-    grossProfit,
-    netProfit,
+    profit,
     totalExpenses,
     totalProductsSold,
     deliveryFee: totalDeliveryFee,
@@ -266,7 +263,7 @@ const Dashboard = () => {
   // Stat cards (show only solde, profit, depense, produit vendu)
   const statCards: { title: string; value: string | number; icon: JSX.Element; type: 'products' | 'sales' | 'expenses' | 'profit' | 'orders' | 'delivery' | 'solde'; }[] = [
     { title: t('dashboard.stats.solde'), value: `${solde.toLocaleString()} XAF`, icon: <DollarSign size={20} />, type: 'solde' },
-    { title: t('dashboard.stats.profit'), value: `${netProfit.toLocaleString()} XAF`, icon: <TrendingUp size={20} />, type: 'profit' },
+    { title: t('dashboard.stats.profit'), value: `${profit.toLocaleString()} XAF`, icon: <TrendingUp size={20} />, type: 'profit' },
     { title: t('dashboard.stats.expenses'), value: `${totalExpenses.toLocaleString()} XAF`, icon: <Receipt size={20} />, type: 'expenses' },
     { title: t('dashboard.stats.productsSold'), value: totalProductsSold, icon: <Package2 size={20} />, type: 'products' },
   ];
@@ -420,24 +417,13 @@ const Dashboard = () => {
       >
         <div className="space-y-6">
           <div className="bg-gray-50 p-4 rounded-lg">
-            <h3 className="text-lg font-medium text-gray-900 mb-2">{t('dashboard.calculations.grossProfit.title')}</h3>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">{t('dashboard.calculations.profit.title')}</h3>
             <p className="text-gray-600">
-              {t('dashboard.calculations.grossProfit.description')}
+              {t('dashboard.calculations.profit.description')}
               <br /><br />
-              {t('dashboard.calculations.grossProfit.formula')}
+              {t('dashboard.calculations.profit.formula')}
               <br /><br />
-              {t('dashboard.calculations.grossProfit.example')}
-            </p>
-          </div>
-
-          <div className="bg-gray-50 p-4 rounded-lg">
-            <h3 className="text-lg font-medium text-gray-900 mb-2">{t('dashboard.calculations.netProfit.title')}</h3>
-            <p className="text-gray-600">
-              {t('dashboard.calculations.netProfit.description')}
-              <br /><br />
-              {t('dashboard.calculations.netProfit.formula')}
-              <br /><br />
-              {t('dashboard.calculations.netProfit.example')}
+              {t('dashboard.calculations.profit.example')}
             </p>
           </div>
 

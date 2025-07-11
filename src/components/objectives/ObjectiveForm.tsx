@@ -68,6 +68,15 @@ const ObjectiveForm: React.FC<ObjectiveFormProps> = ({ isOpen, onClose, objectiv
     }
   };
 
+  const metricOptions = [
+    { value: 'profit', label: t('dashboard.stats.profit') },
+    { value: 'totalExpenses', label: t('dashboard.stats.totalExpenses') },
+    { value: 'totalProductsSold', label: t('dashboard.stats.totalProductsSold') },
+    { value: 'deliveryFee', label: t('dashboard.stats.deliveryFee') },
+    { value: 'totalSalesAmount', label: t('dashboard.stats.totalSalesAmount') },
+    { value: 'totalSalesCount', label: t('dashboard.stats.totalSalesCount') },
+  ];
+
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={objective ? t('objectives.edit') : t('objectives.add')} size="md">
       <div className="space-y-5">
@@ -77,7 +86,7 @@ const ObjectiveForm: React.FC<ObjectiveFormProps> = ({ isOpen, onClose, objectiv
         <div className="space-y-4">
           <Select
             label={t('objectives.metric')}
-            options={metricsOptions}
+            options={metricOptions}
             value={formData.metric}
             onChange={(e) => handleSelectChange('metric', e.target.value)}
             fullWidth={true}

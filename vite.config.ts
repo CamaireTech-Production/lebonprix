@@ -12,5 +12,8 @@ export default defineConfig(({ mode }) => {
     define: {
       'process.env': env,
     },
+    server: {
+      port: 3001, // Change this to your desired port
+    },
   };
 });
