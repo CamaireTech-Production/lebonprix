@@ -665,6 +665,10 @@
       "sale": "Vente",
       "expense": "Dépense"
     },
+    "types": {
+      "debt": "Dette",
+      "refund": "Remboursement"
+    },
     "messages": {
       "addSuccess": "Entrée financière ajoutée avec succès.",
       "updateSuccess": "Entrée financière mise à jour avec succès.",

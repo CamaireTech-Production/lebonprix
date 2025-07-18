@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import StatCard from '../components/dashboard/StatCard';
 import Button from '../components/common/Button';
-import { useFinanceEntries, useProducts, useSales, useExpenses } from '../hooks/useFirestore';
+import { useFinanceEntries, useProducts, useSales, useExpenses, useCustomers } from '../hooks/useFirestore';
 import { useObjectives } from '../hooks/useObjectives';
 import { format } from 'date-fns';
 import Modal, { ModalFooter } from '../components/common/Modal';
@@ -10,12 +10,20 @@ import { getFinanceEntryTypes, createFinanceEntryType, createFinanceEntry, updat
 import { useAuth } from '../contexts/AuthContext';
 import { Timestamp } from 'firebase/firestore';
 import LoadingScreen from '../components/common/LoadingScreen';
-import { Edit2, Trash2, BarChart2, TrendingUp, Receipt, Package2, DollarSign, ShoppingCart, Info, ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Edit2, Trash2, BarChart2, Receipt, DollarSign, ShoppingCart, Info, ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import DateRangePicker from '../components/common/DateRangePicker';
 import { useTranslation } from 'react-i18next';
 import ObjectivesBar from '../components/objectives/ObjectivesBar';
 import ObjectivesModal from '../components/objectives/ObjectivesModal';
 import { showSuccessToast, showErrorToast } from '../utils/toast';
+import type { FinanceEntry } from '../types/models';
+
+type CustomerDebt = {
+  phone: string;
+  name: string;
+  debt: number;
+  entries: FinanceEntry[];
+};
 
 const Finance: React.FC = () => {
   const { t } = useTranslation();
@@ -23,8 +31,9 @@ const Finance: React.FC = () => {
   const { sales, loading: salesLoading } = useSales();
   const { expenses, loading: expensesLoading } = useExpenses();
   const { products, loading: productsLoading } = useProducts();
+  useCustomers(); // Only call the hook for side effects if needed, but don't destructure unused values
   const { user } = useAuth();
-  const { objectives } = useObjectives();
+  useObjectives();
   const [modalOpen, setModalOpen] = useState(false);
   const [modalLoading, setModalLoading] = useState(false);
   const [entryTypes, setEntryTypes] = useState<{ label: string; value: string }[]>([]);
@@ -35,6 +44,7 @@ const Finance: React.FC = () => {
     description: '',
     date: '',
     isEdit: false,
+    refundedDebtId: '', // NEW
   });
   const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; entryId: string | null }>({ open: false, entryId: null });
   // Date range filter (default: all time)
@@ -49,6 +59,8 @@ const Finance: React.FC = () => {
   const [showCalculationsModal, setShowCalculationsModal] = useState(false);
   const [showObjectivesModal, setShowObjectivesModal] = useState(false);
   const [applyDateFilter, setApplyDateFilter] = useState(true);
+  const [] = useState<CustomerDebt | null>(null);
+  const [showDebtHistoryModal, setShowDebtHistoryModal] = useState(false);
 
   // Pagination, sorting, and filtering state
   const [currentPage, setCurrentPage] = useState(1);
@@ -84,6 +96,27 @@ const Finance: React.FC = () => {
 
   // Solde: sum of all active finance entries in the selected period
   const solde = filteredFinanceEntries.reduce((sum, entry) => sum + entry.amount, 0);
+
+  // Remove phone/description logic. Group all 'debt' and 'refund' entries for the current user.
+  const userDebt = useMemo(() => {
+    let totalDebt = 0;
+    let debtEntries: FinanceEntry[] = [];
+    let refundEntries: FinanceEntry[] = [];
+    entries.forEach(entry => {
+      if (entry.type === 'debt') {
+        totalDebt += entry.amount;
+        debtEntries.push(entry);
+      } else if (entry.type === 'refund') {
+        totalDebt -= entry.amount;
+        refundEntries.push(entry);
+      }
+    });
+    return {
+      debt: totalDebt,
+      debtEntries,
+      refundEntries
+    };
+  }, [entries]);
 
   // Filtering logic
   const filteredAndSearchedEntries = useMemo(() => {
@@ -172,74 +205,13 @@ const Finance: React.FC = () => {
     totalSalesCount: totalOrders,
   };
 
-  // Helper for objectives progress calculation (matches Dashboard logic)
-  const isAllTime = dateRange.from.getFullYear() === 2000 && dateRange.from.getMonth() === 0 && dateRange.from.getDate() === 1 && dateRange.to.getFullYear() === 2100 && dateRange.to.getMonth() === 0 && dateRange.to.getDate() === 1;
-  const isOverlapping = (obj: any) => {
-    if (obj.periodType === 'predefined') return true;
-    if (!obj.startAt || !obj.endAt) return true;
-    const start = obj.startAt.toDate ? obj.startAt.toDate() : new Date(obj.startAt);
-    const end = obj.endAt.toDate ? obj.endAt.toDate() : new Date(obj.endAt);
-    return start <= dateRange.to && end >= dateRange.from;
-  };
-  const getStatsForObjective = (obj: any) => {
-    let from, to;
-    if (obj.periodType === 'predefined') {
-      const now = new Date();
-      if (obj.predefined === 'this_year') {
-        from = new Date(now.getFullYear(), 0, 1);
-        to = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
-      } else {
-        from = new Date(now.getFullYear(), now.getMonth(), 1);
-        to = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
-      }
-    } else {
-      from = obj.startAt?.toDate ? obj.startAt.toDate() : new Date(obj.startAt);
-      to = obj.endAt?.toDate ? obj.endAt.toDate() : new Date(obj.endAt);
-    }
-    const salesInPeriod = sales?.filter(sale => sale.createdAt?.seconds && new Date(sale.createdAt.seconds * 1000) >= from && new Date(sale.createdAt.seconds * 1000) <= to) || [];
-    const expensesInPeriod = expenses?.filter(exp => exp.createdAt?.seconds && new Date(exp.createdAt.seconds * 1000) >= from && new Date(exp.createdAt.seconds * 1000) <= to) || [];
-    switch (obj.metric) {
-      case 'profit':
-        return salesInPeriod.reduce((sum, sale) => sum + sale.products.reduce((productSum, product) => {
-          const productData = products?.find(p => p.id === product.productId);
-          if (!productData) return productSum;
-          const sellingPrice = product.negotiatedPrice || product.basePrice;
-          return productSum + (sellingPrice - productData.costPrice) * product.quantity;
-        }, 0), 0);
-      case 'totalExpenses':
-        return expensesInPeriod.reduce((sum, exp) => sum + exp.amount, 0);
-      case 'totalOrders':
-        return salesInPeriod.length;
-      case 'deliveryExpenses':
-        return expensesInPeriod.filter(e => e.category?.toLowerCase() === 'delivery').reduce((sum, e) => sum + e.amount, 0);
-      case 'totalSalesAmount':
-        return salesInPeriod.reduce((sum, sale) => sum + sale.totalAmount, 0);
-      case 'totalSalesCount':
-        return salesInPeriod.length;
-      default:
-        return 0;
-    }
-  };
-
-  // Map finance entries to sales/expenses for objectives logic
-  const salesForObjectives = filteredSales.map(sale => ({
-    createdAt: sale.createdAt,
-    totalAmount: sale.totalAmount,
-    products: sale.products,
-  }));
-  const expensesForObjectives = filteredExpenses.map(exp => ({
-    createdAt: exp.createdAt,
-    amount: exp.amount,
-    category: (exp as any).category || 'other',
-  }));
-
   // Fetch entry types on modal open
   const handleOpenModal = async (editEntry?: any) => {
     if (!user) return;
     setModalOpen(true);
     setModalLoading(true);
     const types = await getFinanceEntryTypes(user.uid);
-    setEntryTypes(types.map(t => ({ label: t.name, value: t.id })));
+    setEntryTypes(types.map(typeObj => ({ label: t(`finance.types.${typeObj.name}`, typeObj.name), value: typeObj.name })));
     if (editEntry) {
       setForm({
         id: editEntry.id,
@@ -248,16 +220,17 @@ const Finance: React.FC = () => {
         description: editEntry.description || '',
         date: editEntry.date?.seconds ? format(new Date(editEntry.date.seconds * 1000), 'yyyy-MM-dd') : '',
         isEdit: true,
+        refundedDebtId: editEntry.refundedDebtId || '', // Populate refundedDebtId for refunds
       });
     } else {
-      setForm({ id: '', type: null, amount: '', description: '', date: '', isEdit: false });
+      setForm({ id: '', type: null, amount: '', description: '', date: '', isEdit: false, refundedDebtId: '' });
     }
     setModalLoading(false);
   };
 
   const handleCloseModal = () => {
     setModalOpen(false);
-    setForm({ id: '', type: null, amount: '', description: '', date: '', isEdit: false });
+    setForm({ id: '', type: null, amount: '', description: '', date: '', isEdit: false, refundedDebtId: '' });
   };
 
   const handleTypeCreate = async (name: string) => {
@@ -289,6 +262,7 @@ const Finance: React.FC = () => {
       isDeleted: false,
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
+      ...(form.type.label === 'refund' && form.refundedDebtId ? { refundedDebtId: form.refundedDebtId } : {}),
     };
     try {
       if (form.isEdit && form.id) {
@@ -329,19 +303,58 @@ const Finance: React.FC = () => {
     <>
       <div className="px-4 py-6 w-full mx-auto">
         {/* First row: Solde (left), Objectives (right) */}
-        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-12 mb-6 mt-6">
-          {/* Solde card left */}
-          <div className="md:w-1/4 w-full flex flex-col items-start justify-start">
-            <StatCard
-              title={t('dashboard.stats.solde')}
-              value={`${solde.toLocaleString()} XAF`}
-              icon={<DollarSign size={24} />}
-              type="solde"
-              className="ring-2 ring-green-400 shadow bg-green-50 text-green-900 border border-green-200 rounded-xl px-6 py-4 mb-2"
-            />
+        <div className="mb-6 mt-6">
+          <div className="flex flex-row w-full gap-4 md:gap-6">
+            {/* Balance card - 50% on mobile, 30% on desktop */}
+            <div className="w-1/2 md:w-[25%] min-w-[140px] max-w-[320px]">
+              <StatCard
+                title={t('dashboard.stats.solde')}
+                value={solde.toLocaleString() + ' XAF'}
+                icon={<DollarSign size={24} />}
+                type="solde"
+                className="ring-2 ring-green-400 shadow bg-green-50 text-green-900 border border-green-200 rounded-xl py-2 mb-2 w-full text-base md:text-xl font-bold break-words"
+              />
+            </div>
+            {/* Debt card - 50% on mobile, 30% on desktop */}
+            <div className="w-1/2 md:w-[25%] min-w-[140px] max-w-[320px]">
+              <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-2 md:p-4 flex flex-col items-start shadow w-full">
+                <div className="font-semibold text-sm md:text-lg text-yellow-800 mb-1 md:mb-2 truncate w-full">{t('finance.debtCardTitle') || 'Outstanding Debt'}</div>
+                <div className="text-base md:text-xl font-bold text-yellow-900 mb-1 md:mb-2 break-words w-full">{userDebt.debt.toLocaleString()} XAF</div>
+                <Button variant="outline" onClick={() => { setShowDebtHistoryModal(true); }} className="w-full md:w-auto text-xs md:text-sm px-2 py-1">
+                  {t('finance.viewHistory')}
+                </Button>
+              </div>
+            </div>
+            {/* Objectives/progress - hidden on mobile, 40% on desktop */}
+            <div className="hidden md:flex flex-col items-end justify-start gap-2 w-[50%] min-w-[200px] max-w-[600px]">
+              <ObjectivesBar
+                onAdd={() => setShowObjectivesModal(true)}
+                onView={() => setShowObjectivesModal(true)}
+                stats={statsMap}
+                dateRange={dateRange}
+                applyDateFilter={applyDateFilter}
+                onToggleFilter={setApplyDateFilter}
+                sales={sales}
+                expenses={expenses}
+                products={products}
+              />
+              {showObjectivesModal && (
+                <ObjectivesModal
+                  isOpen={showObjectivesModal}
+                  onClose={() => setShowObjectivesModal(false)}
+                  stats={statsMap}
+                  dateRange={dateRange}
+                  metricsOptions={metricsOptions}
+                  applyDateFilter={applyDateFilter}
+                  sales={sales}
+                  expenses={expenses}
+                  products={products}
+                />
+              )}
+            </div>
           </div>
-          {/* Objectives/progress right */}
-          <div className="md:w-3/4 w-full flex flex-col items-end justify-start gap-2">
+          {/* Objectives/progress - full width on mobile */}
+          <div className="block md:hidden mt-2">
             <ObjectivesBar
               onAdd={() => setShowObjectivesModal(true)}
               onView={() => setShowObjectivesModal(true)}
@@ -391,11 +404,11 @@ const Finance: React.FC = () => {
               <StatCard
                 key={stat.title}
                 title={stat.title}
-                value={stat.value}
+                value={typeof stat.value === 'string' ? stat.value : String(stat.value)}
                 icon={stat.icon}
                 tooltipKey={stat.tooltipKey}
                 type={stat.type as any}
-                className="rounded-xl border border-gray-100 bg-white shadow-sm px-4 py-4"
+                className="rounded-xl border border-gray-100 bg-white shadow-sm py-2 text-base md:text-lg font-bold break-words"
               />
             ))}
           </div>
@@ -480,7 +493,7 @@ const Finance: React.FC = () => {
                 {paginatedEntries.map(entry => (
                   <tr key={entry.id} className="border-b hover:bg-gray-50">
                     <td className="py-3 px-2">{entry.createdAt?.seconds ? format(new Date(entry.createdAt.seconds * 1000), 'dd/MM/yyyy') : ''}</td>
-                    <td className="py-3 px-2 capitalize">{entry.type}</td>
+                    <td className="py-3 px-2 capitalize">{t(`finance.types.${entry.type}`, entry.type)}</td>
                     <td className="py-3 px-2">{entry.description || '-'}</td>
                     <td className={`py-3 px-2 font-semibold ${entry.amount >= 0 ? 'text-green-600' : 'text-red-500'}`}>{entry.amount.toLocaleString()}</td>
                     <td className="py-3 px-2 capitalize">{t(`finance.sourceType.${entry.sourceType}`)}</td>
@@ -568,6 +581,24 @@ const Finance: React.FC = () => {
                 placeholder={t('common.type')}
               />
             </div>
+            {form.type?.label === 'refund' && (
+              <div>
+                <label className="block text-sm font-medium mb-1">{t('finance.selectDebtToRefund', 'Select Debt to Refund')}</label>
+                <select
+                  value={form.refundedDebtId}
+                  onChange={e => setForm(f => ({ ...f, refundedDebtId: e.target.value }))}
+                  className="w-full border rounded px-3 py-2"
+                  required
+                >
+                  <option value="">{t('finance.selectDebt', 'Select a debt')}</option>
+                  {userDebt.debtEntries.map(debt => (
+                    <option key={debt.id} value={debt.id}>
+                      {debt.amount.toLocaleString()} XAF - {debt.description || t('finance.debtEntry', 'Debt')}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div>
               <label className="block text-sm font-medium mb-1">{t('common.amount')}</label>
               <input
@@ -645,6 +676,41 @@ const Finance: React.FC = () => {
               {t('dashboard.calculations.deliveryFee.formula')}
             </p>
           </div>
+        </div>
+      </Modal>
+      <Modal isOpen={showDebtHistoryModal} onClose={() => setShowDebtHistoryModal(false)} title={t('finance.debtHistory', 'Debt/Refund History')} size="md">
+        <div>
+          <div className="mb-2 font-semibold text-yellow-800">{t('finance.debtHistory')}</div>
+          <ul className="divide-y divide-gray-200">
+            {userDebt.debtEntries.map((debt, idx) => {
+              const linkedRefunds = userDebt.refundEntries.filter(refund => refund.refundedDebtId === debt.id);
+              const refundedAmount = linkedRefunds.reduce((sum, r) => sum + r.amount, 0);
+              const remaining = debt.amount - refundedAmount;
+              return (
+                <li key={debt.id || idx} className="py-2">
+                  <div className="flex justify-between items-center">
+                    <span className="capitalize font-semibold">{t('finance.debtEntry', 'Debt')}</span>
+                    <span className="text-red-600">{debt.amount.toLocaleString()} XAF</span>
+                    <span className="text-xs text-gray-500">{debt.createdAt?.seconds ? format(new Date(debt.createdAt.seconds * 1000), 'dd/MM/yyyy') : ''}</span>
+                  </div>
+                  {linkedRefunds.length > 0 && (
+                    <ul className="ml-4 mt-1">
+                      {linkedRefunds.map((refund, rIdx) => (
+                        <li key={refund.id || rIdx} className="flex justify-between items-center text-green-700">
+                          <span>{t('finance.refundEntry', 'Refund')}</span>
+                          <span>-{refund.amount.toLocaleString()} XAF</span>
+                          <span className="text-xs text-gray-500">{refund.createdAt?.seconds ? format(new Date(refund.createdAt.seconds * 1000), 'dd/MM/yyyy') : ''}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <div className="ml-4 mt-1 text-sm text-yellow-900 font-bold">
+                    {t('finance.remaining', 'Remaining')}: {remaining.toLocaleString()} XAF
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
         </div>
       </Modal>
     </>

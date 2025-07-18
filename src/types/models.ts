@@ -127,6 +127,7 @@ export interface FinanceEntry {
   isDeleted: boolean;
   createdAt: Timestamp;
   updatedAt: Timestamp;
+  refundedDebtId?: string; // NEW: for refunds, links to a specific debt entry
 }
 
 export interface FinanceEntryType {

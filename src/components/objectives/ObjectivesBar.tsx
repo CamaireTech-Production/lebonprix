@@ -4,7 +4,6 @@ import ProgressBar from '../common/ProgressBar';
 import { useObjectives } from '../../hooks/useObjectives';
 import { useTranslation } from 'react-i18next';
 import { Plus, List } from 'lucide-react';
-import { differenceInDays } from 'date-fns';
 
 interface ObjectivesBarProps {
   onAdd: () => void;
@@ -18,7 +17,7 @@ interface ObjectivesBarProps {
   products: any[];
 }
 
-const ObjectivesBar: React.FC<ObjectivesBarProps> = ({ onAdd, onView, stats, dateRange, applyDateFilter, onToggleFilter, sales, expenses, products }) => {
+const ObjectivesBar: React.FC<ObjectivesBarProps> = ({ onAdd, onView, dateRange, applyDateFilter, onToggleFilter, sales, expenses, products }) => {
   const { t } = useTranslation();
   const { objectives } = useObjectives();
 
@@ -99,30 +98,45 @@ const ObjectivesBar: React.FC<ObjectivesBarProps> = ({ onAdd, onView, stats, dat
   }, [objectivesWithProgress]);
 
   return (
-    <div className="bg-white border rounded-lg p-4 mb-6 flex flex-col sm:flex-row sm:items-center gap-4 shadow-sm">
-      <div className="flex-1 flex flex-col gap-2">
-        <div className="flex items-center gap-2">
-          <h3 className="text-lg font-medium text-gray-900 flex-1">
+    <div className="bg-white border rounded-lg p-4 mb-6 flex flex-col md:flex-row items-start gap-4 shadow-sm">
+      {/* Left: Progress, title, and filter (100% on mobile, 90% on desktop) */}
+      <div className="w-full md:flex-1 min-w-0 mr-4" style={{ flexBasis: '70%' }}>
+        <div className="flex flex-col gap-2">
+          <h3 className="text-lg font-medium text-gray-900">
             {t('objectives.overallProgress', { pct: averageProgress })}
           </h3>
+          <ProgressBar value={averageProgress} />
+          <div className="mt-2">
+            <label className="inline-flex items-center gap-1 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                className="form-checkbox text-emerald-600"
+                checked={applyDateFilter}
+                onChange={e => onToggleFilter(e.target.checked)}
+              />
+              {t('objectives.filterByRange')}
+            </label>
+          </div>
         </div>
-        <ProgressBar value={averageProgress} />
       </div>
-      <div className="flex gap-4 flex-none items-center">
-        <label className="inline-flex items-center gap-1 text-sm text-gray-700">
-          <input
-            type="checkbox"
-            className="form-checkbox text-emerald-600"
-            checked={applyDateFilter}
-            onChange={e => onToggleFilter(e.target.checked)}
-          />
-          {t('objectives.filterByRange')}
-        </label>
-        <Button variant="outline" icon={<List size={16} />} onClick={onView}>
-          {t('objectives.view')} ({objectivesWithProgress.length})
+      {/* Right: Buttons (row on mobile, column on desktop) */}
+      <div className="w-full md:w-auto flex flex-row flex-wrap gap-2 items-end justify-end mt-2 md:mt-0 min-w-0">
+        <Button
+          variant="outline"
+          icon={<List size={16} />}
+          onClick={onView}
+          className="w-full md:w-auto text-xs md:text-base px-2 md:px-4"
+        >
+          <span className="block md:hidden">{t('objectives.viewShort', 'View')}</span>
+          <span className="hidden md:block">{t('objectives.view')} ({objectivesWithProgress.length})</span>
         </Button>
-        <Button icon={<Plus size={16} />} onClick={onAdd}>
-          {t('objectives.add')}
+        <Button
+          icon={<Plus size={16} />}
+          onClick={onAdd}
+          className="w-full md:w-auto text-xs md:text-base px-2 md:px-4"
+        >
+          <span className="block md:hidden">{t('objectives.addShort', 'Add')}</span>
+          <span className="hidden md:block">{t('objectives.add')}</span>
         </Button>
       </div>
     </div>

@@ -20,8 +20,10 @@ interface StatCardProps {
 const StatCard = ({ title, value, icon, trend, tooltipKey, type, className = '' }: StatCardProps) => {
   const { t } = useTranslation();
   const [showTooltip, setShowTooltip] = useState(false);
+  const [showValueTooltip, setShowValueTooltip] = useState(false);
   const [tooltipPosition, setTooltipPosition] = useState({ top: 0, left: 0, placement: 'top' as 'top' | 'bottom' });
   const triggerRef = useRef<HTMLDivElement>(null);
+  const valueRef = useRef<HTMLParagraphElement>(null);
 
   // Handle tooltip positioning
   useEffect(() => {
@@ -67,6 +69,17 @@ const StatCard = ({ title, value, icon, trend, tooltipKey, type, className = '' 
 
     setTooltipPosition({ top, left, placement });
   }, [showTooltip]);
+
+  // Show full value tooltip if truncated
+  useEffect(() => {
+    if (!showValueTooltip || !valueRef.current) return;
+    const rect = valueRef.current.getBoundingClientRect();
+    setTooltipPosition({
+      top: rect.top - 36,
+      left: rect.left + rect.width / 2,
+      placement: 'top',
+    });
+  }, [showValueTooltip]);
 
   // Determine icon color based on the type
   const getIconColor = (type: StatCardProps['type']) => {
@@ -120,6 +133,25 @@ const StatCard = ({ title, value, icon, trend, tooltipKey, type, className = '' 
     );
   };
 
+  const renderValueTooltip = () => {
+    if (!showValueTooltip) return null;
+    return createPortal(
+      <div
+        className="fixed z-[9999] px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-xl border border-gray-700 transition-opacity duration-200"
+        style={{
+          top: tooltipPosition.top,
+          left: tooltipPosition.left,
+          transform: 'translateX(-50%)',
+          pointerEvents: 'none',
+          maxWidth: 'calc(100vw - 16px)',
+        }}
+      >
+        <span className="break-words whitespace-normal leading-relaxed">{value}</span>
+      </div>,
+      document.body
+    );
+  };
+
   return (
     <Card className={`${className} relative`}>
       <div className="flex items-start">
@@ -127,7 +159,7 @@ const StatCard = ({ title, value, icon, trend, tooltipKey, type, className = '' 
           <div className="flex items-center gap-1">
             <p className="text-sm font-medium text-gray-600 truncate">{title}</p>
             {tooltipKey && (
-              <div 
+              <div
                 ref={triggerRef}
                 className="relative inline-flex items-center"
                 onMouseEnter={() => setShowTooltip(true)}
@@ -139,11 +171,22 @@ const StatCard = ({ title, value, icon, trend, tooltipKey, type, className = '' 
               </div>
             )}
           </div>
-          <p className="mt-1 text-lg sm:text-xl md:text-2xl font-semibold text-gray-900 truncate">{value}</p>
-          
+          <p
+            ref={valueRef}
+            className="mt-1 text-lg sm:text-xl md:text-2xl font-semibold text-gray-900 truncate cursor-pointer"
+            tabIndex={0}
+            onMouseEnter={() => setShowValueTooltip(true)}
+            onMouseLeave={() => setShowValueTooltip(false)}
+            onFocus={() => setShowValueTooltip(true)}
+            onBlur={() => setShowValueTooltip(false)}
+            title={typeof value === 'string' ? value : String(value)}
+          >
+            {value}
+          </p>
+          {renderValueTooltip()}
           {trend && (
             <div className="mt-1 flex items-center">
-              <span 
+              <span
                 className={`text-xs sm:text-sm font-medium ${
                   trend.isPositive ? 'text-green-600' : 'text-red-600'
                 }`}
@@ -156,7 +199,6 @@ const StatCard = ({ title, value, icon, trend, tooltipKey, type, className = '' 
             </div>
           )}
         </div>
-        
         <div className={`p-1.5 sm:p-2 rounded-md ${getIconColor(type)} ml-2 flex-shrink-0`}>
           <div className="w-5 h-5 sm:w-6 sm:h-6">{icon}</div>
         </div>

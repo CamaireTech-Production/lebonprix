@@ -13,7 +13,7 @@ export default defineConfig(({ mode }) => {
       'process.env': env,
     },
     server: {
-      port: 3001, // Change this to your desired port
+      port: 3010, // Change this to your desired port
     },
   };
 });

@@ -793,6 +793,10 @@
       "sale": "Sale",
       "expense": "Expense"
     },
+    "types": {
+      "debt": "Debt",
+      "refund": "Refund"
+    },
     "messages": {
       "addSuccess": "Finance entry added successfully.",
       "updateSuccess": "Finance entry updated successfully.",
