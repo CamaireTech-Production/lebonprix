@@ -463,7 +463,9 @@
     "predefined": "Predefined",
     "custom": "Custom",
     "period": "Period",
-    "edit": "Edit Objective"
+    "edit": "Edit Objective",
+    "viewShort": "View",
+    "addShort": "Add"
   },
   "products": {
     "title": "Products",
@@ -794,14 +796,30 @@
       "expense": "Expense"
     },
     "types": {
-      "debt": "Debt",
-      "refund": "Refund"
+      "loan": "Loan",
+      "expense": "Expense",
+      "sale": "Sale",
+      "refund": "Refund",
+      "debt": "Debt"
     },
     "messages": {
       "addSuccess": "Finance entry added successfully.",
       "updateSuccess": "Finance entry updated successfully.",
       "deleteSuccess": "Finance entry deleted successfully.",
       "operationError": "An error occurred. Please try again."
+    },
+    "debtCardTitle": "Outstanding Debt",
+    "viewHistory": "View History",
+    "debtHistory": "Debt/Refund History",
+    "debtEntry": "Debt",
+    "remaining": "Remaining",
+    "toggleRefunds": "Toggle refunds",
+    "types": {
+      "loan": "Loan",
+      "expense": "Expense",
+      "sale": "Sale",
+      "refund": "Refund",
+      "debt": "Debt"
     }
   }
 } 

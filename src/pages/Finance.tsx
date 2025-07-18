@@ -61,6 +61,8 @@ const Finance: React.FC = () => {
   const [applyDateFilter, setApplyDateFilter] = useState(true);
   const [] = useState<CustomerDebt | null>(null);
   const [showDebtHistoryModal, setShowDebtHistoryModal] = useState(false);
+  // Add openDebtId state at the top of the component
+  const [openDebtId, setOpenDebtId] = useState<string | null>(null);
 
   // Pagination, sorting, and filtering state
   const [currentPage, setCurrentPage] = useState(1);
@@ -94,29 +96,48 @@ const Finance: React.FC = () => {
   // Filter finance entries by date range and not soft deleted
   const filteredFinanceEntries = entries.filter(entry => !entry.isDeleted && entry.createdAt?.seconds && new Date(entry.createdAt.seconds * 1000) >= dateRange.from && new Date(entry.createdAt.seconds * 1000) <= dateRange.to);
 
-  // Solde: sum of all active finance entries in the selected period
-  const solde = filteredFinanceEntries.reduce((sum, entry) => sum + entry.amount, 0);
-
   // Remove phone/description logic. Group all 'debt' and 'refund' entries for the current user.
-  const userDebt = useMemo(() => {
-    let totalDebt = 0;
+  const userDebt = useMemo<{
+    debtEntries: FinanceEntry[];
+    refundEntries: FinanceEntry[];
+  }>(() => {
     let debtEntries: FinanceEntry[] = [];
     let refundEntries: FinanceEntry[] = [];
-    entries.forEach(entry => {
+    entries.forEach((entry: FinanceEntry) => {
       if (entry.type === 'debt') {
-        totalDebt += entry.amount;
         debtEntries.push(entry);
       } else if (entry.type === 'refund') {
-        totalDebt -= entry.amount;
         refundEntries.push(entry);
       }
     });
     return {
-      debt: totalDebt,
       debtEntries,
       refundEntries
     };
   }, [entries]);
+
+  // Calculate total remaining debt (sum of each debt minus its refunds)
+  const totalDebt = useMemo<number>(() => {
+    return userDebt.debtEntries.reduce((sum: number, debt: FinanceEntry) => {
+      const linkedRefunds = userDebt.refundEntries.filter(
+        (refund: FinanceEntry) => {
+          const match = refund.refundedDebtId && String(refund.refundedDebtId) === String(debt.id);
+          return match;
+        }
+      );
+      const refundedAmount = linkedRefunds.reduce((s: number, r: FinanceEntry) => s + r.amount, 0);
+      return sum + Math.max(0, debt.amount - refundedAmount);
+    }, 0);
+  }, [userDebt.debtEntries, userDebt.refundEntries]);
+
+  // Calculate solde: sum of all non-debt/refund entries plus total remaining debt
+  const solde = useMemo<number>(() => {
+    const nonDebtEntries = filteredFinanceEntries.filter(
+      (entry: FinanceEntry) => entry.type !== 'debt' && entry.type !== 'refund'
+    );
+    const nonDebtSum = nonDebtEntries.reduce((sum: number, entry: FinanceEntry) => sum + entry.amount, 0);
+    return nonDebtSum + totalDebt;
+  }, [filteredFinanceEntries, totalDebt]);
 
   // Filtering logic
   const filteredAndSearchedEntries = useMemo(() => {
@@ -175,7 +196,6 @@ const Finance: React.FC = () => {
   // (Optional: can use stock changes if needed, for now use Dashboard logic)
   const availableProducts = products.filter(product => typeof product.isAvailable === 'undefined' || product.isAvailable !== false);
   const totalPurchasePrice = availableProducts.reduce((sum, product) => sum + (product.costPrice * product.stock), 0);
-  console.log(availableProducts.length)
 
   // Stat cards (dashboard style, now using dashboard logic)
   const statCards = [
@@ -251,18 +271,19 @@ const Finance: React.FC = () => {
 
   const handleSubmit = async () => {
     if (!user || !form.type || !form.amount) return;
+    if (form.type.value === 'refund' && (!form.refundedDebtId || userDebt.debtEntries.length === 0)) return;
     setModalLoading(true);
     const entryData = {
       userId: user.uid,
       sourceType: 'manual' as const,
-      type: form.type.label,
+      type: form.type.value, // FIXED: use value, not label
       amount: parseFloat(form.amount),
       description: form.description,
       date: Timestamp.now(),
       isDeleted: false,
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
-      ...(form.type.label === 'refund' && form.refundedDebtId ? { refundedDebtId: form.refundedDebtId } : {}),
+      ...(form.type.value === 'refund' && form.refundedDebtId ? { refundedDebtId: form.refundedDebtId } : {}),
     };
     try {
       if (form.isEdit && form.id) {
@@ -299,6 +320,17 @@ const Finance: React.FC = () => {
     setDeleteConfirm({ open: false, entryId: null });
   };
 
+  // Calculate remaining amount for selected debt when refunding
+  const selectedDebt = form.type?.value === 'refund' && form.refundedDebtId
+    ? userDebt.debtEntries.find(d => d.id === form.refundedDebtId)
+    : null;
+  const refundedSoFar = form.type?.value === 'refund' && form.refundedDebtId
+    ? userDebt.refundEntries.filter(r => r.refundedDebtId === form.refundedDebtId).reduce((sum, r) => sum + r.amount, 0)
+    : 0;
+  const remainingDebt = selectedDebt ? Math.max(0, selectedDebt.amount - refundedSoFar) : 0;
+  const refundAmount = parseFloat(form.amount) || 0;
+  const refundExceeds = form.type?.value === 'refund' && form.refundedDebtId && refundAmount > remainingDebt;
+
   return (
     <>
       <div className="px-4 py-6 w-full mx-auto">
@@ -307,21 +339,21 @@ const Finance: React.FC = () => {
           <div className="flex flex-row w-full gap-4 md:gap-6">
             {/* Balance card - 50% on mobile, 30% on desktop */}
             <div className="w-1/2 md:w-[25%] min-w-[140px] max-w-[320px]">
-              <StatCard
-                title={t('dashboard.stats.solde')}
+            <StatCard
+              title={t('dashboard.stats.solde')}
                 value={solde.toLocaleString() + ' XAF'}
-                icon={<DollarSign size={24} />}
-                type="solde"
+              icon={<DollarSign size={24} />}
+              type="solde"
                 className="ring-2 ring-green-400 shadow bg-green-50 text-green-900 border border-green-200 rounded-xl py-2 mb-2 w-full text-base md:text-xl font-bold break-words"
               />
             </div>
             {/* Debt card - 50% on mobile, 30% on desktop */}
             <div className="w-1/2 md:w-[25%] min-w-[140px] max-w-[320px]">
-              <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-2 md:p-4 flex flex-col items-start shadow w-full">
-                <div className="font-semibold text-sm md:text-lg text-yellow-800 mb-1 md:mb-2 truncate w-full">{t('finance.debtCardTitle') || 'Outstanding Debt'}</div>
-                <div className="text-base md:text-xl font-bold text-yellow-900 mb-1 md:mb-2 break-words w-full">{userDebt.debt.toLocaleString()} XAF</div>
+              <div className="bg-red-50 border border-red-300 rounded-lg p-2 md:p-4 flex flex-col items-start shadow w-full">
+                <div className="font-semibold text-sm md:text-lg text-red-800 mb-1 md:mb-2 truncate w-full">{t('finance.debtCardTitle', 'Outstanding Debt')}</div>
+                <div className="text-base md:text-xl font-bold text-red-900 mb-1 md:mb-2 break-words w-full">{totalDebt.toLocaleString()} XAF</div>
                 <Button variant="outline" onClick={() => { setShowDebtHistoryModal(true); }} className="w-full md:w-auto text-xs md:text-sm px-2 py-1">
-                  {t('finance.viewHistory')}
+                  {t('finance.viewHistory', 'View History')}
                 </Button>
               </div>
             </div>
@@ -565,11 +597,8 @@ const Finance: React.FC = () => {
       </div>
       {/* Add/Edit Finance Entry Modal, Delete Confirmation Modal, Calculations Modal (unchanged) */}
       <Modal isOpen={modalOpen} onClose={handleCloseModal} title={form.isEdit ? t('finance.editEntry') : t('finance.addEntry')} size="md"
-        footer={<ModalFooter onCancel={handleCloseModal} onConfirm={handleSubmit} isLoading={modalLoading} confirmText={t('common.save')} />}
+        footer={<ModalFooter onCancel={handleCloseModal} onConfirm={handleSubmit} isLoading={modalLoading} confirmText={t('common.save')} disabled={!!refundExceeds} />}
       >
-        {modalLoading ? (
-          <div className="text-center text-gray-400">{t('common.loading')}</div>
-        ) : (
           <form className="space-y-4" onSubmit={e => { e.preventDefault(); handleSubmit(); }}>
             <div>
               <label className="block text-sm font-medium mb-1">{t('common.type')}</label>
@@ -581,24 +610,38 @@ const Finance: React.FC = () => {
                 placeholder={t('common.type')}
               />
             </div>
-            {form.type?.label === 'refund' && (
-              <div>
-                <label className="block text-sm font-medium mb-1">{t('finance.selectDebtToRefund', 'Select Debt to Refund')}</label>
-                <select
-                  value={form.refundedDebtId}
-                  onChange={e => setForm(f => ({ ...f, refundedDebtId: e.target.value }))}
-                  className="w-full border rounded px-3 py-2"
-                  required
-                >
-                  <option value="">{t('finance.selectDebt', 'Select a debt')}</option>
-                  {userDebt.debtEntries.map(debt => (
-                    <option key={debt.id} value={debt.id}>
-                      {debt.amount.toLocaleString()} XAF - {debt.description || t('finance.debtEntry', 'Debt')}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
+          {form.type?.value === 'refund' && (
+            <div>
+              <label className="block text-sm font-medium mb-1">{t('finance.selectDebtToRefund', 'Select Debt to Refund')}</label>
+              {userDebt.debtEntries.length > 0 ? (
+                <>
+                  <select
+                    value={form.refundedDebtId}
+                    onChange={e => setForm(f => ({ ...f, refundedDebtId: e.target.value }))}
+                    className="w-full border rounded px-3 py-2"
+                    required
+                  >
+                    <option value="">{t('finance.selectDebt', 'Select a debt')}</option>
+                    {userDebt.debtEntries.map(debt => (
+                      <option key={debt.id} value={debt.id}>
+                        {debt.amount.toLocaleString()} XAF - {debt.description || t('finance.debtEntry', 'Debt')}
+                      </option>
+                    ))}
+                  </select>
+                  {selectedDebt && (
+                    <div className="text-xs text-gray-600 mt-1">
+                      {t('finance.remaining', 'Remaining')}: {remainingDebt.toLocaleString()} XAF
+                    </div>
+                  )}
+                  {refundExceeds && (
+                    <div className="text-xs text-yellow-600 mt-1">{t('finance.refundExceeds', 'Refund amount exceeds remaining debt!')}</div>
+                  )}
+                </>
+              ) : (
+                <div className="text-sm text-red-500 mt-1">{t('finance.noDebtsToRefund', 'No debts available to refund.')}</div>
+              )}
+            </div>
+          )}
             <div>
               <label className="block text-sm font-medium mb-1">{t('common.amount')}</label>
               <input
@@ -609,6 +652,10 @@ const Finance: React.FC = () => {
                 className="w-full border rounded px-3 py-2"
                 placeholder={t('common.amount')}
                 required
+              {...(form.type?.value === 'refund' && form.refundedDebtId ? {
+                max: remainingDebt || undefined
+              } : {})}
+              disabled={form.type?.value === 'refund' && userDebt.debtEntries.length === 0}
               />
             </div>
             <div>
@@ -620,10 +667,10 @@ const Finance: React.FC = () => {
                 className="w-full border rounded px-3 py-2"
                 placeholder={t('common.description')}
                 rows={2}
+              disabled={form.type?.value === 'refund' && userDebt.debtEntries.length === 0}
               />
             </div>
           </form>
-        )}
       </Modal>
       <Modal isOpen={deleteConfirm.open} onClose={handleDeleteCancel} title={t('common.delete')} size="sm"
         footer={<ModalFooter onCancel={handleDeleteCancel} onConfirm={handleDeleteConfirm} confirmText={t('common.delete')} isDanger />}
@@ -680,33 +727,46 @@ const Finance: React.FC = () => {
       </Modal>
       <Modal isOpen={showDebtHistoryModal} onClose={() => setShowDebtHistoryModal(false)} title={t('finance.debtHistory', 'Debt/Refund History')} size="md">
         <div>
-          <div className="mb-2 font-semibold text-yellow-800">{t('finance.debtHistory')}</div>
+          <div className="mb-2 font-semibold text-red-800">{t('finance.debtHistory')}</div>
           <ul className="divide-y divide-gray-200">
             {userDebt.debtEntries.map((debt, idx) => {
-              const linkedRefunds = userDebt.refundEntries.filter(refund => refund.refundedDebtId === debt.id);
+              const linkedRefunds = userDebt.refundEntries.filter(refund => {
+                const match = refund.refundedDebtId && String(refund.refundedDebtId) === String(debt.id);
+                return match;
+              });
               const refundedAmount = linkedRefunds.reduce((sum, r) => sum + r.amount, 0);
-              const remaining = debt.amount - refundedAmount;
+              const remaining = Math.max(0, debt.amount - refundedAmount);
+              const isOpen = openDebtId === debt.id;
               return (
                 <li key={debt.id || idx} className="py-2">
-                  <div className="flex justify-between items-center">
-                    <span className="capitalize font-semibold">{t('finance.debtEntry', 'Debt')}</span>
-                    <span className="text-red-600">{debt.amount.toLocaleString()} XAF</span>
-                    <span className="text-xs text-gray-500">{debt.createdAt?.seconds ? format(new Date(debt.createdAt.seconds * 1000), 'dd/MM/yyyy') : ''}</span>
+                  <div className="flex justify-between items-center cursor-pointer" onClick={() => setOpenDebtId(isOpen ? null : debt.id)}>
+                    <div>
+                      <span className="capitalize font-semibold">{t('finance.debtEntry', 'Debt')}</span>
+                      <span className="ml-2 text-xs text-gray-500">{debt.createdAt?.seconds ? format(new Date(debt.createdAt.seconds * 1000), 'dd/MM/yyyy') : ''}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-red-600 font-bold">{debt.amount.toLocaleString()} XAF</span>
+                      <span className="text-xs text-gray-600">{t('finance.remaining', 'Remaining')}: <span className="font-bold">{remaining.toLocaleString()} XAF</span></span>
+                      <button className="ml-2 text-gray-500 focus:outline-none" aria-label={t('finance.toggleRefunds', 'Toggle refunds')}>
+                        {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                      </button>
+                    </div>
                   </div>
-                  {linkedRefunds.length > 0 && (
-                    <ul className="ml-4 mt-1">
-                      {linkedRefunds.map((refund, rIdx) => (
-                        <li key={refund.id || rIdx} className="flex justify-between items-center text-green-700">
-                          <span>{t('finance.refundEntry', 'Refund')}</span>
-                          <span>-{refund.amount.toLocaleString()} XAF</span>
-                          <span className="text-xs text-gray-500">{refund.createdAt?.seconds ? format(new Date(refund.createdAt.seconds * 1000), 'dd/MM/yyyy') : ''}</span>
-                        </li>
-                      ))}
+                  {isOpen && (
+                    <ul className="ml-4 mt-2 bg-gray-50 rounded p-2">
+                      {linkedRefunds.length === 0 ? (
+                        <li className="text-xs text-gray-500">{t('finance.noRefunds', 'No refunds for this debt.')}</li>
+                      ) : (
+                        linkedRefunds.map((refund, rIdx) => (
+                          <li key={refund.id || rIdx} className="flex justify-between items-center text-green-700 py-1">
+                            <span>{t('finance.refundEntry', 'Refund')}</span>
+                            <span>-{refund.amount.toLocaleString()} XAF</span>
+                            <span className="text-xs text-gray-500">{refund.createdAt?.seconds ? format(new Date(refund.createdAt.seconds * 1000), 'dd/MM/yyyy') : ''}</span>
+                          </li>
+                        ))
+                      )}
                     </ul>
                   )}
-                  <div className="ml-4 mt-1 text-sm text-yellow-900 font-bold">
-                    {t('finance.remaining', 'Remaining')}: {remaining.toLocaleString()} XAF
-                  </div>
                 </li>
               );
             })}

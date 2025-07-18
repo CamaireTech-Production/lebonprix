@@ -580,7 +580,9 @@
     "periodType": "Type de période",
     "predefined": "Prédéfini",
     "custom": "Personnalisé",
-    "period": "Période"
+    "period": "Période",
+    "viewShort": "Voir",
+    "addShort": "Ajouter"
   },
   "settings": {
     "title": "Paramètres",
@@ -666,14 +668,28 @@
       "expense": "Dépense"
     },
     "types": {
-      "debt": "Dette",
-      "refund": "Remboursement"
+      "loan": "Prêt",
+      "expense": "Dépense",
+      "sale": "Vente",
+      "refund": "Remboursement",
+      "debt": "Dette"
     },
     "messages": {
       "addSuccess": "Entrée financière ajoutée avec succès.",
       "updateSuccess": "Entrée financière mise à jour avec succès.",
       "deleteSuccess": "Entrée financière supprimée avec succès.",
       "operationError": "Une erreur est survenue. Veuillez réessayer."
+    },
+    "debtCardTitle": "Dette en cours",
+    "viewHistory": "Voir l'historique",
+    "debtHistory": "Historique Dette/Remboursement",
+    "debtEntry": "Dette",
+    "remaining": "Restant",
+    "toggleRefunds": "Afficher/Masquer remboursements",
+    "types": {
+      "loan": "Prêt",
+      "expense": "Dépense",
+      "sale": "Vente"
     }
   }
 } 

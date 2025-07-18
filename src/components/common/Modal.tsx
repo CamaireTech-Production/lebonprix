@@ -71,7 +71,8 @@ export const ModalFooter = ({
   confirmText = 'Save', 
   cancelText = 'Cancel',
   isLoading = false, 
-  isDanger = false 
+  isDanger = false,
+  disabled = false
 }: {
   onCancel: () => void;
   onConfirm: () => void;
@@ -79,6 +80,7 @@ export const ModalFooter = ({
   cancelText?: string;
   isLoading?: boolean;
   isDanger?: boolean;
+  disabled?: boolean;
 }) => {
   useTranslation();
   
@@ -91,6 +93,7 @@ export const ModalFooter = ({
         variant={isDanger ? 'danger' : 'primary'} 
         onClick={onConfirm} 
         isLoading={isLoading}
+        disabled={disabled}
       >
         {confirmText}
       </Button>

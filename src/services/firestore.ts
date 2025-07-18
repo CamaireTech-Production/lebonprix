@@ -166,7 +166,7 @@ export const createCategory = async (
 const createAuditLog = async (
   batch: WriteBatch,
   action: 'create' | 'update' | 'delete',
-  entityType: 'product' | 'sale' | 'expense' | 'category' | 'objective',
+  entityType: 'product' | 'sale' | 'expense' | 'category' | 'objective' | 'finance',
   entityId: string,
   changes: any,
   performedBy: string
@@ -952,6 +952,19 @@ export const createFinanceEntry = async (entry: Omit<FinanceEntry, 'id' | 'creat
   const data = { ...entry, createdAt: now, updatedAt: now };
   await setDoc(ref, data);
   const snap = await getDoc(ref);
+  // Add audit log for manual finance entries (debt/refund)
+  if (entry.sourceType === 'manual') {
+    const batch = writeBatch(db);
+    await createAuditLog(
+      batch,
+      'create',
+      'finance',
+      ref.id,
+      { all: { oldValue: null, newValue: data } },
+      entry.userId
+    );
+    await batch.commit();
+  }
   return { id: ref.id, ...snap.data() } as FinanceEntry;
 };
 
