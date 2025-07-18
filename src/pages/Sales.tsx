@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus, Edit2, Eye, Trash2, Download, Share, ChevronDown, ChevronRight } from 'lucide-react';
+import { Plus, Edit2, Eye, Trash2, Download, Share, ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
 import Select from 'react-select';
 import Modal, { ModalFooter } from '../components/common/Modal';
 import Input from '../components/common/Input';
@@ -15,7 +15,7 @@ import Invoice from '../components/sales/Invoice';
 import { generatePDF, generatePDFBlob } from '../utils/pdf';
 import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
-import { deleteSale as deleteSaleFromFirestore, addCustomer } from '../services/firestore';
+import { addCustomer, softDeleteSale } from '../services/firestore';
 import { createPortal } from 'react-dom';
 import AddSaleModal from '../components/sales/AddSaleModal';
 import SaleDetailsModal from '../components/sales/SaleDetailsModal';
@@ -58,6 +58,7 @@ const Sales = () => {
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const [customerSearch, setCustomerSearch] = useState('');
   const [expandedSaleId, setExpandedSaleId] = useState<string | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   
   // Pagination and sorting state
   const [page, setPage] = useState(1);
@@ -463,10 +464,9 @@ const Sales = () => {
 
   const handleDeleteSale = async () => {
     if (!currentSale || !user?.uid) return;
-
+    setDeleteLoading(true);
     try {
-      setIsSubmitting(true);
-      await deleteSaleFromFirestore(currentSale.id, user.uid);
+      await softDeleteSale(currentSale.id, user.uid);
       setIsDeleteModalOpen(false);
       setCurrentSale(null);
       showSuccessToast(t('sales.messages.saleDeleted'));
@@ -474,7 +474,7 @@ const Sales = () => {
       console.error('Failed to delete sale:', err);
       showErrorToast(t('sales.messages.errors.deleteSale'));
     } finally {
-      setIsSubmitting(false);
+      setDeleteLoading(false);
     }
   };
 
@@ -568,9 +568,13 @@ const Sales = () => {
               </button>
               <button
                 onClick={() => handleDeleteClick(sale)}
-                className="text-red-600 hover:text-red-900"
+                className="text-red-600 hover:text-red-900 flex items-center"
                 title={t('sales.actions.deleteSale')}
+                disabled={deleteLoading && currentSale?.id === sale.id}
               >
+                {deleteLoading && currentSale?.id === sale.id ? (
+                  <Loader2 size={16} className="animate-spin mr-1" />
+                ) : null}
                 <Trash2 size={16} />
               </button>
             </div>
@@ -1138,7 +1142,7 @@ const Sales = () => {
             onConfirm={handleDeleteSale}
             confirmText={t('sales.modals.delete.confirm')}
             cancelText={t('sales.modals.common.cancel')}
-            isLoading={isSubmitting}
+            isLoading={deleteLoading}
             isDanger={true}
           />
         }

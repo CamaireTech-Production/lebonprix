@@ -171,12 +171,27 @@ const createAuditLog = async (
   changes: any,
   performedBy: string
 ) => {
+  // Recursively replace undefined with null in changes
+  function replaceUndefined(obj: any): any {
+    if (Array.isArray(obj)) {
+      return obj.map(replaceUndefined);
+    } else if (obj && typeof obj === 'object') {
+      const newObj: any = {};
+      for (const key in obj) {
+        const value = obj[key];
+        newObj[key] = value === undefined ? null : replaceUndefined(value);
+      }
+      return newObj;
+    }
+    return obj;
+  }
+  const safeChanges = replaceUndefined(changes);
   const auditLogRef = doc(collection(db, 'auditLogs'));
   batch.set(auditLogRef, {
     action,
     entityType,
     entityId,
-    changes,
+    changes: safeChanges,
     performedBy,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()
@@ -975,6 +990,78 @@ export const updateFinanceEntry = async (id: string, data: Partial<FinanceEntry>
 
 export const softDeleteFinanceEntry = async (id: string): Promise<void> => {
   await updateFinanceEntry(id, { isDeleted: true });
+};
+
+// Cascade soft delete for finance entry
+export const softDeleteFinanceEntryWithCascade = async (financeEntryId: string): Promise<void> => {
+  const ref = doc(db, 'finances', financeEntryId);
+  const entrySnap = await getDoc(ref);
+  if (!entrySnap.exists()) return;
+  const entry = entrySnap.data() as FinanceEntry;
+  // Soft delete the finance entry
+  await updateFinanceEntry(financeEntryId, { isDeleted: true });
+  // Cascade: if sale or expense, also soft delete the corresponding doc
+  if (entry.sourceType === 'sale' && entry.sourceId) {
+    await softDeleteSale(entry.sourceId, entry.userId);
+  } else if (entry.sourceType === 'expense' && entry.sourceId) {
+    await softDeleteExpense(entry.sourceId, entry.userId);
+  }
+  // Cascade: if debt, also soft delete all related refunds
+  if (entry.type === 'debt') {
+    console.log('[CascadeDelete] Attempting to delete refunds for debt:', financeEntryId);
+    let q = query(collection(db, 'finances'), where('type', '==', 'refund'), where('refundedDebtId', '==', financeEntryId));
+    let snap = await getDocs(q);
+    if (!snap.empty) {
+      for (const docSnap of snap.docs) {
+        console.log('[CascadeDelete] Soft deleting refund (direct match):', docSnap.id);
+        await updateFinanceEntry(docSnap.id, { isDeleted: true });
+      }
+    } else {
+      // Fallback: fetch all refunds and compare refundedDebtId as string
+      console.log('[CascadeDelete] No direct Firestore match, falling back to manual string comparison.');
+      const allRefundsSnap = await getDocs(query(collection(db, 'finances'), where('type', '==', 'refund')));
+      let found = false;
+      for (const docSnap of allRefundsSnap.docs) {
+        const refund = docSnap.data();
+        if (refund.refundedDebtId && String(refund.refundedDebtId) === String(financeEntryId)) {
+          console.log('[CascadeDelete] Soft deleting refund (manual match):', docSnap.id);
+          await updateFinanceEntry(docSnap.id, { isDeleted: true });
+          found = true;
+        }
+      }
+      if (!found) {
+        console.log('[CascadeDelete] No associated refunds found for debt:', financeEntryId);
+      }
+    }
+  }
+};
+
+// Soft delete sale and cascade to finance entry
+export const softDeleteSale = async (saleId: string, userId: string): Promise<void> => {
+  // Soft delete the sale
+  await deleteSale(saleId, userId);
+  // Find and soft delete corresponding finance entry
+  const q = query(collection(db, 'finances'), where('sourceType', '==', 'sale'), where('sourceId', '==', saleId));
+  const snap = await getDocs(q);
+  if (!snap.empty) {
+    for (const docSnap of snap.docs) {
+      await updateFinanceEntry(docSnap.id, { isDeleted: true });
+    }
+  }
+};
+
+// Soft delete expense and cascade to finance entry
+export const softDeleteExpense = async (expenseId: string, userId: string): Promise<void> => {
+  // Soft delete the expense
+  await updateExpense(expenseId, { isAvailable: false }, userId);
+  // Find and soft delete corresponding finance entry
+  const q = query(collection(db, 'finances'), where('sourceType', '==', 'expense'), where('sourceId', '==', expenseId));
+  const snap = await getDocs(q);
+  if (!snap.empty) {
+    for (const docSnap of snap.docs) {
+      await updateFinanceEntry(docSnap.id, { isDeleted: true });
+    }
+  }
 };
 
 // --- Sync with Sales/Expenses ---

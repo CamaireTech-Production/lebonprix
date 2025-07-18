@@ -650,10 +650,27 @@
     },
     "messages": {
       "deleteConfirmation": "Êtes-vous sûr de vouloir supprimer cette dépense ?",
-      "deleteWarning": "Cette action est irréversible."
+      "deleteWarning": "Cette action est irréversible.",
+      "deleteError": "Erreur lors de la suppression de la dépense.",
+      "deleteSuccess": "Dépense supprimée avec succès."
     },
     "actions": {
-      "delete": "Supprimer"
+      "delete": "Supprimer",
+      "export": "Exporter",
+      "add": "Ajouter"
+    },
+    "messages": {
+      "noExpenses": "Aucune dépense trouvée."
+    },
+    "modals": {
+      "add": {
+        "title": "Ajouter une dépense",
+        "confirm": "Ajouter"
+      },
+      "edit": {
+        "title": "Modifier la dépense",
+        "confirm": "Mettre à jour"
+      }
     }
   },
   "finance": {
@@ -662,6 +679,9 @@
     "editEntry": "Modifier une entrée financière",
     "noEntries": "Aucune entrée financière pour les filtres sélectionnés.",
     "deleteConfirm": "Voulez-vous vraiment supprimer cette entrée financière ?",
+    "deleteCascadeConfirm": "La suppression de cette entrée supprimera également la {{entity}} correspondante. Êtes-vous sûr ?",
+    "deleteDebtCascadeWarning": "La suppression de cette dette supprimera également tous les remboursements associés. Cette action est irréversible.",
+    "deleteCascadeWarning": "Cette action est irréversible et affectera les enregistrements liés.",
     "sourceType": {
       "manual": "Manuelle",
       "sale": "Vente",
@@ -672,7 +692,8 @@
       "expense": "Dépense",
       "sale": "Vente",
       "refund": "Remboursement",
-      "debt": "Dette"
+      "debt": "Dette",
+      "other": "Entrée associée"
     },
     "messages": {
       "addSuccess": "Entrée financière ajoutée avec succès.",
@@ -690,6 +711,9 @@
       "loan": "Prêt",
       "expense": "Dépense",
       "sale": "Vente"
-    }
+    },
+    "selectDebtToRefund": "Sélectionnez la dette à rembourser",
+    "selectDebt": "Sélectionnez une dette",
+    "refundExceeds": "Le montant du remboursement dépasse la dette restante !"
   }
 } 

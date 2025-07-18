@@ -6,11 +6,11 @@ import { useObjectives } from '../hooks/useObjectives';
 import { format } from 'date-fns';
 import Modal, { ModalFooter } from '../components/common/Modal';
 import CreatableSelect from '../components/common/CreatableSelect';
-import { getFinanceEntryTypes, createFinanceEntryType, createFinanceEntry, updateFinanceEntry, softDeleteFinanceEntry } from '../services/firestore';
+import { getFinanceEntryTypes, createFinanceEntryType, createFinanceEntry, updateFinanceEntry, softDeleteFinanceEntry, softDeleteFinanceEntryWithCascade } from '../services/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import { Timestamp } from 'firebase/firestore';
 import LoadingScreen from '../components/common/LoadingScreen';
-import { Edit2, Trash2, BarChart2, Receipt, DollarSign, ShoppingCart, Info, ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Edit2, Trash2, BarChart2, Receipt, DollarSign, ShoppingCart, Info, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import DateRangePicker from '../components/common/DateRangePicker';
 import { useTranslation } from 'react-i18next';
 import ObjectivesBar from '../components/objectives/ObjectivesBar';
@@ -46,7 +46,7 @@ const Finance: React.FC = () => {
     isEdit: false,
     refundedDebtId: '', // NEW
   });
-  const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; entryId: string | null }>({ open: false, entryId: null });
+  const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; entryId: string | null; entryType?: string; sourceType?: string } | null>({ open: false, entryId: null });
   // Date range filter (default: all time)
   const [dateRange, setDateRange] = useState({
     from: new Date(2000, 0, 1),
@@ -63,6 +63,7 @@ const Finance: React.FC = () => {
   const [showDebtHistoryModal, setShowDebtHistoryModal] = useState(false);
   // Add openDebtId state at the top of the component
   const [openDebtId, setOpenDebtId] = useState<string | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   // Pagination, sorting, and filtering state
   const [currentPage, setCurrentPage] = useState(1);
@@ -302,17 +303,35 @@ const Finance: React.FC = () => {
   };
 
   const handleDeleteClick = (entry: any) => {
-    setDeleteConfirm({ open: true, entryId: entry.id });
+    setDeleteConfirm({ open: true, entryId: entry.id, entryType: entry.type, sourceType: entry.sourceType });
+  };
+
+  // Helper to get entity label for cascade delete modal
+  const getCascadeEntityLabel = (entry: any) => {
+    if (!entry) return t('finance.types.other', 'entrée associée');
+    if (entry.sourceType === 'sale') return t('finance.types.sale', 'vente');
+    if (entry.sourceType === 'expense') return t('finance.types.expense', 'dépense');
+    if (entry.type === 'debt') return t('finance.types.debt', 'dette');
+    if (entry.type === 'refund') return t('finance.types.refund', 'remboursement');
+    return t('finance.types.other', 'entrée associée');
   };
 
   const handleDeleteConfirm = async () => {
-    if (!deleteConfirm.entryId) return;
+    if (!deleteConfirm?.entryId) return;
+    setDeleteLoading(true);
     try {
-      await softDeleteFinanceEntry(deleteConfirm.entryId);
+      if (deleteConfirm.sourceType === 'manual') {
+        await softDeleteFinanceEntry(deleteConfirm.entryId);
+      } else if (deleteConfirm.sourceType === 'sale' || deleteConfirm.sourceType === 'expense') {
+        await softDeleteFinanceEntryWithCascade(deleteConfirm.entryId);
+      } else {
+        await softDeleteFinanceEntry(deleteConfirm.entryId);
+      }
       showSuccessToast(t('finance.messages.deleteSuccess'));
     } catch (err) {
       showErrorToast(t('finance.messages.operationError'));
     }
+    setDeleteLoading(false);
     setDeleteConfirm({ open: false, entryId: null });
   };
 
@@ -530,28 +549,28 @@ const Finance: React.FC = () => {
                     <td className={`py-3 px-2 font-semibold ${entry.amount >= 0 ? 'text-green-600' : 'text-red-500'}`}>{entry.amount.toLocaleString()}</td>
                     <td className="py-3 px-2 capitalize">{t(`finance.sourceType.${entry.sourceType}`)}</td>
                     <td className="py-3 px-2 flex gap-2">
-                      {entry.sourceType === 'manual' ? (
-                        <>
-                          <button
-                            onClick={() => handleOpenModal(entry)}
-                            className="text-indigo-600 hover:text-indigo-900"
-                            title={t('common.edit')}
-                            aria-label={t('common.edit')}
-                          >
-                            <Edit2 size={16} />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteClick(entry)}
-                            className="text-red-600 hover:text-red-900"
-                            title={t('common.delete')}
-                            aria-label={t('common.delete')}
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </>
-                      ) : (
-                        <span className="text-gray-400">-</span>
+                      {entry.sourceType === 'manual' && (
+                        <button
+                          onClick={() => handleOpenModal(entry)}
+                          className="text-indigo-600 hover:text-indigo-900"
+                          title={t('common.edit')}
+                          aria-label={t('common.edit')}
+                        >
+                          <Edit2 size={16} />
+                        </button>
                       )}
+                      <button
+                        onClick={() => handleDeleteClick(entry)}
+                        className="text-red-600 hover:text-red-900 flex items-center"
+                        title={t('common.delete')}
+                        aria-label={t('common.delete')}
+                        disabled={deleteLoading && deleteConfirm?.entryId === entry.id}
+                      >
+                        {deleteLoading && deleteConfirm?.entryId === entry.id ? (
+                          <Loader2 size={16} className="animate-spin mr-1" />
+                        ) : null}
+                        <Trash2 size={16} />
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -672,10 +691,25 @@ const Finance: React.FC = () => {
             </div>
           </form>
       </Modal>
-      <Modal isOpen={deleteConfirm.open} onClose={handleDeleteCancel} title={t('common.delete')} size="sm"
-        footer={<ModalFooter onCancel={handleDeleteCancel} onConfirm={handleDeleteConfirm} confirmText={t('common.delete')} isDanger />}
+      <Modal isOpen={!!deleteConfirm?.open} onClose={handleDeleteCancel} title={t('common.delete')} size="sm"
+        footer={<ModalFooter onCancel={handleDeleteCancel} onConfirm={handleDeleteConfirm} confirmText={t('common.delete')} isDanger isLoading={deleteLoading} />}
       >
-        <div className="text-center text-gray-700">{t('finance.deleteConfirm')}</div>
+        <div className="text-center text-gray-700">
+          {deleteConfirm?.sourceType === 'manual' ? (
+            t('finance.deleteConfirm', 'Are you sure you want to delete this entry?')
+          ) : (
+            <>
+              <div>{t('finance.deleteCascadeConfirm', {
+                entity: getCascadeEntityLabel(deleteConfirm)
+              })}</div>
+              <div className="text-sm text-red-600 mt-2">
+                {deleteConfirm?.entryType === 'debt'
+                  ? t('finance.deleteDebtCascadeWarning', 'Deleting this debt will also delete all associated refunds. This action cannot be undone.')
+                  : t('finance.deleteCascadeWarning', 'This action cannot be undone and will affect related records.')}
+              </div>
+            </>
+          )}
+        </div>
       </Modal>
       <Modal
         isOpen={showCalculationsModal}

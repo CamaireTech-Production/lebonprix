@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, FileDown, Edit2, Trash2 } from 'lucide-react';
+import { Plus, FileDown, Edit2, Trash2, Loader2 } from 'lucide-react';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Table from '../components/common/Table';
@@ -7,6 +7,7 @@ import Badge from '../components/common/Badge';
 import Modal, { ModalFooter } from '../components/common/Modal';
 import Input from '../components/common/Input';
 import { useExpenses } from '../hooks/useFirestore';
+import { softDeleteExpense } from '../services/firestore';
 import LoadingScreen from '../components/common/LoadingScreen';
 import { showSuccessToast, showErrorToast, showWarningToast } from '../utils/toast';
 import { useAuth } from '../contexts/AuthContext';
@@ -26,6 +27,7 @@ const Expenses = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [expenseToDelete, setExpenseToDelete] = useState<Expense | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   
   // Form state
   const [formData, setFormData] = useState({
@@ -121,14 +123,19 @@ const Expenses = () => {
   };
   
   const handleDeleteExpense = async () => {
-    if (!expenseToDelete) return;
+    if (!expenseToDelete || !user?.uid) {
+      return;
+    }
+    setDeleteLoading(true);
     try {
-      await updateExpense(expenseToDelete.id, { isAvailable: false });
+      await softDeleteExpense(expenseToDelete.id, user.uid);
       showSuccessToast(t('expenses.messages.deleteSuccess'));
       setIsDeleteModalOpen(false);
       setExpenseToDelete(null);
     } catch (err) {
       showErrorToast(t('expenses.messages.deleteError'));
+    } finally {
+      setDeleteLoading(false);
     }
   };
   
@@ -174,9 +181,13 @@ const Expenses = () => {
           {expense.isAvailable !== false && (
             <button
               onClick={() => { setExpenseToDelete(expense); setIsDeleteModalOpen(true); }}
-              className="text-red-600 hover:text-red-900"
+              className="text-red-600 hover:text-red-900 flex items-center"
               title={t('expenses.actions.delete')}
+              disabled={deleteLoading && expenseToDelete?.id === expense.id}
             >
+              {deleteLoading && expenseToDelete?.id === expense.id ? (
+                <Loader2 size={16} className="animate-spin mr-1" />
+              ) : null}
               <Trash2 size={16} />
             </button>
           )}
@@ -390,6 +401,7 @@ const Expenses = () => {
             onConfirm={handleDeleteExpense}
             confirmText={t('expenses.modals.delete.confirm') || 'Delete'}
             isDanger
+            isLoading={deleteLoading}
           />
         }
       >
