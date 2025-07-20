@@ -8,7 +8,6 @@ import Button from '../components/common/Button';
 import Card from '../components/common/Card';
 import { useSales, useProducts, useCustomers } from '../hooks/useFirestore';
 import type { Product, OrderStatus, Sale, SaleProduct, Customer } from '../types/models';
-import type { Column } from '../components/common/Table';
 import LoadingScreen from '../components/common/LoadingScreen';
 import { showSuccessToast, showErrorToast, showWarningToast } from '../utils/toast';
 import Invoice from '../components/sales/Invoice';
@@ -34,7 +33,7 @@ interface ProductOption {
 
 const Sales = () => {
   const { t } = useTranslation();
-  const { sales, loading: salesLoading, error: salesError, addSale, updateSale, deleteSale } = useSales();
+  const { sales, loading: salesLoading, error: salesError, addSale, updateSale } = useSales();
   const { products, loading: productsLoading } = useProducts();
   const { customers } = useCustomers();
   const { user, company } = useAuth();
@@ -49,7 +48,6 @@ const Sales = () => {
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
   const [shareableLink, setShareableLink] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
   const [foundCustomer, setFoundCustomer] = useState<Customer | null>(null);
   const [isSavingCustomer, setIsSavingCustomer] = useState(false);
   const [showAllProducts, setShowAllProducts] = useState(false);
@@ -220,85 +218,6 @@ const Sales = () => {
     setIsLinkModalOpen(true);
   };
 
-  const handleAddSale = async () => {
-    console.log('Starting sale creation with form data:', formData); // Debug log
-    const errors = validateForm();
-    if (Object.keys(errors).length > 0) {
-      Object.values(errors).forEach(error => showWarningToast(error));
-      return;
-    }
-
-    if (!user?.uid) {
-      showErrorToast(t('sales.messages.errors.notLoggedIn'));
-      return;
-    }
-
-    try {
-      setIsSubmitting(true);
-      const totalAmount = calculateTotal();
-
-      const saleProducts: SaleProduct[] = formData.products
-        .filter(p => p.product !== null && p.quantity) // Only include products that have both product and quantity
-        .map(p => ({
-          productId: p.product!.id,
-          quantity: parseInt(p.quantity),
-          basePrice: p.product!.sellingPrice,
-          negotiatedPrice: p.negotiatedPrice ? parseFloat(p.negotiatedPrice) : p.product!.sellingPrice,
-        }));
-
-      console.log('Creating sale with products:', saleProducts); // Debug log
-
-      const customerName = formData.customerName.trim() || t('sales.modals.add.customerInfo.divers');
-      const customerInfo = {
-        name: customerName,
-        phone: formData.customerPhone,
-        ...(formData.customerQuarter && { quarter: formData.customerQuarter })
-      };
-
-      const newSale = await addSale({
-        products: saleProducts,
-        totalAmount,
-        status: formData.status,
-        customerInfo,
-        deliveryFee: formData.deliveryFee ? parseFloat(formData.deliveryFee) : 0,
-        paymentStatus: 'pending',
-        userId: user.uid
-      });
-
-      if (newSale && newSale.id) {
-        setCurrentSale(newSale);
-        setIsAddModalOpen(false);
-        resetForm();
-        handleGenerateLink(newSale.id);
-        showSuccessToast(t('sales.messages.saleAdded'));
-
-        if (autoSaveCustomer && formData.customerPhone && customerName) {
-          try {
-            await addCustomer({
-              phone: formData.customerPhone,
-              name: customerName,
-              quarter: formData.customerQuarter,
-              userId: user.uid,
-              createdAt: new Date()
-            });
-            setFoundCustomer({
-              phone: formData.customerPhone,
-              name: customerName,
-              quarter: formData.customerQuarter,
-              userId: user.uid,
-              createdAt: new Date()
-            });
-          } catch (e) { /* ignore duplicate errors */ }
-        }
-      }
-    } catch (err) {
-      console.error('Failed to add sale:', err);
-      showErrorToast(t('sales.messages.errors.addSale'));
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-  
   const handleViewSale = (sale: Sale) => {
     setViewedSale(sale);
     setIsViewModalOpen(true);
@@ -605,80 +524,6 @@ const Sales = () => {
       ];
     });
   };
-
-  const columns: Column<Sale>[] = [
-    {
-      header: t('sales.table.columns.name'),
-      accessor: (sale: Sale) => sale.customerInfo.name,
-    },
-    {
-      header: t('sales.table.columns.phone'),
-      accessor: (sale: Sale) => (
-        <a href={`tel:${sale.customerInfo.phone}`} className="text-blue-600 hover:underline">
-          {sale.customerInfo.phone}
-        </a>
-      ),
-    },
-    {
-      header: t('sales.table.columns.products'),
-      accessor: (sale: Sale) => (
-        <span className="text-sm text-gray-600">
-          {t('sales.table.productCount', { count: sale.products.length, defaultValue: `${sale.products.length} products` })}
-        </span>
-      ),
-    },
-    {
-      header: t('sales.table.columns.amount'),
-      accessor: (sale: Sale) => (
-        <span>{sale.totalAmount.toLocaleString()} XAF</span>
-      ),
-    },
-    {
-      header: t('sales.table.columns.status'),
-      accessor: (sale: Sale) => {
-        let variant: 'success' | 'warning' | 'info' = 'warning';
-        if (sale.status === 'paid') variant = 'success';
-        if (sale.status === 'under_delivery') variant = 'info';
-
-        return <Badge variant={variant}>{t(`sales.filters.status.${sale.status}`)}</Badge>;
-      }
-    },
-    {
-      header: t('sales.table.columns.actions'),
-      accessor: (sale: Sale) => (
-        <div className="flex space-x-2">
-          <button
-            onClick={() => handleViewSale(sale)}
-            className="text-blue-600 hover:text-blue-900"
-            title={t('sales.actions.viewSale')}
-          >
-            <Eye size={16} />
-          </button>
-          <button
-            onClick={() => handleEditClick(sale)}
-            className="text-indigo-600 hover:text-indigo-900"
-            title={t('sales.actions.editSale')}
-          >
-            <Edit2 size={16} />
-          </button>
-          <button
-            onClick={() => handleCopyLink(sale.id)}
-            className="text-green-600 hover:text-green-900"
-            title={t('sales.actions.copyLink')}
-          >
-            {t('sales.actions.copyLink')}
-          </button>
-          <button
-            onClick={() => handleDeleteClick(sale)}
-            className="text-red-600 hover:text-red-900"
-            title={t('sales.actions.deleteSale')}
-          >
-            <Trash2 size={16} />
-          </button>
-        </div>
-      ),
-    },
-  ];
 
   // Table header click handlers
   const handleSort = (col: 'date' | 'amount' | null) => {

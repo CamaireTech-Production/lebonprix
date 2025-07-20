@@ -18,6 +18,7 @@ interface FormState {
   customerQuarter: string;
   status: OrderStatus;
   deliveryFee: string;
+  saleDate: string;
   products: FormProduct[];
 }
 
@@ -45,6 +46,7 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
     customerQuarter: '',
     status: 'commande',
     deliveryFee: '',
+    saleDate: new Date().toISOString().slice(0, 10),
     products: [{ product: null, quantity: '', negotiatedPrice: '' }],
   });
 
@@ -113,6 +115,7 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
       customerQuarter: '',
       status: 'commande',
       deliveryFee: '',
+      saleDate: new Date().toISOString().slice(0, 10),
       products: [{ product: null, quantity: '', negotiatedPrice: '' }],
     });
     setFoundCustomer(null);

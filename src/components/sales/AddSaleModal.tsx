@@ -3,12 +3,12 @@ import Modal, { ModalFooter } from '../common/Modal';
 import Input from '../common/Input';
 import Button from '../common/Button';
 import Select from 'react-select';
-import { Plus, Trash2, Save } from 'lucide-react';
+import { Plus, Trash2, Save} from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { useState } from 'react';
-import Invoice from '../sales/Invoice';
 import type { Sale } from '../../types/models';
 import SaleDetailsModal from './SaleDetailsModal';
+import type { Product } from '../../types/models';
 
 interface AddSaleModalProps {
   isOpen: boolean;
@@ -47,9 +47,9 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
     normalizePhone,
   } = useAddSaleForm();
 
+  const [viewedSale, setViewedSale] = useState<Sale | null>(null);
   const [productSearchQuery, setProductSearchQuery] = useState('');
   const [showAllProducts, setShowAllProducts] = useState(false);
-  const [viewedSale, setViewedSale] = useState<Sale | null>(null);
 
   // Product options for react-select
   const availableProducts = products?.filter(p => p.isAvailable && p.stock > 0) || [];
@@ -63,7 +63,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
       <div className="flex items-center space-x-2">
         <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
           <img 
-            src={product.imageUrl || '/placeholder.png'} 
+            src={product.images && product.images.length > 0 ? (product.images[0].startsWith('data:image') ? product.images[0] : `data:image/jpeg;base64,${product.images[0]}`) : '/placeholder.png'} 
             alt={product.name}
             className="w-full h-full object-cover"
           />
@@ -88,22 +88,33 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
     }
   };
 
+  // Handle close with reset
+  const handleClose = () => {
+    resetForm();
+    onClose();
+  };
+
   // Patch: if viewedSale is set, show details modal instead of form
   if (!isOpen) return null;
 
   return (
     <>
-      <Modal isOpen={isOpen && !viewedSale} onClose={onClose} title={'Add Sale'} size="xl"
-      footer={
-        <ModalFooter
-          onCancel={onClose}
+      <Modal 
+        isOpen={isOpen && !viewedSale} 
+        onClose={handleClose} 
+        title={'Add Sale'} 
+        size="xl"
+        closeButtonClassName="text-red-500 hover:text-red-700 focus:outline-none"
+        footer={
+          <ModalFooter
+            onCancel={handleClose}
             onConfirm={handleAddSaleWithView}
             confirmText="Add Sale"
             cancelText="Cancel"
-          isLoading={isSubmitting}
-        />
-      }
-    >
+            isLoading={isSubmitting}
+          />
+        }
+      >
       <div className="flex flex-col lg:flex-row gap-6 max-w-4xl mx-auto">
         {/* Main Form */}
         <div className="flex-1 space-y-6">
@@ -175,7 +186,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                       <div className="flex items-center space-x-3">
                         <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0">
                           <img 
-                            src={product.product.imageUrl || '/placeholder.png'} 
+                            src={product.product.images && product.product.images.length > 0 ? (product.product.images[0].startsWith('data:image') ? product.product.images[0] : `data:image/jpeg;base64,${product.product.images[0]}`) : '/placeholder.png'} 
                             alt={product.product.name}
                             className="w-full h-full object-cover"
                           />
@@ -246,11 +257,14 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                       value={productOptions.find(option => option.value.id === product.product?.id)}
                       onChange={(option) => handleProductChange(index, option)}
                       isSearchable
-                        placeholder="Search product..."
+                        placeholder="Select product..."
                       className="text-sm"
                       classNamePrefix="select"
                         noOptionsMessage={() => 'No products found'}
                       formatOptionLabel={(option) => option.label}
+                      filterOption={(option: { value: Product; label: React.ReactNode }, inputValue: string) => {
+                        return option.value.name.toLowerCase().includes(inputValue.toLowerCase());
+                      }}
                     />
                   </div>
                   {index > 0 && (
@@ -313,6 +327,17 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
               </div>
             )}
           </div>
+          {/* Date Field */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input
+              label="Sale Date"
+              name="saleDate"
+              type="date"
+              value={formData.saleDate}
+              onChange={handleInputChange}
+              helpText="Select the date for this sale (defaults to today)"
+            />
+          </div>
           {/* Delivery Fee and Status */}
           <div className="grid grid-cols-2 gap-4">
             <Input
@@ -371,7 +396,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                   <div className="flex items-center space-x-3">
                     <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0">
                       <img 
-                        src={product.imageUrl || '/placeholder.png'} 
+                        src={product.images && product.images.length > 0 ? (product.images[0].startsWith('data:image') ? product.images[0] : `data:image/jpeg;base64,${product.images[0]}`) : '/placeholder.png'} 
                         alt={product.name}
                         className="w-full h-full object-cover"
                       />
@@ -387,7 +412,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
               ))}
             </div>
                 {/* View More Button */}
-                {!showAllProducts && availableProducts.length > 10 && (
+                {availableProducts.length > 10 && (
                   <button
                     onClick={() => setShowAllProducts(true)}
                     className="w-full p-2 text-center text-sm text-blue-600 hover:text-blue-900 border-t"

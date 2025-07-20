@@ -10,9 +10,10 @@ interface ModalProps {
   children: ReactNode;
   footer?: ReactNode;
   size?: 'sm' | 'md' | 'lg' | 'xl';
+  closeButtonClassName?: string;
 }
 
-const Modal = ({ isOpen, onClose, title, children, footer, size = 'md' }: ModalProps) => {
+const Modal = ({ isOpen, onClose, title, children, footer, size = 'md', closeButtonClassName }: ModalProps) => {
   if (!isOpen) return null;
 
   const sizeClasses = {
@@ -42,7 +43,7 @@ const Modal = ({ isOpen, onClose, title, children, footer, size = 'md' }: ModalP
               <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
               <button
                 onClick={onClose}
-                className="text-gray-400 hover:text-gray-500 focus:outline-none"
+                className={closeButtonClassName || "text-gray-400 hover:text-gray-500 focus:outline-none"}
                 aria-label="Close"
               >
                 <X className="h-5 w-5" />
