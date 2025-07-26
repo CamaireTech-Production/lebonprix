@@ -189,12 +189,14 @@ const Products = () => {
   };
   
   const handleEditProduct = async () => {
-    if (!currentProduct || !user?.uid) return;
+    if (!currentProduct || !user?.uid) {
+      return;
+    }
     if (!formData.name || !formData.costPrice || !formData.sellingPrice || !formData.category) {
-        showWarningToast(t('products.messages.warnings.requiredFields'));
-        return;
-      }
-      setIsSubmitting(true);
+      showWarningToast(t('products.messages.warnings.requiredFields'));
+      return;
+    }
+    setIsSubmitting(true);
     const safeProduct = {
       ...currentProduct,
       isAvailable: typeof currentProduct.isAvailable === 'boolean' ? currentProduct.isAvailable : true,
@@ -205,13 +207,20 @@ const Products = () => {
       name: formData.name,
       costPrice: parseFloat(formData.costPrice),
       sellingPrice: parseFloat(formData.sellingPrice),
-      cataloguePrice: formData.cataloguePrice ? parseFloat(formData.cataloguePrice) : undefined,
+      // cataloguePrice will be conditionally added below
       category: formData.category,
       images: (formData.images ?? []).length > 0 ? formData.images : [],
       isAvailable: safeProduct.isAvailable,
       userId: safeProduct.userId,
       updatedAt: { seconds: 0, nanoseconds: 0 }
     };
+    // Only add cataloguePrice if it is a valid number, otherwise omit it
+    if (formData.cataloguePrice && !isNaN(parseFloat(formData.cataloguePrice))) {
+      updateData.cataloguePrice = parseFloat(formData.cataloguePrice);
+    } else {
+      // Optionally, default to sellingPrice if you want
+      // updateData.cataloguePrice = parseFloat(formData.sellingPrice);
+    }
     if (formData.reference && formData.reference.trim() !== '') {
       updateData.reference = formData.reference;
     }
@@ -272,7 +281,6 @@ const Products = () => {
       transform: (value: string) => value.trim(),
       complete: (results: ParseResult<CsvRow>) => {
         if (results.data && results.data.length > 0) {
-          console.log('Parsed CSV data:', results.data);
           setCsvData(results.data);
           const headers = Object.keys(results.data[0]);
           setCsvHeaders(headers);

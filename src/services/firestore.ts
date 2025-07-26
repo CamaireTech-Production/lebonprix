@@ -185,9 +185,11 @@ const createAuditLog = async (
     }
     return obj;
   }
+  
   const safeChanges = replaceUndefined(changes);
   const auditLogRef = doc(collection(db, 'auditLogs'));
-  batch.set(auditLogRef, {
+  
+  const auditLogData = {
     action,
     entityType,
     entityId,
@@ -195,18 +197,28 @@ const createAuditLog = async (
     performedBy,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()
-  });
+  };
+  try {
+    batch.set(auditLogRef, auditLogData);
+  } catch (error) {
+    throw error;
+  }
 };
 
 const createStockChange = (batch: WriteBatch, productId: string, change: number, reason: 'sale' | 'restock' | 'adjustment' | 'creation', userId: string) => {
   const stockChangeRef = doc(collection(db, 'stockChanges'));
-  batch.set(stockChangeRef, {
+  const stockChangeData = {
     productId,
     change,
     reason,
     userId,
     createdAt: serverTimestamp(),
-  });
+  };
+  try {
+    batch.set(stockChangeRef, stockChangeData);
+  } catch (error) {
+    throw error;
+  }
 };
 
 export const createProduct = async (
@@ -267,48 +279,46 @@ export const updateProduct = async (
 ): Promise<void> => {
   const batch = writeBatch(db);
   const productRef = doc(db, 'products', id);
-  
   // Get current product data for audit log
   const currentProduct = await getDoc(productRef);
   if (!currentProduct.exists()) {
     throw new Error('Product not found');
   }
-
   // Verify ownership
   const productData = currentProduct.data() as Product;
   if (productData.userId !== userId) {
     throw new Error('Unauthorized to update this product');
   }
-  
   const updateData = {
     ...data,
     updatedAt: serverTimestamp()
   };
-  
   batch.update(productRef, updateData);
-  
   // If stock is being updated, record the change
   if (typeof data.stock === 'number' && typeof stockChange === 'number' && stockReason) {
     createStockChange(batch, id, stockChange, stockReason, userId);
   }
-  
   // Create audit log
+  const auditChanges = Object.keys(data).reduce((acc, key) => ({
+    ...acc,
+    [key]: {
+      oldValue: currentProduct.data()[key] === undefined ? null : currentProduct.data()[key],
+      newValue: data[key as keyof Product] === undefined ? null : data[key as keyof Product]
+    }
+  }), {});
   await createAuditLog(
     batch,
     'update',
     'product',
     id,
-    Object.keys(data).reduce((acc, key) => ({
-      ...acc,
-      [key]: {
-        oldValue: currentProduct.data()[key] === undefined ? null : currentProduct.data()[key],
-        newValue: data[key as keyof Product] === undefined ? null : data[key as keyof Product]
-      }
-    }), {}),
+    auditChanges,
     userId
   );
-  
-  await batch.commit();
+  try {
+    await batch.commit();
+  } catch (error) {
+    throw error;
+  }
 };
 
 export const createSale = async (
