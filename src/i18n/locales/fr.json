@@ -157,6 +157,7 @@
       "profit": {
         "title": "Bénéfice",
         "description": "Le bénéfice est calculé comme le chiffre d'affaires total moins le coût d'achat total des produits vendus.",
+        "formula": "Formule : Chiffre d'affaires total - Coût d'achat total des produits vendus",
         "example": "Exemple : Si vous avez vendu des produits pour 50 000 XAF et que leur coût d'achat était de 30 000 XAF, alors Bénéfice = 50 000 - 30 000 = 20 000 XAF."
       }
     },
@@ -392,18 +393,21 @@
       "saleUpdated": "Vente mise à jour avec succès !",
       "linkCopied": "Lien copié !",
       "messageCopied": "Message copié avec succès !",
+      "customerSaved": "Client enregistré avec succès !",
       "invoiceShared": "Facture partagée avec succès !",
       "invoiceDownloaded": "Facture téléchargée avec succès !",
       "errors": {
         "addSale": "Échec de l'ajout de la vente. Veuillez réessayer.",
         "updateSale": "Échec de la mise à jour de la vente. Veuillez réessayer.",
         "loadSales": "Échec du chargement des ventes. Veuillez actualiser la page.",
+        "saveCustomer": "Échec de l'enregistrement du client. Veuillez réessayer.",
         "shareInvoice": "Erreur lors du partage de la facture",
         "notLoggedIn": "Vous devez être connecté pour créer une vente"
       },
       "warnings": {
         "customerName": "Le nom du client est requis.",
         "customerPhone": "Le téléphone du client est requis.",
+        "atLeastOneProduct": "Au moins un produit est requis.",
         "productRequired": "Veuillez sélectionner un produit.",
         "quantityInvalid": "La quantité doit être supérieure à zéro.",
         "quantityExceeded": "Ne peut pas dépasser le stock disponible ({stock}).",
@@ -478,9 +482,11 @@
     "table": {
       "columns": {
         "name": "Nom du produit",
+        "product": "Produit",
         "sellingPrice": "Prix de vente",
         "reference": "Référence",
         "costPrice": "Prix d'achat",
+        "category": "Catégorie",
         "stock": "Stock"
       }
     },
@@ -642,35 +648,131 @@
     "fr": "Français"
   },
   "expenses": {
+    "title": "Dépenses",
+    "subtitle": "Gérez vos dépenses d'entreprise",
+    "filters": {
+      "allCategories": "Toutes les catégories",
+      "search": "Rechercher par nom ou référence..."
+    },
+    "actions": {
+      "add": "Ajouter une dépense",
+      "addExpense": "Ajouter une dépense",
+      "editExpense": "Modifier la dépense",
+      "deleteExpense": "Supprimer la dépense",
+      "delete": "Supprimer",
+      "export": "Exporter les dépenses",
+      "importCSV": "Importer depuis CSV",
+      "exportCSV": "Exporter vers CSV",
+      "gridView": "Vue grille",
+      "listView": "Vue liste",
+      "adjustAmount": "Quantité d'ajustement",
+      "restock": "Réapprovisionnement",
+      "adjustment": "Ajustement manuel",
+      "restockHelp": "Ajouter de nouveaux articles. Ex : Entrez '5' pour ajouter 5 unités au stock.",
+      "adjustmentHelp": "Corriger le stock total. Ex : Entrez '8' si le nouveau total est 8 unités.",
+      "stockHistory": "Historique du stock",
+      "date": "Date",
+      "change": "Changement",
+      "reason": "Raison",
+      "creation": "Création de dépense",
+      "sale": "Dépense",
+      "initialStock": "Stock initial"
+    },
+    "table": {
+      "description": "Description",
+      "amount": "Montant",
+      "category": "Catégorie",
+      "date": "Date",
+      "actions": "Actions",
+      "columns": {
+        "expense": "Dépense",
+        "amount": "Montant",
+        "category": "Catégorie",
+        "actions": "Actions"
+      }
+    },
+    "form": {
+      "name": "Nom de la dépense",
+      "reference": "Référence",
+      "amount": "Montant (XAF)",
+      "category": "Catégorie",
+      "categoryPlaceholder": "Sélectionner ou créer une catégorie",
+      "image": "Image de la dépense",
+      "imageHelp": "Optionnel, max 500KB. Sera compressé.",
+      "description": "Description"
+    },
+    "import": {
+      "title": "Importer des dépenses depuis un CSV",
+      "upload": "Télécharger un fichier CSV",
+      "uploadHelp": "Le fichier doit contenir des en-têtes. Champs recommandés : name, amount, category.",
+      "mapping": "Mapper les colonnes",
+      "preview": "Aperçu (5 premières lignes)",
+      "previewHelp": "...et {{total}} autres lignes.",
+      "progress": "Importation en cours...",
+      "fields": {
+        "name": "Nom de la dépense",
+        "amount": "Montant",
+        "category": "Catégorie"
+      }
+    },
+    "messages": {
+      "expenseAdded": "Dépense ajoutée avec succès",
+      "expenseUpdated": "Dépense mise à jour avec succès",
+      "expenseDeleted": "Dépense supprimée avec succès",
+      "addSuccess": "Dépense ajoutée avec succès",
+      "updateSuccess": "Dépense mise à jour avec succès",
+      "deleteSuccess": "Dépense supprimée avec succès",
+      "addError": "Erreur lors de l'ajout de la dépense",
+      "updateError": "Erreur lors de la mise à jour de la dépense",
+      "deleteError": "Erreur lors de la suppression de la dépense",
+      "loadError": "Échec du chargement des dépenses",
+      "noExpenses": "Aucune dépense trouvée.",
+      "deleteConfirmation": "Êtes-vous sûr de vouloir supprimer la dépense : {{description}} ?",
+      "deleteWarning": "Cette action est irréversible.",
+      "importSuccess": "{{count}} sur {{total}} dépenses importées avec succès ({{errors}} erreurs).",
+      "noStockHistory": "Aucun historique de stock pour cette dépense.",
+      "errors": {
+        "loadExpenses": "Échec du chargement des dépenses.",
+        "addExpense": "Erreur lors de l'ajout de la dépense",
+        "updateExpense": "Erreur lors de la mise à jour de la dépense",
+        "deleteExpense": "Erreur lors de la suppression de la dépense",
+        "emptyFile": "Le fichier sélectionné est vide ou invalide.",
+        "parseError": "Erreur d'analyse du fichier CSV : {{error}}",
+        "importFailed": "L'importation a échoué. Veuillez vérifier le fichier et réessayer.",
+        "notLoggedIn": "Utilisateur non connecté"
+      },
+      "warnings": {
+        "requiredFields": "Veuillez remplir tous les champs obligatoires.",
+        "mapField": "Veuillez mapper le champ '{{field}}'.",
+        "emptyMapping": "Le champ '{{field}}' ne peut pas être mappé à partir d'une colonne vide.",
+        "missingName": "Nom de dépense manquant dans une ligne.",
+        "missingReference": "Référence de dépense manquante dans une ligne.",
+        "invalidAmount": "Montant invalide détecté dans une ligne."
+      }
+    },
     "modals": {
+      "add": {
+        "title": "Ajouter une dépense",
+        "confirm": "Confirmer l'ajout de la dépense"
+      },
+      "edit": {
+        "title": "Modifier la dépense",
+        "confirm": "Confirmer la modification de la dépense"
+      },
       "delete": {
         "title": "Supprimer la dépense",
         "confirm": "Supprimer"
       }
     },
-    "messages": {
-      "deleteConfirmation": "Êtes-vous sûr de vouloir supprimer cette dépense ?",
-      "deleteWarning": "Cette action est irréversible.",
-      "deleteError": "Erreur lors de la suppression de la dépense.",
-      "deleteSuccess": "Dépense supprimée avec succès."
+    "categories": {
+      "transportation": "Transport",
+      "purchase": "Achat",
+      "other": "Autre"
     },
-    "actions": {
-      "delete": "Supprimer",
-      "export": "Exporter",
-      "add": "Ajouter"
-    },
-    "messages": {
-      "noExpenses": "Aucune dépense trouvée."
-    },
-    "modals": {
-      "add": {
-        "title": "Ajouter une dépense",
-        "confirm": "Ajouter"
-      },
-      "edit": {
-        "title": "Modifier la dépense",
-        "confirm": "Mettre à jour"
-      }
+    "summary": {
+      "transportation": "Dépenses de transport",
+      "purchase": "Dépenses d'achat",
+      "other": "Autres dépenses"
     }
   },
   "finance": {
@@ -707,13 +809,11 @@
     "debtEntry": "Dette",
     "remaining": "Restant",
     "toggleRefunds": "Afficher/Masquer remboursements",
-    "types": {
-      "loan": "Prêt",
-      "expense": "Dépense",
-      "sale": "Vente"
-    },
     "selectDebtToRefund": "Sélectionnez la dette à rembourser",
     "selectDebt": "Sélectionnez une dette",
-    "refundExceeds": "Le montant du remboursement dépasse la dette restante !"
+    "refundExceeds": "Le montant du remboursement dépasse la dette restante !",
+    "noDebtsToRefund": "Aucune dette disponible pour remboursement.",
+    "noRefunds": "Aucun remboursement pour cette dette.",
+    "refundEntry": "Remboursement"
   }
 } 
