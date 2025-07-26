@@ -1,0 +1,26 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #b0b0b0 #f3f4f6;
+}
+/* Horizontal scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  height: 8px;
+  background: #f3f4f6;
+}
+/* Vertical scrollbar (for completeness) */
+.custom-scrollbar::-webkit-scrollbar:vertical {
+  width: 3px !important;
+  min-width: 3px !important;
+  max-width: 3px !important;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #b0b0b0;
+  border-radius: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #f3f4f6;
+}

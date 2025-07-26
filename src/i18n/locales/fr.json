@@ -1,0 +1,719 @@
+{
+  "common": {
+    "appName": "Le Bon Prix",
+    "loading": "Chargement...",
+    "error": "Erreur",
+    "success": "Succès",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "delete": "Supprimer",
+    "edit": "Modifier",
+    "search": "Rechercher",
+    "noResults": "Aucun résultat trouvé",
+    "required": "Champ obligatoire",
+    "source": "Source",
+    "actions": "Actions",
+    "date": "Date",
+    "type": "Type",
+    "description": "Description",
+    "amount": "Montant",
+    "allTypes": "Tous les types",
+    "allSources": "Toutes les sources",
+    "itemsPerPage": "Éléments par page",
+    "page": "Page",
+    "of": "sur",
+    "prev": "Précédent",
+    "next": "Suivant",
+    "first": "Premier",
+    "last": "Dernier",
+    "showing": "Affichage de {{from}} à {{to}} sur {{total}}",
+    "rowsPerPage": "Lignes par page :",
+    "ascArrow": "▲",
+    "descArrow": "▼"
+  },
+  "auth": {
+    "login": "Connexion",
+    "logout": "Déconnexion",
+    "email": "Email",
+    "password": "Mot de passe",
+    "forgotPassword": "Mot de passe oublié ?",
+    "signIn": "Se connecter",
+    "signUp": "S'inscrire",
+    "dontHaveAccount": "Vous n'avez pas de compte ?",
+    "alreadyHaveAccount": "Vous avez déjà un compte ?"
+  },
+  "navigation": {
+    "home": "Accueil",
+    "dashboard": "Tableau de bord",
+    "products": "Produits",
+    "sales": "Ventes",
+    "expenses": "Dépenses",
+    "customers": "Clients",
+    "settings": "Paramètres",
+    "profile": "Profil",
+    "logout": "Déconnexion",
+    "menu": "Menu",
+    "close": "Fermer",
+    "reports": "Rapports",
+    "finance": "Finance"
+  },
+  "header": {
+    "welcome": "Bienvenue",
+    "notifications": "Notifications",
+    "noNotifications": "Aucune nouvelle notification",
+    "viewAll": "Voir toutes les notifications",
+    "profile": "Votre Profil",
+    "settings": "Paramètres",
+    "help": "Aide & Support",
+    "search": "Rechercher..."
+  },
+  "dashboard": {
+    "title": "Tableau de bord",
+    "welcome": "Bienvenue ! Voici ce qui se passe dans votre entreprise aujourd'hui.",
+    "howCalculated": "Comment sont calculées ces valeurs ?",
+    "stats": {
+      "grossProfit": "Bénéfice brut",
+      "netProfit": "Bénéfice net",
+      "totalExpenses": "Dépenses totales",
+      "totalOrders": "Commandes totales",
+      "deliveryFee": "Frais de livraison",
+      "totalSalesAmount": "Ventes totales (Montant)",
+      "totalSalesCount": "Ventes totales (Nombre)",
+      "trend": {
+        "fromLastMonth": "par rapport au mois dernier"
+      },
+      "totalCostPrice": "Prix d'achat total",
+      "totalPurchasePrice": "Prix d'achat total",
+      "totalProductsSold": "Nombre total de produits vendus",
+      "solde": "Solde",
+      "profit": "Profit",
+      "expenses": "Dépenses",
+      "productsSold": "Produits vendus"
+    },
+    "tooltips": {
+      "grossProfit": "Revenu total moins le coût des marchandises vendues",
+      "netProfit": "Bénéfice brut moins toutes les dépenses",
+      "totalExpenses": "Somme de toutes les dépenses d'entreprise",
+      "totalOrders": "Nombre total de transactions de vente",
+      "deliveryFee": "La somme de tous les frais de livraison collectés sur les ventes.",
+      "totalSalesAmount": "Revenu total de toutes les ventes",
+      "totalSalesCount": "Nombre total de transactions de vente",
+      "totalCostPrice": "Le montant total des prix d'achat pour tous les produits vendus",
+      "totalPurchasePrice": "Le montant total des prix d'achat pour tous les produits vendus",
+      "totalProductsSold": "Le nombre total de produits vendus (somme de toutes les quantités de produits dans toutes les ventes)."
+    },
+    "bestSellingProducts": {
+      "title": "Meilleurs produits",
+      "product": "Produit",
+      "quantitySold": "Quantité vendue",
+      "totalSales": "Ventes totales",
+      "noData": "Aucune donnée de vente disponible"
+    },
+    "calculations": {
+      "title": "Explication des calculs du tableau de bord",
+      "grossProfit": {
+        "title": "Bénéfice brut",
+        "description": "Le bénéfice brut est calculé en soustrayant le prix d'achat du prix de vente pour chaque produit vendu, puis en multipliant par la quantité vendue.",
+        "formula": "Formule : Σ((Prix de vente - Prix d'achat) × Quantité vendue) pour chaque produit dans chaque vente",
+        "example": "Exemple : Si vous vendez 5 unités d'un produit qui coûte 1000 XAF et se vend 1500 XAF : Bénéfice brut = (1500 - 1000) × 5 = 2500 XAF"
+      },
+      "netProfit": {
+        "title": "Bénéfice net",
+        "description": "Le bénéfice net est le bénéfice brut moins toutes les dépenses de l'entreprise.",
+        "formula": "Formule : Bénéfice brut - Dépenses totales",
+        "example": "Exemple : Si votre bénéfice brut est de 100 000 XAF et les dépenses totales de 30 000 XAF : Bénéfice net = 100 000 - 30 000 = 70 000 XAF"
+      },
+      "totalExpenses": {
+        "title": "Dépenses totales",
+        "description": "La somme de toutes les dépenses de l'entreprise dans toutes les catégories.",
+        "formula": "Formule : Σ(Montant de la dépense) pour toutes les dépenses",
+        "includes": "Cela inclut tous les types de dépenses tels que : Frais de livraison, Factures de services publics, Loyer, Autres coûts opérationnels"
+      },
+      "totalSalesAmount": {
+        "title": "Montant total des ventes",
+        "description": "Le revenu total de toutes les ventes, y compris les prix négociés.",
+        "formule": "Formule : Σ(Montant de la vente) pour chaque vente",
+        "note": "Note : Si un produit a été vendu à un prix négocié, ce prix est utilisé au lieu du prix de vente standard."
+      },
+      "deliveryFee": {
+        "title": "Frais de livraison",
+        "description": "La somme de tous les frais de livraison collectés sur les ventes.",
+        "formula": "Formule : Σ(Frais de livraison) pour chaque vente"
+      },
+      "bestSellingProducts": {
+        "title": "Meilleurs produits",
+        "description": "Les produits sont classés par la quantité totale vendue.",
+        "formula": "Pour chaque produit : Quantité totale = Σ(Quantité vendue) sur toutes les ventes, Ventes totales = Σ(Prix de vente × Quantité vendue) sur toutes les ventes",
+        "note": "Les produits sont ensuite triés par quantité totale en ordre décroissant."
+      },
+      "totalPurchasePrice": {
+        "title": "Prix d'achat total",
+        "description": "Le prix d'achat total est la somme des prix d'achat de tous les produits actuellement en stock. Pour chaque produit, on multiplie le prix d'achat par la quantité en stock, puis on additionne le tout.",
+        "formula": "Formule : Σ(Prix d'achat × Quantité en stock) pour chaque produit",
+        "example": "Exemple : Si vous avez 10 unités d'un produit dont le prix d'achat est 1000 XAF, et 5 unités d'un autre à 2000 XAF : Prix d'achat total = (10 × 1000) + (5 × 2000) = 10 000 + 10 000 = 20 000 XAF."
+      },
+      "restockHelp": "Utilisez ceci pour ajouter du stock (par ex. nouvelle livraison du fournisseur).",
+      "adjustmentHelp": "Utilisez ceci pour corriger des erreurs ou des écarts d'inventaire.",
+      "profit": {
+        "title": "Bénéfice",
+        "description": "Le bénéfice est calculé comme le chiffre d'affaires total moins le coût d'achat total des produits vendus.",
+        "example": "Exemple : Si vous avez vendu des produits pour 50 000 XAF et que leur coût d'achat était de 30 000 XAF, alors Bénéfice = 50 000 - 30 000 = 20 000 XAF."
+      }
+    },
+    "publicProducts": {
+      "title": "Page publique des produits",
+      "description": "Partagez le lien de votre catalogue de produits avec vos clients",
+      "copySuccess": "Lien copié avec succès !",
+      "copyError": "Erreur lors de la copie du lien",
+      "shareError": "Erreur lors du partage",
+      "copyLink": "Copier le lien",
+      "share": "Partager",
+      "open": "Ouvrir"
+    },
+    "chart": {
+      "title": "Aperçu des Ventes et Dépenses",
+      "sales": "Ventes",
+      "expenses": "Dépenses",
+      "amount": "Montant (XAF)",
+      "period": "7 Derniers Jours",
+      "noData": "Aucune donnée disponible pour la période sélectionnée"
+    },
+    "activity": {
+      "title": "Activité Récente",
+      "noActivities": "Aucune activité récente",
+      "types": {
+        "sale": "Vente",
+        "expense": "Dépense",
+        "product": "Produit",
+        "user": "Utilisateur"
+      },
+      "titles": {
+        "newSale": "Nouvelle vente enregistrée",
+        "expenseAdded": "Dépense ajoutée",
+        "productAdded": "Nouveau produit ajouté",
+        "productUpdated": "Produit mis à jour",
+        "userAdded": "Nouvel utilisateur ajouté",
+        "userUpdated": "Utilisateur mis à jour"
+      }
+    },
+    "makeSale": "Faire une vente"
+  },
+  "dateRanges": {
+    "today": "Aujourd'hui",
+    "yesterday": "Hier",
+    "thisWeek": "Cette semaine",
+    "last7Days": "7 derniers jours",
+    "thisMonth": "Ce mois-ci",
+    "last30Days": "30 derniers jours",
+    "thisYear": "Cette année",
+    "custom": "Personnalisé",
+    "selectPeriod": "Sélectionner une période",
+    "pickDate": "Choisir une date",
+    "selectCustomRange": "Sélectionner une plage personnalisée",
+    "filterTitle": "Filtrer par période",
+    "period": "Période",
+    "noPeriod": "Aucune période définie",
+    "lastWeek": "Semaine dernière",
+    "lastMonth": "Mois dernier",
+    "lastYear": "Année dernière",
+    "allTime": "Toute la période"
+  },
+  "sales": {
+    "title": "Ventes",
+    "subtitle": "Gérez vos transactions de vente",
+    "filters": {
+      "allStatuses": "Tous les statuts",
+      "status": {
+        "commande": "Commande",
+        "under_delivery": "En livraison",
+        "paid": "Payé"
+      },
+      "search": "Recherche par nom ou téléphone..."
+    },
+    "actions": {
+      "addSale": "Ajouter une vente",
+      "editSale": "Modifier la vente",
+      "viewSale": "Voir la vente",
+      "copyLink": "Copier le lien",
+      "downloadPDF": "Télécharger PDF",
+      "shareInvoice": "Partager la facture",
+      "copyTrackingLink": "Copier le lien de suivi",
+      "copyLinkOnly": "Copier le lien uniquement",
+      "copyWithMessage": "Copier avec message",
+      "deleteSale": "Supprimer la vente"
+    },
+    "table": {
+      "rowsPerPage": "Lignes par page :",
+      "showing": "Affichage de {{from}} à {{to}} sur {{total}}",
+      "columns": {
+        "name": "Nom du client",
+        "phone": "Téléphone",
+        "products": "Produits",
+        "amount": "Montant",
+        "status": "Statut",
+        "actions": "Actions",
+        "reference": "Référence",
+        "date": "Date"
+      },
+      "productCount": "{{count}} produits",
+      "emptyMessage": "Aucune vente trouvée.",
+      "unknownProduct": "Produit inconnu"
+    },
+    "modals": {
+      "add": {
+        "title": "Ajouter une nouvelle vente",
+        "customerInfo": {
+          "title": "Informations client",
+          "name": "Nom du client",
+          "phone": "Téléphone du client",
+          "phoneHelp": "Entrez ou collez n'importe quel format de numéro de téléphone",
+          "quarter": "Quartier du client",
+          "quarterPlaceholder": "Entrez le quartier du client",
+          "divers": "Divers",
+          "autoSave": "Enregistrer automatiquement le client"
+        },
+        "products": {
+          "title": "Produits",
+          "addProduct": "Ajouter un produit",
+          "product": "Produit",
+          "standardPrice": "Prix standard",
+          "availableStock": "Stock disponible",
+          "quantity": "Quantité",
+          "negotiatedPrice": "Prix négocié (Optionnel)",
+          "productTotal": "Total produit",
+          "totalAmount": "Montant total",
+          "cannotExceed": "Ne peut pas dépasser",
+          "inStock": "en stock",
+          "selectPlaceholder": "Sélectionner un produit...",
+          "selectedProducts": "Produits sélectionnés",
+          "searchPlaceholder": "Rechercher un produit...",
+          "viewMore": "Voir plus de produits"
+        },
+        "delivery": {
+          "fee": "Frais de livraison"
+        },
+        "status": {
+          "label": "Statut"
+        }
+      },
+      "edit": {
+        "title": "Modifier la Vente",
+        "updateSale": "Mettre à jour la Vente",
+        "customerInfo": {
+          "name": "Nom du Client",
+          "phone": "Téléphone du Client",
+          "quarter": "Quartier du Client",
+          "quarterPlaceholder": "Entrez le quartier du client",
+          "phoneHelp": "Entrez ou collez n'importe quel format de numéro de téléphone"
+        },
+        "products": {
+          "title": "Produits",
+          "addProduct": "Ajouter un Produit",
+          "product": "Produit",
+          "quantity": "Quantité",
+          "negotiatedPrice": "Prix Négocié (Optionnel)",
+          "standardPrice": "Prix Standard",
+          "availableStock": "Stock Disponible",
+          "productTotal": "Total du Produit",
+          "totalAmount": "Montant Total",
+          "cannotExceed": "Ne peut pas dépasser {{value}}",
+          "inStock": "en stock",
+          "selectPlaceholder": "Sélectionner un produit..."
+        },
+        "delivery": {
+          "fee": "Frais de Livraison"
+        },
+        "status": {
+          "label": "Statut"
+        }
+      },
+      "view": {
+        "title": "Détails de la Vente",
+        "customerInfo": {
+          "title": "Informations Client",
+          "name": "Nom",
+          "phone": "Téléphone"
+        },
+        "products": {
+          "title": "Produits",
+          "quantity": "Quantité",
+          "basePrice": "Prix de Base",
+          "negotiatedPrice": "Prix Négocié",
+          "productTotal": "Total Produit"
+        },
+        "orderSummary": {
+          "title": "Résumé de la Commande",
+          "subtotal": "Sous-total",
+          "deliveryFee": "Frais de Livraison",
+          "totalAmount": "Montant Total"
+        },
+        "status": {
+          "orderStatus": "Statut de la Commande",
+          "paymentStatus": "Statut du Paiement"
+        },
+        "actions": {
+          "copyTrackingLink": "Copier le Lien de Suivi",
+          "editSale": "Modifier la Vente",
+          "downloadPDF": "Télécharger PDF",
+          "shareInvoice": "Partager la Facture"
+        }
+      },
+      "link": {
+        "title": "Partager le Lien de Suivi",
+        "success": {
+          "title": "Commande Ajoutée avec Succès !",
+          "customer": "Client",
+          "totalAmount": "Montant Total"
+        },
+        "message": {
+          "title": "Message à partager avec le client",
+          "preview": "Bonjour ! 👋\n\nSuivez l'état de votre commande en temps réel via ce lien :\n{{link}}\n\nMerci de votre confiance ! 🙏\n\nPour toute question, n'hésitez pas à nous contacter.",
+          "help": "Le message est formaté pour WhatsApp et inclut un lien de suivi convivial."
+        },
+        "actions": {
+          "copyLinkOnly": "Copier le lien uniquement",
+          "copyWithMessage": "Copier avec message",
+          "downloadPDF": "Télécharger PDF",
+          "shareInvoice": "Partager la Facture"
+        }
+      },
+      "common": {
+        "cancel": "Annuler"
+      },
+      "delete": {
+        "title": "Supprimer la vente",
+        "message": "Êtes-vous sûr de vouloir supprimer cette vente pour {{customerName}} ({{amount}} XAF) ?",
+        "warning": "Cette action est irréversible. La vente et ses données seront définitivement supprimées.",
+        "confirm": "Supprimer"
+      }
+    },
+    "messages": {
+      "saleAdded": "Vente ajoutée avec succès !",
+      "saleUpdated": "Vente mise à jour avec succès !",
+      "linkCopied": "Lien copié !",
+      "messageCopied": "Message copié avec succès !",
+      "invoiceShared": "Facture partagée avec succès !",
+      "invoiceDownloaded": "Facture téléchargée avec succès !",
+      "errors": {
+        "addSale": "Échec de l'ajout de la vente. Veuillez réessayer.",
+        "updateSale": "Échec de la mise à jour de la vente. Veuillez réessayer.",
+        "loadSales": "Échec du chargement des ventes. Veuillez actualiser la page.",
+        "shareInvoice": "Erreur lors du partage de la facture",
+        "notLoggedIn": "Vous devez être connecté pour créer une vente"
+      },
+      "warnings": {
+        "customerName": "Le nom du client est requis.",
+        "customerPhone": "Le téléphone du client est requis.",
+        "productRequired": "Veuillez sélectionner un produit.",
+        "quantityInvalid": "La quantité doit être supérieure à zéro.",
+        "quantityExceeded": "Ne peut pas dépasser le stock disponible ({stock}).",
+        "priceExceeded": "Le prix négocié ne peut pas dépasser le prix de vente standard.",
+        "deliveryFeeInvalid": "Les frais de livraison doivent être un nombre positif."
+      },
+      "customerFound": "Client trouvé : {{name}}"
+    }
+  },
+  "invoice": {
+    "title": "Facture",
+    "number": "N°",
+    "date": "Date",
+    "customer": "Client",
+    "phone": "Téléphone",
+    "quarter": "Quartier",
+    "products": {
+      "title": "Produits",
+      "name": "Produit",
+      "quantity": "Quantité",
+      "unitPrice": "Prix Unitaire",
+      "total": "Total",
+      "unknown": "Produit inconnu"
+    },
+    "summary": {
+      "subtotal": "Sous-total",
+      "deliveryFee": "Frais de livraison",
+      "total": "Total"
+    },
+    "footer": "Merci de votre confiance! Pour toute question, n'hésitez pas à nous contacter.",
+    "errors": {
+      "companyInfo": "Informations de l'entreprise non disponibles. Veuillez contacter le support."
+    },
+    "locationNotSpecified": "Emplacement non spécifié"
+  },
+  "products": {
+    "title": "Produits",
+    "subtitle": "Gérez votre inventaire de produits",
+    "filters": {
+      "allCategories": "Toutes les catégories",
+      "search": "Rechercher par nom ou référence..."
+    },
+    "actions": {
+      "addProduct": "Ajouter un produit",
+      "editProduct": "Modifier le produit",
+      "deleteProduct": "Supprimer le produit",
+      "importCSV": "Importer depuis CSV",
+      "exportCSV": "Exporter vers CSV",
+      "gridView": "Vue grille",
+      "listView": "Vue liste",
+      "delete": "Supprimer",
+      "adjustAmount": "Quantité d'ajustement",
+      "restock": "Réapprovisionnement",
+      "adjustment": "Ajustement manuel",
+      "restockHelp": "Ajouter de nouveaux articles. Ex : Entrez '5' pour ajouter 5 unités au stock.",
+      "adjustmentHelp": "Corriger le stock total. Ex : Entrez '8' si le nouveau total est 8 unités.",
+      "stockHistory": "Historique du stock",
+      "date": "Date",
+      "change": "Changement",
+      "reason": "Raison",
+      "creation": "Création du produit",
+      "sale": "Vente",
+      "Initial stock": "Stock initial",
+      "quantityToAdd": "Quantité à ajouter",
+      "newTotalStock": "Nouveau stock total",
+      "bulkSelection": "Sélection multiple",
+      "deleteSelected": "Supprimer la sélection ({{count}})",
+      "deleteSelectedTitle": "Supprimer les produits sélectionnés",
+      "selectProduct": "Sélectionner le produit",
+      "selectAll": "Tout sélectionner"
+    },
+    "table": {
+      "columns": {
+        "name": "Nom du produit",
+        "sellingPrice": "Prix de vente",
+        "reference": "Référence",
+        "costPrice": "Prix d'achat",
+        "stock": "Stock"
+      }
+    },
+    "form": {
+      "name": "Nom du produit",
+      "reference": "Référence",
+      "costPrice": "Prix d'achat (XAF)",
+      "sellingPrice": "Prix de vente (XAF)",
+      "cataloguePrice": "Prix catalogue (XAF)",
+      "cataloguePriceHelp": "C'est le prix affiché dans votre catalogue public.",
+      "sellingPriceHelp": "C'est le prix que vos clients verront.",
+      "category": "Catégorie",
+      "categoryPlaceholder": "Sélectionner ou créer une catégorie",
+      "stock": "Stock initial",
+      "image": "Image du produit",
+      "imageHelp": "Optionnel, max 500KB. Sera compressé.",
+      "description": "Description",
+      "amount": "Montant"
+    },
+    "import": {
+      "title": "Importer des produits depuis un CSV",
+      "upload": "Télécharger un fichier CSV",
+      "uploadHelp": "Le fichier doit contenir des en-têtes. Champs recommandés : name, reference, costPrice, sellingPrice, cataloguePrice, category, stock.",
+      "mapping": "Mapper les colonnes",
+      "preview": "Aperçu (5 premières lignes)",
+      "previewHelp": "...et {{total}} autres lignes.",
+      "progress": "Importation en cours...",
+      "fields": {
+        "name": "Nom du produit",
+        "reference": "Référence",
+        "costPrice": "Prix d'achat",
+        "sellingPrice": "Prix de vente",
+        "cataloguePrice": "Prix catalogue",
+        "category": "Catégorie",
+        "stock": "Stock"
+      },
+      "productsToImport": "Nombre de produits à importer : {{count}}",
+      "saveCategories": "Enregistrer mes catégories depuis cet import"
+    },
+    "messages": {
+      "productAdded": "Produit ajouté avec succès",
+      "productUpdated": "Produit mis à jour avec succès",
+      "productDeleted": "Produit supprimé avec succès",
+      "importSuccess": "{{count}} sur {{total}} produits importés avec succès ({{errors}} erreurs).",
+      "deleteConfirmation": "Êtes-vous sûr de vouloir supprimer le produit : {{name}} (Réf: {{reference}}) ?",
+      "deleteWarning": "Cette action est irréversible. Toutes les données de ventes associées resteront mais le lien avec le produit sera rompu.",
+      "noStockHistory": "Aucun historique de stock pour ce produit.",
+      "errors": {
+        "loadProducts": "Échec du chargement des produits.",
+        "addProduct": "Erreur lors de l'ajout du produit",
+        "updateProduct": "Erreur lors de la mise à jour du produit",
+        "deleteProduct": "Erreur lors de la suppression du produit",
+        "emptyFile": "Le fichier sélectionné est vide ou invalide.",
+        "parseError": "Erreur d'analyse du fichier CSV : {{error}}",
+        "importFailed": "L'importation a échoué. Veuillez vérifier le fichier et réessayer.",
+        "notLoggedIn": "Utilisateur non connecté"
+      },
+      "warnings": {
+        "requiredFields": "Veuillez remplir tous les champs obligatoires.",
+        "mapField": "Veuillez mapper le champ '{{field}}'.",
+        "emptyMapping": "Le champ '{{field}}' ne peut pas être mappé à partir d'une colonne CSV vide.",
+        "missingName": "Nom de produit manquant dans une ligne.",
+        "missingReference": "Référence de produit manquante dans une ligne.",
+        "invalidCostPrice": "Prix d'achat invalide détecté dans une ligne.",
+        "invalidSellingPrice": "Prix de vente invalide détecté dans une ligne.",
+        "invalidStock": "Valeur de stock invalide détectée dans une ligne.",
+        "positiveQuantity": "La quantité à ajouter doit être positive.",
+        "nonNegativeStock": "Le stock total ne peut pas être négatif.",
+        "noStockChange": "Aucun changement de stock."
+      },
+      "bulkDeleteSuccess": "{{count}} produits supprimés avec succès.",
+      "bulkDeleteConfirmation": "Voulez-vous vraiment supprimer les {{count}} produits sélectionnés ? Ils seront masqués de toutes les listes mais l'historique des ventes sera conservé.",
+      "bulkDeleteWarning": "Cette action est irréversible. L'historique des ventes restera intact."
+    },
+    "cancelBulkSelection": "Annuler la sélection multiple"
+  },
+  "objectives": {
+    "filterByRange": "Filtrer par période",
+    "view": "Voir les objectifs",
+    "add": "Ajouter un objectif",
+    "edit": "Modifier l'objectif",
+    "overallProgress": "Progression globale : {{pct}}%",
+    "messages": {
+      "addSuccess": "Objectif ajouté avec succès.",
+      "updateSuccess": "Objectif mis à jour avec succès.",
+      "deleteSuccess": "Objectif supprimé avec succès.",
+      "operationError": "Une erreur est survenue. Veuillez réessayer."
+    },
+    "titleList": "Liste des objectifs",
+    "empty": "Aucun objectif trouvé.",
+    "remainingDays": "{{count}} jours restants",
+    "due": "Échéance",
+    "title": "Titre",
+    "description": "Description",
+    "target": "Objectif",
+    "metric": "Métrique",
+    "periodType": "Type de période",
+    "predefined": "Prédéfini",
+    "custom": "Personnalisé",
+    "period": "Période",
+    "viewShort": "Voir",
+    "addShort": "Ajouter"
+  },
+  "settings": {
+    "title": "Paramètres",
+    "subtitle": "Gérez les paramètres et préférences de votre compte",
+    "tabs": {
+      "account": "Paramètres du compte",
+      "activity": "Journaux d'activité"
+    },
+    "account": {
+      "companyLogo": "Logo de l'entreprise",
+      "noLogo": "Aucun logo",
+      "companyInformation": "Informations de l'entreprise",
+      "companyName": "Nom de l'entreprise",
+      "description": "Description",
+      "descriptionHelp": "Optionnel",
+      "phoneNumber": "Numéro de téléphone",
+      "phoneHelp": "Entrez 9 chiffres après +237",
+      "location": "Localisation",
+      "locationHelp": "Optionnel",
+      "emailAddress": "Adresse e-mail",
+      "changePassword": "Changer le mot de passe",
+      "currentPassword": "Mot de passe actuel",
+      "currentPasswordHelp": "Requis seulement si vous changez le mot de passe",
+      "newPassword": "Nouveau mot de passe",
+      "newPasswordHelp": "Laissez vide pour garder le mot de passe actuel",
+      "confirmNewPassword": "Confirmer le nouveau mot de passe",
+      "confirmNewPasswordHelp": "Laissez vide pour garder le mot de passe actuel",
+      "preferences": "Préférences",
+      "emailNotifications": "Notifications par e-mail",
+      "emailNotificationsHelp": "Recevoir des notifications par e-mail pour les événements importants",
+      "language": "Langue",
+      "saveChanges": "Enregistrer les modifications",
+      "cancel": "Annuler"
+    },
+    "messages": {
+      "settingsUpdated": "Paramètres mis à jour avec succès",
+      "updateFailed": "Échec de la mise à jour des paramètres",
+      "currentPasswordRequired": "Le mot de passe actuel est requis pour changer le mot de passe",
+      "passwordsDoNotMatch": "Les nouveaux mots de passe ne correspondent pas",
+      "passwordTooShort": "Le nouveau mot de passe doit contenir au moins 6 caractères"
+    },
+    "activity": {
+      "title": "Journaux d'activité",
+      "noActivities": "Aucune activité récente"
+    },
+    "mockActivities": {
+      "newSaleCreated": "Nouvelle vente créée",
+      "newSaleDescription": "Créé une nouvelle vente pour John Doe",
+      "productStockUpdated": "Stock de produit mis à jour",
+      "productStockDescription": "Stock mis à jour pour le produit XYZ",
+      "newExpenseAdded": "Nouvelle dépense ajoutée",
+      "newExpenseDescription": "Ajouté une dépense de livraison de 5000 XAF"
+    }
+  },
+  "languages": {
+    "en": "Anglais",
+    "fr": "Français"
+  },
+  "expenses": {
+    "modals": {
+      "delete": {
+        "title": "Supprimer la dépense",
+        "confirm": "Supprimer"
+      }
+    },
+    "messages": {
+      "deleteConfirmation": "Êtes-vous sûr de vouloir supprimer cette dépense ?",
+      "deleteWarning": "Cette action est irréversible.",
+      "deleteError": "Erreur lors de la suppression de la dépense.",
+      "deleteSuccess": "Dépense supprimée avec succès."
+    },
+    "actions": {
+      "delete": "Supprimer",
+      "export": "Exporter",
+      "add": "Ajouter"
+    },
+    "messages": {
+      "noExpenses": "Aucune dépense trouvée."
+    },
+    "modals": {
+      "add": {
+        "title": "Ajouter une dépense",
+        "confirm": "Ajouter"
+      },
+      "edit": {
+        "title": "Modifier la dépense",
+        "confirm": "Mettre à jour"
+      }
+    }
+  },
+  "finance": {
+    "historyTitle": "Historique des entrées financières",
+    "addEntry": "Ajouter une entrée financière",
+    "editEntry": "Modifier une entrée financière",
+    "noEntries": "Aucune entrée financière pour les filtres sélectionnés.",
+    "deleteConfirm": "Voulez-vous vraiment supprimer cette entrée financière ?",
+    "deleteCascadeConfirm": "La suppression de cette entrée supprimera également la {{entity}} correspondante. Êtes-vous sûr ?",
+    "deleteDebtCascadeWarning": "La suppression de cette dette supprimera également tous les remboursements associés. Cette action est irréversible.",
+    "deleteCascadeWarning": "Cette action est irréversible et affectera les enregistrements liés.",
+    "sourceType": {
+      "manual": "Manuelle",
+      "sale": "Vente",
+      "expense": "Dépense"
+    },
+    "types": {
+      "loan": "Prêt",
+      "expense": "Dépense",
+      "sale": "Vente",
+      "refund": "Remboursement",
+      "debt": "Dette",
+      "other": "Entrée associée"
+    },
+    "messages": {
+      "addSuccess": "Entrée financière ajoutée avec succès.",
+      "updateSuccess": "Entrée financière mise à jour avec succès.",
+      "deleteSuccess": "Entrée financière supprimée avec succès.",
+      "operationError": "Une erreur est survenue. Veuillez réessayer."
+    },
+    "debtCardTitle": "Dette en cours",
+    "viewHistory": "Voir l'historique",
+    "debtHistory": "Historique Dette/Remboursement",
+    "debtEntry": "Dette",
+    "remaining": "Restant",
+    "toggleRefunds": "Afficher/Masquer remboursements",
+    "types": {
+      "loan": "Prêt",
+      "expense": "Dépense",
+      "sale": "Vente"
+    },
+    "selectDebtToRefund": "Sélectionnez la dette à rembourser",
+    "selectDebt": "Sélectionnez une dette",
+    "refundExceeds": "Le montant du remboursement dépasse la dette restante !"
+  }
+} 

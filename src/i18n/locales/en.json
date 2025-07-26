@@ -1,0 +1,827 @@
+{
+  "common": {
+    "appName": "Le Bon Prix",
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "search": "Search",
+    "noResults": "No results found",
+    "required": "Required field",
+    "source": "Source",
+    "actions": "Actions",
+    "date": "Date",
+    "type": "Type",
+    "description": "Description",
+    "amount": "Amount",
+    "allTypes": "All types",
+    "allSources": "All sources",
+    "itemsPerPage": "Items per page",
+    "ascArrow": "▲",
+    "descArrow": "▼",
+    "first": "First",
+    "prev": "Prev",
+    "next": "Next",
+    "last": "Last"
+  },
+  "auth": {
+    "login": "Login",
+    "logout": "Logout",
+    "email": "Email",
+    "password": "Password",
+    "forgotPassword": "Forgot Password?",
+    "signIn": "Sign In",
+    "signUp": "Sign Up",
+    "dontHaveAccount": "Don't have an account?",
+    "alreadyHaveAccount": "Already have an account?"
+  },
+  "navigation": {
+    "home": "Home",
+    "dashboard": "Dashboard",
+    "products": "Products",
+    "sales": "Sales",
+    "expenses": "Expenses",
+    "customers": "Customers",
+    "reports": "Reports",
+    "settings": "Settings",
+    "profile": "Profile",
+    "logout": "Logout",
+    "menu": "Menu",
+    "close": "Close",
+    "finance": "Finance"
+  },
+  "header": {
+    "welcome": "Welcome",
+    "notifications": "Notifications",
+    "noNotifications": "No new notifications",
+    "viewAll": "View all notifications",
+    "profile": "Your Profile",
+    "settings": "Settings",
+    "help": "Help & Support",
+    "search": "Search..."
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "welcome": "Welcome back! Here's what's happening with your business today.",
+    "howCalculated": "How are these calculated?",
+    "stats": {
+      "grossProfit": "Gross Profit",
+      "netProfit": "Net Profit",
+      "totalExpenses": "Total Expenses",
+      "totalOrders": "Total Orders",
+      "deliveryExpenses": "Delivery Expenses",
+      "totalSalesAmount": "Total Sales (Amount)",
+      "totalSalesCount": "Total Sales (Count)",
+      "trend": {
+        "fromLastMonth": "from last month"
+      },
+      "totalPurchasePrice": "Total Purchase Price",
+      "deliveryFee": "Delivery Fee",
+      "totalProductsSold": "Total Products Sold",
+      "solde": "Balance",
+      "profit": "Profit",
+      "expenses": "Expenses",
+      "productsSold": "Products Sold"
+    },
+    "tooltips": {
+      "grossProfit": "Total revenue minus cost of goods sold",
+      "netProfit": "Gross profit minus all expenses",
+      "totalExpenses": "Sum of all business expenses",
+      "totalOrders": "Total number of sales transactions",
+      "deliveryExpenses": "Total expenses related to product delivery.",
+      "totalSalesAmount": "Total revenue from all sales",
+      "totalSalesCount": "Total number of sales transactions",
+      "totalCostPrice": "The total amount of purchase prices for all products sold",
+      "totalPurchasePrice": "The total amount of purchase prices for all products sold",
+      "deliveryFee": "The sum of all delivery fees collected from sales.",
+      "totalProductsSold": "The total number of products sold (sum of all product quantities in all sales)."
+    },
+    "bestSellingProducts": {
+      "title": "Best Selling Products",
+      "product": "Product",
+      "quantitySold": "Quantity Sold",
+      "totalSales": "Total Sales",
+      "noData": "No sales data available"
+    },
+    "calculations": {
+      "title": "Dashboard Calculations Explained",
+      "grossProfit": {
+        "title": "Gross Profit",
+        "description": "Gross profit is calculated by subtracting the purchase price from the selling price for each product sold, then multiplying by the quantity sold.",
+        "formula": "Formula: Σ((Selling Price - Purchase Price) × Quantity Sold) for each product in each sale",
+        "example": "Example: If you sell 5 units of a product that costs 1000 XAF and sells for 1500 XAF: Gross Profit = (1500 - 1000) × 5 = 2500 XAF"
+      },
+      "netProfit": {
+        "title": "Net Profit",
+        "description": "Net profit is the gross profit minus all business expenses.",
+        "formula": "Formula: Gross Profit - Total Expenses",
+        "example": "Example: If your gross profit is 100,000 XAF and total expenses are 30,000 XAF: Net Profit = 100,000 - 30,000 = 70,000 XAF"
+      },
+      "totalExpenses": {
+        "title": "Total Expenses",
+        "description": "The sum of all business expenses across all categories.",
+        "formula": "Formula: Σ(Expense Amount) for all expenses",
+        "includes": "This includes all types of expenses such as: Delivery expenses, Utility bills, Rent, Other operational costs"
+      },
+      "totalSalesAmount": {
+        "title": "Total Sales Amount",
+        "description": "The total revenue from all sales, including any negotiated prices.",
+        "formula": "Formula: Σ(Sale Amount) for each sale",
+        "note": "Note: If a product was sold at a negotiated price, that price is used instead of the standard selling price."
+      },
+      "deliveryFee": {
+        "title": "Delivery Fee",
+        "description": "The sum of all delivery fees collected from sales.",
+        "formula": "Formula: Σ(Delivery Fee) for each sale"
+      },
+      "bestSellingProducts": {
+        "title": "Best Selling Products",
+        "description": "Products are ranked by the total quantity sold.",
+        "formula": "For each product: Total Quantity = Σ(Quantity Sold) across all sales, Total Sales = Σ(Selling Price × Quantity Sold) across all sales",
+        "note": "Products are then sorted by total quantity in descending order."
+      },
+      "totalPurchasePrice": {
+        "title": "Total Purchase Price",
+        "description": "The total purchase price is the sum of the purchase prices of all products currently in stock. For each product, multiply the purchase price by the quantity in stock, then sum everything.",
+        "formula": "Formula: Σ(Purchase Price × Stock Quantity) for each product",
+        "example": "Example: If you have 10 units of a product with a purchase price of 1000 XAF, and 5 units of another at 2000 XAF: Total Purchase Price = (10 × 1000) + (5 × 2000) = 10,000 + 10,000 = 20,000 XAF."
+      },
+      "profit": {
+        "title": "Profit",
+        "description": "Profit is calculated as the total sales revenue minus the total purchase cost of sold products.",
+        "example": "Example: If you sold products for 50,000 XAF and their purchase cost was 30,000 XAF, then Profit = 50,000 - 30,000 = 20,000 XAF."
+      }
+    },
+    "publicProducts": {
+      "title": "Public Products Page",
+      "description": "Share your product catalog link with your customers",
+      "copySuccess": "Link copied successfully!",
+      "copyError": "Error copying link",
+      "shareError": "Error sharing",
+      "copyLink": "Copy link",
+      "share": "Share",
+      "open": "Open"
+    },
+    "chart": {
+      "title": "Sales & Expenses Overview",
+      "sales": "Sales",
+      "expenses": "Expenses",
+      "amount": "Amount (XAF)",
+      "period": "Last 7 Days",
+      "noData": "No data available for the selected period"
+    },
+    "activity": {
+      "title": "Recent Activity",
+      "noActivities": "No recent activities",
+      "types": {
+        "sale": "Sale",
+        "expense": "Expense",
+        "product": "Product",
+        "user": "User"
+      },
+      "titles": {
+        "newSale": "New sale recorded",
+        "expenseAdded": "Expense added",
+        "productAdded": "New product added",
+        "productUpdated": "Product updated",
+        "userAdded": "New user added",
+        "userUpdated": "User updated"
+      }
+    },
+    "makeSale": "Make a Sale"
+  },
+  "dateRanges": {
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "thisWeek": "This Week",
+    "last7Days": "Last 7 Days",
+    "thisMonth": "This Month",
+    "last30Days": "Last 30 Days",
+    "thisYear": "This Year",
+    "custom": "Custom",
+    "selectPeriod": "Select a period",
+    "pickDate": "Pick a date",
+    "selectCustomRange": "Select Custom Range",
+    "filterTitle": "Filter by period",
+    "period": "Period",
+    "noPeriod": "No period defined",
+    "lastWeek": "Last Week",
+    "lastMonth": "Last Month",
+    "lastYear": "Last Year",
+    "allTime": "All time"
+  },
+  "sales": {
+    "title": "Sales",
+    "subtitle": "Manage your sales transactions",
+    "filters": {
+      "allStatuses": "All Statuses",
+      "status": {
+        "commande": "Order",
+        "under_delivery": "Under Delivery",
+        "paid": "Paid"
+      },
+      "search": "Search by name or phone..."
+    },
+    "actions": {
+      "addSale": "Add Sale",
+      "editSale": "Edit Sale",
+      "viewSale": "View Sale",
+      "copyLink": "Copy Link",
+      "downloadPDF": "Download PDF",
+      "shareInvoice": "Share Invoice",
+      "copyTrackingLink": "Copy Tracking Link",
+      "copyLinkOnly": "Copy link only",
+      "copyWithMessage": "Copy with message",
+      "deleteSale": "Delete Sale"
+    },
+    "table": {
+      "rowsPerPage": "Rows per page:",
+      "showing": "Showing {{from}}-{{to}} of {{total}}",
+      "columns": {
+        "name": "Customer Name",
+        "phone": "Phone Number",
+        "products": "Products",
+        "amount": "Amount",
+        "status": "Status",
+        "actions": "Actions",
+        "reference": "Reference",
+        "date": "Date"
+      },
+      "productCount": "{{count}} products",
+      "emptyMessage": "No sales found.",
+      "unknownProduct": "Unknown Product"
+    },
+    "modals": {
+      "delete": {
+      "title": "Delete Sale",
+      "message": "Are you sure you want to delete this sale for {{customerName}} ({{amount}} XAF)?",
+      "warning": "This action cannot be undone. The sale and its data will be permanently deleted.",
+      "confirm": "Delete"
+    },
+      "add": {
+        "title": "Add New Sale",
+        "customerInfo": {
+          "title": "Customer Information",
+          "name": "Customer Name",
+          "phone": "Customer Phone",
+          "phoneHelp": "Enter or paste any phone number format",
+          "quarter": "Customer Quarter",
+          "quarterPlaceholder": "Enter customer's quarter",
+          "divers": "Divers",
+          "autoSave": "Save customer automatically"
+        },
+        "products": {
+          "title": "Products",
+          "addProduct": "Add Product",
+          "product": "Product",
+          "selectPlaceholder": "Select a product...",
+          "standardPrice": "Standard Price",
+          "availableStock": "Available Stock",
+          "quantity": "Quantity",
+          "negotiatedPrice": "Negotiated Price (Optional)",
+          "productTotal": "Product Total",
+          "totalAmount": "Total Amount",
+          "cannotExceed": "Cannot exceed",
+          "inStock": "in stock",
+          "selectedProducts": "Selected Products",
+          "searchPlaceholder": "Search for a product...",
+          "viewMore": "View more products"
+        },
+        "delivery": {
+          "fee": "Delivery Fee"
+        },
+        "status": {
+          "label": "Status"
+        }
+      },
+      "edit": {
+        "title": "Edit Sale",
+        "updateSale": "Update Sale",
+        "customerInfo": {
+          "name": "Customer Name",
+          "phone": "Customer Phone",
+          "quarter": "Customer Quarter",
+          "quarterPlaceholder": "Enter customer's quarter",
+          "phoneHelp": "Enter or paste any phone number format"
+        },
+        "products": {
+          "title": "Products",
+          "addProduct": "Add Product",
+          "product": "Product",
+          "quantity": "Quantity",
+          "negotiatedPrice": "Negotiated Price (Optional)",
+          "standardPrice": "Standard Price",
+          "availableStock": "Available Stock",
+          "productTotal": "Product Total",
+          "totalAmount": "Total Amount",
+          "cannotExceed": "Cannot exceed {{value}}",
+          "inStock": "in stock",
+          "selectPlaceholder": "Select a product..."
+        },
+        "delivery": {
+          "fee": "Delivery Fee"
+        },
+        "status": {
+          "label": "Status"
+        }
+      },
+      "view": {
+        "title": "Sale Details",
+        "customerInfo": {
+          "title": "Customer Information",
+          "name": "Name",
+          "phone": "Phone"
+        },
+        "products": {
+          "title": "Products",
+          "quantity": "Quantity",
+          "basePrice": "Base Price",
+          "negotiatedPrice": "Negotiated Price",
+          "productTotal": "Product Total"
+        },
+        "orderSummary": {
+          "title": "Order Summary",
+          "subtotal": "Subtotal",
+          "deliveryFee": "Delivery Fee",
+          "totalAmount": "Total Amount"
+        },
+        "status": {
+          "orderStatus": "Order Status",
+          "paymentStatus": "Payment Status"
+        },
+        "actions": {
+          "copyTrackingLink": "Copy Tracking Link",
+          "editSale": "Edit Sale",
+          "downloadPDF": "Download PDF",
+          "shareInvoice": "Share Invoice"
+        }
+      },
+      "link": {
+        "title": "Share Tracking Link",
+        "success": {
+          "title": "Order Added Successfully!",
+          "customer": "Customer",
+          "totalAmount": "Total Amount"
+        },
+        "message": {
+          "title": "Message to share with the customer",
+          "preview": "Hello! 👋\n\nTrack your order status in real-time via this link:\n{{link}}\n\nThank you for your trust! 🙏\n\nFor any questions, please don't hesitate to contact us.",
+          "help": "The message is formatted for WhatsApp and includes a user-friendly tracking link."
+        },
+        "actions": {
+          "copyLinkOnly": "Copy link only",
+          "copyWithMessage": "Copy with message",
+          "downloadPDF": "Download PDF",
+          "shareInvoice": "Share Invoice"
+        }
+      },
+      "common": {
+        "cancel": "Cancel"
+      }
+    },
+    "messages": {
+      "saleAdded": "Sale added successfully!",
+      "saleUpdated": "Sale updated successfully!",
+      "linkCopied": "Link copied!",
+      "saleDeleted": "Sale deleted successfully.",
+     
+      "messageCopied": "Message copied successfully!",
+      "invoiceShared": "Invoice shared successfully!",
+      "invoiceDownloaded": "Invoice downloaded successfully!",
+      "errors": {
+        "addSale": "Failed to add sale. Please try again.",
+        "deleteSale": "Failed to delete sale. Please try again.",
+        "updateSale": "Failed to update sale. Please try again.",
+        "loadSales": "Failed to load sales. Please refresh the page.",
+        "shareInvoice": "Error sharing invoice",
+        "notLoggedIn": "You must be logged in to create a sale"
+      },
+      "warnings": {
+        "customerName": "Customer name is required.",
+        "customerPhone": "Customer phone is required.",
+        "productRequired": "Please select a product.",
+        "quantityInvalid": "Quantity must be greater than zero.",
+        "quantityExceeded": "Cannot exceed available stock ({stock}).",
+        "priceExceeded": "Negotiated price cannot exceed the standard selling price.",
+        "deliveryFeeInvalid": "Delivery fee must be a non-negative number."
+      },
+      "customerFound": "Customer found: {{name}}"
+    }
+  },
+  "invoice": {
+    "title": "Invoice",
+    "number": "No.",
+    "date": "Date",
+    "customer": "Customer",
+    "phone": "Phone",
+    "quarter": "Quarter",
+    "products": {
+      "title": "Products",
+      "name": "Product",
+      "quantity": "Quantity",
+      "unitPrice": "Unit Price",
+      "total": "Total",
+      "unknown": "Unknown Product"
+    },
+    "summary": {
+      "subtotal": "Subtotal",
+      "deliveryFee": "Delivery Fee",
+      "total": "Total"
+    },
+    "footer": "Thank you for your trust! For any questions, please don't hesitate to contact us.",
+    "errors": {
+      "companyInfo": "Company information not available. Please contact support."
+    },
+    "locationNotSpecified": "Location not specified",
+    "totalCostPrice": "The total amount of purchase prices for all products sold",
+    "totalPurchasePrice": "The total amount of purchase prices for all products sold",
+    "purchasePrice": "Purchase Price"
+  },
+  "objectives": {
+    "filterByRange": "Filter by date range",
+    "view": "View objectives",
+    "add": "Add objective",
+    "overallProgress": "Overall progress: {{pct}}%",
+    "messages": {
+      "addSuccess": "Objective added successfully.",
+      "updateSuccess": "Objective updated successfully.",
+      "deleteSuccess": "Objective deleted successfully.",
+      "operationError": "An error occurred. Please try again."
+    },
+    "titleList": "Objectives List",
+    "empty": "No objectives found.",
+    "remainingDays": "{{count}} days remaining",
+    "due": "Due",
+    "title": "Title",
+    "description": "Description",
+    "target": "Target",
+    "metric": "Metric",
+    "periodType": "Period Type",
+    "predefined": "Predefined",
+    "custom": "Custom",
+    "period": "Period",
+    "edit": "Edit Objective",
+    "viewShort": "View",
+    "addShort": "Add"
+  },
+  "products": {
+    "title": "Products",
+    "subtitle": "Manage your product inventory",
+    "filters": {
+      "allCategories": "All Categories",
+      "search": "Search by name or reference..."
+    },
+    "actions": {
+      "addProduct": "Add Product",
+      "editProduct": "Edit Product",
+      "deleteProduct": "Delete Product",
+      "importCSV": "Import from CSV",
+      "exportCSV": "Export to CSV",
+      "gridView": "Grid View",
+      "listView": "List View",
+      "delete": "Delete",
+      "adjustAmount": "Adjustment Amount",
+      "restock": "Restock",
+      "adjustment": "Manual Adjustment",
+      "restockHelp": "Add new items. Ex: Enter '5' to add 5 units to the current stock.",
+      "adjustmentHelp": "Correct the total stock. Ex: Enter '8' if the new total is 8 units.",
+      "stockHistory": "Stock History",
+      "date": "Date",
+      "change": "Change",
+      "reason": "Reason",
+      "creation": "Product Creation",
+      "sale": "Sale",
+      "Initial stock": "Initial stock",
+      "quantityToAdd": "Quantity to Add",
+      "newTotalStock": "New Total Stock",
+      "bulkSelection": "Bulk Selection",
+      "deleteSelected": "Delete Selected ({{count}})",
+      "deleteSelectedTitle": "Delete Selected Products",
+      "selectProduct": "Select product",
+      "selectAll": "Select all",
+      "cancelBulkSelection": "Cancel Bulk Selection"
+    },
+    "table": {
+      "columns": {
+        "name": "Product Name",
+        "sellingPrice": "Selling Price",
+        "reference": "Reference",
+        "costPrice": "Cost Price",
+        "stock": "Stock"
+      }
+    },
+    "form": {
+      "name": "Product Name",
+      "reference": "Reference",
+      "costPrice": "Cost Price (XAF)",
+      "sellingPrice": "Selling Price (XAF)",
+      "sellingPriceHelp": "This is the price your customers will see.",
+      "category": "Category",
+      "categoryPlaceholder": "Select or create a category",
+      "stock": "Initial Stock",
+      "image": "Product Image",
+      "imageHelp": "Optional, max 500KB. Will be compressed.",
+      "cataloguePrice": "Catalogue Price (XAF)",
+      "imageHelp": "Optional, max 500KB. Will be compressed."
+    },
+    "import": {
+      "title": "Import Products from CSV",
+      "upload": "Upload CSV file",
+      "uploadHelp": "The file must contain headers. Recommended fields: name, reference, costPrice, sellingPrice, category, stock.",
+      "mapping": "Map Columns",
+      "preview": "Preview (first 5 rows)",
+      "previewHelp": "...and {{total}} more rows.",
+      "progress": "Importing...",
+      "fields": {
+        "name": "Product Name",
+        "reference": "Reference",
+        "costPrice": "Cost Price",
+        "sellingPrice": "Selling Price",
+        "category": "Category",
+        "stock": "Stock"
+      },
+      "productsToImport": "Number of products to import: {{count}}",
+      "saveCategories": "Save my categories from this import"
+    },
+    "messages": {
+      "productAdded": "Product added successfully",
+      "productUpdated": "Product updated successfully",
+      "productDeleted": "Product deleted successfully",
+      "importSuccess": "{{count}} out of {{total}} products imported successfully ({{errors}} errors).",
+      "deleteConfirmation": "Are you sure you want to delete the product: {{name}} (Ref: {{reference}})?",
+      "deleteWarning": "This action cannot be undone. All associated sales data will remain but the product link will be broken.",
+      "noStockHistory": "No stock history for this product.",
+      "errors": {
+        "loadProducts": "Failed to load products.",
+        "addProduct": "Error adding product",
+        "updateProduct": "Error updating product",
+        "deleteProduct": "Error deleting product",
+        "emptyFile": "The selected file is empty or invalid.",
+        "parseError": "Error parsing CSV file: {{error}}",
+        "importFailed": "Import failed. Please check the file and try again.",
+        "notLoggedIn": "User not logged in"
+      },
+      "warnings": {
+        "requiredFields": "Please fill in all required fields.",
+        "mapField": "Please map the '{{field}}' field.",
+        "emptyMapping": "The '{{field}}' field cannot be mapped from an empty column.",
+        "missingName": "Missing product name in a row.",
+        "missingReference": "Missing product reference in a row.",
+        "invalidCostPrice": "Invalid cost price detected in a row.",
+        "invalidSellingPrice": "Invalid selling price detected in a row.",
+        "invalidStock": "Invalid stock value detected in a row.",
+        "positiveQuantity": "Quantity to add must be positive.",
+        "nonNegativeStock": "Total stock cannot be negative.",
+        "noStockChange": "No change in stock."
+      },
+      "bulkDeleteSuccess": "{{count}} products deleted successfully.",
+      "bulkDeleteConfirmation": "Are you sure you want to delete {{count}} selected products? This will hide them from all lists but keep sales history.",
+      "bulkDeleteWarning": "This action cannot be undone. Sales history will remain intact."
+    }
+  },
+  "expenses": {
+    "title": "Expenses",
+    "subtitle": "Manage your business expenses",
+    "filters": {
+      "allCategories": "All Categories",
+      "search": "Search by name or reference..."
+    },
+    "actions": {
+      "addExpense": "Add Expense",
+      "editExpense": "Edit Expense",
+      "deleteExpense": "Delete Expense",
+      "importCSV": "Import from CSV",
+      "exportCSV": "Export to CSV",
+      "gridView": "Grid View",
+      "listView": "List View",
+      "delete": "Delete",
+      "adjustAmount": "Adjustment Amount",
+      "restock": "Restock",
+      "adjustment": "Manual Adjustment",
+      "restockHelp": "Add new items. Ex: Enter '5' to add 5 units to the current stock.",
+      "adjustmentHelp": "Correct the total stock. Ex: Enter '8' if the new total is 8 units.",
+      "stockHistory": "Stock History",
+      "date": "Date",
+      "change": "Change",
+      "reason": "Reason",
+      "creation": "Expense Creation",
+      "sale": "Expense",
+      "Initial stock": "Initial stock"
+    },
+    "table": {
+      "columns": {
+        "expense": "Expense",
+        "amount": "Amount",
+        "category": "Category",
+        "actions": "Actions"
+      }
+    },
+    "form": {
+      "name": "Expense Name",
+      "reference": "Reference",
+      "amount": "Amount (XAF)",
+      "category": "Category",
+      "categoryPlaceholder": "Select or create a category",
+      "image": "Expense Image",
+      "imageHelp": "Optional, max 500KB. Will be compressed.",
+      "description": "Description"
+    },
+    "import": {
+      "title": "Import Expenses from CSV",
+      "upload": "Upload CSV file",
+      "uploadHelp": "The file must contain headers. Recommended fields: name, amount, category.",
+      "mapping": "Map Columns",
+      "preview": "Preview (first 5 rows)",
+      "previewHelp": "...and {{total}} more rows.",
+      "progress": "Importing...",
+      "fields": {
+        "name": "Expense Name",
+        "amount": "Amount",
+        "category": "Category"
+      }
+    },
+    "messages": {
+      "expenseAdded": "Expense added successfully",
+      "expenseUpdated": "Expense updated successfully",
+      "expenseDeleted": "Expense deleted successfully",
+      "importSuccess": "{{count}} out of {{total}} expenses imported successfully ({{errors}} errors).",
+      "deleteConfirmation": "Are you sure you want to delete the expense: {{name}} (Ref: {{reference}})?",
+      "deleteWarning": "This action cannot be undone. All associated data will remain but the expense link will be broken.",
+      "noStockHistory": "No stock history for this expense.",
+      "errors": {
+        "loadExpenses": "Failed to load expenses.",
+        "addExpense": "Error adding expense",
+        "updateExpense": "Error updating expense",
+        "deleteExpense": "Error deleting expense",
+        "emptyFile": "The selected file is empty or invalid.",
+        "parseError": "Error parsing CSV file: {{error}}",
+        "importFailed": "Import failed. Please check the file and try again.",
+        "notLoggedIn": "User not logged in"
+      },
+      "warnings": {
+        "requiredFields": "Please fill in all required fields.",
+        "mapField": "Please map the '{{field}}' field.",
+        "emptyMapping": "The '{{field}}' field cannot be mapped from an empty column.",
+        "missingName": "Missing expense name in a row.",
+        "missingReference": "Missing expense reference in a row.",
+        "invalidAmount": "Invalid amount detected in a row."
+      }
+    },
+    "table": {
+      "description": "Description",
+      "amount": "Amount",
+      "category": "Category",
+      "date": "Date",
+      "actions": "Actions"
+    },
+    "categories": {
+      "transportation": "Transportation",
+      "purchase": "Purchase",
+      "other": "Other"
+    },
+    "actions": {
+      "export": "Export",
+      "add": "Add Expense"
+    },
+    "summary": {
+      "transportation": "Transportation Expenses",
+      "purchase": "Purchase Expenses",
+      "other": "Other Expenses"
+    },
+    "messages": {
+      "noExpenses": "No expenses found."
+    },
+    "modals": {
+      "add": {
+        "title": "Add Expense",
+        "confirm": "Add"
+      },
+      "edit": {
+        "title": "Edit Expense",
+        "confirm": "Save Changes"
+      },
+      "delete": {
+        "title": "Delete Expense",
+        "confirm": "Delete"
+      }
+    },
+    "form": {
+      "description": "Description",
+      "amount": "Amount",
+      "category": "Category"
+    },
+    "modals": {
+      "delete": {
+        "title": "Delete Expense",
+        "confirm": "Delete"
+      }
+    },
+    "messages": {
+      "deleteConfirmation": "Are you sure you want to delete this expense?",
+      "deleteWarning": "This action cannot be undone."
+    },
+    "actions": {
+      "delete": "Delete"
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "subtitle": "Manage your account settings and preferences",
+    "tabs": {
+      "account": "Account Settings",
+      "activity": "Activity Logs"
+    },
+    "account": {
+      "companyLogo": "Company Logo",
+      "noLogo": "No logo",
+      "companyInformation": "Company Information",
+      "companyName": "Company Name",
+      "description": "Description",
+      "descriptionHelp": "Optional",
+      "phoneNumber": "Phone Number",
+      "phoneHelp": "Enter 9 digits after +237",
+      "location": "Location",
+      "locationHelp": "Optional",
+      "emailAddress": "Email Address",
+      "changePassword": "Change Password",
+      "currentPassword": "Current Password",
+      "currentPasswordHelp": "Required only if changing password",
+      "newPassword": "New Password",
+      "newPasswordHelp": "Leave blank to keep current password",
+      "confirmNewPassword": "Confirm New Password",
+      "confirmNewPasswordHelp": "Leave blank to keep current password",
+      "preferences": "Preferences",
+      "emailNotifications": "Email Notifications",
+      "emailNotificationsHelp": "Receive email notifications for important events",
+      "language": "Language",
+      "saveChanges": "Save Changes",
+      "cancel": "Cancel"
+    },
+    "messages": {
+      "settingsUpdated": "Settings updated successfully",
+      "updateFailed": "Failed to update settings",
+      "currentPasswordRequired": "Current password is required to change password",
+      "passwordsDoNotMatch": "New passwords do not match",
+      "passwordTooShort": "New password must be at least 6 characters"
+    },
+    "activity": {
+      "title": "Activity Logs",
+      "noActivities": "No recent activities"
+    },
+    "mockActivities": {
+      "newSaleCreated": "New Sale Created",
+      "newSaleDescription": "Created a new sale for John Doe",
+      "productStockUpdated": "Product Stock Updated",
+      "productStockDescription": "Updated stock for Product XYZ",
+      "newExpenseAdded": "New Expense Added",
+      "newExpenseDescription": "Added delivery expense of 5000 XAF"
+    }
+  },
+  "languages": {
+    "en": "English",
+    "fr": "French"
+  },
+  "finance": {
+    "historyTitle": "Finance Entry History",
+    "addEntry": "Add Finance Entry",
+    "editEntry": "Edit Finance Entry",
+    "noEntries": "No finance entries for the selected filters.",
+    "deleteConfirm": "Are you sure you want to delete this entry?",
+    "deleteCascadeConfirm": "Deleting this entry will also delete the corresponding {{context, select, sale {sale} expense {expense} other {record}}}. Are you sure?",
+    "deleteCascadeWarning": "This action cannot be undone and will affect related records.",
+    "sourceType": {
+      "manual": "Manual",
+      "sale": "Sale",
+      "expense": "Expense"
+    },
+    "types": {
+      "loan": "Loan",
+      "expense": "Expense",
+      "sale": "Sale",
+      "refund": "Refund",
+      "debt": "Debt"
+    },
+    "messages": {
+      "addSuccess": "Finance entry added successfully.",
+      "updateSuccess": "Finance entry updated successfully.",
+      "deleteSuccess": "Finance entry deleted successfully.",
+      "operationError": "An error occurred. Please try again."
+    },
+    "debtCardTitle": "Outstanding Debt",
+    "viewHistory": "View History",
+    "debtHistory": "Debt/Refund History",
+    "debtEntry": "Debt",
+    "remaining": "Remaining",
+    "toggleRefunds": "Toggle refunds",
+    "types": {
+      "loan": "Loan",
+      "expense": "Expense",
+      "sale": "Sale",
+      "refund": "Refund",
+      "debt": "Debt"
+    }
+  }
+} 
