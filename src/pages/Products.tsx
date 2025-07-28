@@ -68,6 +68,7 @@ const Products = () => {
     location: ''
   });
   const [isUploadingImages, setIsUploadingImages] = useState(false);
+  const [isAddingSupplier, setIsAddingSupplier] = useState(false);
   
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [csvData, setCsvData] = useState<CsvRow[]>([]);
@@ -308,6 +309,7 @@ const Products = () => {
       return;
     }
 
+    setIsAddingSupplier(true);
     try {
       const newSupplier = await createSupplier({
         name: quickSupplierData.name,
@@ -332,6 +334,8 @@ const Products = () => {
     } catch (err) {
       console.error('Error adding supplier:', err);
       showErrorToast(t('suppliers.messages.errors.addSupplier'));
+    } finally {
+      setIsAddingSupplier(false);
     }
   };
 
@@ -347,6 +351,7 @@ const Products = () => {
       return;
     }
 
+    setIsAddingSupplier(true);
     try {
       const newSupplier = await createSupplier({
         name: quickSupplierData.name,
@@ -371,6 +376,8 @@ const Products = () => {
     } catch (err) {
       console.error('Error adding supplier for stock:', err);
       showErrorToast(t('suppliers.messages.errors.addSupplier'));
+    } finally {
+      setIsAddingSupplier(false);
     }
   };
   
@@ -1397,6 +1404,7 @@ const Products = () => {
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
         title={t('products.actions.editProduct')}
+        size="lg"
         footer={
           editTab === 'details' ? (
           <ModalFooter 
@@ -1459,9 +1467,6 @@ const Products = () => {
               </div>
               <p className="mt-1 text-sm text-gray-500">{t('products.form.imageHelp')}</p>
             </div>
-            <Input label={t('products.form.step2.sellingPrice')} name="sellingPrice" type="number" value={editPrices.sellingPrice} onChange={e => setEditPrices(p => ({ ...p, sellingPrice: e.target.value }))} helpText={t('products.form.step2.sellingPriceHelp')} required />
-            <Input label={t('products.form.step2.cataloguePrice')} name="cataloguePrice" type="number" value={editPrices.cataloguePrice} onChange={e => setEditPrices(p => ({ ...p, cataloguePrice: e.target.value }))} helpText={t('products.form.step2.cataloguePriceHelp')} />
-            <Input label={t('products.form.step2.stockCostPrice')} name="costPrice" type="number" value={editPrices.costPrice} onChange={e => setEditPrices(p => ({ ...p, costPrice: e.target.value }))} helpText={t('products.form.step2.stockCostPriceHelp')} required />
           </div>
         ) : (
           <div className="space-y-4">
@@ -1488,6 +1493,34 @@ const Products = () => {
               <option value="adjustment">{t('products.actions.adjustment')}</option>
             </select>
             
+            {/* Price fields - always visible */}
+            <Input
+              label={t('products.form.step2.stockCostPrice')}
+              name="costPrice"
+              type="number"
+              value={editPrices.costPrice}
+              onChange={e => setEditPrices(p => ({ ...p, costPrice: e.target.value }))}
+              helpText={t('products.form.step2.stockCostPriceHelp')}
+              required
+            />
+            <Input
+              label={t('products.form.step2.sellingPrice')}
+              name="sellingPrice"
+              type="number"
+              value={editPrices.sellingPrice}
+              onChange={e => setEditPrices(p => ({ ...p, sellingPrice: e.target.value }))}
+              helpText={t('products.form.step2.sellingPriceHelp')}
+              required
+            />
+            <Input
+              label={t('products.form.step2.cataloguePrice')}
+              name="cataloguePrice"
+              type="number"
+              value={editPrices.cataloguePrice}
+              onChange={e => setEditPrices(p => ({ ...p, cataloguePrice: e.target.value }))}
+              helpText={t('products.form.step2.cataloguePriceHelp')}
+            />
+            
             {/* Supplier selection for restock */}
             {stockReason === 'restock' && (
               <>
@@ -1505,7 +1538,6 @@ const Products = () => {
                     <option value="fromSupplier">{t('products.form.step2.fromSupplier')}</option>
                   </select>
                 </div>
-                
                 {stockAdjustmentSupplier.supplyType === 'fromSupplier' && (
                   <>
                     <div>
@@ -1535,7 +1567,6 @@ const Products = () => {
                         </Button>
                       </div>
                     </div>
-                    
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         {t('products.form.step2.paymentType')}
@@ -1550,15 +1581,6 @@ const Products = () => {
                         <option value="credit">{t('products.form.step2.credit')}</option>
                       </select>
                     </div>
-                    
-                    <Input
-                      label={t('products.form.step2.stockCostPrice')}
-                      name="costPrice"
-                      type="number"
-                      value={editPrices.costPrice}
-                      onChange={e => setEditPrices(p => ({ ...p, costPrice: e.target.value }))}
-                      helpText={t('products.form.step2.stockCostPriceHelp')}
-                    />
                   </>
                 )}
               </>
@@ -1854,6 +1876,7 @@ const Products = () => {
             onCancel={() => setIsQuickAddSupplierOpen(false)}
             onConfirm={isEditModalOpen ? handleQuickAddSupplierForStock : handleQuickAddSupplier}
             confirmText={t('suppliers.actions.addSupplier')}
+            isLoading={isAddingSupplier}
           />
         }
       >

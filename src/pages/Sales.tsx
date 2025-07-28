@@ -197,10 +197,7 @@ const Sales = () => {
         errors[`quantity_${index}`] = t('sales.messages.warnings.quantityExceeded', { stock: product.product.stock });
       }
 
-      const negotiatedPrice = parseFloat(product.negotiatedPrice);
-      if (!isNaN(negotiatedPrice) && negotiatedPrice > product.product.sellingPrice) {
-        errors[`price_${index}`] = t('sales.messages.warnings.priceExceeded');
-      }
+      // Removed negotiated price validation - can now exceed selling price
     });
 
     const deliveryFee = parseFloat(formData.deliveryFee);
@@ -922,10 +919,9 @@ const Sales = () => {
                       <Input
                         label={t('sales.modals.edit.products.negotiatedPrice')}
                         type="number"
-                        max={product.product.sellingPrice.toString()}
                         value={product.negotiatedPrice}
                         onChange={(e) => handleProductInputChange(index, 'negotiatedPrice', e.target.value)}
-                        helpText={t('sales.modals.edit.products.cannotExceed', { value: product.product.sellingPrice.toLocaleString() })}
+                        // helpText={t('sales.modals.edit.products.cannotExceed', { value: product.product.sellingPrice.toLocaleString() })}
                       />
                     </div>
 

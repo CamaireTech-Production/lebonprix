@@ -218,10 +218,9 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                         <Input
                           label="Negotiated Price"
                           type="number"
-                          max={product.product.sellingPrice.toString()}
                           value={product.negotiatedPrice}
                           onChange={(e) => handleProductInputChange(index, 'negotiatedPrice', e.target.value)}
-                          helpText={`Cannot exceed ${product.product.sellingPrice.toLocaleString()} XAF`}
+                          // helpText="Enter the negotiated price (can exceed standard price)"
                         />
                       </div>
                       {/* Individual Product Total - changed bg color to blue-50 */}
@@ -262,7 +261,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                       classNamePrefix="select"
                         noOptionsMessage={() => 'No products found'}
                       formatOptionLabel={(option) => option.label}
-                      filterOption={(option: { value: Product; label: React.ReactNode }, inputValue: string) => {
+                      filterOption={(option: any, inputValue: string) => {
                         return option.value.name.toLowerCase().includes(inputValue.toLowerCase());
                       }}
                     />
@@ -302,10 +301,9 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                       <Input
                           label="Negotiated Price"
                         type="number"
-                        max={product.product.sellingPrice.toString()}
                         value={product.negotiatedPrice}
                         onChange={(e) => handleProductInputChange(index, 'negotiatedPrice', e.target.value)}
-                          helpText={`Cannot exceed ${product.product.sellingPrice.toLocaleString()} XAF`}
+                          // helpText="Enter the negotiated price (can exceed standard price)"
                       />
                     </div>
                       {/* Individual Product Total - changed bg color to blue-50 (mobile view) */}

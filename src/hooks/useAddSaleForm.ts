@@ -144,8 +144,7 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
       const qty = parseInt(prod.quantity, 10);
       if (Number.isNaN(qty) || qty <= 0) errors[`quantity_${idx}`] = t('sales.messages.warnings.quantityInvalid');
       else if (qty > prod.product.stock) errors[`quantity_${idx}`] = t('sales.messages.warnings.quantityExceeded', { stock: prod.product.stock });
-      const nego = parseFloat(prod.negotiatedPrice);
-      if (!Number.isNaN(nego) && nego > prod.product.sellingPrice) errors[`price_${idx}`] = t('sales.messages.warnings.priceExceeded');
+      // Removed negotiated price validation - can now exceed selling price
     });
     const fee = parseFloat(formData.deliveryFee);
     if (!Number.isNaN(fee) && fee < 0) errors.deliveryFee = t('sales.messages.warnings.deliveryFeeInvalid');
