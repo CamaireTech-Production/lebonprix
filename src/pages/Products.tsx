@@ -26,7 +26,7 @@ const Products = () => {
   const { t, i18n } = useTranslation();
   const { products, loading, error, addProduct, updateProduct } = useProducts();
   const { stockChanges } = useStockChanges();
-  const { addCategory } = useCategories();
+  useCategories();
   const { suppliers } = useSuppliers();
   const { user } = useAuth();
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -287,9 +287,9 @@ const Products = () => {
     if (currentStep === 1) {
       // Validate step 1
       if (!step1Data.name || !step1Data.category) {
-        showWarningToast(t('products.messages.warnings.requiredFields'));
-        return;
-      }
+      showWarningToast(t('products.messages.warnings.requiredFields'));
+      return;
+    }
       setCurrentStep(2);
     }
   };
@@ -318,7 +318,7 @@ const Products = () => {
 
       // Set the new supplier as selected
       setStep2Data(prev => ({
-        ...prev,
+      ...prev,
         supplierId: newSupplier.id
       }));
 
@@ -374,6 +374,36 @@ const Products = () => {
     }
   };
   
+  // Add state for editable prices
+  const [editPrices, setEditPrices] = useState({
+    sellingPrice: '',
+    cataloguePrice: '',
+    costPrice: ''
+  });
+  
+  // In openEditModal, initialize editPrices from product and latest stock change
+  const openEditModal = (product: Product) => {
+    setCurrentProduct(product);
+    setStep1Data({
+      name: product.name,
+      reference: product.reference,
+      category: product.category,
+      images: Array.isArray(product.images) ? product.images : (product.images ? [product.images] : []),
+    });
+    // Find latest stock change for this product
+    const latestStockChange = stockChanges
+      .filter(sc => sc.productId === product.id)
+      .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))[0];
+    setEditPrices({
+      sellingPrice: product.sellingPrice?.toString() || '',
+      cataloguePrice: product.cataloguePrice?.toString() || '',
+      costPrice: latestStockChange?.costPrice?.toString() || ''
+    });
+    setIsEditModalOpen(true);
+    setEditTab('details');
+    setStockAdjustment('');
+  };
+  
   const handleEditProduct = async () => {
     if (!currentProduct || !user?.uid) {
       return;
@@ -395,20 +425,28 @@ const Products = () => {
       images: (step1Data.images ?? []).length > 0 ? step1Data.images : [],
       isAvailable: safeProduct.isAvailable,
       userId: safeProduct.userId,
-      updatedAt: { seconds: 0, nanoseconds: 0 }
+      updatedAt: { seconds: 0, nanoseconds: 0 },
+      sellingPrice: editPrices.sellingPrice ? parseFloat(editPrices.sellingPrice) : safeProduct.sellingPrice,
+      cataloguePrice: editPrices.cataloguePrice ? parseFloat(editPrices.cataloguePrice) : safeProduct.cataloguePrice
     };
-    // Only add cataloguePrice if it is a valid number, otherwise omit it
-    if (step2Data.cataloguePrice && !isNaN(parseFloat(step2Data.cataloguePrice))) {
-      updateData.cataloguePrice = parseFloat(step2Data.cataloguePrice);
-    } else {
-      // Optionally, default to sellingPrice if you want
-      // updateData.cataloguePrice = parseFloat(step1Data.sellingPrice);
-    }
     if (step1Data.reference && step1Data.reference.trim() !== '') {
       updateData.reference = step1Data.reference;
     }
     try {
       await updateProduct(currentProduct.id, updateData, user.uid);
+      // Update latest stock change cost price if changed
+      const latestStockChange = stockChanges
+        .filter(sc => sc.productId === currentProduct.id)
+        .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))[0];
+      if (latestStockChange && editPrices.costPrice && parseFloat(editPrices.costPrice) !== latestStockChange.costPrice) {
+        // Use updateProduct with stockReason 'adjustment' and stockChange 0 to update cost price only
+        await updateProduct(currentProduct.id, {}, user.uid, 'adjustment', 0, {
+          supplierId: latestStockChange.supplierId,
+          isOwnPurchase: latestStockChange.isOwnPurchase,
+          isCredit: latestStockChange.isCredit,
+          costPrice: parseFloat(editPrices.costPrice)
+        });
+      }
       setIsEditModalOpen(false);
       resetForm();
       showSuccessToast(t('products.messages.productUpdated'));
@@ -418,249 +456,6 @@ const Products = () => {
       setIsEditModalOpen(true);
     } finally {
       setIsSubmitting(false);
-    }
-  };
-  
-  const openEditModal = (product: Product) => {
-    setCurrentProduct(product);
-    setStep1Data({
-      name: product.name,
-      reference: product.reference,
-      category: product.category,
-      images: Array.isArray(product.images) ? product.images : (product.images ? [product.images] : []),
-    });
-    setIsEditModalOpen(true);
-    setEditTab('details');
-    setStockAdjustment('');
-  };
-  
-  // Filter products by search query and category
-  const filteredProducts = products?.filter(product => {
-    if (typeof product.isAvailable !== 'undefined' && product.isAvailable === false) return false;
-    const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         product.reference.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === t('products.filters.allCategories') || product.category === selectedCategory;
-    return matchesSearch && matchesCategory;
-  }) || [];
-
-  const resetImportState = () => {
-    setCsvData([]);
-    setCsvHeaders([]);
-    setColumnMapping({});
-    setImportProgress(0);
-  };
-
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    Papa.parse(file, {
-      header: true,
-      skipEmptyLines: true,
-      transformHeader: (header: string) => header.trim(),
-      transform: (value: string) => value.trim(),
-      complete: (results: ParseResult<CsvRow>) => {
-        if (results.data && results.data.length > 0) {
-          setCsvData(results.data);
-          const headers = Object.keys(results.data[0]);
-          setCsvHeaders(headers);
-          
-          // Initialize column mapping with empty values
-          const initialMapping: Record<string, string> = {};
-          headers.forEach(header => {
-            initialMapping[header] = '';
-          });
-          
-          // Try to automatically map columns based on common patterns
-          headers.forEach(header => {
-            const lowerHeader = header.toLowerCase();
-            // Reference/ID patterns
-            if (lowerHeader.includes('ref') || lowerHeader.includes('id') || lowerHeader.includes('code')) {
-              initialMapping[header] = 'reference';
-            }
-            // Name patterns
-            else if (lowerHeader.includes('name') || lowerHeader.includes('designation') || lowerHeader.includes('product') || lowerHeader.includes('description')) {
-              initialMapping[header] = 'name';
-            }
-            // Cost price patterns
-            else if (lowerHeader.includes('cost') || lowerHeader.includes('buy') || lowerHeader.includes('purchase') || lowerHeader.includes('prix d\'achat')) {
-              initialMapping[header] = 'costPrice';
-            }
-            // Selling price patterns
-            else if (lowerHeader.includes('price') || lowerHeader.includes('sell') || lowerHeader.includes('prix de vente')) {
-              initialMapping[header] = 'sellingPrice';
-            }
-            // Stock patterns
-            else if (lowerHeader.includes('stock') || lowerHeader.includes('quantity') || lowerHeader.includes('qty') || lowerHeader.includes('inventory')) {
-              initialMapping[header] = 'stock';
-            }
-            // Category patterns
-            else if (lowerHeader.includes('category') || lowerHeader.includes('type') || lowerHeader.includes('catégorie')) {
-              initialMapping[header] = 'category';
-            }
-          });
-          
-          setColumnMapping(initialMapping);
-        } else {
-          showErrorToast(t('products.messages.errors.emptyFile'));
-        }
-      },
-      error: (error: Error) => {
-        console.error('CSV parsing error:', error);
-        showErrorToast(t('products.messages.errors.parseError', { error: error.message }));
-      }
-    });
-  };
-
-  const handleColumnMappingChange = (csvColumn: string, productField: string) => {
-    setColumnMapping(prev => ({
-      ...prev,
-      [csvColumn]: productField
-    }));
-  };
-
-  const validateMapping = () => {
-    const requiredFields = ['name', 'reference', 'costPrice', 'sellingPrice', 'category', 'stock'];
-    const mappedFields = Object.values(columnMapping);
-    
-    for (const field of requiredFields) {
-      if (!mappedFields.includes(field)) {
-        showWarningToast(t('products.messages.warnings.mapField', { field: t(`products.import.fields.${field}`) }));
-        return false;
-      }
-    }
-
-    // Validate that all required fields are mapped to non-empty CSV columns
-    for (const [csvColumn, productField] of Object.entries(columnMapping)) {
-      if (requiredFields.includes(productField) && !csvColumn) {
-        showWarningToast(t('products.messages.warnings.emptyMapping', { field: t(`products.import.fields.${productField}`) }));
-        return false;
-      }
-    }
-
-    return true;
-  };
-
-  const formatCategory = (category: string): string => {
-    return category
-      .trim()
-      .split(' ')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-      .join(' ');
-  };
-
-  const handleImport = async () => {
-    if (!validateMapping()) return;
-    if (!user?.uid) {
-      showErrorToast(t('products.messages.errors.notLoggedIn'));
-      return;
-    }
-
-    try {
-      setIsImporting(true);
-      const totalProducts = csvData.length;
-      let processedCount = 0;
-      let successCount = 0;
-      let errorCount = 0;
-
-      // Process each row
-      for (const row of csvData) {
-        try {
-          // Clean and validate the data
-          const cleanData = {
-            name: row[columnMapping.name]?.trim() || '',
-            reference: row[columnMapping.reference]?.trim() || '',
-            costPrice: row[columnMapping.costPrice]?.replace(/[^0-9.-]+/g, '') || '0',
-            sellingPrice: row[columnMapping.sellingPrice]?.replace(/[^0-9.-]+/g, '') || '0',
-            cataloguePrice: row[columnMapping.cataloguePrice]?.replace(/[^0-9.-]+/g, '') || '',
-            stock: row[columnMapping.stock]?.replace(/[^0-9.-]+/g, '') || '0',
-            category: row[columnMapping.category]?.trim() || 'Non catégorisé'
-          };
-
-          // Validate required fields
-          if (!cleanData.name) {
-            throw new Error(t('products.messages.warnings.missingName'));
-          }
-          if (!cleanData.reference) {
-            throw new Error(t('products.messages.warnings.missingReference'));
-          }
-          if (isNaN(parseFloat(cleanData.costPrice)) || parseFloat(cleanData.costPrice) < 0) {
-            throw new Error(t('products.messages.warnings.invalidCostPrice'));
-          }
-          if (isNaN(parseFloat(cleanData.sellingPrice)) || parseFloat(cleanData.sellingPrice) < 0) {
-            throw new Error(t('products.messages.warnings.invalidSellingPrice'));
-          }
-          if (isNaN(parseInt(cleanData.stock)) || parseInt(cleanData.stock) < 0) {
-            throw new Error(t('products.messages.warnings.invalidStock'));
-          }
-
-          // Create the product data
-          const productData = {
-            name: cleanData.name,
-            reference: cleanData.reference,
-            costPrice: parseFloat(cleanData.costPrice),
-            sellingPrice: parseFloat(cleanData.sellingPrice),
-            cataloguePrice: cleanData.cataloguePrice ? parseFloat(cleanData.cataloguePrice) : undefined,
-            category: formatCategory(cleanData.category),
-            stock: parseInt(cleanData.stock),
-            images: [], // No images provided in CSV, so leave empty
-            isAvailable: true,
-            userId: user.uid,
-            updatedAt: {
-              seconds: 0,
-              nanoseconds: 0
-            }
-          };
-
-          await addProduct(productData);
-          successCount++;
-        } catch (error) {
-          console.error('Error processing row:', row);
-          console.error('Error details:', error);
-          errorCount++;
-        } finally {
-          processedCount++;
-          setImportProgress((processedCount / totalProducts) * 100);
-        }
-      }
-
-      if (successCount > 0) {
-        showSuccessToast(t('products.messages.importSuccess', { 
-          count: successCount,
-          total: totalProducts,
-          errors: errorCount
-        }));
-      } else {
-        showErrorToast(t('products.messages.errors.importFailed'));
-      }
-      setIsImportModalOpen(false);
-      resetImportState();
-
-      // In handleImport, after importing products, if saveCategories is true, save new categories
-      if (saveCategories) {
-        // Collect unique categories from csvData
-        const csvCategories = Array.from(new Set(csvData.map(row => row[columnMapping.category]?.trim()).filter(Boolean)));
-        // Get existing categories from products
-        const existingCategories = new Set(products.map(p => p.category));
-        // Find new categories
-        const newCategories = csvCategories.filter(cat => !existingCategories.has(cat));
-        // Save new categories (assume addCategory is available from useCategories)
-        for (const cat of newCategories) {
-          if (cat) {
-            try {
-              await addCategory(cat);
-            } catch (e) { 
-              console.error('Error adding category:', e);
-              /* ignore errors for duplicates */ 
-            }
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Import failed:', error);
-      showErrorToast(t('products.messages.errors.importFailed'));
-    } finally {
-      setIsImporting(false);
     }
   };
 
@@ -682,37 +477,37 @@ const Products = () => {
     setIsStockSubmitting(true);
     
     try {
-      let newStock: number;
-      let change: number;
+    let newStock: number;
+    let change: number;
       
-      if (stockReason === 'restock') {
-        if (adjustmentAmount <= 0) {
-          showErrorToast(t('products.messages.warnings.positiveQuantity'));
-          return;
-        }
-        change = adjustmentAmount;
-        newStock = currentProduct.stock + change;
-      } else { // 'adjustment'
-        if (adjustmentAmount < 0) {
-          showErrorToast(t('products.messages.warnings.nonNegativeStock'));
-          return;
-        }
-        newStock = adjustmentAmount;
-        change = newStock - currentProduct.stock;
-      }
-      
-      if (change === 0) {
-        showWarningToast(t('products.messages.warnings.noStockChange'));
+    if (stockReason === 'restock') {
+      if (adjustmentAmount <= 0) {
+        showErrorToast(t('products.messages.warnings.positiveQuantity'));
         return;
       }
+      change = adjustmentAmount;
+      newStock = currentProduct.stock + change;
+    } else { // 'adjustment'
+      if (adjustmentAmount < 0) {
+        showErrorToast(t('products.messages.warnings.nonNegativeStock'));
+        return;
+      }
+      newStock = adjustmentAmount;
+      change = newStock - currentProduct.stock;
+    }
+      
+    if (change === 0) {
+      showWarningToast(t('products.messages.warnings.noStockChange'));
+      return;
+    }
 
-      const safeProduct = {
-        ...currentProduct,
-        isAvailable: typeof currentProduct.isAvailable === 'boolean' ? currentProduct.isAvailable : true,
-        images: (currentProduct.images ?? []).length > 0 ? currentProduct.images : [],
-        userId: currentProduct.userId || user.uid,
-        updatedAt: currentProduct.updatedAt || { seconds: 0, nanoseconds: 0 },
-      };
+    const safeProduct = {
+      ...currentProduct,
+      isAvailable: typeof currentProduct.isAvailable === 'boolean' ? currentProduct.isAvailable : true,
+      images: (currentProduct.images ?? []).length > 0 ? currentProduct.images : [],
+      userId: currentProduct.userId || user.uid,
+      updatedAt: currentProduct.updatedAt || { seconds: 0, nanoseconds: 0 },
+    };
       
       const updateData = { 
         stock: newStock, 
@@ -890,6 +685,22 @@ const Products = () => {
     setStep1Data(prev => ({ ...prev, images: prev.images.filter((_, i) => i !== idx) }));
   };
 
+  // Place filteredProducts and resetImportState above their first usage
+  const filteredProducts: Product[] = products?.filter((product: Product) => {
+    if (typeof product.isAvailable !== 'undefined' && product.isAvailable === false) return false;
+    const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         product.reference.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = selectedCategory === t('products.filters.allCategories') || product.category === selectedCategory;
+    return matchesSearch && matchesCategory;
+  }) || [];
+
+  const resetImportState = (): void => {
+    setCsvData([]);
+    setCsvHeaders([]);
+    setColumnMapping({});
+    setImportProgress(0);
+  };
+
   if (loading) {
     return <LoadingScreen />;
   }
@@ -898,6 +709,146 @@ const Products = () => {
     showErrorToast(t('products.messages.errors.loadProducts'));
     return null;
   }
+
+  // Add handleImport, handleFileUpload, and handleColumnMappingChange above their first usage (modal code)
+  const handleImport = async () => {
+    if (!user?.uid) return;
+    if (csvData.length === 0) {
+      showWarningToast(t('products.import.noData'));
+      return;
+    }
+
+    setIsImporting(true);
+    setImportProgress(0);
+    let importedCount = 0;
+    let failedCount = 0;
+
+    for (let i = 0; i < csvData.length; i++) {
+      const row = csvData[i];
+      // Extract and validate fields
+      const name = columnMapping.name ? row[columnMapping.name]?.trim() : '';
+      const reference = columnMapping.reference ? row[columnMapping.reference]?.trim() : '';
+      const sellingPrice = columnMapping.sellingPrice ? parseFloat(row[columnMapping.sellingPrice]) : undefined;
+      const cataloguePrice = columnMapping.cataloguePrice ? parseFloat(row[columnMapping.cataloguePrice]) : undefined;
+      const category = columnMapping.category ? row[columnMapping.category]?.trim() : '';
+      const stock = columnMapping.stock ? parseInt(row[columnMapping.stock]) : undefined;
+      const costPrice = columnMapping.costPrice ? parseFloat(row[columnMapping.costPrice]) : undefined;
+      const supplyType = columnMapping.supplyType ? row[columnMapping.supplyType]?.trim() : 'ownPurchase';
+      const supplierIdRaw = columnMapping.supplierId ? row[columnMapping.supplierId]?.trim() : '';
+      const paymentType = columnMapping.paymentType ? row[columnMapping.paymentType]?.trim() : 'paid';
+      const supplierName = columnMapping.supplierName ? row[columnMapping.supplierName]?.trim() : '';
+
+      if (!name || !category || !stock || !sellingPrice) {
+        failedCount++;
+        setImportProgress((i / csvData.length) * 100);
+        continue;
+      }
+
+      // Build productData
+      const productData = {
+        name,
+        reference,
+        sellingPrice,
+        cataloguePrice,
+        category,
+        stock,
+        images: [],
+        isAvailable: true,
+        userId: user.uid,
+        updatedAt: { seconds: 0, nanoseconds: 0 }
+      };
+
+      // Build supplierInfo
+      let supplierInfo: {
+        supplierId?: string;
+        isOwnPurchase: boolean;
+        isCredit: boolean;
+        costPrice?: number;
+      } | undefined = undefined;
+      let finalSupplyType = supplyType;
+      let finalSupplierId = supplierIdRaw;
+      if (supplyType === 'fromSupplier') {
+        // Prefer supplierName if present
+        let supplier = null;
+        if (supplierName) {
+          supplier = suppliers.find(s => s.name.toLowerCase() === supplierName.toLowerCase());
+          if (!supplier) {
+            supplier = await createSupplier({
+              name: supplierName,
+              contact: 'Imported',
+              userId: user.uid
+            }, user.uid);
+          }
+          finalSupplierId = supplier.id;
+        } else if (finalSupplierId) {
+          supplier = suppliers.find(s => s.id === finalSupplierId);
+          if (!supplier) {
+            supplier = await createSupplier({
+              name: finalSupplierId,
+              contact: 'Imported',
+              userId: user.uid
+            }, user.uid);
+            finalSupplierId = supplier.id;
+          }
+        } else {
+          // No supplier info, treat as own purchase
+          finalSupplyType = 'ownPurchase';
+        }
+      }
+      if (finalSupplyType === 'fromSupplier') {
+        supplierInfo = {
+          supplierId: finalSupplierId || undefined,
+          isOwnPurchase: false,
+          isCredit: paymentType === 'credit',
+          costPrice: costPrice || 0
+        };
+      } else {
+        supplierInfo = {
+          isOwnPurchase: true,
+          isCredit: false,
+          costPrice: costPrice || 0
+        };
+      }
+
+      try {
+        await addProduct(productData, supplierInfo);
+        importedCount++;
+      } catch (err) {
+        console.error(`Failed to import product ${name}:`, err);
+        failedCount++;
+      }
+      setImportProgress(((i + 1) / csvData.length) * 100);
+    }
+
+    setIsImportModalOpen(false);
+    resetImportState();
+    showSuccessToast(t('products.import.success', { imported: importedCount, failed: failedCount }));
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (results: ParseResult<CsvRow>) => {
+        setCsvData(results.data);
+        setCsvHeaders(results.meta.fields || []);
+        setColumnMapping({}); // Clear previous mapping
+        setImportProgress(0);
+      },
+      error: (error) => {
+        console.error('Error parsing CSV:', error);
+        showErrorToast(t('products.import.parseError'));
+        setImportProgress(0);
+      },
+    });
+  };
+
+  const handleColumnMappingChange = (header: string, value: string) => {
+    setColumnMapping(prev => ({ ...prev, [header]: value }));
+  };
 
   return (
     <div className="pb-16 md:pb-0">
@@ -1261,73 +1212,73 @@ const Products = () => {
 
           {currentStep === 1 ? (
             /* Step 1: Basic Product Information */
-            <div className="space-y-4">
-              <Input
-                label={t('products.form.name')}
-                name="name"
+        <div className="space-y-4">
+          <Input
+            label={t('products.form.name')}
+            name="name"
                 value={step1Data.name}
                 onChange={handleStep1InputChange}
-                required
-              />
-              
-              <Input
-                label={t('products.form.reference')}
-                name="reference"
+            required
+          />
+          
+          <Input
+            label={t('products.form.reference')}
+            name="reference"
                 value={step1Data.reference}
                 onChange={handleStep1InputChange}
-              />
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {t('products.form.category')}
-                </label>
-                <CreatableSelect
+          />
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {t('products.form.category')}
+            </label>
+            <CreatableSelect
                   value={step1Data.category ? { label: step1Data.category, value: step1Data.category } : null}
-                  onChange={handleCategoryChange}
-                  placeholder={t('products.form.categoryPlaceholder')}
-                  className="custom-select"
+              onChange={handleCategoryChange}
+              placeholder={t('products.form.categoryPlaceholder')}
+              className="custom-select"
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('products.form.image')}</label>
+            <div className="flex items-center space-x-2 pb-2">
+              <label className="w-20 h-20 flex items-center justify-center border-2 border-dashed border-gray-300 rounded-md cursor-pointer bg-gray-50 hover:bg-gray-100 transition-all duration-200 relative flex-shrink-0">
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="absolute inset-0 opacity-0 cursor-pointer"
+                  onChange={handleImagesUpload}
+                  disabled={isUploadingImages}
                 />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{t('products.form.image')}</label>
-                <div className="flex items-center space-x-2 pb-2">
-                  <label className="w-20 h-20 flex items-center justify-center border-2 border-dashed border-gray-300 rounded-md cursor-pointer bg-gray-50 hover:bg-gray-100 transition-all duration-200 relative flex-shrink-0">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      className="absolute inset-0 opacity-0 cursor-pointer"
-                      onChange={handleImagesUpload}
-                      disabled={isUploadingImages}
-                    />
-                    {isUploadingImages ? (
-                      <span className="animate-spin text-emerald-500"><Upload size={28} /></span>
-                    ) : (
-                      <Upload size={28} className="text-gray-400" />
-                    )}
-                  </label>
-                  <div className="flex overflow-x-auto custom-scrollbar space-x-2 py-1">
+                {isUploadingImages ? (
+                  <span className="animate-spin text-emerald-500"><Upload size={28} /></span>
+                ) : (
+                  <Upload size={28} className="text-gray-400" />
+                )}
+              </label>
+              <div className="flex overflow-x-auto custom-scrollbar space-x-2 py-1">
                     {(step1Data.images ?? []).map((img, idx) => (
-                      <div key={idx} className="relative w-20 h-20 flex-shrink-0 rounded-md overflow-hidden group">
-                        <img
-                          src={img.startsWith('data:image') ? img : `data:image/jpeg;base64,${img}`}
-                          alt={`Product ${idx + 1}`}
-                          className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
-                        />
-                        <button
-                          type="button"
-                          className="absolute top-1 right-1 bg-white bg-opacity-80 rounded-full p-1 text-red-600 hover:text-red-800 shadow"
-                          onClick={() => handleRemoveImage(idx)}
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    ))}
+                  <div key={idx} className="relative w-20 h-20 flex-shrink-0 rounded-md overflow-hidden group">
+                    <img
+                      src={img.startsWith('data:image') ? img : `data:image/jpeg;base64,${img}`}
+                      alt={`Product ${idx + 1}`}
+                      className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
+                    />
+                    <button
+                      type="button"
+                      className="absolute top-1 right-1 bg-white bg-opacity-80 rounded-full p-1 text-red-600 hover:text-red-800 shadow"
+                      onClick={() => handleRemoveImage(idx)}
+                    >
+                      <Trash2 size={16} />
+                    </button>
                   </div>
-                </div>
-                <p className="mt-1 text-sm text-gray-500">{t('products.form.imageHelp')}</p>
+                ))}
               </div>
+            </div>
+            <p className="mt-1 text-sm text-gray-500">{t('products.form.imageHelp')}</p>
+          </div>
             </div>
           ) : (
             /* Step 2: Initial Stock and Supply Information */
@@ -1465,7 +1416,7 @@ const Products = () => {
         <div className="space-y-4">
             <Input label={t('products.form.name')} name="name" value={step1Data.name} onChange={handleStep1InputChange} required />
             <Input label={t('products.form.reference')} name="reference" value={step1Data.reference} onChange={handleStep1InputChange} />
-            <div>
+          <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">{t('products.form.category')}</label>
               <CreatableSelect value={step1Data.category ? { label: step1Data.category, value: step1Data.category } : null} onChange={handleCategoryChange} placeholder={t('products.form.categoryPlaceholder')} className="custom-select" />
           </div>
@@ -1508,6 +1459,9 @@ const Products = () => {
               </div>
               <p className="mt-1 text-sm text-gray-500">{t('products.form.imageHelp')}</p>
             </div>
+            <Input label={t('products.form.step2.sellingPrice')} name="sellingPrice" type="number" value={editPrices.sellingPrice} onChange={e => setEditPrices(p => ({ ...p, sellingPrice: e.target.value }))} helpText={t('products.form.step2.sellingPriceHelp')} required />
+            <Input label={t('products.form.step2.cataloguePrice')} name="cataloguePrice" type="number" value={editPrices.cataloguePrice} onChange={e => setEditPrices(p => ({ ...p, cataloguePrice: e.target.value }))} helpText={t('products.form.step2.cataloguePriceHelp')} />
+            <Input label={t('products.form.step2.stockCostPrice')} name="costPrice" type="number" value={editPrices.costPrice} onChange={e => setEditPrices(p => ({ ...p, costPrice: e.target.value }))} helpText={t('products.form.step2.stockCostPriceHelp')} required />
           </div>
         ) : (
           <div className="space-y-4">
@@ -1516,14 +1470,14 @@ const Products = () => {
               <span className="block text-xs text-gray-500 mb-2">{t('products.table.columns.stock')}: {currentProduct?.stock}</span>
             </div>
             
-            <Input
+          <Input
               label={stockReason === 'restock' ? t('products.actions.quantityToAdd') : t('products.actions.newTotalStock')}
               name="stockAdjustment" 
-              type="number"
+            type="number"
               value={stockAdjustment} 
               onChange={e => setStockAdjustment(e.target.value)} 
-              required
-            />
+            required
+          />
             
             <select 
               className="block w-full rounded-md border border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm px-3 py-2" 
@@ -1601,8 +1555,8 @@ const Products = () => {
                       label={t('products.form.step2.stockCostPrice')}
                       name="costPrice"
                       type="number"
-                      value={stockAdjustmentSupplier.costPrice}
-                      onChange={handleStockAdjustmentSupplierChange}
+                      value={editPrices.costPrice}
+                      onChange={e => setEditPrices(p => ({ ...p, costPrice: e.target.value }))}
                       helpText={t('products.form.step2.stockCostPriceHelp')}
                     />
                   </>
@@ -1622,7 +1576,7 @@ const Products = () => {
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setIsEditModalOpen(false)}>{t('common.cancel')}</Button>
               <Button onClick={handleStockSubmit} isLoading={isStockSubmitting}>{t('common.save')}</Button>
-            </div>
+          </div>
             <div className="mt-6">
               <h4 className="font-semibold mb-2">{t('products.actions.stockHistory')}</h4>
               {(stockChanges.filter(sc => sc.productId === currentProduct?.id).length === 0) ? (
@@ -1642,10 +1596,10 @@ const Products = () => {
                     {stockChanges.filter(sc => sc.productId === currentProduct?.id).map(sc => {
                       const supplier = sc.supplierId ? suppliers.find(s => s.id === sc.supplierId) : null;
                       return (
-                        <tr key={sc.id}>
-                          <td>{sc.createdAt?.seconds ? new Date(sc.createdAt.seconds * 1000).toLocaleString() : ''}</td>
-                          <td>{sc.change > 0 ? '+' : ''}{sc.change}</td>
-                          <td>{t('products.actions.' + sc.reason)}</td>
+                      <tr key={sc.id}>
+                        <td>{sc.createdAt?.seconds ? new Date(sc.createdAt.seconds * 1000).toLocaleString() : ''}</td>
+                        <td>{sc.change > 0 ? '+' : ''}{sc.change}</td>
+                        <td>{t('products.actions.' + sc.reason)}</td>
                           <td>
                             {sc.isOwnPurchase ? (
                               <span className="text-gray-500">{t('products.form.step2.ownPurchase')}</span>
@@ -1667,13 +1621,13 @@ const Products = () => {
                               <span className="text-green-600">{t('products.form.step2.paid')}</span>
                             )}
                           </td>
-                        </tr>
+                      </tr>
                       );
                     })}
                   </tbody>
                 </table>
               )}
-            </div>
+        </div>
           </div>
         )}
       </Modal>
@@ -1739,6 +1693,10 @@ const Products = () => {
                       <option value="cataloguePrice">{t('products.import.fields.cataloguePrice')}</option>
                       <option value="category">{t('products.import.fields.category')}</option>
                       <option value="stock">{t('products.import.fields.stock')}</option>
+                      <option value="supplyType">Supply Type</option>
+                      <option value="supplierId">Supplier ID</option>
+                      <option value="paymentType">Payment Type</option>
+                      <option value="supplierName">Supplier Name</option>
                     </select>
                   </div>
                 ))}

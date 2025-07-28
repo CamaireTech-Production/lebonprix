@@ -546,7 +546,8 @@
         "sellingPriceHelp": "The price at which you sell the product",
         "cataloguePrice": "Catalogue Price",
         "cataloguePriceHelp": "The original/manufacturer's price (optional)"
-      }
+      },
+      "name": "Product Name"
     },
     "table": {
       "columns": {
@@ -564,6 +565,12 @@
       "productUpdated": "Product updated successfully",
       "productDeleted": "Product deleted successfully",
       "importSuccess": "Successfully imported {{count}} out of {{total}} products. {{errors}} errors occurred.",
+      "bulkDeleteSuccess": "{{count}} products deleted successfully.",
+      "bulkDeleteConfirmation": "Are you sure you want to delete the selected {{count}} products? They will be hidden from all lists but sales history will be kept.",
+      "bulkDeleteWarning": "This action cannot be undone. Sales history will remain intact.",
+      "noStockHistory": "No stock history for this product.",
+      "deleteConfirmation": "Are you sure you want to delete the product: {{name}} (Ref: {{reference}})?",
+      "deleteWarning": "This action cannot be undone. All associated sales data will remain but the link to the product will be broken.",
       "errors": {
         "addProduct": "Failed to add product",
         "updateProduct": "Failed to update product",

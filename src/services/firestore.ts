@@ -219,17 +219,19 @@ const createStockChange = (
   costPrice?: number
 ) => {
   const stockChangeRef = doc(collection(db, 'stockChanges'));
-  const stockChangeData = {
+  const stockChangeData: any = {
     productId,
     change,
     reason,
     userId,
-    supplierId,
     isOwnPurchase,
     isCredit,
     costPrice,
     createdAt: serverTimestamp(),
   };
+  if (supplierId) {
+    stockChangeData.supplierId = supplierId;
+  }
   try {
     batch.set(stockChangeRef, stockChangeData);
   } catch (error) {
@@ -250,8 +252,7 @@ export const createProduct = async (
   // Validate product data
   if (
     !data.name ||
-    data.costPrice < 0 ||
-    data.sellingPrice < data.costPrice ||
+    data.sellingPrice < 0 ||
     data.stock < 0 ||
     !data.category
   ) {
@@ -282,10 +283,10 @@ export const createProduct = async (
       supplierInfo?.supplierId,
       supplierInfo?.isOwnPurchase,
       supplierInfo?.isCredit,
-      supplierInfo?.costPrice || data.costPrice
+      supplierInfo?.costPrice
     );
   }
-  
+
   // Create audit log
   await createAuditLog(
     batch,
@@ -335,10 +336,10 @@ export const updateProduct = async (
   // If stock is being updated, record the change
   if (typeof data.stock === 'number' && typeof stockChange === 'number' && stockReason) {
     createStockChange(
-      batch, 
-      id, 
-      stockChange, 
-      stockReason, 
+      batch,
+      id,
+      stockChange,
+      stockReason,
       userId,
       supplierInfo?.supplierId,
       supplierInfo?.isOwnPurchase,

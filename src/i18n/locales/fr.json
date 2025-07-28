@@ -560,7 +560,10 @@
         "sellingPrice": "Prix de vente",
         "cataloguePrice": "Prix catalogue",
         "category": "Catégorie",
-        "stock": "Stock"
+        "stock": "Stock",
+        "supplyType": "Type d'approvisionnement",
+        "supplierId": "ID du fournisseur",
+        "paymentType": "Type de paiement"
       },
       "productsToImport": "Nombre de produits à importer : {{count}}",
       "saveCategories": "Enregistrer mes catégories depuis cet import"
@@ -598,7 +601,10 @@
       },
       "bulkDeleteSuccess": "{{count}} produits supprimés avec succès.",
       "bulkDeleteConfirmation": "Voulez-vous vraiment supprimer les {{count}} produits sélectionnés ? Ils seront masqués de toutes les listes mais l'historique des ventes sera conservé.",
-      "bulkDeleteWarning": "Cette action est irréversible. L'historique des ventes restera intact."
+      "bulkDeleteWarning": "Cette action est irréversible. L'historique des ventes restera intact.",
+      "noStockHistory": "Aucun historique de stock pour ce produit.",
+      "deleteConfirmation": "Êtes-vous sûr de vouloir supprimer le produit : {{name}} (Réf: {{reference}}) ?",
+      "deleteWarning": "Cette action est irréversible. Toutes les données de ventes associées resteront mais le lien avec le produit sera rompu."
     },
     "cancelBulkSelection": "Annuler la sélection multiple"
   },
