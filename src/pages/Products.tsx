@@ -1483,6 +1483,10 @@ const Products = () => {
               onChange={e => setStockAdjustment(e.target.value)} 
             required
           />
+          
+          <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded-md">
+            <strong>{t('products.actions.note')}:</strong> {t('products.actions.stockAdjustmentNote')}
+          </p>
             
             <select 
               className="block w-full rounded-md border border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm px-3 py-2" 
@@ -1493,7 +1497,66 @@ const Products = () => {
               <option value="adjustment">{t('products.actions.adjustment')}</option>
             </select>
             
-            {/* Price fields - always visible */}
+            {/* Supplier circuit and cost price fields - always visible */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {t('products.form.step2.supplyType')}
+              </label>
+              <select
+                name="supplyType"
+                value={stockAdjustmentSupplier.supplyType}
+                onChange={handleStockAdjustmentSupplierChange}
+                className="block w-full rounded-md border border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm px-3 py-2"
+              >
+                <option value="ownPurchase">{t('products.form.step2.ownPurchase')}</option>
+                <option value="fromSupplier">{t('products.form.step2.fromSupplier')}</option>
+              </select>
+            </div>
+            {stockAdjustmentSupplier.supplyType === 'fromSupplier' && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {t('products.form.step2.supplier')}
+                  </label>
+                  <div className="flex space-x-2">
+                    <select
+                      name="supplierId"
+                      value={stockAdjustmentSupplier.supplierId}
+                      onChange={handleStockAdjustmentSupplierChange}
+                      className="flex-1 rounded-md border border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm px-3 py-2"
+                    >
+                      <option value="">{t('common.select')}</option>
+                      {suppliers.filter(s => !s.isDeleted).map(supplier => (
+                        <option key={supplier.id} value={supplier.id}>
+                          {supplier.name}
+                        </option>
+                      ))}
+                    </select>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsQuickAddSupplierOpen(true)}
+                    >
+                      {t('products.actions.addSupplier')}
+                    </Button>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {t('products.form.step2.paymentType')}
+                  </label>
+                  <select
+                    name="paymentType"
+                    value={stockAdjustmentSupplier.paymentType}
+                    onChange={handleStockAdjustmentSupplierChange}
+                    className="block w-full rounded-md border border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm px-3 py-2"
+                  >
+                    <option value="paid">{t('products.form.step2.paid')}</option>
+                    <option value="credit">{t('products.form.step2.credit')}</option>
+                  </select>
+                </div>
+              </>
+            )}
             <Input
               label={t('products.form.step2.stockCostPrice')}
               name="costPrice"
@@ -1520,71 +1583,6 @@ const Products = () => {
               onChange={e => setEditPrices(p => ({ ...p, cataloguePrice: e.target.value }))}
               helpText={t('products.form.step2.cataloguePriceHelp')}
             />
-            
-            {/* Supplier selection for restock */}
-            {stockReason === 'restock' && (
-              <>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {t('products.form.step2.supplyType')}
-                  </label>
-                  <select
-                    name="supplyType"
-                    value={stockAdjustmentSupplier.supplyType}
-                    onChange={handleStockAdjustmentSupplierChange}
-                    className="block w-full rounded-md border border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm px-3 py-2"
-                  >
-                    <option value="ownPurchase">{t('products.form.step2.ownPurchase')}</option>
-                    <option value="fromSupplier">{t('products.form.step2.fromSupplier')}</option>
-                  </select>
-                </div>
-                {stockAdjustmentSupplier.supplyType === 'fromSupplier' && (
-                  <>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        {t('products.form.step2.supplier')}
-                      </label>
-                      <div className="flex space-x-2">
-                        <select
-                          name="supplierId"
-                          value={stockAdjustmentSupplier.supplierId}
-                          onChange={handleStockAdjustmentSupplierChange}
-                          className="flex-1 rounded-md border border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm px-3 py-2"
-                        >
-                          <option value="">{t('common.select')}</option>
-                          {suppliers.filter(s => !s.isDeleted).map(supplier => (
-                            <option key={supplier.id} value={supplier.id}>
-                              {supplier.name}
-                            </option>
-                          ))}
-                        </select>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setIsQuickAddSupplierOpen(true)}
-                        >
-                          {t('products.actions.addSupplier')}
-                        </Button>
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        {t('products.form.step2.paymentType')}
-                      </label>
-                      <select
-                        name="paymentType"
-                        value={stockAdjustmentSupplier.paymentType}
-                        onChange={handleStockAdjustmentSupplierChange}
-                        className="block w-full rounded-md border border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm px-3 py-2"
-                      >
-                        <option value="paid">{t('products.form.step2.paid')}</option>
-                        <option value="credit">{t('products.form.step2.credit')}</option>
-                      </select>
-                    </div>
-                  </>
-                )}
-              </>
-            )}
             
             <p className="mt-2 text-sm text-gray-500">
               <span className="block mb-2">

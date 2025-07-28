@@ -511,7 +511,9 @@
       "nextStep": "Next Step",
       "previousStep": "Previous Step",
       "complete": "Complete",
-      "addSupplier": "Add Supplier"
+      "addSupplier": "Add Supplier",
+      "note": "Note",
+      "stockAdjustmentNote": "To update only the cost price without changing stock, enter the current stock value in the quantity field. The cost price and supplier information will be updated for the latest stock entry."
     },
     "form": {
       "step1": {

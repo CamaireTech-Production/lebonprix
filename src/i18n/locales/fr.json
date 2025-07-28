@@ -483,7 +483,9 @@
       "nextStep": "Étape suivante",
       "previousStep": "Étape précédente",
       "complete": "Terminer",
-      "addSupplier": "Ajouter un fournisseur"
+      "addSupplier": "Ajouter un fournisseur",
+      "note": "Note",
+      "stockAdjustmentNote": "Pour mettre à jour uniquement le prix d'achat sans changer le stock, entrez la valeur du stock actuel dans le champ quantité. Le prix d'achat et les informations du fournisseur seront mis à jour pour la dernière entrée de stock."
     },
     "table": {
       "columns": {
