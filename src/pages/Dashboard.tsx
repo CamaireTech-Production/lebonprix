@@ -13,6 +13,7 @@ import { useAuth } from '../contexts/AuthContext';
 import type { DashboardStats } from '../types/models';
 import { showSuccessToast, showErrorToast } from '../utils/toast';
 import { useTranslation } from 'react-i18next';
+import { getLatestCostPrice } from '../utils/productUtils';
 import { startOfMonth, endOfMonth, differenceInDays, format, startOfWeek, endOfWeek, addDays, addWeeks, startOfMonth as startMonth, endOfMonth as endMonth, addMonths, isSameMonth, isSameWeek, isSameDay } from 'date-fns';
 import DateRangePicker from '../components/common/DateRangePicker';
 import ObjectivesBar from '../components/objectives/ObjectivesBar';
@@ -63,7 +64,9 @@ const Dashboard = () => {
       const productData = products?.find(p => p.id === product.productId);
       if (!productData) return productSum;
       const sellingPrice = product.negotiatedPrice || product.basePrice;
-      return productSum + (sellingPrice - productData.costPrice) * product.quantity;
+      const costPrice = getLatestCostPrice(productData.id, stockChanges);
+      if (costPrice === undefined) return productSum;
+      return productSum + (sellingPrice - costPrice) * product.quantity;
     }, 0);
   }, 0) || 0;
 
@@ -88,7 +91,9 @@ const Dashboard = () => {
   };
   const totalPurchasePrice = products?.reduce((sum, product) => {
     const stockAtDate = getStockAtDate(product.id, dateRange.to);
-    return sum + (product.costPrice * stockAtDate);
+    const costPrice = getLatestCostPrice(product.id, stockChanges);
+    if (costPrice === undefined) return sum;
+    return sum + (costPrice * stockAtDate);
   }, 0) || 0;
 
   // Best selling products (by quantity sold)

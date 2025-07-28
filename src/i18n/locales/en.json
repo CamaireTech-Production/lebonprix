@@ -25,7 +25,8 @@
     "first": "First",
     "prev": "Prev",
     "next": "Next",
-    "last": "Last"
+    "last": "Last",
+    "select": "Select"
   },
   "auth": {
     "login": "Login",
@@ -45,6 +46,7 @@
     "sales": "Sales",
     "expenses": "Expenses",
     "customers": "Customers",
+    "suppliers": "Suppliers",
     "reports": "Reports",
     "settings": "Settings",
     "profile": "Profile",
@@ -505,7 +507,46 @@
       "deleteSelectedTitle": "Delete Selected Products",
       "selectProduct": "Select product",
       "selectAll": "Select all",
-      "cancelBulkSelection": "Cancel Bulk Selection"
+      "cancelBulkSelection": "Cancel Bulk Selection",
+      "nextStep": "Next Step",
+      "previousStep": "Previous Step",
+      "complete": "Complete",
+      "addSupplier": "Add Supplier"
+    },
+    "form": {
+      "step1": {
+        "title": "Basic Information",
+        "name": "Product Name",
+        "reference": "Reference",
+        "costPrice": "Cost Price",
+        "sellingPrice": "Selling Price",
+        "cataloguePrice": "Catalogue Price",
+        "category": "Category",
+        "sellingPriceHelp": "The price at which you sell the product",
+        "cataloguePriceHelp": "The original/manufacturer's price (optional)"
+      },
+      "step2": {
+        "title": "Initial Stock & Supply",
+        "stock": "Initial Stock",
+        "supplyType": "Supply Type",
+        "ownPurchase": "Own Purchase",
+        "fromSupplier": "From Supplier",
+        "supplier": "Supplier",
+        "selectSupplier": "Select Supplier",
+        "addNewSupplier": "Add New Supplier",
+        "paymentType": "Payment Type",
+        "credit": "On Credit",
+        "paid": "Paid",
+        "stockCostPrice": "Stock Cost Price",
+        "stockCostPriceHelp": "Cost price for this specific stock entry (if different from product cost price)",
+        "quantity": "Quantity",
+        "supplierRequired": "Please select a supplier",
+        "paymentTypeRequired": "Please select payment type",
+        "sellingPrice": "Selling Price",
+        "sellingPriceHelp": "The price at which you sell the product",
+        "cataloguePrice": "Catalogue Price",
+        "cataloguePriceHelp": "The original/manufacturer's price (optional)"
+      }
     },
     "table": {
       "columns": {
@@ -518,73 +559,30 @@
         "stock": "Stock"
       }
     },
-    "form": {
-      "name": "Product Name",
-      "reference": "Reference",
-      "costPrice": "Cost Price (XAF)",
-      "sellingPrice": "Selling Price (XAF)",
-      "sellingPriceHelp": "This is the price your customers will see.",
-      "category": "Category",
-      "categoryPlaceholder": "Select or create a category",
-      "stock": "Initial Stock",
-      "image": "Product Image",
-      "imageHelp": "Optional, max 500KB. Will be compressed.",
-      "cataloguePrice": "Catalogue Price (XAF)",
-      "cataloguePriceHelp": "This is the price shown in your public catalogue. If left empty, the selling price will be used."
-    },
-    "import": {
-      "title": "Import Products from CSV",
-      "upload": "Upload CSV file",
-      "uploadHelp": "The file must contain headers. Recommended fields: name, reference, costPrice, sellingPrice, category, stock.",
-      "mapping": "Map Columns",
-      "preview": "Preview (first 5 rows)",
-      "previewHelp": "...and {{total}} more rows.",
-      "progress": "Importing...",
-      "fields": {
-        "name": "Product Name",
-        "reference": "Reference",
-        "costPrice": "Cost Price",
-        "sellingPrice": "Selling Price",
-        "category": "Category",
-        "stock": "Stock"
-      },
-      "productsToImport": "Number of products to import: {{count}}",
-      "saveCategories": "Save my categories from this import"
-    },
     "messages": {
       "productAdded": "Product added successfully",
       "productUpdated": "Product updated successfully",
       "productDeleted": "Product deleted successfully",
-      "importSuccess": "{{count}} out of {{total}} products imported successfully ({{errors}} errors).",
-      "deleteConfirmation": "Are you sure you want to delete the product: {{name}} (Ref: {{reference}})?",
-      "deleteWarning": "This action cannot be undone. All associated sales data will remain but the product link will be broken.",
-      "noStockHistory": "No stock history for this product.",
+      "importSuccess": "Successfully imported {{count}} out of {{total}} products. {{errors}} errors occurred.",
       "errors": {
-        "loadProducts": "Failed to load products.",
-        "addProduct": "Error adding product",
-        "updateProduct": "Error updating product",
-        "deleteProduct": "Error deleting product",
-        "emptyFile": "The selected file is empty or invalid.",
-        "parseError": "Error parsing CSV file: {{error}}",
-        "importFailed": "Import failed. Please check the file and try again.",
-        "notLoggedIn": "User not logged in"
+        "addProduct": "Failed to add product",
+        "updateProduct": "Failed to update product",
+        "deleteProduct": "Failed to delete product",
+        "loadProducts": "Failed to load products",
+        "importFailed": "Import failed",
+        "notLoggedIn": "You must be logged in to perform this action"
       },
       "warnings": {
-        "requiredFields": "Please fill in all required fields.",
-        "mapField": "Please map the '{{field}}' field.",
-        "emptyMapping": "The '{{field}}' field cannot be mapped from an empty column.",
-        "missingName": "Missing product name in a row.",
-        "missingReference": "Missing product reference in a row.",
-        "invalidCostPrice": "Invalid cost price detected in a row.",
-        "invalidSellingPrice": "Invalid selling price detected in a row.",
-        "invalidStock": "Invalid stock value detected in a row.",
-        "positiveQuantity": "Quantity to add must be positive.",
-        "nonNegativeStock": "Total stock cannot be negative.",
-        "noStockChange": "No change in stock."
-      },
-      "bulkDeleteSuccess": "{{count}} products deleted successfully.",
-      "bulkDeleteConfirmation": "Are you sure you want to delete {{count}} selected products? This will hide them from all lists but keep sales history.",
-      "bulkDeleteWarning": "This action cannot be undone. Sales history will remain intact."
+        "requiredFields": "Please fill in all required fields",
+        "positiveQuantity": "Quantity must be positive",
+        "nonNegativeStock": "Stock cannot be negative",
+        "noStockChange": "No stock change detected",
+        "missingName": "Product name is missing",
+        "missingReference": "Product reference is missing",
+        "invalidCostPrice": "Invalid cost price",
+        "invalidSellingPrice": "Invalid selling price",
+        "invalidStock": "Invalid stock quantity"
+      }
     }
   },
   "expenses": {
@@ -773,14 +771,14 @@
     "fr": "French"
   },
   "finance": {
-    "historyTitle": "Finance Entry History",
-    "addEntry": "Add Finance Entry",
-    "editEntry": "Edit Finance Entry",
-    "noEntries": "No finance entries for the selected filters.",
-    "deleteConfirm": "Are you sure you want to delete this entry?",
-    "deleteCascadeConfirm": "Deleting this entry will also delete the corresponding {{context, select, sale {sale} expense {expense} other {record}}}. Are you sure?",
-    "deleteDebtCascadeWarning": "Deleting this debt will also delete all associated refunds. This action cannot be undone.",
-    "deleteCascadeWarning": "This action cannot be undone and will affect related records.",
+    "historyTitle": "Financial Entries History",
+    "addEntry": "Add Financial Entry",
+    "editEntry": "Edit Financial Entry",
+    "noEntries": "No financial entries for the selected filters.",
+    "deleteConfirm": "Are you sure you want to delete this financial entry?",
+    "deleteCascadeConfirm": "Deleting this entry will also delete the corresponding {{entity}}. Are you sure?",
+    "deleteDebtCascadeWarning": "Deleting this debt will also delete all associated refunds. This action is irreversible.",
+    "deleteCascadeWarning": "This action is irreversible and will affect related records.",
     "sourceType": {
       "manual": "Manual",
       "sale": "Sale",
@@ -792,12 +790,13 @@
       "sale": "Sale",
       "refund": "Refund",
       "debt": "Debt",
+      "supplier_debt": "Supplier Debt",
       "other": "Associated Entry"
     },
     "messages": {
-      "addSuccess": "Finance entry added successfully.",
-      "updateSuccess": "Finance entry updated successfully.",
-      "deleteSuccess": "Finance entry deleted successfully.",
+      "addSuccess": "Financial entry added successfully.",
+      "updateSuccess": "Financial entry updated successfully.",
+      "deleteSuccess": "Financial entry deleted successfully.",
       "operationError": "An error occurred. Please try again."
     },
     "debtCardTitle": "Outstanding Debt",
@@ -805,12 +804,88 @@
     "debtHistory": "Debt/Refund History",
     "debtEntry": "Debt",
     "remaining": "Remaining",
-    "toggleRefunds": "Toggle refunds",
+    "toggleRefunds": "Show/Hide Refunds",
     "selectDebtToRefund": "Select Debt to Refund",
     "selectDebt": "Select a debt",
     "refundExceeds": "Refund amount exceeds remaining debt!",
-    "noDebtsToRefund": "No debts available to refund.",
+    "noDebtsToRefund": "No debts available for refund.",
     "noRefunds": "No refunds for this debt.",
     "refundEntry": "Refund"
+  },
+
+  "suppliers": {
+    "title": "Suppliers",
+    "subtitle": "Manage your suppliers and track supplier debts",
+    "actions": {
+      "addSupplier": "Add Supplier",
+      "editSupplier": "Edit Supplier",
+      "deleteSupplier": "Delete Supplier",
+      "viewDebtHistory": "View Debt History",
+      "addRefund": "Add Refund"
+    },
+    "form": {
+      "name": "Supplier Name",
+      "contact": "Contact",
+      "location": "Location",
+      "email": "Email",
+      "notes": "Notes",
+      "nameRequired": "Supplier name is required",
+      "contactRequired": "Contact information is required"
+    },
+    "table": {
+      "columns": {
+        "name": "Supplier Name",
+        "contact": "Contact",
+        "location": "Location",
+        "email": "Email",
+        "totalDebt": "Total Debt",
+        "outstandingDebt": "Outstanding Debt",
+        "actions": "Actions"
+      }
+    },
+    "search": "Search suppliers...",
+    "noSuppliers": "No suppliers found",
+    "messages": {
+      "supplierAdded": "Supplier added successfully",
+      "supplierUpdated": "Supplier updated successfully",
+      "supplierDeleted": "Supplier deleted successfully",
+      "errors": {
+        "addSupplier": "Failed to add supplier",
+        "updateSupplier": "Failed to update supplier",
+        "deleteSupplier": "Failed to delete supplier",
+        "hasOutstandingDebts": "Cannot delete supplier with outstanding debts",
+        "loadSuppliers": "Failed to load suppliers"
+      },
+      "warnings": {
+        "requiredFields": "Please fill in all required fields",
+        "deleteConfirm": "Are you sure you want to delete this supplier?",
+        "deleteWithDebts": "This supplier has outstanding debts and cannot be deleted"
+      }
+    },
+    "debtCard": {
+      "title": "Supplier Debt",
+      "totalDebt": "Total Debt",
+      "outstandingDebt": "Outstanding Debt",
+      "viewHistory": "View History"
+    },
+    "debtHistory": {
+      "title": "Supplier Debt History",
+      "noDebts": "No debts for this supplier",
+      "debtEntry": "Debt",
+      "refundEntry": "Refund",
+      "remaining": "Remaining",
+      "amount": "Amount",
+      "date": "Date",
+      "description": "Description"
+    },
+    "refund": {
+      "title": "Add Refund",
+      "amount": "Refund Amount",
+      "description": "Description",
+      "remainingDebt": "Remaining Debt",
+      "refundExceeds": "Refund amount exceeds remaining debt!",
+      "success": "Refund added successfully",
+      "error": "Failed to add refund"
+    }
   }
 } 

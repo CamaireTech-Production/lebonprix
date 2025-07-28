@@ -26,6 +26,7 @@
     "next": "Suivant",
     "first": "Premier",
     "last": "Dernier",
+    "select": "Sélectionner",
     "showing": "Affichage de {{from}} à {{to}} sur {{total}}",
     "rowsPerPage": "Lignes par page :",
     "ascArrow": "▲",
@@ -49,6 +50,7 @@
     "sales": "Ventes",
     "expenses": "Dépenses",
     "customers": "Clients",
+    "suppliers": "Fournisseurs",
     "settings": "Paramètres",
     "profile": "Profil",
     "logout": "Déconnexion",
@@ -477,7 +479,11 @@
       "deleteSelected": "Supprimer la sélection ({{count}})",
       "deleteSelectedTitle": "Supprimer les produits sélectionnés",
       "selectProduct": "Sélectionner le produit",
-      "selectAll": "Tout sélectionner"
+      "selectAll": "Tout sélectionner",
+      "nextStep": "Étape suivante",
+      "previousStep": "Étape précédente",
+      "complete": "Terminer",
+      "addSupplier": "Ajouter un fournisseur"
     },
     "table": {
       "columns": {
@@ -491,6 +497,39 @@
       }
     },
     "form": {
+      "step1": {
+        "title": "Informations de base",
+        "name": "Nom du produit",
+        "reference": "Référence",
+        "costPrice": "Prix d'achat",
+        "sellingPrice": "Prix de vente",
+        "cataloguePrice": "Prix catalogue",
+        "category": "Catégorie",
+        "sellingPriceHelp": "Le prix auquel vous vendez le produit",
+        "cataloguePriceHelp": "Le prix original/fabricant (optionnel)"
+      },
+      "step2": {
+        "title": "Stock initial et approvisionnement",
+        "stock": "Stock initial",
+        "supplyType": "Type d'approvisionnement",
+        "ownPurchase": "Achat personnel",
+        "fromSupplier": "D'un fournisseur",
+        "supplier": "Fournisseur",
+        "selectSupplier": "Sélectionner un fournisseur",
+        "addNewSupplier": "Ajouter un nouveau fournisseur",
+        "paymentType": "Type de paiement",
+        "credit": "À crédit",
+        "paid": "Payé",
+        "stockCostPrice": "Prix d'achat du stock",
+        "stockCostPriceHelp": "Prix d'achat pour cette entrée de stock spécifique (si différent du prix d'achat du produit)",
+        "quantity": "Quantité",
+        "supplierRequired": "Veuillez sélectionner un fournisseur",
+        "paymentTypeRequired": "Veuillez sélectionner le type de paiement",
+        "sellingPrice": "Prix de vente",
+        "sellingPriceHelp": "Le prix auquel vous vendez le produit",
+        "cataloguePrice": "Prix catalogue",
+        "cataloguePriceHelp": "Le prix original/fabricant (optionnel)"
+      },
       "name": "Nom du produit",
       "reference": "Référence",
       "costPrice": "Prix d'achat (XAF)",
@@ -795,6 +834,7 @@
       "sale": "Vente",
       "refund": "Remboursement",
       "debt": "Dette",
+      "supplier_debt": "Dette Fournisseur",
       "other": "Entrée associée"
     },
     "messages": {
@@ -815,5 +855,81 @@
     "noDebtsToRefund": "Aucune dette disponible pour remboursement.",
     "noRefunds": "Aucun remboursement pour cette dette.",
     "refundEntry": "Remboursement"
+  },
+
+  "suppliers": {
+    "title": "Fournisseurs",
+    "subtitle": "Gérez vos fournisseurs et suivez les dettes fournisseurs",
+    "actions": {
+      "addSupplier": "Ajouter Fournisseur",
+      "editSupplier": "Modifier Fournisseur",
+      "deleteSupplier": "Supprimer Fournisseur",
+      "viewDebtHistory": "Voir Historique Dettes",
+      "addRefund": "Ajouter Remboursement"
+    },
+    "form": {
+      "name": "Nom du Fournisseur",
+      "contact": "Contact",
+      "location": "Localisation",
+      "email": "Email",
+      "notes": "Notes",
+      "nameRequired": "Le nom du fournisseur est requis",
+      "contactRequired": "Les informations de contact sont requises"
+    },
+    "table": {
+      "columns": {
+        "name": "Nom du Fournisseur",
+        "contact": "Contact",
+        "location": "Localisation",
+        "email": "Email",
+        "totalDebt": "Dette Totale",
+        "outstandingDebt": "Dette en Cours",
+        "actions": "Actions"
+      }
+    },
+    "search": "Rechercher des fournisseurs...",
+    "noSuppliers": "Aucun fournisseur trouvé",
+    "messages": {
+      "supplierAdded": "Fournisseur ajouté avec succès",
+      "supplierUpdated": "Fournisseur mis à jour avec succès",
+      "supplierDeleted": "Fournisseur supprimé avec succès",
+      "errors": {
+        "addSupplier": "Échec de l'ajout du fournisseur",
+        "updateSupplier": "Échec de la mise à jour du fournisseur",
+        "deleteSupplier": "Échec de la suppression du fournisseur",
+        "hasOutstandingDebts": "Impossible de supprimer le fournisseur avec des dettes en cours",
+        "loadSuppliers": "Échec du chargement des fournisseurs"
+      },
+      "warnings": {
+        "requiredFields": "Veuillez remplir tous les champs requis",
+        "deleteConfirm": "Êtes-vous sûr de vouloir supprimer ce fournisseur ?",
+        "deleteWithDebts": "Ce fournisseur a des dettes en cours et ne peut pas être supprimé"
+      }
+    },
+    "debtCard": {
+      "title": "Dette Fournisseur",
+      "totalDebt": "Dette Totale",
+      "outstandingDebt": "Dette en Cours",
+      "viewHistory": "Voir Historique"
+    },
+    "debtHistory": {
+      "title": "Historique Dette Fournisseur",
+      "noDebts": "Aucune dette pour ce fournisseur",
+      "debtEntry": "Dette",
+      "refundEntry": "Remboursement",
+      "remaining": "Restant",
+      "amount": "Montant",
+      "date": "Date",
+      "description": "Description"
+    },
+    "refund": {
+      "title": "Ajouter Remboursement",
+      "amount": "Montant du Remboursement",
+      "description": "Description",
+      "remainingDebt": "Dette Restante",
+      "refundExceeds": "Le montant du remboursement dépasse la dette restante !",
+      "success": "Remboursement ajouté avec succès",
+      "error": "Échec de l'ajout du remboursement"
+    }
   }
 } 
