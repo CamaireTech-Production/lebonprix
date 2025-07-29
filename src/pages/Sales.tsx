@@ -197,10 +197,7 @@ const Sales = () => {
         errors[`quantity_${index}`] = t('sales.messages.warnings.quantityExceeded', { stock: product.product.stock });
       }
 
-      const negotiatedPrice = parseFloat(product.negotiatedPrice);
-      if (!isNaN(negotiatedPrice) && negotiatedPrice > product.product.sellingPrice) {
-        errors[`price_${index}`] = t('sales.messages.warnings.priceExceeded');
-      }
+      // Removed negotiated price validation - can now exceed selling price
     });
 
     const deliveryFee = parseFloat(formData.deliveryFee);
@@ -452,7 +449,11 @@ const Sales = () => {
             {sale.totalAmount.toLocaleString()} XAF
           </td>
           <td className="px-6 py-4 whitespace-nowrap text-sm">
-            {format(new Date((sale.createdAt.seconds || 0) * 1000), 'yyyy-MM-dd HH:mm')}
+            {
+              sale.createdAt && typeof sale.createdAt.seconds === 'number'
+                ? format(new Date(sale.createdAt.seconds * 1000), 'yyyy-MM-dd HH:mm')
+                : 'Pending...'
+            }
           </td>
           <td className="px-6 py-4 whitespace-nowrap text-sm">
             {(() => {
@@ -922,10 +923,9 @@ const Sales = () => {
                       <Input
                         label={t('sales.modals.edit.products.negotiatedPrice')}
                         type="number"
-                        max={product.product.sellingPrice.toString()}
                         value={product.negotiatedPrice}
                         onChange={(e) => handleProductInputChange(index, 'negotiatedPrice', e.target.value)}
-                        helpText={t('sales.modals.edit.products.cannotExceed', { value: product.product.sellingPrice.toLocaleString() })}
+                        // helpText={t('sales.modals.edit.products.cannotExceed', { value: product.product.sellingPrice.toLocaleString() })}
                       />
                     </div>
 

@@ -17,6 +17,7 @@ const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Sales = lazy(() => import('./pages/Sales'));
 const Expenses = lazy(() => import('./pages/Expenses'));
 const Products = lazy(() => import('./pages/Products'));
+const Suppliers = lazy(() => import('./pages/Suppliers'));
 const Reports = lazy(() => import('./pages/Reports'));
 const Settings = lazy(() => import('./pages/Settings'));
 const TimelinePage = lazy(() => import('./pages/TimelinePage'));
@@ -63,6 +64,7 @@ function AppWithFAB({ isAddSaleModalOpen, setIsAddSaleModalOpen }: { isAddSaleMo
               <Route path="/expenses" element={<Expenses />} />
               <Route path="/finance" element={<Finance />} />
               <Route path="/products" element={<Products />} />
+              <Route path="/suppliers" element={<Suppliers />} />
               <Route path="/reports" element={<Reports />} />
               <Route path="/settings" element={<Settings />} />
             </Route>

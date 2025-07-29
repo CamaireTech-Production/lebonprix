@@ -17,6 +17,7 @@ interface AddSaleModalProps {
 }
 
 const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdded }) => {
+
   const {
     formData,
     setFormData,
@@ -81,10 +82,16 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
 
   // Patch handleAddSale to set viewedSale after success
   const handleAddSaleWithView = async () => {
-    const newSale = await handleAddSale();
-    if (newSale) {
-      setViewedSale(newSale);
-      if (onSaleAdded) onSaleAdded();
+    try {
+      const newSale = await handleAddSale();
+      if (newSale) {
+        setViewedSale(newSale);
+        if (onSaleAdded) {
+          onSaleAdded();
+        }
+      }
+    } catch (error) {
+      // console.error('[AddSaleModal] Error in handleAddSaleWithView', error);
     }
   };
 
@@ -95,7 +102,9 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
   };
 
   // Patch: if viewedSale is set, show details modal instead of form
-  if (!isOpen) return null;
+  if (!isOpen) {
+    return null;
+  }
 
   return (
     <>
@@ -218,10 +227,9 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                         <Input
                           label="Negotiated Price"
                           type="number"
-                          max={product.product.sellingPrice.toString()}
                           value={product.negotiatedPrice}
                           onChange={(e) => handleProductInputChange(index, 'negotiatedPrice', e.target.value)}
-                          helpText={`Cannot exceed ${product.product.sellingPrice.toLocaleString()} XAF`}
+                          // helpText="Enter the negotiated price (can exceed standard price)"
                         />
                       </div>
                       {/* Individual Product Total - changed bg color to blue-50 */}
@@ -262,7 +270,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                       classNamePrefix="select"
                         noOptionsMessage={() => 'No products found'}
                       formatOptionLabel={(option) => option.label}
-                      filterOption={(option: { value: Product; label: React.ReactNode }, inputValue: string) => {
+                      filterOption={(option: any, inputValue: string) => {
                         return option.value.name.toLowerCase().includes(inputValue.toLowerCase());
                       }}
                     />
@@ -302,10 +310,9 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                       <Input
                           label="Negotiated Price"
                         type="number"
-                        max={product.product.sellingPrice.toString()}
                         value={product.negotiatedPrice}
                         onChange={(e) => handleProductInputChange(index, 'negotiatedPrice', e.target.value)}
-                          helpText={`Cannot exceed ${product.product.sellingPrice.toLocaleString()} XAF`}
+                          // helpText="Enter the negotiated price (can exceed standard price)"
                       />
                     </div>
                       {/* Individual Product Total - changed bg color to blue-50 (mobile view) */}

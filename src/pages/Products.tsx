@@ -7,7 +7,8 @@ import Badge from '../components/common/Badge';
 import Modal, { ModalFooter } from '../components/common/Modal';
 import Input from '../components/common/Input';
 import CreatableSelect from '../components/common/CreatableSelect';
-import { useProducts, useStockChanges, useCategories } from '../hooks/useFirestore';
+import { useProducts, useStockChanges, useCategories, useSuppliers } from '../hooks/useFirestore';
+import { createSupplierDebt, createSupplier } from '../services/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import LoadingScreen from '../components/common/LoadingScreen';
 import { showSuccessToast, showErrorToast, showWarningToast } from '../utils/toast';
@@ -15,6 +16,7 @@ import imageCompression from 'browser-image-compression';
 import Papa from 'papaparse';
 import type { Product } from '../types/models';
 import type { ParseResult } from 'papaparse';
+import { getLatestCostPrice } from '../utils/productUtils';
 
 interface CsvRow {
   [key: string]: string;
@@ -24,7 +26,8 @@ const Products = () => {
   const { t, i18n } = useTranslation();
   const { products, loading, error, addProduct, updateProduct } = useProducts();
   const { stockChanges } = useStockChanges();
-  const { addCategory } = useCategories();
+  useCategories();
+  const { suppliers } = useSuppliers();
   const { user } = useAuth();
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [searchQuery, setSearchQuery] = useState('');
@@ -35,18 +38,37 @@ const Products = () => {
   const [currentProduct, setCurrentProduct] = useState<Product | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // Form state
-  const [formData, setFormData] = useState({
+  // Two-step form state
+  const [currentStep, setCurrentStep] = useState<1 | 2>(1);
+  
+  // Step 1: Basic product info
+  const [step1Data, setStep1Data] = useState({
     name: '',
     reference: '',
-    costPrice: '',
-    sellingPrice: '',
-    cataloguePrice: '',
     category: '',
-    stock: '',
     images: [] as string[],
   });
+  
+  // Step 2: Initial stock and supply info
+  const [step2Data, setStep2Data] = useState({
+    stock: '',
+    supplyType: 'ownPurchase' as 'ownPurchase' | 'fromSupplier',
+    supplierId: '',
+    paymentType: 'paid' as 'credit' | 'paid',
+    stockCostPrice: '',
+    sellingPrice: '',
+    cataloguePrice: '',
+  });
+  
+  // Quick add supplier state
+  const [isQuickAddSupplierOpen, setIsQuickAddSupplierOpen] = useState(false);
+  const [quickSupplierData, setQuickSupplierData] = useState({
+    name: '',
+    contact: '',
+    location: ''
+  });
   const [isUploadingImages, setIsUploadingImages] = useState(false);
+  const [isAddingSupplier, setIsAddingSupplier] = useState(false);
   
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [csvData, setCsvData] = useState<CsvRow[]>([]);
@@ -64,6 +86,14 @@ const Products = () => {
   const [stockAdjustment, setStockAdjustment] = useState('');
   const [stockReason, setStockReason] = useState<'restock' | 'adjustment'>('restock');
   const [isStockSubmitting, setIsStockSubmitting] = useState(false);
+  
+  // State for stock adjustment supplier info
+  const [stockAdjustmentSupplier, setStockAdjustmentSupplier] = useState({
+    supplyType: 'ownPurchase' as 'ownPurchase' | 'fromSupplier',
+    supplierId: '',
+    paymentType: 'paid' as 'credit' | 'paid',
+    costPrice: '',
+  });
   
   const [isBulkSelection, setIsBulkSelection] = useState(false);
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
@@ -90,29 +120,45 @@ const Products = () => {
     });
   };
   
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleStep1InputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setStep1Data(prev => ({ ...prev, [name]: value }));
+  };
+  
+  const handleStep2InputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setStep2Data(prev => ({ ...prev, [name]: value }));
+  };
+  
+  const handleQuickSupplierInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setQuickSupplierData(prev => ({ ...prev, [name]: value }));
   };
   
   const resetForm = () => {
-    setFormData({
+    setStep1Data({
       name: '',
       reference: '',
-      costPrice: '',
-      sellingPrice: '',
-      cataloguePrice: '',
       category: '',
-      stock: '',
       images: [],
     });
+    setStep2Data({
+      stock: '',
+      supplyType: 'ownPurchase',
+      supplierId: '',
+      paymentType: 'paid',
+      stockCostPrice: '',
+      sellingPrice: '',
+      cataloguePrice: '',
+    });
+    setCurrentStep(1);
   };
 
   // Get unique categories from products
   const categories = [t('products.filters.allCategories'), ...new Set(products?.map(p => p.category) || [])];
 
   const handleCategoryChange = (option: { label: string; value: string } | null) => {
-    setFormData(prev => ({
+    setStep1Data(prev => ({
       ...prev,
       category: option?.label ?? ''
     }));
@@ -148,39 +194,88 @@ const Products = () => {
 
   const handleAddProduct = async () => {
     if (!user?.uid) return;
-    if (!formData.name || !formData.costPrice || !formData.sellingPrice || !formData.category) {
+    
+    // Validate step 1 data
+    if (!step1Data.name || !step1Data.category) {
       showWarningToast(t('products.messages.warnings.requiredFields'));
       return;
     }
+    
+    // Validate step 2 data
+    if (!step2Data.stock || parseInt(step2Data.stock) <= 0 || !step2Data.stockCostPrice || !step2Data.sellingPrice) {
+      showWarningToast(t('products.messages.warnings.requiredFields'));
+      return;
+    }
+    
+    if (step2Data.supplyType === 'fromSupplier' && !step2Data.supplierId) {
+      showWarningToast(t('products.form.step2.supplierRequired'));
+      return;
+    }
+    
     setIsSubmitting(true);
-    let reference = formData.reference.trim();
+    
+    try {
+      let reference = step1Data.reference.trim();
     if (!reference) {
       // Auto-generate reference: first 3 uppercase letters of name + 3-digit number
-      const prefix = formData.name.substring(0, 3).toUpperCase();
+        const prefix = step1Data.name.substring(0, 3).toUpperCase();
       // Count existing products with this prefix
       const samePrefixCount = products.filter(p => p.reference && p.reference.startsWith(prefix)).length;
       const nextNumber = (samePrefixCount + 1).toString().padStart(3, '0');
       reference = `${prefix}${nextNumber}`;
     }
+      
+      const stockQuantity = parseInt(step2Data.stock);
+      const stockCostPrice = step2Data.stockCostPrice ? parseFloat(step2Data.stockCostPrice) : 0;
+      
+      // Create product data
     const productData = {
-      name: formData.name,
+        name: step1Data.name,
       reference,
-      costPrice: parseFloat(formData.costPrice),
-      sellingPrice: parseFloat(formData.sellingPrice),
-      cataloguePrice: formData.cataloguePrice ? parseFloat(formData.cataloguePrice) : undefined,
-      category: formData.category,
-      stock: parseInt(formData.stock) || 0,
-      images: (formData.images ?? []).length > 0 ? formData.images : [],
+        sellingPrice: parseFloat(step2Data.sellingPrice),
+        cataloguePrice: step2Data.cataloguePrice ? parseFloat(step2Data.cataloguePrice) : undefined,
+        category: step1Data.category,
+        stock: stockQuantity,
+        images: (step1Data.images ?? []).length > 0 ? step1Data.images : [],
       isAvailable: true,
       userId: user.uid,
       updatedAt: { seconds: 0, nanoseconds: 0 }
     };
-    try {
-      await addProduct(productData);
+      
+      // Create supplier info for the product creation
+      const supplierInfo = step2Data.supplyType === 'fromSupplier' ? {
+        supplierId: step2Data.supplierId,
+        isOwnPurchase: false,
+        isCredit: step2Data.paymentType === 'credit',
+        costPrice: stockCostPrice
+      } : {
+        isOwnPurchase: true,
+        isCredit: false,
+        costPrice: stockCostPrice
+      };
+      
+      // Create the product with supplier information
+      await addProduct(productData, supplierInfo);
+      
+      // Create supplier debt if applicable (this will be handled by the createProduct function)
+      if (step2Data.supplyType === 'fromSupplier' && step2Data.paymentType === 'credit') {
+        const debtAmount = stockCostPrice * stockQuantity;
+        const description = `Initial stock purchase for ${step1Data.name} (${stockQuantity} units)`;
+        
+        await createSupplierDebt(
+          step2Data.supplierId,
+          debtAmount,
+          description,
+          user.uid
+        );
+      }
+      
       setIsAddModalOpen(false);
       resetForm();
       showSuccessToast(t('products.messages.productAdded'));
+      
     } catch (err) {
+      console.error('Error adding product:', err);
       showErrorToast(t('products.messages.errors.addProduct'));
       setIsAddModalOpen(true);
     } finally {
@@ -188,305 +283,213 @@ const Products = () => {
     }
   };
   
-  const handleEditProduct = async () => {
-    if (!currentProduct || !user?.uid) return;
-    if (!formData.name || !formData.costPrice || !formData.sellingPrice || !formData.category) {
-        showWarningToast(t('products.messages.warnings.requiredFields'));
-        return;
-      }
-      setIsSubmitting(true);
-    const safeProduct = {
-      ...currentProduct,
-      isAvailable: typeof currentProduct.isAvailable === 'boolean' ? currentProduct.isAvailable : true,
-      userId: currentProduct.userId || user.uid,
-      updatedAt: currentProduct.updatedAt || { seconds: 0, nanoseconds: 0 },
-    };
-    const updateData: any = {
-      name: formData.name,
-      costPrice: parseFloat(formData.costPrice),
-      sellingPrice: parseFloat(formData.sellingPrice),
-      cataloguePrice: formData.cataloguePrice ? parseFloat(formData.cataloguePrice) : undefined,
-      category: formData.category,
-      images: (formData.images ?? []).length > 0 ? formData.images : [],
-      isAvailable: safeProduct.isAvailable,
-      userId: safeProduct.userId,
-      updatedAt: { seconds: 0, nanoseconds: 0 }
-    };
-    if (formData.reference && formData.reference.trim() !== '') {
-      updateData.reference = formData.reference;
+  // Step navigation functions
+  const nextStep = () => {
+    if (currentStep === 1) {
+      // Validate step 1
+      if (!step1Data.name || !step1Data.category) {
+      showWarningToast(t('products.messages.warnings.requiredFields'));
+      return;
     }
+      setCurrentStep(2);
+    }
+  };
+
+  const prevStep = () => {
+    if (currentStep === 2) {
+      setCurrentStep(1);
+    }
+  };
+
+  // Quick add supplier function
+  const handleQuickAddSupplier = async () => {
+    if (!user?.uid) return;
+    if (!quickSupplierData.name || !quickSupplierData.contact) {
+      showWarningToast(t('suppliers.messages.warnings.requiredFields'));
+      return;
+    }
+
+    setIsAddingSupplier(true);
     try {
-      await updateProduct(currentProduct.id, updateData, user.uid);
-      setIsEditModalOpen(false);
-      resetForm();
-      showSuccessToast(t('products.messages.productUpdated'));
+      const newSupplier = await createSupplier({
+        name: quickSupplierData.name,
+        contact: quickSupplierData.contact,
+        location: quickSupplierData.location || undefined,
+        userId: user.uid
+      }, user.uid);
+
+      // Set the new supplier as selected
+      setStep2Data(prev => ({
+      ...prev,
+        supplierId: newSupplier.id
+      }));
+
+      setIsQuickAddSupplierOpen(false);
+      setQuickSupplierData({
+        name: '',
+        contact: '',
+        location: ''
+      });
+      showSuccessToast(t('suppliers.messages.supplierAdded'));
     } catch (err) {
-      showErrorToast(t('products.messages.errors.updateProduct'));
-      setIsEditModalOpen(true);
+      console.error('Error adding supplier:', err);
+      showErrorToast(t('suppliers.messages.errors.addSupplier'));
     } finally {
-      setIsSubmitting(false);
+      setIsAddingSupplier(false);
+    }
+  };
+
+  const handleStockAdjustmentSupplierChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setStockAdjustmentSupplier(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleQuickAddSupplierForStock = async () => {
+    if (!user?.uid) return;
+    if (!quickSupplierData.name || !quickSupplierData.contact) {
+      showWarningToast(t('suppliers.messages.warnings.requiredFields'));
+      return;
+    }
+
+    setIsAddingSupplier(true);
+    try {
+      const newSupplier = await createSupplier({
+        name: quickSupplierData.name,
+        contact: quickSupplierData.contact,
+        location: quickSupplierData.location || undefined,
+        userId: user.uid
+      }, user.uid);
+
+      // Set the new supplier as selected for stock adjustment
+      setStockAdjustmentSupplier(prev => ({
+        ...prev,
+        supplierId: newSupplier.id
+      }));
+
+      setIsQuickAddSupplierOpen(false);
+      setQuickSupplierData({
+        name: '',
+        contact: '',
+        location: ''
+      });
+      showSuccessToast(t('suppliers.messages.supplierAdded'));
+    } catch (err) {
+      console.error('Error adding supplier for stock:', err);
+      showErrorToast(t('suppliers.messages.errors.addSupplier'));
+    } finally {
+      setIsAddingSupplier(false);
     }
   };
   
+  // Add state for editable prices
+  const [editPrices, setEditPrices] = useState({
+    sellingPrice: '',
+    cataloguePrice: '',
+    costPrice: ''
+  });
+  
+  // In openEditModal, initialize editPrices from product and latest stock change
   const openEditModal = (product: Product) => {
     setCurrentProduct(product);
-    setFormData({
+    setStep1Data({
       name: product.name,
       reference: product.reference,
-      costPrice: product.costPrice.toString(),
-      sellingPrice: product.sellingPrice.toString(),
-      cataloguePrice: product.cataloguePrice?.toString() || '',
       category: product.category,
-      stock: '',
       images: Array.isArray(product.images) ? product.images : (product.images ? [product.images] : []),
+    });
+    // Find latest stock change for this product
+    const latestStockChange = stockChanges
+      .filter(sc => sc.productId === product.id)
+      .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))[0];
+    setEditPrices({
+      sellingPrice: product.sellingPrice?.toString() || '',
+      cataloguePrice: product.cataloguePrice?.toString() || '',
+      costPrice: latestStockChange?.costPrice?.toString() || ''
     });
     setIsEditModalOpen(true);
     setEditTab('details');
     setStockAdjustment('');
   };
   
-  // Filter products by search query and category
-  const filteredProducts = products?.filter(product => {
-    if (typeof product.isAvailable !== 'undefined' && product.isAvailable === false) return false;
-    const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         product.reference.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === t('products.filters.allCategories') || product.category === selectedCategory;
-    return matchesSearch && matchesCategory;
-  }) || [];
-
-  const resetImportState = () => {
-    setCsvData([]);
-    setCsvHeaders([]);
-    setColumnMapping({});
-    setImportProgress(0);
-  };
-
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    Papa.parse(file, {
-      header: true,
-      skipEmptyLines: true,
-      transformHeader: (header: string) => header.trim(),
-      transform: (value: string) => value.trim(),
-      complete: (results: ParseResult<CsvRow>) => {
-        if (results.data && results.data.length > 0) {
-          console.log('Parsed CSV data:', results.data);
-          setCsvData(results.data);
-          const headers = Object.keys(results.data[0]);
-          setCsvHeaders(headers);
-          
-          // Initialize column mapping with empty values
-          const initialMapping: Record<string, string> = {};
-          headers.forEach(header => {
-            initialMapping[header] = '';
-          });
-          
-          // Try to automatically map columns based on common patterns
-          headers.forEach(header => {
-            const lowerHeader = header.toLowerCase();
-            // Reference/ID patterns
-            if (lowerHeader.includes('ref') || lowerHeader.includes('id') || lowerHeader.includes('code')) {
-              initialMapping[header] = 'reference';
-            }
-            // Name patterns
-            else if (lowerHeader.includes('name') || lowerHeader.includes('designation') || lowerHeader.includes('product') || lowerHeader.includes('description')) {
-              initialMapping[header] = 'name';
-            }
-            // Cost price patterns
-            else if (lowerHeader.includes('cost') || lowerHeader.includes('buy') || lowerHeader.includes('purchase') || lowerHeader.includes('prix d\'achat')) {
-              initialMapping[header] = 'costPrice';
-            }
-            // Selling price patterns
-            else if (lowerHeader.includes('price') || lowerHeader.includes('sell') || lowerHeader.includes('prix de vente')) {
-              initialMapping[header] = 'sellingPrice';
-            }
-            // Stock patterns
-            else if (lowerHeader.includes('stock') || lowerHeader.includes('quantity') || lowerHeader.includes('qty') || lowerHeader.includes('inventory')) {
-              initialMapping[header] = 'stock';
-            }
-            // Category patterns
-            else if (lowerHeader.includes('category') || lowerHeader.includes('type') || lowerHeader.includes('catégorie')) {
-              initialMapping[header] = 'category';
-            }
-          });
-          
-          setColumnMapping(initialMapping);
-        } else {
-          showErrorToast(t('products.messages.errors.emptyFile'));
-        }
-      },
-      error: (error: Error) => {
-        console.error('CSV parsing error:', error);
-        showErrorToast(t('products.messages.errors.parseError', { error: error.message }));
-      }
-    });
-  };
-
-  const handleColumnMappingChange = (csvColumn: string, productField: string) => {
-    setColumnMapping(prev => ({
-      ...prev,
-      [csvColumn]: productField
-    }));
-  };
-
-  const validateMapping = () => {
-    const requiredFields = ['name', 'reference', 'costPrice', 'sellingPrice', 'category', 'stock'];
-    const mappedFields = Object.values(columnMapping);
-    
-    for (const field of requiredFields) {
-      if (!mappedFields.includes(field)) {
-        showWarningToast(t('products.messages.warnings.mapField', { field: t(`products.import.fields.${field}`) }));
-        return false;
-      }
-    }
-
-    // Validate that all required fields are mapped to non-empty CSV columns
-    for (const [csvColumn, productField] of Object.entries(columnMapping)) {
-      if (requiredFields.includes(productField) && !csvColumn) {
-        showWarningToast(t('products.messages.warnings.emptyMapping', { field: t(`products.import.fields.${productField}`) }));
-        return false;
-      }
-    }
-
-    return true;
-  };
-
-  const formatCategory = (category: string): string => {
-    return category
-      .trim()
-      .split(' ')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-      .join(' ');
-  };
-
-  const handleImport = async () => {
-    if (!validateMapping()) return;
-    if (!user?.uid) {
-      showErrorToast(t('products.messages.errors.notLoggedIn'));
+  const handleEditProduct = async () => {
+    if (!currentProduct || !user?.uid) {
       return;
     }
-
+    if (!step1Data.name || !step1Data.category) {
+      showWarningToast(t('products.messages.warnings.requiredFields'));
+      return;
+    }
+    setIsSubmitting(true);
+    const safeProduct = {
+      ...currentProduct,
+      isAvailable: typeof currentProduct.isAvailable === 'boolean' ? currentProduct.isAvailable : true,
+      userId: currentProduct.userId || user.uid,
+      updatedAt: currentProduct.updatedAt || { seconds: 0, nanoseconds: 0 },
+    };
+    const updateData: Partial<Product> = {
+      name: step1Data.name,
+      category: step1Data.category,
+      images: (step1Data.images ?? []).length > 0 ? step1Data.images : [],
+      isAvailable: safeProduct.isAvailable,
+      userId: safeProduct.userId,
+      updatedAt: { seconds: 0, nanoseconds: 0 },
+      sellingPrice: editPrices.sellingPrice ? parseFloat(editPrices.sellingPrice) : safeProduct.sellingPrice,
+      cataloguePrice: editPrices.cataloguePrice ? parseFloat(editPrices.cataloguePrice) : safeProduct.cataloguePrice
+    };
+    if (step1Data.reference && step1Data.reference.trim() !== '') {
+      updateData.reference = step1Data.reference;
+    }
     try {
-      setIsImporting(true);
-      const totalProducts = csvData.length;
-      let processedCount = 0;
-      let successCount = 0;
-      let errorCount = 0;
-
-      // Process each row
-      for (const row of csvData) {
-        try {
-          // Clean and validate the data
-          const cleanData = {
-            name: row[columnMapping.name]?.trim() || '',
-            reference: row[columnMapping.reference]?.trim() || '',
-            costPrice: row[columnMapping.costPrice]?.replace(/[^0-9.-]+/g, '') || '0',
-            sellingPrice: row[columnMapping.sellingPrice]?.replace(/[^0-9.-]+/g, '') || '0',
-            cataloguePrice: row[columnMapping.cataloguePrice]?.replace(/[^0-9.-]+/g, '') || '',
-            stock: row[columnMapping.stock]?.replace(/[^0-9.-]+/g, '') || '0',
-            category: row[columnMapping.category]?.trim() || 'Non catégorisé'
-          };
-
-          // Validate required fields
-          if (!cleanData.name) {
-            throw new Error(t('products.messages.warnings.missingName'));
-          }
-          if (!cleanData.reference) {
-            throw new Error(t('products.messages.warnings.missingReference'));
-          }
-          if (isNaN(parseFloat(cleanData.costPrice)) || parseFloat(cleanData.costPrice) < 0) {
-            throw new Error(t('products.messages.warnings.invalidCostPrice'));
-          }
-          if (isNaN(parseFloat(cleanData.sellingPrice)) || parseFloat(cleanData.sellingPrice) < 0) {
-            throw new Error(t('products.messages.warnings.invalidSellingPrice'));
-          }
-          if (isNaN(parseInt(cleanData.stock)) || parseInt(cleanData.stock) < 0) {
-            throw new Error(t('products.messages.warnings.invalidStock'));
-          }
-
-          // Create the product data
-          const productData = {
-            name: cleanData.name,
-            reference: cleanData.reference,
-            costPrice: parseFloat(cleanData.costPrice),
-            sellingPrice: parseFloat(cleanData.sellingPrice),
-            cataloguePrice: cleanData.cataloguePrice ? parseFloat(cleanData.cataloguePrice) : undefined,
-            category: formatCategory(cleanData.category),
-            stock: parseInt(cleanData.stock),
-            images: [], // No images provided in CSV, so leave empty
-            isAvailable: true,
-            userId: user.uid,
-            updatedAt: {
-              seconds: 0,
-              nanoseconds: 0
-            }
-          };
-
-          await addProduct(productData);
-          successCount++;
-        } catch (error) {
-          console.error('Error processing row:', row);
-          console.error('Error details:', error);
-          errorCount++;
-        } finally {
-          processedCount++;
-          setImportProgress((processedCount / totalProducts) * 100);
-        }
+      await updateProduct(currentProduct.id, updateData, user.uid);
+      // Update latest stock change cost price if changed
+      const latestStockChange = stockChanges
+        .filter(sc => sc.productId === currentProduct.id)
+        .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))[0];
+      if (latestStockChange && editPrices.costPrice && parseFloat(editPrices.costPrice) !== latestStockChange.costPrice) {
+        // Use updateProduct with stockReason 'adjustment' and stockChange 0 to update cost price only
+        await updateProduct(currentProduct.id, {}, user.uid, 'adjustment', 0, {
+          supplierId: latestStockChange.supplierId,
+          isOwnPurchase: latestStockChange.isOwnPurchase,
+          isCredit: latestStockChange.isCredit,
+          costPrice: parseFloat(editPrices.costPrice)
+        });
       }
-
-      if (successCount > 0) {
-        showSuccessToast(t('products.messages.importSuccess', { 
-          count: successCount,
-          total: totalProducts,
-          errors: errorCount
-        }));
-      } else {
-        showErrorToast(t('products.messages.errors.importFailed'));
-      }
-      setIsImportModalOpen(false);
-      resetImportState();
-
-      // In handleImport, after importing products, if saveCategories is true, save new categories
-      if (saveCategories) {
-        // Collect unique categories from csvData
-        const csvCategories = Array.from(new Set(csvData.map(row => row[columnMapping.category]?.trim()).filter(Boolean)));
-        // Get existing categories from products
-        const existingCategories = new Set(products.map(p => p.category));
-        // Find new categories
-        const newCategories = csvCategories.filter(cat => !existingCategories.has(cat));
-        // Save new categories (assume addCategory is available from useCategories)
-        for (const cat of newCategories) {
-          if (cat) {
-            try {
-              await addCategory(cat);
-            } catch (e) { /* ignore errors for duplicates */ }
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Import failed:', error);
-      showErrorToast(t('products.messages.errors.importFailed'));
+      setIsEditModalOpen(false);
+      resetForm();
+      showSuccessToast(t('products.messages.productUpdated'));
+    } catch (err) {
+      console.error('Error updating product:', err);
+      showErrorToast(t('products.messages.errors.updateProduct'));
+      setIsEditModalOpen(true);
     } finally {
-      setIsImporting(false);
+      setIsSubmitting(false);
     }
   };
 
   const handleStockSubmit = async () => {
     if (!currentProduct || !user?.uid || !stockAdjustment) return;
+    
     const adjustmentAmount = parseInt(stockAdjustment, 10);
     if (isNaN(adjustmentAmount)) {
       showErrorToast(t('products.messages.errors.invalidStock'));
       return;
     }
+
+    // Validate supplier selection for restock
+    if (stockReason === 'restock' && stockAdjustmentSupplier.supplyType === 'fromSupplier' && !stockAdjustmentSupplier.supplierId) {
+      showWarningToast(t('products.form.step2.supplierRequired'));
+      return;
+    }
+
     setIsStockSubmitting(true);
+    
+    try {
     let newStock: number;
     let change: number;
+      
     if (stockReason === 'restock') {
       if (adjustmentAmount <= 0) {
         showErrorToast(t('products.messages.warnings.positiveQuantity'));
-        setIsStockSubmitting(false);
         return;
       }
       change = adjustmentAmount;
@@ -494,17 +497,17 @@ const Products = () => {
     } else { // 'adjustment'
       if (adjustmentAmount < 0) {
         showErrorToast(t('products.messages.warnings.nonNegativeStock'));
-        setIsStockSubmitting(false);
         return;
       }
       newStock = adjustmentAmount;
       change = newStock - currentProduct.stock;
     }
+      
     if (change === 0) {
       showWarningToast(t('products.messages.warnings.noStockChange'));
-      setIsStockSubmitting(false);
       return;
     }
+
     const safeProduct = {
       ...currentProduct,
       isAvailable: typeof currentProduct.isAvailable === 'boolean' ? currentProduct.isAvailable : true,
@@ -512,13 +515,59 @@ const Products = () => {
       userId: currentProduct.userId || user.uid,
       updatedAt: currentProduct.updatedAt || { seconds: 0, nanoseconds: 0 },
     };
-    const updateData = { stock: newStock, isAvailable: safeProduct.isAvailable, images: safeProduct.images, userId: safeProduct.userId, updatedAt: { seconds: 0, nanoseconds: 0 } };
-    try {
-      await updateProduct(currentProduct.id, updateData, user.uid, stockReason, change);
+      
+      const updateData = { 
+        stock: newStock, 
+        isAvailable: safeProduct.isAvailable, 
+        images: safeProduct.images, 
+        userId: safeProduct.userId, 
+        updatedAt: { seconds: 0, nanoseconds: 0 } 
+      };
+
+      // Create supplier info for stock change
+      const supplierInfo = stockReason === 'restock' && stockAdjustmentSupplier.supplyType === 'fromSupplier' ? {
+        supplierId: stockAdjustmentSupplier.supplierId,
+        isOwnPurchase: false,
+        isCredit: stockAdjustmentSupplier.paymentType === 'credit',
+        costPrice: stockAdjustmentSupplier.costPrice ? parseFloat(stockAdjustmentSupplier.costPrice) : 0
+      } : {
+        isOwnPurchase: true,
+        isCredit: false,
+        costPrice: 0
+      };
+
+      await updateProduct(currentProduct.id, updateData, user.uid, stockReason, change, supplierInfo);
+      
+      // Create supplier debt if applicable
+      if (stockReason === 'restock' && 
+          stockAdjustmentSupplier.supplyType === 'fromSupplier' && 
+          stockAdjustmentSupplier.paymentType === 'credit') {
+        const costPrice = stockAdjustmentSupplier.costPrice ? parseFloat(stockAdjustmentSupplier.costPrice) : 0;
+        const debtAmount = costPrice * change;
+        const description = `Restock purchase for ${currentProduct.name} (${change} units)`;
+        
+        await createSupplierDebt(
+          stockAdjustmentSupplier.supplierId,
+          debtAmount,
+          description,
+          user.uid
+        );
+      }
+
       showSuccessToast(t('products.messages.productUpdated'));
       setCurrentProduct(prev => prev ? { ...prev, stock: newStock } : null);
       setStockAdjustment('');
+      
+      // Reset supplier form
+      setStockAdjustmentSupplier({
+        supplyType: 'ownPurchase',
+        supplierId: '',
+        paymentType: 'paid',
+        costPrice: '',
+      });
+      
     } catch (err) {
+      console.error('Error updating stock:', err);
       showErrorToast(t('products.messages.errors.updateProduct'));
     } finally {
       setIsStockSubmitting(false);
@@ -589,6 +638,7 @@ const Products = () => {
       setSelectedProducts([]);
       setIsBulkSelection(false);
     } catch (error) {
+      console.error('Error in bulk delete:', error);
       showErrorToast(t('products.messages.errors.deleteProduct'));
     } finally {
       setIsDeleting(false);
@@ -612,6 +662,7 @@ const Products = () => {
       setIsDeleteModalOpen(false);
       setProductToDelete(null);
     } catch (error) {
+      console.error('Error deleting product:', error);
       showErrorToast(t('products.messages.errors.deleteProduct'));
     } finally {
       setIsDeleting(false);
@@ -629,14 +680,32 @@ const Products = () => {
         const base64 = await compressImage(file);
         newImages.push(base64);
       } catch (err) {
+        console.error('Error compressing image:', err);
         showErrorToast(t('products.messages.errors.addProduct'));
       }
     }
-    setFormData(prev => ({ ...prev, images: [...prev.images, ...newImages] }));
+    setStep1Data(prev => ({ ...prev, images: [...prev.images, ...newImages] }));
     setIsUploadingImages(false);
   };
+  
   const handleRemoveImage = (idx: number) => {
-    setFormData(prev => ({ ...prev, images: prev.images.filter((_, i) => i !== idx) }));
+    setStep1Data(prev => ({ ...prev, images: prev.images.filter((_, i) => i !== idx) }));
+  };
+
+  // Place filteredProducts and resetImportState above their first usage
+  const filteredProducts: Product[] = products?.filter((product: Product) => {
+    if (typeof product.isAvailable !== 'undefined' && product.isAvailable === false) return false;
+    const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         product.reference.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = selectedCategory === t('products.filters.allCategories') || product.category === selectedCategory;
+    return matchesSearch && matchesCategory;
+  }) || [];
+
+  const resetImportState = (): void => {
+    setCsvData([]);
+    setCsvHeaders([]);
+    setColumnMapping({});
+    setImportProgress(0);
   };
 
   if (loading) {
@@ -647,6 +716,146 @@ const Products = () => {
     showErrorToast(t('products.messages.errors.loadProducts'));
     return null;
   }
+
+  // Add handleImport, handleFileUpload, and handleColumnMappingChange above their first usage (modal code)
+  const handleImport = async () => {
+    if (!user?.uid) return;
+    if (csvData.length === 0) {
+      showWarningToast(t('products.import.noData'));
+      return;
+    }
+
+    setIsImporting(true);
+    setImportProgress(0);
+    let importedCount = 0;
+    let failedCount = 0;
+
+    for (let i = 0; i < csvData.length; i++) {
+      const row = csvData[i];
+      // Extract and validate fields
+      const name = columnMapping.name ? row[columnMapping.name]?.trim() : '';
+      const reference = columnMapping.reference ? row[columnMapping.reference]?.trim() : '';
+      const sellingPrice = columnMapping.sellingPrice ? parseFloat(row[columnMapping.sellingPrice]) : undefined;
+      const cataloguePrice = columnMapping.cataloguePrice ? parseFloat(row[columnMapping.cataloguePrice]) : undefined;
+      const category = columnMapping.category ? row[columnMapping.category]?.trim() : '';
+      const stock = columnMapping.stock ? parseInt(row[columnMapping.stock]) : undefined;
+      const costPrice = columnMapping.costPrice ? parseFloat(row[columnMapping.costPrice]) : undefined;
+      const supplyType = columnMapping.supplyType ? row[columnMapping.supplyType]?.trim() : 'ownPurchase';
+      const supplierIdRaw = columnMapping.supplierId ? row[columnMapping.supplierId]?.trim() : '';
+      const paymentType = columnMapping.paymentType ? row[columnMapping.paymentType]?.trim() : 'paid';
+      const supplierName = columnMapping.supplierName ? row[columnMapping.supplierName]?.trim() : '';
+
+      if (!name || !category || !stock || !sellingPrice) {
+        failedCount++;
+        setImportProgress((i / csvData.length) * 100);
+        continue;
+      }
+
+      // Build productData
+      const productData = {
+        name,
+        reference,
+        sellingPrice,
+        cataloguePrice,
+        category,
+        stock,
+        images: [],
+        isAvailable: true,
+        userId: user.uid,
+        updatedAt: { seconds: 0, nanoseconds: 0 }
+      };
+
+      // Build supplierInfo
+      let supplierInfo: {
+        supplierId?: string;
+        isOwnPurchase: boolean;
+        isCredit: boolean;
+        costPrice?: number;
+      } | undefined = undefined;
+      let finalSupplyType = supplyType;
+      let finalSupplierId = supplierIdRaw;
+      if (supplyType === 'fromSupplier') {
+        // Prefer supplierName if present
+        let supplier = null;
+        if (supplierName) {
+          supplier = suppliers.find(s => s.name.toLowerCase() === supplierName.toLowerCase());
+          if (!supplier) {
+            supplier = await createSupplier({
+              name: supplierName,
+              contact: 'Imported',
+              userId: user.uid
+            }, user.uid);
+          }
+          finalSupplierId = supplier.id;
+        } else if (finalSupplierId) {
+          supplier = suppliers.find(s => s.id === finalSupplierId);
+          if (!supplier) {
+            supplier = await createSupplier({
+              name: finalSupplierId,
+              contact: 'Imported',
+              userId: user.uid
+            }, user.uid);
+            finalSupplierId = supplier.id;
+          }
+        } else {
+          // No supplier info, treat as own purchase
+          finalSupplyType = 'ownPurchase';
+        }
+      }
+      if (finalSupplyType === 'fromSupplier') {
+        supplierInfo = {
+          supplierId: finalSupplierId || undefined,
+          isOwnPurchase: false,
+          isCredit: paymentType === 'credit',
+          costPrice: costPrice || 0
+        };
+      } else {
+        supplierInfo = {
+          isOwnPurchase: true,
+          isCredit: false,
+          costPrice: costPrice || 0
+        };
+      }
+
+      try {
+        await addProduct(productData, supplierInfo);
+        importedCount++;
+      } catch (err) {
+        console.error(`Failed to import product ${name}:`, err);
+        failedCount++;
+      }
+      setImportProgress(((i + 1) / csvData.length) * 100);
+    }
+
+    setIsImportModalOpen(false);
+    resetImportState();
+    showSuccessToast(t('products.import.success', { imported: importedCount, failed: failedCount }));
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (results: ParseResult<CsvRow>) => {
+        setCsvData(results.data);
+        setCsvHeaders(results.meta.fields || []);
+        setColumnMapping({}); // Clear previous mapping
+        setImportProgress(0);
+      },
+      error: (error) => {
+        console.error('Error parsing CSV:', error);
+        showErrorToast(t('products.import.parseError'));
+        setImportProgress(0);
+      },
+    });
+  };
+
+  const handleColumnMappingChange = (header: string, value: string) => {
+    setColumnMapping(prev => ({ ...prev, [header]: value }));
+  };
 
   return (
     <div className="pb-16 md:pb-0">
@@ -809,7 +1018,7 @@ const Products = () => {
                   <div className="mt-2 space-y-1">
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">{t('products.table.columns.costPrice')}:</span>
-                      <span className="font-medium">{product.costPrice.toLocaleString()} XAF</span>
+                      <span className="font-medium">{getLatestCostPrice(product.id, stockChanges)} XAF</span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">{t('products.table.columns.sellingPrice')}:</span>
@@ -937,7 +1146,7 @@ const Products = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{product.costPrice.toLocaleString()} XAF</div>
+                      <div className="text-sm text-gray-900">{getLatestCostPrice(product.id, stockChanges)} XAF</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-emerald-600 font-medium">{product.sellingPrice.toLocaleString()} XAF</div>
@@ -984,54 +1193,46 @@ const Products = () => {
         footer={
           <ModalFooter 
             onCancel={() => setIsAddModalOpen(false)}
-            onConfirm={handleAddProduct}
-            confirmText={t('products.actions.addProduct')}
+            onConfirm={currentStep === 1 ? nextStep : handleAddProduct}
+            confirmText={currentStep === 1 ? t('products.actions.nextStep') : t('products.actions.complete')}
             isLoading={isSubmitting}
           />
         }
       >
         <div className="space-y-4">
+          {/* Step indicator */}
+          <div className="flex items-center justify-center space-x-4 mb-6">
+            <div className={`flex items-center ${currentStep === 1 ? 'text-emerald-600' : 'text-gray-400'}`}>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${currentStep === 1 ? 'bg-emerald-600 text-white' : 'bg-gray-200'}`}>
+                1
+              </div>
+              <span className="ml-2 text-sm font-medium">{t('products.form.step1.title')}</span>
+            </div>
+            <div className="w-8 h-0.5 bg-gray-300"></div>
+            <div className={`flex items-center ${currentStep === 2 ? 'text-emerald-600' : 'text-gray-400'}`}>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${currentStep === 2 ? 'bg-emerald-600 text-white' : 'bg-gray-200'}`}>
+                2
+              </div>
+              <span className="ml-2 text-sm font-medium">{t('products.form.step2.title')}</span>
+            </div>
+          </div>
+
+          {currentStep === 1 ? (
+            /* Step 1: Basic Product Information */
+        <div className="space-y-4">
           <Input
             label={t('products.form.name')}
             name="name"
-            value={formData.name}
-            onChange={handleInputChange}
+                value={step1Data.name}
+                onChange={handleStep1InputChange}
             required
           />
           
           <Input
             label={t('products.form.reference')}
             name="reference"
-            value={formData.reference}
-            onChange={handleInputChange}
-          />
-          
-          <Input
-            label={t('products.form.costPrice')}
-            name="costPrice"
-            type="number"
-            value={formData.costPrice}
-            onChange={handleInputChange}
-            required
-          />
-          
-          <Input
-            label={t('products.form.sellingPrice')}
-            name="sellingPrice"
-            type="number"
-            value={formData.sellingPrice}
-            onChange={handleInputChange}
-            required
-            helpText={t('products.form.sellingPriceHelp')}
-          />
-          
-          <Input
-            label={t('products.form.cataloguePrice')}
-            name="cataloguePrice"
-            type="number"
-            value={formData.cataloguePrice}
-            onChange={handleInputChange}
-            helpText={t('products.form.cataloguePriceHelp')}
+                value={step1Data.reference}
+                onChange={handleStep1InputChange}
           />
           
           <div>
@@ -1039,26 +1240,16 @@ const Products = () => {
               {t('products.form.category')}
             </label>
             <CreatableSelect
-              value={formData.category ? { label: formData.category, value: formData.category } : null}
+                  value={step1Data.category ? { label: step1Data.category, value: step1Data.category } : null}
               onChange={handleCategoryChange}
               placeholder={t('products.form.categoryPlaceholder')}
               className="custom-select"
             />
           </div>
           
-          <Input
-            label={t('products.form.stock')}
-            name="stock"
-            type="number"
-            value={formData.stock}
-            onChange={handleInputChange}
-            required
-          />
-          
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">{t('products.form.image')}</label>
             <div className="flex items-center space-x-2 pb-2">
-              {/* Upload box: fixed at the start */}
               <label className="w-20 h-20 flex items-center justify-center border-2 border-dashed border-gray-300 rounded-md cursor-pointer bg-gray-50 hover:bg-gray-100 transition-all duration-200 relative flex-shrink-0">
                 <input
                   type="file"
@@ -1074,9 +1265,8 @@ const Products = () => {
                   <Upload size={28} className="text-gray-400" />
                 )}
               </label>
-              {/* Image previews: horizontally scrollable with custom scrollbar */}
               <div className="flex overflow-x-auto custom-scrollbar space-x-2 py-1">
-                {(formData.images ?? []).map((img, idx) => (
+                    {(step1Data.images ?? []).map((img, idx) => (
                   <div key={idx} className="relative w-20 h-20 flex-shrink-0 rounded-md overflow-hidden group">
                     <img
                       src={img.startsWith('data:image') ? img : `data:image/jpeg;base64,${img}`}
@@ -1096,6 +1286,116 @@ const Products = () => {
             </div>
             <p className="mt-1 text-sm text-gray-500">{t('products.form.imageHelp')}</p>
           </div>
+            </div>
+          ) : (
+            /* Step 2: Initial Stock and Supply Information */
+            <div className="space-y-4">
+              <Input
+                label={t('products.form.stock')}
+                name="stock"
+                type="number"
+                value={step2Data.stock}
+                onChange={handleStep2InputChange}
+                required
+              />
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {t('products.form.step2.supplyType')}
+                </label>
+                <select
+                  name="supplyType"
+                  value={step2Data.supplyType}
+                  onChange={handleStep2InputChange}
+                  className="block w-full rounded-md border border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm px-3 py-2"
+                >
+                  <option value="ownPurchase">{t('products.form.step2.ownPurchase')}</option>
+                  <option value="fromSupplier">{t('products.form.step2.fromSupplier')}</option>
+                </select>
+              </div>
+              
+              {/* Only supplier fields are conditional */}
+              {step2Data.supplyType === 'fromSupplier' && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      {t('products.form.step2.supplier')}
+                    </label>
+                    <div className="flex space-x-2">
+                      <select
+                        name="supplierId"
+                        value={step2Data.supplierId}
+                        onChange={handleStep2InputChange}
+                        className="flex-1 rounded-md border border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm px-3 py-2"
+                      >
+                        <option value="">{t('common.select')}</option>
+                        {suppliers.filter(s => !s.isDeleted).map(supplier => (
+                          <option key={supplier.id} value={supplier.id}>
+                            {supplier.name}
+                          </option>
+                        ))}
+                      </select>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsQuickAddSupplierOpen(true)}
+                      >
+                        {t('products.actions.addSupplier')}
+                      </Button>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      {t('products.form.step2.paymentType')}
+                    </label>
+                    <select
+                      name="paymentType"
+                      value={step2Data.paymentType}
+                      onChange={handleStep2InputChange}
+                      className="block w-full rounded-md border border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm px-3 py-2"
+                    >
+                      <option value="paid">{t('products.form.step2.paid')}</option>
+                      <option value="credit">{t('products.form.step2.credit')}</option>
+                    </select>
+                  </div>
+                </>
+              )}
+              
+              {/* These price fields are ALWAYS visible */}
+              <Input
+                label={t('products.form.step2.stockCostPrice')}
+                name="stockCostPrice"
+                type="number"
+                value={step2Data.stockCostPrice}
+                onChange={handleStep2InputChange}
+                helpText={t('products.form.step2.stockCostPriceHelp')}
+                required
+              />
+              <Input
+                label={t('products.form.step2.sellingPrice')}
+                name="sellingPrice"
+                type="number"
+                value={step2Data.sellingPrice}
+                onChange={handleStep2InputChange}
+                helpText={t('products.form.step2.sellingPriceHelp')}
+                required
+              />
+              <Input
+                label={t('products.form.step2.cataloguePrice')}
+                name="cataloguePrice"
+                type="number"
+                value={step2Data.cataloguePrice}
+                onChange={handleStep2InputChange}
+                helpText={t('products.form.step2.cataloguePriceHelp')}
+              />
+              
+              <div className="flex justify-between pt-4">
+                <Button variant="outline" onClick={prevStep}>
+                  {t('products.actions.previousStep')}
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       </Modal>
       
@@ -1104,6 +1404,7 @@ const Products = () => {
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
         title={t('products.actions.editProduct')}
+        size="lg"
         footer={
           editTab === 'details' ? (
           <ModalFooter 
@@ -1121,19 +1422,15 @@ const Products = () => {
         </div>
         {editTab === 'details' ? (
         <div className="space-y-4">
-            <Input label={t('products.form.name')} name="name" value={formData.name} onChange={handleInputChange} required />
-            <Input label={t('products.form.reference')} name="reference" value={formData.reference} onChange={handleInputChange} />
-            <Input label={t('products.form.costPrice')} name="costPrice" type="number" value={formData.costPrice} onChange={handleInputChange} required />
-            <Input label={t('products.form.sellingPrice')} name="sellingPrice" type="number" value={formData.sellingPrice} onChange={handleInputChange} required helpText={t('products.form.sellingPriceHelp')} />
-            <Input label={t('products.form.cataloguePrice')} name="cataloguePrice" type="number" value={formData.cataloguePrice} onChange={handleInputChange} helpText={t('products.form.cataloguePriceHelp')} />
+            <Input label={t('products.form.name')} name="name" value={step1Data.name} onChange={handleStep1InputChange} required />
+            <Input label={t('products.form.reference')} name="reference" value={step1Data.reference} onChange={handleStep1InputChange} />
           <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">{t('products.form.category')}</label>
-              <CreatableSelect value={formData.category ? { label: formData.category, value: formData.category } : null} onChange={handleCategoryChange} placeholder={t('products.form.categoryPlaceholder')} className="custom-select" />
+              <CreatableSelect value={step1Data.category ? { label: step1Data.category, value: step1Data.category } : null} onChange={handleCategoryChange} placeholder={t('products.form.categoryPlaceholder')} className="custom-select" />
           </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">{t('products.form.image')}</label>
               <div className="flex items-center space-x-2 pb-2">
-                {/* Upload box: fixed at the start */}
                 <label className="w-20 h-20 flex items-center justify-center border-2 border-dashed border-gray-300 rounded-md cursor-pointer bg-gray-50 hover:bg-gray-100 transition-all duration-200 relative flex-shrink-0">
                   <input
                     type="file"
@@ -1149,9 +1446,8 @@ const Products = () => {
                     <Upload size={28} className="text-gray-400" />
                   )}
                 </label>
-                {/* Image previews: horizontally scrollable with custom scrollbar */}
                 <div className="flex overflow-x-auto custom-scrollbar space-x-2 py-1">
-                  {(formData.images ?? []).map((img, idx) => (
+                  {(step1Data.images ?? []).map((img, idx) => (
                     <div key={idx} className="relative w-20 h-20 flex-shrink-0 rounded-md overflow-hidden group">
                       <img
                         src={img.startsWith('data:image') ? img : `data:image/jpeg;base64,${img}`}
@@ -1178,6 +1474,7 @@ const Products = () => {
               <span className="block text-sm font-medium text-gray-700 mb-1">{currentProduct?.name}</span>
               <span className="block text-xs text-gray-500 mb-2">{t('products.table.columns.stock')}: {currentProduct?.stock}</span>
             </div>
+            
           <Input
               label={stockReason === 'restock' ? t('products.actions.quantityToAdd') : t('products.actions.newTotalStock')}
               name="stockAdjustment" 
@@ -1186,10 +1483,107 @@ const Products = () => {
               onChange={e => setStockAdjustment(e.target.value)} 
             required
           />
-            <select className="block w-full rounded-md border border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm px-3 py-2" value={stockReason} onChange={e => setStockReason(e.target.value as 'restock' | 'adjustment')}>
+          
+          <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded-md">
+            <strong>{t('products.actions.note')}:</strong> {t('products.actions.stockAdjustmentNote')}
+          </p>
+            
+            <select 
+              className="block w-full rounded-md border border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm px-3 py-2" 
+              value={stockReason} 
+              onChange={e => setStockReason(e.target.value as 'restock' | 'adjustment')}
+            >
               <option value="restock">{t('products.actions.restock')}</option>
               <option value="adjustment">{t('products.actions.adjustment')}</option>
             </select>
+            
+            {/* Supplier circuit and cost price fields - always visible */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {t('products.form.step2.supplyType')}
+              </label>
+              <select
+                name="supplyType"
+                value={stockAdjustmentSupplier.supplyType}
+                onChange={handleStockAdjustmentSupplierChange}
+                className="block w-full rounded-md border border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm px-3 py-2"
+              >
+                <option value="ownPurchase">{t('products.form.step2.ownPurchase')}</option>
+                <option value="fromSupplier">{t('products.form.step2.fromSupplier')}</option>
+              </select>
+            </div>
+            {stockAdjustmentSupplier.supplyType === 'fromSupplier' && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {t('products.form.step2.supplier')}
+                  </label>
+                  <div className="flex space-x-2">
+                    <select
+                      name="supplierId"
+                      value={stockAdjustmentSupplier.supplierId}
+                      onChange={handleStockAdjustmentSupplierChange}
+                      className="flex-1 rounded-md border border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm px-3 py-2"
+                    >
+                      <option value="">{t('common.select')}</option>
+                      {suppliers.filter(s => !s.isDeleted).map(supplier => (
+                        <option key={supplier.id} value={supplier.id}>
+                          {supplier.name}
+                        </option>
+                      ))}
+                    </select>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsQuickAddSupplierOpen(true)}
+                    >
+                      {t('products.actions.addSupplier')}
+                    </Button>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {t('products.form.step2.paymentType')}
+                  </label>
+                  <select
+                    name="paymentType"
+                    value={stockAdjustmentSupplier.paymentType}
+                    onChange={handleStockAdjustmentSupplierChange}
+                    className="block w-full rounded-md border border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm px-3 py-2"
+                  >
+                    <option value="paid">{t('products.form.step2.paid')}</option>
+                    <option value="credit">{t('products.form.step2.credit')}</option>
+                  </select>
+                </div>
+              </>
+            )}
+            <Input
+              label={t('products.form.step2.stockCostPrice')}
+              name="costPrice"
+              type="number"
+              value={editPrices.costPrice}
+              onChange={e => setEditPrices(p => ({ ...p, costPrice: e.target.value }))}
+              helpText={t('products.form.step2.stockCostPriceHelp')}
+              required
+            />
+            <Input
+              label={t('products.form.step2.sellingPrice')}
+              name="sellingPrice"
+              type="number"
+              value={editPrices.sellingPrice}
+              onChange={e => setEditPrices(p => ({ ...p, sellingPrice: e.target.value }))}
+              helpText={t('products.form.step2.sellingPriceHelp')}
+              required
+            />
+            <Input
+              label={t('products.form.step2.cataloguePrice')}
+              name="cataloguePrice"
+              type="number"
+              value={editPrices.cataloguePrice}
+              onChange={e => setEditPrices(p => ({ ...p, cataloguePrice: e.target.value }))}
+              helpText={t('products.form.step2.cataloguePriceHelp')}
+            />
+            
             <p className="mt-2 text-sm text-gray-500">
               <span className="block mb-2">
                 <strong>{t('products.actions.restock')}:</strong> {t('products.actions.restockHelp')}
@@ -1198,6 +1592,7 @@ const Products = () => {
                 <strong>{t('products.actions.adjustment')}:</strong> {t('products.actions.adjustmentHelp')}
               </span>
             </p>
+            
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setIsEditModalOpen(false)}>{t('common.cancel')}</Button>
               <Button onClick={handleStockSubmit} isLoading={isStockSubmitting}>{t('common.save')}</Button>
@@ -1213,16 +1608,42 @@ const Products = () => {
                       <th className="text-left">{t('products.actions.date')}</th>
                       <th className="text-left">{t('products.actions.change')}</th>
                       <th className="text-left">{t('products.actions.reason')}</th>
+                      <th className="text-left">{t('products.form.step2.supplier')}</th>
+                      <th className="text-left">{t('products.form.step2.paymentType')}</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {stockChanges.filter(sc => sc.productId === currentProduct?.id).map(sc => (
+                    {stockChanges.filter(sc => sc.productId === currentProduct?.id).map(sc => {
+                      const supplier = sc.supplierId ? suppliers.find(s => s.id === sc.supplierId) : null;
+                      return (
                       <tr key={sc.id}>
                         <td>{sc.createdAt?.seconds ? new Date(sc.createdAt.seconds * 1000).toLocaleString() : ''}</td>
                         <td>{sc.change > 0 ? '+' : ''}{sc.change}</td>
                         <td>{t('products.actions.' + sc.reason)}</td>
+                          <td>
+                            {sc.isOwnPurchase ? (
+                              <span className="text-gray-500">{t('products.form.step2.ownPurchase')}</span>
+                            ) : supplier ? (
+                              <span className={supplier.isDeleted ? 'text-red-500 line-through' : ''}>
+                                {supplier.name}
+                                {supplier.isDeleted && ' (Deleted)'}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400">Unknown</span>
+                            )}
+                          </td>
+                          <td>
+                            {sc.isOwnPurchase ? (
+                              <span className="text-gray-500">-</span>
+                            ) : sc.isCredit ? (
+                              <span className="text-red-600">{t('products.form.step2.credit')}</span>
+                            ) : (
+                              <span className="text-green-600">{t('products.form.step2.paid')}</span>
+                            )}
+                          </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               )}
@@ -1292,6 +1713,10 @@ const Products = () => {
                       <option value="cataloguePrice">{t('products.import.fields.cataloguePrice')}</option>
                       <option value="category">{t('products.import.fields.category')}</option>
                       <option value="stock">{t('products.import.fields.stock')}</option>
+                      <option value="supplyType">Supply Type</option>
+                      <option value="supplierId">Supplier ID</option>
+                      <option value="paymentType">Payment Type</option>
+                      <option value="supplierName">Supplier Name</option>
                     </select>
                   </div>
                 ))}
@@ -1436,6 +1861,46 @@ const Products = () => {
           <p className="text-sm text-red-600">
             {t('products.messages.bulkDeleteWarning')}
           </p>
+        </div>
+      </Modal>
+
+      {/* Quick Add Supplier Modal */}
+      <Modal
+        isOpen={isQuickAddSupplierOpen}
+        onClose={() => setIsQuickAddSupplierOpen(false)}
+        title={t('suppliers.actions.addSupplier')}
+        footer={
+          <ModalFooter 
+            onCancel={() => setIsQuickAddSupplierOpen(false)}
+            onConfirm={isEditModalOpen ? handleQuickAddSupplierForStock : handleQuickAddSupplier}
+            confirmText={t('suppliers.actions.addSupplier')}
+            isLoading={isAddingSupplier}
+          />
+        }
+      >
+        <div className="space-y-4">
+          <Input
+            label={t('suppliers.form.name')}
+            name="name"
+            value={quickSupplierData.name}
+            onChange={handleQuickSupplierInputChange}
+            required
+          />
+          
+          <Input
+            label={t('suppliers.form.contact')}
+            name="contact"
+            value={quickSupplierData.contact}
+            onChange={handleQuickSupplierInputChange}
+            required
+          />
+          
+          <Input
+            label={t('suppliers.form.location')}
+            name="location"
+            value={quickSupplierData.location}
+            onChange={handleQuickSupplierInputChange}
+          />
         </div>
       </Modal>
     </div>

@@ -28,7 +28,6 @@ export interface Category extends BaseModel {
 export interface Product extends BaseModel {
   name: string;
   reference: string;
-  costPrice: number;
   sellingPrice: number;
   cataloguePrice?: number;
   stock: number;
@@ -110,24 +109,38 @@ export interface StockChange {
   id: string;
   productId: string;
   change: number; // + for restock, - for sale, etc.
-  reason: 'sale' | 'restock' | 'adjustment';
+  reason: 'sale' | 'restock' | 'adjustment' | 'creation';
+  supplierId?: string; // Reference to supplier if applicable
+  isOwnPurchase?: boolean; // true if own purchase, false if from supplier
+  isCredit?: boolean; // true if on credit, false if paid (only relevant if from supplier)
+  costPrice?: number; // Cost price for this stock entry
   createdAt: Timestamp;
   userId: string;
+}
+
+export interface Supplier extends BaseModel {
+  name: string;
+  contact: string;
+  location?: string;
+  email?: string;
+  notes?: string;
+  isDeleted?: boolean;
 }
 
 export interface FinanceEntry {
   id: string;
   userId: string;
-  sourceType: 'sale' | 'expense' | 'manual';
-  sourceId?: string; // saleId or expenseId if applicable
-  type: string; // e.g., "sale", "expense", "loan", "deposit", etc.
+  sourceType: 'sale' | 'expense' | 'manual' | 'supplier';
+  sourceId?: string; // saleId, expenseId, or supplierId if applicable
+  type: string; // e.g., "sale", "expense", "loan", "deposit", "supplier_debt", "supplier_refund", etc.
   amount: number;
   description?: string;
   date: Timestamp;
   isDeleted: boolean;
   createdAt: Timestamp;
   updatedAt: Timestamp;
-  refundedDebtId?: string; // NEW: for refunds, links to a specific debt entry
+  refundedDebtId?: string; // for refunds, links to a specific debt entry
+  supplierId?: string; // for supplier-related entries
 }
 
 export interface FinanceEntryType {

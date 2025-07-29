@@ -15,7 +15,11 @@ import {
   updateSaleDocument,
   subscribeToCustomers,
   syncFinanceEntryWithSale,
-  syncFinanceEntryWithExpense
+  syncFinanceEntryWithExpense,
+  subscribeToSuppliers,
+  createSupplier,
+  updateSupplier,
+  softDeleteSupplier
 } from '../services/firestore';
 import type {
   Product,
@@ -26,7 +30,8 @@ import type {
   OrderStatus,
   PaymentStatus,
   Customer,
-  FinanceEntry
+  FinanceEntry,
+  Supplier
 } from '../types/models';
 import { Timestamp } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
@@ -65,20 +70,39 @@ export const useProducts = () => {
     return () => unsubscribe();
   }, [user]);
 
-  const addProduct = async (productData: Omit<Product, 'id' | 'createdAt'>) => {
+  const addProduct = async (
+    productData: Omit<Product, 'id' | 'createdAt'>,
+    supplierInfo?: {
+      supplierId?: string;
+      isOwnPurchase?: boolean;
+      isCredit?: boolean;
+      costPrice?: number;
+    }
+  ) => {
     if (!user) throw new Error('User not authenticated');
     try {
-      await createProduct(productData, user.uid);
+      await createProduct(productData, user.uid, supplierInfo);
     } catch (err) {
       setError(err as Error);
       throw err;
     }
   };
 
-  const updateProductData = async (productId: string, data: Partial<Product>) => {
+  const updateProductData = async (
+    productId: string, 
+    data: Partial<Product>,
+    stockReason?: 'sale' | 'restock' | 'adjustment' | 'creation',
+    stockChange?: number,
+    supplierInfo?: {
+      supplierId?: string;
+      isOwnPurchase?: boolean;
+      isCredit?: boolean;
+      costPrice?: number;
+    }
+  ) => {
     if (!user) throw new Error('User not authenticated');
     try {
-      await updateProduct(productId, data, user.uid);
+      await updateProduct(productId, data, user.uid, stockReason, stockChange, supplierInfo);
     } catch (err) {
       setError(err as Error);
       throw err;
@@ -171,7 +195,9 @@ export const useSales = () => {
   }, [user]);
 
   const addSale = async (data: Omit<Sale, 'id' | 'createdAt' | 'updatedAt'>): Promise<Sale> => {
-    if (!user) throw new Error('User not authenticated');
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
     try {
       const newSale = await createSale({ ...data, userId: user.uid }, user.uid);
       await syncFinanceEntryWithSale(newSale);
@@ -434,5 +460,65 @@ export const useFinanceEntries = () => {
   }, [user]);
 
   return { entries, loading };
+};
+
+// Suppliers Hook
+export const useSuppliers = () => {
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+  const { user } = useAuth();
+
+  useEffect(() => {
+    if (!user) return;
+    
+    const unsubscribe = subscribeToSuppliers((data) => {
+      // Filter suppliers for the current user
+      const userSuppliers = data.filter(supplier => supplier.userId === user.uid);
+      setSuppliers(userSuppliers);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  const addSupplier = async (supplierData: Omit<Supplier, 'id' | 'createdAt' | 'updatedAt'>) => {
+    if (!user) throw new Error('User not authenticated');
+    try {
+      await createSupplier(supplierData, user.uid);
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
+  };
+
+  const updateSupplierData = async (supplierId: string, data: Partial<Supplier>) => {
+    if (!user) throw new Error('User not authenticated');
+    try {
+      await updateSupplier(supplierId, data, user.uid);
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
+  };
+
+  const deleteSupplier = async (supplierId: string) => {
+    if (!user?.uid) throw new Error('User not authenticated');
+    try {
+      await softDeleteSupplier(supplierId, user.uid);
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
+  };
+
+  return {
+    suppliers,
+    loading,
+    error,
+    addSupplier,
+    updateSupplier: updateSupplierData,
+    deleteSupplier
+  };
 };
 

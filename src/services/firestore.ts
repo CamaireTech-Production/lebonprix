@@ -28,7 +28,9 @@ import type {
   Customer,
   Objective,
   FinanceEntry,
-  FinanceEntryType
+  FinanceEntryType,
+  StockChange,
+  Supplier
 } from '../types/models';
 import { useState, useEffect } from 'react';
 import { Timestamp } from 'firebase/firestore';
@@ -166,7 +168,7 @@ export const createCategory = async (
 const createAuditLog = async (
   batch: WriteBatch,
   action: 'create' | 'update' | 'delete',
-  entityType: 'product' | 'sale' | 'expense' | 'category' | 'objective' | 'finance',
+  entityType: 'product' | 'sale' | 'expense' | 'category' | 'objective' | 'finance' | 'supplier',
   entityId: string,
   changes: any,
   performedBy: string
@@ -185,9 +187,11 @@ const createAuditLog = async (
     }
     return obj;
   }
+  
   const safeChanges = replaceUndefined(changes);
   const auditLogRef = doc(collection(db, 'auditLogs'));
-  batch.set(auditLogRef, {
+  
+  const auditLogData = {
     action,
     entityType,
     entityId,
@@ -195,29 +199,54 @@ const createAuditLog = async (
     performedBy,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()
-  });
+  };
+  try {
+    batch.set(auditLogRef, auditLogData);
+  } catch (error) {
+    throw error;
+  }
 };
 
-const createStockChange = (batch: WriteBatch, productId: string, change: number, reason: 'sale' | 'restock' | 'adjustment' | 'creation', userId: string) => {
+const createStockChange = (
+  batch: WriteBatch, 
+  productId: string, 
+  change: number, 
+  reason: 'sale' | 'restock' | 'adjustment' | 'creation', 
+  userId: string,
+  supplierId?: string,
+  isOwnPurchase?: boolean,
+  isCredit?: boolean,
+  costPrice?: number
+) => {
   const stockChangeRef = doc(collection(db, 'stockChanges'));
-  batch.set(stockChangeRef, {
+  const stockChangeData: any = {
     productId,
     change,
     reason,
     userId,
     createdAt: serverTimestamp(),
-  });
+  };
+  if (typeof supplierId !== 'undefined') stockChangeData.supplierId = supplierId;
+  if (typeof isOwnPurchase !== 'undefined') stockChangeData.isOwnPurchase = isOwnPurchase;
+  if (typeof isCredit !== 'undefined') stockChangeData.isCredit = isCredit;
+  if (typeof costPrice !== 'undefined') stockChangeData.costPrice = costPrice;
+  batch.set(stockChangeRef, stockChangeData);
 };
 
 export const createProduct = async (
   data: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>,
-  userId: string
+  userId: string,
+  supplierInfo?: {
+    supplierId?: string;
+    isOwnPurchase?: boolean;
+    isCredit?: boolean;
+    costPrice?: number;
+  }
 ): Promise<Product> => {
   // Validate product data
   if (
     !data.name ||
-    data.costPrice < 0 ||
-    data.sellingPrice < data.costPrice ||
+    data.sellingPrice < 0 ||
     data.stock < 0 ||
     !data.category
   ) {
@@ -239,9 +268,19 @@ export const createProduct = async (
   
   // Add initial stock change if stock > 0
   if (data.stock && data.stock > 0) {
-    createStockChange(batch, productRef.id, data.stock, 'restock', userId);
+    createStockChange(
+      batch, 
+      productRef.id, 
+      data.stock, 
+      'creation', 
+      userId,
+      supplierInfo?.supplierId,
+      supplierInfo?.isOwnPurchase,
+      supplierInfo?.isCredit,
+      supplierInfo?.costPrice
+    );
   }
-  
+
   // Create audit log
   await createAuditLog(
     batch,
@@ -263,52 +302,66 @@ export const updateProduct = async (
   data: Partial<Product>,
   userId: string,
   stockReason?: 'sale' | 'restock' | 'adjustment' | 'creation',
-  stockChange?: number
+  stockChange?: number,
+  supplierInfo?: {
+    supplierId?: string;
+    isOwnPurchase?: boolean;
+    isCredit?: boolean;
+    costPrice?: number;
+  }
 ): Promise<void> => {
   const batch = writeBatch(db);
   const productRef = doc(db, 'products', id);
-  
   // Get current product data for audit log
   const currentProduct = await getDoc(productRef);
   if (!currentProduct.exists()) {
     throw new Error('Product not found');
   }
-
   // Verify ownership
   const productData = currentProduct.data() as Product;
   if (productData.userId !== userId) {
     throw new Error('Unauthorized to update this product');
   }
-  
   const updateData = {
     ...data,
     updatedAt: serverTimestamp()
   };
-  
   batch.update(productRef, updateData);
-  
   // If stock is being updated, record the change
   if (typeof data.stock === 'number' && typeof stockChange === 'number' && stockReason) {
-    createStockChange(batch, id, stockChange, stockReason, userId);
+    createStockChange(
+      batch,
+      id,
+      stockChange,
+      stockReason,
+      userId,
+      supplierInfo?.supplierId,
+      supplierInfo?.isOwnPurchase,
+      supplierInfo?.isCredit,
+      supplierInfo?.costPrice
+    );
   }
-  
   // Create audit log
+  const auditChanges = Object.keys(data).reduce((acc, key) => ({
+    ...acc,
+    [key]: {
+      oldValue: currentProduct.data()[key] === undefined ? null : currentProduct.data()[key],
+      newValue: data[key as keyof Product] === undefined ? null : data[key as keyof Product]
+    }
+  }), {});
   await createAuditLog(
     batch,
     'update',
     'product',
     id,
-    Object.keys(data).reduce((acc, key) => ({
-      ...acc,
-      [key]: {
-        oldValue: currentProduct.data()[key] === undefined ? null : currentProduct.data()[key],
-        newValue: data[key as keyof Product] === undefined ? null : data[key as keyof Product]
-      }
-    }), {}),
+    auditChanges,
     userId
   );
-  
-  await batch.commit();
+  try {
+    await batch.commit();
+  } catch (error) {
+    throw error;
+  }
 };
 
 export const createSale = async (
@@ -1135,4 +1188,203 @@ export const getFinanceEntryTypes = async (userId: string): Promise<FinanceEntry
     }
   }
   return types;
+};
+
+// --- Suppliers ---
+
+export const subscribeToSuppliers = (callback: (suppliers: Supplier[]) => void): (() => void) => {
+  const q = query(
+    collection(db, 'suppliers'),
+    orderBy('createdAt', 'desc')
+  );
+  
+  return onSnapshot(q, (snapshot) => {
+    const suppliers = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    })) as Supplier[];
+    callback(suppliers);
+  });
+};
+
+export const createSupplier = async (
+  data: Omit<Supplier, 'id' | 'createdAt' | 'updatedAt'>,
+  userId: string
+): Promise<Supplier> => {
+  // Validate supplier data
+  if (!data.name || !data.contact) {
+    throw new Error('Invalid supplier data');
+  }
+
+  const batch = writeBatch(db);
+  
+  // Create supplier
+  const supplierRef = doc(collection(db, 'suppliers'));
+  const supplierData = {
+    ...data,
+    userId,
+    isDeleted: false,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp()
+  };
+  batch.set(supplierRef, supplierData);
+  
+  // Create audit log
+  await createAuditLog(
+    batch,
+    'create',
+    'supplier',
+    supplierRef.id,
+    { all: { oldValue: null, newValue: supplierData } },
+    userId
+  );
+  
+  await batch.commit();
+  
+  const newSupplier = await getDoc(supplierRef);
+  return { id: newSupplier.id, ...newSupplier.data() } as Supplier;
+};
+
+export const updateSupplier = async (
+  id: string,
+  data: Partial<Supplier>,
+  userId: string
+): Promise<void> => {
+  const batch = writeBatch(db);
+  const supplierRef = doc(db, 'suppliers', id);
+  
+  // Get current supplier data for audit log
+  const currentSupplier = await getDoc(supplierRef);
+  if (!currentSupplier.exists()) {
+    throw new Error('Supplier not found');
+  }
+  
+  // Verify ownership
+  const supplierData = currentSupplier.data() as Supplier;
+  if (supplierData.userId !== userId) {
+    throw new Error('Unauthorized to update this supplier');
+  }
+  
+  const updateData = {
+    ...data,
+    updatedAt: serverTimestamp()
+  };
+  batch.update(supplierRef, updateData);
+  
+  // Create audit log
+  const auditChanges = Object.keys(data).reduce((acc, key) => ({
+    ...acc,
+    [key]: {
+      oldValue: currentSupplier.data()[key] === undefined ? null : currentSupplier.data()[key],
+      newValue: data[key as keyof Supplier] === undefined ? null : data[key as keyof Supplier]
+    }
+  }), {});
+  
+  await createAuditLog(
+    batch,
+    'update',
+    'supplier',
+    id,
+    auditChanges,
+    userId
+  );
+  
+  await batch.commit();
+};
+
+export const softDeleteSupplier = async (
+  id: string,
+  userId: string
+): Promise<void> => {
+  const batch = writeBatch(db);
+  const supplierRef = doc(db, 'suppliers', id);
+  
+  // Get current supplier data
+  const currentSupplier = await getDoc(supplierRef);
+  if (!currentSupplier.exists()) {
+    throw new Error('Supplier not found');
+  }
+  
+  // Verify ownership
+  const supplierData = currentSupplier.data() as Supplier;
+  if (supplierData.userId !== userId) {
+    throw new Error('Unauthorized to delete this supplier');
+  }
+  
+  // Check if supplier has outstanding debts
+  const q = query(
+    collection(db, 'finances'),
+    where('type', '==', 'supplier_debt'),
+    where('supplierId', '==', id),
+    where('isDeleted', '==', false)
+  );
+  const debtSnap = await getDocs(q);
+  
+  if (!debtSnap.empty) {
+    throw new Error('Cannot delete supplier with outstanding debts');
+  }
+  
+  // Soft delete supplier
+  batch.update(supplierRef, {
+    isDeleted: true,
+    updatedAt: serverTimestamp()
+  });
+  
+  // Create audit log
+  await createAuditLog(
+    batch,
+    'delete',
+    'supplier',
+    id,
+    { isDeleted: { oldValue: false, newValue: true } },
+    userId
+  );
+  
+  await batch.commit();
+};
+
+// Create supplier debt entry
+export const createSupplierDebt = async (
+  supplierId: string,
+  amount: number,
+  description: string,
+  userId: string
+): Promise<FinanceEntry> => {
+  const entry: Omit<FinanceEntry, 'id' | 'createdAt' | 'updatedAt'> = {
+    userId,
+    sourceType: 'supplier',
+    sourceId: supplierId,
+    type: 'supplier_debt',
+    amount: amount,
+    description,
+    date: Timestamp.now(),
+    isDeleted: false,
+    supplierId
+  };
+  
+  return await createFinanceEntry(entry);
+};
+
+// Create supplier refund entry
+export const createSupplierRefund = async (
+  supplierId: string,
+  amount: number,
+  description: string,
+  refundedDebtId: string,
+  userId: string
+): Promise<FinanceEntry> => {
+  const entry: Omit<FinanceEntry, 'id' | 'createdAt' | 'updatedAt'> = {
+    userId,
+    sourceType: 'supplier',
+    sourceId: supplierId,
+    type: 'supplier_refund',
+    amount: -Math.abs(amount), // Negative amount for refunds
+    description,
+    date: Timestamp.now(),
+    isDeleted: false,
+    supplierId,
+    refundedDebtId
+  };
+  
+  return await createFinanceEntry(entry);
 };

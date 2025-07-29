@@ -98,15 +98,19 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
     });
   };
 
-  const addProductField = () => setFormData(prev => ({
-    ...prev,
-    products: [...prev.products, { product: null, quantity: '', negotiatedPrice: '' }],
-  }));
+  const addProductField = () => {
+    setFormData(prev => ({
+      ...prev,
+      products: [...prev.products, { product: null, quantity: '', negotiatedPrice: '' }],
+    }));
+  };
 
-  const removeProductField = (index: number) => setFormData(prev => ({
-    ...prev,
-    products: prev.products.filter((_, i) => i !== index),
-  }));
+  const removeProductField = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      products: prev.products.filter((_, i) => i !== index),
+    }));
+  };
 
   const resetForm = () => {
     setFormData({
@@ -127,45 +131,63 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
     if (!p.product || !p.quantity) return 0;
     const qty = parseInt(p.quantity, 10);
     const price = p.negotiatedPrice ? parseFloat(p.negotiatedPrice) : p.product.sellingPrice;
-    return qty * price;
+    const total = qty * price;
+    return total;
   };
-  const calculateTotal = () => formData.products.reduce((acc, p) => acc + calculateProductTotal(p), 0);
+  
+  const calculateTotal = () => {
+    const total = formData.products.reduce((acc, p) => acc + calculateProductTotal(p), 0);
+    return total;
+  };
 
   /* -------------------------- Validation -------------------------- */
   const validateForm = () => {
     const errors: Record<string, string> = {};
     const hasProduct = formData.products.some(p => p.product);
+    
     if (!hasProduct) {
       errors.products = t('sales.messages.warnings.atLeastOneProduct');
       return errors;
     }
+    
     formData.products.forEach((prod, idx) => {
       if (!prod.product) return;
       const qty = parseInt(prod.quantity, 10);
-      if (Number.isNaN(qty) || qty <= 0) errors[`quantity_${idx}`] = t('sales.messages.warnings.quantityInvalid');
-      else if (qty > prod.product.stock) errors[`quantity_${idx}`] = t('sales.messages.warnings.quantityExceeded', { stock: prod.product.stock });
-      const nego = parseFloat(prod.negotiatedPrice);
-      if (!Number.isNaN(nego) && nego > prod.product.sellingPrice) errors[`price_${idx}`] = t('sales.messages.warnings.priceExceeded');
+      
+      if (Number.isNaN(qty) || qty <= 0) {
+        errors[`quantity_${idx}`] = t('sales.messages.warnings.quantityInvalid');
+      } else if (qty > prod.product.stock) {
+        errors[`quantity_${idx}`] = t('sales.messages.warnings.quantityExceeded', { stock: prod.product.stock });
+      }
     });
+    
     const fee = parseFloat(formData.deliveryFee);
-    if (!Number.isNaN(fee) && fee < 0) errors.deliveryFee = t('sales.messages.warnings.deliveryFeeInvalid');
+    if (!Number.isNaN(fee) && fee < 0) {
+      errors.deliveryFee = t('sales.messages.warnings.deliveryFeeInvalid');
+    }
+    
     return errors;
   };
 
   /* ----------------------------- Submit ----------------------------- */
   const handleAddSale = async () => {
+    
     const errs = validateForm();
     if (Object.keys(errs).length) {
       Object.values(errs).forEach(showWarningToast);
       return undefined;
     }
+    
     if (!user?.uid) {
       showErrorToast(t('sales.messages.errors.notLoggedIn'));
       return undefined;
     }
+    
     try {
       setIsSubmitting(true);
+      
       const totalAmount = calculateTotal();
+      
       const saleProducts: SaleProduct[] = formData.products
         .filter(p => p.product && p.quantity)
         .map(p => ({
@@ -174,31 +196,40 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
           basePrice: p.product!.sellingPrice,
           negotiatedPrice: p.negotiatedPrice ? parseFloat(p.negotiatedPrice) : p.product!.sellingPrice,
         }));
+      
       const customerName = formData.customerName.trim() || t('sales.modals.add.customerInfo.divers');
       const customerPhone = formData.customerPhone.trim() || '';
       const customerQuarter = formData.customerQuarter || '';
       const customerInfo = { name: customerName, phone: customerPhone, ...(customerQuarter && { quarter: customerQuarter }) };
-      const newSale = await addSale({
+      
+      const saleData = {
         products: saleProducts,
         totalAmount,
         status: formData.status,
         customerInfo,
         deliveryFee: formData.deliveryFee ? parseFloat(formData.deliveryFee) : 0,
-        paymentStatus: 'pending',
+        paymentStatus: 'pending' as const,
         userId: user.uid,
-      });
+      };
+      
+      const newSale = await addSale(saleData);
+      
       showSuccessToast(t('sales.messages.saleAdded'));
       resetForm();
+      
       if (autoSaveCustomer && customerPhone && customerName) {
         try {
           const existing = customers.find(c => normalizePhone(c.phone) === normalizePhone(customerPhone));
           if (!existing) {
             await addCustomer({ phone: customerPhone, name: customerName, quarter: customerQuarter, userId: user.uid, createdAt: new Date() });
           }
-        } catch { /* ignore duplicate errors */ }
+        } catch (error) {
+          /* ignore duplicate errors */
+        }
       }
+      
       return newSale;
-    } catch {
+    } catch (error) {
       showErrorToast(t('sales.messages.errors.addSale'));
       return undefined;
     } finally {
@@ -208,14 +239,23 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
 
   /* ----------- Customer save / select ----------- */
   const handleSaveCustomer = async () => {
+    
     if (!user?.uid || !formData.customerPhone) return;
+    
     try {
       setIsSavingCustomer(true);
       const customerName = formData.customerName.trim() || t('sales.modals.add.customerInfo.divers');
       const customerQuarter = formData.customerQuarter || '';
       const existing = customers.find(c => normalizePhone(c.phone) === normalizePhone(formData.customerPhone));
+      
       if (!existing) {
-        const data: Customer = { phone: formData.customerPhone, name: customerName, quarter: customerQuarter, userId: user.uid, createdAt: new Date() };
+        const data: Customer = { 
+          phone: formData.customerPhone, 
+          name: customerName, 
+          quarter: customerQuarter, 
+          userId: user.uid, 
+          createdAt: new Date() 
+        };
         await addCustomer(data);
         setFoundCustomer(data);
         showSuccessToast(t('sales.messages.customerSaved'));
@@ -223,7 +263,7 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
         setFoundCustomer(existing);
         showWarningToast(t('sales.messages.warnings.customerExists'));
       }
-    } catch {
+    } catch (error) {
       showErrorToast(t('sales.messages.errors.saveCustomer'));
     } finally {
       setIsSavingCustomer(false);
@@ -231,7 +271,12 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
   };
 
   const handleSelectCustomer = (customer: Customer) => {
-    setFormData(prev => ({ ...prev, customerPhone: customer.phone, customerName: customer.name ?? '', customerQuarter: customer.quarter ?? '' }));
+    setFormData(prev => ({ 
+      ...prev, 
+      customerPhone: customer.phone, 
+      customerName: customer.name ?? '', 
+      customerQuarter: customer.quarter ?? '' 
+    }));
     setShowCustomerDropdown(false);
     setFoundCustomer(customer);
   };
