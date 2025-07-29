@@ -17,7 +17,6 @@ import Papa from 'papaparse';
 import type { Product } from '../types/models';
 import type { ParseResult } from 'papaparse';
 import { getLatestCostPrice } from '../utils/productUtils';
-import Textarea from '../components/common/Textarea';
 
 interface CsvRow {
   [key: string]: string;
@@ -86,7 +85,6 @@ const Products = () => {
   // State for stock adjustment tab
   const [stockAdjustment, setStockAdjustment] = useState('');
   const [stockReason, setStockReason] = useState<'restock' | 'adjustment'>('restock');
-  const [isStockSubmitting, setIsStockSubmitting] = useState(false);
   
   // State for stock adjustment supplier info
   const [stockAdjustmentSupplier, setStockAdjustmentSupplier] = useState({
@@ -467,113 +465,7 @@ const Products = () => {
     }
   };
 
-  const handleStockSubmit = async () => {
-    if (!currentProduct || !user?.uid || !stockAdjustment) return;
-    
-    const adjustmentAmount = parseInt(stockAdjustment, 10);
-    if (isNaN(adjustmentAmount)) {
-      showErrorToast(t('products.messages.errors.invalidStock'));
-      return;
-    }
 
-    // Validate supplier selection for restock
-    if (stockReason === 'restock' && stockAdjustmentSupplier.supplyType === 'fromSupplier' && !stockAdjustmentSupplier.supplierId) {
-      showWarningToast(t('products.form.step2.supplierRequired'));
-      return;
-    }
-
-    setIsStockSubmitting(true);
-    
-    try {
-    let newStock: number;
-    let change: number;
-      
-    if (stockReason === 'restock') {
-      if (adjustmentAmount <= 0) {
-        showErrorToast(t('products.messages.warnings.positiveQuantity'));
-        return;
-      }
-      change = adjustmentAmount;
-      newStock = currentProduct.stock + change;
-    } else { // 'adjustment'
-      if (adjustmentAmount < 0) {
-        showErrorToast(t('products.messages.warnings.nonNegativeStock'));
-        return;
-      }
-      newStock = adjustmentAmount;
-      change = newStock - currentProduct.stock;
-    }
-      
-    if (change === 0) {
-      showWarningToast(t('products.messages.warnings.noStockChange'));
-      return;
-    }
-
-    const safeProduct = {
-      ...currentProduct,
-      isAvailable: typeof currentProduct.isAvailable === 'boolean' ? currentProduct.isAvailable : true,
-      images: (currentProduct.images ?? []).length > 0 ? currentProduct.images : [],
-      userId: currentProduct.userId || user.uid,
-      updatedAt: currentProduct.updatedAt || { seconds: 0, nanoseconds: 0 },
-    };
-      
-      const updateData = { 
-        stock: newStock, 
-        isAvailable: safeProduct.isAvailable, 
-        images: safeProduct.images, 
-        userId: safeProduct.userId, 
-        updatedAt: { seconds: 0, nanoseconds: 0 } 
-      };
-
-      // Create supplier info for stock change
-      const supplierInfo = stockReason === 'restock' && stockAdjustmentSupplier.supplyType === 'fromSupplier' ? {
-        supplierId: stockAdjustmentSupplier.supplierId,
-        isOwnPurchase: false,
-        isCredit: stockAdjustmentSupplier.paymentType === 'credit',
-        costPrice: stockAdjustmentSupplier.costPrice ? parseFloat(stockAdjustmentSupplier.costPrice) : 0
-      } : {
-        isOwnPurchase: true,
-        isCredit: false,
-        costPrice: 0
-      };
-
-      await updateProduct(currentProduct.id, updateData, user.uid, stockReason, change, supplierInfo);
-      
-      // Create supplier debt if applicable
-      if (stockReason === 'restock' && 
-          stockAdjustmentSupplier.supplyType === 'fromSupplier' && 
-          stockAdjustmentSupplier.paymentType === 'credit') {
-        const costPrice = stockAdjustmentSupplier.costPrice ? parseFloat(stockAdjustmentSupplier.costPrice) : 0;
-        const debtAmount = costPrice * change;
-        const description = `Restock purchase for ${currentProduct.name} (${change} units)`;
-        
-        await createSupplierDebt(
-          stockAdjustmentSupplier.supplierId,
-          debtAmount,
-          description,
-          user.uid
-        );
-      }
-
-      showSuccessToast(t('products.messages.productUpdated'));
-      setCurrentProduct(prev => prev ? { ...prev, stock: newStock } : null);
-      setStockAdjustment('');
-      
-      // Reset supplier form
-      setStockAdjustmentSupplier({
-        supplyType: 'ownPurchase',
-        supplierId: '',
-        paymentType: 'paid',
-        costPrice: '',
-      });
-      
-    } catch (err) {
-      console.error('Error updating stock:', err);
-      showErrorToast(t('products.messages.errors.updateProduct'));
-    } finally {
-      setIsStockSubmitting(false);
-    }
-  };
 
   const openDeleteModal = (product: Product) => {
     setProductToDelete(product);
@@ -592,11 +484,11 @@ const Products = () => {
         } catch (e) { console.error(`Failed to create initial stock for ${product.id}:`, e) }
       }
     });
-  }, [products, stockChanges, user]);
+  }, [products, stockChanges, user, updateProduct]);
 
   useEffect(() => {
     setSelectedCategory(t('products.filters.allCategories'));
-  }, [i18n.language]);
+  }, [i18n.language, t]);
 
   const toggleBulkSelection = () => {
     setIsBulkSelection((prev) => !prev);
@@ -1407,7 +1299,7 @@ const Products = () => {
         title={t('products.actions.editProduct')}
         size="lg"
         footer={
-          <ModalFooter
+          <ModalFooter 
             onCancel={() => setIsEditModalOpen(false)}
             onConfirm={handleEditProduct}
             confirmText={t('products.actions.editProduct')}
@@ -1417,10 +1309,10 @@ const Products = () => {
       >
         {/* Tab navigation */}
         <div className="flex border-b mb-4">
-          <button
+                      <button
             className={`px-4 py-2 ${editTab === 'info' ? 'font-bold border-b-2 border-emerald-500' : 'text-gray-500'}`}
             onClick={() => setEditTab('info')}
-            type="button"
+                        type="button"
           >
             {t('products.editTabs.info')}
           </button>
@@ -1437,8 +1329,8 @@ const Products = () => {
             type="button"
           >
             {t('products.editTabs.pricing')}
-          </button>
-        </div>
+                      </button>
+                    </div>
         {/* Tab content */}
         {editTab === 'info' && (
           <div className="space-y-6">
@@ -1447,16 +1339,16 @@ const Products = () => {
               <svg className="w-5 h-5 text-blue-400 mt-0.5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M12 20a8 8 0 100-16 8 8 0 000 16z" /></svg>
               <div className="text-sm text-blue-800">
                 {t('products.editTabs.infoBox', 'The product name and reference help you identify this item in your catalog. Categories help you organize products for easier filtering and reporting.')}
+                </div>
               </div>
-            </div>
             {/* Product Name */}
-            <Input
+          <Input
               label={t('products.form.name')}
               name="name"
               value={step1Data.name}
               onChange={handleStep1InputChange}
-              required
-            />
+            required
+          />
             {/* Reference */}
             <Input
               label={t('products.form.reference')}
@@ -1489,14 +1381,14 @@ const Products = () => {
             {/* Stock Change Type Selector */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">{t('products.form.stockChangeType', 'Stock Change Type')}</label>
-              <select
-                className="block w-full rounded-md border border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm px-3 py-2"
-                value={stockReason}
-                onChange={e => setStockReason(e.target.value as 'restock' | 'adjustment')}
-              >
-                <option value="restock">{t('products.actions.restock')}</option>
-                <option value="adjustment">{t('products.actions.adjustment')}</option>
-              </select>
+            <select 
+              className="block w-full rounded-md border border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm px-3 py-2" 
+              value={stockReason} 
+              onChange={e => setStockReason(e.target.value as 'restock' | 'adjustment')}
+            >
+              <option value="restock">{t('products.actions.restock')}</option>
+              <option value="adjustment">{t('products.actions.adjustment')}</option>
+            </select>
             </div>
             {/* Stock Value Input */}
             {stockReason === 'restock' ? (
@@ -1517,63 +1409,63 @@ const Products = () => {
                 </div>
                 {/* Supplier Section (only for restock) */}
                 <div className="space-y-4">
-                  <div>
+            <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">{t('products.form.step2.supplyType')}</label>
-                    <select
-                      name="supplyType"
-                      value={stockAdjustmentSupplier.supplyType}
-                      onChange={handleStockAdjustmentSupplierChange}
-                      className="block w-full rounded-md border border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm px-3 py-2"
-                    >
-                      <option value="ownPurchase">{t('products.form.step2.ownPurchase')}</option>
-                      <option value="fromSupplier">{t('products.form.step2.fromSupplier')}</option>
-                    </select>
-                  </div>
-                  {stockAdjustmentSupplier.supplyType === 'fromSupplier' && (
-                    <>
-                      <div>
+              <select
+                name="supplyType"
+                value={stockAdjustmentSupplier.supplyType}
+                onChange={handleStockAdjustmentSupplierChange}
+                className="block w-full rounded-md border border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm px-3 py-2"
+              >
+                <option value="ownPurchase">{t('products.form.step2.ownPurchase')}</option>
+                <option value="fromSupplier">{t('products.form.step2.fromSupplier')}</option>
+              </select>
+            </div>
+            {stockAdjustmentSupplier.supplyType === 'fromSupplier' && (
+              <>
+                <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">{t('products.form.step2.supplier')}</label>
-                        <div className="flex space-x-2">
-                          <select
-                            name="supplierId"
-                            value={stockAdjustmentSupplier.supplierId}
-                            onChange={handleStockAdjustmentSupplierChange}
-                            className="flex-1 rounded-md border border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm px-3 py-2"
-                          >
-                            <option value="">{t('common.select')}</option>
-                            {suppliers.filter(s => !s.isDeleted).map(supplier => (
+                  <div className="flex space-x-2">
+                    <select
+                      name="supplierId"
+                      value={stockAdjustmentSupplier.supplierId}
+                      onChange={handleStockAdjustmentSupplierChange}
+                      className="flex-1 rounded-md border border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm px-3 py-2"
+                    >
+                      <option value="">{t('common.select')}</option>
+                      {suppliers.filter(s => !s.isDeleted).map(supplier => (
                               <option key={supplier.id} value={supplier.id}>{supplier.name}</option>
-                            ))}
-                          </select>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setIsQuickAddSupplierOpen(true)}
-                          >
-                            {t('products.actions.addSupplier')}
-                          </Button>
-                        </div>
-                      </div>
-                      <div>
+                      ))}
+                    </select>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsQuickAddSupplierOpen(true)}
+                    >
+                      {t('products.actions.addSupplier')}
+                    </Button>
+                  </div>
+                </div>
+                <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">{t('products.form.step2.paymentType')}</label>
-                        <select
-                          name="paymentType"
-                          value={stockAdjustmentSupplier.paymentType}
-                          onChange={handleStockAdjustmentSupplierChange}
-                          className="block w-full rounded-md border border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm px-3 py-2"
-                        >
-                          <option value="paid">{t('products.form.step2.paid')}</option>
-                          <option value="credit">{t('products.form.step2.credit')}</option>
-                        </select>
-                      </div>
-                      <Input
-                        label={t('products.form.step2.stockCostPrice')}
-                        name="costPrice"
-                        type="number"
+                  <select
+                    name="paymentType"
+                    value={stockAdjustmentSupplier.paymentType}
+                    onChange={handleStockAdjustmentSupplierChange}
+                    className="block w-full rounded-md border border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm px-3 py-2"
+                  >
+                    <option value="paid">{t('products.form.step2.paid')}</option>
+                    <option value="credit">{t('products.form.step2.credit')}</option>
+                  </select>
+                </div>
+            <Input
+              label={t('products.form.step2.stockCostPrice')}
+              name="costPrice"
+              type="number"
                         min={0}
                         value={stockAdjustmentSupplier.costPrice}
                         onChange={e => setStockAdjustmentSupplier(prev => ({ ...prev, costPrice: e.target.value.replace(/[^0-9.]/g, '') }))}
-                        required
+              required
                         helpText={t('products.form.step2.stockCostPriceHelp')}
                       />
                     </>
@@ -1582,20 +1474,20 @@ const Products = () => {
               </>
             ) : (
               <>
-                <Input
+            <Input
                   label={t('products.actions.newTotalStock', 'New Stock Value')}
                   name="stockAdjustment"
-                  type="number"
+              type="number"
                   min={0}
                   value={stockAdjustment}
                   onChange={e => setStockAdjustment(e.target.value.replace(/[^0-9]/g, ''))}
-                  required
+              required
                   helpText={t('products.form.adjustmentHelp', 'Set the actual stock you have after counting. This will replace the current stock value.')}
                 />
                 {/* Live Preview */}
                 <div className="text-sm text-gray-700 bg-gray-50 rounded-md p-2">
                   {`Current Stock: ${currentProduct?.stock ?? 0} → New Stock: ${parseInt(stockAdjustment) || 0} (${(parseInt(stockAdjustment) || 0) - (currentProduct?.stock ?? 0) >= 0 ? '+' : ''}${(parseInt(stockAdjustment) || 0) - (currentProduct?.stock ?? 0)})`}
-                </div>
+          </div>
               </>
             )}
             {/* Mini Stock History Table (last 2 changes) */}
@@ -1615,42 +1507,42 @@ const Products = () => {
                         <th className="text-left px-2 py-1">{t('products.actions.reason')}</th>
                         <th className="text-left px-2 py-1">{t('products.form.step2.supplier')}</th>
                         <th className="text-left px-2 py-1">{t('products.form.step2.paymentType')}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
+                    </tr>
+                  </thead>
+                  <tbody>
                       {history.map(sc => {
-                        const supplier = sc.supplierId ? suppliers.find(s => s.id === sc.supplierId) : null;
-                        return (
+                      const supplier = sc.supplierId ? suppliers.find(s => s.id === sc.supplierId) : null;
+                      return (
                           <tr key={sc.id} className="border-b last:border-b-0">
                             <td className="px-2 py-1">{sc.createdAt?.seconds ? new Date(sc.createdAt.seconds * 1000).toLocaleString() : ''}</td>
                             <td className="px-2 py-1">{sc.change > 0 ? '+' : ''}{sc.change}</td>
                             <td className="px-2 py-1">{t('products.actions.' + sc.reason)}</td>
                             <td className="px-2 py-1">
-                              {sc.isOwnPurchase ? (
-                                <span className="text-gray-500">{t('products.form.step2.ownPurchase')}</span>
-                              ) : supplier ? (
-                                <span className={supplier.isDeleted ? 'text-red-500 line-through' : ''}>
-                                  {supplier.name}
-                                  {supplier.isDeleted && ' (Deleted)'}
-                                </span>
-                              ) : (
-                                <span className="text-gray-400">Unknown</span>
-                              )}
-                            </td>
+                            {sc.isOwnPurchase ? (
+                              <span className="text-gray-500">{t('products.form.step2.ownPurchase')}</span>
+                            ) : supplier ? (
+                              <span className={supplier.isDeleted ? 'text-red-500 line-through' : ''}>
+                                {supplier.name}
+                                {supplier.isDeleted && ' (Deleted)'}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400">Unknown</span>
+                            )}
+                          </td>
                             <td className="px-2 py-1">
-                              {sc.isOwnPurchase ? (
-                                <span className="text-gray-500">-</span>
-                              ) : sc.isCredit ? (
-                                <span className="text-red-600">{t('products.form.step2.credit')}</span>
-                              ) : (
-                                <span className="text-green-600">{t('products.form.step2.paid')}</span>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                            {sc.isOwnPurchase ? (
+                              <span className="text-gray-500">-</span>
+                            ) : sc.isCredit ? (
+                              <span className="text-red-600">{t('products.form.step2.credit')}</span>
+                            ) : (
+                              <span className="text-green-600">{t('products.form.step2.paid')}</span>
+                            )}
+                          </td>
+                      </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
                 );
               })()}
               <div className="mt-2 text-right">
@@ -1743,7 +1635,7 @@ const Products = () => {
                 </div>
               </div>
               <p className="mt-1 text-sm text-gray-500">{t('products.form.imageHelp', 'Add clear images to help identify this product. You can upload multiple images.')}</p>
-            </div>
+        </div>
           </div>
         )}
       </Modal>
