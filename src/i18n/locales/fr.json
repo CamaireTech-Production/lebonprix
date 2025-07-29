@@ -464,7 +464,6 @@
       "adjustAmount": "Quantité d'ajustement",
       "restock": "Réapprovisionnement",
       "adjustment": "Ajustement manuel",
-      "restockHelp": "Ajouter de nouveaux articles. Ex : Entrez '5' pour ajouter 5 unités au stock.",
       "adjustmentHelp": "Corriger le stock total. Ex : Entrez '8' si le nouveau total est 8 unités.",
       "stockHistory": "Historique du stock",
       "date": "Date",
@@ -485,7 +484,8 @@
       "complete": "Terminer",
       "addSupplier": "Ajouter un fournisseur",
       "note": "Note",
-      "stockAdjustmentNote": "Pour mettre à jour uniquement le prix d'achat sans changer le stock, entrez la valeur du stock actuel dans le champ quantité. Le prix d'achat et les informations du fournisseur seront mis à jour pour la dernière entrée de stock."
+      "stockAdjustmentNote": "Pour mettre à jour uniquement le prix d'achat sans changer le stock, entrez la valeur du stock actuel dans le champ quantité. Le prix d'achat et les informations du fournisseur seront mis à jour pour la dernière entrée de stock.",
+      "viewAllHistory": "Voir tout l'historique"
     },
     "table": {
       "columns": {
@@ -495,7 +495,8 @@
         "reference": "Référence",
         "costPrice": "Prix d'achat",
         "category": "Catégorie",
-        "stock": "Stock"
+        "stock": "Stock",
+        "actions": "Actions"
       }
     },
     "form": {
@@ -545,30 +546,37 @@
       "image": "Image du produit",
       "imageHelp": "Optionnel, max 500KB. Sera compressé.",
       "description": "Description",
-      "amount": "Montant"
+      "amount": "Montant",
+      "stockChangeType": "Type de changement de stock",
+      "restockHelp": "Cette valeur sera ajoutée à votre stock actuel.",
+      "profitPerUnit": "Profit par unité"
+    },
+    "editTabs": {
+      "info": "Infos",
+      "stock": "Stock",
+      "pricing": "Tarification",
+      "infoBox": "Le nom et la référence du produit vous aident à l'identifier dans votre catalogue. Les catégories vous aident à organiser les produits pour un filtrage et un reporting plus faciles.",
+      "stockInfoBox": "Utilisez cette section pour ajouter ou ajuster le stock. Le réapprovisionnement augmente les unités disponibles, tandis que l'ajustement sert à corriger les erreurs ou les pertes.",
+      "pricingInfoBox": "Définissez le prix auquel vous vendez ce produit. Le prix catalogue est optionnel et peut être utilisé comme référence ou pour des promotions."
     },
     "import": {
       "title": "Importer des produits depuis un CSV",
       "upload": "Télécharger un fichier CSV",
       "uploadHelp": "Le fichier doit contenir des en-têtes. Champs recommandés : name, reference, costPrice, sellingPrice, cataloguePrice, category, stock.",
+      "saveCategories": "Enregistrer mes catégories depuis cet import",
       "mapping": "Mapper les colonnes",
-      "preview": "Aperçu (5 premières lignes)",
-      "previewHelp": "...et {{total}} autres lignes.",
-      "progress": "Importation en cours...",
-      "fields": {
-        "name": "Nom du produit",
-        "reference": "Référence",
-        "costPrice": "Prix d'achat",
-        "sellingPrice": "Prix de vente",
-        "cataloguePrice": "Prix catalogue",
-        "category": "Catégorie",
-        "stock": "Stock",
-        "supplyType": "Type d'approvisionnement",
-        "supplierId": "ID du fournisseur",
-        "paymentType": "Type de paiement"
-      },
-      "productsToImport": "Nombre de produits à importer : {{count}}",
-      "saveCategories": "Enregistrer mes catégories depuis cet import"
+      "productsToImport": "Nombre de produits à importer : {{count}}"
+    },
+    "detailTabs": {
+      "details": "Détails",
+      "stock": "Historique du stock",
+      "basicInfo": "Informations de base",
+      "pricing": "Tarification",
+      "profitPerUnit": "Profit par unité",
+      "totalValue": "Valeur totale du stock",
+      "additional": "Informations supplémentaires",
+      "createdAt": "Créé le",
+      "lastUpdated": "Dernière mise à jour"
     },
     "messages": {
       "productAdded": "Produit ajouté avec succès",
@@ -577,7 +585,6 @@
       "importSuccess": "{{count}} sur {{total}} produits importés avec succès ({{errors}} erreurs).",
       "deleteConfirmation": "Êtes-vous sûr de vouloir supprimer le produit : {{name}} (Réf: {{reference}}) ?",
       "deleteWarning": "Cette action est irréversible. Toutes les données de ventes associées resteront mais le lien avec le produit sera rompu.",
-      "noStockHistory": "Aucun historique de stock pour ce produit.",
       "errors": {
         "loadProducts": "Échec du chargement des produits.",
         "addProduct": "Erreur lors de l'ajout du produit",
@@ -603,10 +610,7 @@
       },
       "bulkDeleteSuccess": "{{count}} produits supprimés avec succès.",
       "bulkDeleteConfirmation": "Voulez-vous vraiment supprimer les {{count}} produits sélectionnés ? Ils seront masqués de toutes les listes mais l'historique des ventes sera conservé.",
-      "bulkDeleteWarning": "Cette action est irréversible. L'historique des ventes restera intact.",
-      "noStockHistory": "Aucun historique de stock pour ce produit.",
-      "deleteConfirmation": "Êtes-vous sûr de vouloir supprimer le produit : {{name}} (Réf: {{reference}}) ?",
-      "deleteWarning": "Cette action est irréversible. Toutes les données de ventes associées resteront mais le lien avec le produit sera rompu."
+      "bulkDeleteWarning": "Cette action est irréversible. L'historique des ventes restera intact."
     },
     "cancelBulkSelection": "Annuler la sélection multiple"
   },
@@ -777,7 +781,6 @@
       "deleteConfirmation": "Êtes-vous sûr de vouloir supprimer la dépense : {{description}} ?",
       "deleteWarning": "Cette action est irréversible.",
       "importSuccess": "{{count}} sur {{total}} dépenses importées avec succès ({{errors}} erreurs).",
-      "noStockHistory": "Aucun historique de stock pour cette dépense.",
       "errors": {
         "loadExpenses": "Échec du chargement des dépenses.",
         "addExpense": "Erreur lors de l'ajout de la dépense",
@@ -928,7 +931,8 @@
       "remaining": "Restant",
       "amount": "Montant",
       "date": "Date",
-      "description": "Description"
+      "description": "Description",
+      "total": "Total"
     },
     "refund": {
       "title": "Ajouter Remboursement",
