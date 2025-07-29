@@ -17,6 +17,7 @@ import Papa from 'papaparse';
 import type { Product } from '../types/models';
 import type { ParseResult } from 'papaparse';
 import { getLatestCostPrice } from '../utils/productUtils';
+import Textarea from '../components/common/Textarea';
 
 interface CsvRow {
   [key: string]: string;
@@ -81,7 +82,7 @@ const Products = () => {
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   
-  const [editTab, setEditTab] = useState<'details' | 'stock'>('details');
+  const [editTab, setEditTab] = useState<'info' | 'stock' | 'pricing'>('info');
   // State for stock adjustment tab
   const [stockAdjustment, setStockAdjustment] = useState('');
   const [stockReason, setStockReason] = useState<'restock' | 'adjustment'>('restock');
@@ -407,7 +408,7 @@ const Products = () => {
       costPrice: latestStockChange?.costPrice?.toString() || ''
     });
     setIsEditModalOpen(true);
-    setEditTab('details');
+    setEditTab('info');
     setStockAdjustment('');
   };
   
@@ -1406,28 +1407,304 @@ const Products = () => {
         title={t('products.actions.editProduct')}
         size="lg"
         footer={
-          editTab === 'details' ? (
-          <ModalFooter 
+          <ModalFooter
             onCancel={() => setIsEditModalOpen(false)}
             onConfirm={handleEditProduct}
             confirmText={t('products.actions.editProduct')}
             isLoading={isSubmitting}
           />
-          ) : null
         }
       >
-        <div className="mb-4 flex border-b">
-          <button onClick={() => setEditTab('details')} className={`px-4 py-2 ${editTab === 'details' ? 'font-bold border-b-2 border-emerald-500' : ''}`}>{t('common.edit')}</button>
-          <button onClick={() => setEditTab('stock')} className={`px-4 py-2 ${editTab === 'stock' ? 'font-bold border-b-2 border-emerald-500' : ''}`}>{t('products.table.columns.stock')}</button>
+        {/* Tab navigation */}
+        <div className="flex border-b mb-4">
+          <button
+            className={`px-4 py-2 ${editTab === 'info' ? 'font-bold border-b-2 border-emerald-500' : 'text-gray-500'}`}
+            onClick={() => setEditTab('info')}
+            type="button"
+          >
+            {t('products.editTabs.info')}
+          </button>
+          <button
+            className={`px-4 py-2 ${editTab === 'stock' ? 'font-bold border-b-2 border-emerald-500' : 'text-gray-500'}`}
+            onClick={() => setEditTab('stock')}
+            type="button"
+          >
+            {t('products.editTabs.stock')}
+          </button>
+          <button
+            className={`px-4 py-2 ${editTab === 'pricing' ? 'font-bold border-b-2 border-emerald-500' : 'text-gray-500'}`}
+            onClick={() => setEditTab('pricing')}
+            type="button"
+          >
+            {t('products.editTabs.pricing')}
+          </button>
         </div>
-        {editTab === 'details' ? (
-        <div className="space-y-4">
-            <Input label={t('products.form.name')} name="name" value={step1Data.name} onChange={handleStep1InputChange} required />
-            <Input label={t('products.form.reference')} name="reference" value={step1Data.reference} onChange={handleStep1InputChange} />
-          <div>
+        {/* Tab content */}
+        {editTab === 'info' && (
+          <div className="space-y-6">
+            {/* Info Box */}
+            <div className="flex items-start bg-blue-50 border-l-4 border-blue-400 p-4 rounded-md mb-4">
+              <svg className="w-5 h-5 text-blue-400 mt-0.5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M12 20a8 8 0 100-16 8 8 0 000 16z" /></svg>
+              <div className="text-sm text-blue-800">
+                {t('products.editTabs.infoBox', 'The product name and reference help you identify this item in your catalog. Categories help you organize products for easier filtering and reporting.')}
+              </div>
+            </div>
+            {/* Product Name */}
+            <Input
+              label={t('products.form.name')}
+              name="name"
+              value={step1Data.name}
+              onChange={handleStep1InputChange}
+              required
+            />
+            {/* Reference */}
+            <Input
+              label={t('products.form.reference')}
+              name="reference"
+              value={step1Data.reference}
+              onChange={handleStep1InputChange}
+              helpText={t('products.form.referenceHelp', 'Auto-generated from name, but you can edit it.')}
+            />
+            {/* Category */}
+            <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">{t('products.form.category')}</label>
-              <CreatableSelect value={step1Data.category ? { label: step1Data.category, value: step1Data.category } : null} onChange={handleCategoryChange} placeholder={t('products.form.categoryPlaceholder')} className="custom-select" />
+              <CreatableSelect
+                value={step1Data.category ? { label: step1Data.category, value: step1Data.category } : null}
+                onChange={handleCategoryChange}
+                placeholder={t('products.form.categoryPlaceholder')}
+                className="custom-select"
+              />
+            </div>
           </div>
+        )}
+        {editTab === 'stock' && (
+          <div className="space-y-6">
+            {/* Info Box */}
+            <div className="flex items-start bg-blue-50 border-l-4 border-blue-400 p-4 rounded-md mb-4">
+              <svg className="w-5 h-5 text-blue-400 mt-0.5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M12 20a8 8 0 100-16 8 8 0 000 16z" /></svg>
+              <div className="text-sm text-blue-800">
+                {t('products.editTabs.stockInfoBox', 'Use this section to add or adjust stock. Restock increases available units, while adjustment is for correcting errors or losses.')}
+              </div>
+            </div>
+            {/* Stock Change Type Selector */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{t('products.form.stockChangeType', 'Stock Change Type')}</label>
+              <select
+                className="block w-full rounded-md border border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm px-3 py-2"
+                value={stockReason}
+                onChange={e => setStockReason(e.target.value as 'restock' | 'adjustment')}
+              >
+                <option value="restock">{t('products.actions.restock')}</option>
+                <option value="adjustment">{t('products.actions.adjustment')}</option>
+              </select>
+            </div>
+            {/* Stock Value Input */}
+            {stockReason === 'restock' ? (
+              <>
+                <Input
+                  label={t('products.actions.quantityToAdd', 'Quantity to Add')}
+                  name="stockAdjustment"
+                  type="number"
+                  min={1}
+                  value={stockAdjustment}
+                  onChange={e => setStockAdjustment(e.target.value.replace(/[^0-9]/g, ''))}
+                  required
+                  helpText={t('products.form.restockHelp', 'This value will be added to your current stock.')}
+                />
+                {/* Live Preview */}
+                <div className="text-sm text-gray-700 bg-gray-50 rounded-md p-2">
+                  {`Current Stock: ${currentProduct?.stock ?? 0} → New Stock: ${(currentProduct?.stock ?? 0) + (parseInt(stockAdjustment) || 0)} (+${parseInt(stockAdjustment) || 0})`}
+                </div>
+                {/* Supplier Section (only for restock) */}
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('products.form.step2.supplyType')}</label>
+                    <select
+                      name="supplyType"
+                      value={stockAdjustmentSupplier.supplyType}
+                      onChange={handleStockAdjustmentSupplierChange}
+                      className="block w-full rounded-md border border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm px-3 py-2"
+                    >
+                      <option value="ownPurchase">{t('products.form.step2.ownPurchase')}</option>
+                      <option value="fromSupplier">{t('products.form.step2.fromSupplier')}</option>
+                    </select>
+                  </div>
+                  {stockAdjustmentSupplier.supplyType === 'fromSupplier' && (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">{t('products.form.step2.supplier')}</label>
+                        <div className="flex space-x-2">
+                          <select
+                            name="supplierId"
+                            value={stockAdjustmentSupplier.supplierId}
+                            onChange={handleStockAdjustmentSupplierChange}
+                            className="flex-1 rounded-md border border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm px-3 py-2"
+                          >
+                            <option value="">{t('common.select')}</option>
+                            {suppliers.filter(s => !s.isDeleted).map(supplier => (
+                              <option key={supplier.id} value={supplier.id}>{supplier.name}</option>
+                            ))}
+                          </select>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setIsQuickAddSupplierOpen(true)}
+                          >
+                            {t('products.actions.addSupplier')}
+                          </Button>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">{t('products.form.step2.paymentType')}</label>
+                        <select
+                          name="paymentType"
+                          value={stockAdjustmentSupplier.paymentType}
+                          onChange={handleStockAdjustmentSupplierChange}
+                          className="block w-full rounded-md border border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm px-3 py-2"
+                        >
+                          <option value="paid">{t('products.form.step2.paid')}</option>
+                          <option value="credit">{t('products.form.step2.credit')}</option>
+                        </select>
+                      </div>
+                      <Input
+                        label={t('products.form.step2.stockCostPrice')}
+                        name="costPrice"
+                        type="number"
+                        min={0}
+                        value={stockAdjustmentSupplier.costPrice}
+                        onChange={e => setStockAdjustmentSupplier(prev => ({ ...prev, costPrice: e.target.value.replace(/[^0-9.]/g, '') }))}
+                        required
+                        helpText={t('products.form.step2.stockCostPriceHelp')}
+                      />
+                    </>
+                  )}
+                </div>
+              </>
+            ) : (
+              <>
+                <Input
+                  label={t('products.actions.newTotalStock', 'New Stock Value')}
+                  name="stockAdjustment"
+                  type="number"
+                  min={0}
+                  value={stockAdjustment}
+                  onChange={e => setStockAdjustment(e.target.value.replace(/[^0-9]/g, ''))}
+                  required
+                  helpText={t('products.form.adjustmentHelp', 'Set the actual stock you have after counting. This will replace the current stock value.')}
+                />
+                {/* Live Preview */}
+                <div className="text-sm text-gray-700 bg-gray-50 rounded-md p-2">
+                  {`Current Stock: ${currentProduct?.stock ?? 0} → New Stock: ${parseInt(stockAdjustment) || 0} (${(parseInt(stockAdjustment) || 0) - (currentProduct?.stock ?? 0) >= 0 ? '+' : ''}${(parseInt(stockAdjustment) || 0) - (currentProduct?.stock ?? 0)})`}
+                </div>
+              </>
+            )}
+            {/* Mini Stock History Table (last 2 changes) */}
+            <div className="mt-6">
+              <h4 className="font-semibold mb-2">{t('products.actions.stockHistory')}</h4>
+              {(() => {
+                const history = stockChanges.filter(sc => sc.productId === currentProduct?.id).slice(-2).reverse();
+                if (history.length === 0) {
+                  return <span className="text-sm text-gray-500">{t('products.messages.noStockHistory')}</span>;
+                }
+                return (
+                  <table className="min-w-full text-sm border rounded-md overflow-hidden">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="text-left px-2 py-1">{t('products.actions.date')}</th>
+                        <th className="text-left px-2 py-1">{t('products.actions.change')}</th>
+                        <th className="text-left px-2 py-1">{t('products.actions.reason')}</th>
+                        <th className="text-left px-2 py-1">{t('products.form.step2.supplier')}</th>
+                        <th className="text-left px-2 py-1">{t('products.form.step2.paymentType')}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {history.map(sc => {
+                        const supplier = sc.supplierId ? suppliers.find(s => s.id === sc.supplierId) : null;
+                        return (
+                          <tr key={sc.id} className="border-b last:border-b-0">
+                            <td className="px-2 py-1">{sc.createdAt?.seconds ? new Date(sc.createdAt.seconds * 1000).toLocaleString() : ''}</td>
+                            <td className="px-2 py-1">{sc.change > 0 ? '+' : ''}{sc.change}</td>
+                            <td className="px-2 py-1">{t('products.actions.' + sc.reason)}</td>
+                            <td className="px-2 py-1">
+                              {sc.isOwnPurchase ? (
+                                <span className="text-gray-500">{t('products.form.step2.ownPurchase')}</span>
+                              ) : supplier ? (
+                                <span className={supplier.isDeleted ? 'text-red-500 line-through' : ''}>
+                                  {supplier.name}
+                                  {supplier.isDeleted && ' (Deleted)'}
+                                </span>
+                              ) : (
+                                <span className="text-gray-400">Unknown</span>
+                              )}
+                            </td>
+                            <td className="px-2 py-1">
+                              {sc.isOwnPurchase ? (
+                                <span className="text-gray-500">-</span>
+                              ) : sc.isCredit ? (
+                                <span className="text-red-600">{t('products.form.step2.credit')}</span>
+                              ) : (
+                                <span className="text-green-600">{t('products.form.step2.paid')}</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                );
+              })()}
+              <div className="mt-2 text-right">
+                <span className="text-xs text-emerald-600 cursor-pointer underline">{t('products.actions.viewAllHistory', 'View All History')}</span>
+              </div>
+            </div>
+          </div>
+        )}
+        {editTab === 'pricing' && (
+          <div className="space-y-6">
+            {/* Info Box */}
+            <div className="flex items-start bg-blue-50 border-l-4 border-blue-400 p-4 rounded-md mb-4">
+              <svg className="w-5 h-5 text-blue-400 mt-0.5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M12 20a8 8 0 100-16 8 8 0 000 16z" /></svg>
+              <div className="text-sm text-blue-800">
+                {t('products.editTabs.pricingInfoBox', 'Set the price at which you sell this product. The catalogue price is optional and can be used for reference or promotions.')}
+              </div>
+            </div>
+            {/* Selling Price */}
+            <Input
+              label={t('products.form.step2.sellingPrice')}
+              name="sellingPrice"
+              type="number"
+              min={0}
+              value={editPrices.sellingPrice}
+              onChange={e => setEditPrices(p => ({ ...p, sellingPrice: e.target.value.replace(/[^0-9.]/g, '') }))}
+              required
+              helpText={t('products.form.sellingPriceHelp', 'Required: The price at which you sell this product.')}
+            />
+            {/* Catalogue Price */}
+            <Input
+              label={t('products.form.step2.cataloguePrice')}
+              name="cataloguePrice"
+              type="number"
+              min={0}
+              value={editPrices.cataloguePrice}
+              onChange={e => setEditPrices(p => ({ ...p, cataloguePrice: e.target.value.replace(/[^0-9.]/g, '') }))}
+              helpText={t('products.form.cataloguePriceHelp', 'Optional: Used for reference or promotions.')}
+            />
+            {/* Profit/Cost Info */}
+            <div className="space-y-1">
+              <div className="text-sm text-gray-700">
+                {t('products.form.latestCostPrice', 'Latest Cost Price')}: {(getLatestCostPrice(currentProduct?.id || '', stockChanges) ?? 0)} XAF
+              </div>
+              <div className="text-sm text-gray-700">
+                {t('products.form.profitPerUnit', 'Profit per unit')}: {editPrices.sellingPrice && getLatestCostPrice(currentProduct?.id || '', stockChanges) !== undefined ? (parseFloat(editPrices.sellingPrice) - (getLatestCostPrice(currentProduct?.id || '', stockChanges) ?? 0)).toLocaleString() : '-'} XAF
+              </div>
+              {editPrices.sellingPrice && getLatestCostPrice(currentProduct?.id || '', stockChanges) !== undefined && parseFloat(editPrices.sellingPrice) < (getLatestCostPrice(currentProduct?.id || '', stockChanges) ?? 0) && (
+                <div className="flex items-center bg-red-50 border-l-4 border-red-400 p-2 rounded-md mt-2">
+                  <svg className="w-4 h-4 text-red-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                  <span className="text-xs text-red-800">{t('products.form.sellingBelowCost', 'Warning: Selling price is below cost price!')}</span>
+                </div>
+              )}
+            </div>
+            {/* Images */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">{t('products.form.image')}</label>
               <div className="flex items-center space-x-2 pb-2">
@@ -1465,189 +1742,8 @@ const Products = () => {
                   ))}
                 </div>
               </div>
-              <p className="mt-1 text-sm text-gray-500">{t('products.form.imageHelp')}</p>
+              <p className="mt-1 text-sm text-gray-500">{t('products.form.imageHelp', 'Add clear images to help identify this product. You can upload multiple images.')}</p>
             </div>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <div>
-              <span className="block text-sm font-medium text-gray-700 mb-1">{currentProduct?.name}</span>
-              <span className="block text-xs text-gray-500 mb-2">{t('products.table.columns.stock')}: {currentProduct?.stock}</span>
-            </div>
-            
-          <Input
-              label={stockReason === 'restock' ? t('products.actions.quantityToAdd') : t('products.actions.newTotalStock')}
-              name="stockAdjustment" 
-            type="number"
-              value={stockAdjustment} 
-              onChange={e => setStockAdjustment(e.target.value)} 
-            required
-          />
-          
-          <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded-md">
-            <strong>{t('products.actions.note')}:</strong> {t('products.actions.stockAdjustmentNote')}
-          </p>
-            
-            <select 
-              className="block w-full rounded-md border border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm px-3 py-2" 
-              value={stockReason} 
-              onChange={e => setStockReason(e.target.value as 'restock' | 'adjustment')}
-            >
-              <option value="restock">{t('products.actions.restock')}</option>
-              <option value="adjustment">{t('products.actions.adjustment')}</option>
-            </select>
-            
-            {/* Supplier circuit and cost price fields - always visible */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                {t('products.form.step2.supplyType')}
-              </label>
-              <select
-                name="supplyType"
-                value={stockAdjustmentSupplier.supplyType}
-                onChange={handleStockAdjustmentSupplierChange}
-                className="block w-full rounded-md border border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm px-3 py-2"
-              >
-                <option value="ownPurchase">{t('products.form.step2.ownPurchase')}</option>
-                <option value="fromSupplier">{t('products.form.step2.fromSupplier')}</option>
-              </select>
-            </div>
-            {stockAdjustmentSupplier.supplyType === 'fromSupplier' && (
-              <>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {t('products.form.step2.supplier')}
-                  </label>
-                  <div className="flex space-x-2">
-                    <select
-                      name="supplierId"
-                      value={stockAdjustmentSupplier.supplierId}
-                      onChange={handleStockAdjustmentSupplierChange}
-                      className="flex-1 rounded-md border border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm px-3 py-2"
-                    >
-                      <option value="">{t('common.select')}</option>
-                      {suppliers.filter(s => !s.isDeleted).map(supplier => (
-                        <option key={supplier.id} value={supplier.id}>
-                          {supplier.name}
-                        </option>
-                      ))}
-                    </select>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setIsQuickAddSupplierOpen(true)}
-                    >
-                      {t('products.actions.addSupplier')}
-                    </Button>
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {t('products.form.step2.paymentType')}
-                  </label>
-                  <select
-                    name="paymentType"
-                    value={stockAdjustmentSupplier.paymentType}
-                    onChange={handleStockAdjustmentSupplierChange}
-                    className="block w-full rounded-md border border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm px-3 py-2"
-                  >
-                    <option value="paid">{t('products.form.step2.paid')}</option>
-                    <option value="credit">{t('products.form.step2.credit')}</option>
-                  </select>
-                </div>
-              </>
-            )}
-            <Input
-              label={t('products.form.step2.stockCostPrice')}
-              name="costPrice"
-              type="number"
-              value={editPrices.costPrice}
-              onChange={e => setEditPrices(p => ({ ...p, costPrice: e.target.value }))}
-              helpText={t('products.form.step2.stockCostPriceHelp')}
-              required
-            />
-            <Input
-              label={t('products.form.step2.sellingPrice')}
-              name="sellingPrice"
-              type="number"
-              value={editPrices.sellingPrice}
-              onChange={e => setEditPrices(p => ({ ...p, sellingPrice: e.target.value }))}
-              helpText={t('products.form.step2.sellingPriceHelp')}
-              required
-            />
-            <Input
-              label={t('products.form.step2.cataloguePrice')}
-              name="cataloguePrice"
-              type="number"
-              value={editPrices.cataloguePrice}
-              onChange={e => setEditPrices(p => ({ ...p, cataloguePrice: e.target.value }))}
-              helpText={t('products.form.step2.cataloguePriceHelp')}
-            />
-            
-            <p className="mt-2 text-sm text-gray-500">
-              <span className="block mb-2">
-                <strong>{t('products.actions.restock')}:</strong> {t('products.actions.restockHelp')}
-              </span>
-              <span className="block">
-                <strong>{t('products.actions.adjustment')}:</strong> {t('products.actions.adjustmentHelp')}
-              </span>
-            </p>
-            
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setIsEditModalOpen(false)}>{t('common.cancel')}</Button>
-              <Button onClick={handleStockSubmit} isLoading={isStockSubmitting}>{t('common.save')}</Button>
-          </div>
-            <div className="mt-6">
-              <h4 className="font-semibold mb-2">{t('products.actions.stockHistory')}</h4>
-              {(stockChanges.filter(sc => sc.productId === currentProduct?.id).length === 0) ? (
-                <span className="text-sm text-gray-500">{t('products.messages.noStockHistory')}</span>
-              ) : (
-                <table className="min-w-full text-sm">
-                  <thead>
-                    <tr>
-                      <th className="text-left">{t('products.actions.date')}</th>
-                      <th className="text-left">{t('products.actions.change')}</th>
-                      <th className="text-left">{t('products.actions.reason')}</th>
-                      <th className="text-left">{t('products.form.step2.supplier')}</th>
-                      <th className="text-left">{t('products.form.step2.paymentType')}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {stockChanges.filter(sc => sc.productId === currentProduct?.id).map(sc => {
-                      const supplier = sc.supplierId ? suppliers.find(s => s.id === sc.supplierId) : null;
-                      return (
-                      <tr key={sc.id}>
-                        <td>{sc.createdAt?.seconds ? new Date(sc.createdAt.seconds * 1000).toLocaleString() : ''}</td>
-                        <td>{sc.change > 0 ? '+' : ''}{sc.change}</td>
-                        <td>{t('products.actions.' + sc.reason)}</td>
-                          <td>
-                            {sc.isOwnPurchase ? (
-                              <span className="text-gray-500">{t('products.form.step2.ownPurchase')}</span>
-                            ) : supplier ? (
-                              <span className={supplier.isDeleted ? 'text-red-500 line-through' : ''}>
-                                {supplier.name}
-                                {supplier.isDeleted && ' (Deleted)'}
-                              </span>
-                            ) : (
-                              <span className="text-gray-400">Unknown</span>
-                            )}
-                          </td>
-                          <td>
-                            {sc.isOwnPurchase ? (
-                              <span className="text-gray-500">-</span>
-                            ) : sc.isCredit ? (
-                              <span className="text-red-600">{t('products.form.step2.credit')}</span>
-                            ) : (
-                              <span className="text-green-600">{t('products.form.step2.paid')}</span>
-                            )}
-                          </td>
-                      </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              )}
-        </div>
           </div>
         )}
       </Modal>
