@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Grid, List, Plus, Search, Edit2, Upload, Trash2, CheckSquare, Square } from 'lucide-react';
+import { Grid, List, Plus, Search, Edit2, Upload, Trash2, CheckSquare, Square, Info } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
@@ -100,6 +100,20 @@ const Products = () => {
   
   // Add state for saveCategories
   const [saveCategories, setSaveCategories] = useState(false);
+
+  // Add state for detail modal
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [detailProduct, setDetailProduct] = useState<Product | null>(null);
+  const [detailTab, setDetailTab] = useState<'details' | 'stock'>('details');
+
+  // Add state for stock history table controls
+  const [stockHistoryPage, setStockHistoryPage] = useState(1);
+  const [stockHistoryPerPage, setStockHistoryPerPage] = useState(10);
+  const [stockHistorySortBy, setStockHistorySortBy] = useState<'date' | 'change' | 'reason'>('date');
+  const [stockHistorySortOrder, setStockHistorySortOrder] = useState<'asc' | 'desc'>('desc');
+  const [stockHistoryFilterType, setStockHistoryFilterType] = useState<string>('');
+  const [stockHistoryFilterSupplier, setStockHistoryFilterSupplier] = useState<string>('');
+  const [stockHistorySearch, setStockHistorySearch] = useState('');
   
   // --- State for image gallery per product ---
   const [mainImageIndexes, setMainImageIndexes] = useState<Record<string, number>>({});
@@ -927,14 +941,21 @@ const Products = () => {
                   <p className="mt-2 text-sm text-gray-500">{product.category}</p>
                 </div>
                 <div className="mt-4 flex justify-end space-x-2 px-4 pb-3">
-                  <button 
+                  <button
+                    onClick={() => { setDetailProduct(product); setIsDetailModalOpen(true); }}
+                    className="text-blue-600 hover:text-blue-900"
+                    title={t('products.actions.viewDetails', 'View Details')}
+                  >
+                    <Info size={16} />
+                  </button>
+                  <button
                     onClick={() => openEditModal(product)}
                     className="text-indigo-600 hover:text-indigo-900"
                     title={t('products.actions.editProduct')}
                   >
                     <Edit2 size={16} />
                   </button>
-                  <button 
+                  <button
                     onClick={() => openDeleteModal(product)}
                     className="text-red-600 hover:text-red-900"
                     title={t('products.actions.deleteProduct')}
@@ -1054,14 +1075,21 @@ const Products = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex justify-end space-x-2">
-                        <button 
+                        <button
+                          onClick={() => { setDetailProduct(product); setIsDetailModalOpen(true); }}
+                          className="text-blue-600 hover:text-blue-900"
+                          title={t('products.actions.viewDetails', 'View Details')}
+                        >
+                          <Info size={16} />
+                        </button>
+                        <button
                           onClick={() => openEditModal(product)}
                           className="text-indigo-600 hover:text-indigo-900"
                           title={t('products.actions.editProduct')}
                         >
                           <Edit2 size={16} />
                         </button>
-                        <button 
+                        <button
                           onClick={() => openDeleteModal(product)}
                           className="text-red-600 hover:text-red-900"
                           title={t('products.actions.deleteProduct')}
@@ -1890,6 +1918,438 @@ const Products = () => {
             onChange={handleQuickSupplierInputChange}
           />
         </div>
+      </Modal>
+
+      {/* Product Detail Modal */}
+      <Modal
+        isOpen={isDetailModalOpen}
+        onClose={() => { setIsDetailModalOpen(false); setDetailProduct(null); }}
+        title={t('products.actions.viewDetails', 'Product Details')}
+        size="xl"
+      >
+        <div className="mb-4 flex border-b">
+          <button
+            className={`px-4 py-2 ${detailTab === 'details' ? 'font-bold border-b-2 border-emerald-500' : 'text-gray-500'}`}
+            onClick={() => setDetailTab('details')}
+            type="button"
+          >
+            {t('products.detailTabs.details', 'Details')}
+          </button>
+          <button
+            className={`px-4 py-2 ${detailTab === 'stock' ? 'font-bold border-b-2 border-emerald-500' : 'text-gray-500'}`}
+            onClick={() => setDetailTab('stock')}
+            type="button"
+          >
+            {t('products.detailTabs.stock', 'Stock History')}
+          </button>
+        </div>
+        {detailTab === 'details' && (
+          <div className="space-y-6">
+            {/* Product Images */}
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-3">{t('products.form.image', 'Images')}</h3>
+              {detailProduct?.images && detailProduct.images.length > 0 ? (
+                <div className="flex space-x-2 overflow-x-auto pb-2">
+                  {detailProduct.images.map((img, idx) => (
+                    <img
+                      key={idx}
+                      src={img.startsWith('data:image') ? img : `data:image/jpeg;base64,${img}`}
+                      alt={`${detailProduct.name} - Image ${idx + 1}`}
+                      className="w-24 h-24 object-cover rounded-lg border border-gray-200 flex-shrink-0"
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="w-24 h-24 bg-gray-100 rounded-lg border border-gray-200 flex items-center justify-center">
+                  <span className="text-gray-400 text-sm">No image</span>
+                </div>
+              )}
+            </div>
+
+            {/* Basic Information */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">{t('products.detailTabs.basicInfo', 'Basic Information')}</h3>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">{t('products.form.name')}</label>
+                    <p className="mt-1 text-sm text-gray-900">{detailProduct?.name}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">{t('products.form.reference')}</label>
+                    <p className="mt-1 text-sm text-gray-900">{detailProduct?.reference}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">{t('products.form.category')}</label>
+                    <p className="mt-1 text-sm text-gray-900">{detailProduct?.category}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Pricing Information */}
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">{t('products.detailTabs.pricing', 'Pricing')}</h3>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">{t('products.form.step2.sellingPrice')}</label>
+                    <p className="mt-1 text-sm font-semibold text-emerald-600">{detailProduct?.sellingPrice?.toLocaleString()} XAF</p>
+                  </div>
+                  {detailProduct?.cataloguePrice && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">{t('products.form.step2.cataloguePrice')}</label>
+                      <p className="mt-1 text-sm text-gray-900">{detailProduct.cataloguePrice.toLocaleString()} XAF</p>
+                    </div>
+                  )}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">{t('products.form.latestCostPrice', 'Latest Cost Price')}</label>
+                    <p className="mt-1 text-sm text-gray-900">{getLatestCostPrice(detailProduct?.id || '', stockChanges)?.toLocaleString() || '0'} XAF</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Stock Information */}
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-3">{t('products.detailTabs.stock', 'Stock Information')}</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">{t('products.table.columns.stock')}</label>
+                  <div className="mt-1">
+                    <Badge variant={detailProduct && detailProduct.stock > 10 ? 'success' : detailProduct && detailProduct.stock > 5 ? 'warning' : 'error'}>
+                      {detailProduct?.stock || 0} units
+                    </Badge>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">{t('products.detailTabs.profitPerUnit', 'Profit per Unit')}</label>
+                  <p className="mt-1 text-sm font-semibold text-emerald-600">
+                    {detailProduct && getLatestCostPrice(detailProduct.id, stockChanges) !== undefined
+                      ? (detailProduct.sellingPrice - (getLatestCostPrice(detailProduct.id, stockChanges) || 0)).toLocaleString()
+                      : '-'
+                    } XAF
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">{t('products.detailTabs.totalValue', 'Total Stock Value')}</label>
+                  <p className="mt-1 text-sm text-gray-900">
+                    {detailProduct && getLatestCostPrice(detailProduct.id, stockChanges) !== undefined
+                      ? ((getLatestCostPrice(detailProduct.id, stockChanges) || 0) * detailProduct.stock).toLocaleString()
+                      : '0'
+                    } XAF
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Additional Information */}
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-3">{t('products.detailTabs.additional', 'Additional Information')}</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">{t('products.detailTabs.createdAt', 'Created')}</label>
+                  <p className="mt-1 text-sm text-gray-900">
+                    {detailProduct?.createdAt?.seconds 
+                      ? new Date(detailProduct.createdAt.seconds * 1000).toLocaleDateString()
+                      : 'Unknown'
+                    }
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">{t('products.detailTabs.lastUpdated', 'Last Updated')}</label>
+                  <p className="mt-1 text-sm text-gray-900">
+                    {detailProduct?.updatedAt?.seconds 
+                      ? new Date(detailProduct.updatedAt.seconds * 1000).toLocaleDateString()
+                      : 'Unknown'
+                    }
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        {detailTab === 'stock' && (
+          <div className="space-y-4">
+            {/* Filters and Search */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('products.stockHistory.filterByType', 'Filter by Type')}</label>
+                <select
+                  value={stockHistoryFilterType}
+                  onChange={(e) => setStockHistoryFilterType(e.target.value)}
+                  className="block w-full rounded-md border border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm px-3 py-2"
+                >
+                  <option value="">{t('common.all', 'All Types')}</option>
+                  <option value="restock">{t('products.actions.restock')}</option>
+                  <option value="sale">{t('products.actions.sale')}</option>
+                  <option value="adjustment">{t('products.actions.adjustment')}</option>
+                  <option value="creation">{t('products.actions.creation')}</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('products.stockHistory.filterBySupplier', 'Filter by Supplier')}</label>
+                <select
+                  value={stockHistoryFilterSupplier}
+                  onChange={(e) => setStockHistoryFilterSupplier(e.target.value)}
+                  className="block w-full rounded-md border border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm px-3 py-2"
+                >
+                  <option value="">{t('common.all', 'All Suppliers')}</option>
+                  <option value="ownPurchase">{t('products.form.step2.ownPurchase')}</option>
+                  {suppliers.filter(s => !s.isDeleted).map(supplier => (
+                    <option key={supplier.id} value={supplier.id}>{supplier.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('common.search', 'Search')}</label>
+                <input
+                  type="text"
+                  value={stockHistorySearch}
+                  onChange={(e) => setStockHistorySearch(e.target.value)}
+                  placeholder={t('products.stockHistory.searchPlaceholder', 'Search by reason, supplier...')}
+                  className="block w-full rounded-md border border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm px-3 py-2"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('products.stockHistory.itemsPerPage', 'Items per Page')}</label>
+                <select
+                  value={stockHistoryPerPage}
+                  onChange={(e) => setStockHistoryPerPage(Number(e.target.value))}
+                  className="block w-full rounded-md border border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm px-3 py-2"
+                >
+                  <option value={5}>5</option>
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Stock History Table */}
+            {(() => {
+              // Filter stock changes for this product
+              let filteredStockChanges = stockChanges.filter(sc => sc.productId === detailProduct?.id);
+              
+              // Apply type filter
+              if (stockHistoryFilterType) {
+                filteredStockChanges = filteredStockChanges.filter(sc => sc.reason === stockHistoryFilterType);
+              }
+              
+              // Apply supplier filter
+              if (stockHistoryFilterSupplier) {
+                if (stockHistoryFilterSupplier === 'ownPurchase') {
+                  filteredStockChanges = filteredStockChanges.filter(sc => sc.isOwnPurchase);
+                } else {
+                  filteredStockChanges = filteredStockChanges.filter(sc => sc.supplierId === stockHistoryFilterSupplier);
+                }
+              }
+              
+              // Apply search filter
+              if (stockHistorySearch) {
+                const searchLower = stockHistorySearch.toLowerCase();
+                filteredStockChanges = filteredStockChanges.filter(sc => {
+                  const supplier = sc.supplierId ? suppliers.find(s => s.id === sc.supplierId) : null;
+                  return (
+                    sc.reason.toLowerCase().includes(searchLower) ||
+                    (supplier && supplier.name.toLowerCase().includes(searchLower))
+                  );
+                });
+              }
+              
+              // Sort stock changes
+              filteredStockChanges.sort((a, b) => {
+                let aValue: number | string, bValue: number | string;
+                
+                switch (stockHistorySortBy) {
+                  case 'date':
+                    aValue = a.createdAt?.seconds || 0;
+                    bValue = b.createdAt?.seconds || 0;
+                    break;
+                  case 'change':
+                    aValue = a.change;
+                    bValue = b.change;
+                    break;
+                  case 'reason':
+                    aValue = a.reason;
+                    bValue = b.reason;
+                    break;
+                  default:
+                    aValue = a.createdAt?.seconds || 0;
+                    bValue = b.createdAt?.seconds || 0;
+                }
+                
+                if (stockHistorySortOrder === 'asc') {
+                  return aValue > bValue ? 1 : -1;
+                } else {
+                  return aValue < bValue ? 1 : -1;
+                }
+              });
+              
+              // Pagination
+              const totalPages = Math.ceil(filteredStockChanges.length / stockHistoryPerPage);
+              const startIndex = (stockHistoryPage - 1) * stockHistoryPerPage;
+              const paginatedStockChanges = filteredStockChanges.slice(startIndex, startIndex + stockHistoryPerPage);
+              
+              return (
+                <div>
+                  {/* Table */}
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th 
+                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                            onClick={() => {
+                              if (stockHistorySortBy === 'date') {
+                                setStockHistorySortOrder(stockHistorySortOrder === 'asc' ? 'desc' : 'asc');
+                              } else {
+                                setStockHistorySortBy('date');
+                                setStockHistorySortOrder('desc');
+                              }
+                            }}
+                          >
+                            {t('common.date', 'Date')}
+                            {stockHistorySortBy === 'date' && (
+                              <span className="ml-1">
+                                {stockHistorySortOrder === 'asc' ? '↑' : '↓'}
+                              </span>
+                            )}
+                          </th>
+                          <th 
+                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                            onClick={() => {
+                              if (stockHistorySortBy === 'change') {
+                                setStockHistorySortOrder(stockHistorySortOrder === 'asc' ? 'desc' : 'asc');
+                              } else {
+                                setStockHistorySortBy('change');
+                                setStockHistorySortOrder('desc');
+                              }
+                            }}
+                          >
+                            {t('products.actions.change', 'Change')}
+                            {stockHistorySortBy === 'change' && (
+                              <span className="ml-1">
+                                {stockHistorySortOrder === 'asc' ? '↑' : '↓'}
+                              </span>
+                            )}
+                          </th>
+                          <th 
+                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                            onClick={() => {
+                              if (stockHistorySortBy === 'reason') {
+                                setStockHistorySortOrder(stockHistorySortOrder === 'asc' ? 'desc' : 'asc');
+                              } else {
+                                setStockHistorySortBy('reason');
+                                setStockHistorySortOrder('desc');
+                              }
+                            }}
+                          >
+                            {t('products.actions.reason', 'Reason')}
+                            {stockHistorySortBy === 'reason' && (
+                              <span className="ml-1">
+                                {stockHistorySortOrder === 'asc' ? '↑' : '↓'}
+                              </span>
+                            )}
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            {t('products.form.step2.supplier', 'Supplier')}
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            {t('products.form.step2.paymentType', 'Payment')}
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            {t('products.form.step2.stockCostPrice', 'Cost Price')}
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {paginatedStockChanges.map((stockChange) => {
+                          const supplier = stockChange.supplierId ? suppliers.find(s => s.id === stockChange.supplierId) : null;
+                          return (
+                            <tr key={stockChange.id} className="hover:bg-gray-50">
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {stockChange.createdAt?.seconds 
+                                  ? new Date(stockChange.createdAt.seconds * 1000).toLocaleString()
+                                  : '-'
+                                }
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                <span className={`font-medium ${stockChange.change > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                  {stockChange.change > 0 ? '+' : ''}{stockChange.change}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {stockChange.reason}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {stockChange.isOwnPurchase ? (
+                                  <span className="text-gray-500">{t('products.form.step2.ownPurchase')}</span>
+                                ) : supplier ? (
+                                  <span className={supplier.isDeleted ? 'text-red-500 line-through' : ''}>
+                                    {supplier.name}
+                                    {supplier.isDeleted && ' (Deleted)'}
+                                  </span>
+                                ) : (
+                                  <span className="text-gray-400">Unknown</span>
+                                )}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                {stockChange.isOwnPurchase ? (
+                                  <span className="text-gray-500">-</span>
+                                ) : stockChange.isCredit ? (
+                                  <span className="text-red-600">{t('products.form.step2.credit')}</span>
+                                ) : (
+                                  <span className="text-green-600">{t('products.form.step2.paid')}</span>
+                                )}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {stockChange.costPrice ? stockChange.costPrice.toLocaleString() : '-'} XAF
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Pagination */}
+                  {totalPages > 1 && (
+                    <div className="flex items-center justify-between mt-4">
+                      <div className="text-sm text-gray-700">
+                        Showing {startIndex + 1} to {Math.min(startIndex + stockHistoryPerPage, filteredStockChanges.length)} of {filteredStockChanges.length} results
+                      </div>
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={() => setStockHistoryPage(Math.max(1, stockHistoryPage - 1))}
+                          disabled={stockHistoryPage === 1}
+                          className="px-3 py-1 text-sm border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                        >
+                          {t('common.previous', 'Previous')}
+                        </button>
+                        <span className="px-3 py-1 text-sm text-gray-700">
+                          {stockHistoryPage} {t('common.of', 'of')} {totalPages}
+                        </span>
+                        <button
+                          onClick={() => setStockHistoryPage(Math.min(totalPages, stockHistoryPage + 1))}
+                          disabled={stockHistoryPage === totalPages}
+                          className="px-3 py-1 text-sm border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                        >
+                          {t('common.next', 'Next')}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* No results message */}
+                  {filteredStockChanges.length === 0 && (
+                    <div className="text-center py-8 text-gray-500">
+                      {t('products.stockHistory.noResults', 'No stock changes found matching your filters.')}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
+        )}
       </Modal>
     </div>
   );
