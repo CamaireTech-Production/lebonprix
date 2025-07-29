@@ -473,8 +473,8 @@ export const useSuppliers = () => {
     if (!user) return;
     
     const unsubscribe = subscribeToSuppliers((data) => {
-      // Filter suppliers for the current user
-      const userSuppliers = data.filter(supplier => supplier.userId === user.uid);
+      // Filter suppliers for the current user and not soft-deleted
+      const userSuppliers = data.filter(supplier => supplier.userId === user.uid && !supplier.isDeleted);
       setSuppliers(userSuppliers);
       setLoading(false);
     });
