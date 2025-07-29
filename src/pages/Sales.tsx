@@ -449,7 +449,11 @@ const Sales = () => {
             {sale.totalAmount.toLocaleString()} XAF
           </td>
           <td className="px-6 py-4 whitespace-nowrap text-sm">
-            {format(new Date((sale.createdAt.seconds || 0) * 1000), 'yyyy-MM-dd HH:mm')}
+            {
+              sale.createdAt && typeof sale.createdAt.seconds === 'number'
+                ? format(new Date(sale.createdAt.seconds * 1000), 'yyyy-MM-dd HH:mm')
+                : 'Pending...'
+            }
           </td>
           <td className="px-6 py-4 whitespace-nowrap text-sm">
             {(() => {

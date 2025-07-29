@@ -17,6 +17,7 @@ interface AddSaleModalProps {
 }
 
 const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdded }) => {
+
   const {
     formData,
     setFormData,
@@ -81,10 +82,16 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
 
   // Patch handleAddSale to set viewedSale after success
   const handleAddSaleWithView = async () => {
-    const newSale = await handleAddSale();
-    if (newSale) {
-      setViewedSale(newSale);
-      if (onSaleAdded) onSaleAdded();
+    try {
+      const newSale = await handleAddSale();
+      if (newSale) {
+        setViewedSale(newSale);
+        if (onSaleAdded) {
+          onSaleAdded();
+        }
+      }
+    } catch (error) {
+      // console.error('[AddSaleModal] Error in handleAddSaleWithView', error);
     }
   };
 
@@ -95,7 +102,9 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
   };
 
   // Patch: if viewedSale is set, show details modal instead of form
-  if (!isOpen) return null;
+  if (!isOpen) {
+    return null;
+  }
 
   return (
     <>

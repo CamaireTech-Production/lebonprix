@@ -224,19 +224,13 @@ const createStockChange = (
     change,
     reason,
     userId,
-    isOwnPurchase,
-    isCredit,
-    costPrice,
     createdAt: serverTimestamp(),
   };
-  if (supplierId) {
-    stockChangeData.supplierId = supplierId;
-  }
-  try {
-    batch.set(stockChangeRef, stockChangeData);
-  } catch (error) {
-    throw error;
-  }
+  if (typeof supplierId !== 'undefined') stockChangeData.supplierId = supplierId;
+  if (typeof isOwnPurchase !== 'undefined') stockChangeData.isOwnPurchase = isOwnPurchase;
+  if (typeof isCredit !== 'undefined') stockChangeData.isCredit = isCredit;
+  if (typeof costPrice !== 'undefined') stockChangeData.costPrice = costPrice;
+  batch.set(stockChangeRef, stockChangeData);
 };
 
 export const createProduct = async (

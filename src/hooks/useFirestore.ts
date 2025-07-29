@@ -195,7 +195,9 @@ export const useSales = () => {
   }, [user]);
 
   const addSale = async (data: Omit<Sale, 'id' | 'createdAt' | 'updatedAt'>): Promise<Sale> => {
-    if (!user) throw new Error('User not authenticated');
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
     try {
       const newSale = await createSale({ ...data, userId: user.uid }, user.uid);
       await syncFinanceEntryWithSale(newSale);
