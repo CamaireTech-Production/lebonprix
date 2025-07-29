@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import StatCard from '../components/dashboard/StatCard';
 import Button from '../components/common/Button';
-import { useFinanceEntries, useProducts, useSales, useExpenses, useCustomers } from '../hooks/useFirestore';
+import { useFinanceEntries, useProducts, useSales, useExpenses, useCustomers, useStockChanges } from '../hooks/useFirestore';
 import { useObjectives } from '../hooks/useObjectives';
 import { format } from 'date-fns';
 import Modal, { ModalFooter } from '../components/common/Modal';
@@ -17,6 +17,7 @@ import ObjectivesBar from '../components/objectives/ObjectivesBar';
 import ObjectivesModal from '../components/objectives/ObjectivesModal';
 import { showSuccessToast, showErrorToast } from '../utils/toast';
 import type { FinanceEntry } from '../types/models';
+import { getLatestCostPrice } from '../utils/productUtils';
 
 type CustomerDebt = {
   phone: string;
@@ -31,6 +32,7 @@ const Finance: React.FC = () => {
   const { sales, loading: salesLoading } = useSales();
   const { expenses, loading: expensesLoading } = useExpenses();
   const { products, loading: productsLoading } = useProducts();
+  const { stockChanges } = useStockChanges();
   useCustomers(); // Only call the hook for side effects if needed, but don't destructure unused values
   const { user } = useAuth();
   useObjectives();
@@ -180,7 +182,9 @@ const Finance: React.FC = () => {
       const productData = products.find(p => p.id === product.productId);
       if (!productData) return productSum;
       const sellingPrice = product.negotiatedPrice || product.basePrice;
-      return productSum + (sellingPrice - productData.costPrice) * product.quantity;
+      const costPrice = getLatestCostPrice(productData.id, stockChanges);
+      if (costPrice === undefined) return productSum;
+      return productSum + (sellingPrice - costPrice) * product.quantity;
     }, 0);
   }, 0);
   // Calculate total expenses
@@ -194,9 +198,11 @@ const Finance: React.FC = () => {
   // Total products sold (sum of all product quantities in filteredSales)
   const totalProductsSold = filteredSales.reduce((sum, sale) => sum + sale.products.reduce((pSum, p) => pSum + p.quantity, 0), 0);
   // Calculate total purchase price for all products in stock as of the end of the selected period
-  // (Optional: can use stock changes if needed, for now use Dashboard logic)
-  const availableProducts = products.filter(product => typeof product.isAvailable === 'undefined' || product.isAvailable !== false);
-  const totalPurchasePrice = availableProducts.reduce((sum, product) => sum + (product.costPrice * product.stock), 0);
+  const totalPurchasePrice = products.reduce((sum, product) => {
+    const costPrice = getLatestCostPrice(product.id, stockChanges);
+    if (costPrice === undefined) return sum;
+    return sum + (costPrice * product.stock);
+  }, 0);
 
   // Stat cards (dashboard style, now using dashboard logic)
   const statCards = [
