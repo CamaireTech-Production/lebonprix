@@ -831,7 +831,8 @@
     "sourceType": {
       "manual": "Manual",
       "sale": "Sale",
-      "expense": "Expense"
+      "expense": "Expense",
+      "supplier": "Supplier"
     },
     "types": {
       "loan": "Loan",
@@ -840,6 +841,7 @@
       "refund": "Refund",
       "debt": "Debt",
       "supplier_debt": "Supplier Debt",
+      "supplier_refund": "Supplier Refund",
       "other": "Associated Entry"
     },
     "messages": {

@@ -14,6 +14,7 @@ import { useAuth } from '../contexts/AuthContext';
 import LoadingScreen from '../components/common/LoadingScreen';
 import { showSuccessToast, showErrorToast, showWarningToast } from '../utils/toast';
 import type { Supplier, FinanceEntry } from '../types/models';
+import StatCard from '../components/dashboard/StatCard';
 
 const Suppliers = () => {
   const { t } = useTranslation();
@@ -276,7 +277,6 @@ const Suppliers = () => {
       name: supplier.name,
       contact: supplier.contact,
       location: supplier.location || '-',
-      email: supplier.email || '-',
       totalDebt: debt.total.toLocaleString(),
       outstandingDebt: debt.outstanding.toLocaleString(),
       actions: (
@@ -308,7 +308,7 @@ const Suppliers = () => {
             onClick={() => openEditModal(supplier)}
             title={t('suppliers.actions.editSupplier')}
           >
-            {t('suppliers.actions.editSupplier')}
+            {''}
           </Button>
           <Button
             icon={<Trash2 size={16} />}
@@ -317,7 +317,7 @@ const Suppliers = () => {
             onClick={() => openDeleteModal(supplier)}
             title={t('suppliers.actions.deleteSupplier')}
           >
-            {t('suppliers.actions.deleteSupplier')}
+            {''}
           </Button>
         </div>
       )
@@ -328,7 +328,6 @@ const Suppliers = () => {
     { header: t('suppliers.table.columns.name'), accessor: 'name' as const },
     { header: t('suppliers.table.columns.contact'), accessor: 'contact' as const },
     { header: t('suppliers.table.columns.location'), accessor: 'location' as const },
-    { header: t('suppliers.table.columns.email'), accessor: 'email' as const },
     { header: t('suppliers.table.columns.totalDebt'), accessor: 'totalDebt' as const },
     { header: t('suppliers.table.columns.outstandingDebt'), accessor: 'outstandingDebt' as const },
     { header: t('suppliers.table.columns.actions'), accessor: 'actions' as const }
@@ -352,8 +351,25 @@ const Suppliers = () => {
         </div>
       </div>
 
-      {/* Supplier Debt Card */}
+      {/* Balance Card (Solde) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        <div className="w-full md:w-[100%] min-w-[200px] max-w-[480px]">
+          <StatCard
+            title={t('dashboard.stats.solde')}
+            value={(() => {
+              // Calculate solde: sum of all non-supplier_debt/refund entries
+              const nonSupplierEntries = entries.filter(
+                (entry: FinanceEntry) => entry.type !== 'supplier_debt' && entry.type !== 'supplier_refund'
+              );
+              const nonSupplierSum = nonSupplierEntries.reduce((sum, entry) => sum + entry.amount, 0);
+              // Add total supplier debt (outstanding)
+              return (nonSupplierSum + totalSupplierDebt).toLocaleString() + ' XAF';
+            })()}
+            icon={<DollarSign size={24} />}
+            type="solde"
+            className="ring-2 ring-green-400 shadow bg-green-50 text-green-900 border border-green-200 rounded-xl py-2 mb-2 w-full text-base md:text-xl font-bold break-words"
+          />
+        </div>
         <Card className="bg-red-50 border-red-200">
           <div className="flex items-center justify-between">
             <div>
