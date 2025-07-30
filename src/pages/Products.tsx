@@ -452,8 +452,35 @@ const Products = () => {
     if (step1Data.reference && step1Data.reference.trim() !== '') {
       updateData.reference = step1Data.reference;
     }
+    
     try {
-      await updateProduct(currentProduct.id, updateData, user.uid);
+      // Handle stock adjustment if provided
+      if (stockAdjustment && parseInt(stockAdjustment) !== 0) {
+        const stockChange = parseInt(stockAdjustment);
+        const stockReasonType = stockReason as 'restock' | 'adjustment';
+        
+        // For restock, add to current stock
+        if (stockReasonType === 'restock') {
+          const newStock = (currentProduct.stock || 0) + stockChange;
+          updateData.stock = newStock;
+          
+          // Create stock change with supplier info
+          await updateProduct(currentProduct.id, updateData, user.uid, stockReasonType, stockChange, {
+            supplierId: stockAdjustmentSupplier.supplierId || undefined,
+            isOwnPurchase: stockAdjustmentSupplier.supplyType === 'ownPurchase',
+            isCredit: stockAdjustmentSupplier.paymentType === 'credit',
+            costPrice: stockAdjustmentSupplier.costPrice ? parseFloat(stockAdjustmentSupplier.costPrice) : undefined
+          });
+        } else {
+          // For adjustment, set to new value
+          updateData.stock = stockChange;
+          await updateProduct(currentProduct.id, updateData, user.uid, stockReasonType, stockChange - (currentProduct.stock || 0));
+        }
+      } else {
+        // No stock adjustment, just update product info
+        await updateProduct(currentProduct.id, updateData, user.uid);
+      }
+      
       // Update latest stock change cost price if changed
       const latestStockChange = stockChanges
         .filter(sc => sc.productId === currentProduct.id)
@@ -1449,6 +1476,7 @@ const Products = () => {
                 <option value="fromSupplier">{t('products.form.step2.fromSupplier')}</option>
               </select>
             </div>
+            {/* Supplier and Payment Type (only for restock) */}
             {stockAdjustmentSupplier.supplyType === 'fromSupplier' && (
               <>
                 <div>
@@ -1486,18 +1514,20 @@ const Products = () => {
                     <option value="credit">{t('products.form.step2.credit')}</option>
                   </select>
                 </div>
+              </>
+            )}
+            
+            {/* Cost Price Field - Always Visible */}
             <Input
               label={t('products.form.step2.stockCostPrice')}
               name="costPrice"
               type="number"
-                        min={0}
-                        value={stockAdjustmentSupplier.costPrice}
-                        onChange={e => setStockAdjustmentSupplier(prev => ({ ...prev, costPrice: e.target.value.replace(/[^0-9.]/g, '') }))}
+              min={0}
+              value={stockAdjustmentSupplier.costPrice}
+              onChange={e => setStockAdjustmentSupplier(prev => ({ ...prev, costPrice: e.target.value.replace(/[^0-9.]/g, '') }))}
               required
-                        helpText={t('products.form.step2.stockCostPriceHelp')}
-                      />
-                    </>
-                  )}
+              helpText={t('products.form.step2.stockCostPriceHelp')}
+            />
                 </div>
               </>
             ) : (

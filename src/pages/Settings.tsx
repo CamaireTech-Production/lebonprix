@@ -12,7 +12,7 @@ import i18n from '../i18n/config';
 const Settings = () => {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('account');
-  const { company, user, updateCompany, updateUserPassword } = useAuth();
+  const { company, updateCompany, updateUserPassword } = useAuth();
   const { sales } = useSales();
   const { expenses } = useExpenses();
   
