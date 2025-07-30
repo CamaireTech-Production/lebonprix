@@ -40,8 +40,12 @@ export interface Product extends BaseModel {
 export interface SaleProduct {
   productId: string;
   quantity: number;
-  basePrice: number;
+  basePrice: number; // Selling price
   negotiatedPrice?: number;
+  costPrice: number; // Cost price at time of sale (NEW!)
+  batchId?: string; // Which batch this came from (NEW!)
+  profit: number; // Calculated profit (NEW!)
+  profitMargin: number; // Profit margin percentage (NEW!)
 }
 
 export interface Sale extends BaseModel {
@@ -114,8 +118,24 @@ export interface StockChange {
   isOwnPurchase?: boolean; // true if own purchase, false if from supplier
   isCredit?: boolean; // true if on credit, false if paid (only relevant if from supplier)
   costPrice?: number; // Cost price for this stock entry
+  batchId?: string; // Reference to stock batch (NEW!)
   createdAt: Timestamp;
   userId: string;
+}
+
+// Stock batch for FIFO inventory tracking (NEW!)
+export interface StockBatch {
+  id: string;
+  productId: string;
+  quantity: number; // Total quantity in this batch
+  costPrice: number; // Cost per unit for this batch
+  supplierId?: string; // Reference to supplier if applicable
+  isOwnPurchase?: boolean; // true if own purchase, false if from supplier
+  isCredit?: boolean; // true if on credit, false if paid
+  createdAt: Timestamp;
+  userId: string;
+  remainingQuantity: number; // How many units left from this batch
+  status: 'active' | 'depleted' | 'corrected'; // Batch status
 }
 
 export interface Supplier extends BaseModel {
