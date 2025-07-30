@@ -837,7 +837,8 @@
     "sourceType": {
       "manual": "Manuelle",
       "sale": "Vente",
-      "expense": "Dépense"
+      "expense": "Dépense",
+      "supplier": "Fournisseur"
     },
     "types": {
       "loan": "Prêt",
@@ -846,6 +847,7 @@
       "refund": "Remboursement",
       "debt": "Dette",
       "supplier_debt": "Dette Fournisseur",
+      "supplier_refund": "Remboursement Fournisseur",
       "other": "Entrée associée"
     },
     "messages": {
