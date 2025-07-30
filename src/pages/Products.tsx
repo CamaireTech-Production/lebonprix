@@ -16,7 +16,7 @@ import imageCompression from 'browser-image-compression';
 import Papa from 'papaparse';
 import type { Product } from '../types/models';
 import type { ParseResult } from 'papaparse';
-import { getLatestCostPrice } from '../utils/productUtils';
+import { getLatestCostPrice, getDisplayCostPrice } from '../utils/productUtils';
 
 interface CsvRow {
   [key: string]: string;
@@ -952,7 +952,7 @@ const Products = () => {
                   <div className="mt-2 space-y-1">
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">{t('products.table.columns.costPrice')}:</span>
-                      <span className="font-medium">{getLatestCostPrice(product.id, stockChanges)} XAF</span>
+                      <span className="font-medium">{getDisplayCostPrice(product.id, stockChanges).toLocaleString()} XAF</span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">{t('products.table.columns.sellingPrice')}:</span>
@@ -1087,7 +1087,7 @@ const Products = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{getLatestCostPrice(product.id, stockChanges)} XAF</div>
+                      <div className="text-sm text-gray-900">{getDisplayCostPrice(product.id, stockChanges).toLocaleString()} XAF</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-emerald-600 font-medium">{product.sellingPrice.toLocaleString()} XAF</div>
@@ -1516,18 +1516,6 @@ const Products = () => {
                 </div>
               </>
             )}
-            
-            {/* Cost Price Field - Always Visible */}
-            <Input
-              label={t('products.form.step2.stockCostPrice')}
-              name="costPrice"
-              type="number"
-              min={0}
-              value={stockAdjustmentSupplier.costPrice}
-              onChange={e => setStockAdjustmentSupplier(prev => ({ ...prev, costPrice: e.target.value.replace(/[^0-9.]/g, '') }))}
-              required
-              helpText={t('products.form.step2.stockCostPriceHelp')}
-            />
                 </div>
               </>
             ) : (
@@ -1548,66 +1536,97 @@ const Products = () => {
           </div>
               </>
             )}
-            {/* Mini Stock History Table (last 2 changes) */}
-            <div className="mt-6">
-              <h4 className="font-semibold mb-2">{t('products.actions.stockHistory')}</h4>
-              {(() => {
-                const history = stockChanges.filter(sc => sc.productId === currentProduct?.id).slice(-2).reverse();
-                if (history.length === 0) {
-                  return <span className="text-sm text-gray-500">{t('products.messages.noStockHistory')}</span>;
-                }
-                return (
-                  <table className="min-w-full text-sm border rounded-md overflow-hidden">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="text-left px-2 py-1">{t('products.actions.date')}</th>
-                        <th className="text-left px-2 py-1">{t('products.actions.change')}</th>
-                        <th className="text-left px-2 py-1">{t('products.actions.reason')}</th>
-                        <th className="text-left px-2 py-1">{t('products.form.step2.supplier')}</th>
-                        <th className="text-left px-2 py-1">{t('products.form.step2.paymentType')}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                      {history.map(sc => {
-                      const supplier = sc.supplierId ? suppliers.find(s => s.id === sc.supplierId) : null;
-                      return (
-                          <tr key={sc.id} className="border-b last:border-b-0">
-                            <td className="px-2 py-1">{sc.createdAt?.seconds ? new Date(sc.createdAt.seconds * 1000).toLocaleString() : ''}</td>
-                            <td className="px-2 py-1">{sc.change > 0 ? '+' : ''}{sc.change}</td>
-                            <td className="px-2 py-1">{t('products.actions.' + sc.reason)}</td>
-                            <td className="px-2 py-1">
-                            {sc.isOwnPurchase ? (
-                              <span className="text-gray-500">{t('products.form.step2.ownPurchase')}</span>
-                            ) : supplier ? (
-                              <span className={supplier.isDeleted ? 'text-red-500 line-through' : ''}>
-                                {supplier.name}
-                                {supplier.isDeleted && ' (Deleted)'}
-                              </span>
-                            ) : (
-                              <span className="text-gray-400">Unknown</span>
-                            )}
-                          </td>
-                            <td className="px-2 py-1">
-                            {sc.isOwnPurchase ? (
-                              <span className="text-gray-500">-</span>
-                            ) : sc.isCredit ? (
-                              <span className="text-red-600">{t('products.form.step2.credit')}</span>
-                            ) : (
-                              <span className="text-green-600">{t('products.form.step2.paid')}</span>
-                            )}
-                          </td>
-                      </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-                );
-              })()}
-              <div className="mt-2 text-right">
-                <span className="text-xs text-emerald-600 cursor-pointer underline">{t('products.actions.viewAllHistory', 'View All History')}</span>
-              </div>
-            </div>
-          </div>
+            
+                         {/* Cost Price Field - Always Visible for all stock operations */}
+             <div className="space-y-2">
+               <Input
+                 label={t('products.form.step2.stockCostPrice')}
+                 name="costPrice"
+                 type="number"
+                 min={0}
+                 value={stockAdjustmentSupplier.costPrice}
+                 onChange={e => setStockAdjustmentSupplier(prev => ({ ...prev, costPrice: e.target.value.replace(/[^0-9.]/g, '') }))}
+                 required
+                 helpText={t('products.form.step2.stockCostPriceHelp')}
+               />
+               
+                               {/* Current Cost Price Display */}
+                {currentProduct && (
+                  <div className="text-sm text-gray-600 bg-blue-50 rounded-md p-2">
+                    <span className="font-medium">{t('products.form.step2.currentCostPrice')}:</span> {getDisplayCostPrice(currentProduct.id, stockChanges).toLocaleString()} XAF
+                    {stockReason === 'adjustment' && (
+                      <div className="mt-1 text-xs text-gray-500">
+                        {t('products.form.step2.costPriceUpdateNote')}
+                      </div>
+                    )}
+                  </div>
+                )}
+             </div>
+             
+             {/* Mini Stock History Table (last 2 changes) */}
+             <div className="mt-6">
+               <h4 className="font-semibold mb-2">{t('products.actions.stockHistory')}</h4>
+               {(() => {
+                 const history = stockChanges.filter(sc => sc.productId === currentProduct?.id).slice(-2).reverse();
+                 if (history.length === 0) {
+                   return <span className="text-sm text-gray-500">{t('products.messages.noStockHistory')}</span>;
+                 }
+                 return (
+                   <table className="min-w-full text-sm border rounded-md overflow-hidden">
+                     <thead className="bg-gray-50">
+                       <tr>
+                         <th className="text-left px-2 py-1">{t('products.actions.date')}</th>
+                         <th className="text-left px-2 py-1">{t('products.actions.change')}</th>
+                         <th className="text-left px-2 py-1">{t('products.actions.reason')}</th>
+                         <th className="text-left px-2 py-1">{t('products.form.step2.supplier')}</th>
+                         <th className="text-left px-2 py-1">{t('products.form.step2.paymentType')}</th>
+                         <th className="text-left px-2 py-1">{t('products.form.step2.stockCostPrice')}</th>
+                       </tr>
+                     </thead>
+                     <tbody>
+                       {history.map(sc => {
+                         const supplier = sc.supplierId ? suppliers.find(s => s.id === sc.supplierId) : null;
+                         return (
+                           <tr key={sc.id} className="border-b last:border-b-0">
+                             <td className="px-2 py-1">{sc.createdAt?.seconds ? new Date(sc.createdAt.seconds * 1000).toLocaleString() : ''}</td>
+                             <td className="px-2 py-1">{sc.change > 0 ? '+' : ''}{sc.change}</td>
+                             <td className="px-2 py-1">{t('products.actions.' + sc.reason)}</td>
+                             <td className="px-2 py-1">
+                               {sc.isOwnPurchase ? (
+                                 <span className="text-gray-500">{t('products.form.step2.ownPurchase')}</span>
+                               ) : supplier ? (
+                                 <span className={supplier.isDeleted ? 'text-red-500 line-through' : ''}>
+                                   {supplier.name}
+                                   {supplier.isDeleted && ' (Deleted)'}
+                                 </span>
+                               ) : (
+                                 <span className="text-gray-400">Unknown</span>
+                               )}
+                             </td>
+                             <td className="px-2 py-1">
+                               {sc.isOwnPurchase ? (
+                                 <span className="text-gray-500">-</span>
+                               ) : sc.isCredit ? (
+                                 <span className="text-red-600">{t('products.form.step2.credit')}</span>
+                               ) : (
+                                 <span className="text-green-600">{t('products.form.step2.paid')}</span>
+                               )}
+                             </td>
+                             <td className="px-2 py-1">
+                               {sc.costPrice ? `${sc.costPrice.toLocaleString()} XAF` : '-'}
+                             </td>
+                           </tr>
+                         );
+                       })}
+                     </tbody>
+                   </table>
+                 );
+               })()}
+               <div className="mt-2 text-right">
+                 <span className="text-xs text-emerald-600 cursor-pointer underline">{t('products.actions.viewAllHistory', 'View All History')}</span>
+               </div>
+             </div>
+           </div>
         )}
         {editTab === 'pricing' && (
           <div className="space-y-6">

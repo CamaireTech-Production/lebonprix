@@ -542,7 +542,9 @@
         "credit": "On Credit",
         "paid": "Paid",
         "stockCostPrice": "Stock Cost Price",
-        "stockCostPriceHelp": "Cost price for this specific stock entry (if different from product cost price)",
+        "stockCostPriceHelp": "Cost price for this specific stock entry. This will be used for profit calculations.",
+    "currentCostPrice": "Current Cost Price",
+    "costPriceUpdateNote": "Enter the cost price for this stock adjustment. This will update the product's cost price."
         "quantity": "Quantity",
         "supplierRequired": "Please select a supplier",
         "paymentTypeRequired": "Please select payment type",

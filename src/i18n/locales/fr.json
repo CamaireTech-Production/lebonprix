@@ -524,7 +524,9 @@
         "credit": "À crédit",
         "paid": "Payé",
         "stockCostPrice": "Prix d'achat du stock",
-        "stockCostPriceHelp": "Prix d'achat pour cette entrée de stock spécifique (si différent du prix d'achat du produit)",
+        "stockCostPriceHelp": "Prix d'achat pour cette entrée de stock spécifique. Ceci sera utilisé pour les calculs de profit.",
+    "currentCostPrice": "Prix d'achat actuel",
+    "costPriceUpdateNote": "Entrez le prix d'achat pour cet ajustement de stock. Ceci mettra à jour le prix d'achat du produit."
         "quantity": "Quantité",
         "supplierRequired": "Veuillez sélectionner un fournisseur",
         "paymentTypeRequired": "Veuillez sélectionner le type de paiement",
