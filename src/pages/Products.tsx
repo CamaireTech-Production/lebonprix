@@ -647,8 +647,11 @@ const Products = () => {
   }
 
   if (error) {
-    showErrorToast(t('products.messages.errors.loadProducts'));
-    return null;
+    return (
+      <div className="p-4 text-center text-red-600">
+        <p>{t('products.messages.errors.loadProducts')}</p>
+      </div>
+    );
   }
 
   // Add handleImport, handleFileUpload, and handleColumnMappingChange above their first usage (modal code)

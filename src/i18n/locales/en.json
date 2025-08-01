@@ -5,6 +5,7 @@
     "error": "Error",
     "success": "Success",
     "save": "Save",
+    "saving": "Saving...",
     "cancel": "Cancel",
     "delete": "Delete",
     "edit": "Edit",
@@ -298,6 +299,14 @@
         },
         "status": {
           "label": "Status"
+        },
+        "inventoryMethod": {
+          "title": "Inventory Method",
+          "fifo": "FIFO (First In, First Out)",
+          "lifo": "LIFO (Last In, First Out)",
+          "fifoDescription": "- Sell oldest stock first",
+          "lifoDescription": "- Sell newest stock first",
+          "helpText": "This determines how stock is consumed when calculating cost of goods sold and profit margins."
         }
       },
       "edit": {
@@ -522,11 +531,19 @@
         "title": "Basic Information",
         "name": "Product Name",
         "reference": "Reference",
+        "category": "Category",
+        "categoryPlaceholder": "Select or create a category",
+        "image": "Image",
+        "imageHelp": "Add clear images to help identify this product. You can upload multiple images.",
+        "referenceHelp": "Auto-generated from name, but you can edit it.",
+        "latestCostPrice": "Latest Cost Price",
+        "profitPerUnit": "Profit per unit",
+        "stockChangeType": "Stock Change Type",
+        "restockHelp": "This value will be added to your current stock.",
+        "sellingPriceHelp": "Required: The price at which you sell this product.",
         "costPrice": "Cost Price",
         "sellingPrice": "Selling Price",
         "cataloguePrice": "Catalogue Price",
-        "category": "Category",
-        "sellingPriceHelp": "Required: The price at which you sell this product.",
         "cataloguePriceHelp": "Optional: Used for reference or promotions."
       },
       "step2": {
@@ -543,27 +560,47 @@
         "paid": "Paid",
         "stockCostPrice": "Stock Cost Price",
         "stockCostPriceHelp": "Cost price for this specific stock entry. This will be used for profit calculations.",
-    "currentCostPrice": "Current Cost Price",
-    "costPriceUpdateNote": "Enter the cost price for this stock adjustment. This will update the product's cost price."
+        "currentCostPrice": "Current Cost Price",
+        "costPriceUpdateNote": "Enter the cost price for this stock adjustment. This will update the product's cost price.",
         "quantity": "Quantity",
         "supplierRequired": "Please select a supplier",
         "paymentTypeRequired": "Please select payment type",
         "sellingPrice": "Selling Price",
         "cataloguePrice": "Catalogue Price"
+      }
+    },
+    "stockBatch": {
+      "title": "Stock Batch Management",
+      "subtitle": "Manage FIFO/LIFO inventory batches",
+      "add": "Add Batch",
+      "edit": "Edit Batch",
+      "details": "Batch Details",
+      "active": "Active Batches",
+      "depleted": "Depleted Batches",
+      "noActiveBatches": "No active batches found",
+      "quantity": "Quantity",
+      "costPrice": "Cost Price",
+      "remainingQuantity": "Remaining Quantity",
+      "supplierId": "Supplier ID",
+      "supplierIdPlaceholder": "Optional supplier reference",
+      "ownPurchase": "Own Purchase",
+      "credit": "Credit",
+      "notes": "Notes",
+      "notesPlaceholder": "Optional notes about this batch",
+      "status": "Status",
+      "createdAt": "Created At",
+      "units": "units",
+      "validation": {
+        "requiredFields": "Please fill in all required fields",
+        "positiveValues": "Quantity and cost price must be positive numbers"
       },
-      "name": "Product Name",
-      "reference": "Reference",
-      "category": "Category",
-      "categoryPlaceholder": "Select or create a category",
-      "image": "Image",
-      "imageHelp": "Add clear images to help identify this product. You can upload multiple images.",
-      "referenceHelp": "Auto-generated from name, but you can edit it.",
-      "latestCostPrice": "Latest Cost Price",
-      "profitPerUnit": "Profit per unit",
-      "stockChangeType": "Stock Change Type",
-      "restockHelp": "This value will be added to your current stock.",
-      "sellingPriceHelp": "Required: The price at which you sell this product.",
-      "cataloguePriceHelp": "Optional: Used for reference or promotions."
+      "editWarning": "Editing cost price will mark this batch as corrected for audit purposes",
+      "added": "Stock batch added successfully",
+      "updated": "Stock batch updated successfully",
+      "error": {
+        "add": "Failed to add stock batch",
+        "update": "Failed to update stock batch"
+      }
     },
     "table": {
       "columns": {
@@ -610,11 +647,24 @@
     },
     "editTabs": {
       "info": "Info",
-      "stock": "Stock",
+      "stock": "Stock Management",
       "pricing": "Pricing",
       "infoBox": "The product name and reference help you identify this item in your catalog. Categories help you organize products for easier filtering and reporting.",
       "stockInfoBox": "Use this section to add or adjust stock. Restock increases available units, while adjustment is for correcting errors or losses.",
-      "pricingInfoBox": "Set the price at which you sell this product. The catalogue price is optional and can be used for reference or promotions."
+      "pricingInfoBox": "Set the price at which you sell this product. The catalogue price is optional and can be used for reference or promotions.",
+      "batchesInfoBox": "Manage stock batches for this product. Each batch represents a specific quantity with its own cost price, allowing for accurate FIFO/LIFO inventory tracking."
+    },
+    "detailTabs": {
+      "details": "Details",
+      "batches": "Stock Batches",
+      "basicInfo": "Basic Information",
+      "pricing": "Pricing",
+      "stock": "Stock Information",
+      "profitPerUnit": "Profit per Unit",
+      "totalValue": "Total Stock Value",
+      "additional": "Additional Information",
+      "createdAt": "Created",
+      "lastUpdated": "Last Updated"
     },
     "import": {
       "title": "Import Products from CSV",
@@ -623,17 +673,6 @@
       "saveCategories": "Save my categories from this import",
       "mapping": "Map Columns",
       "productsToImport": "Products to import: {{count}}"
-    },
-    "detailTabs": {
-      "details": "Details",
-      "stock": "Stock History",
-      "basicInfo": "Basic Information",
-      "pricing": "Pricing",
-      "profitPerUnit": "Profit per Unit",
-      "totalValue": "Total Stock Value",
-      "additional": "Additional Information",
-      "createdAt": "Created",
-      "lastUpdated": "Last Updated"
     }
   },
   "expenses": {

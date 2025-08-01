@@ -19,6 +19,7 @@ interface FormState {
   status: OrderStatus;
   deliveryFee: string;
   saleDate: string;
+  inventoryMethod: 'fifo' | 'lifo';
   products: FormProduct[];
 }
 
@@ -47,6 +48,7 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
     status: 'commande',
     deliveryFee: '',
     saleDate: new Date().toISOString().slice(0, 10),
+    inventoryMethod: 'fifo',
     products: [{ product: null, quantity: '', negotiatedPrice: '' }],
   });
 
@@ -120,6 +122,7 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
       status: 'commande',
       deliveryFee: '',
       saleDate: new Date().toISOString().slice(0, 10),
+      inventoryMethod: 'fifo',
       products: [{ product: null, quantity: '', negotiatedPrice: '' }],
     });
     setFoundCustomer(null);
@@ -210,6 +213,7 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
         deliveryFee: formData.deliveryFee ? parseFloat(formData.deliveryFee) : 0,
         paymentStatus: 'pending' as const,
         userId: user.uid,
+        inventoryMethod: formData.inventoryMethod,
       };
       
       const newSale = await addSale(saleData);

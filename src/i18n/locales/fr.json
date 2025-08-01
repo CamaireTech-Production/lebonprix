@@ -5,6 +5,7 @@
     "error": "Erreur",
     "success": "Succès",
     "save": "Enregistrer",
+    "saving": "Enregistrement...",
     "cancel": "Annuler",
     "delete": "Supprimer",
     "edit": "Modifier",
@@ -297,6 +298,14 @@
         },
         "status": {
           "label": "Statut"
+        },
+        "inventoryMethod": {
+          "title": "Méthode d'Inventaire",
+          "fifo": "FIFO (Premier Entré, Premier Sorti)",
+          "lifo": "LIFO (Dernier Entré, Premier Sorti)",
+          "fifoDescription": "- Vendre le stock le plus ancien en premier",
+          "lifoDescription": "- Vendre le stock le plus récent en premier",
+          "helpText": "Ceci détermine comment le stock est consommé lors du calcul du coût des marchandises vendues et des marges bénéficiaires."
         }
       },
       "edit": {
@@ -487,6 +496,39 @@
       "stockAdjustmentNote": "Pour mettre à jour uniquement le prix d'achat sans changer le stock, entrez la valeur du stock actuel dans le champ quantité. Le prix d'achat et les informations du fournisseur seront mis à jour pour la dernière entrée de stock.",
       "viewAllHistory": "Voir tout l'historique"
     },
+    "stockBatch": {
+      "title": "Gestion des Lots de Stock",
+      "subtitle": "Gérer les lots d'inventaire FIFO/LIFO",
+      "add": "Ajouter un Lot",
+      "edit": "Modifier le Lot",
+      "details": "Détails du Lot",
+      "active": "Lots Actifs",
+      "depleted": "Lots Épuisés",
+      "noActiveBatches": "Aucun lot actif trouvé",
+      "quantity": "Quantité",
+      "costPrice": "Prix de Revient",
+      "remainingQuantity": "Quantité Restante",
+      "supplierId": "ID Fournisseur",
+      "supplierIdPlaceholder": "Référence fournisseur optionnelle",
+      "ownPurchase": "Achat Personnel",
+      "credit": "Crédit",
+      "notes": "Notes",
+      "notesPlaceholder": "Notes optionnelles sur ce lot",
+      "status": "Statut",
+      "createdAt": "Créé le",
+      "units": "unités",
+      "validation": {
+        "requiredFields": "Veuillez remplir tous les champs requis",
+        "positiveValues": "La quantité et le prix de revient doivent être des nombres positifs"
+      },
+      "editWarning": "Modifier le prix de revient marquera ce lot comme corrigé à des fins d'audit",
+      "added": "Lot de stock ajouté avec succès",
+      "updated": "Lot de stock mis à jour avec succès",
+      "error": {
+        "add": "Échec de l'ajout du lot de stock",
+        "update": "Échec de la mise à jour du lot de stock"
+      }
+    },
     "table": {
       "columns": {
         "name": "Nom du produit",
@@ -504,11 +546,19 @@
         "title": "Informations de base",
         "name": "Nom du produit",
         "reference": "Référence",
+        "category": "Catégorie",
+        "categoryPlaceholder": "Sélectionner ou créer une catégorie",
+        "image": "Image",
+        "imageHelp": "Ajoutez des images claires pour aider à identifier ce produit. Vous pouvez télécharger plusieurs images.",
+        "referenceHelp": "Généré automatiquement à partir du nom, mais vous pouvez le modifier.",
+        "latestCostPrice": "Dernier Prix d'Achat",
+        "profitPerUnit": "Profit par unité",
+        "stockChangeType": "Type de Changement de Stock",
+        "restockHelp": "Cette valeur sera ajoutée à votre stock actuel.",
+        "sellingPriceHelp": "Requis : Le prix auquel vous vendez ce produit.",
         "costPrice": "Prix d'achat",
         "sellingPrice": "Prix de vente",
         "cataloguePrice": "Prix catalogue",
-        "category": "Catégorie",
-        "sellingPriceHelp": "Le prix auquel vous vendez le produit",
         "cataloguePriceHelp": "Le prix original/fabricant (optionnel)"
       },
       "step2": {
@@ -525,8 +575,8 @@
         "paid": "Payé",
         "stockCostPrice": "Prix d'achat du stock",
         "stockCostPriceHelp": "Prix d'achat pour cette entrée de stock spécifique. Ceci sera utilisé pour les calculs de profit.",
-    "currentCostPrice": "Prix d'achat actuel",
-    "costPriceUpdateNote": "Entrez le prix d'achat pour cet ajustement de stock. Ceci mettra à jour le prix d'achat du produit."
+        "currentCostPrice": "Prix d'achat actuel",
+        "costPriceUpdateNote": "Entrez le prix d'achat pour cet ajustement de stock. Ceci mettra à jour le prix d'achat du produit.",
         "quantity": "Quantité",
         "supplierRequired": "Veuillez sélectionner un fournisseur",
         "paymentTypeRequired": "Veuillez sélectionner le type de paiement",
@@ -534,32 +584,16 @@
         "sellingPriceHelp": "Le prix auquel vous vendez le produit",
         "cataloguePrice": "Prix catalogue",
         "cataloguePriceHelp": "Le prix original/fabricant (optionnel)"
-      },
-      "name": "Nom du produit",
-      "reference": "Référence",
-      "costPrice": "Prix d'achat (XAF)",
-      "sellingPrice": "Prix de vente (XAF)",
-      "cataloguePrice": "Prix catalogue (XAF)",
-      "cataloguePriceHelp": "C'est le prix affiché dans votre catalogue public.",
-      "sellingPriceHelp": "C'est le prix que vos clients verront.",
-      "category": "Catégorie",
-      "categoryPlaceholder": "Sélectionner ou créer une catégorie",
-      "stock": "Stock initial",
-      "image": "Image du produit",
-      "imageHelp": "Optionnel, max 500KB. Sera compressé.",
-      "description": "Description",
-      "amount": "Montant",
-      "stockChangeType": "Type de changement de stock",
-      "restockHelp": "Cette valeur sera ajoutée à votre stock actuel.",
-      "profitPerUnit": "Profit par unité"
+      }
     },
     "editTabs": {
       "info": "Infos",
-      "stock": "Stock",
+      "stock": "Gestion du Stock",
       "pricing": "Tarification",
       "infoBox": "Le nom et la référence du produit vous aident à l'identifier dans votre catalogue. Les catégories vous aident à organiser les produits pour un filtrage et un reporting plus faciles.",
       "stockInfoBox": "Utilisez cette section pour ajouter ou ajuster le stock. Le réapprovisionnement augmente les unités disponibles, tandis que l'ajustement sert à corriger les erreurs ou les pertes.",
-      "pricingInfoBox": "Définissez le prix auquel vous vendez ce produit. Le prix catalogue est optionnel et peut être utilisé comme référence ou pour des promotions."
+      "pricingInfoBox": "Définissez le prix auquel vous vendez ce produit. Le prix catalogue est optionnel et peut être utilisé comme référence ou pour des promotions.",
+      "batchesInfoBox": "Gérez les lots de stock pour ce produit. Chaque lot représente une quantité spécifique avec son propre prix d'achat, permettant un suivi précis de l'inventaire FIFO/LIFO."
     },
     "import": {
       "title": "Importer des produits depuis un CSV",
@@ -572,6 +606,7 @@
     "detailTabs": {
       "details": "Détails",
       "stock": "Historique du stock",
+      "batches": "Lots de Stock",
       "basicInfo": "Informations de base",
       "pricing": "Tarification",
       "profitPerUnit": "Profit par unité",
@@ -587,6 +622,7 @@
       "importSuccess": "{{count}} sur {{total}} produits importés avec succès ({{errors}} erreurs).",
       "deleteConfirmation": "Êtes-vous sûr de vouloir supprimer le produit : {{name}} (Réf: {{reference}}) ?",
       "deleteWarning": "Cette action est irréversible. Toutes les données de ventes associées resteront mais le lien avec le produit sera rompu.",
+      "noStockHistory": "Aucun historique de stock pour ce produit.",
       "errors": {
         "loadProducts": "Échec du chargement des produits.",
         "addProduct": "Erreur lors de l'ajout du produit",

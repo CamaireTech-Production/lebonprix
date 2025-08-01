@@ -6,9 +6,9 @@ import Select from 'react-select';
 import { Plus, Trash2, Save} from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { Sale } from '../../types/models';
 import SaleDetailsModal from './SaleDetailsModal';
-import type { Product } from '../../types/models';
 
 interface AddSaleModalProps {
   isOpen: boolean;
@@ -17,6 +17,7 @@ interface AddSaleModalProps {
 }
 
 const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdded }) => {
+  const { t } = useTranslation();
 
   const {
     formData,
@@ -27,7 +28,6 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
     foundCustomer,
     isSavingCustomer,
     showCustomerDropdown,
-    setShowCustomerDropdown,
     customerSearch,
     customerDropdownPos,
     phoneInputRef,
@@ -369,6 +369,50 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                   <option value="paid">Paid</option>
               </select>
             </div>
+          </div>
+          
+          {/* Inventory Method Selection */}
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700">
+              {t('sales.modals.add.inventoryMethod.title')}
+            </label>
+            <div className="flex space-x-4">
+              <label className="flex items-center space-x-2">
+                <input
+                  type="radio"
+                  name="inventoryMethod"
+                  value="fifo"
+                  checked={formData.inventoryMethod === 'fifo'}
+                  onChange={handleInputChange}
+                  className="form-radio h-4 w-4 text-emerald-600 border-gray-300"
+                />
+                <span className="text-sm text-gray-700">
+                  <strong>{t('sales.modals.add.inventoryMethod.fifo')}</strong>
+                </span>
+                <span className="text-xs text-gray-500">
+                  {t('sales.modals.add.inventoryMethod.fifoDescription')}
+                </span>
+              </label>
+              <label className="flex items-center space-x-2">
+                <input
+                  type="radio"
+                  name="inventoryMethod"
+                  value="lifo"
+                  checked={formData.inventoryMethod === 'lifo'}
+                  onChange={handleInputChange}
+                  className="form-radio h-4 w-4 text-emerald-600 border-gray-300"
+                />
+                <span className="text-sm text-gray-700">
+                  <strong>{t('sales.modals.add.inventoryMethod.lifo')}</strong>
+                </span>
+                <span className="text-xs text-gray-500">
+                  {t('sales.modals.add.inventoryMethod.lifoDescription')}
+                </span>
+              </label>
+            </div>
+            <p className="text-xs text-gray-500">
+              {t('sales.modals.add.inventoryMethod.helpText')}
+            </p>
           </div>
         </div>
         {/* Products Side Panel - Desktop View */}

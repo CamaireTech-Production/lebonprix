@@ -35,6 +35,8 @@ export interface Product extends BaseModel {
   images?: string[];
   isAvailable: boolean;
   isDeleted?: boolean;
+  inventoryMethod?: 'FIFO' | 'LIFO';
+  enableBatchTracking?: boolean;
 }
 
 export interface SaleProduct {
@@ -61,6 +63,10 @@ export interface Sale extends BaseModel {
   deliveryFee?: number;
   statusHistory?: Array<{ status: string; timestamp: string }>;
   isAvailable?: boolean;
+  inventoryMethod?: 'FIFO' | 'LIFO';
+  totalCost?: number;
+  totalProfit?: number;
+  averageProfitMargin?: number;
 }
 
 export interface Expense extends BaseModel {
@@ -113,12 +119,13 @@ export interface StockChange {
   id: string;
   productId: string;
   change: number; // + for restock, - for sale, etc.
-  reason: 'sale' | 'restock' | 'adjustment' | 'creation';
+  reason: 'sale' | 'restock' | 'adjustment' | 'creation' | 'cost_correction';
   supplierId?: string; // Reference to supplier if applicable
   isOwnPurchase?: boolean; // true if own purchase, false if from supplier
   isCredit?: boolean; // true if on credit, false if paid (only relevant if from supplier)
   costPrice?: number; // Cost price for this stock entry
   batchId?: string; // Reference to stock batch (NEW!)
+  saleId?: string; // Reference to sale if applicable
   createdAt: Timestamp;
   userId: string;
 }
@@ -136,6 +143,7 @@ export interface StockBatch {
   userId: string;
   remainingQuantity: number; // How many units left from this batch
   status: 'active' | 'depleted' | 'corrected'; // Batch status
+  notes?: string; // Optional notes for the batch
 }
 
 export interface Supplier extends BaseModel {
