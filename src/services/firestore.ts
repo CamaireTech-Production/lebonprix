@@ -13,7 +13,8 @@ import {
   type WriteBatch,
   setDoc,
   updateDoc,
-  Timestamp
+  Timestamp,
+  deleteDoc
 } from 'firebase/firestore';
 import { db } from './firebase';
 import type {
@@ -41,6 +42,8 @@ import {
   validateStockBatch,
   type InventoryResult
 } from '../utils/inventoryManagement';
+
+// Enhanced stock adjustment functions are defined below
 
 // ============================================================================
 // STOCK BATCH MANAGEMENT FUNCTIONS (Consolidated)
@@ -104,7 +107,6 @@ export const getAvailableStockBatches = async (productId: string): Promise<Stock
     where('productId', '==', productId),
     where('remainingQuantity', '>', 0),
     where('status', '==', 'active'),
-    orderBy('remainingQuantity'),
     orderBy('createdAt', 'asc')
   );
   
@@ -405,15 +407,15 @@ export const createProduct = async (
   try {
     console.log('Creating product with data:', data, 'supplierInfo:', supplierInfo);
     
-    // Validate product data
-    if (
-      !data.name ||
-      data.sellingPrice < 0 ||
-      data.stock < 0 ||
-      !data.category
-    ) {
-      throw new Error('Invalid product data');
-    }
+  // Validate product data
+  if (
+    !data.name ||
+    data.sellingPrice < 0 ||
+    data.stock < 0 ||
+    !data.category
+  ) {
+    throw new Error('Invalid product data');
+  }
 
   const batch = writeBatch(db);
   
@@ -513,7 +515,7 @@ export const updateProduct = async (
 ): Promise<void> => {
   try {
     console.log('Updating product:', id, 'data:', data, 'stockReason:', stockReason, 'stockChange:', stockChange, 'supplierInfo:', supplierInfo);
-    const batch = writeBatch(db);
+  const batch = writeBatch(db);
   const productRef = doc(db, 'products', id);
   
   // Get current product data
@@ -599,7 +601,7 @@ export const updateProduct = async (
   // Create audit log
   createAuditLog(batch, 'update', 'product', id, { ...data, stockChange, stockReason }, userId);
   
-  await batch.commit();
+    await batch.commit();
   } catch (error) {
     console.error('Error updating product:', error);
     throw error;
@@ -616,7 +618,7 @@ export const createSale = async (
 ): Promise<Sale> => {
   try {
     console.log('Creating sale with data:', data);
-    const batch = writeBatch(db);
+  const batch = writeBatch(db);
   
   // Enhanced products with cost price information
   const enhancedProducts: any[] = [];
@@ -652,26 +654,40 @@ export const createSale = async (
       inventoryMethod
     );
     
-    const productCost = inventoryResult.totalCost;
-    const productProfit = (product.basePrice - inventoryResult.averageCostPrice) * product.quantity;
-    const profitMargin = inventoryResult.averageCostPrice > 0 ? (productProfit / productCost) * 100 : 0;
+    // Calculate batch-level profit (correct method)
+    let productProfit = 0;
+    let productCost = 0;
+    
+    // Calculate profit per batch consumption
+    const batchProfits = inventoryResult.consumedBatches.map(batch => {
+      const batchProfit = (product.basePrice - batch.costPrice) * batch.consumedQuantity;
+      productProfit += batchProfit;
+      productCost += batch.costPrice * batch.consumedQuantity;
+      
+      return {
+        batchId: batch.batchId,
+        costPrice: batch.costPrice,
+        consumedQuantity: batch.consumedQuantity,
+        profit: batchProfit
+      };
+    });
+    
+    const averageCostPrice = productCost / product.quantity;
+    const profitMargin = productCost > 0 ? (productProfit / (product.basePrice * product.quantity)) * 100 : 0;
     
     // Update totals
     totalCost += productCost;
     totalProfit += productProfit;
     
-    // Create enhanced product with cost information
+    // Create enhanced product with batch-level profit information
     const enhancedProduct = {
       ...product,
-      costPrice: inventoryResult.averageCostPrice,
+      costPrice: averageCostPrice,
       batchId: inventoryResult.primaryBatchId,
       profit: productProfit,
       profitMargin,
-      consumedBatches: inventoryResult.consumedBatches.map(batch => ({
-        batchId: batch.batchId,
-        costPrice: batch.costPrice,
-        consumedQuantity: batch.consumedQuantity
-      }))
+      consumedBatches: batchProfits,
+      batchLevelProfits: batchProfits // New field for detailed profit breakdown
     };
     enhancedProducts.push(enhancedProduct);
     
@@ -1003,6 +1019,32 @@ export const getCompanyByUserId = async (userId: string): Promise<Company> => {
     id: companyDoc.id,
     ...companyDoc.data()
   } as Company;
+};
+
+export const subscribeToCompanies = (callback: (companies: Company[]) => void): (() => void) => {
+  const companiesRef = collection(db, 'companies');
+  
+  return onSnapshot(companiesRef, (snapshot) => {
+    const companies = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    })) as Company[];
+    
+    callback(companies);
+  });
+};
+
+export const subscribeToStockChanges = (callback: (stockChanges: StockChange[]) => void): (() => void) => {
+  const stockChangesRef = collection(db, 'stockChanges');
+  
+  return onSnapshot(stockChangesRef, (snapshot) => {
+    const stockChanges = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    })) as StockChange[];
+    
+    callback(stockChanges);
+  });
 };
 
 export const subscribeToSaleUpdates = (
@@ -1644,4 +1686,371 @@ export const getStockBatchStats = async (userId: string): Promise<{
     totalStockValue,
     averageCostPrice
   };
+};
+
+/**
+ * Delete a stock change document
+ */
+export const deleteStockChange = async (stockChangeId: string): Promise<void> => {
+  try {
+    const stockChangeRef = doc(db, 'stockChanges', stockChangeId);
+    await deleteDoc(stockChangeRef);
+    console.log(`Stock change ${stockChangeId} deleted successfully`);
+  } catch (error) {
+    console.error('Error deleting stock change:', error);
+    throw error;
+  }
+};
+
+/**
+ * Enhanced restock with new cost price and batch creation
+ */
+export const restockProduct = async (
+  productId: string,
+  quantity: number,
+  costPrice: number,
+  userId: string,
+  supplierId?: string,
+  isOwnPurchase?: boolean,
+  isCredit?: boolean,
+  notes?: string
+): Promise<void> => {
+  const batch = writeBatch(db);
+  
+  // Create new stock batch
+  const stockBatchRef = doc(collection(db, 'stockBatches'));
+  const stockBatchData = {
+    id: stockBatchRef.id,
+    productId,
+    quantity,
+    costPrice,
+    ...(supplierId && { supplierId }),
+    ...(isOwnPurchase !== undefined && { isOwnPurchase }),
+    ...(isCredit !== undefined && { isCredit }),
+    createdAt: serverTimestamp(),
+    userId,
+    remainingQuantity: quantity,
+    status: 'active',
+    ...(notes && { notes })
+  };
+  batch.set(stockBatchRef, stockBatchData);
+  
+  // Update product stock
+  const productRef = doc(db, 'products', productId);
+  const productSnap = await getDoc(productRef);
+  if (!productSnap.exists()) {
+    throw new Error('Product not found');
+  }
+  
+  const currentProduct = productSnap.data() as Product;
+  if (currentProduct.userId !== userId) {
+    throw new Error('Unauthorized to update this product');
+  }
+  
+  batch.update(productRef, {
+    stock: currentProduct.stock + quantity,
+    updatedAt: serverTimestamp()
+  });
+  
+  // Create stock change record
+  createStockChange(
+    batch,
+    productId,
+    quantity,
+    'restock',
+    userId,
+    supplierId,
+    isOwnPurchase,
+    isCredit,
+    costPrice,
+    stockBatchRef.id
+  );
+  
+  // Create supplier debt if credit purchase
+  if (supplierId && isCredit && !isOwnPurchase) {
+    const debtAmount = quantity * costPrice;
+    const debtRef = doc(collection(db, 'finances'));
+    const debtData = {
+      id: debtRef.id,
+      userId,
+      sourceType: 'supplier',
+      sourceId: supplierId,
+      type: 'supplier_debt',
+      amount: debtAmount,
+      description: `Credit purchase for ${quantity} units of product ${currentProduct.name}`,
+      date: serverTimestamp(),
+      isDeleted: false,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      supplierId
+    };
+    batch.set(debtRef, debtData);
+  }
+  
+  await batch.commit();
+};
+
+/**
+ * Manual adjustment with batch selection and cost price modification
+ */
+export const adjustStockManually = async (
+  productId: string,
+  batchId: string,
+  quantityChange: number,
+  userId: string,
+  newCostPrice?: number,
+  notes?: string
+): Promise<void> => {
+  const batch = writeBatch(db);
+  
+  // Get batch details
+  const batchRef = doc(db, 'stockBatches', batchId);
+  const batchSnap = await getDoc(batchRef);
+  if (!batchSnap.exists()) {
+    throw new Error('Stock batch not found');
+  }
+  
+  const batchData = batchSnap.data() as StockBatch;
+  if (batchData.userId !== userId) {
+    throw new Error('Unauthorized to update this batch');
+  }
+  
+  // Update batch
+  const newRemainingQuantity = batchData.remainingQuantity + quantityChange;
+  if (newRemainingQuantity < 0) {
+    throw new Error('Batch remaining quantity cannot be negative');
+  }
+  
+  const batchUpdates: Partial<StockBatch> = {
+    remainingQuantity: newRemainingQuantity,
+    status: newRemainingQuantity === 0 ? 'depleted' : 'active',
+    updatedAt: { seconds: Date.now() / 1000, nanoseconds: 0 }
+  };
+  
+  if (newCostPrice !== undefined) {
+    batchUpdates.costPrice = newCostPrice;
+  }
+  
+  if (notes) {
+    batchUpdates.notes = notes;
+  }
+  
+  batch.update(batchRef, batchUpdates);
+  
+  // Update product stock
+  const productRef = doc(db, 'products', productId);
+  const productSnap = await getDoc(productRef);
+  if (!productSnap.exists()) {
+    throw new Error('Product not found');
+  }
+  
+  const currentProduct = productSnap.data() as Product;
+  if (currentProduct.userId !== userId) {
+    throw new Error('Unauthorized to update this product');
+  }
+  
+  batch.update(productRef, {
+    stock: currentProduct.stock + quantityChange,
+    updatedAt: serverTimestamp()
+  });
+  
+  // Create stock change record
+  createStockChange(
+    batch,
+    productId,
+    quantityChange,
+    'manual_adjustment',
+    userId,
+    batchData.supplierId,
+    batchData.isOwnPurchase,
+    batchData.isCredit,
+    newCostPrice || batchData.costPrice,
+    batchId
+  );
+  
+  // Handle supplier debt adjustment for credit purchases
+  if (batchData.supplierId && batchData.isCredit && !batchData.isOwnPurchase) {
+    const debtChange = quantityChange * (newCostPrice || batchData.costPrice);
+    
+    if (debtChange !== 0) {
+      const debtRef = doc(collection(db, 'finances'));
+      const debtData = {
+        id: debtRef.id,
+        userId,
+        sourceType: 'supplier',
+        sourceId: batchData.supplierId,
+        type: debtChange > 0 ? 'supplier_debt' : 'supplier_refund',
+        amount: Math.abs(debtChange),
+        description: `Stock adjustment: ${quantityChange > 0 ? '+' : ''}${quantityChange} units of product ${currentProduct.name}`,
+        date: serverTimestamp(),
+        isDeleted: false,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        supplierId: batchData.supplierId
+      };
+      batch.set(debtRef, debtData);
+    }
+  }
+  
+  await batch.commit();
+};
+
+/**
+ * Damage adjustment - reduces stock without affecting supplier debt
+ */
+export const adjustStockForDamage = async (
+  productId: string,
+  batchId: string,
+  damagedQuantity: number,
+  userId: string,
+  notes?: string
+): Promise<void> => {
+  const batch = writeBatch(db);
+  
+  // Get batch details
+  const batchRef = doc(db, 'stockBatches', batchId);
+  const batchSnap = await getDoc(batchRef);
+  if (!batchSnap.exists()) {
+    throw new Error('Stock batch not found');
+  }
+  
+  const batchData = batchSnap.data() as StockBatch;
+  if (batchData.userId !== userId) {
+    throw new Error('Unauthorized to update this batch');
+  }
+  
+  // Update batch
+  const newRemainingQuantity = batchData.remainingQuantity - damagedQuantity;
+  if (newRemainingQuantity < 0) {
+    throw new Error('Batch remaining quantity cannot be negative');
+  }
+  
+  batch.update(batchRef, {
+    remainingQuantity: newRemainingQuantity,
+    status: newRemainingQuantity === 0 ? 'depleted' : 'active',
+    updatedAt: serverTimestamp(),
+    ...(notes && { notes })
+  });
+  
+  // Update product stock
+  const productRef = doc(db, 'products', productId);
+  const productSnap = await getDoc(productRef);
+  if (!productSnap.exists()) {
+    throw new Error('Product not found');
+  }
+  
+  const currentProduct = productSnap.data() as Product;
+  if (currentProduct.userId !== userId) {
+    throw new Error('Unauthorized to update this product');
+  }
+  
+  batch.update(productRef, {
+    stock: currentProduct.stock - damagedQuantity,
+    updatedAt: serverTimestamp()
+  });
+  
+  // Create stock change record for damage
+  createStockChange(
+    batch,
+    productId,
+    -damagedQuantity,
+    'damage',
+    userId,
+    batchData.supplierId,
+    batchData.isOwnPurchase,
+    batchData.isCredit,
+    batchData.costPrice,
+    batchId
+  );
+  
+  // Note: No supplier debt adjustment for damage - debt remains unchanged
+  
+  await batch.commit();
+};
+
+/**
+ * Get available batches for a product (for adjustment selection)
+ */
+export const getProductBatchesForAdjustment = async (productId: string): Promise<StockBatch[]> => {
+  const batchesSnapshot = await getDocs(
+    query(
+      collection(db, 'stockBatches'),
+      where('productId', '==', productId),
+      where('status', 'in', ['active', 'corrected']),
+      orderBy('createdAt', 'desc')
+    )
+  );
+  
+  return batchesSnapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data()
+  })) as StockBatch[];
+};
+
+/**
+ * Get batch details for adjustment operations
+ */
+export const getBatchDetails = async (batchId: string): Promise<StockBatch | null> => {
+  const batchRef = doc(db, 'stockBatches', batchId);
+  const batchSnap = await getDoc(batchRef);
+  
+  if (!batchSnap.exists()) {
+    return null;
+  }
+  
+  return {
+    id: batchSnap.id,
+    ...batchSnap.data()
+  } as StockBatch;
+};
+
+/**
+ * Validate batch adjustment operation
+ */
+export const validateBatchAdjustment = (
+  batch: StockBatch,
+  quantityChange: number,
+  newCostPrice?: number
+): { isValid: boolean; errors: string[] } => {
+  const errors: string[] = [];
+  
+  // Check if batch is active
+  if (batch.status !== 'active' && batch.status !== 'corrected') {
+    errors.push('Batch is not available for adjustment');
+  }
+  
+  // Check if quantity change would make remaining quantity negative
+  const newRemainingQuantity = batch.remainingQuantity + quantityChange;
+  if (newRemainingQuantity < 0) {
+    errors.push('Adjustment would result in negative remaining quantity');
+  }
+  
+  // Check if new cost price is valid
+  if (newCostPrice !== undefined && newCostPrice < 0) {
+    errors.push('Cost price cannot be negative');
+  }
+  
+  return {
+    isValid: errors.length === 0,
+    errors
+  };
+};
+
+/**
+ * Get stock adjustment history for a product
+ */
+export const getProductAdjustmentHistory = async (productId: string): Promise<StockChange[]> => {
+  const stockChangesSnapshot = await getDocs(
+    query(
+      collection(db, 'stockChanges'),
+      where('productId', '==', productId),
+      where('reason', 'in', ['restock', 'manual_adjustment', 'damage']),
+      orderBy('createdAt', 'desc')
+    )
+  );
+  
+  return stockChangesSnapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data()
+  })) as StockChange[];
 };

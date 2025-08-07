@@ -9,6 +9,7 @@ lerna-debug.log*
 
 node_modules
 update-migration
+firebase-export
 dist
 dist-ssr
 *.local
