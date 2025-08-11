@@ -26,6 +26,7 @@ export interface Category extends BaseModel {
 }
 
 export interface Product extends BaseModel {
+  costPrice: number;
   name: string;
   reference: string;
   sellingPrice: number;
@@ -35,13 +36,31 @@ export interface Product extends BaseModel {
   images?: string[];
   isAvailable: boolean;
   isDeleted?: boolean;
+  inventoryMethod?: 'FIFO' | 'LIFO';
+  enableBatchTracking?: boolean;
 }
 
 export interface SaleProduct {
   productId: string;
   quantity: number;
-  basePrice: number;
+  basePrice: number; // Selling price
   negotiatedPrice?: number;
+  costPrice: number; // Cost price at time of sale (NEW!)
+  batchId?: string; // Which batch this came from (NEW!)
+  profit: number; // Calculated profit (NEW!)
+  profitMargin: number; // Profit margin percentage (NEW!)
+  consumedBatches?: Array<{
+    batchId: string;
+    costPrice: number;
+    consumedQuantity: number;
+    profit: number;
+  }>;
+  batchLevelProfits?: Array<{
+    batchId: string;
+    costPrice: number;
+    consumedQuantity: number;
+    profit: number;
+  }>; // Detailed profit breakdown per batch (NEW!)
 }
 
 export interface Sale extends BaseModel {
@@ -57,6 +76,10 @@ export interface Sale extends BaseModel {
   deliveryFee?: number;
   statusHistory?: Array<{ status: string; timestamp: string }>;
   isAvailable?: boolean;
+  inventoryMethod?: 'FIFO' | 'LIFO';
+  totalCost?: number;
+  totalProfit?: number;
+  averageProfitMargin?: number;
 }
 
 export interface Expense extends BaseModel {
@@ -109,13 +132,32 @@ export interface StockChange {
   id: string;
   productId: string;
   change: number; // + for restock, - for sale, etc.
-  reason: 'sale' | 'restock' | 'adjustment' | 'creation';
+  reason: 'sale' | 'restock' | 'adjustment' | 'creation' | 'cost_correction' | 'damage' | 'manual_adjustment';
   supplierId?: string; // Reference to supplier if applicable
   isOwnPurchase?: boolean; // true if own purchase, false if from supplier
   isCredit?: boolean; // true if on credit, false if paid (only relevant if from supplier)
   costPrice?: number; // Cost price for this stock entry
+  batchId?: string; // Reference to stock batch (NEW!)
+  saleId?: string; // Reference to sale if applicable
   createdAt: Timestamp;
   userId: string;
+}
+
+// Stock batch for FIFO inventory tracking (NEW!)
+export interface StockBatch {
+  id: string;
+  productId: string;
+  quantity: number; // Total quantity in this batch
+  costPrice: number; // Cost per unit for this batch
+  supplierId?: string; // Reference to supplier if applicable
+  isOwnPurchase?: boolean; // true if own purchase, false if from supplier
+  isCredit?: boolean; // true if on credit, false if paid
+  createdAt: Timestamp;
+  updatedAt?: Timestamp; // Last update timestamp
+  userId: string;
+  remainingQuantity: number; // How many units left from this batch
+  status: 'active' | 'depleted' | 'corrected'; // Batch status
+  notes?: string; // Optional notes for the batch
 }
 
 export interface Supplier extends BaseModel {
