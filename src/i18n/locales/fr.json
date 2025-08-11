@@ -886,6 +886,7 @@
       "debt": "Dette",
       "supplier_debt": "Dette Fournisseur",
       "supplier_refund": "Remboursement Fournisseur",
+        "sortie": "Sortie",
       "other": "Entrée associée"
     },
     "messages": {
@@ -905,7 +906,8 @@
     "refundExceeds": "Le montant du remboursement dépasse la dette restante !",
     "noDebtsToRefund": "Aucune dette disponible pour remboursement.",
     "noRefunds": "Aucun remboursement pour cette dette.",
-    "refundEntry": "Remboursement"
+      "refundEntry": "Remboursement",
+      "descriptionRequiredForSortie": "La description est obligatoire pour les entrées de type « sortie ». Merci de préciser la déduction."
   },
 
   "suppliers": {

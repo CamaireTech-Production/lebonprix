@@ -883,6 +883,7 @@
       "debt": "Debt",
       "supplier_debt": "Supplier Debt",
       "supplier_refund": "Supplier Refund",
+        "sortie": "Withdrawal",
       "other": "Associated Entry"
     },
     "messages": {
@@ -902,7 +903,8 @@
     "refundExceeds": "Refund amount exceeds remaining debt!",
     "noDebtsToRefund": "No debts available for refund.",
     "noRefunds": "No refunds for this debt.",
-    "refundEntry": "Refund"
+      "refundEntry": "Refund",
+      "descriptionRequiredForSortie": "Description is required for 'sortie' entries. Please explain the debit."
   },
 
   "suppliers": {

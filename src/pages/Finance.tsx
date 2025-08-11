@@ -279,12 +279,15 @@ const Finance: React.FC = () => {
   const handleSubmit = async () => {
     if (!user || !form.type || !form.amount) return;
     if (form.type.value === 'refund' && (!form.refundedDebtId || userDebt.debtEntries.length === 0)) return;
+    if (form.type.value === 'sortie' && !form.description.trim()) return;
     setModalLoading(true);
+    const rawAmount = parseFloat(form.amount);
+    const normalizedAmount = form.type.value === 'sortie' ? -Math.abs(rawAmount) : rawAmount;
     const entryData = {
       userId: user.uid,
       sourceType: 'manual' as const,
       type: form.type.value, // FIXED: use value, not label
-      amount: parseFloat(form.amount),
+      amount: normalizedAmount,
       description: form.description,
       date: Timestamp.now(),
       isDeleted: false,
@@ -552,7 +555,9 @@ const Finance: React.FC = () => {
                     <td className="py-3 px-2">{entry.createdAt?.seconds ? format(new Date(entry.createdAt.seconds * 1000), 'dd/MM/yyyy') : ''}</td>
                     <td className="py-3 px-2 capitalize">{t(`finance.types.${entry.type}`, entry.type)}</td>
                     <td className="py-3 px-2">{entry.description || '-'}</td>
-                    <td className={`py-3 px-2 font-semibold ${entry.amount >= 0 ? 'text-green-600' : 'text-red-500'}`}>{entry.amount.toLocaleString()}</td>
+                    <td className={`py-3 px-2 font-semibold ${ (entry.amount < 0 || (entry.sourceType === 'manual' && entry.type === 'refund')) ? 'text-red-500' : 'text-green-600' }`}>
+                      {((entry.sourceType === 'manual' && entry.type === 'refund' && entry.amount > 0) ? -entry.amount : entry.amount).toLocaleString()}
+                    </td>
                     <td className="py-3 px-2 capitalize">{t(`finance.sourceType.${entry.sourceType}`)}</td>
                     <td className="py-3 px-2 flex gap-2">
                       {entry.sourceType === 'manual' && (
@@ -622,7 +627,7 @@ const Finance: React.FC = () => {
       </div>
       {/* Add/Edit Finance Entry Modal, Delete Confirmation Modal, Calculations Modal (unchanged) */}
       <Modal isOpen={modalOpen} onClose={handleCloseModal} title={form.isEdit ? t('finance.editEntry') : t('finance.addEntry')} size="md"
-        footer={<ModalFooter onCancel={handleCloseModal} onConfirm={handleSubmit} isLoading={modalLoading} confirmText={t('common.save')} disabled={!!refundExceeds} />}
+        footer={<ModalFooter onCancel={handleCloseModal} onConfirm={handleSubmit} isLoading={modalLoading} confirmText={t('common.save')} disabled={!!refundExceeds || (form.type?.value === 'sortie' && !form.description.trim())} />}
       >
           <form className="space-y-4" onSubmit={e => { e.preventDefault(); handleSubmit(); }}>
             <div>
@@ -692,8 +697,14 @@ const Finance: React.FC = () => {
                 className="w-full border rounded px-3 py-2"
                 placeholder={t('common.description')}
                 rows={2}
+              required={form.type?.value === 'sortie'}
               disabled={form.type?.value === 'refund' && userDebt.debtEntries.length === 0}
               />
+              {form.type?.value === 'sortie' && (
+                <div className="text-xs text-yellow-700 mt-1">
+                  {t('finance.descriptionRequiredForSortie')}
+                </div>
+              )}
             </div>
           </form>
       </Modal>
