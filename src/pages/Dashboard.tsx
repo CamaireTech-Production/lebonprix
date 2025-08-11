@@ -364,6 +364,7 @@ const Dashboard = () => {
         sales={sales}
         expenses={expenses}
         products={products}
+        stockChanges={stockChanges}
       />
       {showObjectivesModal && (
         <ObjectivesModal
@@ -376,6 +377,8 @@ const Dashboard = () => {
           sales={sales}
           expenses={expenses}
           products={products}
+          stockChanges={stockChanges}
+          onAfterAdd={() => setApplyDateFilter(false)}
         />
       )}
       {/* Stats section */}

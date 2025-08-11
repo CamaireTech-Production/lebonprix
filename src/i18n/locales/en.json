@@ -472,6 +472,7 @@
     "title": "Title",
     "description": "Description",
     "target": "Target",
+    "current": "Current",
     "metric": "Metric",
     "periodType": "Period Type",
     "predefined": "Predefined",

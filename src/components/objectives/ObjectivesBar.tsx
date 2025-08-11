@@ -15,18 +15,35 @@ interface ObjectivesBarProps {
   sales: any[];
   expenses: any[];
   products: any[];
+  stockChanges: any[];
 }
 
-const ObjectivesBar: React.FC<ObjectivesBarProps> = ({ onAdd, onView, dateRange, applyDateFilter, onToggleFilter, sales, expenses, products }) => {
+import { getLatestCostPrice } from '../../utils/productUtils';
+
+const ObjectivesBar: React.FC<ObjectivesBarProps> = ({ onAdd, onView, dateRange, applyDateFilter, onToggleFilter, sales, expenses, products, stockChanges }) => {
   const { t } = useTranslation();
   const { objectives } = useObjectives();
 
   const isOverlapping = (obj: any) => {
-    if (obj.periodType === 'predefined') return true; // assume active
-    if (!obj.startAt || !obj.endAt) return true;
-    const start = obj.startAt.toDate ? obj.startAt.toDate() : new Date(obj.startAt);
-    const end = obj.endAt.toDate ? obj.endAt.toDate() : new Date(obj.endAt);
-    return start <= dateRange.to && end >= dateRange.from;
+    // Compute the objective's active window
+    let objFrom: Date | null = null;
+    let objTo: Date | null = null;
+    if (obj.periodType === 'predefined') {
+      const now = new Date();
+      if (obj.predefined === 'this_year') {
+        objFrom = new Date(now.getFullYear(), 0, 1);
+        objTo = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
+      } else {
+        objFrom = new Date(now.getFullYear(), now.getMonth(), 1);
+        objTo = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+      }
+    } else {
+      objFrom = obj.startAt?.toDate ? obj.startAt.toDate() : (obj.startAt ? new Date(obj.startAt) : null);
+      objTo = obj.endAt?.toDate ? obj.endAt.toDate() : (obj.endAt ? new Date(obj.endAt) : null);
+    }
+    if (!objFrom || !objTo) return true; // if invalid dates, keep visible
+    // Overlap with selected dashboard range
+    return objFrom <= dateRange.to && objTo >= dateRange.from;
   };
 
   const getStatsForObjective = (obj: any) => {
@@ -51,43 +68,43 @@ const ObjectivesBar: React.FC<ObjectivesBarProps> = ({ onAdd, onView, dateRange,
     const expensesInPeriod = expenses?.filter(exp => exp.createdAt?.seconds && new Date(exp.createdAt.seconds * 1000) >= from && new Date(exp.createdAt.seconds * 1000) <= to) || [];
     // Calculate stats for this period
     switch (obj.metric) {
-      case 'profit':
-        return salesInPeriod.reduce((sum: number, sale: any) => sum + sale.products.reduce((productSum: any, product: any) => {
-          const productData = products?.find((p: any) => p.id === product.productId);
-          if (!productData) return productSum;
-          const sellingPrice = product.negotiatedPrice || product.basePrice;
-          return productSum + (sellingPrice - productData.costPrice) * product.quantity;
+      case 'profit': {
+        const profit = salesInPeriod.reduce((sum: number, sale: any) => sum + sale.products.reduce((productSum: number, product: any) => {
+          const sellingPrice = product.negotiatedPrice || product.basePrice || 0;
+          const latestCost = getLatestCostPrice(product.productId, stockChanges);
+          const costPrice = latestCost ?? 0;
+          return productSum + (sellingPrice - costPrice) * (product.quantity || 0);
         }, 0), 0);
+        return Number.isFinite(profit) ? profit : 0;
+      }
       case 'totalExpenses':
-        return expensesInPeriod.reduce((sum, exp) => sum + exp.amount, 0);
+        return expensesInPeriod.reduce((sum, exp) => sum + (exp.amount || 0), 0);
       case 'totalOrders':
-        return salesInPeriod.length;
-      case 'deliveryExpenses':
-        return expensesInPeriod.filter(e => e.category?.toLowerCase() === 'delivery').reduce((sum, e) => sum + e.amount, 0);
-      case 'totalSalesAmount':
-        return salesInPeriod.reduce((sum, sale) => sum + sale.totalAmount, 0);
       case 'totalSalesCount':
         return salesInPeriod.length;
+      case 'totalProductsSold':
+        return salesInPeriod.reduce((sum, sale) => sum + sale.products.reduce((acc: number, p: any) => acc + (p.quantity || 0), 0), 0);
+      case 'deliveryFee':
+        return salesInPeriod.reduce((sum, sale) => sum + (sale.deliveryFee || 0), 0);
+      case 'deliveryExpenses':
+        return expensesInPeriod.filter(e => (e.category || '').toLowerCase() === 'delivery').reduce((sum, e) => sum + (e.amount || 0), 0);
+      case 'totalSalesAmount':
+        return salesInPeriod.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
       default:
         return 0;
     }
   };
 
-  const isAllTime = dateRange.from.getFullYear() === 2000 && dateRange.from.getMonth() === 0 && dateRange.from.getDate() === 1 && dateRange.to.getFullYear() === 2100 && dateRange.to.getMonth() === 0 && dateRange.to.getDate() === 1;
-
   const filteredObjectives = useMemo(() => {
-    if (!applyDateFilter || (applyDateFilter && isAllTime)) {
-      return objectives;
-    } else {
-      return objectives.filter(isOverlapping);
-    }
+    if (!applyDateFilter) return objectives;
+    return objectives.filter(isOverlapping);
   }, [objectives, dateRange, applyDateFilter]);
 
   const objectivesWithProgress = useMemo(() => {
     return filteredObjectives.map(obj => {
-      let current = getStatsForObjective(obj);
+      const current = getStatsForObjective(obj);
       const pct = obj.targetAmount ? Math.max(0, Math.min(100, (current / obj.targetAmount) * 100)) : 0;
-      return { ...obj, progress: Math.round(pct) };
+      return { ...obj, progress: Math.round(pct), currentValue: current } as any;
     });
   }, [filteredObjectives, sales, expenses, products]);
 

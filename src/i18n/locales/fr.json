@@ -671,6 +671,7 @@
     "title": "Titre",
     "description": "Description",
     "target": "Objectif",
+    "current": "Actuel",
     "metric": "Métrique",
     "periodType": "Type de période",
     "predefined": "Prédéfini",
