@@ -51,7 +51,7 @@ const Finance: React.FC = () => {
   const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; entryId: string | null; entryType?: string; sourceType?: string } | null>({ open: false, entryId: null });
   // Date range filter (default: all time)
   const [dateRange, setDateRange] = useState({
-    from: new Date(2000, 0, 1),
+    from: new Date(2025, 3, 1), // April 1st, 2025
     to: new Date(2100, 0, 1),
   });
   // Other filters

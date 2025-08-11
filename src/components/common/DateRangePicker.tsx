@@ -43,8 +43,11 @@ const DateRangePicker = ({ onChange, className }: DateRangePickerProps) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [pendingRange, setPendingRange] = useState<{ from: Date; to: Date } | null>(null);
 
+  // Set start date to April 1st, 2025 for the app
+  const APP_START_DATE = new Date(2025, 3, 1); // April 1st, 2025 (month is 0-indexed)
+
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>({
-    from: new Date(2000, 0, 1),
+    from: APP_START_DATE,
     to: new Date(2100, 0, 1),
   });
 
@@ -67,7 +70,7 @@ const DateRangePicker = ({ onChange, className }: DateRangePickerProps) => {
 
     switch (newPeriod) {
       case 'all_time':
-        from = new Date(2000, 0, 1);
+        from = APP_START_DATE;
         to = new Date(2100, 0, 1);
         break;
       case 'today':
@@ -139,29 +142,35 @@ const DateRangePicker = ({ onChange, className }: DateRangePickerProps) => {
     }
   };
 
-  // Show the selected range as a styled pill
+  // Show the selected range as a styled pill - always clickable
   const renderRangeLabel = () => {
     if (!dateRange.from || !dateRange.to) return null;
+    
+    let periodLabel = '';
     if (period === 'all_time') {
-      return (
-        <span
-          className="inline-flex items-center gap-1 px-3 py-1 rounded-md bg-gray-100 border border-gray-200 text-gray-700 text-sm font-medium"
-        >
-          <CalendarIcon className="h-4 w-4 mr-1 text-emerald-500" />
-          {t('dateRanges.allTime', 'All time')}
-        </span>
-      );
+      periodLabel = t('dateRanges.allTime', 'All time');
+    } else if (period === 'custom') {
+      periodLabel = t('dateRanges.custom');
+    } else {
+      // Find the period option label
+      const periodOption = periodOptions.find(opt => opt.value === period);
+      periodLabel = periodOption?.label || period;
     }
+
     return (
       <span
         className="inline-flex items-center gap-1 px-3 py-1 rounded-md bg-gray-100 border border-gray-200 text-gray-700 text-sm font-medium cursor-pointer hover:bg-gray-200 transition"
         onClick={() => {
-          if (period === 'custom') setIsModalOpen(true);
+          setPendingRange(dateRange); // prefill with current range
+          setIsModalOpen(true);
         }}
         title={t('dateRanges.pickDate')}
       >
         <CalendarIcon className="h-4 w-4 mr-1 text-emerald-500" />
-        {format(dateRange.from, 'dd/MM/yyyy')} - {format(dateRange.to, 'dd/MM/yyyy')}
+        {/* Always show the date range for all periods, including all_time */}
+        <span>
+          {periodLabel}: {format(dateRange.from, 'dd/MM/yyyy')} - {format(dateRange.to, 'dd/MM/yyyy')}
+        </span>
       </span>
     );
   };
@@ -235,6 +244,7 @@ const DateRangePicker = ({ onChange, className }: DateRangePickerProps) => {
             onClick={() => {
               if (pendingRange && pendingRange.from) {
                 setDateRange(pendingRange);
+                setPeriod('custom'); // Switch to custom period when user selects custom dates
                 onChange(pendingRange);
                 setIsModalOpen(false);
               }
