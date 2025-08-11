@@ -3,12 +3,13 @@ import Modal, { ModalFooter } from '../common/Modal';
 import Input from '../common/Input';
 import Button from '../common/Button';
 import Select from 'react-select';
-import { Plus, Trash2, Save} from 'lucide-react';
+import { Plus, Trash2, Save, Info} from 'lucide-react';
 import { createPortal } from 'react-dom';
-import { useState } from 'react';
-import type { Sale } from '../../types/models';
+import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
+import type { Sale, StockBatch } from '../../types/models';
 import SaleDetailsModal from './SaleDetailsModal';
-import type { Product } from '../../types/models';
+import { getProductStockBatches } from '../../services/firestore';
 
 interface AddSaleModalProps {
   isOpen: boolean;
@@ -16,7 +17,15 @@ interface AddSaleModalProps {
   onSaleAdded?: () => void;
 }
 
+interface ProductStockInfo {
+  productId: string;
+  batches: StockBatch[];
+  totalStock: number;
+  averageCostPrice: number;
+}
+
 const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdded }) => {
+  const { t } = useTranslation();
 
   const {
     formData,
@@ -27,7 +36,6 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
     foundCustomer,
     isSavingCustomer,
     showCustomerDropdown,
-    setShowCustomerDropdown,
     customerSearch,
     customerDropdownPos,
     phoneInputRef,
@@ -51,6 +59,49 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
   const [viewedSale, setViewedSale] = useState<Sale | null>(null);
   const [productSearchQuery, setProductSearchQuery] = useState('');
   const [showAllProducts, setShowAllProducts] = useState(false);
+  const [productStockInfo, setProductStockInfo] = useState<Map<string, ProductStockInfo>>(new Map());
+  const [loadingStockInfo, setLoadingStockInfo] = useState<Set<string>>(new Set());
+
+  // Load stock batch information for products
+  const loadProductStockInfo = async (productId: string) => {
+    if (productStockInfo.has(productId) || loadingStockInfo.has(productId)) {
+      return;
+    }
+
+    setLoadingStockInfo(prev => new Set(prev).add(productId));
+    
+    try {
+      const batches = await getProductStockBatches(productId);
+      const availableBatches = batches.filter(batch => batch.remainingQuantity > 0 && batch.status === 'active');
+      const totalStock = availableBatches.reduce((sum, batch) => sum + batch.remainingQuantity, 0);
+      const totalValue = availableBatches.reduce((sum, batch) => sum + (batch.costPrice * batch.remainingQuantity), 0);
+      const averageCostPrice = totalStock > 0 ? totalValue / totalStock : 0;
+
+      setProductStockInfo(prev => new Map(prev).set(productId, {
+        productId,
+        batches: availableBatches.sort((a, b) => (a.createdAt.seconds || 0) - (b.createdAt.seconds || 0)), // Sort by creation time (FIFO order)
+        totalStock,
+        averageCostPrice
+      }));
+    } catch (error) {
+      console.error('Error loading stock info for product:', productId, error);
+    } finally {
+      setLoadingStockInfo(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(productId);
+        return newSet;
+      });
+    }
+  };
+
+  // Load stock info when products are selected
+  useEffect(() => {
+    formData.products.forEach(formProduct => {
+      if (formProduct.product && !productStockInfo.has(formProduct.product.id)) {
+        loadProductStockInfo(formProduct.product.id);
+      }
+    });
+  }, [formData.products]);
 
   // Product options for react-select
   const availableProducts = products?.filter(p => p.isAvailable && p.stock > 0) || [];
@@ -98,7 +149,21 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
   // Handle close with reset
   const handleClose = () => {
     resetForm();
+    setProductStockInfo(new Map());
     onClose();
+  };
+
+  // Format stock batch display
+  const formatStockBatchInfo = (stockInfo: ProductStockInfo) => {
+    if (stockInfo.batches.length === 0) {
+      return 'No stock batches available';
+    }
+
+    const batchInfo = stockInfo.batches.map(batch => 
+      `${batch.remainingQuantity} at ${batch.costPrice.toLocaleString()} XAF`
+    ).join(', ');
+
+    return `${stockInfo.totalStock} units total (${batchInfo})`;
   };
 
   // Patch: if viewedSale is set, show details modal instead of form
@@ -213,6 +278,36 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                           <Trash2 size={16} />
                         </button>
                       </div>
+                      
+                      {/* Stock Batch Information */}
+                      {(() => {
+                        const stockInfo = productStockInfo.get(product.product.id);
+                        const isLoading = loadingStockInfo.has(product.product.id);
+                        
+                        return (
+                          <div className="p-3 bg-blue-50 rounded-md">
+                            <div className="flex items-center space-x-2 mb-2">
+                              <Info size={16} className="text-blue-600" />
+                              <span className="text-sm font-medium text-blue-700">Available Stock Batches</span>
+                            </div>
+                            {isLoading ? (
+                              <div className="text-sm text-blue-600">Loading stock information...</div>
+                            ) : stockInfo ? (
+                              <div className="text-sm text-blue-800">
+                                {formatStockBatchInfo(stockInfo)}
+                                {stockInfo.averageCostPrice > 0 && (
+                                  <div className="mt-1 text-xs text-blue-600">
+                                    Average cost: {stockInfo.averageCostPrice.toLocaleString()} XAF
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="text-sm text-blue-600">No stock batch information available</div>
+                            )}
+                          </div>
+                        );
+                      })()}
+                      
                       <div className="grid grid-cols-2 gap-4">
                         <Input
                           label="Quantity"
@@ -296,6 +391,36 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                         <span className="ml-2">{product.product.stock}</span>
                       </div>
                     </div>
+                    
+                    {/* Stock Batch Information - Mobile */}
+                    {(() => {
+                      const stockInfo = productStockInfo.get(product.product.id);
+                      const isLoading = loadingStockInfo.has(product.product.id);
+                      
+                      return (
+                        <div className="p-3 bg-blue-50 rounded-md">
+                          <div className="flex items-center space-x-2 mb-2">
+                            <Info size={16} className="text-blue-600" />
+                            <span className="text-sm font-medium text-blue-700">Available Stock Batches</span>
+                          </div>
+                          {isLoading ? (
+                            <div className="text-sm text-blue-600">Loading stock information...</div>
+                          ) : stockInfo ? (
+                            <div className="text-sm text-blue-800">
+                              {formatStockBatchInfo(stockInfo)}
+                              {stockInfo.averageCostPrice > 0 && (
+                                <div className="mt-1 text-xs text-blue-600">
+                                  Average cost: {stockInfo.averageCostPrice.toLocaleString()} XAF
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="text-sm text-blue-600">No stock batch information available</div>
+                          )}
+                        </div>
+                      );
+                    })()}
+                    
                     <div className="grid grid-cols-2 gap-4">
                       <Input
                           label="Quantity"
@@ -369,6 +494,50 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                   <option value="paid">Paid</option>
               </select>
             </div>
+          </div>
+          
+          {/* Inventory Method Selection */}
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700">
+              {t('sales.modals.add.inventoryMethod.title')}
+            </label>
+            <div className="flex space-x-4">
+              <label className="flex items-center space-x-2">
+                <input
+                  type="radio"
+                  name="inventoryMethod"
+                  value="fifo"
+                  checked={formData.inventoryMethod === 'fifo'}
+                  onChange={handleInputChange}
+                  className="form-radio h-4 w-4 text-emerald-600 border-gray-300"
+                />
+                <span className="text-sm text-gray-700">
+                  <strong>{t('sales.modals.add.inventoryMethod.fifo')}</strong>
+                </span>
+                <span className="text-xs text-gray-500">
+                  {t('sales.modals.add.inventoryMethod.fifoDescription')}
+                </span>
+              </label>
+              <label className="flex items-center space-x-2">
+                <input
+                  type="radio"
+                  name="inventoryMethod"
+                  value="lifo"
+                  checked={formData.inventoryMethod === 'lifo'}
+                  onChange={handleInputChange}
+                  className="form-radio h-4 w-4 text-emerald-600 border-gray-300"
+                />
+                <span className="text-sm text-gray-700">
+                  <strong>{t('sales.modals.add.inventoryMethod.lifo')}</strong>
+                </span>
+                <span className="text-xs text-gray-500">
+                  {t('sales.modals.add.inventoryMethod.lifoDescription')}
+                </span>
+              </label>
+            </div>
+            <p className="text-xs text-gray-500">
+              {t('sales.modals.add.inventoryMethod.helpText')}
+            </p>
           </div>
         </div>
         {/* Products Side Panel - Desktop View */}

@@ -22,6 +22,7 @@ const Reports = lazy(() => import('./pages/Reports'));
 const Settings = lazy(() => import('./pages/Settings'));
 const TimelinePage = lazy(() => import('./pages/TimelinePage'));
 const CompanyProducts = lazy(() => import('./pages/CompanyProducts'));
+const FIFODebugger = lazy(() => import('./pages/FIFODebugger'));
 
 function App() {
   const [isAddSaleModalOpen, setIsAddSaleModalOpen] = useState(false);
@@ -39,9 +40,10 @@ function AppWithFAB({ isAddSaleModalOpen, setIsAddSaleModalOpen }: { isAddSaleMo
   const location = useLocation();
   const isAuthPage = location.pathname.startsWith('/auth/login') || location.pathname.startsWith('/auth/register');
   const isCompanyProductsPage = /^\/company\/[^/]+\/products$/.test(location.pathname);
+  const isTrackSalesPage = location.pathname.startsWith('/track/');
   return (
     <>
-      {!isAuthPage && !isCompanyProductsPage && (
+      {!isAuthPage && !isCompanyProductsPage && !isTrackSalesPage && (
         <FloatingActionButton onClick={() => setIsAddSaleModalOpen(true)} label="Add Sale" />
       )}
       <AddSaleModal isOpen={isAddSaleModalOpen} onClose={() => setIsAddSaleModalOpen(false)} />
@@ -67,6 +69,7 @@ function AppWithFAB({ isAddSaleModalOpen, setIsAddSaleModalOpen }: { isAddSaleMo
               <Route path="/suppliers" element={<Suppliers />} />
               <Route path="/reports" element={<Reports />} />
               <Route path="/settings" element={<Settings />} />
+              <Route path="/fifo-debugger" element={<FIFODebugger />} />
             </Route>
           </Route>
           {/* Redirect to login if no route matches */}
