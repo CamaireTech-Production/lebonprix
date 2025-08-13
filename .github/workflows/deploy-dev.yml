@@ -18,12 +18,6 @@ jobs:
       with:
         node-version: '16'
 
-    - name: Install dependencies
-      run: npm install
-
-    - name: Build project
-      run: npm run build
-
     - name: Create .env file
       run: |
         echo "VITE_FIREBASE_API_KEY=${{ secrets.VITE_FIREBASE_API_KEY }}" >> .env
@@ -32,6 +26,12 @@ jobs:
         echo "VITE_FIREBASE_STORAGE_BUCKET=${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}" >> .env
         echo "VITE_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}" >> .env
         echo "VITE_FIREBASE_APP_ID=${{ secrets.VITE_FIREBASE_APP_ID }}" >> .env
+
+    - name: Install dependencies
+      run: npm install
+
+    - name: Build project
+      run: npm run build
 
     - name: Deploy to FTP
       uses: SamKirkland/FTP-Deploy-Action@4.3.0
