@@ -19,10 +19,10 @@ jobs:
         node-version: '16'
 
     - name: Install dependencies
-      run: pnpm install
+      run: npm install
 
     - name: Build project
-      run: pnpm run build
+      run: npm run build
 
     - name: Deploy to FTP
       uses: SamKirkland/FTP-Deploy-Action@4.3.0
