@@ -33,7 +33,8 @@ import type {
   FinanceEntryType,
   StockChange,
   StockBatch,
-  Supplier
+  Supplier,
+  ExpenseType
 } from '../types/models';
 import { useState, useEffect } from 'react';
 import type { InventoryMethod } from '../utils/inventoryManagement';
@@ -837,6 +838,31 @@ export const updateExpense = async (
   createAuditLog(batch, 'update', 'expense', id, data, userId);
   
   await batch.commit();
+};
+
+// --- Expense Types ---
+export const createExpenseType = async (type: Omit<ExpenseType, 'id' | 'createdAt'>): Promise<ExpenseType> => {
+  const ref = doc(collection(db, 'expenseTypes'));
+  const now = serverTimestamp();
+  const data = { ...type, createdAt: now };
+  await setDoc(ref, data);
+  const snap = await getDoc(ref);
+  return { id: ref.id, ...snap.data() } as ExpenseType;
+};
+
+export const getExpenseTypes = async (userId: string): Promise<ExpenseType[]> => {
+  const defaultSnap = await getDocs(query(collection(db, 'expenseTypes'), where('isDefault', '==', true)));
+  const userSnap = await getDocs(query(collection(db, 'expenseTypes'), where('userId', '==', userId)));
+  const allDocs = [...defaultSnap.docs, ...userSnap.docs];
+  const seen = new Set<string>();
+  const types: ExpenseType[] = [];
+  for (const docSnap of allDocs) {
+    if (!seen.has(docSnap.id)) {
+      seen.add(docSnap.id);
+      types.push({ id: docSnap.id, ...docSnap.data() } as ExpenseType);
+    }
+  }
+  return types;
 };
 
 // ============================================================================

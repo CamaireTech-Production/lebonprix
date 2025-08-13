@@ -73,7 +73,7 @@ const Sales: React.FC = () => {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [page, setPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [sortBy, setSortBy] = useState<'date' | 'amount' | null>(null);
+  const [sortBy, setSortBy] = useState<'date' | 'amount' | null>('date');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [search, setSearch] = useState('');
 
