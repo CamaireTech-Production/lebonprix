@@ -31,4 +31,4 @@ jobs:
         username: ${{ secrets.FTP_USERNAME_PROD }}
         password: ${{ secrets.FTP_PASSWORD_PROD }}
         local-dir: dist/
-        server-dir: /home/u752946603/domains/camairetech.com/public_html/subdomain/lebonprix/prod/
+        server-dir: /
