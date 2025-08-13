@@ -85,7 +85,7 @@ export interface Sale extends BaseModel {
 export interface Expense extends BaseModel {
   description: string;
   amount: number;
-  category: 'transportation' | 'purchase' | 'other';
+  category: string;
   isAvailable?: boolean;
 }
 
@@ -186,6 +186,14 @@ export interface FinanceEntry {
 }
 
 export interface FinanceEntryType {
+  id: string;
+  name: string;
+  userId?: string; // undefined for default/global types
+  isDefault: boolean;
+  createdAt: Timestamp;
+}
+
+export interface ExpenseType {
   id: string;
   name: string;
   userId?: string; // undefined for default/global types

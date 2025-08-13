@@ -15,9 +15,10 @@ interface ObjectiveFormProps {
   onClose: () => void;
   objective?: Objective | null;
   metricsOptions: { value: string; label: string }[];
+  onAfterAdd?: () => void; // optional callback to execute after successful add
 }
 
-const ObjectiveForm: React.FC<ObjectiveFormProps> = ({ isOpen, onClose, objective, metricsOptions }) => {
+const ObjectiveForm: React.FC<ObjectiveFormProps> = ({ isOpen, onClose, objective, metricsOptions, onAfterAdd }) => {
   const { t } = useTranslation();
   const { addObjective, updateObjective } = useObjectives();
 
@@ -60,6 +61,7 @@ const ObjectiveForm: React.FC<ObjectiveFormProps> = ({ isOpen, onClose, objectiv
       } else {
         await addObjective(payload);
         showSuccessToast(t('objectives.messages.addSuccess'));
+        if (onAfterAdd) onAfterAdd();
       }
       onClose();
     } catch (err) {

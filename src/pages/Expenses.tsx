@@ -7,6 +7,8 @@ import Badge from '../components/common/Badge';
 import Modal, { ModalFooter } from '../components/common/Modal';
 import Input from '../components/common/Input';
 import { useExpenses } from '../hooks/useFirestore';
+import CreatableSelect from '../components/common/CreatableSelect';
+import { getExpenseTypes, createExpenseType } from '../services/firestore';
 import { softDeleteExpense } from '../services/firestore';
 import LoadingScreen from '../components/common/LoadingScreen';
 import { showSuccessToast, showErrorToast, showWarningToast } from '../utils/toast';
@@ -35,6 +37,8 @@ const Expenses = () => {
     amount: '',
     category: 'transportation',
   });
+  const [expenseTypes, setExpenseTypes] = useState<{ label: string; value: string }[]>([]);
+  const [selectedType, setSelectedType] = useState<{ label: string; value: string } | null>(null);
   
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -47,6 +51,24 @@ const Expenses = () => {
       amount: '',
       category: 'transportation',
     });
+    setSelectedType(null);
+  };
+
+  const loadExpenseTypes = async () => {
+    if (!user) return;
+    const types = await getExpenseTypes(user.uid);
+    // Map fetched types using translations when keys match known categories
+    const options = types.map(tDoc => {
+      const key = tDoc.name;
+      const label = t(`expenses.categories.${key}`, key);
+      return { label, value: key };
+    });
+    // Ensure legacy defaults visible even before migration
+    const legacyDefaults = ['transportation', 'purchase', 'other'];
+    legacyDefaults.forEach(name => {
+      if (!options.find(o => o.value === name)) options.push({ label: t(`expenses.categories.${name}`, name), value: name });
+    });
+    setExpenseTypes(options);
   };
   
   const handleAddExpense = async () => {
@@ -56,7 +78,8 @@ const Expenses = () => {
     }
 
     try {
-      if (!formData.description || !formData.amount || !formData.category) {
+      const typeValue = selectedType?.value || formData.category;
+      if (!formData.description || !formData.amount || !typeValue) {
         showWarningToast(t('errors.fillAllFields'));
         return;
       }
@@ -65,7 +88,7 @@ const Expenses = () => {
       await addExpense({
         description: formData.description,
         amount: parseFloat(formData.amount),
-        category: formData.category as 'transportation' | 'purchase' | 'other',
+        category: typeValue,
         userId: user.uid,
       });
       
@@ -89,7 +112,8 @@ const Expenses = () => {
     if (!currentExpense) return;
     
     try {
-      if (!formData.description || !formData.amount || !formData.category) {
+      const typeValue = selectedType?.value || formData.category;
+      if (!formData.description || !formData.amount || !typeValue) {
         showWarningToast(t('errors.fillAllFields'));
         return;
       }
@@ -98,7 +122,7 @@ const Expenses = () => {
       await updateExpense(currentExpense.id, {
         description: formData.description,
         amount: parseFloat(formData.amount),
-        category: formData.category as 'transportation' | 'purchase' | 'other',
+        category: typeValue,
       });
       
       setIsEditModalOpen(false);
@@ -119,6 +143,7 @@ const Expenses = () => {
       amount: expense.amount.toString(),
       category: expense.category,
     });
+    setSelectedType({ label: t(`expenses.categories.${expense.category}`, expense.category), value: expense.category });
     setIsEditModalOpen(true);
   };
   
@@ -153,12 +178,14 @@ const Expenses = () => {
     { 
       header: t('expenses.table.category'), 
       accessor: (expense: Expense) => {
+        const defaultCategories = ['transportation', 'purchase', 'other'];
+        const isDefault = defaultCategories.includes(expense.category);
         let variant: 'info' | 'error' | 'warning' = 'info';
         if (expense.category === 'purchase') variant = 'error';
-        if (expense.category === 'other') variant = 'warning';
-        if (expense.category === 'transportation') variant = 'info';
-        
-        return <Badge variant={variant}>{t(`expenses.categories.${expense.category}`)}</Badge>;
+        else if (expense.category === 'other') variant = 'warning';
+        else if (expense.category === 'transportation') variant = 'info';
+        const label = isDefault ? t(`expenses.categories.${expense.category}`) : expense.category;
+        return <Badge variant={variant}>{label}</Badge>;
       },
     },
     { 
@@ -250,7 +277,7 @@ const Expenses = () => {
           
           <Button 
             icon={<Plus size={16} />}
-            onClick={() => setIsAddModalOpen(true)}
+            onClick={async () => { await loadExpenseTypes(); setIsAddModalOpen(true); }}
           >
             {t('expenses.actions.add')}
           </Button>
@@ -326,16 +353,19 @@ const Expenses = () => {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               {t('expenses.form.category')}
             </label>
-            <select
-              name="category"
-              className="w-full rounded-md border border-gray-300 shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-              value={formData.category}
-              onChange={handleInputChange}
-            >
-              <option value="transportation">{t('expenses.categories.transportation')}</option>
-              <option value="purchase">{t('expenses.categories.purchase')}</option>
-              <option value="other">{t('expenses.categories.other')}</option>
-            </select>
+            <CreatableSelect
+              value={selectedType}
+              onChange={(opt: any) => setSelectedType(opt)}
+              options={expenseTypes}
+              onCreate={async (name: string) => {
+                if (!user) return { label: name, value: name };
+                const created = await createExpenseType({ name, isDefault: false, userId: user.uid } as any);
+                const option = { label: created.name, value: created.name };
+                setExpenseTypes(prev => [...prev, option]);
+                return option;
+              }}
+              placeholder={t('expenses.form.category')}
+            />
           </div>
         </div>
       </Modal>
@@ -376,16 +406,19 @@ const Expenses = () => {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               {t('expenses.form.category')}
             </label>
-            <select
-              name="category"
-              className="w-full rounded-md border border-gray-300 shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-              value={formData.category}
-              onChange={handleInputChange}
-            >
-              <option value="transportation">{t('expenses.categories.transportation')}</option>
-              <option value="purchase">{t('expenses.categories.purchase')}</option>
-              <option value="other">{t('expenses.categories.other')}</option>
-            </select>
+            <CreatableSelect
+              value={selectedType}
+              onChange={(opt: any) => setSelectedType(opt)}
+              options={expenseTypes}
+              onCreate={async (name: string) => {
+                if (!user) return { label: name, value: name };
+                const created = await createExpenseType({ name, isDefault: false, userId: user.uid } as any);
+                const option = { label: created.name, value: created.name };
+                setExpenseTypes(prev => [...prev, option]);
+                return option;
+              }}
+              placeholder={t('expenses.form.category')}
+            />
           </div>
         </div>
       </Modal>

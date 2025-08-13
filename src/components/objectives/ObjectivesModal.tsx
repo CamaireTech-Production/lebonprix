@@ -18,9 +18,13 @@ interface ObjectivesModalProps {
   sales: any[];
   expenses: any[];
   products: any[];
+  onAfterAdd?: () => void; // optional callback to run after objective add
+  stockChanges?: any[];
 }
 
-const ObjectivesModal: React.FC<ObjectivesModalProps> = ({ isOpen, onClose, stats, dateRange, metricsOptions, applyDateFilter, sales, expenses, products }) => {
+import { getLatestCostPrice } from '../../utils/productUtils';
+
+const ObjectivesModal: React.FC<ObjectivesModalProps> = ({ isOpen, onClose, stats, dateRange, metricsOptions, applyDateFilter, sales, expenses, products, onAfterAdd, stockChanges = [] }) => {
   const { t } = useTranslation();
   const { objectives, deleteObjective } = useObjectives();
   const [editingObjective, setEditingObjective] = useState<Objective | null>(null);
@@ -28,29 +32,24 @@ const ObjectivesModal: React.FC<ObjectivesModalProps> = ({ isOpen, onClose, stat
   const [openObjectiveId, setOpenObjectiveId] = useState<string | null>(null);
 
   const isOverlapping = (obj: any) => {
+    // Compute the objective's active window
+    let objFrom: Date | null = null;
+    let objTo: Date | null = null;
     if (obj.periodType === 'predefined') {
       const now = new Date();
       if (obj.predefined === 'this_year') {
-        // Only show if dashboard filter is within this year
-        return (
-          dateRange.from.getFullYear() === now.getFullYear() &&
-          dateRange.to.getFullYear() === now.getFullYear()
-        );
-      } else if (obj.predefined === 'this_month') {
-        // Only show if dashboard filter is within this month
-        return (
-          dateRange.from.getFullYear() === now.getFullYear() &&
-          dateRange.from.getMonth() === now.getMonth() &&
-          dateRange.to.getFullYear() === now.getFullYear() &&
-          dateRange.to.getMonth() === now.getMonth()
-        );
+        objFrom = new Date(now.getFullYear(), 0, 1);
+        objTo = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
+      } else {
+        objFrom = new Date(now.getFullYear(), now.getMonth(), 1);
+        objTo = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
       }
-      return false;
+    } else {
+      objFrom = obj.startAt?.toDate ? obj.startAt.toDate() : (obj.startAt ? new Date(obj.startAt) : null);
+      objTo = obj.endAt?.toDate ? obj.endAt.toDate() : (obj.endAt ? new Date(obj.endAt) : null);
     }
-    if (!obj.startAt || !obj.endAt) return true;
-    const start = obj.startAt.toDate ? obj.startAt.toDate() : new Date(obj.startAt);
-    const end = obj.endAt.toDate ? obj.endAt.toDate() : new Date(obj.endAt);
-    return start <= dateRange.to && end >= dateRange.from;
+    if (!objFrom || !objTo) return true;
+    return objFrom <= dateRange.to && objTo >= dateRange.from;
   };
 
   const getStatsForObjective = (obj: any) => {
@@ -71,43 +70,43 @@ const ObjectivesModal: React.FC<ObjectivesModalProps> = ({ isOpen, onClose, stat
     const salesInPeriod = sales?.filter(sale => sale.createdAt?.seconds && new Date(sale.createdAt.seconds * 1000) >= from && new Date(sale.createdAt.seconds * 1000) <= to) || [];
     const expensesInPeriod = expenses?.filter(exp => exp.createdAt?.seconds && new Date(exp.createdAt.seconds * 1000) >= from && new Date(exp.createdAt.seconds * 1000) <= to) || [];
     switch (obj.metric) {
-      case 'profit':
-        return salesInPeriod.reduce((sum: number, sale: any) => sum + sale.products.reduce((productSum: any, product: any) => {
-          const productData = products?.find((p: any) => p.id === product.productId);
-          if (!productData) return productSum;
-          const sellingPrice = product.negotiatedPrice || product.basePrice;
-          return productSum + (sellingPrice - productData.costPrice) * product.quantity;
+      case 'profit': {
+        const profit = salesInPeriod.reduce((sum: number, sale: any) => sum + sale.products.reduce((productSum: number, product: any) => {
+          const sellingPrice = product.negotiatedPrice || product.basePrice || 0;
+          const latestCost = getLatestCostPrice(product.productId, stockChanges);
+          const costPrice = latestCost ?? 0;
+          return productSum + (sellingPrice - costPrice) * (product.quantity || 0);
         }, 0), 0);
+        return Number.isFinite(profit) ? profit : 0;
+      }
       case 'totalExpenses':
-        return expensesInPeriod.reduce((sum, exp) => sum + exp.amount, 0);
+        return expensesInPeriod.reduce((sum, exp) => sum + (exp.amount || 0), 0);
       case 'totalOrders':
-        return salesInPeriod.length;
-      case 'deliveryExpenses':
-        return expensesInPeriod.filter(e => e.category?.toLowerCase() === 'delivery').reduce((sum, e) => sum + e.amount, 0);
-      case 'totalSalesAmount':
-        return salesInPeriod.reduce((sum, sale) => sum + sale.totalAmount, 0);
       case 'totalSalesCount':
         return salesInPeriod.length;
+      case 'totalProductsSold':
+        return salesInPeriod.reduce((sum, sale) => sum + sale.products.reduce((acc: number, p: any) => acc + (p.quantity || 0), 0), 0);
+      case 'deliveryFee':
+        return salesInPeriod.reduce((sum, sale) => sum + (sale.deliveryFee || 0), 0);
+      case 'deliveryExpenses':
+        return expensesInPeriod.filter(e => (e.category || '').toLowerCase() === 'delivery').reduce((sum, e) => sum + (e.amount || 0), 0);
+      case 'totalSalesAmount':
+        return salesInPeriod.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
       default:
         return 0;
     }
   };
 
-  const isAllTime = dateRange.from.getFullYear() === 2000 && dateRange.from.getMonth() === 0 && dateRange.from.getDate() === 1 && dateRange.to.getFullYear() === 2100 && dateRange.to.getMonth() === 0 && dateRange.to.getDate() === 1;
-
   const filteredObjectives = useMemo(() => {
-    if (!applyDateFilter || (applyDateFilter && isAllTime)) {
-      return objectives;
-    } else {
-      return objectives.filter(isOverlapping);
-    }
+    if (!applyDateFilter) return objectives;
+    return objectives.filter(isOverlapping);
   }, [objectives, dateRange, applyDateFilter]);
 
   const objsWithProgress = useMemo(() => {
     return filteredObjectives.map(o => {
-      let current = getStatsForObjective(o);
+      const current = getStatsForObjective(o);
       const pct = o.targetAmount ? Math.max(0, Math.min(100, (current / o.targetAmount) * 100)) : 0;
-      return { ...o, progress: Math.round(pct) } as Objective & { progress: number };
+      return { ...o, progress: Math.round(pct), currentValue: current } as Objective & { progress: number; currentValue: number };
     });
   }, [filteredObjectives, sales, expenses, products]);
 
@@ -150,6 +149,7 @@ const ObjectivesModal: React.FC<ObjectivesModalProps> = ({ isOpen, onClose, stat
           onClose={() => { setShowForm(false); onClose(); }}
           objective={editingObjective}
           metricsOptions={metricsOptions}
+          onAfterAdd={onAfterAdd}
         />
       )}
     </>

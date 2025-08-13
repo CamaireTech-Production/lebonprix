@@ -31,7 +31,7 @@ const Dashboard = () => {
   const [] = useState<Partial<DashboardStats>>({});
   const [copied, setCopied] = useState(false);
   const [dateRange, setDateRange] = useState({
-    from: new Date(2000, 0, 1),
+    from: new Date(2025, 3, 1), // April 1st, 2025
     to: new Date(2100, 0, 1),
   });
   const [showObjectivesModal, setShowObjectivesModal] = useState(false);
@@ -364,6 +364,7 @@ const Dashboard = () => {
         sales={sales}
         expenses={expenses}
         products={products}
+        stockChanges={stockChanges}
       />
       {showObjectivesModal && (
         <ObjectivesModal
@@ -376,6 +377,8 @@ const Dashboard = () => {
           sales={sales}
           expenses={expenses}
           products={products}
+          stockChanges={stockChanges}
+          onAfterAdd={() => setApplyDateFilter(false)}
         />
       )}
       {/* Stats section */}

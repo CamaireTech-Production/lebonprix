@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { format, differenceInCalendarDays, endOfMonth, endOfYear } from 'date-fns';
 
 interface ObjectiveItemProps {
-  objective: Objective & { progress: number };
+  objective: Objective & { progress: number; currentValue?: number };
   onEdit: (obj: Objective) => void;
   onDelete: (obj: Objective) => void;
   open: boolean;
@@ -19,9 +19,10 @@ const ObjectiveItem: React.FC<ObjectiveItemProps> = ({ objective, onEdit, onDele
 
   // Determine translation key for metric
   const metricLabel = t(`dashboard.stats.${objective.metric}`);
-  // Determine unit for target amount
-  let targetUnit = '';
+  // Determine unit for amounts (target/current)
+  let amountUnit = '';
   if ([
+    'profit',
     'grossProfit',
     'netProfit',
     'totalExpenses',
@@ -29,12 +30,13 @@ const ObjectiveItem: React.FC<ObjectiveItemProps> = ({ objective, onEdit, onDele
     'totalSalesAmount',
     'totalPurchasePrice',
   ].includes(objective.metric)) {
-    targetUnit = ' XAF';
+    amountUnit = ' XAF';
   } else if ([
     'totalSalesCount',
     'totalOrders',
+    'totalProductsSold',
   ].includes(objective.metric)) {
-    targetUnit = ' sales';
+    amountUnit = ' sales';
   }
 
   // Calculate remaining days until due date
@@ -96,8 +98,15 @@ const ObjectiveItem: React.FC<ObjectiveItemProps> = ({ objective, onEdit, onDele
           <div className="text-sm text-gray-600">
             {t('objectives.metric')}: <span className="font-medium text-gray-800">{metricLabel}</span>
           </div>
-          <div className="text-sm text-gray-600">
-            {t('objectives.target')}: <span className="font-medium text-gray-800">{objective.targetAmount.toLocaleString()}{targetUnit}</span>
+          <div className="text-sm text-gray-600 flex flex-wrap gap-x-4 gap-y-1">
+            <span>
+              {t('objectives.target')}: <span className="font-medium text-gray-800">{objective.targetAmount.toLocaleString()}{amountUnit}</span>
+            </span>
+            {typeof objective.currentValue === 'number' && (
+              <span>
+                {t('objectives.current')}: <span className="font-medium text-gray-800">{objective.currentValue.toLocaleString()}{amountUnit}</span>
+              </span>
+            )}
           </div>
           <div className="text-sm text-gray-600">
             {t('objectives.period')}: <span className="font-medium text-gray-800">{
