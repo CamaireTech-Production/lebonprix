@@ -52,7 +52,11 @@ const Dashboard = () => {
     return saleDate >= dateRange.from && saleDate <= dateRange.to;
   });
 
+  // Filter out soft-deleted expenses and apply date range filter
   const filteredExpenses = expenses?.filter(expense => {
+    // First filter out soft-deleted expenses
+    if (expense.isAvailable === false) return false;
+    // Then apply date range filter
     if (!expense.createdAt?.seconds) return false;
     const expenseDate = new Date(expense.createdAt.seconds * 1000);
     return expenseDate >= dateRange.from && expenseDate <= dateRange.to;

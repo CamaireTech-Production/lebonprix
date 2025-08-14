@@ -79,7 +79,11 @@ const Finance: React.FC = () => {
     const saleDate = new Date(sale.createdAt.seconds * 1000);
     return saleDate >= dateRange.from && saleDate <= dateRange.to;
   }), [sales, dateRange]);
+  // Filter out soft-deleted expenses and apply date range filter
   const filteredExpenses = useMemo(() => expenses.filter(exp => {
+    // First filter out soft-deleted expenses
+    if (exp.isAvailable === false) return false;
+    // Then apply date range filter
     if (!exp.createdAt?.seconds) return false;
     const expDate = new Date(exp.createdAt.seconds * 1000);
     return expDate >= dateRange.from && expDate <= dateRange.to;
