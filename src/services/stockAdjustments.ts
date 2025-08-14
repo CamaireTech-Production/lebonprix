@@ -82,7 +82,7 @@ export const restockProduct = async (
   // Create supplier debt if credit purchase
   if (supplierId && isCredit && !isOwnPurchase) {
     const debtAmount = quantity * costPrice;
-    const debtRef = doc(collection(db, 'financeEntries'));
+    const debtRef = doc(collection(db, 'finances'));
     const debtData = {
       id: debtRef.id,
       userId,
@@ -189,7 +189,7 @@ export const adjustStockManually = async (
     const debtChange = quantityChange * (newCostPrice || batchData.costPrice);
     
     if (debtChange !== 0) {
-      const debtRef = doc(collection(db, 'financeEntries'));
+      const debtRef = doc(collection(db, 'finances'));
       const debtData = {
         id: debtRef.id,
         userId,
@@ -241,8 +241,12 @@ export const adjustStockForDamage = async (
     throw new Error('Batch remaining quantity cannot be negative');
   }
   
+  // Calculate total damaged quantity (existing + new)
+  const totalDamagedQuantity = (batchData.damagedQuantity || 0) + damagedQuantity;
+  
   batch.update(batchRef, {
     remainingQuantity: newRemainingQuantity,
+    damagedQuantity: totalDamagedQuantity,
     status: newRemainingQuantity === 0 ? 'depleted' : 'active',
     updatedAt: serverTimestamp(),
     ...(notes && { notes })
@@ -304,4 +308,455 @@ export const getProductBatchesForAdjustment = async (productId: string): Promise
     id: doc.id,
     ...doc.data()
   })) as StockBatch[];
+};
+
+/**
+ * Bulk adjustment for multiple batches in a single transaction
+ */
+export const adjustMultipleBatchesManually = async (
+  productId: string,
+  adjustments: Array<{
+    batchId: string;
+    quantityChange: number;
+    newCostPrice?: number;
+    notes?: string;
+  }>,
+  userId: string
+): Promise<void> => {
+  const batch = writeBatch(db);
+  
+  // Get product details first
+  const productRef = doc(db, 'products', productId);
+  const productSnap = await getDoc(productRef);
+  if (!productSnap.exists()) {
+    throw new Error('Product not found');
+  }
+  
+  const currentProduct = productSnap.data() as Product;
+  if (currentProduct.userId !== userId) {
+    throw new Error('Unauthorized to update this product');
+  }
+  
+  let totalStockChange = 0;
+  const batchUpdates: Array<{ ref: any; updates: any }> = [];
+  const stockChanges: Array<any> = [];
+  const financeEntries: Array<any> = [];
+  
+  // Process each adjustment
+  for (const adjustment of adjustments) {
+    // Get batch details
+    const batchRef = doc(db, 'stockBatches', adjustment.batchId);
+    const batchSnap = await getDoc(batchRef);
+    if (!batchSnap.exists()) {
+      throw new Error(`Stock batch ${adjustment.batchId} not found`);
+    }
+    
+    const batchData = batchSnap.data() as StockBatch;
+    if (batchData.userId !== userId) {
+      throw new Error('Unauthorized to update this batch');
+    }
+    
+    // Update batch
+    const newRemainingQuantity = batchData.remainingQuantity + adjustment.quantityChange;
+    if (newRemainingQuantity < 0) {
+      throw new Error(`Batch ${adjustment.batchId} remaining quantity cannot be negative`);
+    }
+    
+    const batchUpdates_item = {
+      remainingQuantity: newRemainingQuantity,
+      status: newRemainingQuantity === 0 ? 'depleted' : 'active',
+      updatedAt: serverTimestamp()
+    };
+    
+    if (adjustment.newCostPrice !== undefined) {
+      batchUpdates_item.costPrice = adjustment.newCostPrice;
+    }
+    
+    if (adjustment.notes) {
+      batchUpdates_item.notes = adjustment.notes;
+    }
+    
+    batchUpdates.push({ ref: batchRef, updates: batchUpdates_item });
+    totalStockChange += adjustment.quantityChange;
+    
+    // Create stock change record
+    const stockChangeRef = doc(collection(db, 'stockChanges'));
+    const stockChangeData = {
+      id: stockChangeRef.id,
+      productId,
+      change: adjustment.quantityChange,
+      reason: 'manual_adjustment' as StockChange['reason'],
+      ...(batchData.supplierId && { supplierId: batchData.supplierId }),
+      ...(batchData.isOwnPurchase !== undefined && { isOwnPurchase: batchData.isOwnPurchase }),
+      ...(batchData.isCredit !== undefined && { isCredit: batchData.isCredit }),
+      costPrice: adjustment.newCostPrice || batchData.costPrice,
+      batchId: adjustment.batchId,
+      createdAt: serverTimestamp(),
+      userId
+    };
+    stockChanges.push({ ref: stockChangeRef, data: stockChangeData });
+    
+    // Handle supplier debt adjustment for credit purchases
+    if (batchData.supplierId && batchData.isCredit && !batchData.isOwnPurchase) {
+      const debtChange = adjustment.quantityChange * (adjustment.newCostPrice || batchData.costPrice);
+      
+      if (debtChange !== 0) {
+        const debtRef = doc(collection(db, 'finances'));
+        const debtData = {
+          id: debtRef.id,
+          userId,
+          sourceType: 'supplier',
+          sourceId: batchData.supplierId,
+          type: debtChange > 0 ? 'supplier_debt' : 'supplier_refund',
+          amount: Math.abs(debtChange),
+          description: `Bulk stock adjustment: ${adjustment.quantityChange > 0 ? '+' : ''}${adjustment.quantityChange} units of product ${currentProduct.name}`,
+          date: serverTimestamp(),
+          isDeleted: false,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          supplierId: batchData.supplierId
+        };
+        financeEntries.push({ ref: debtRef, data: debtData });
+      }
+    }
+  }
+  
+  // Apply all batch updates
+  batchUpdates.forEach(({ ref, updates }) => {
+    batch.update(ref, updates);
+  });
+  
+  // Update product total stock
+  batch.update(productRef, {
+    stock: currentProduct.stock + totalStockChange,
+    updatedAt: serverTimestamp()
+  });
+  
+  // Add all stock changes
+  stockChanges.forEach(({ ref, data }) => {
+    batch.set(ref, data);
+  });
+  
+  // Add all finance entries
+  financeEntries.forEach(({ ref, data }) => {
+    batch.set(ref, data);
+  });
+  
+  // Commit all changes in a single transaction
+  await batch.commit();
+};
+
+/**
+ * Enhanced batch adjustment with comprehensive purchase method editing and debt management
+ */
+export const adjustBatchWithDebtManagement = async (
+  productId: string,
+  adjustments: Array<{
+    batchId: string;
+    quantityChange: number;
+    newCostPrice?: number;
+    newSupplyType: 'ownPurchase' | 'fromSupplier';
+    newSupplierId?: string;
+    newPaymentType: 'paid' | 'credit';
+    scenario: 'adjustment' | 'damage';
+    notes?: string;
+  }>,
+  userId: string
+): Promise<void> => {
+  const batch = writeBatch(db);
+  
+  // Get product details first
+  const productRef = doc(db, 'products', productId);
+  const productSnap = await getDoc(productRef);
+  if (!productSnap.exists()) {
+    throw new Error('Product not found');
+  }
+  
+  const currentProduct = productSnap.data() as Product;
+  if (currentProduct.userId !== userId) {
+    throw new Error('Unauthorized to update this product');
+  }
+  
+  let totalStockChange = 0;
+  const batchUpdates: Array<{ ref: any; updates: any }> = [];
+  const stockChanges: Array<any> = [];
+  const financeEntries: Array<any> = [];
+  
+  // Process each adjustment
+  for (const adjustment of adjustments) {
+    // Get batch details
+    const batchRef = doc(db, 'stockBatches', adjustment.batchId);
+    const batchSnap = await getDoc(batchRef);
+    if (!batchSnap.exists()) {
+      throw new Error(`Stock batch ${adjustment.batchId} not found`);
+    }
+    
+    const batchData = batchSnap.data() as StockBatch;
+    if (batchData.userId !== userId) {
+      throw new Error('Unauthorized to update this batch');
+    }
+    
+    // Calculate new values based on scenario
+    let newQuantity = batchData.quantity;
+    let newRemainingQuantity = batchData.remainingQuantity;
+    
+    if (adjustment.scenario === 'damage') {
+      // For damage: only reduce remaining quantity
+      newRemainingQuantity = batchData.remainingQuantity + adjustment.quantityChange;
+      if (newRemainingQuantity < 0) {
+        throw new Error(`Batch ${adjustment.batchId} remaining quantity cannot be negative`);
+      }
+    } else {
+      // For manual adjustment: update total quantity and recalculate remaining
+      newQuantity = batchData.quantity + adjustment.quantityChange;
+      const usedQuantity = batchData.quantity - batchData.remainingQuantity;
+      newRemainingQuantity = newQuantity - usedQuantity;
+      
+      if (newQuantity < 0) {
+        throw new Error(`Batch ${adjustment.batchId} total quantity cannot be negative`);
+      }
+      if (newRemainingQuantity < 0) {
+        throw new Error(`Batch ${adjustment.batchId} remaining quantity cannot be negative`);
+      }
+    }
+    
+    const finalCostPrice = adjustment.scenario === 'damage' ? batchData.costPrice : (adjustment.newCostPrice || batchData.costPrice);
+    
+    // Update batch with comprehensive changes
+    const batchUpdates_item = {
+      quantity: newQuantity,
+      remainingQuantity: newRemainingQuantity,
+      status: newRemainingQuantity === 0 ? 'depleted' : 'active',
+      costPrice: finalCostPrice,
+      isOwnPurchase: adjustment.newSupplyType === 'ownPurchase',
+      isCredit: adjustment.newPaymentType === 'credit',
+      updatedAt: serverTimestamp()
+    };
+    
+    if (adjustment.newSupplierId) {
+      batchUpdates_item.supplierId = adjustment.newSupplierId;
+    }
+    
+    if (adjustment.notes) {
+      batchUpdates_item.notes = adjustment.notes;
+    }
+    
+    batchUpdates.push({ ref: batchRef, updates: batchUpdates_item });
+    totalStockChange += adjustment.quantityChange;
+    
+    // Create stock change record
+    const stockChangeRef = doc(collection(db, 'stockChanges'));
+    const stockChangeData = {
+      id: stockChangeRef.id,
+      productId,
+      change: adjustment.quantityChange,
+      reason: adjustment.scenario === 'damage' ? 'damage' : 'manual_adjustment',
+      ...(adjustment.newSupplierId && { supplierId: adjustment.newSupplierId }),
+      isOwnPurchase: adjustment.newSupplyType === 'ownPurchase',
+      isCredit: adjustment.newPaymentType === 'credit',
+      costPrice: finalCostPrice,
+      batchId: adjustment.batchId,
+      createdAt: serverTimestamp(),
+      userId
+    };
+    stockChanges.push({ ref: stockChangeRef, data: stockChangeData });
+    
+    // Handle debt management for manual adjustments
+    if (adjustment.scenario !== 'damage') {
+      await handleBatchDebtManagement(
+        batch,
+        batchData,
+        adjustment,
+        newRemainingQuantity,
+        finalCostPrice,
+        currentProduct,
+        userId
+      );
+    }
+    // For damage scenario: debts remain unchanged as specified
+  }
+  
+  // Apply all batch updates
+  batchUpdates.forEach(({ ref, updates }) => {
+    batch.update(ref, updates);
+  });
+  
+  // Update product total stock
+  batch.update(productRef, {
+    stock: currentProduct.stock + totalStockChange,
+    updatedAt: serverTimestamp()
+  });
+  
+  // Add all stock changes
+  stockChanges.forEach(({ ref, data }) => {
+    batch.set(ref, data);
+  });
+  
+  // Add all finance entries
+  financeEntries.forEach(({ ref, data }) => {
+    batch.set(ref, data);
+  });
+  
+  // Commit all changes in a single transaction
+  await batch.commit();
 }; 
+
+/**
+ * Dedicated function to handle debt management for batch adjustments
+ * Implements the three scenarios:
+ * 1. Own purchase → Supplier credit: Create new debt
+ * 2. Supplier credit → Supplier credit: Update existing debt
+ * 3. Supplier credit → Own purchase: Delete debt and refunds
+ */
+const handleBatchDebtManagement = async (
+  batch: any,
+  batchData: StockBatch,
+  adjustment: {
+    batchId: string;
+    quantityChange: number;
+    newCostPrice?: number;
+    newSupplyType: 'ownPurchase' | 'fromSupplier';
+    newSupplierId?: string;
+    newPaymentType: 'paid' | 'credit';
+    scenario: 'adjustment' | 'damage';
+    notes?: string;
+  },
+  newRemainingQuantity: number,
+  finalCostPrice: number,
+  currentProduct: Product,
+  userId: string
+): Promise<void> => {
+  
+  // Determine the old and new supplier IDs
+  const oldSupplierId = batchData.supplierId;
+  const newSupplierId = adjustment.newSupplierId;
+  
+  // Find existing debt and refund entries for this specific batch
+  let existingDebts: any[] = [];
+  let existingRefunds: any[] = [];
+  
+  // Get debts/refunds for this specific batch
+  const batchDebtQuery = query(
+    collection(db, 'finances'),
+    where('userId', '==', userId),
+    where('sourceType', '==', 'supplier'),
+    where('batchId', '==', adjustment.batchId),
+    where('type', '==', 'supplier_debt'),
+    where('isDeleted', '==', false)
+  );
+  
+  const batchRefundQuery = query(
+    collection(db, 'finances'),
+    where('userId', '==', userId),
+    where('sourceType', '==', 'supplier'),
+    where('batchId', '==', adjustment.batchId),
+    where('type', '==', 'supplier_refund'),
+    where('isDeleted', '==', false)
+  );
+  
+  const [batchDebtSnapshot, batchRefundSnapshot] = await Promise.all([
+    getDocs(batchDebtQuery),
+    getDocs(batchRefundQuery)
+  ]);
+  
+  existingDebts = batchDebtSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  existingRefunds = batchRefundSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  
+  // Calculate current net debt (debt - refunds)
+  const totalDebt = existingDebts.reduce((sum, debt) => sum + debt.amount, 0);
+  const totalRefunds = existingRefunds.reduce((sum, refund) => sum + refund.amount, 0);
+  const currentNetDebt = totalDebt - totalRefunds;
+  
+  // Scenario 3: Changing to own purchase or paid supplier
+  if (adjustment.newSupplyType === 'ownPurchase' || 
+      (adjustment.newSupplyType === 'fromSupplier' && adjustment.newPaymentType === 'paid')) {
+    
+    // Soft delete all existing debt and refund entries for this batch
+    existingDebts.forEach(debt => {
+      const debtRef = doc(db, 'finances', debt.id);
+      batch.update(debtRef, { 
+        isDeleted: true, 
+        updatedAt: serverTimestamp(),
+        description: `Debt deleted due to manual adjustment - batch ${adjustment.batchId}`
+      });
+    });
+    
+    existingRefunds.forEach(refund => {
+      const refundRef = doc(db, 'finances', refund.id);
+      batch.update(refundRef, { 
+        isDeleted: true, 
+        updatedAt: serverTimestamp(),
+        description: `Refund deleted due to manual adjustment - batch ${adjustment.batchId}`
+      });
+    });
+    
+    console.log(`Scenario 3: Deleted ${existingDebts.length} debts and ${existingRefunds.length} refunds for batch ${adjustment.batchId}`);
+    
+  } else if (adjustment.newSupplyType === 'fromSupplier' && adjustment.newPaymentType === 'credit') {
+    // Scenarios 1 & 2: Changing to credit supplier
+    
+    // Calculate new debt amount based on new remaining quantity
+    const newDebtAmount = newRemainingQuantity * finalCostPrice;
+    
+    // Since we're now working with batch-specific debts, we should have at most one debt per batch
+    if (existingDebts.length > 0) {
+      // Scenario 2: Update existing debt entry (same supplier, different qty/cost)
+      const existingDebt = existingDebts[0]; // Should be only one debt per batch
+      const debtRef = doc(db, 'finances', existingDebt.id);
+      batch.update(debtRef, { 
+        amount: newDebtAmount,
+        updatedAt: serverTimestamp(),
+        description: `Manual adjustment debt update for batch ${adjustment.batchId} - Product: ${currentProduct.name}`
+      });
+      
+      // If new debt is less than current net debt, create a refund for the difference
+      if (newDebtAmount < currentNetDebt) {
+        const refundAmount = currentNetDebt - newDebtAmount;
+        const refundRef = doc(collection(db, 'finances'));
+        const refundData = {
+          id: refundRef.id,
+          userId,
+          sourceType: 'supplier',
+          sourceId: newSupplierId,
+          type: 'supplier_refund',
+          amount: refundAmount,
+          description: `Manual adjustment refund for batch ${adjustment.batchId} - Product: ${currentProduct.name}`,
+          date: serverTimestamp(),
+          isDeleted: false,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          supplierId: newSupplierId,
+          refundedDebtId: existingDebt.id,
+          batchId: adjustment.batchId
+        };
+        batch.set(refundRef, refundData);
+      }
+      
+      console.log(`Scenario 2: Updated existing debt from ${currentNetDebt} to ${newDebtAmount} for batch ${adjustment.batchId}`);
+      
+    } else {
+      // Scenario 1: Create new debt entry (own purchase to supplier credit)
+      
+      // Create new debt entry
+      const newDebtRef = doc(collection(db, 'finances'));
+      const newDebtData = {
+        id: newDebtRef.id,
+        userId,
+        sourceType: 'supplier',
+        sourceId: newSupplierId,
+        type: 'supplier_debt',
+        amount: newDebtAmount,
+        description: `Manual adjustment debt creation for batch ${adjustment.batchId} - Product: ${currentProduct.name}`,
+        date: serverTimestamp(),
+        isDeleted: false,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        supplierId: newSupplierId,
+        batchId: adjustment.batchId
+      };
+      batch.set(newDebtRef, newDebtData);
+      
+      console.log(`Scenario 1: Created new debt of ${newDebtAmount} for batch ${adjustment.batchId}`);
+    }
+  }
+};

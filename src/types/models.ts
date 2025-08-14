@@ -156,6 +156,7 @@ export interface StockBatch {
   updatedAt?: Timestamp; // Last update timestamp
   userId: string;
   remainingQuantity: number; // How many units left from this batch
+  damagedQuantity?: number; // How many units damaged from this batch
   status: 'active' | 'depleted' | 'corrected'; // Batch status
   notes?: string; // Optional notes for the batch
 }
@@ -183,6 +184,7 @@ export interface FinanceEntry {
   updatedAt: Timestamp;
   refundedDebtId?: string; // for refunds, links to a specific debt entry
   supplierId?: string; // for supplier-related entries
+  batchId?: string; // for supplier debts, links to the specific stock batch
 }
 
 export interface FinanceEntryType {

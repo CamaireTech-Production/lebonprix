@@ -115,6 +115,8 @@ service cloud.firestore {
       allow delete: if false; // Only soft deletion allowed
     }
 
+
+
     // Finance Entry Types
     match /financeEntryTypes/{typeId} {
       // Default types (isDefault == true) are readable by all, not writable

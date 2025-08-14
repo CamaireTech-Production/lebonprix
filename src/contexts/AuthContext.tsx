@@ -10,6 +10,7 @@ import {
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, updateDoc, Timestamp } from 'firebase/firestore';
 import type { Company } from '../types/models';
+import { ensureDefaultFinanceEntryTypes } from '../services/firestore';
 
 interface AuthContextType {
   user: User | null;
@@ -50,6 +51,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         const companyDoc = await getDoc(doc(db, 'companies', user.uid));
         if (companyDoc.exists()) {
           setCompany({ id: companyDoc.id, ...companyDoc.data() } as Company);
+        }
+        
+        // Ensure default finance entry types exist
+        try {
+          await ensureDefaultFinanceEntryTypes();
+        } catch (error) {
+          console.error('Failed to ensure default finance entry types:', error);
         }
       } else {
         setCompany(null);
