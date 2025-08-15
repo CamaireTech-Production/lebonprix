@@ -28,11 +28,11 @@ type CustomerDebt = {
 
 const Finance: React.FC = () => {
   const { t } = useTranslation();
-  const { entries, loading } = useFinanceEntries();
-  const { sales, loading: salesLoading } = useSales();
-  const { expenses, loading: expensesLoading } = useExpenses();
-  const { products, loading: productsLoading } = useProducts();
-  const { stockChanges } = useStockChanges();
+  const { entries = [], loading } = useFinanceEntries();
+  const { sales = [], loading: salesLoading } = useSales();
+  const { expenses = [], loading: expensesLoading } = useExpenses();
+  const { products = [], loading: productsLoading } = useProducts();
+  const { stockChanges = [] } = useStockChanges();
   useCustomers(); // Only call the hook for side effects if needed, but don't destructure unused values
   const { user } = useAuth();
   useObjectives();
@@ -74,18 +74,22 @@ const Finance: React.FC = () => {
   const [filterSource, setFilterSource] = useState('');
 
   // Filtered sales/expenses/products by date range
-  const filteredSales = useMemo(() => sales.filter(sale => {
+  const filteredSales = useMemo(() => (sales || []).filter(sale => {
     if (!sale.createdAt?.seconds) return false;
     const saleDate = new Date(sale.createdAt.seconds * 1000);
     return saleDate >= dateRange.from && saleDate <= dateRange.to;
   }), [sales, dateRange]);
-  const filteredExpenses = useMemo(() => expenses.filter(exp => {
+  // Filter out soft-deleted expenses and apply date range filter
+  const filteredExpenses = useMemo(() => (expenses || []).filter(exp => {
+    // First filter out soft-deleted expenses
+    if (exp.isAvailable === false) return false;
+    // Then apply date range filter
     if (!exp.createdAt?.seconds) return false;
     const expDate = new Date(exp.createdAt.seconds * 1000);
     return expDate >= dateRange.from && expDate <= dateRange.to;
   }), [expenses, dateRange]);
   // Filtered manual entries from finances
-  const filteredManualEntries = useMemo(() => entries.filter(entry => {
+  const filteredManualEntries = useMemo(() => (entries || []).filter(entry => {
     if (entry.sourceType !== 'manual') return false;
     if (entry.createdAt?.seconds) {
       const d = new Date(entry.createdAt.seconds * 1000);
@@ -97,7 +101,7 @@ const Finance: React.FC = () => {
   }), [entries, filterType, filterSearch, dateRange]);
 
   // Filter finance entries by date range and not soft deleted
-  const filteredFinanceEntries = entries.filter(entry => !entry.isDeleted && entry.createdAt?.seconds && new Date(entry.createdAt.seconds * 1000) >= dateRange.from && new Date(entry.createdAt.seconds * 1000) <= dateRange.to);
+  const filteredFinanceEntries = (entries || []).filter(entry => !entry.isDeleted && entry.createdAt?.seconds && new Date(entry.createdAt.seconds * 1000) >= dateRange.from && new Date(entry.createdAt.seconds * 1000) <= dateRange.to);
 
   // Remove phone/description logic. Group all 'debt' and 'refund' entries for the current user.
   const userDebt = useMemo<{
@@ -106,7 +110,7 @@ const Finance: React.FC = () => {
   }>(() => {
     let debtEntries: FinanceEntry[] = [];
     let refundEntries: FinanceEntry[] = [];
-    entries.forEach((entry: FinanceEntry) => {
+    (entries || []).forEach((entry: FinanceEntry) => {
       if (entry.type === 'debt') {
         debtEntries.push(entry);
       } else if (entry.type === 'refund') {
@@ -133,10 +137,10 @@ const Finance: React.FC = () => {
     }, 0);
   }, [userDebt.debtEntries, userDebt.refundEntries]);
 
-  // Calculate solde: sum of all non-debt/refund entries plus total remaining debt
+  // Calculate solde: sum of all non-debt/refund/supplier_debt/supplier_refund entries plus total remaining debt
   const solde = useMemo<number>(() => {
     const nonDebtEntries = filteredFinanceEntries.filter(
-      (entry: FinanceEntry) => entry.type !== 'debt' && entry.type !== 'refund'
+      (entry: FinanceEntry) => entry.type !== 'debt' && entry.type !== 'refund' && entry.type !== 'supplier_debt' && entry.type !== 'supplier_refund'
     );
     const nonDebtSum = nonDebtEntries.reduce((sum: number, entry: FinanceEntry) => sum + entry.amount, 0);
     return nonDebtSum + totalDebt;
@@ -179,7 +183,7 @@ const Finance: React.FC = () => {
   // Calculate profit (gross profit: selling price - purchase price) * quantity for all sales
   const profit = filteredSales.reduce((sum, sale) => {
     return sum + sale.products.reduce((productSum, product) => {
-      const productData = products.find(p => p.id === product.productId);
+      const productData = (products || []).find(p => p.id === product.productId);
       if (!productData) return productSum;
       const sellingPrice = product.negotiatedPrice || product.basePrice;
       const costPrice = getLatestCostPrice(productData.id, stockChanges);
@@ -198,7 +202,7 @@ const Finance: React.FC = () => {
   // Total products sold (sum of all product quantities in filteredSales)
   const totalProductsSold = filteredSales.reduce((sum, sale) => sum + sale.products.reduce((pSum, p) => pSum + p.quantity, 0), 0);
   // Calculate total purchase price for all products in stock as of the end of the selected period
-  const totalPurchasePrice = products.reduce((sum, product) => {
+  const totalPurchasePrice = (products || []).reduce((sum, product) => {
     const costPrice = getLatestCostPrice(product.id, stockChanges);
     if (costPrice === undefined) return sum;
     return sum + (costPrice * product.stock);

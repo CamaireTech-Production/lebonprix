@@ -7,6 +7,10 @@ import type { Product, StockChange } from '../types/models';
  * @returns The latest cost price or undefined if no stock changes exist
  */
 export const getLatestCostPrice = (productId: string, stockChanges: StockChange[]): number | undefined => {
+  if (!stockChanges || !Array.isArray(stockChanges)) {
+    return undefined;
+  }
+  
   const productStockChanges = stockChanges
     .filter(sc => sc.productId === productId && sc.costPrice !== undefined && sc.costPrice > 0)
     .sort((a, b) => {
@@ -26,6 +30,10 @@ export const getLatestCostPrice = (productId: string, stockChanges: StockChange[
  * @returns The average cost price or undefined if no stock changes exist
  */
 export const getAverageCostPrice = (productId: string, stockChanges: StockChange[]): number | undefined => {
+  if (!stockChanges || !Array.isArray(stockChanges)) {
+    return undefined;
+  }
+  
   const productStockChanges = stockChanges
     .filter(sc => sc.productId === productId && sc.costPrice !== undefined && sc.costPrice > 0 && sc.change > 0);
 
@@ -44,6 +52,10 @@ export const getAverageCostPrice = (productId: string, stockChanges: StockChange
  * @returns The weighted average cost price or undefined if no stock changes exist
  */
 export const getWeightedAverageCostPrice = (productId: string, stockChanges: StockChange[]): number | undefined => {
+  if (!stockChanges || !Array.isArray(stockChanges)) {
+    return undefined;
+  }
+  
   const productStockChanges = stockChanges
     .filter(sc => sc.productId === productId && sc.costPrice !== undefined && sc.costPrice > 0)
     .sort((a, b) => {

@@ -21,11 +21,11 @@ import ObjectivesModal from '../components/objectives/ObjectivesModal';
 
 const Dashboard = () => {
   const { t } = useTranslation();
-  const { sales, loading: salesLoading } = useSales();
-  const { expenses, loading: expensesLoading } = useExpenses();
-  const { products, loading: productsLoading } = useProducts();
-  const { stockChanges, loading: stockChangesLoading } = useStockChanges();
-  const { entries: financeEntries, loading: financeLoading } = useFinanceEntries();
+  const { sales = [], loading: salesLoading } = useSales();
+  const { expenses = [], loading: expensesLoading } = useExpenses();
+  const { products = [], loading: productsLoading } = useProducts();
+  const { stockChanges = [], loading: stockChangesLoading } = useStockChanges();
+  const { entries: financeEntries = [], loading: financeLoading } = useFinanceEntries();
   const [showCalculationsModal, setShowCalculationsModal] = useState(false);
   const { company } = useAuth();
   const [] = useState<Partial<DashboardStats>>({});
@@ -46,41 +46,41 @@ const Dashboard = () => {
   ];
 
   // Filter sales and expenses by selected date range
-  const filteredSales = sales?.filter(sale => {
+  const filteredSales = (sales || []).filter(sale => {
     if (!sale.createdAt?.seconds) return false;
     const saleDate = new Date(sale.createdAt.seconds * 1000);
     return saleDate >= dateRange.from && saleDate <= dateRange.to;
   });
 
-  const filteredExpenses = expenses?.filter(expense => {
+  const filteredExpenses = (expenses || []).filter(expense => {
     if (!expense.createdAt?.seconds) return false;
     const expenseDate = new Date(expense.createdAt.seconds * 1000);
     return expenseDate >= dateRange.from && expenseDate <= dateRange.to;
   });
 
   // Calculate profit (gross profit: selling price - purchase price) * quantity for all sales
-  const profit = filteredSales?.reduce((sum, sale) => {
+  const profit = filteredSales.reduce((sum, sale) => {
     return sum + sale.products.reduce((productSum, product) => {
-      const productData = products?.find(p => p.id === product.productId);
+      const productData = (products || []).find(p => p.id === product.productId);
       if (!productData) return productSum;
       const sellingPrice = product.negotiatedPrice || product.basePrice;
       const costPrice = getLatestCostPrice(productData.id, stockChanges);
       if (costPrice === undefined) return productSum;
       return productSum + (sellingPrice - costPrice) * product.quantity;
     }, 0);
-  }, 0) || 0;
+  }, 0);
 
   // Calculate total expenses
-  const totalExpenses = filteredExpenses?.reduce((sum, exp) => sum + exp.amount, 0) || 0;
+  const totalExpenses = filteredExpenses.reduce((sum, exp) => sum + exp.amount, 0);
 
   // Total orders
-  const totalOrders = filteredSales?.length || 0;
+  const totalOrders = filteredSales.length;
 
   // Total delivery fee (from sales)
-  const totalDeliveryFee = filteredSales?.reduce((sum, sale) => sum + (sale.deliveryFee || 0), 0) || 0;
+  const totalDeliveryFee = filteredSales.reduce((sum, sale) => sum + (sale.deliveryFee || 0), 0);
 
   // Total sales amount
-  const totalSalesAmount = filteredSales?.reduce((sum, sale) => sum + sale.totalAmount, 0) || 0;
+  const totalSalesAmount = filteredSales.reduce((sum, sale) => sum + sale.totalAmount, 0);
 
   // Calculate total purchase price for all products in stock as of the end of the selected period
   const getStockAtDate = (productId: string, date: Date) => {
@@ -89,18 +89,18 @@ const Dashboard = () => {
       .filter((sc: any) => sc.productId === productId && sc.createdAt?.seconds && new Date(sc.createdAt.seconds * 1000) <= date)
       .reduce((sum: number, sc: any) => sum + sc.change, 0);
   };
-  const totalPurchasePrice = products?.reduce((sum, product) => {
+  const totalPurchasePrice = (products || []).reduce((sum, product) => {
     const stockAtDate = getStockAtDate(product.id, dateRange.to);
     const costPrice = getLatestCostPrice(product.id, stockChanges);
     if (costPrice === undefined) return sum;
     return sum + (costPrice * stockAtDate);
-  }, 0) || 0;
+  }, 0);
 
   // Best selling products (by quantity sold)
   const productSalesMap: Record<string, { name: string; quantity: number; sales: number }> = {};
-  filteredSales?.forEach(sale => {
+  filteredSales.forEach(sale => {
     sale.products.forEach(product => {
-      const productData = products?.find(p => p.id === product.productId);
+      const productData = (products || []).find(p => p.id === product.productId);
       if (!productData) return;
       if (!productSalesMap[product.productId]) {
         productSalesMap[product.productId] = { name: productData.name, quantity: 0, sales: 0 };
