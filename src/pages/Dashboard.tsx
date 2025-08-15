@@ -265,9 +265,12 @@ const Dashboard = () => {
     totalSalesCount: totalOrders,
   };
 
-  // Calculate balance (solde) from all active finance entries (not soft deleted)
+  // Calculate balance (solde) from all active finance entries (not soft deleted), excluding debt/refund/supplier_debt/supplier_refund
   const activeFinanceEntries = financeEntries?.filter(entry => !entry.isDeleted) || [];
-  const solde = activeFinanceEntries.reduce((sum, entry) => sum + entry.amount, 0);
+  const nonDebtEntries = activeFinanceEntries.filter(
+    (entry) => entry.type !== 'debt' && entry.type !== 'refund' && entry.type !== 'supplier_debt' && entry.type !== 'supplier_refund'
+  );
+  const solde = nonDebtEntries.reduce((sum, entry) => sum + entry.amount, 0);
 
   // Stat cards (show only solde, profit, depense, produit vendu)
   const statCards: { title: string; value: string | number; icon: JSX.Element; type: 'products' | 'sales' | 'expenses' | 'profit' | 'orders' | 'delivery' | 'solde'; }[] = [

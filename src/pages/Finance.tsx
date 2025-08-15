@@ -137,10 +137,10 @@ const Finance: React.FC = () => {
     }, 0);
   }, [userDebt.debtEntries, userDebt.refundEntries]);
 
-  // Calculate solde: sum of all non-debt/refund entries plus total remaining debt
+  // Calculate solde: sum of all non-debt/refund/supplier_debt/supplier_refund entries plus total remaining debt
   const solde = useMemo<number>(() => {
     const nonDebtEntries = filteredFinanceEntries.filter(
-      (entry: FinanceEntry) => entry.type !== 'debt' && entry.type !== 'refund'
+      (entry: FinanceEntry) => entry.type !== 'debt' && entry.type !== 'refund' && entry.type !== 'supplier_debt' && entry.type !== 'supplier_refund'
     );
     const nonDebtSum = nonDebtEntries.reduce((sum: number, entry: FinanceEntry) => sum + entry.amount, 0);
     return nonDebtSum + totalDebt;
