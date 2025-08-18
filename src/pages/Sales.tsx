@@ -94,6 +94,8 @@ const Sales: React.FC = () => {
   );
   const phoneInputRef = useRef<HTMLInputElement>(null);
 
+
+
   const normalizePhone = (phone: string): string => phone.replace(/\D/g, '');
 
   useEffect(() => {
@@ -118,6 +120,8 @@ const Sales: React.FC = () => {
     setCustomerSearch(value);
     setShowCustomerDropdown(!!value);
   };
+
+
 
   const handleProductChange = (index: number, option: ProductOption | null): void => {
     setFormData((prev) => {

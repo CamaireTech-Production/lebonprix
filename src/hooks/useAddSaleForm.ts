@@ -64,6 +64,20 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
     }
   }, [showCustomerDropdown, formData.customerPhone]);
 
+  /* -------------------------- Click outside handler ------------------------- */
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showCustomerDropdown && phoneInputRef.current && !phoneInputRef.current.contains(event.target as Node)) {
+        setShowCustomerDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showCustomerDropdown]);
+
   /* ------------------------------ Helpers ------------------------------ */
   const normalizePhone = (phone: string) => phone.replace(/\D/g, '');
 
@@ -77,6 +91,13 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
     setFormData(prev => ({ ...prev, customerPhone: value }));
     setCustomerSearch(value);
     setShowCustomerDropdown(Boolean(value));
+  };
+
+  const handlePhoneBlur = () => {
+    // Delay hiding the dropdown to allow for clicks on dropdown items
+    setTimeout(() => {
+      setShowCustomerDropdown(false);
+    }, 150);
   };
 
   const handleProductChange = (index: number, option: { value: Product } | null) => {
@@ -304,6 +325,7 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
     normalizePhone,
     handleInputChange,
     handlePhoneChange,
+    handlePhoneBlur,
     handleProductChange,
     handleProductInputChange,
     addProductField,

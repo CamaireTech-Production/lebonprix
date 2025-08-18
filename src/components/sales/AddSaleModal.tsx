@@ -43,6 +43,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
     customers,
     handleInputChange,
     handlePhoneChange,
+    handlePhoneBlur,
     handleProductChange,
     handleProductInputChange,
     addProductField,
@@ -204,6 +205,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                   name="customerPhone"
                   value={formData.customerPhone}
                   onChange={handlePhoneChange}
+                  onBlur={handlePhoneBlur}
                     placeholder="Phone"
                   className="flex-1"
                   required
