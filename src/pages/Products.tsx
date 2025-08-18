@@ -1818,7 +1818,7 @@ const Products = () => {
                 {/* Live Preview */}
                 <div className="bg-green-50 border border-green-200 rounded-md p-3">
                   <h4 className="text-sm font-medium text-green-800 mb-2">📦 Restock Preview</h4>
-                  <div className="grid grid-cols-3 gap-4 text-sm">
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
                     <div>
                       <span className="font-medium text-green-700">Current Total Stock:</span>
                       <div className="text-lg font-bold text-green-900">{currentProduct?.stock ?? 0}</div>
@@ -2826,7 +2826,7 @@ const Products = () => {
             {/* Stock Information Card */}
             <div className="bg-gray-50 rounded-lg p-4">
               <h4 className="text-sm font-medium text-gray-700 mb-3">Stock Information</h4>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 <div className="text-center">
                   <div className="text-xs text-gray-500 mb-1">{t('products.table.columns.stock')}</div>
                   <Badge variant={detailProduct && detailProduct.stock > 10 ? 'success' : detailProduct && detailProduct.stock > 5 ? 'warning' : 'error'}>
@@ -2883,7 +2883,7 @@ const Products = () => {
         {detailTab === 'stock' && (
           <div className="space-y-4">
             {/* Filters and Search */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">{t('products.stockHistory.filterByType', 'Filter by Type')}</label>
                 <select
@@ -3129,7 +3129,7 @@ const Products = () => {
                   </div>
 
                   {/* Mobile Card Layout */}
-                  <div className="md:hidden space-y-3">
+                  <div className="md:hidden grid grid-cols-2 gap-3">
                     {paginatedStockChanges.map((stockChange) => {
                       const supplier = stockChange.supplierId ? suppliers.find(s => s.id === stockChange.supplierId) : null;
                       return (
