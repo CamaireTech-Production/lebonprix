@@ -10,6 +10,9 @@ import {
   ChevronRight,
   Loader2,
   Info,
+  ChevronsLeft,
+  ChevronLeft,
+  ChevronsRight,
 } from 'lucide-react';
 import Select from 'react-select';
 import Modal, { ModalFooter } from '../components/common/Modal';
@@ -763,33 +766,57 @@ const Sales: React.FC = () => {
             </tbody>
           </table>
         </div>
-        <div className="flex items-center justify-between mt-4 px-4">
-          <span className="text-sm text-gray-600">
-            {t('sales.table.showing', {
-              from: (page - 1) * rowsPerPage + 1,
-              to: Math.min(page * rowsPerPage, totalRows),
-              total: totalRows,
-            }) ||
-              `Showing ${(page - 1) * rowsPerPage + 1}-${Math.min(page * rowsPerPage, totalRows)} of ${totalRows}`}
-          </span>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => setPage(1)} disabled={page === 1}>
-              {t('common.first') || 'First'}
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setPage(page - 1)} disabled={page === 1}>
-              {t('common.prev') || 'Prev'}
-            </Button>
-            <span className="text-sm">
-              {page} / {totalPages}
-            </span>
-            <Button variant="outline" size="sm" onClick={() => setPage(page + 1)} disabled={page === totalPages}>
-              {t('common.next') || 'Next'}
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setPage(totalPages)} disabled={page === totalPages}>
-              {t('common.last') || 'Last'}
-            </Button>
-          </div>
-        </div>
+                 <div className="flex items-center justify-between mt-4 px-2 sm:px-4">
+           <span className="text-xs sm:text-sm text-gray-600">
+             {t('sales.table.showing', {
+               from: (page - 1) * rowsPerPage + 1,
+               to: Math.min(page * rowsPerPage, totalRows),
+               total: totalRows,
+             }) ||
+               `Showing ${(page - 1) * rowsPerPage + 1}-${Math.min(page * rowsPerPage, totalRows)} of ${totalRows}`}
+           </span>
+           <div className="flex items-center gap-1 sm:gap-2">
+             <Button 
+               variant="outline" 
+               size="sm" 
+               onClick={() => setPage(1)} 
+               disabled={page === 1}
+               icon={<ChevronsLeft size={14} />}
+               title={t('common.first') || 'First'}
+               className="p-1 sm:p-2"
+             />
+             <Button 
+               variant="outline" 
+               size="sm" 
+               onClick={() => setPage(page - 1)} 
+               disabled={page === 1}
+               icon={<ChevronLeft size={14} />}
+               title={t('common.prev') || 'Previous'}
+               className="p-1 sm:p-2"
+             />
+             <span className="text-xs sm:text-sm px-2 sm:px-3 py-1 bg-gray-100 rounded-md">
+               {page} / {totalPages}
+             </span>
+             <Button 
+               variant="outline" 
+               size="sm" 
+               onClick={() => setPage(page + 1)} 
+               disabled={page === totalPages}
+               icon={<ChevronRight size={14} />}
+               title={t('common.next') || 'Next'}
+               className="p-1 sm:p-2"
+             />
+             <Button 
+               variant="outline" 
+               size="sm" 
+               onClick={() => setPage(totalPages)} 
+               disabled={page === totalPages}
+               icon={<ChevronsRight size={14} />}
+               title={t('common.last') || 'Last'}
+               className="p-1 sm:p-2"
+             />
+           </div>
+         </div>
       </Card>
       <AddSaleModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} />
       <SaleDetailsModal

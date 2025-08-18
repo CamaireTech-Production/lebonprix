@@ -23,7 +23,7 @@ const MobileNav = () => {
 
   return (
     <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 md:hidden">
-      <nav className="flex justify-around overflow-x-auto">
+      <nav className="flex justify-around">
         {navigationItems.map((item) => (
           <Link
             key={item.path}
