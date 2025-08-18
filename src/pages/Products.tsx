@@ -8,6 +8,7 @@ import Modal, { ModalFooter } from '../components/common/Modal';
 import Input from '../components/common/Input';
 import CreatableSelect from '../components/common/CreatableSelect';
 import { useProducts, useStockChanges, useCategories, useSuppliers } from '../hooks/useFirestore';
+import { useAllStockBatches } from '../hooks/useStockBatches';
 import { createSupplierDebt, createSupplier } from '../services/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import LoadingScreen from '../components/common/LoadingScreen';
@@ -22,6 +23,7 @@ import {
   adjustBatchWithDebtManagement
 } from '../services/stockAdjustments';
 import type { StockBatch } from '../types/models';
+import CostPriceCarousel from '../components/products/CostPriceCarousel';
 
 interface CsvRow {
   [key: string]: string;
@@ -33,6 +35,7 @@ const Products = () => {
   const { stockChanges } = useStockChanges();
   useCategories();
   const { suppliers } = useSuppliers();
+  const { batches: allStockBatches } = useAllStockBatches();
   const { user } = useAuth();
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [searchQuery, setSearchQuery] = useState('');
@@ -142,7 +145,7 @@ const Products = () => {
   // Add state for detail modal
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [detailProduct, setDetailProduct] = useState<Product | null>(null);
-  const [detailTab, setDetailTab] = useState<'details' | 'stock'>('details');
+  const [detailTab, setDetailTab] = useState<'details' | 'stock' | 'batches'>('details');
 
   // Add state for stock history table controls
   const [stockHistoryPage, setStockHistoryPage] = useState(1);
@@ -906,6 +909,11 @@ const Products = () => {
     setStep1Data(prev => ({ ...prev, images: prev.images.filter((_, i) => i !== idx) }));
   };
 
+  // Helper function to get batches for a specific product
+  const getProductBatches = (productId: string): StockBatch[] => {
+    return allStockBatches.filter(batch => batch.productId === productId);
+  };
+
   // Place filteredProducts and resetImportState above their first usage
   const filteredProducts: Product[] = products?.filter((product: Product) => {
     if (typeof product.isAvailable !== 'undefined' && product.isAvailable === false) return false;
@@ -1236,7 +1244,9 @@ const Products = () => {
                   <div className="mt-2 space-y-1">
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">{t('products.table.columns.costPrice')}:</span>
-                      <span className="font-medium">{getDisplayCostPrice(product.id, stockChanges).toLocaleString()} XAF</span>
+                      <div className="font-medium">
+                        <CostPriceCarousel batches={getProductBatches(product.id)} />
+                      </div>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">{t('products.table.columns.sellingPrice')}:</span>
@@ -1371,7 +1381,9 @@ const Products = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{getDisplayCostPrice(product.id, stockChanges).toLocaleString()} XAF</div>
+                      <div className="text-sm text-gray-900">
+                        <CostPriceCarousel batches={getProductBatches(product.id)} />
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-emerald-600 font-medium">{product.sellingPrice.toLocaleString()} XAF</div>
@@ -2715,6 +2727,13 @@ const Products = () => {
           >
             {t('products.detailTabs.stock', 'Stock History')}
           </button>
+          <button
+            className={`px-4 py-2 ${detailTab === 'batches' ? 'font-bold border-b-2 border-emerald-500' : 'text-gray-500'}`}
+            onClick={() => setDetailTab('batches')}
+            type="button"
+          >
+            {t('products.detailTabs.batches', 'Batches')}
+          </button>
         </div>
         {detailTab === 'details' && (
           <div className="space-y-6">
@@ -2963,14 +2982,14 @@ const Products = () => {
               const paginatedStockChanges = filteredStockChanges.slice(startIndex, startIndex + stockHistoryPerPage);
               
               return (
-                <div>
-                  {/* Table */}
-                  <div className="overflow-x-auto">
+                <div className="max-h-96 overflow-y-auto">
+                  {/* Desktop Table */}
+                  <div className="hidden md:block overflow-x-auto -mx-4 sm:-mx-6 px-4 sm:px-6">
                     <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
+                      <thead className="bg-gray-50 sticky top-0 z-10">
                         <tr>
                           <th 
-                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                            className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 min-w-[120px]"
                             onClick={() => {
                               if (stockHistorySortBy === 'date') {
                                 setStockHistorySortOrder(stockHistorySortOrder === 'asc' ? 'desc' : 'asc');
@@ -2988,7 +3007,7 @@ const Products = () => {
                             )}
                           </th>
                           <th 
-                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                            className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 min-w-[80px]"
                             onClick={() => {
                               if (stockHistorySortBy === 'change') {
                                 setStockHistorySortOrder(stockHistorySortOrder === 'asc' ? 'desc' : 'asc');
@@ -3006,7 +3025,7 @@ const Products = () => {
                             )}
                           </th>
                           <th 
-                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                            className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 min-w-[100px]"
                             onClick={() => {
                               if (stockHistorySortBy === 'reason') {
                                 setStockHistorySortOrder(stockHistorySortOrder === 'asc' ? 'desc' : 'asc');
@@ -3023,13 +3042,13 @@ const Products = () => {
                               </span>
                             )}
                           </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[100px]">
                             {t('products.form.step2.supplier', 'Supplier')}
                           </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[80px] hidden lg:table-cell">
                             {t('products.form.step2.paymentType', 'Payment')}
                           </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[100px] hidden lg:table-cell">
                             {t('products.form.step2.stockCostPrice', 'Cost Price')}
                           </th>
                         </tr>
@@ -3039,21 +3058,25 @@ const Products = () => {
                           const supplier = stockChange.supplierId ? suppliers.find(s => s.id === stockChange.supplierId) : null;
                           return (
                             <tr key={stockChange.id} className="hover:bg-gray-50">
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                {stockChange.createdAt?.seconds 
-                                  ? new Date(stockChange.createdAt.seconds * 1000).toLocaleString()
-                                  : '-'
-                                }
+                              <td className="px-2 sm:px-4 py-3 text-sm text-gray-900">
+                                <div className="min-w-[100px]">
+                                  {stockChange.createdAt?.seconds 
+                                    ? new Date(stockChange.createdAt.seconds * 1000).toLocaleString()
+                                    : '-'
+                                  }
+                                </div>
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm">
+                              <td className="px-2 sm:px-4 py-3 text-sm">
                                 <span className={`font-medium ${stockChange.change > 0 ? 'text-green-600' : 'text-red-600'}`}>
                                   {stockChange.change > 0 ? '+' : ''}{stockChange.change}
                                 </span>
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                {stockChange.reason}
+                              <td className="px-2 sm:px-4 py-3 text-sm text-gray-900">
+                                <div className="min-w-[80px]">
+                                  {stockChange.reason}
+                                </div>
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              <td className="px-2 sm:px-4 py-3 text-sm text-gray-900">
                                 {stockChange.isOwnPurchase ? (
                                   <span className="text-gray-500">{t('products.form.step2.ownPurchase')}</span>
                                 ) : supplier ? (
@@ -3065,7 +3088,7 @@ const Products = () => {
                                   <span className="text-gray-400">Unknown</span>
                                 )}
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm">
+                              <td className="px-2 sm:px-4 py-3 text-sm hidden lg:table-cell">
                                 {stockChange.isOwnPurchase ? (
                                   <span className="text-gray-500">-</span>
                                 ) : stockChange.isCredit ? (
@@ -3074,7 +3097,7 @@ const Products = () => {
                                   <span className="text-green-600">{t('products.form.step2.paid')}</span>
                                 )}
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              <td className="px-2 sm:px-4 py-3 text-sm text-gray-900 hidden lg:table-cell">
                                 {stockChange.costPrice ? stockChange.costPrice.toLocaleString() : '-'} XAF
                               </td>
                             </tr>
@@ -3084,9 +3107,51 @@ const Products = () => {
                     </table>
                   </div>
 
+                  {/* Mobile Card Layout */}
+                  <div className="md:hidden space-y-3">
+                    {paginatedStockChanges.map((stockChange) => {
+                      const supplier = stockChange.supplierId ? suppliers.find(s => s.id === stockChange.supplierId) : null;
+                      return (
+                        <div key={stockChange.id} className="bg-white border border-gray-200 rounded-lg p-4 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-gray-500">
+                              {stockChange.createdAt?.seconds 
+                                ? new Date(stockChange.createdAt.seconds * 1000).toLocaleString()
+                                : '-'
+                              }
+                            </span>
+                            <span className={`font-medium text-sm ${stockChange.change > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {stockChange.change > 0 ? '+' : ''}{stockChange.change}
+                            </span>
+                          </div>
+                          <div className="text-sm font-medium text-gray-900">
+                            {stockChange.reason}
+                          </div>
+                          <div className="text-sm text-gray-600">
+                            {stockChange.isOwnPurchase ? (
+                              <span>{t('products.form.step2.ownPurchase')}</span>
+                            ) : supplier ? (
+                              <span className={supplier.isDeleted ? 'text-red-500 line-through' : ''}>
+                                {supplier.name}
+                                {supplier.isDeleted && ' (Deleted)'}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400">Unknown</span>
+                            )}
+                          </div>
+                          {stockChange.costPrice && (
+                            <div className="text-sm text-gray-600">
+                              {stockChange.costPrice.toLocaleString()} XAF
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
                   {/* Pagination */}
                   {totalPages > 1 && (
-                    <div className="flex items-center justify-between mt-4">
+                    <div className="flex items-center justify-between mt-4 sticky bottom-0 bg-white border-t pt-2">
                       <div className="text-sm text-gray-700">
                         Showing {startIndex + 1} to {Math.min(startIndex + stockHistoryPerPage, filteredStockChanges.length)} of {filteredStockChanges.length} results
                       </div>
@@ -3121,6 +3186,48 @@ const Products = () => {
                 </div>
               );
             })()}
+          </div>
+        )}
+        {detailTab === 'batches' && (
+          <div className="space-y-4">
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      {t('products.batches.batchId', 'Batch ID')}
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      {t('products.batches.costPrice', 'Cost Price per Unit')}
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      {t('products.batches.initialQty', 'Initial Quantity')}
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      {t('products.batches.remainingQty', 'Remaining Quantity')}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {getProductBatches(detailProduct?.id || '').map((batch) => (
+                    <tr key={batch.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 text-sm text-gray-900 font-mono">{batch.id.slice(-8)}</td>
+                      <td className="px-4 py-3 text-sm text-gray-900">{batch.costPrice.toLocaleString()} XAF</td>
+                      <td className="px-4 py-3 text-sm text-gray-900">{batch.quantity}</td>
+                      <td className="px-4 py-3 text-sm text-gray-900">
+                        <span className={`font-medium ${batch.remainingQuantity > 0 ? 'text-green-600' : 'text-red-600'}`}>{batch.remainingQuantity}</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {getProductBatches(detailProduct?.id || '').length === 0 && (
+              <div className="text-center py-8 text-gray-500">
+                {t('products.batches.noBatches', 'No batches found for this product.')}
+              </div>
+            )}
           </div>
         )}
       </Modal>

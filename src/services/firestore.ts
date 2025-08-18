@@ -228,7 +228,13 @@ export const createStockChange = (
   isCredit?: boolean,
   costPrice?: number,
   batchId?: string,
-  saleId?: string
+  saleId?: string,
+  batchConsumptions?: Array<{
+    batchId: string;
+    costPrice: number;
+    consumedQuantity: number;
+    remainingQuantity: number;
+  }>
 ) => {
   const stockChangeRef = doc(collection(db, 'stockChanges'));
   const stockChangeData: any = {
@@ -245,6 +251,7 @@ export const createStockChange = (
   if (typeof costPrice !== 'undefined') stockChangeData.costPrice = costPrice;
   if (typeof batchId !== 'undefined') stockChangeData.batchId = batchId;
   if (typeof saleId !== 'undefined') stockChangeData.saleId = saleId;
+  if (batchConsumptions && batchConsumptions.length > 0) stockChangeData.batchConsumptions = batchConsumptions;
   
   batch.set(stockChangeRef, stockChangeData);
   return stockChangeRef.id;
@@ -691,6 +698,9 @@ export const createSale = async (
     console.log('Creating sale with data:', data);
   const batch = writeBatch(db);
   
+  // Create sale reference first (needed for stock change tracking)
+  const saleRef = doc(collection(db, 'sales'));
+  
   // Enhanced products with cost price information
   const enhancedProducts: any[] = [];
   let totalCost = 0;
@@ -768,7 +778,7 @@ export const createSale = async (
       updatedAt: serverTimestamp()
     });
     
-    // Add stock change for sale with batch reference
+    // Add stock change for sale with detailed batch consumption tracking
     createStockChange(
       batch, 
       product.productId, 
@@ -779,7 +789,9 @@ export const createSale = async (
       undefined,
       undefined,
       inventoryResult.averageCostPrice,
-      inventoryResult.primaryBatchId
+      inventoryResult.primaryBatchId,
+      saleRef.id, // saleId
+      inventoryResult.consumedBatches // Detailed batch consumption data
     );
   }
   
@@ -787,7 +799,6 @@ export const createSale = async (
   const averageProfitMargin = totalCost > 0 ? (totalProfit / totalCost) * 100 : 0;
   
   // Create sale with enhanced data
-  const saleRef = doc(collection(db, 'sales'));
   const saleData = {
     ...data,
     products: enhancedProducts,

@@ -19,6 +19,7 @@ import type { Product, Sale, StockBatch, Category, Supplier, Company, StockChang
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Badge from '../components/common/Badge';
+import StockChangeDetails from '../components/products/StockChangeDetails';
 import { formatCostPrice, formatStockQuantity } from '../utils/inventoryManagement';
 import { analyzeFIFO, validateFIFOConsistency, generateFIFOSummary } from '../utils/fifoDebugger';
 
@@ -634,18 +635,9 @@ const FIFODebugger: React.FC = () => {
                ) : (
                  <div className="space-y-3">
                    {productStockChanges.map((change) => (
-                     <div key={change.id} className="border rounded-lg p-3">
-                       <div className="flex justify-between items-start mb-2">
-                         <div className="flex items-center gap-2">
-                           <Badge variant={change.change > 0 ? 'success' : 'warning'}>
-                             {change.reason}
-                           </Badge>
-                           <span className="text-sm font-medium">Change {change.change > 0 ? '+' : ''}{change.change}</span>
-                         </div>
-                         <div className="flex items-center gap-2">
-                           <div className="text-sm text-gray-500">
-                             {formatDate(change.createdAt)}
-                           </div>
+                     <div key={change.id} className="relative">
+                       <StockChangeDetails stockChange={change} />
+                       <div className="absolute top-2 right-2">
                            <Button
                              size="sm"
                              variant="outline"
@@ -655,32 +647,6 @@ const FIFODebugger: React.FC = () => {
                            >
                              {deletingStockChanges.has(change.id) ? 'Deleting...' : 'Delete'}
                            </Button>
-                         </div>
-                       </div>
-                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                         <div>
-                           <span className="font-medium">Reason:</span> {change.reason}
-                         </div>
-                         <div>
-                           <span className="font-medium">Cost Price:</span> {formatCostPrice(change.costPrice || 0)}
-                         </div>
-                         <div>
-                           <span className="font-medium">Batch ID:</span> {change.batchId ? change.batchId.slice(-8) : 'N/A'}
-                         </div>
-                         <div>
-                           <span className="font-medium">Sale ID:</span> {change.saleId ? change.saleId.slice(-8) : 'N/A'}
-                         </div>
-                         {change.supplierId && (
-                           <div className="col-span-2">
-                             <span className="font-medium">Supplier:</span> {getSupplierName(change.supplierId)}
-                           </div>
-                         )}
-                         {change.isOwnPurchase !== undefined && (
-                           <div className="col-span-2">
-                             <span className="font-medium">Own Purchase:</span> {change.isOwnPurchase ? 'Yes' : 'No'}
-                             {change.isCredit !== undefined && ` | Credit: ${change.isCredit ? 'Yes' : 'No'}`}
-                           </div>
-                         )}
                        </div>
                      </div>
                    ))}
@@ -1099,25 +1065,16 @@ const FIFODebugger: React.FC = () => {
                                 const isMigrationData = changeDate < new Date('2024-12-01');
                                 
                                 return (
-                                  <div key={change.id} className={`border rounded-lg p-3 ${isMigrationData ? 'bg-yellow-50 border-yellow-200' : 'bg-white'}`}>
-                                    <div className="flex justify-between items-start mb-2">
-                                      <div className="flex items-center gap-2">
-                                        <Badge variant={change.change > 0 ? 'success' : 'warning'}>
-                                          {change.reason}
-                                        </Badge>
-                                        <span className="text-sm font-medium">
-                                          {change.change > 0 ? '+' : ''}{change.change} units
-                                        </span>
+                                  <div key={change.id} className={`relative ${isMigrationData ? 'bg-yellow-50 border-yellow-200' : ''}`}>
+                                    <StockChangeDetails stockChange={change} />
                                         {isMigrationData && (
+                                      <div className="absolute top-2 left-2">
                                           <Badge variant="warning" className="text-xs">
                                             Migration
                                           </Badge>
-                                        )}
                                       </div>
-                                      <div className="flex items-center gap-2">
-                                        <div className="text-sm text-gray-500">
-                                          {changeDate.toLocaleDateString()} {changeDate.toLocaleTimeString()}
-                                        </div>
+                                    )}
+                                    <div className="absolute top-2 right-2">
                                         <Button
                                           size="sm"
                                           variant="outline"
@@ -1127,52 +1084,6 @@ const FIFODebugger: React.FC = () => {
                                         >
                                           {deletingStockChanges.has(change.id) ? 'Deleting...' : 'Delete'}
                                         </Button>
-                                      </div>
-                                    </div>
-                                    
-                                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
-                                      <div>
-                                        <span className="font-medium text-gray-600">Cost Price:</span>
-                                        <div className="font-semibold text-gray-900">
-                                          {formatCostPrice(change.costPrice || 0)}
-                                        </div>
-                                      </div>
-                                      <div>
-                                        <span className="font-medium text-gray-600">Batch ID:</span>
-                                        <div className="font-mono text-xs text-gray-700">
-                                          {change.batchId ? change.batchId.slice(-8) : 'N/A'}
-                                        </div>
-                                      </div>
-                                      <div>
-                                        <span className="font-medium text-gray-600">Sale ID:</span>
-                                        <div className="font-mono text-xs text-gray-700">
-                                          {change.saleId ? change.saleId.slice(-8) : 'N/A'}
-                                        </div>
-                                      </div>
-                                      
-                                      <div className="col-span-2 md:col-span-3">
-                                        <span className="font-medium text-gray-600">Document ID:</span>
-                                        <div className="font-mono text-xs text-gray-700 bg-gray-100 p-1 rounded">
-                                          {change.id}
-                                        </div>
-                                      </div>
-                                      
-                                      {change.supplierId && (
-                                        <div className="col-span-2 md:col-span-3">
-                                          <span className="font-medium text-gray-600">Supplier:</span>
-                                          <div className="text-gray-900">{getSupplierName(change.supplierId)}</div>
-                                        </div>
-                                      )}
-                                      
-                                      {change.isOwnPurchase !== undefined && (
-                                        <div className="col-span-2 md:col-span-3">
-                                          <span className="font-medium text-gray-600">Purchase Type:</span>
-                                          <div className="text-gray-900">
-                                            {change.isOwnPurchase ? 'Own Purchase' : 'Supplier Purchase'}
-                                            {change.isCredit !== undefined && ` | ${change.isCredit ? 'Credit' : 'Cash'}`}
-                                          </div>
-                                        </div>
-                                      )}
                                     </div>
                                   </div>
                                 );

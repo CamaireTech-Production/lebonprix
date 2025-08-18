@@ -136,11 +136,18 @@ export interface StockChange {
   supplierId?: string; // Reference to supplier if applicable
   isOwnPurchase?: boolean; // true if own purchase, false if from supplier
   isCredit?: boolean; // true if on credit, false if paid (only relevant if from supplier)
-  costPrice?: number; // Cost price for this stock entry
-  batchId?: string; // Reference to stock batch (NEW!)
+  costPrice?: number; // Cost price for this stock entry (legacy, kept for backward compatibility)
+  batchId?: string; // Reference to stock batch (legacy, kept for backward compatibility)
   saleId?: string; // Reference to sale if applicable
   createdAt: Timestamp;
   userId: string;
+  // NEW: Detailed batch consumption tracking
+  batchConsumptions?: Array<{
+    batchId: string;
+    costPrice: number;
+    consumedQuantity: number;
+    remainingQuantity: number; // remaining after this consumption
+  }>;
 }
 
 // Stock batch for FIFO inventory tracking (NEW!)
