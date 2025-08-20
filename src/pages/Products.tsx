@@ -8,7 +8,6 @@ import Modal, { ModalFooter } from '../components/common/Modal';
 import Input from '../components/common/Input';
 import CreatableSelect from '../components/common/CreatableSelect';
 import { useProducts, useStockChanges, useCategories, useSuppliers } from '../hooks/useFirestore';
-import { createStockBatch } from '../services/firestore';
 import { useAllStockBatches } from '../hooks/useStockBatches';
 import { createSupplierDebt, createSupplier } from '../services/firestore';
 import { useAuth } from '../contexts/AuthContext';
@@ -24,7 +23,7 @@ import {
   adjustBatchWithDebtManagement
 } from '../services/stockAdjustments';
 import type { StockBatch } from '../types/models';
-
+import CostPriceCarousel from '../components/products/CostPriceCarousel';
 
 interface CsvRow {
   [key: string]: string;
@@ -146,7 +145,7 @@ const Products = () => {
   // Add state for detail modal
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [detailProduct, setDetailProduct] = useState<Product | null>(null);
-  const [detailTab, setDetailTab] = useState<'details' | 'stock' | 'batches'>('details');
+  const [detailTab, setDetailTab] = useState<'details' | 'stock'>('details');
 
   // Add state for stock history table controls
   const [stockHistoryPage, setStockHistoryPage] = useState(1);
@@ -912,40 +911,7 @@ const Products = () => {
 
   // Helper function to get batches for a specific product
   const getProductBatches = (productId: string): StockBatch[] => {
-    console.log('🔍 getProductBatches called for productId:', productId);
-    console.log('📦 allStockBatches:', allStockBatches);
-    console.log('📦 allStockBatches length:', allStockBatches.length);
-    
-    const filteredBatches = allStockBatches.filter(batch => batch.productId === productId);
-    console.log('✅ Filtered batches for productId', productId, ':', filteredBatches);
-    console.log('✅ Filtered batches count:', filteredBatches.length);
-    
-    // If no batches found but product has stock, create a fallback batch
-    if (filteredBatches.length === 0 && productId) {
-      const product = products.find(p => p.id === productId);
-      if (product && product.stock > 0) {
-        console.log('⚠️ No batches found for product with stock, creating fallback batch info');
-        console.log('📦 Product:', product);
-        
-        // Create a virtual batch for display purposes
-        const fallbackBatch: StockBatch = {
-          id: 'fallback-' + productId,
-          productId: productId,
-          quantity: product.stock,
-          costPrice: product.costPrice || 0,
-          remainingQuantity: product.stock,
-          status: 'active',
-          createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 },
-          userId: user?.uid || '',
-          notes: 'Auto-generated from existing stock'
-        };
-        
-        console.log('🔄 Created fallback batch:', fallbackBatch);
-        return [fallbackBatch];
-      }
-    }
-    
-    return filteredBatches;
+    return allStockBatches.filter(batch => batch.productId === productId);
   };
 
   // Place filteredProducts and resetImportState above their first usage
@@ -1277,6 +1243,12 @@ const Products = () => {
                   <p className="text-sm text-gray-500">{product.reference}</p>
                   <div className="mt-2 space-y-1">
                     <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">{t('products.table.columns.costPrice')}:</span>
+                      <div className="font-medium">
+                        <CostPriceCarousel batches={getProductBatches(product.id)} />
+                      </div>
+                    </div>
+                    <div className="flex justify-between text-sm">
                       <span className="text-gray-500">{t('products.table.columns.sellingPrice')}:</span>
                       <span className="text-emerald-600 font-medium">{product.sellingPrice.toLocaleString()} XAF</span>
                     </div>
@@ -1332,7 +1304,9 @@ const Products = () => {
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     {t('products.table.columns.product')}
                   </th>
-
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    {t('products.table.columns.costPrice')}
+                  </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     {t('products.table.columns.sellingPrice')}
                   </th>
@@ -1406,7 +1380,11 @@ const Products = () => {
                         </div>
                       </div>
                     </td>
-
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">
+                        <CostPriceCarousel batches={getProductBatches(product.id)} />
+                      </div>
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-emerald-600 font-medium">{product.sellingPrice.toLocaleString()} XAF</div>
                     </td>
@@ -1818,7 +1796,7 @@ const Products = () => {
                 {/* Live Preview */}
                 <div className="bg-green-50 border border-green-200 rounded-md p-3">
                   <h4 className="text-sm font-medium text-green-800 mb-2">📦 Restock Preview</h4>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                  <div className="grid grid-cols-3 gap-4 text-sm">
                     <div>
                       <span className="font-medium text-green-700">Current Total Stock:</span>
                       <div className="text-lg font-bold text-green-900">{currentProduct?.stock ?? 0}</div>
@@ -2749,19 +2727,12 @@ const Products = () => {
           >
             {t('products.detailTabs.stock', 'Stock History')}
           </button>
-          <button
-            className={`px-4 py-2 ${detailTab === 'batches' ? 'font-bold border-b-2 border-emerald-500' : 'text-gray-500'}`}
-            onClick={() => setDetailTab('batches')}
-            type="button"
-          >
-            {t('products.detailTabs.batches', 'Batches')}
-          </button>
         </div>
         {detailTab === 'details' && (
-          <div className="space-y-4">
+          <div className="space-y-6">
             {/* Product Images */}
             <div>
-              <h3 className="text-sm font-medium text-gray-700 mb-2">{t('products.form.image', 'Images')}</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-3">{t('products.form.image', 'Images')}</h3>
               {detailProduct?.images && detailProduct.images.length > 0 ? (
                 <div className="flex space-x-2 overflow-x-auto pb-2">
                   {detailProduct.images.map((img, idx) => (
@@ -2769,112 +2740,113 @@ const Products = () => {
                       key={idx}
                       src={img.startsWith('data:image') ? img : `data:image/jpeg;base64,${img}`}
                       alt={`${detailProduct.name} - Image ${idx + 1}`}
-                      className="w-20 h-20 object-cover rounded-lg border border-gray-200 flex-shrink-0"
+                      className="w-24 h-24 object-cover rounded-lg border border-gray-200 flex-shrink-0"
                     />
                   ))}
                 </div>
               ) : (
-                <div className="w-20 h-20 bg-gray-100 rounded-lg border border-gray-200 flex items-center justify-center">
-                  <span className="text-gray-400 text-xs">No image</span>
+                <div className="w-24 h-24 bg-gray-100 rounded-lg border border-gray-200 flex items-center justify-center">
+                  <span className="text-gray-400 text-sm">No image</span>
                 </div>
               )}
             </div>
 
-            {/* Information Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Basic Information Card */}
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h4 className="text-sm font-medium text-gray-700 mb-3">Basic Information</h4>
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-xs text-gray-500">{t('products.form.name')}</span>
-                    <span className="text-sm font-medium text-gray-900">{detailProduct?.name}</span>
+            {/* Basic Information */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">{t('products.detailTabs.basicInfo', 'Basic Information')}</h3>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">{t('products.form.name')}</label>
+                    <p className="mt-1 text-sm text-gray-900">{detailProduct?.name}</p>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-xs text-gray-500">{t('products.form.reference')}</span>
-                    <span className="text-sm font-medium text-gray-900">{detailProduct?.reference}</span>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">{t('products.form.reference')}</label>
+                    <p className="mt-1 text-sm text-gray-900">{detailProduct?.reference}</p>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-xs text-gray-500">{t('products.form.category')}</span>
-                    <span className="text-sm font-medium text-gray-900">{detailProduct?.category}</span>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">{t('products.form.category')}</label>
+                    <p className="mt-1 text-sm text-gray-900">{detailProduct?.category}</p>
                   </div>
                 </div>
               </div>
 
-              {/* Pricing Information Card */}
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h4 className="text-sm font-medium text-gray-700 mb-3">Pricing</h4>
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-xs text-gray-500">{t('products.form.step2.sellingPrice')}</span>
-                    <span className="text-sm font-semibold text-emerald-600">{detailProduct?.sellingPrice?.toLocaleString()} XAF</span>
+              {/* Pricing Information */}
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">{t('products.detailTabs.pricing', 'Pricing')}</h3>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">{t('products.form.step2.sellingPrice')}</label>
+                    <p className="mt-1 text-sm font-semibold text-emerald-600">{detailProduct?.sellingPrice?.toLocaleString()} XAF</p>
                   </div>
                   {detailProduct?.cataloguePrice && (
-                    <div className="flex justify-between">
-                      <span className="text-xs text-gray-500">{t('products.form.step2.cataloguePrice')}</span>
-                      <span className="text-sm text-gray-900">{detailProduct.cataloguePrice.toLocaleString()} XAF</span>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">{t('products.form.step2.cataloguePrice')}</label>
+                      <p className="mt-1 text-sm text-gray-900">{detailProduct.cataloguePrice.toLocaleString()} XAF</p>
                     </div>
                   )}
-                  <div className="flex justify-between">
-                    <span className="text-xs text-gray-500">{t('products.form.latestCostPrice', 'Latest Cost Price')}</span>
-                    <span className="text-sm text-gray-900">{getLatestCostPrice(detailProduct?.id || '', stockChanges)?.toLocaleString() || '0'} XAF</span>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">{t('products.form.latestCostPrice', 'Latest Cost Price')}</label>
+                    <p className="mt-1 text-sm text-gray-900">{getLatestCostPrice(detailProduct?.id || '', stockChanges)?.toLocaleString() || '0'} XAF</p>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Stock Information Card */}
-            <div className="bg-gray-50 rounded-lg p-4">
-              <h4 className="text-sm font-medium text-gray-700 mb-3">Stock Information</h4>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                <div className="text-center">
-                  <div className="text-xs text-gray-500 mb-1">{t('products.table.columns.stock')}</div>
-                  <Badge variant={detailProduct && detailProduct.stock > 10 ? 'success' : detailProduct && detailProduct.stock > 5 ? 'warning' : 'error'}>
-                    {detailProduct?.stock || 0} units
-                  </Badge>
+            {/* Stock Information */}
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-3">{t('products.detailTabs.stock', 'Stock Information')}</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">{t('products.table.columns.stock')}</label>
+                  <div className="mt-1">
+                    <Badge variant={detailProduct && detailProduct.stock > 10 ? 'success' : detailProduct && detailProduct.stock > 5 ? 'warning' : 'error'}>
+                      {detailProduct?.stock || 0} units
+                    </Badge>
+                  </div>
                 </div>
-                <div className="text-center">
-                  <div className="text-xs text-gray-500 mb-1">{t('products.detailTabs.profitPerUnit', 'Profit per Unit')}</div>
-                  <div className="text-sm font-semibold text-emerald-600">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">{t('products.detailTabs.profitPerUnit', 'Profit per Unit')}</label>
+                  <p className="mt-1 text-sm font-semibold text-emerald-600">
                     {detailProduct && getLatestCostPrice(detailProduct.id, stockChanges) !== undefined
                       ? (detailProduct.sellingPrice - (getLatestCostPrice(detailProduct.id, stockChanges) || 0)).toLocaleString()
                       : '-'
                     } XAF
-                  </div>
+                  </p>
                 </div>
-                <div className="text-center">
-                  <div className="text-xs text-gray-500 mb-1">{t('products.detailTabs.totalValue', 'Total Stock Value')}</div>
-                  <div className="text-sm text-gray-900">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">{t('products.detailTabs.totalValue', 'Total Stock Value')}</label>
+                  <p className="mt-1 text-sm text-gray-900">
                     {detailProduct && getLatestCostPrice(detailProduct.id, stockChanges) !== undefined
                       ? ((getLatestCostPrice(detailProduct.id, stockChanges) || 0) * detailProduct.stock).toLocaleString()
                       : '0'
                     } XAF
-                  </div>
+                  </p>
                 </div>
               </div>
             </div>
 
-            {/* Additional Information Card */}
-            <div className="bg-gray-50 rounded-lg p-4">
-              <h4 className="text-sm font-medium text-gray-700 mb-3">Additional Information</h4>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex justify-between">
-                  <span className="text-xs text-gray-500">{t('products.detailTabs.createdAt', 'Created')}</span>
-                  <span className="text-sm text-gray-900">
+            {/* Additional Information */}
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-3">{t('products.detailTabs.additional', 'Additional Information')}</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">{t('products.detailTabs.createdAt', 'Created')}</label>
+                  <p className="mt-1 text-sm text-gray-900">
                     {detailProduct?.createdAt?.seconds 
                       ? new Date(detailProduct.createdAt.seconds * 1000).toLocaleDateString()
                       : 'Unknown'
                     }
-                  </span>
+                  </p>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-xs text-gray-500">{t('products.detailTabs.lastUpdated', 'Last Updated')}</span>
-                  <span className="text-sm text-gray-900">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">{t('products.detailTabs.lastUpdated', 'Last Updated')}</label>
+                  <p className="mt-1 text-sm text-gray-900">
                     {detailProduct?.updatedAt?.seconds 
                       ? new Date(detailProduct.updatedAt.seconds * 1000).toLocaleDateString()
                       : 'Unknown'
                     }
-                  </span>
+                  </p>
                 </div>
               </div>
             </div>
@@ -2883,7 +2855,7 @@ const Products = () => {
         {detailTab === 'stock' && (
           <div className="space-y-4">
             {/* Filters and Search */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">{t('products.stockHistory.filterByType', 'Filter by Type')}</label>
                 <select
@@ -3004,13 +2976,13 @@ const Products = () => {
               
               return (
                 <div className="max-h-96 overflow-y-auto">
-                  {/* Desktop Table */}
-                  <div className="hidden md:block overflow-x-auto -mx-4 sm:-mx-6 px-4 sm:px-6">
+                  {/* Table */}
+                  <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200">
                       <thead className="bg-gray-50 sticky top-0 z-10">
                         <tr>
                           <th 
-                            className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 min-w-[120px]"
+                            className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                             onClick={() => {
                               if (stockHistorySortBy === 'date') {
                                 setStockHistorySortOrder(stockHistorySortOrder === 'asc' ? 'desc' : 'asc');
@@ -3028,7 +3000,7 @@ const Products = () => {
                             )}
                           </th>
                           <th 
-                            className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 min-w-[80px]"
+                            className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                             onClick={() => {
                               if (stockHistorySortBy === 'change') {
                                 setStockHistorySortOrder(stockHistorySortOrder === 'asc' ? 'desc' : 'asc');
@@ -3046,7 +3018,7 @@ const Products = () => {
                             )}
                           </th>
                           <th 
-                            className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 min-w-[100px]"
+                            className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                             onClick={() => {
                               if (stockHistorySortBy === 'reason') {
                                 setStockHistorySortOrder(stockHistorySortOrder === 'asc' ? 'desc' : 'asc');
@@ -3063,13 +3035,13 @@ const Products = () => {
                               </span>
                             )}
                           </th>
-                          <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[100px]">
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             {t('products.form.step2.supplier', 'Supplier')}
                           </th>
-                          <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[80px] hidden lg:table-cell">
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             {t('products.form.step2.paymentType', 'Payment')}
                           </th>
-                          <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[100px] hidden lg:table-cell">
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             {t('products.form.step2.stockCostPrice', 'Cost Price')}
                           </th>
                         </tr>
@@ -3079,25 +3051,21 @@ const Products = () => {
                           const supplier = stockChange.supplierId ? suppliers.find(s => s.id === stockChange.supplierId) : null;
                           return (
                             <tr key={stockChange.id} className="hover:bg-gray-50">
-                              <td className="px-2 sm:px-4 py-3 text-sm text-gray-900">
-                                <div className="min-w-[100px]">
-                                  {stockChange.createdAt?.seconds 
-                                    ? new Date(stockChange.createdAt.seconds * 1000).toLocaleString()
-                                    : '-'
-                                  }
-                                </div>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                                {stockChange.createdAt?.seconds 
+                                  ? new Date(stockChange.createdAt.seconds * 1000).toLocaleString()
+                                  : '-'
+                                }
                               </td>
-                              <td className="px-2 sm:px-4 py-3 text-sm">
+                              <td className="px-4 py-3 whitespace-nowrap text-sm">
                                 <span className={`font-medium ${stockChange.change > 0 ? 'text-green-600' : 'text-red-600'}`}>
                                   {stockChange.change > 0 ? '+' : ''}{stockChange.change}
                                 </span>
                               </td>
-                              <td className="px-2 sm:px-4 py-3 text-sm text-gray-900">
-                                <div className="min-w-[80px]">
-                                  {stockChange.reason}
-                                </div>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                                {stockChange.reason}
                               </td>
-                              <td className="px-2 sm:px-4 py-3 text-sm text-gray-900">
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
                                 {stockChange.isOwnPurchase ? (
                                   <span className="text-gray-500">{t('products.form.step2.ownPurchase')}</span>
                                 ) : supplier ? (
@@ -3109,7 +3077,7 @@ const Products = () => {
                                   <span className="text-gray-400">Unknown</span>
                                 )}
                               </td>
-                              <td className="px-2 sm:px-4 py-3 text-sm hidden lg:table-cell">
+                              <td className="px-4 py-3 whitespace-nowrap text-sm">
                                 {stockChange.isOwnPurchase ? (
                                   <span className="text-gray-500">-</span>
                                 ) : stockChange.isCredit ? (
@@ -3118,7 +3086,7 @@ const Products = () => {
                                   <span className="text-green-600">{t('products.form.step2.paid')}</span>
                                 )}
                               </td>
-                              <td className="px-2 sm:px-4 py-3 text-sm text-gray-900 hidden lg:table-cell">
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
                                 {stockChange.costPrice ? stockChange.costPrice.toLocaleString() : '-'} XAF
                               </td>
                             </tr>
@@ -3126,48 +3094,6 @@ const Products = () => {
                         })}
                       </tbody>
                     </table>
-                  </div>
-
-                  {/* Mobile Card Layout */}
-                  <div className="md:hidden grid grid-cols-2 gap-3">
-                    {paginatedStockChanges.map((stockChange) => {
-                      const supplier = stockChange.supplierId ? suppliers.find(s => s.id === stockChange.supplierId) : null;
-                      return (
-                        <div key={stockChange.id} className="bg-white border border-gray-200 rounded-lg p-4 space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm text-gray-500">
-                              {stockChange.createdAt?.seconds 
-                                ? new Date(stockChange.createdAt.seconds * 1000).toLocaleString()
-                                : '-'
-                              }
-                            </span>
-                            <span className={`font-medium text-sm ${stockChange.change > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                              {stockChange.change > 0 ? '+' : ''}{stockChange.change}
-                            </span>
-                          </div>
-                          <div className="text-sm font-medium text-gray-900">
-                            {stockChange.reason}
-                          </div>
-                          <div className="text-sm text-gray-600">
-                            {stockChange.isOwnPurchase ? (
-                              <span>{t('products.form.step2.ownPurchase')}</span>
-                            ) : supplier ? (
-                              <span className={supplier.isDeleted ? 'text-red-500 line-through' : ''}>
-                                {supplier.name}
-                                {supplier.isDeleted && ' (Deleted)'}
-                              </span>
-                            ) : (
-                              <span className="text-gray-400">Unknown</span>
-                            )}
-                          </div>
-                          {stockChange.costPrice && (
-                            <div className="text-sm text-gray-600">
-                              {stockChange.costPrice.toLocaleString()} XAF
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
                   </div>
 
                   {/* Pagination */}
@@ -3205,161 +3131,6 @@ const Products = () => {
                     </div>
                   )}
                 </div>
-              );
-            })()}
-          </div>
-        )}
-        {detailTab === 'batches' && (
-          <div className="space-y-4">
-            {(() => {
-              const productBatches = getProductBatches(detailProduct?.id || '');
-              console.log('🎯 Batches tab - detailProduct:', detailProduct);
-              console.log('🎯 Batches tab - productBatches:', productBatches);
-              console.log('🎯 Batches tab - productBatches length:', productBatches.length);
-              
-              return (
-                <>
-                  {/* Active Batches Section */}
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-700 mb-3">Active Batches</h4>
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                          <tr>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              {t('products.batches.batchId', 'Batch ID')}
-                            </th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              {t('products.batches.costPrice', 'Cost Price per Unit')}
-                            </th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              {t('products.batches.initialQty', 'Initial Quantity')}
-                            </th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              {t('products.batches.remainingQty', 'Remaining Quantity')}
-                            </th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              {t('products.batches.status', 'Status')}
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                          {productBatches.filter(batch => batch.status === 'active').map((batch) => (
-                            <tr key={batch.id} className="hover:bg-gray-50">
-                              <td className="px-4 py-3 text-sm text-gray-900 font-mono">{batch.id.slice(-8)}</td>
-                              <td className="px-4 py-3 text-sm text-gray-900">{batch.costPrice.toLocaleString()} XAF</td>
-                              <td className="px-4 py-3 text-sm text-gray-900">{batch.quantity}</td>
-                              <td className="px-4 py-3 text-sm text-gray-900">
-                                <span className="font-medium text-green-600">
-                                  {batch.remainingQuantity}
-                                </span>
-                              </td>
-                              <td className="px-4 py-3 text-sm text-gray-900">
-                                <Badge variant="success">Active</Badge>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                    {productBatches.filter(batch => batch.status === 'active').length === 0 && (
-                      <div className="text-center py-4 text-gray-500 text-sm">
-                        No active batches
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Depleted Batches Section */}
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-700 mb-3">Depleted Batches</h4>
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                          <tr>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              {t('products.batches.batchId', 'Batch ID')}
-                            </th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              {t('products.batches.costPrice', 'Cost Price per Unit')}
-                            </th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              {t('products.batches.initialQty', 'Initial Quantity')}
-                            </th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              {t('products.batches.remainingQty', 'Remaining Quantity')}
-                            </th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              {t('products.batches.status', 'Status')}
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                          {productBatches.filter(batch => batch.status === 'depleted').map((batch) => (
-                            <tr key={batch.id} className="hover:bg-gray-50">
-                              <td className="px-4 py-3 text-sm text-gray-900 font-mono">{batch.id.slice(-8)}</td>
-                              <td className="px-4 py-3 text-sm text-gray-900">{batch.costPrice.toLocaleString()} XAF</td>
-                              <td className="px-4 py-3 text-sm text-gray-900">{batch.quantity}</td>
-                              <td className="px-4 py-3 text-sm text-gray-900">
-                                <span className="font-medium text-red-600">
-                                  {batch.remainingQuantity}
-                                </span>
-                              </td>
-                              <td className="px-4 py-3 text-sm text-gray-900">
-                                <Badge variant="error">Depleted</Badge>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                    {productBatches.filter(batch => batch.status === 'depleted').length === 0 && (
-                      <div className="text-center py-4 text-gray-500 text-sm">
-                        No depleted batches
-                      </div>
-                    )}
-                  </div>
-
-                  {productBatches.length === 0 && (
-                    <div className="text-center py-8">
-                      <div className="text-gray-500 mb-4">
-                        {t('products.batches.noBatches', 'No batches found for this product.')}
-                      </div>
-                      {detailProduct && detailProduct.stock > 0 && (
-                        <div className="space-y-2">
-                          <p className="text-sm text-gray-600">
-                            This product has {detailProduct.stock} units in stock but no batch records.
-                          </p>
-                          <Button
-                            onClick={async () => {
-                              if (!user?.uid || !detailProduct) return;
-                              try {
-                                console.log('🔄 Creating batch for product:', detailProduct);
-                                // Create a batch for the existing stock
-                                await createStockBatch(
-                                  detailProduct.id,
-                                  detailProduct.stock,
-                                  detailProduct.costPrice || 0,
-                                  user.uid,
-                                  undefined, // no supplier
-                                  true, // own purchase
-                                  false, // not credit
-                                  'Auto-created from existing stock'
-                                );
-                                showSuccessToast('Batch created successfully!');
-                              } catch (error) {
-                                console.error('❌ Error creating batch:', error);
-                                showErrorToast('Failed to create batch: ' + (error instanceof Error ? error.message : 'Unknown error'));
-                              }
-                            }}
-                            size="sm"
-                          >
-                            Create Batch from Existing Stock
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </>
               );
             })()}
           </div>
