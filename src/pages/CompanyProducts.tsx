@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { getCompanyByUserId, subscribeToProducts } from '../services/firestore';
 import type { Company, Product } from '../types/models';
-import { Search, Package, AlertCircle, Grid, List, Phone, MapPin, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, Package, AlertCircle, Grid, List, Phone, MapPin, ChevronLeft, ChevronRight, ArrowUp } from 'lucide-react';
 import Button from '../components/common/Button';
 import Input from '../components/common/Input';
 import Card from '../components/common/Card';
@@ -21,8 +21,29 @@ const CompanyProducts = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
+  const [showScrollToTop, setShowScrollToTop] = useState(false);
   // For image navigation in list view
   const [mainImageIndexes, setMainImageIndexes] = useState<Record<string, number>>({});
+  
+  // Scroll to top functionality
+  const handleScrollToTop = () => {
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    });
+  };
+
+  // Handle scroll detection
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+      setShowScrollToTop(scrollTop > 300);
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
   const handleSetMainImage = (productId: string, idx: number) => {
     setMainImageIndexes(prev => ({ ...prev, [productId]: idx }));
   };
@@ -157,31 +178,31 @@ const CompanyProducts = () => {
     <div className="container mx-auto px-4 py-8">
       {/* Company Header */}
       <Card className="mb-8">
-        <div className="p-6">
-          <div className="flex flex-col md:flex-row md:items-center gap-6">
+        <div className="p-4 md:p-6">
+          <div className="flex flex-row items-center gap-3 md:gap-6">
             {company.logo && (
               <img
                 src={company.logo}
                 alt={company.name}
-                className="h-20 w-20 rounded-lg object-cover"
+                className="h-12 w-12 md:h-20 md:w-20 rounded-lg object-cover flex-shrink-0"
               />
             )}
-            <div className="flex-grow">
-              <h1 className="text-2xl font-bold text-gray-900">{company.name}</h1>
+            <div className="flex-grow min-w-0">
+              <h1 className="text-lg md:text-2xl font-bold text-gray-900 truncate">{company.name}</h1>
               {company.description && (
-                <p className="text-gray-600 mt-1">{company.description}</p>
+                <p className="text-sm md:text-base text-gray-600 mt-1 line-clamp-2 md:line-clamp-none">{company.description}</p>
               )}
-              <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="flex items-center text-sm text-gray-500">
-                  <Phone className="h-4 w-4 mr-2" />
-                  <a href={`tel:${company.phone}`} className="hover:text-emerald-600">
+              <div className="mt-2 md:mt-4 flex flex-col sm:flex-row sm:gap-4 gap-1">
+                <div className="flex items-center text-xs md:text-sm text-gray-500">
+                  <Phone className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2 flex-shrink-0" />
+                  <a href={`tel:${company.phone}`} className="hover:text-emerald-600 truncate">
                     {company.phone}
                   </a>
                 </div>
                 {company.location && (
-                  <div className="flex items-center text-sm text-gray-500">
-                    <MapPin className="h-4 w-4 mr-2" />
-                    <span>{company.location}</span>
+                  <div className="flex items-center text-xs md:text-sm text-gray-500">
+                    <MapPin className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2 flex-shrink-0" />
+                    <span className="truncate">{company.location}</span>
                   </div>
                 )}
               </div>
@@ -429,6 +450,17 @@ const CompanyProducts = () => {
             </table>
           </div>
         </Card>
+      )}
+      {/* Scroll to Top Button */}
+      {showScrollToTop && (
+        <button
+          onClick={handleScrollToTop}
+          className="fixed bottom-6 right-6 z-50 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full p-3 shadow-lg transition-all duration-300 hover:scale-110"
+          title="Retour en haut"
+          aria-label="Retour en haut"
+        >
+          <ArrowUp size={24} />
+        </button>
       )}
     </div>
   );
