@@ -268,8 +268,8 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                     ))}
                     {filteredCustomers.length === 0 && (
                       <div className="p-3 text-gray-400 text-sm">No customers found</div>
-                    )}
-                  </div>
+                )}
+                </div>
                 );
               })()}
             </div>

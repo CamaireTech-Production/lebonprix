@@ -423,12 +423,13 @@ const Products = () => {
       if (stockReason === 'adjustment') {
         // Manual adjustment: pre-fill with TOTAL QUANTITY (not remaining)
         // This maintains coherence between quantity and remainingQuantity
+        // For manual adjustment, we preserve the original batch's supplier and payment type
         setBatchEditForm({
           stock: batch.quantity.toString(), // Use total quantity instead of remaining
           costPrice: batch.costPrice.toString(),
           supplyType: batch.isOwnPurchase ? 'ownPurchase' : 'fromSupplier',
-          supplierId: batch.supplierId || '',
-          paymentType: batch.isCredit ? 'credit' : 'paid'
+          supplierId: batch.supplierId || '', // Preserve original supplier
+          paymentType: batch.isCredit ? 'credit' : 'paid' // Preserve original payment type
         });
       } else if (stockReason === 'damage') {
         // Damage: only pre-fill damage quantity form
@@ -474,10 +475,8 @@ const Products = () => {
         showErrorToast('Please fill in all required fields');
         return;
       }
-      if (batchEditForm.supplyType === 'fromSupplier' && !batchEditForm.supplierId) {
-        showErrorToast('Please select a supplier');
-        return;
-      }
+      // For manual adjustment, supplier is preserved from the original batch
+      // No need to validate supplier selection as it's automatically set
 
       const newTotalQuantity = parseFloat(batchEditForm.stock);
       const usedQuantity = selectedBatch.quantity - selectedBatch.remainingQuantity;
@@ -498,9 +497,9 @@ const Products = () => {
         newStock: newTotalQuantity,
         newCostPrice: parseFloat(batchEditForm.costPrice),
         quantityChange,
-        newSupplyType: batchEditForm.supplyType as 'ownPurchase' | 'fromSupplier',
-        newSupplierId: batchEditForm.supplyType === 'fromSupplier' ? batchEditForm.supplierId : undefined,
-        newPaymentType: batchEditForm.paymentType as 'paid' | 'credit',
+        newSupplyType: selectedBatch.isOwnPurchase ? 'ownPurchase' as const : 'fromSupplier' as const,
+        newSupplierId: selectedBatch.supplierId, // Preserve the original supplier from the batch
+        newPaymentType: selectedBatch.isCredit ? 'credit' as const : 'paid' as const, // Preserve the original payment type
         timestamp: new Date(),
         scenario: 'adjustment' as const
       };
@@ -2086,53 +2085,39 @@ const Products = () => {
                           />
                         </div>
 
-                        {/* Purchase Method Section */}
-                        <div className="bg-yellow-50 p-4 rounded-lg">
-                          <h4 className="font-medium text-yellow-800 mb-3">📝 Purchase Method (Advanced Editing)</h4>
+                        {/* Purchase Method Section - Read Only for Manual Adjustment */}
+                        <div className="bg-gray-50 p-4 rounded-lg">
+                          <h4 className="font-medium text-gray-800 mb-3">📝 Purchase Method (Preserved from Original Batch)</h4>
                           
                           <div className="space-y-4">
                             <div>
                               <label className="block text-sm font-medium text-gray-700 mb-1">Purchase Type</label>
-                              <select
-                                value={batchEditForm.supplyType}
-                                onChange={(e) => handleBatchEditFormChange('supplyType', e.target.value)}
-                                className="block w-full rounded-md border border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm px-3 py-2"
-                              >
-                                <option value="ownPurchase">Own Purchase</option>
-                                <option value="fromSupplier">From Supplier</option>
-                              </select>
+                              <div className="block w-full rounded-md border border-gray-300 bg-gray-100 px-3 py-2 text-gray-700">
+                                {batchEditForm.supplyType === 'ownPurchase' ? 'Own Purchase' : 'From Supplier'}
+                              </div>
                             </div>
 
                             {batchEditForm.supplyType === 'fromSupplier' && (
                               <>
                                 <div>
                                   <label className="block text-sm font-medium text-gray-700 mb-1">Supplier</label>
-                                  <select
-                                    value={batchEditForm.supplierId}
-                                    onChange={(e) => handleBatchEditFormChange('supplierId', e.target.value)}
-                                    className="block w-full rounded-md border border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm px-3 py-2"
-                                  >
-                                    <option value="">Select Supplier</option>
-                                    {suppliers.filter(s => !s.isDeleted).map(supplier => (
-                                      <option key={supplier.id} value={supplier.id}>{supplier.name}</option>
-                                    ))}
-                                  </select>
+                                  <div className="block w-full rounded-md border border-gray-300 bg-gray-100 px-3 py-2 text-gray-700">
+                                    {suppliers.find(s => s.id === batchEditForm.supplierId)?.name || 'Unknown Supplier'}
+                                  </div>
                                 </div>
 
                                 <div>
                                   <label className="block text-sm font-medium text-gray-700 mb-1">Payment Type</label>
-                                  <select
-                                    value={batchEditForm.paymentType}
-                                    onChange={(e) => handleBatchEditFormChange('paymentType', e.target.value)}
-                                    className="block w-full rounded-md border border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm px-3 py-2"
-                                  >
-                                    <option value="paid">Paid</option>
-                                    <option value="credit">Credit (Will create/adjust debt)</option>
-                                  </select>
+                                  <div className="block w-full rounded-md border border-gray-300 bg-gray-100 px-3 py-2 text-gray-700">
+                                    {batchEditForm.paymentType === 'credit' ? 'Credit' : 'Paid'}
+                                  </div>
                                 </div>
                               </>
                             )}
                           </div>
+                          <p className="text-sm text-gray-600 mt-3">
+                            ℹ️ For manual adjustments, the original purchase method and supplier information are preserved to maintain data integrity.
+                          </p>
                         </div>
                       </div>
                     ) : (
@@ -2143,6 +2128,30 @@ const Products = () => {
                           <p className="text-sm text-red-700 mb-4">
                             Record the quantity of damaged/lost items. Cost price and supplier debt will remain unchanged.
                           </p>
+                          
+                          {/* Show batch supplier information for damage */}
+                          {selectedBatch.supplierId && (
+                            <div className="bg-white p-3 rounded border border-red-200 mb-4">
+                              <h5 className="font-medium text-red-800 mb-2">Batch Supplier Information</h5>
+                              <div className="grid grid-cols-2 gap-2 text-sm">
+                                <div>
+                                  <span className="font-medium text-red-700">Supplier:</span>
+                                  <span className="ml-2 text-red-900">
+                                    {suppliers.find(s => s.id === selectedBatch.supplierId)?.name || 'Unknown'}
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className="font-medium text-red-700">Payment Type:</span>
+                                  <span className="ml-2 text-red-900">
+                                    {selectedBatch.isCredit ? 'Credit' : 'Paid'}
+                                  </span>
+                                </div>
+                              </div>
+                              <p className="text-xs text-red-600 mt-2">
+                                ℹ️ Supplier debt will remain unchanged as this is only a physical damage adjustment.
+                              </p>
+                            </div>
+                          )}
                           <Input
                             label="Damaged Quantity"
                             type="number"
@@ -2199,13 +2208,27 @@ const Products = () => {
                                 </span>
                               </div>
                               {batchEditForm.supplyType === 'fromSupplier' && (
+                                <>
+                                  <div>
+                                    <span className="font-medium text-green-700">Supplier:</span>
+                                    <span className="ml-2 text-green-900">
+                                      {suppliers.find(s => s.id === batchEditForm.supplierId)?.name || 'Unknown'}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <span className="font-medium text-green-700">Payment Type:</span>
+                                    <span className="ml-2 text-green-900">
+                                      {batchEditForm.paymentType === 'credit' ? 'Credit' : 'Paid'}
+                                    </span>
+                                  </div>
+                                </>
+                              )}
                                 <div>
                                   <span className="font-medium text-green-700">Payment:</span>
                                   <span className="ml-2 text-green-900">
                                     {batchEditForm.paymentType === 'credit' ? 'Credit (Debt Impact)' : 'Paid'}
                                   </span>
                                 </div>
-                              )}
                             </>
                           ) : (
                             <>
@@ -2231,6 +2254,22 @@ const Products = () => {
                                   {selectedBatch.costPrice.toLocaleString()} XAF (Unchanged)
                                 </span>
                               </div>
+                              {selectedBatch.supplierId && (
+                                <>
+                                  <div>
+                                    <span className="font-medium text-green-700">Supplier:</span>
+                                    <span className="ml-2 text-green-900">
+                                      {suppliers.find(s => s.id === selectedBatch.supplierId)?.name || 'Unknown'}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <span className="font-medium text-green-700">Payment Type:</span>
+                                    <span className="ml-2 text-green-900">
+                                      {selectedBatch.isCredit ? 'Credit' : 'Paid'} (Debt Unchanged)
+                                    </span>
+                                  </div>
+                                </>
+                              )}
                             </>
                           )}
                         </div>
@@ -2244,7 +2283,6 @@ const Products = () => {
                       disabled={
                         stockReason === 'adjustment' 
                           ? (batchEditForm.stock === '' || batchEditForm.costPrice === '' || 
-                             (batchEditForm.supplyType === 'fromSupplier' && batchEditForm.supplierId === '') ||
                              (selectedBatch && batchEditForm.stock !== '' && 
                               parseFloat(batchEditForm.stock) < (selectedBatch.quantity - selectedBatch.remainingQuantity)))
                           : (damageForm.damagedQuantity === '' || 

@@ -33,7 +33,7 @@ const RestockModal: React.FC<RestockModalProps> = ({
     costPrice: '',
     supplierId: '',
     isOwnPurchase: false,
-    isCredit: false,
+    paymentType: 'paid' as 'paid' | 'credit', // Always require payment type
     notes: ''
   });
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
@@ -54,7 +54,7 @@ const RestockModal: React.FC<RestockModalProps> = ({
         costPrice: '',
         supplierId: '',
         isOwnPurchase: false,
-        isCredit: false,
+        paymentType: 'paid',
         notes: ''
       });
     }
@@ -87,14 +87,19 @@ const RestockModal: React.FC<RestockModalProps> = ({
       errors.push('Please enter a valid cost price (greater than or equal to 0)');
     }
     
-    // Validate supplier selection for credit purchases
-    if (formData.isCredit && !formData.isOwnPurchase && !formData.supplierId) {
-      errors.push('Please select a supplier for credit purchases');
+    // Validate supplier selection for non-own purchases
+    if (!formData.isOwnPurchase && !formData.supplierId) {
+      errors.push('Please select a supplier for non-own purchases');
     }
     
     // Validate own purchase vs supplier selection
     if (formData.isOwnPurchase && formData.supplierId) {
       errors.push('Own purchase cannot have a supplier selected');
+    }
+    
+    // Validate payment type for credit purchases
+    if (formData.paymentType === 'credit' && formData.isOwnPurchase) {
+      errors.push('Own purchases cannot be on credit');
     }
     
     return errors;
@@ -114,6 +119,7 @@ const RestockModal: React.FC<RestockModalProps> = ({
 
     const quantity = parseFloat(formData.quantity);
     const costPrice = parseFloat(formData.costPrice);
+    const isCredit = formData.paymentType === 'credit';
 
     setLoading(true);
 
@@ -125,7 +131,7 @@ const RestockModal: React.FC<RestockModalProps> = ({
         user.uid,
         formData.supplierId || undefined,
         formData.isOwnPurchase,
-        formData.isCredit,
+        isCredit,
         formData.notes || undefined
       );
 
@@ -149,11 +155,18 @@ const RestockModal: React.FC<RestockModalProps> = ({
 
   const getSupplierOptions = () => {
     return [
-      { value: '', label: 'Select supplier (optional)' },
+      { value: '', label: 'Select supplier (required for non-own purchases)' },
       ...suppliers.map(supplier => ({
         value: supplier.id,
         label: supplier.name
       }))
+    ];
+  };
+
+  const getPaymentTypeOptions = () => {
+    return [
+      { value: 'paid', label: 'Paid' },
+      { value: 'credit', label: 'Credit' }
     ];
   };
 
@@ -227,17 +240,11 @@ const RestockModal: React.FC<RestockModalProps> = ({
           </div>
         </div>
 
-        {/* Supplier Information */}
+        {/* Purchase Type and Supplier Information */}
         <div className="space-y-4">
-          <h3 className="text-lg font-medium text-gray-900">Supplier Information</h3>
+          <h3 className="text-lg font-medium text-gray-900">Purchase Information</h3>
           
-          <Select
-            label="Supplier"
-            value={formData.supplierId}
-            onChange={(value) => handleInputChange('supplierId', value)}
-            options={getSupplierOptions()}
-          />
-
+          {/* Purchase Type Selection */}
           <div className="grid grid-cols-2 gap-4">
             <div className="flex items-center">
               <input
@@ -251,31 +258,42 @@ const RestockModal: React.FC<RestockModalProps> = ({
                 Own Purchase
               </label>
             </div>
-
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                id="isCredit"
-                checked={formData.isCredit}
-                onChange={(e) => handleInputChange('isCredit', e.target.checked)}
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                disabled={formData.isOwnPurchase}
-              />
-              <label htmlFor="isCredit" className="ml-2 block text-sm text-gray-900">
-                Credit Purchase
-              </label>
-            </div>
           </div>
 
+          {/* Supplier Selection */}
+          <Select
+            label="Supplier"
+            value={formData.supplierId}
+            onChange={(value) => handleInputChange('supplierId', value)}
+            options={getSupplierOptions()}
+            disabled={formData.isOwnPurchase}
+          />
+
+          {/* Payment Type Selection */}
+          <Select
+            label="Payment Type"
+            value={formData.paymentType}
+            onChange={(value) => handleInputChange('paymentType', value)}
+            options={getPaymentTypeOptions()}
+            disabled={formData.isOwnPurchase}
+          />
+
+          {/* Information Messages */}
           {formData.isOwnPurchase && (
             <div className="text-sm text-gray-600 bg-yellow-50 p-2 rounded">
               Own purchase selected - no supplier debt will be created
             </div>
           )}
 
-          {formData.isCredit && !formData.isOwnPurchase && formData.supplierId && (
+          {formData.paymentType === 'credit' && !formData.isOwnPurchase && formData.supplierId && (
             <div className="text-sm text-gray-600 bg-blue-50 p-2 rounded">
               Credit purchase selected - supplier debt will be created
+            </div>
+          )}
+
+          {formData.paymentType === 'paid' && !formData.isOwnPurchase && formData.supplierId && (
+            <div className="text-sm text-gray-600 bg-green-50 p-2 rounded">
+              Paid purchase selected - no supplier debt will be created
             </div>
           )}
         </div>
