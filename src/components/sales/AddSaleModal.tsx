@@ -36,13 +36,15 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
     foundCustomer,
     isSavingCustomer,
     showCustomerDropdown,
+    setShowCustomerDropdown,
     customerSearch,
-    customerDropdownPos,
+
     phoneInputRef,
     products,
     customers,
     handleInputChange,
     handlePhoneChange,
+    handlePhoneBlur,
     handleProductChange,
     handleProductInputChange,
     addProductField,
@@ -53,14 +55,17 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
     handleAddSale,
     handleSaveCustomer,
     handleSelectCustomer,
-    normalizePhone,
   } = useAddSaleForm();
+
+
 
   const [viewedSale, setViewedSale] = useState<Sale | null>(null);
   const [productSearchQuery, setProductSearchQuery] = useState('');
   const [showAllProducts, setShowAllProducts] = useState(false);
   const [productStockInfo, setProductStockInfo] = useState<Map<string, ProductStockInfo>>(new Map());
   const [loadingStockInfo, setLoadingStockInfo] = useState<Set<string>>(new Set());
+
+
 
   // Load stock batch information for products
   const loadProductStockInfo = async (productId: string) => {
@@ -102,6 +107,8 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
       }
     });
   }, [formData.products]);
+
+
 
   // Product options for react-select
   const availableProducts = products?.filter(p => p.isAvailable && p.stock > 0) || [];
@@ -194,7 +201,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
         <div className="flex-1 space-y-6">
           {/* Customer Information Section */}
           <div className="space-y-4">
-            <div>
+            <div className="relative">
               <label className="block text-sm font-medium text-gray-700 mb-1">
                   Phone
               </label>
@@ -204,23 +211,67 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                   name="customerPhone"
                   value={formData.customerPhone}
                   onChange={handlePhoneChange}
+                  onBlur={handlePhoneBlur}
                     placeholder="Phone"
                   className="flex-1"
                   required
                     helpText="Enter customer phone number"
                   ref={phoneInputRef}
                 />
-                {!foundCustomer && formData.customerPhone.length >= 10 && (
-                  <Button
-                    variant="outline"
-                    icon={<Save size={16} />}
-                    onClick={handleSaveCustomer}
-                    isLoading={isSavingCustomer}
+              </div>
+              
+              {/* Customer Dropdown */}
+              {showCustomerDropdown && customerSearch && (() => {
+                const searchTerm = customerSearch.toLowerCase().trim();
+                const filteredCustomers = customers.filter(c => {
+                  const normalizedPhone = c.phone.replace(/\D/g, '');
+                  const normalizedSearch = searchTerm.replace(/\D/g, '');
+                  const phoneMatch = normalizedPhone.includes(normalizedSearch);
+                  const nameMatch = c.name && c.name.toLowerCase().includes(searchTerm);
+                  return phoneMatch || nameMatch;
+                });
+                
+                return (
+                  <div 
+                    data-dropdown="customer"
+                    className="absolute top-full left-0 right-0 z-50 bg-white border border-gray-200 rounded shadow-lg max-h-48 overflow-y-auto mt-1"
+                    onClick={(e) => e.stopPropagation()}
                   >
-                      Save Customer
-                  </Button>
+                    <div className="p-2 bg-gray-50 border-b">
+                      <div className="text-xs font-medium text-gray-600">Select Customer:</div>
+                    </div>
+                    
+                    {filteredCustomers.slice(0, 5).map(c => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        className="w-full text-left p-3 hover:bg-emerald-50 border-b border-gray-100 last:border-b-0 transition-colors"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          
+                          // Update the form data with the selected customer's information
+                          setFormData(prev => ({
+                            ...prev,
+                            customerPhone: c.phone,
+                            customerName: c.name || '',
+                            customerQuarter: c.quarter || ''
+                          }));
+                          
+                          // Hide the dropdown after selection
+                          setShowCustomerDropdown(false);
+                        }}
+                      >
+                        <div className="font-medium text-gray-900">{c.name || 'Divers'}</div>
+                        <div className="text-sm text-gray-500">{c.phone}{c.quarter ? ` • ${c.quarter}` : ''}</div>
+                      </button>
+                    ))}
+                    {filteredCustomers.length === 0 && (
+                      <div className="p-3 text-gray-400 text-sm">No customers found</div>
                 )}
                 </div>
+                );
+              })()}
             </div>
             <div className="flex items-center space-x-2 mb-2">
               <input
@@ -234,7 +285,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                   Auto-save customer
               </label>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               <Input
                   label="Name"
                 name="customerName"
@@ -616,41 +667,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
           products={products || []}
         />
       )}
-      {/* Customer Dropdown */}
-      {showCustomerDropdown && customerSearch && customerDropdownPos &&
-        createPortal(
-          <div
-            className="bg-white border border-gray-200 rounded shadow z-50 max-h-48 overflow-y-auto mt-1"
-            style={{
-              position: 'absolute',
-              top: customerDropdownPos.top,
-              left: customerDropdownPos.left,
-              width: customerDropdownPos.width,
-            }}
-          >
-            {customers.filter(c =>
-              normalizePhone(c.phone).startsWith(normalizePhone(customerSearch)) ||
-              (c.name && c.name.toLowerCase().includes(customerSearch.toLowerCase()))
-            ).slice(0, 5).map(c => (
-              <button
-                key={c.id}
-                className="block w-full text-left px-4 py-2 hover:bg-emerald-50"
-                onClick={() => handleSelectCustomer(c)}
-              >
-                <div className="font-medium">{c.name || 'Divers'}</div>
-                <div className="text-xs text-gray-500">{c.phone}{c.quarter ? ` • ${c.quarter}` : ''}</div>
-              </button>
-            ))}
-            {customers.filter(c =>
-              normalizePhone(c.phone).startsWith(normalizePhone(customerSearch)) ||
-              (c.name && c.name.toLowerCase().includes(customerSearch.toLowerCase()))
-            ).length === 0 && (
-              <div className="px-4 py-2 text-gray-400 text-sm">No results</div>
-            )}
-          </div>,
-          document.body
-        )
-      }
+      
     </>
   );
 };

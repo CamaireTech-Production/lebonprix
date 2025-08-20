@@ -136,11 +136,18 @@ export interface StockChange {
   supplierId?: string; // Reference to supplier if applicable
   isOwnPurchase?: boolean; // true if own purchase, false if from supplier
   isCredit?: boolean; // true if on credit, false if paid (only relevant if from supplier)
-  costPrice?: number; // Cost price for this stock entry
-  batchId?: string; // Reference to stock batch (NEW!)
+  costPrice?: number; // Cost price for this stock entry (legacy, kept for backward compatibility)
+  batchId?: string; // Reference to stock batch (legacy, kept for backward compatibility)
   saleId?: string; // Reference to sale if applicable
   createdAt: Timestamp;
   userId: string;
+  // NEW: Detailed batch consumption tracking
+  batchConsumptions?: Array<{
+    batchId: string;
+    costPrice: number;
+    consumedQuantity: number;
+    remainingQuantity: number; // remaining after this consumption
+  }>;
 }
 
 // Stock batch for FIFO inventory tracking (NEW!)
@@ -156,6 +163,7 @@ export interface StockBatch {
   updatedAt?: Timestamp; // Last update timestamp
   userId: string;
   remainingQuantity: number; // How many units left from this batch
+  damagedQuantity?: number; // How many units damaged from this batch
   status: 'active' | 'depleted' | 'corrected'; // Batch status
   notes?: string; // Optional notes for the batch
 }
@@ -183,6 +191,7 @@ export interface FinanceEntry {
   updatedAt: Timestamp;
   refundedDebtId?: string; // for refunds, links to a specific debt entry
   supplierId?: string; // for supplier-related entries
+  batchId?: string; // for supplier debts, links to the specific stock batch
 }
 
 export interface FinanceEntryType {

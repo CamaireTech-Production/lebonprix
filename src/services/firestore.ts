@@ -228,7 +228,13 @@ export const createStockChange = (
   isCredit?: boolean,
   costPrice?: number,
   batchId?: string,
-  saleId?: string
+  saleId?: string,
+  batchConsumptions?: Array<{
+    batchId: string;
+    costPrice: number;
+    consumedQuantity: number;
+    remainingQuantity: number;
+  }>
 ) => {
   const stockChangeRef = doc(collection(db, 'stockChanges'));
   const stockChangeData: any = {
@@ -245,6 +251,7 @@ export const createStockChange = (
   if (typeof costPrice !== 'undefined') stockChangeData.costPrice = costPrice;
   if (typeof batchId !== 'undefined') stockChangeData.batchId = batchId;
   if (typeof saleId !== 'undefined') stockChangeData.saleId = saleId;
+  if (batchConsumptions && batchConsumptions.length > 0) stockChangeData.batchConsumptions = batchConsumptions;
   
   batch.set(stockChangeRef, stockChangeData);
   return stockChangeRef.id;
@@ -438,7 +445,11 @@ export const createProduct = async (
   // Add initial stock change and create stock batch if stock > 0
   if (data.stock > 0) {
     // Create stock batch if cost price is provided
-    if (supplierInfo?.costPrice && (data as any).enableBatchTracking !== false) {
+    console.log('Creating product with supplierInfo:', supplierInfo);
+    console.log('Product data enableBatchTracking:', (data as any).enableBatchTracking);
+    
+    // Always create batch if cost price is provided (enableBatchTracking defaults to true)
+    if (supplierInfo?.costPrice) {
       const stockBatchRef = doc(collection(db, 'stockBatches'));
       const stockBatchData = {
         id: stockBatchRef.id,
@@ -468,6 +479,41 @@ export const createProduct = async (
         supplierInfo.costPrice,
         stockBatchRef.id
       );
+      
+      // Create supplier debt if credit purchase
+      console.log('=== DEBT CREATION DEBUG ===');
+      console.log('supplierInfo:', supplierInfo);
+      
+      // Force debt creation for credit purchases
+      if (supplierInfo.supplierId && supplierInfo.isCredit === true && supplierInfo.isOwnPurchase === false) {
+        console.log('✅ Creating debt for credit purchase');
+        const debtAmount = data.stock * supplierInfo.costPrice;
+        const debtRef = doc(collection(db, 'finances'));
+        const debtData = {
+          id: debtRef.id,
+          userId,
+          sourceType: 'supplier',
+          sourceId: supplierInfo.supplierId,
+          type: 'supplier_debt',
+          amount: debtAmount,
+          description: `Initial stock purchase for ${data.name} (${data.stock} units)`,
+          date: serverTimestamp(),
+          isDeleted: false,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          supplierId: supplierInfo.supplierId,
+          batchId: stockBatchRef.id
+        };
+        batch.set(debtRef, debtData);
+        console.log('✅ Debt created successfully:', debtData);
+      } else {
+        console.log('❌ Debt creation skipped - conditions not met');
+        console.log('Conditions:', {
+          hasSupplierId: !!supplierInfo.supplierId,
+          isCredit: supplierInfo.isCredit,
+          isOwnPurchase: supplierInfo.isOwnPurchase
+        });
+      }
     } else {
       // Create stock change without batch (legacy mode)
     createStockChange(
@@ -487,7 +533,16 @@ export const createProduct = async (
   // Create audit log
   createAuditLog(batch, 'create', 'product', productRef.id, productData, userId);
   
-  await batch.commit();
+  console.log('=== BATCH COMMIT DEBUG ===');
+  console.log('About to commit batch with all operations...');
+  
+  try {
+    await batch.commit();
+    console.log('✅ Batch committed successfully!');
+  } catch (error) {
+    console.error('❌ Batch commit failed:', error);
+    throw error;
+  }
   
   return {
     id: productRef.id,
@@ -545,7 +600,7 @@ export const updateProduct = async (
     });
     
     // Handle stock batch creation for restock
-    if (stockChange > 0 && stockReason === 'restock' && supplierInfo?.costPrice && (currentProduct as any).enableBatchTracking !== false) {
+    if (stockChange > 0 && stockReason === 'restock' && supplierInfo?.costPrice) {
       const stockBatchRef = doc(collection(db, 'stockBatches'));
       const stockBatchData = {
         id: stockBatchRef.id,
@@ -575,6 +630,28 @@ export const updateProduct = async (
         supplierInfo.costPrice,
         stockBatchRef.id
       );
+      
+      // Create supplier debt if credit purchase
+      if (supplierInfo.supplierId && supplierInfo.isCredit && !supplierInfo.isOwnPurchase) {
+        const debtAmount = stockChange * supplierInfo.costPrice;
+        const debtRef = doc(collection(db, 'finances'));
+        const debtData = {
+          id: debtRef.id,
+          userId,
+          sourceType: 'supplier',
+          sourceId: supplierInfo.supplierId,
+          type: 'supplier_debt',
+          amount: debtAmount,
+          description: `Credit purchase for ${stockChange} units of product ${currentProduct.name}`,
+          date: serverTimestamp(),
+          isDeleted: false,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          supplierId: supplierInfo.supplierId,
+          batchId: stockBatchRef.id
+        };
+        batch.set(debtRef, debtData);
+      }
     } else {
       // Create stock change without batch
     createStockChange(
@@ -620,6 +697,9 @@ export const createSale = async (
   try {
     console.log('Creating sale with data:', data);
   const batch = writeBatch(db);
+  
+  // Create sale reference first (needed for stock change tracking)
+  const saleRef = doc(collection(db, 'sales'));
   
   // Enhanced products with cost price information
   const enhancedProducts: any[] = [];
@@ -698,7 +778,7 @@ export const createSale = async (
       updatedAt: serverTimestamp()
     });
     
-    // Add stock change for sale with batch reference
+    // Add stock change for sale with detailed batch consumption tracking
     createStockChange(
       batch, 
       product.productId, 
@@ -709,7 +789,9 @@ export const createSale = async (
       undefined,
       undefined,
       inventoryResult.averageCostPrice,
-      inventoryResult.primaryBatchId
+      inventoryResult.primaryBatchId,
+      saleRef.id, // saleId
+      inventoryResult.consumedBatches // Detailed batch consumption data
     );
   }
   
@@ -717,7 +799,6 @@ export const createSale = async (
   const averageProfitMargin = totalCost > 0 ? (totalProfit / totalCost) * 100 : 0;
   
   // Create sale with enhanced data
-  const saleRef = doc(collection(db, 'sales'));
   const saleData = {
     ...data,
     products: enhancedProducts,
@@ -1407,6 +1488,54 @@ export const getFinanceEntryTypes = async (userId: string): Promise<FinanceEntry
   return types;
 };
 
+// Ensure default finance entry types exist
+export const ensureDefaultFinanceEntryTypes = async (): Promise<void> => {
+  const defaultTypes = [
+    { name: 'loan', isDefault: true },
+    { name: 'expense', isDefault: true },
+    { name: 'sale', isDefault: true },
+    { name: 'refund', isDefault: true },
+    { name: 'debt', isDefault: true },
+    { name: 'supplier_debt', isDefault: true },
+    { name: 'supplier_refund', isDefault: true },
+    { name: 'sortie', isDefault: true },
+    { name: 'other', isDefault: true }
+  ];
+
+  const batch = writeBatch(db);
+  
+  for (const typeData of defaultTypes) {
+    // Check if type already exists
+    const existingQuery = query(
+      collection(db, 'financeEntryTypes'),
+      where('name', '==', typeData.name),
+      where('isDefault', '==', true)
+    );
+    const existingSnap = await getDocs(existingQuery);
+    
+    if (existingSnap.empty) {
+      // Create the default type
+      const typeRef = doc(collection(db, 'financeEntryTypes'));
+      const newType = {
+        id: typeRef.id,
+        name: typeData.name,
+        isDefault: true,
+        createdAt: serverTimestamp()
+      };
+      batch.set(typeRef, newType);
+      console.log(`✅ Created default finance entry type: ${typeData.name}`);
+    }
+  }
+  
+  try {
+    await batch.commit();
+    console.log('✅ All default finance entry types ensured');
+  } catch (error) {
+    console.error('❌ Error creating default finance entry types:', error);
+    throw error;
+  }
+};
+
 // --- Suppliers ---
 
 export const subscribeToSuppliers = (callback: (suppliers: Supplier[]) => void): (() => void) => {
@@ -1538,7 +1667,8 @@ export const createSupplierDebt = async (
   supplierId: string,
   amount: number,
   description: string,
-  userId: string
+  userId: string,
+  batchId?: string
 ): Promise<FinanceEntry> => {
   const entry: Omit<FinanceEntry, 'id' | 'createdAt' | 'updatedAt'> = {
     userId,
@@ -1549,7 +1679,8 @@ export const createSupplierDebt = async (
     description,
     date: Timestamp.now(),
     isDeleted: false,
-    supplierId
+    supplierId,
+    ...(batchId && { batchId })
   };
   
   return await createFinanceEntry(entry);

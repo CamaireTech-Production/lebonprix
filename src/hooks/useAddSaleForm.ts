@@ -27,7 +27,9 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
   const { t } = useTranslation();
   const { addSale } = useSales();
   const { products } = useProducts();
-  const { customers } = useCustomers();
+  const { customers, addCustomer } = useCustomers();
+  
+
   const { user } = useAuth();
 
   /* ----------------------------- UI helpers ----------------------------- */
@@ -37,7 +39,7 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
   const [isSavingCustomer, setIsSavingCustomer] = useState(false);
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const [customerSearch, setCustomerSearch] = useState('');
-  const [customerDropdownPos, setCustomerDropdownPos] = useState<{ top: number; left: number; width: number } | null>(null);
+
   const phoneInputRef = useRef<HTMLInputElement>(null);
 
   /* ------------------------------- Form ------------------------------- */
@@ -52,17 +54,29 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
     products: [{ product: null, quantity: '', negotiatedPrice: '' }],
   });
 
-  /* -------------------------- Dropdown position ------------------------- */
+
+
+  /* -------------------------- Click outside handler ------------------------- */
   useEffect(() => {
-    if (showCustomerDropdown && phoneInputRef.current) {
-      const rect = phoneInputRef.current.getBoundingClientRect();
-      setCustomerDropdownPos({
-        top: rect.bottom + window.scrollY,
-        left: rect.left + window.scrollX,
-        width: rect.width,
-      });
-    }
-  }, [showCustomerDropdown, formData.customerPhone]);
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showCustomerDropdown && phoneInputRef.current && !phoneInputRef.current.contains(event.target as Node)) {
+        // Check if the click is on the dropdown itself
+        const target = event.target as Element;
+        const isDropdownClick = target.closest('[data-dropdown="customer"]');
+        
+        if (!isDropdownClick) {
+          setShowCustomerDropdown(false);
+        }
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showCustomerDropdown]);
+
+
 
   /* ------------------------------ Helpers ------------------------------ */
   const normalizePhone = (phone: string) => phone.replace(/\D/g, '');
@@ -70,13 +84,32 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+    // Allow searching/selecting customer when typing name or quarter
+    if (name === 'customerName' || name === 'customerQuarter') {
+      setCustomerSearch(value);
+      setShowCustomerDropdown(Boolean(value));
+    }
   };
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.replace(/\D/g, '');
+    console.log('📞 Phone input changed to:', value);
+    
     setFormData(prev => ({ ...prev, customerPhone: value }));
     setCustomerSearch(value);
-    setShowCustomerDropdown(Boolean(value));
+    setShowCustomerDropdown(Boolean(value && value.length >= 2));
+    
+    // Clear found customer when phone changes manually
+    if (foundCustomer && foundCustomer.phone !== value) {
+      setFoundCustomer(null);
+    }
+  };
+
+  const handlePhoneBlur = () => {
+    // Delay hiding the dropdown to allow for clicks on dropdown items
+    setTimeout(() => {
+      setShowCustomerDropdown(false);
+    }, 300);
   };
 
   const handleProductChange = (index: number, option: { value: Product } | null) => {
@@ -275,14 +308,31 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
   };
 
   const handleSelectCustomer = (customer: Customer) => {
-    setFormData(prev => ({ 
-      ...prev, 
-      customerPhone: customer.phone, 
-      customerName: customer.name ?? '', 
-      customerQuarter: customer.quarter ?? '' 
-    }));
+    console.log('🔄 handleSelectCustomer called with:', customer);
+    console.log('📝 Customer data:', {
+      phone: customer.phone,
+      name: customer.name,
+      quarter: customer.quarter
+    });
+    
+    // Update form data with customer information
+    setFormData(prev => {
+      const newFormData = { 
+        ...prev, 
+        customerPhone: customer.phone,
+        customerName: customer.name || '',
+        customerQuarter: customer.quarter || ''
+      };
+      console.log('📋 Updated formData:', newFormData);
+      return newFormData;
+    });
+    
+    // Update search state and hide dropdown
+    setCustomerSearch(customer.phone);
     setShowCustomerDropdown(false);
     setFoundCustomer(customer);
+    
+    console.log('✅ handleSelectCustomer completed');
   };
 
   /* ------------------------------------------------------------------ */
@@ -297,13 +347,14 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
     showCustomerDropdown,
     setShowCustomerDropdown,
     customerSearch,
-    customerDropdownPos,
+
     phoneInputRef,
     products,
     customers,
     normalizePhone,
     handleInputChange,
     handlePhoneChange,
+    handlePhoneBlur,
     handleProductChange,
     handleProductInputChange,
     addProductField,

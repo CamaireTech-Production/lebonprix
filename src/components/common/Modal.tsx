@@ -17,10 +17,10 @@ const Modal = ({ isOpen, onClose, title, children, footer, size = 'md', closeBut
   if (!isOpen) return null;
 
   const sizeClasses = {
-    sm: 'max-w-md',
-    md: 'max-w-lg',
-    lg: 'max-w-2xl',
-    xl: 'max-w-4xl'
+    sm: 'max-w-md mx-4',
+    md: 'max-w-lg mx-4',
+    lg: 'max-w-2xl mx-4',
+    xl: 'max-w-4xl mx-4'
   };
 
   return (
@@ -33,9 +33,9 @@ const Modal = ({ isOpen, onClose, title, children, footer, size = 'md', closeBut
       
       {/* Modal */}
       <div className="fixed inset-0 z-50 overflow-y-auto">
-        <div className="flex min-h-full items-center justify-center p-4">
+        <div className="flex min-h-full items-center justify-center p-2 sm:p-4">
           <div 
-            className={`relative bg-white rounded-lg shadow-xl w-full ${sizeClasses[size]} transform transition-all`}
+            className={`relative bg-white rounded-lg shadow-xl w-full ${sizeClasses[size]} transform transition-all max-h-[90vh] overflow-hidden`}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -51,7 +51,7 @@ const Modal = ({ isOpen, onClose, title, children, footer, size = 'md', closeBut
             </div>
             
             {/* Content */}
-            <div className="p-6">{children}</div>
+            <div className="p-4 sm:p-6 overflow-y-auto max-h-[calc(90vh-120px)]">{children}</div>
             
             {/* Footer */}
             {footer && (

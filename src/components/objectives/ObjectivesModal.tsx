@@ -68,7 +68,15 @@ const ObjectivesModal: React.FC<ObjectivesModalProps> = ({ isOpen, onClose, stat
       to = obj.endAt?.toDate ? obj.endAt.toDate() : new Date(obj.endAt);
     }
     const salesInPeriod = sales?.filter(sale => sale.createdAt?.seconds && new Date(sale.createdAt.seconds * 1000) >= from && new Date(sale.createdAt.seconds * 1000) <= to) || [];
-    const expensesInPeriod = expenses?.filter(exp => exp.createdAt?.seconds && new Date(exp.createdAt.seconds * 1000) >= from && new Date(exp.createdAt.seconds * 1000) <= to) || [];
+    // Filter out soft-deleted expenses and apply date range filter
+    const expensesInPeriod = expenses?.filter(exp => {
+      // First filter out soft-deleted expenses
+      if (exp.isAvailable === false) return false;
+      // Then apply date range filter
+      if (!exp.createdAt?.seconds) return false;
+      const expDate = new Date(exp.createdAt.seconds * 1000);
+      return expDate >= from && expDate <= to;
+    }) || [];
     switch (obj.metric) {
       case 'profit': {
         const profit = salesInPeriod.reduce((sum: number, sale: any) => sum + sale.products.reduce((productSum: number, product: any) => {

@@ -65,7 +65,15 @@ const ObjectivesBar: React.FC<ObjectivesBarProps> = ({ onAdd, onView, dateRange,
     }
     // Filter data for this period
     const salesInPeriod = sales?.filter(sale => sale.createdAt?.seconds && new Date(sale.createdAt.seconds * 1000) >= from && new Date(sale.createdAt.seconds * 1000) <= to) || [];
-    const expensesInPeriod = expenses?.filter(exp => exp.createdAt?.seconds && new Date(exp.createdAt.seconds * 1000) >= from && new Date(exp.createdAt.seconds * 1000) <= to) || [];
+    // Filter out soft-deleted expenses and apply date range filter
+    const expensesInPeriod = expenses?.filter(exp => {
+      // First filter out soft-deleted expenses
+      if (exp.isAvailable === false) return false;
+      // Then apply date range filter
+      if (!exp.createdAt?.seconds) return false;
+      const expDate = new Date(exp.createdAt.seconds * 1000);
+      return expDate >= from && expDate <= to;
+    }) || [];
     // Calculate stats for this period
     switch (obj.metric) {
       case 'profit': {

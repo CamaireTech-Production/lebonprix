@@ -14,6 +14,7 @@ import {
   subscribeToDashboardStats,
   updateSaleDocument,
   subscribeToCustomers,
+  addCustomer,
   syncFinanceEntryWithSale,
   syncFinanceEntryWithExpense,
   subscribeToSuppliers,
@@ -436,7 +437,17 @@ export const useCustomers = () => {
     return () => unsubscribe();
   }, [user]);
 
-  return { customers, loading, error };
+  const addCustomerToStore = async (customerData: Omit<Customer, 'id'>) => {
+    if (!user) throw new Error('User not authenticated');
+    try {
+      return await addCustomer(customerData);
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
+  };
+
+  return { customers, loading, error, addCustomer: addCustomerToStore };
 };
 
 export const useFinanceEntries = () => {

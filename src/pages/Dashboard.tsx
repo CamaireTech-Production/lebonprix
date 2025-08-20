@@ -52,7 +52,11 @@ const Dashboard = () => {
     return saleDate >= dateRange.from && saleDate <= dateRange.to;
   });
 
+  // Filter out soft-deleted expenses and apply date range filter
   const filteredExpenses = expenses?.filter(expense => {
+    // First filter out soft-deleted expenses
+    if (expense.isAvailable === false) return false;
+    // Then apply date range filter
     if (!expense.createdAt?.seconds) return false;
     const expenseDate = new Date(expense.createdAt.seconds * 1000);
     return expenseDate >= dateRange.from && expenseDate <= dateRange.to;
@@ -261,9 +265,12 @@ const Dashboard = () => {
     totalSalesCount: totalOrders,
   };
 
-  // Calculate balance (solde) from all active finance entries (not soft deleted)
+  // Calculate balance (solde) from all active finance entries (not soft deleted), excluding debt/refund/supplier_debt/supplier_refund
   const activeFinanceEntries = financeEntries?.filter(entry => !entry.isDeleted) || [];
-  const solde = activeFinanceEntries.reduce((sum, entry) => sum + entry.amount, 0);
+  const nonDebtEntries = activeFinanceEntries.filter(
+    (entry) => entry.type !== 'debt' && entry.type !== 'refund' && entry.type !== 'supplier_debt' && entry.type !== 'supplier_refund'
+  );
+  const solde = nonDebtEntries.reduce((sum, entry) => sum + entry.amount, 0);
 
   // Stat cards (show only solde, profit, depense, produit vendu)
   const statCards: { title: string; value: string | number; icon: JSX.Element; type: 'products' | 'sales' | 'expenses' | 'profit' | 'orders' | 'delivery' | 'solde'; }[] = [
