@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import StatCard from '../components/dashboard/StatCard';
 import Button from '../components/common/Button';
-import { useFinanceEntries, useProducts, useSales, useExpenses, useCustomers, useStockChanges } from '../hooks/useFirestore';
+import { useFinanceEntries, useProducts, useSales, useExpenses, useCustomers, useStockChanges, useSuppliers } from '../hooks/useFirestore';
 import { useObjectives } from '../hooks/useObjectives';
 import { format } from 'date-fns';
 import Modal, { ModalFooter } from '../components/common/Modal';
@@ -10,7 +10,7 @@ import { getFinanceEntryTypes, createFinanceEntryType, createFinanceEntry, updat
 import { useAuth } from '../contexts/AuthContext';
 import { Timestamp } from 'firebase/firestore';
 import LoadingScreen from '../components/common/LoadingScreen';
-import { Edit2, Trash2, BarChart2, Receipt, DollarSign, ShoppingCart, Info, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { Edit2, Trash2, BarChart2, Receipt, DollarSign, ShoppingCart, Info, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Loader2, Users } from 'lucide-react';
 import DateRangePicker from '../components/common/DateRangePicker';
 import { useTranslation } from 'react-i18next';
 import ObjectivesBar from '../components/objectives/ObjectivesBar';
@@ -33,6 +33,8 @@ const Finance: React.FC = () => {
   const { expenses, loading: expensesLoading } = useExpenses();
   const { products, loading: productsLoading } = useProducts();
   const { stockChanges } = useStockChanges();
+  const { suppliers } = useSuppliers();
+
   useCustomers(); // Only call the hook for side effects if needed, but don't destructure unused values
   const { user } = useAuth();
   useObjectives();
@@ -100,10 +102,10 @@ const Finance: React.FC = () => {
     return true;
   }), [entries, filterType, filterSearch, dateRange]);
 
-  // Filter finance entries by date range and not soft deleted
+  // Filter finance entries by date range and not soft deleted (including supplier entries)
   const filteredFinanceEntries = entries.filter(entry => !entry.isDeleted && entry.createdAt?.seconds && new Date(entry.createdAt.seconds * 1000) >= dateRange.from && new Date(entry.createdAt.seconds * 1000) <= dateRange.to);
 
-  // Remove phone/description logic. Group all 'debt' and 'refund' entries for the current user.
+  // Group all debt and refund entries (including supplier debts) for the current user.
   const userDebt = useMemo<{
     debtEntries: FinanceEntry[];
     refundEntries: FinanceEntry[];
@@ -111,9 +113,9 @@ const Finance: React.FC = () => {
     let debtEntries: FinanceEntry[] = [];
     let refundEntries: FinanceEntry[] = [];
     entries.forEach((entry: FinanceEntry) => {
-      if (entry.type === 'debt') {
+      if (entry.type === 'debt' || entry.type === 'supplier_debt') {
         debtEntries.push(entry);
-      } else if (entry.type === 'refund') {
+      } else if (entry.type === 'refund' || entry.type === 'supplier_refund') {
         refundEntries.push(entry);
       }
     });
@@ -137,14 +139,31 @@ const Finance: React.FC = () => {
     }, 0);
   }, [userDebt.debtEntries, userDebt.refundEntries]);
 
-  // Calculate solde: sum of all non-debt/refund/supplier_debt/supplier_refund entries plus total remaining debt
+
+
+  // Calculate solde: sum of all non-debt/refund/supplier_debt/supplier_refund entries plus only customer debt (excluding supplier debt)
   const solde = useMemo<number>(() => {
     const nonDebtEntries = filteredFinanceEntries.filter(
       (entry: FinanceEntry) => entry.type !== 'debt' && entry.type !== 'refund' && entry.type !== 'supplier_debt' && entry.type !== 'supplier_refund'
     );
     const nonDebtSum = nonDebtEntries.reduce((sum: number, entry: FinanceEntry) => sum + entry.amount, 0);
-    return nonDebtSum + totalDebt;
-  }, [filteredFinanceEntries, totalDebt]);
+    
+    // Calculate only customer debt (excluding supplier debt)
+    const customerDebt = userDebt.debtEntries
+      .filter(debt => debt.type === 'debt') // Only customer debts, not supplier debts
+      .reduce((sum: number, debt: FinanceEntry) => {
+        const linkedRefunds = userDebt.refundEntries.filter(
+          (refund: FinanceEntry) => {
+            const match = refund.refundedDebtId && String(refund.refundedDebtId) === String(debt.id);
+            return match;
+          }
+        );
+        const refundedAmount = linkedRefunds.reduce((s: number, r: FinanceEntry) => s + r.amount, 0);
+        return sum + Math.max(0, debt.amount - refundedAmount);
+      }, 0);
+    
+    return nonDebtSum + customerDebt;
+  }, [filteredFinanceEntries, userDebt.debtEntries, userDebt.refundEntries]);
 
   // Filtering logic
   const filteredAndSearchedEntries = useMemo(() => {
@@ -236,6 +255,12 @@ const Finance: React.FC = () => {
     deliveryFee: totalDeliveryFee,
     totalSalesAmount,
     totalSalesCount: totalOrders,
+  };
+
+  // Helper function to get supplier name
+  const getSupplierName = (supplierId: string) => {
+    const supplier = suppliers.find(s => s.id === supplierId);
+    return supplier ? supplier.name : 'Unknown Supplier';
   };
 
   // Fetch entry types on modal open
@@ -509,6 +534,7 @@ const Finance: React.FC = () => {
               <option value="manual">{t('finance.sourceType.manual')}</option>
               <option value="sale">{t('finance.sourceType.sale')}</option>
               <option value="expense">{t('finance.sourceType.expense')}</option>
+              <option value="supplier">{t('finance.sourceType.supplier')}</option>
             </select>
           </div>
           <div className="flex gap-2 items-center">
@@ -552,6 +578,7 @@ const Finance: React.FC = () => {
                   <th className="py-3 px-2">{t('common.description')}</th>
                   <th className="py-3 px-2">{t('common.amount')}</th>
                   <th className="py-3 px-2">{t('common.source')}</th>
+                  <th className="py-3 px-2">{t('suppliers.title')}</th>
                   <th className="py-3 px-2">{t('common.actions')}</th>
                 </tr>
               </thead>
@@ -565,6 +592,9 @@ const Finance: React.FC = () => {
                       {((entry.sourceType === 'manual' && entry.type === 'refund' && entry.amount > 0) ? -entry.amount : entry.amount).toLocaleString()}
                     </td>
                     <td className="py-3 px-2 capitalize">{t(`finance.sourceType.${entry.sourceType}`)}</td>
+                    <td className="py-3 px-2">
+                      {entry.supplierId ? getSupplierName(entry.supplierId) : '-'}
+                    </td>
                     <td className="py-3 px-2 flex gap-2">
                       {entry.sourceType === 'manual' && (
                         <button
@@ -832,6 +862,8 @@ const Finance: React.FC = () => {
           </ul>
         </div>
       </Modal>
+      {/* Mobile spacing for floating action button */}
+      <div className="h-20 md:hidden"></div>
     </>
   );
 };
