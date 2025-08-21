@@ -3174,6 +3174,8 @@ const Products = () => {
           </div>
         )}
       </Modal>
+      {/* Mobile spacing for floating action button */}
+      <div className="h-20 md:hidden"></div>
     </div>
   );
 };

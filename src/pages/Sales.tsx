@@ -822,6 +822,8 @@ const Sales: React.FC = () => {
            </div>
          </div>
       </Card>
+      {/* Mobile spacing for floating action button */}
+      <div className="h-20 md:hidden"></div>
       <AddSaleModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} />
       <SaleDetailsModal
         isOpen={isViewModalOpen}

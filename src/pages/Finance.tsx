@@ -631,6 +631,8 @@ const Finance: React.FC = () => {
           )}
         </div>
       </div>
+      {/* Mobile spacing for floating action button */}
+      <div className="h-20 md:hidden"></div>
       {/* Add/Edit Finance Entry Modal, Delete Confirmation Modal, Calculations Modal (unchanged) */}
       <Modal isOpen={modalOpen} onClose={handleCloseModal} title={form.isEdit ? t('finance.editEntry') : t('finance.addEntry')} size="md"
         footer={<ModalFooter onCancel={handleCloseModal} onConfirm={handleSubmit} isLoading={modalLoading} confirmText={t('common.save')} disabled={!!refundExceeds || (form.type?.value === 'sortie' && !form.description.trim())} />}
