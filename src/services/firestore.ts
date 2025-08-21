@@ -919,6 +919,10 @@ export const updateExpense = async (
   createAuditLog(batch, 'update', 'expense', id, data, userId);
   
   await batch.commit();
+  
+  // Sync with finance entry after successful update
+  const updatedExpense = { ...expense, ...data, id };
+  await syncFinanceEntryWithExpense(updatedExpense);
 };
 
 // --- Expense Types ---
@@ -1512,6 +1516,12 @@ export const syncFinanceEntryWithSale = async (sale: Sale) => {
 };
 
 export const syncFinanceEntryWithExpense = async (expense: Expense) => {
+  // Add explicit checks for required fields before querying
+  if (!expense || !expense.id || !expense.userId) {
+    console.error('syncFinanceEntryWithExpense: Invalid expense object received, skipping sync.', expense);
+    return; // Exit early if data is invalid
+  }
+
   const q = query(collection(db, 'finances'), where('sourceType', '==', 'expense'), where('sourceId', '==', expense.id));
   const entry: Omit<FinanceEntry, 'id' | 'createdAt' | 'updatedAt'> = {
     userId: expense.userId,

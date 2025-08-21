@@ -346,12 +346,6 @@ export const useExpenses = () => {
     if (!user) throw new Error('User not authenticated');
     try {
       await updateExpense(id, { ...data, userId: user.uid }, user.uid);
-      // Fetch updated expense and sync
-      const expenseRef = doc(db, 'expenses', id);
-      const expenseDoc = await getDoc(expenseRef);
-      if (expenseDoc.exists()) {
-        await syncFinanceEntryWithExpense(expenseDoc.data() as Expense);
-      }
     } catch (err) {
       setError(err as Error);
       throw err;
