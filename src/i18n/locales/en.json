@@ -126,9 +126,9 @@
       },
       "totalExpenses": {
         "title": "Total Expenses",
-        "description": "The sum of all business expenses across all categories.",
-        "formula": "Formula: Σ(Expense Amount) for all expenses",
-        "includes": "This includes all types of expenses such as: Delivery expenses, Utility bills, Rent, Other operational costs"
+        "description": "The sum of all business expenses across all categories, including manual expense entries from finance.",
+        "formula": "Formula: Σ(Expense Amount) for all expenses + Σ(Manual Expense Entries) from finance",
+        "includes": "This includes all types of expenses such as: Delivery expenses, Utility bills, Rent, Other operational costs, and manual expense entries from the finance module"
       },
       "totalSalesAmount": {
         "title": "Total Sales Amount",
@@ -158,6 +158,18 @@
         "description": "Profit is calculated as the total sales revenue minus the total purchase cost of sold products.",
         "formula": "Formula: Total Sales Revenue - Total Purchase Cost of Sold Products",
         "example": "Example: If you sold products for 50,000 XAF and their purchase cost was 30,000 XAF, then Profit = 50,000 - 30,000 = 20,000 XAF."
+      },
+      "balance": {
+        "title": "Balance (Solde)",
+        "description": "The balance represents your current cash position, calculated as all income minus all expenses, plus outstanding customer debts (excluding supplier debts).",
+        "formula": "Formula: Σ(All Income) - Σ(All Expenses) + Σ(Customer Debts - Customer Refunds)",
+        "note": "Note: Supplier debts are excluded from the balance calculation as they represent liabilities, not actual cash."
+      },
+      "totalDebt": {
+        "title": "Total Outstanding Debt",
+        "description": "The total amount of outstanding debt, including both customer debts and supplier debts.",
+        "formula": "Formula: Σ(Customer Debts - Customer Refunds) + Σ(Supplier Debts - Supplier Refunds)",
+        "note": "This includes all types of debt: customer debts and supplier debts, minus any refunds made against them."
       }
     },
     "publicProducts": {

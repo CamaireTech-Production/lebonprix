@@ -474,6 +474,28 @@ const Dashboard = () => {
           </div>
 
           <div className="bg-gray-50 p-4 rounded-lg">
+            <h3 className="text-lg font-medium text-gray-900 mb-2">{t('dashboard.calculations.balance.title')}</h3>
+            <p className="text-gray-600">
+              {t('dashboard.calculations.balance.description')}
+              <br /><br />
+              <b>{t('dashboard.calculations.balance.formula')}</b>
+              <br /><br />
+              {t('dashboard.calculations.balance.note')}
+            </p>
+          </div>
+
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <h3 className="text-lg font-medium text-gray-900 mb-2">{t('dashboard.calculations.totalDebt.title')}</h3>
+            <p className="text-gray-600">
+              {t('dashboard.calculations.totalDebt.description')}
+              <br /><br />
+              <b>{t('dashboard.calculations.totalDebt.formula')}</b>
+              <br /><br />
+              {t('dashboard.calculations.totalDebt.note')}
+            </p>
+          </div>
+
+          <div className="bg-gray-50 p-4 rounded-lg">
             <h3 className="text-lg font-medium text-gray-900 mb-2">{t('dashboard.calculations.bestSellingProducts.title')}</h3>
             <p className="text-gray-600">
               {t('dashboard.calculations.bestSellingProducts.description')}

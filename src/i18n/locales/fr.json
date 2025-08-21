@@ -129,9 +129,9 @@
       },
       "totalExpenses": {
         "title": "Dépenses totales",
-        "description": "La somme de toutes les dépenses de l'entreprise dans toutes les catégories.",
-        "formula": "Formule : Σ(Montant de la dépense) pour toutes les dépenses",
-        "includes": "Cela inclut tous les types de dépenses tels que : Frais de livraison, Factures de services publics, Loyer, Autres coûts opérationnels"
+        "description": "La somme de toutes les dépenses de l'entreprise dans toutes les catégories, y compris les entrées de dépenses manuelles de la finance.",
+        "formula": "Formule : Σ(Montant de la dépense) pour toutes les dépenses + Σ(Entrées de dépenses manuelles) de la finance",
+        "includes": "Cela inclut tous les types de dépenses tels que : Frais de livraison, Factures de services publics, Loyer, Autres coûts opérationnels, et les entrées de dépenses manuelles du module finance"
       },
       "totalSalesAmount": {
         "title": "Montant total des ventes",
@@ -163,6 +163,18 @@
         "description": "Le bénéfice est calculé comme le chiffre d'affaires total moins le coût d'achat total des produits vendus.",
         "formula": "Formule : Chiffre d'affaires total - Coût d'achat total des produits vendus",
         "example": "Exemple : Si vous avez vendu des produits pour 50 000 XAF et que leur coût d'achat était de 30 000 XAF, alors Bénéfice = 50 000 - 30 000 = 20 000 XAF."
+      },
+      "balance": {
+        "title": "Solde",
+        "description": "Le solde représente votre position de trésorerie actuelle, calculée comme tous les revenus moins toutes les dépenses, plus les dettes clients en cours (excluant les dettes fournisseurs).",
+        "formula": "Formule : Σ(Tous les revenus) - Σ(Toutes les dépenses) + Σ(Dettes clients - Remboursements clients)",
+        "note": "Note : Les dettes fournisseurs sont exclues du calcul du solde car elles représentent des passifs, pas de la trésorerie réelle."
+      },
+      "totalDebt": {
+        "title": "Dette totale en cours",
+        "description": "Le montant total de la dette en cours, y compris les dettes clients et les dettes fournisseurs.",
+        "formula": "Formule : Σ(Dettes clients - Remboursements clients) + Σ(Dettes fournisseurs - Remboursements fournisseurs)",
+        "note": "Cela inclut tous les types de dettes : dettes clients et dettes fournisseurs, moins tout remboursement effectué contre elles."
       }
     },
     "publicProducts": {
