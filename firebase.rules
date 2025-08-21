@@ -125,5 +125,13 @@ service cloud.firestore {
       allow update: if isAuthenticated() && resource.data.userId == request.auth.uid && (!('isDefault' in resource.data) || resource.data.isDefault == false);
       allow delete: if false; // No hard delete
     }
+    
+    // Audit Logs
+    match /auditLogs/{logId} {
+      allow read: if isAuthenticated() && resource.data.performedBy == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.performedBy == request.auth.uid;
+      allow update: if false; // Audit logs should not be updated
+      allow delete: if false; // Audit logs should not be deleted
+    }
   }
 }

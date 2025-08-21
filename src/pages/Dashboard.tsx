@@ -4,7 +4,7 @@ import SalesChart from '../components/dashboard/SalesChart';
 import ActivityList from '../components/dashboard/ActivityList';
 import Table from '../components/common/Table';
 import Card from '../components/common/Card';
-import { useSales, useExpenses, useProducts, useStockChanges, useFinanceEntries } from '../hooks/useFirestore';
+import { useSales, useExpenses, useProducts, useStockChanges, useFinanceEntries, useAuditLogs } from '../hooks/useFirestore';
 import LoadingScreen from '../components/common/LoadingScreen';
 import { useState } from 'react';
 import Modal from '../components/common/Modal';
@@ -18,6 +18,7 @@ import { startOfMonth, endOfMonth, differenceInDays, format, startOfWeek, endOfW
 import DateRangePicker from '../components/common/DateRangePicker';
 import ObjectivesBar from '../components/objectives/ObjectivesBar';
 import ObjectivesModal from '../components/objectives/ObjectivesModal';
+import { combineActivities } from '../utils/activityUtils';
 
 const Dashboard = () => {
   const { t } = useTranslation();
@@ -26,6 +27,7 @@ const Dashboard = () => {
   const { products, loading: productsLoading } = useProducts();
   const { stockChanges, loading: stockChangesLoading } = useStockChanges();
   const { entries: financeEntries, loading: financeLoading } = useFinanceEntries();
+  const { auditLogs, loading: auditLogsLoading } = useAuditLogs();
   const [showCalculationsModal, setShowCalculationsModal] = useState(false);
   const { company } = useAuth();
   const [] = useState<Partial<DashboardStats>>({});
@@ -68,7 +70,8 @@ const Dashboard = () => {
       const productData = products?.find(p => p.id === product.productId);
       if (!productData) return productSum;
       const sellingPrice = product.negotiatedPrice || product.basePrice;
-      const costPrice = getLatestCostPrice(productData.id, stockChanges);
+      const safeStockChanges = Array.isArray(stockChanges) ? stockChanges : [];
+      const costPrice = getLatestCostPrice(productData.id, safeStockChanges);
       if (costPrice === undefined) return productSum;
       return productSum + (sellingPrice - costPrice) * product.quantity;
     }, 0);
@@ -95,7 +98,8 @@ const Dashboard = () => {
   };
   const totalPurchasePrice = products?.reduce((sum, product) => {
     const stockAtDate = getStockAtDate(product.id, dateRange.to);
-    const costPrice = getLatestCostPrice(product.id, stockChanges);
+    const safeStockChanges = Array.isArray(stockChanges) ? stockChanges : [];
+    const costPrice = getLatestCostPrice(product.id, safeStockChanges);
     if (costPrice === undefined) return sum;
     return sum + (costPrice * stockAtDate);
   }, 0) || 0;
@@ -224,27 +228,12 @@ const Dashboard = () => {
     }
   };
 
-  if (salesLoading || expensesLoading || productsLoading || stockChangesLoading || financeLoading) {
+  if (salesLoading || expensesLoading || productsLoading || stockChangesLoading || financeLoading || auditLogsLoading) {
     return <LoadingScreen />;
   }
 
-  // Process recent activities
-  const recentActivities = [
-    ...(filteredSales?.slice(0, 3).map(sale => ({
-      id: sale.id,
-      title: 'New sale recorded',
-      description: `${sale.customerInfo.name} purchased items for ${sale.totalAmount.toLocaleString()} XAF`,
-      timestamp: sale.createdAt?.seconds ? new Date(sale.createdAt.seconds * 1000) : new Date(),
-      type: 'sale' as const,
-    })) || []),
-    ...(filteredExpenses?.slice(0, 3).map(expense => ({
-      id: expense.id,
-      title: 'Expense added',
-      description: `${expense.description}: ${expense.amount.toLocaleString()} XAF`,
-      timestamp: expense.createdAt?.seconds ? new Date(expense.createdAt.seconds * 1000) : new Date(),
-      type: 'expense' as const,
-    })) || []),
-  ].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+  // Process recent activities using the new activity system
+  const recentActivities = combineActivities(filteredSales, filteredExpenses, auditLogs, t);
 
   // Table columns for best selling products
   const bestProductColumns = [

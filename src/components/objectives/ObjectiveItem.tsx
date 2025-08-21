@@ -12,9 +12,10 @@ interface ObjectiveItemProps {
   onDelete: (obj: Objective) => void;
   open: boolean;
   onToggle: () => void;
+  isDeleting?: boolean;
 }
 
-const ObjectiveItem: React.FC<ObjectiveItemProps> = ({ objective, onEdit, onDelete, open, onToggle }) => {
+const ObjectiveItem: React.FC<ObjectiveItemProps> = ({ objective, onEdit, onDelete, open, onToggle, isDeleting = false }) => {
   const { t } = useTranslation();
 
   // Determine translation key for metric
@@ -120,10 +121,10 @@ const ObjectiveItem: React.FC<ObjectiveItemProps> = ({ objective, onEdit, onDele
             }</span>
           </div>
           <div className="flex gap-2 pt-2">
-            <Button size="sm" variant="outline" icon={<Pencil size={14} />} onClick={() => onEdit(objective)}>
+            <Button size="sm" variant="outline" icon={<Pencil size={14} />} onClick={() => onEdit(objective)} disabled={isDeleting}>
               {t('common.edit')}
             </Button>
-            <Button size="sm" variant="outline" icon={<Trash2 size={14} />} onClick={() => onDelete(objective)}>
+            <Button size="sm" variant="outline" icon={<Trash2 size={14} />} onClick={() => onDelete(objective)} isLoading={isDeleting} disabled={isDeleting}>
               {t('common.delete')}
             </Button>
           </div>

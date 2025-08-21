@@ -3,14 +3,7 @@ import { fr } from 'date-fns/locale';
 import Card from '../common/Card';
 import Badge from '../common/Badge';
 import { useTranslation } from 'react-i18next';
-
-interface Activity {
-  id: string;
-  title: string;
-  description: string;
-  timestamp: Date;
-  type: 'sale' | 'expense' | 'product' | 'user';
-}
+import { Activity } from '../../utils/activityUtils';
 
 interface ActivityListProps {
   activities: Activity[];
@@ -40,6 +33,21 @@ const ActivityList = ({ activities }: ActivityListProps) => {
         return {
           variant: 'default' as const,
           label: t('dashboard.activity.types.user')
+        };
+      case 'objective':
+        return {
+          variant: 'info' as const,
+          label: t('dashboard.activity.types.objective')
+        };
+      case 'finance':
+        return {
+          variant: 'warning' as const,
+          label: t('dashboard.activity.types.finance')
+        };
+      case 'supplier':
+        return {
+          variant: 'default' as const,
+          label: t('dashboard.activity.types.supplier')
         };
     }
   };
@@ -72,6 +80,9 @@ const ActivityList = ({ activities }: ActivityListProps) => {
                      activity.title === 'Product updated' ? t('dashboard.activity.titles.productUpdated') :
                      activity.title === 'New user added' ? t('dashboard.activity.titles.userAdded') :
                      activity.title === 'User updated' ? t('dashboard.activity.titles.userUpdated') :
+                     activity.title === 'Objective added' ? t('dashboard.activity.titles.objectiveAdded') :
+                     activity.title === 'Objective updated' ? t('dashboard.activity.titles.objectiveUpdated') :
+                     activity.title === 'Objective deleted' ? t('dashboard.activity.titles.objectiveDeleted') :
                      activity.title}
                   </p>
                   <p className="text-sm text-gray-600">{activity.description}</p>

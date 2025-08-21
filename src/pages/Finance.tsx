@@ -186,7 +186,8 @@ const Finance: React.FC = () => {
       const productData = products.find(p => p.id === product.productId);
       if (!productData) return productSum;
       const sellingPrice = product.negotiatedPrice || product.basePrice;
-      const costPrice = getLatestCostPrice(productData.id, stockChanges);
+      const safeStockChanges = Array.isArray(stockChanges) ? stockChanges : [];
+      const costPrice = getLatestCostPrice(productData.id, safeStockChanges);
       if (costPrice === undefined) return productSum;
       return productSum + (sellingPrice - costPrice) * product.quantity;
     }, 0);
@@ -203,7 +204,8 @@ const Finance: React.FC = () => {
   const totalProductsSold = filteredSales.reduce((sum, sale) => sum + sale.products.reduce((pSum, p) => pSum + p.quantity, 0), 0);
   // Calculate total purchase price for all products in stock as of the end of the selected period
   const totalPurchasePrice = products.reduce((sum, product) => {
-    const costPrice = getLatestCostPrice(product.id, stockChanges);
+    const safeStockChanges = Array.isArray(stockChanges) ? stockChanges : [];
+    const costPrice = getLatestCostPrice(product.id, safeStockChanges);
     if (costPrice === undefined) return sum;
     return sum + (costPrice * product.stock);
   }, 0);

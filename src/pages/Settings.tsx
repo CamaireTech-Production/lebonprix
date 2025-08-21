@@ -6,8 +6,9 @@ import Input from '../components/common/Input';
 import ActivityList from '../components/dashboard/ActivityList';
 import { showSuccessToast, showErrorToast } from '../utils/toast';
 import { useTranslation } from 'react-i18next';
-import { useSales, useExpenses } from '../hooks/useFirestore';
+import { useSales, useExpenses, useAuditLogs } from '../hooks/useFirestore';
 import i18n from '../i18n/config';
+import { combineActivities } from '../utils/activityUtils';
 
 const Settings = () => {
   const { t } = useTranslation();
@@ -15,24 +16,10 @@ const Settings = () => {
   const { company, updateCompany, updateUserPassword } = useAuth();
   const { sales } = useSales();
   const { expenses } = useExpenses();
+  const { auditLogs } = useAuditLogs();
   
-  // Combine and sort recent activities (like Dashboard)
-  const activities = [
-    ...(sales?.slice(0, 3).map(sale => ({
-      id: sale.id,
-      title: t('dashboard.activity.titles.newSale'),
-      description: `${sale.customerInfo.name} purchased items for ${sale.totalAmount.toLocaleString()} XAF`,
-      timestamp: sale.createdAt?.seconds ? new Date(sale.createdAt.seconds * 1000) : new Date(),
-      type: 'sale' as const,
-    })) || []),
-    ...(expenses?.slice(0, 3).map(expense => ({
-      id: expense.id,
-      title: t('dashboard.activity.titles.expenseAdded'),
-      description: `${expense.description}: ${expense.amount.toLocaleString()} XAF`,
-      timestamp: expense.createdAt?.seconds ? new Date(expense.createdAt.seconds * 1000) : new Date(),
-      type: 'expense' as const,
-    })) || []),
-  ].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+  // Combine and sort recent activities using the new activity system
+  const activities = combineActivities(sales, expenses, auditLogs, t);
 
   // Form state for company settings
   const [formData, setFormData] = useState({

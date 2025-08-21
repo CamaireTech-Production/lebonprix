@@ -7,6 +7,10 @@ import type { Product, StockChange } from '../types/models';
  * @returns The latest cost price or undefined if no stock changes exist
  */
 export const getLatestCostPrice = (productId: string, stockChanges: StockChange[]): number | undefined => {
+  if (!stockChanges || !Array.isArray(stockChanges)) {
+    return undefined;
+  }
+  
   const productStockChanges = stockChanges
     .filter(sc => sc.productId === productId && sc.costPrice !== undefined && sc.costPrice > 0)
     .sort((a, b) => {
@@ -26,6 +30,10 @@ export const getLatestCostPrice = (productId: string, stockChanges: StockChange[
  * @returns The average cost price or undefined if no stock changes exist
  */
 export const getAverageCostPrice = (productId: string, stockChanges: StockChange[]): number | undefined => {
+  if (!stockChanges || !Array.isArray(stockChanges)) {
+    return undefined;
+  }
+  
   const productStockChanges = stockChanges
     .filter(sc => sc.productId === productId && sc.costPrice !== undefined && sc.costPrice > 0 && sc.change > 0);
 
@@ -44,6 +52,10 @@ export const getAverageCostPrice = (productId: string, stockChanges: StockChange
  * @returns The weighted average cost price or undefined if no stock changes exist
  */
 export const getWeightedAverageCostPrice = (productId: string, stockChanges: StockChange[]): number | undefined => {
+  if (!stockChanges || !Array.isArray(stockChanges)) {
+    return undefined;
+  }
+  
   const productStockChanges = stockChanges
     .filter(sc => sc.productId === productId && sc.costPrice !== undefined && sc.costPrice > 0)
     .sort((a, b) => {
@@ -82,6 +94,10 @@ export const getWeightedAverageCostPrice = (productId: string, stockChanges: Sto
  * @returns The profit amount or undefined if cost price is not available
  */
 export const calculateProductProfit = (product: Product, stockChanges: StockChange[]): number | undefined => {
+  if (!stockChanges || !Array.isArray(stockChanges)) {
+    return undefined;
+  }
+  
   const costPrice = getLatestCostPrice(product.id, stockChanges);
   if (costPrice === undefined || costPrice === 0) return undefined;
   
@@ -95,6 +111,10 @@ export const calculateProductProfit = (product: Product, stockChanges: StockChan
  * @returns The profit margin percentage or undefined if cost price is not available
  */
 export const calculateProductProfitMargin = (product: Product, stockChanges: StockChange[]): number | undefined => {
+  if (!stockChanges || !Array.isArray(stockChanges)) {
+    return undefined;
+  }
+  
   const costPrice = getLatestCostPrice(product.id, stockChanges);
   if (costPrice === undefined || costPrice === 0) return undefined;
   
@@ -108,6 +128,10 @@ export const calculateProductProfitMargin = (product: Product, stockChanges: Sto
  * @returns The cost price to display, prioritizing latest, then weighted average, then 0
  */
 export const getDisplayCostPrice = (productId: string, stockChanges: StockChange[]): number => {
+  if (!stockChanges || !Array.isArray(stockChanges)) {
+    return 0;
+  }
+  
   // Try latest cost price first
   const latestCost = getLatestCostPrice(productId, stockChanges);
   if (latestCost !== undefined && latestCost > 0) {

@@ -1287,6 +1287,78 @@ export const subscribeToObjectives = (userId: string, callback: (objectives: Obj
   });
 };
 
+export const createObjective = async (
+  data: Omit<Objective, 'id' | 'createdAt' | 'updatedAt'>,
+  userId: string
+): Promise<Objective> => {
+  // Validate objective data
+  if (!data.title || !data.targetAmount || !data.metric) {
+    throw new Error('Invalid objective data');
+  }
+
+  const batch = writeBatch(db);
+  
+  // Create objective
+  const objectiveRef = doc(collection(db, 'objectives'));
+  const objectiveData = {
+    ...data,
+    userId,
+    isAvailable: true,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp()
+  };
+  batch.set(objectiveRef, objectiveData);
+  
+  // Create audit log
+  createAuditLog(batch, 'create', 'objective', objectiveRef.id, objectiveData, userId);
+  
+  await batch.commit();
+  
+  return {
+    id: objectiveRef.id,
+    ...objectiveData,
+    createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 },
+    updatedAt: { seconds: Date.now() / 1000, nanoseconds: 0 }
+  };
+};
+
+export const updateObjective = async (
+  id: string,
+  data: Partial<Objective>,
+  userId: string
+): Promise<void> => {
+  const batch = writeBatch(db);
+  const objectiveRef = doc(db, 'objectives', id);
+  
+  // Get current objective data for audit log
+  const objectiveSnap = await getDoc(objectiveRef);
+  if (!objectiveSnap.exists()) {
+    throw new Error('Objective not found');
+  }
+  
+  // Verify ownership
+  const objective = objectiveSnap.data() as Objective;
+  if (objective.userId !== userId) {
+    throw new Error('Unauthorized to update this objective');
+  }
+  
+  // Update objective
+  const updateData = {
+    ...data,
+    updatedAt: serverTimestamp()
+  };
+  batch.update(objectiveRef, updateData);
+  
+  // Create audit log with changes
+  const changes = {
+    oldValue: objective,
+    newValue: { ...objective, ...updateData }
+  };
+  createAuditLog(batch, 'update', 'objective', id, changes, userId);
+  
+  await batch.commit();
+};
+
 export const deleteObjective = async (objectiveId: string, userId: string): Promise<void> => {
   const batch = writeBatch(db);
   const objectiveRef = doc(db, 'objectives', objectiveId);

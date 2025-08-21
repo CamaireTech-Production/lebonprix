@@ -533,3 +533,36 @@ export const useSuppliers = () => {
   };
 };
 
+// Audit Logs Hook
+export const useAuditLogs = () => {
+  const { currentUser } = useAuth();
+  const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!currentUser) {
+      setLoading(false);
+      return;
+    }
+
+    const q = query(
+      collection(db, 'auditLogs'),
+      where('performedBy', '==', currentUser.uid),
+      orderBy('timestamp', 'desc')
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const logs = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setAuditLogs(logs);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [currentUser]);
+
+  return { auditLogs, loading };
+};
+

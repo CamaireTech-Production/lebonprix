@@ -9,6 +9,7 @@
     "cancel": "Annuler",
     "delete": "Supprimer",
     "edit": "Modifier",
+    "update": "Mettre à jour",
     "search": "Rechercher",
     "noResults": "Aucun résultat trouvé",
     "required": "Champ obligatoire",
@@ -189,7 +190,10 @@
         "sale": "Vente",
         "expense": "Dépense",
         "product": "Produit",
-        "user": "Utilisateur"
+        "user": "Utilisateur",
+        "objective": "Objectif",
+        "finance": "Finance",
+        "supplier": "Fournisseur"
       },
       "titles": {
         "newSale": "Nouvelle vente enregistrée",
@@ -197,7 +201,10 @@
         "productAdded": "Nouveau produit ajouté",
         "productUpdated": "Produit mis à jour",
         "userAdded": "Nouvel utilisateur ajouté",
-        "userUpdated": "Utilisateur mis à jour"
+        "userUpdated": "Utilisateur mis à jour",
+        "objectiveAdded": "Objectif ajouté",
+        "objectiveUpdated": "Objectif mis à jour",
+        "objectiveDeleted": "Objectif supprimé"
       }
     },
     "makeSale": "Faire une vente"
@@ -662,8 +669,12 @@
       "addSuccess": "Objectif ajouté avec succès.",
       "updateSuccess": "Objectif mis à jour avec succès.",
       "deleteSuccess": "Objectif supprimé avec succès.",
-      "operationError": "Une erreur est survenue. Veuillez réessayer."
+      "operationError": "Une erreur est survenue. Veuillez réessayer.",
+      "titleRequired": "Le titre est requis.",
+      "targetRequired": "Le montant cible doit être supérieur à 0.",
+      "metricRequired": "Veuillez sélectionner une métrique."
     },
+    "confirmDelete": "Êtes-vous sûr de vouloir supprimer cet objectif ?",
     "titleList": "Liste des objectifs",
     "empty": "Aucun objectif trouvé.",
     "remainingDays": "{{count}} jours restants",
