@@ -79,7 +79,8 @@ const ObjectivesBar: React.FC<ObjectivesBarProps> = ({ onAdd, onView, dateRange,
       case 'profit': {
         const profit = salesInPeriod.reduce((sum: number, sale: any) => sum + sale.products.reduce((productSum: number, product: any) => {
           const sellingPrice = product.negotiatedPrice || product.basePrice || 0;
-          const latestCost = getLatestCostPrice(product.productId, stockChanges);
+          const safeStockChanges = Array.isArray(stockChanges) ? stockChanges : [];
+          const latestCost = getLatestCostPrice(product.productId, safeStockChanges);
           const costPrice = latestCost ?? 0;
           return productSum + (sellingPrice - costPrice) * (product.quantity || 0);
         }, 0), 0);

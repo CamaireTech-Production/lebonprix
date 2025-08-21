@@ -352,8 +352,8 @@ const Suppliers = () => {
       </div>
 
       {/* Balance Card (Solde) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-        <div className="w-full md:w-[100%] min-w-[200px] max-w-[480px]">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6 mb-6">
+        <div className="w-full">
           <StatCard
             title={t('dashboard.stats.solde')}
                          value={(() => {
@@ -622,6 +622,8 @@ const Suppliers = () => {
           </div>
         )}
       </Modal>
+      {/* Mobile spacing for floating action button */}
+      <div className="h-20 md:hidden"></div>
     </div>
   );
 };

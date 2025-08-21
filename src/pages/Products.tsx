@@ -2435,12 +2435,12 @@ const Products = () => {
             {/* Profit/Cost Info */}
             <div className="space-y-1">
               <div className="text-sm text-gray-700">
-                {t('products.form.latestCostPrice', 'Latest Cost Price')}: {(getLatestCostPrice(currentProduct?.id || '', stockChanges) ?? 0)} XAF
+                {t('products.form.latestCostPrice', 'Latest Cost Price')}: {(getLatestCostPrice(currentProduct?.id || '', Array.isArray(stockChanges) ? stockChanges : []) ?? 0)} XAF
               </div>
               <div className="text-sm text-gray-700">
-                {t('products.form.profitPerUnit', 'Profit per unit')}: {editPrices.sellingPrice && getLatestCostPrice(currentProduct?.id || '', stockChanges) !== undefined ? (parseFloat(editPrices.sellingPrice) - (getLatestCostPrice(currentProduct?.id || '', stockChanges) ?? 0)).toLocaleString() : '-'} XAF
+                {t('products.form.profitPerUnit', 'Profit per unit')}: {editPrices.sellingPrice && getLatestCostPrice(currentProduct?.id || '', Array.isArray(stockChanges) ? stockChanges : []) !== undefined ? (parseFloat(editPrices.sellingPrice) - (getLatestCostPrice(currentProduct?.id || '', Array.isArray(stockChanges) ? stockChanges : []) ?? 0)).toLocaleString() : '-'} XAF
               </div>
-              {editPrices.sellingPrice && getLatestCostPrice(currentProduct?.id || '', stockChanges) !== undefined && parseFloat(editPrices.sellingPrice) < (getLatestCostPrice(currentProduct?.id || '', stockChanges) ?? 0) && (
+              {editPrices.sellingPrice && getLatestCostPrice(currentProduct?.id || '', Array.isArray(stockChanges) ? stockChanges : []) !== undefined && parseFloat(editPrices.sellingPrice) < (getLatestCostPrice(currentProduct?.id || '', Array.isArray(stockChanges) ? stockChanges : []) ?? 0) && (
                 <div className="flex items-center bg-red-50 border-l-4 border-red-400 p-2 rounded-md mt-2">
                   <svg className="w-4 h-4 text-red-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                   <span className="text-xs text-red-800">{t('products.form.sellingBelowCost', 'Warning: Selling price is below cost price!')}</span>
@@ -2825,7 +2825,7 @@ const Products = () => {
                   )}
                   <div>
                     <label className="block text-sm font-medium text-gray-700">{t('products.form.latestCostPrice', 'Latest Cost Price')}</label>
-                    <p className="mt-1 text-sm text-gray-900">{getLatestCostPrice(detailProduct?.id || '', stockChanges)?.toLocaleString() || '0'} XAF</p>
+                    <p className="mt-1 text-sm text-gray-900">{getLatestCostPrice(detailProduct?.id || '', Array.isArray(stockChanges) ? stockChanges : [])?.toLocaleString() || '0'} XAF</p>
                   </div>
                 </div>
               </div>
@@ -2846,8 +2846,8 @@ const Products = () => {
                 <div>
                   <label className="block text-sm font-medium text-gray-700">{t('products.detailTabs.profitPerUnit', 'Profit per Unit')}</label>
                   <p className="mt-1 text-sm font-semibold text-emerald-600">
-                    {detailProduct && getLatestCostPrice(detailProduct.id, stockChanges) !== undefined
-                      ? (detailProduct.sellingPrice - (getLatestCostPrice(detailProduct.id, stockChanges) || 0)).toLocaleString()
+                    {detailProduct && getLatestCostPrice(detailProduct.id, Array.isArray(stockChanges) ? stockChanges : []) !== undefined
+? (detailProduct.sellingPrice - (getLatestCostPrice(detailProduct.id, Array.isArray(stockChanges) ? stockChanges : []) || 0)).toLocaleString()
                       : '-'
                     } XAF
                   </p>
@@ -2855,8 +2855,8 @@ const Products = () => {
                 <div>
                   <label className="block text-sm font-medium text-gray-700">{t('products.detailTabs.totalValue', 'Total Stock Value')}</label>
                   <p className="mt-1 text-sm text-gray-900">
-                    {detailProduct && getLatestCostPrice(detailProduct.id, stockChanges) !== undefined
-                      ? ((getLatestCostPrice(detailProduct.id, stockChanges) || 0) * detailProduct.stock).toLocaleString()
+                    {detailProduct && getLatestCostPrice(detailProduct.id, Array.isArray(stockChanges) ? stockChanges : []) !== undefined
+? ((getLatestCostPrice(detailProduct.id, Array.isArray(stockChanges) ? stockChanges : []) || 0) * detailProduct.stock).toLocaleString()
                       : '0'
                     } XAF
                   </p>
@@ -3174,6 +3174,8 @@ const Products = () => {
           </div>
         )}
       </Modal>
+      {/* Mobile spacing for floating action button */}
+      <div className="h-20 md:hidden"></div>
     </div>
   );
 };

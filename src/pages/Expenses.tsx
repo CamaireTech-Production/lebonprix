@@ -316,6 +316,8 @@ const Expenses = () => {
           emptyMessage={t('expenses.messages.noExpenses')}
         />
       </Card>
+      {/* Mobile spacing for floating action button */}
+      <div className="h-20 md:hidden"></div>
       
       {/* Add Expense Modal */}
       <Modal

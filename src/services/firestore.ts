@@ -919,6 +919,10 @@ export const updateExpense = async (
   createAuditLog(batch, 'update', 'expense', id, data, userId);
   
   await batch.commit();
+  
+  // Sync with finance entry after successful update
+  const updatedExpense = { ...expense, ...data, id };
+  await syncFinanceEntryWithExpense(updatedExpense);
 };
 
 // --- Expense Types ---
@@ -1287,6 +1291,78 @@ export const subscribeToObjectives = (userId: string, callback: (objectives: Obj
   });
 };
 
+export const createObjective = async (
+  data: Omit<Objective, 'id' | 'createdAt' | 'updatedAt'>,
+  userId: string
+): Promise<Objective> => {
+  // Validate objective data
+  if (!data.title || !data.targetAmount || !data.metric) {
+    throw new Error('Invalid objective data');
+  }
+
+  const batch = writeBatch(db);
+  
+  // Create objective
+  const objectiveRef = doc(collection(db, 'objectives'));
+  const objectiveData = {
+    ...data,
+    userId,
+    isAvailable: true,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp()
+  };
+  batch.set(objectiveRef, objectiveData);
+  
+  // Create audit log
+  createAuditLog(batch, 'create', 'objective', objectiveRef.id, objectiveData, userId);
+  
+  await batch.commit();
+  
+  return {
+    id: objectiveRef.id,
+    ...objectiveData,
+    createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 },
+    updatedAt: { seconds: Date.now() / 1000, nanoseconds: 0 }
+  };
+};
+
+export const updateObjective = async (
+  id: string,
+  data: Partial<Objective>,
+  userId: string
+): Promise<void> => {
+  const batch = writeBatch(db);
+  const objectiveRef = doc(db, 'objectives', id);
+  
+  // Get current objective data for audit log
+  const objectiveSnap = await getDoc(objectiveRef);
+  if (!objectiveSnap.exists()) {
+    throw new Error('Objective not found');
+  }
+  
+  // Verify ownership
+  const objective = objectiveSnap.data() as Objective;
+  if (objective.userId !== userId) {
+    throw new Error('Unauthorized to update this objective');
+  }
+  
+  // Update objective
+  const updateData = {
+    ...data,
+    updatedAt: serverTimestamp()
+  };
+  batch.update(objectiveRef, updateData);
+  
+  // Create audit log with changes
+  const changes = {
+    oldValue: objective,
+    newValue: { ...objective, ...updateData }
+  };
+  createAuditLog(batch, 'update', 'objective', id, changes, userId);
+  
+  await batch.commit();
+};
+
 export const deleteObjective = async (objectiveId: string, userId: string): Promise<void> => {
   const batch = writeBatch(db);
   const objectiveRef = doc(db, 'objectives', objectiveId);
@@ -1418,6 +1494,12 @@ export const softDeleteExpense = async (expenseId: string, userId: string): Prom
 // --- Sync with Sales/Expenses ---
 
 export const syncFinanceEntryWithSale = async (sale: Sale) => {
+  // Add explicit checks for required fields before querying
+  if (!sale || !sale.id || !sale.userId) {
+    console.error('syncFinanceEntryWithSale: Invalid sale object received, skipping sync.', sale);
+    return; // Exit early if data is invalid
+  }
+
   // Find existing finance entry for this sale
   const q = query(collection(db, 'finances'), where('sourceType', '==', 'sale'), where('sourceId', '==', sale.id));
   const snap = await getDocs(q);
@@ -1440,6 +1522,12 @@ export const syncFinanceEntryWithSale = async (sale: Sale) => {
 };
 
 export const syncFinanceEntryWithExpense = async (expense: Expense) => {
+  // Add explicit checks for required fields before querying
+  if (!expense || !expense.id || !expense.userId) {
+    console.error('syncFinanceEntryWithExpense: Invalid expense object received, skipping sync.', expense);
+    return; // Exit early if data is invalid
+  }
+
   const q = query(collection(db, 'finances'), where('sourceType', '==', 'expense'), where('sourceId', '==', expense.id));
   const entry: Omit<FinanceEntry, 'id' | 'createdAt' | 'updatedAt'> = {
     userId: expense.userId,

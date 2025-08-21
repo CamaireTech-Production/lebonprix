@@ -30,6 +30,7 @@ const ObjectivesModal: React.FC<ObjectivesModalProps> = ({ isOpen, onClose, stat
   const [editingObjective, setEditingObjective] = useState<Objective | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [openObjectiveId, setOpenObjectiveId] = useState<string | null>(null);
+  const [deletingObjectiveId, setDeletingObjectiveId] = useState<string | null>(null);
 
   const isOverlapping = (obj: any) => {
     // Compute the objective's active window
@@ -81,7 +82,8 @@ const ObjectivesModal: React.FC<ObjectivesModalProps> = ({ isOpen, onClose, stat
       case 'profit': {
         const profit = salesInPeriod.reduce((sum: number, sale: any) => sum + sale.products.reduce((productSum: number, product: any) => {
           const sellingPrice = product.negotiatedPrice || product.basePrice || 0;
-          const latestCost = getLatestCostPrice(product.productId, stockChanges);
+          const safeStockChanges = Array.isArray(stockChanges) ? stockChanges : [];
+          const latestCost = getLatestCostPrice(product.productId, safeStockChanges);
           const costPrice = latestCost ?? 0;
           return productSum + (sellingPrice - costPrice) * (product.quantity || 0);
         }, 0), 0);
@@ -121,11 +123,15 @@ const ObjectivesModal: React.FC<ObjectivesModalProps> = ({ isOpen, onClose, stat
   const handleDelete = async (obj: Objective) => {
     try {
       if (confirm(t('objectives.confirmDelete'))) {
+        setDeletingObjectiveId(obj.id!);
         await deleteObjective(obj.id!);
         showSuccessToast(t('objectives.messages.deleteSuccess'));
       }
     } catch (err) {
+      console.error('Delete objective error:', err);
       showErrorToast(t('objectives.messages.operationError'));
+    } finally {
+      setDeletingObjectiveId(null);
     }
   };
 
@@ -141,6 +147,7 @@ const ObjectivesModal: React.FC<ObjectivesModalProps> = ({ isOpen, onClose, stat
               onDelete={handleDelete}
               open={openObjectiveId === obj.id}
               onToggle={() => setOpenObjectiveId(openObjectiveId === obj.id ? null : obj.id)}
+              isDeleting={deletingObjectiveId === obj.id}
             />
           ))}
           {objsWithProgress.length === 0 && (
