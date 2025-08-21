@@ -238,10 +238,16 @@ export const useSales = () => {
 
       // Update in Firestore
       await updateSaleDocument(saleId, cleanedSale, user.uid);
-      await syncFinanceEntryWithSale(cleanedSale);
+      
+      // Create a complete sale object with ID for finance sync
+      const saleForSync = {
+        ...cleanedSale,
+        id: saleId
+      };
+      await syncFinanceEntryWithSale(saleForSync);
 
       // Update local state
-      updateLocalSale(cleanedSale);
+      updateLocalSale(saleForSync);
     } catch (err) {
       console.error('Error updating sale:', err);
       throw err;
@@ -271,13 +277,18 @@ export const useSales = () => {
     
     try {
       const saleRef = doc(db, 'sales', saleId);
-      await deleteDoc(saleRef);
-      // Sync finance entry (mark as deleted)
+      
+      // Get sale data before deleting
       const saleDoc = await getDoc(saleRef);
       if (saleDoc.exists()) {
         const saleData = saleDoc.data() as Sale;
-        await syncFinanceEntryWithSale({ ...saleData, isAvailable: false });
+        // Sync finance entry (mark as deleted) before deleting the sale
+        await syncFinanceEntryWithSale({ ...saleData, id: saleId, isAvailable: false });
       }
+      
+      // Delete the sale document
+      await deleteDoc(saleRef);
+      
       // Update local state by removing the deleted sale
       setSales(prevSales => prevSales?.filter(sale => sale.id !== saleId) || []);
       // Refresh sales data to update dashboard

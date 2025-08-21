@@ -1494,6 +1494,12 @@ export const softDeleteExpense = async (expenseId: string, userId: string): Prom
 // --- Sync with Sales/Expenses ---
 
 export const syncFinanceEntryWithSale = async (sale: Sale) => {
+  // Add explicit checks for required fields before querying
+  if (!sale || !sale.id || !sale.userId) {
+    console.error('syncFinanceEntryWithSale: Invalid sale object received, skipping sync.', sale);
+    return; // Exit early if data is invalid
+  }
+
   // Find existing finance entry for this sale
   const q = query(collection(db, 'finances'), where('sourceType', '==', 'sale'), where('sourceId', '==', sale.id));
   const snap = await getDocs(q);
