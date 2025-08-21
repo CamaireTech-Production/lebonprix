@@ -1,5 +1,5 @@
 import React from 'react';
-import { Badge } from '../common/Badge';
+import Badge from '../common/Badge';
 import { format } from 'date-fns';
 import type { StockChange } from '../../types/models';
 
