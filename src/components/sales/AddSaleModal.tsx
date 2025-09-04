@@ -10,6 +10,9 @@ import { useTranslation } from 'react-i18next';
 import type { Sale, StockBatch } from '../../types/models';
 import SaleDetailsModal from './SaleDetailsModal';
 import { getProductStockBatches } from '../../services/firestore';
+import { showWarningToast } from '../../utils/toast';
+
+const LOW_STOCK_THRESHOLD = 5;
 
 interface AddSaleModalProps {
   isOpen: boolean;
@@ -177,6 +180,30 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
   if (!isOpen) {
     return null;
   }
+
+  // Low-stock wrappers for product handlers
+  const onProductChange = (index: number, option: any) => {
+    handleProductChange(index, option);
+    if (option && option.value) {
+      const remainingAfter = (option.value.stock || 0) - 1;
+      if (remainingAfter <= LOW_STOCK_THRESHOLD && remainingAfter >= 0) {
+        showWarningToast(`Low stock: ${remainingAfter} left for ${option.value.name}`);
+      }
+    }
+  };
+
+  const onProductInputChange = (index: number, field: any, value: string) => {
+    handleProductInputChange(index, field, value);
+    const fp = formData.products[index];
+    const product = fp?.product;
+    const qty = field === 'quantity' ? parseInt(value || '0', 10) : parseInt(fp?.quantity || '0', 10);
+    if (product && !isNaN(qty) && qty > 0) {
+      const remainingAfter = (product.stock || 0) - qty;
+      if (remainingAfter <= LOW_STOCK_THRESHOLD && remainingAfter >= 0) {
+        showWarningToast(`Low stock: ${remainingAfter} left for ${product.name}`);
+      }
+    }
+  };
 
   return (
     <>
@@ -366,7 +393,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                           min="1"
                           max={product.product.stock.toString()}
                           value={product.quantity}
-                          onChange={(e) => handleProductInputChange(index, 'quantity', e.target.value)}
+                          onChange={(e) => onProductInputChange(index, 'quantity', e.target.value)}
                           required
                           helpText={`Cannot exceed ${product.product.stock}`}
                         />
@@ -374,7 +401,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                           label="Negotiated Price"
                           type="number"
                           value={product.negotiatedPrice}
-                          onChange={(e) => handleProductInputChange(index, 'negotiatedPrice', e.target.value)}
+                          onChange={(e) => onProductInputChange(index, 'negotiatedPrice', e.target.value)}
                           // helpText="Enter the negotiated price (can exceed standard price)"
                         />
                       </div>
@@ -409,7 +436,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                     <Select
                       options={productOptions}
                       value={productOptions.find(option => option.value.id === product.product?.id)}
-                      onChange={(option) => handleProductChange(index, option)}
+                      onChange={(option) => onProductChange(index, option)}
                       isSearchable
                         placeholder="Select product..."
                       className="text-sm"
@@ -479,7 +506,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                         min="1"
                         max={product.product.stock.toString()}
                         value={product.quantity}
-                        onChange={(e) => handleProductInputChange(index, 'quantity', e.target.value)}
+                        onChange={(e) => onProductInputChange(index, 'quantity', e.target.value)}
                         required
                           helpText={`Cannot exceed ${product.product.stock}`}
                       />
@@ -487,7 +514,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                           label="Negotiated Price"
                         type="number"
                         value={product.negotiatedPrice}
-                        onChange={(e) => handleProductInputChange(index, 'negotiatedPrice', e.target.value)}
+                        onChange={(e) => onProductInputChange(index, 'negotiatedPrice', e.target.value)}
                           // helpText="Enter the negotiated price (can exceed standard price)"
                       />
                     </div>
