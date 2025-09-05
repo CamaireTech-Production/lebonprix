@@ -4,6 +4,7 @@ import ProgressBar from '../common/ProgressBar';
 import { useObjectives } from '../../hooks/useObjectives';
 import { useTranslation } from 'react-i18next';
 import { Plus, List } from 'lucide-react';
+import { differenceInCalendarDays, startOfDay, endOfDay, isWithinInterval } from 'date-fns';
 
 interface ObjectivesBarProps {
   onAdd: () => void;
@@ -25,7 +26,6 @@ const ObjectivesBar: React.FC<ObjectivesBarProps> = ({ onAdd, onView, dateRange,
   const { objectives } = useObjectives();
 
   const isOverlapping = (obj: any) => {
-    // Compute the objective's active window
     let objFrom: Date | null = null;
     let objTo: Date | null = null;
     if (obj.periodType === 'predefined') {
@@ -41,16 +41,13 @@ const ObjectivesBar: React.FC<ObjectivesBarProps> = ({ onAdd, onView, dateRange,
       objFrom = obj.startAt?.toDate ? obj.startAt.toDate() : (obj.startAt ? new Date(obj.startAt) : null);
       objTo = obj.endAt?.toDate ? obj.endAt.toDate() : (obj.endAt ? new Date(obj.endAt) : null);
     }
-    if (!objFrom || !objTo) return true; // if invalid dates, keep visible
-    // Overlap with selected dashboard range
+    if (!objFrom || !objTo) return true;
     return objFrom <= dateRange.to && objTo >= dateRange.from;
   };
 
   const getStatsForObjective = (obj: any) => {
-    // Determine period
     let from: Date, to: Date;
     if (obj.periodType === 'predefined') {
-      // Only support 'this_month' and 'this_year' for now
       const now = new Date();
       if (obj.predefined === 'this_year') {
         from = new Date(now.getFullYear(), 0, 1);
@@ -63,18 +60,13 @@ const ObjectivesBar: React.FC<ObjectivesBarProps> = ({ onAdd, onView, dateRange,
       from = obj.startAt?.toDate ? obj.startAt.toDate() : new Date(obj.startAt);
       to = obj.endAt?.toDate ? obj.endAt.toDate() : new Date(obj.endAt);
     }
-    // Filter data for this period
     const salesInPeriod = sales?.filter(sale => sale.createdAt?.seconds && new Date(sale.createdAt.seconds * 1000) >= from && new Date(sale.createdAt.seconds * 1000) <= to) || [];
-    // Filter out soft-deleted expenses and apply date range filter
     const expensesInPeriod = expenses?.filter(exp => {
-      // First filter out soft-deleted expenses
       if (exp.isAvailable === false) return false;
-      // Then apply date range filter
       if (!exp.createdAt?.seconds) return false;
       const expDate = new Date(exp.createdAt.seconds * 1000);
       return expDate >= from && expDate <= to;
     }) || [];
-    // Calculate stats for this period
     switch (obj.metric) {
       case 'profit': {
         const profit = salesInPeriod.reduce((sum: number, sale: any) => sum + sale.products.reduce((productSum: number, product: any) => {
@@ -105,8 +97,9 @@ const ObjectivesBar: React.FC<ObjectivesBarProps> = ({ onAdd, onView, dateRange,
   };
 
   const filteredObjectives = useMemo(() => {
-    if (!applyDateFilter) return objectives;
-    return objectives.filter(isOverlapping);
+    const active = objectives.filter(o => o.isAvailable !== false);
+    if (!applyDateFilter) return active;
+    return active.filter(isOverlapping);
   }, [objectives, dateRange, applyDateFilter]);
 
   const objectivesWithProgress = useMemo(() => {
@@ -123,43 +116,94 @@ const ObjectivesBar: React.FC<ObjectivesBarProps> = ({ onAdd, onView, dateRange,
     return Math.round(sum / objectivesWithProgress.length);
   }, [objectivesWithProgress]);
 
+  const previewObjectives = useMemo(() => {
+    const today = new Date();
+    const toJsDate = (d: any) => (d?.toDate ? d.toDate() : (d ? new Date(d) : null));
+
+    // Identify "daily" objectives: custom period with duration <= 1 day that includes today
+    const daily = objectivesWithProgress.filter((obj: any) => {
+      if (obj.periodType !== 'predefined') {
+        const s = toJsDate(obj.startAt);
+        const e = toJsDate(obj.endAt);
+        if (!s || !e) return false;
+        const days = Math.abs(differenceInCalendarDays(endOfDay(e), startOfDay(s)));
+        const includesToday = isWithinInterval(today, { start: startOfDay(s), end: endOfDay(e) });
+        return days <= 1 && includesToday;
+      }
+      return false;
+    });
+
+    // Sort daily by most recent end date desc
+    daily.sort((a: any, b: any) => {
+      const ae = toJsDate(a.endAt)?.getTime() || 0;
+      const be = toJsDate(b.endAt)?.getTime() || 0;
+      return be - ae;
+    });
+
+    // If fewer than 3, fill with most recent others (by end date)
+    if (daily.length >= 3) return daily.slice(0, 3);
+    const others = objectivesWithProgress.filter((o: any) => !daily.includes(o));
+    others.sort((a: any, b: any) => {
+      const ae = toJsDate(a.endAt)?.getTime() || 0;
+      const be = toJsDate(b.endAt)?.getTime() || 0;
+      return be - ae;
+    });
+    return [...daily, ...others].slice(0, 3);
+  }, [objectivesWithProgress]);
+
   return (
-    <div className="bg-white border rounded-lg p-4 mb-6 flex flex-col md:flex-row items-start gap-4 shadow-sm">
-      {/* Left: Progress, title, and filter (100% on mobile, 90% on desktop) */}
-      <div className="w-full md:flex-1 min-w-0 mr-4" style={{ flexBasis: '70%' }}>
-        <div className="flex flex-col gap-2">
-          <h3 className="text-lg font-medium text-gray-900">
+    <div className="bg-white border rounded-lg p-3 mb-4 flex flex-col md:flex-row items-start gap-3 shadow-sm">
+      <div className="w-full md:flex-1 min-w-0 mr-2" style={{ flexBasis: '70%' }}>
+        <div className="flex flex-col gap-1.5">
+          <h3 className="text-sm font-medium text-gray-900">
             {t('objectives.overallProgress', { pct: averageProgress })}
           </h3>
-          <ProgressBar value={averageProgress} />
-          <div className="mt-2">
-            <label className="inline-flex items-center gap-1 text-sm text-gray-700">
+          <ProgressBar value={averageProgress} className="h-2" />
+          <div className="mt-1">
+            <label className="inline-flex items-center gap-1 text-xs text-gray-700">
               <input
                 type="checkbox"
-                className="form-checkbox text-emerald-600"
+                className="form-checkbox text-emerald-600 h-3.5 w-3.5"
                 checked={applyDateFilter}
                 onChange={e => onToggleFilter(e.target.checked)}
               />
               {t('objectives.filterByRange')}
             </label>
           </div>
+
+          <div className="mt-2 space-y-1.5">
+            {previewObjectives.map((obj: any) => (
+              <div key={obj.id} className="border rounded p-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs font-medium text-gray-900 truncate mr-2">{obj.title}</span>
+                  <span className="text-[10px] text-gray-600 min-w-[28px] text-right">{obj.progress}%</span>
+                </div>
+                <div className="mt-1 max-w-[70%]">
+                  <ProgressBar value={obj.progress} className="h-1.5" />
+                </div>
+              </div>
+            ))}
+            {previewObjectives.length === 0 && (
+              <div className="text-xs text-gray-500">{t('objectives.empty')}</div>
+            )}
+          </div>
         </div>
       </div>
-      {/* Right: Buttons (row on mobile, column on desktop) */}
-      <div className="w-full md:w-auto flex flex-row flex-wrap gap-2 items-end justify-end mt-2 md:mt-0 min-w-0">
+      <div className="w-full md:w-auto flex flex-row flex-wrap gap-2 items-end justify-end mt-1 md:mt-0 min-w-0">
         <Button
           variant="outline"
-          icon={<List size={16} />}
+          icon={<List size={14} />}
           onClick={onView}
-          className="w-full md:w-auto text-xs md:text-base px-2 md:px-4"
+          className="w-full md:w-auto text-xs px-2"
         >
           <span className="block md:hidden">{t('objectives.viewShort', 'View')}</span>
           <span className="hidden md:block">{t('objectives.view')} ({objectivesWithProgress.length})</span>
         </Button>
         <Button
-          icon={<Plus size={16} />}
+          size="sm"
+          icon={<Plus size={14} />}
           onClick={onAdd}
-          className="w-full md:w-auto text-xs md:text-base px-2 md:px-4"
+          className="w-full md:w-auto text-xs px-2"
         >
           <span className="block md:hidden">{t('objectives.addShort', 'Add')}</span>
           <span className="hidden md:block">{t('objectives.add')}</span>

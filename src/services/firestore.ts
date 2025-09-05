@@ -1286,8 +1286,8 @@ export const subscribeToObjectives = (userId: string, callback: (objectives: Obj
       id: doc.id,
       ...doc.data()
     })) as Objective[];
-    // Only return objectives that are not soft-deleted
-    callback(objectives.filter(obj => obj.isAvailable !== false));
+    // Return all objectives; filtering for active ones is handled at the UI level
+    callback(objectives);
   });
 };
 
