@@ -21,6 +21,7 @@ interface ObjectiveFormProps {
 const ObjectiveForm: React.FC<ObjectiveFormProps> = ({ isOpen, onClose, objective, metricsOptions, onAfterAdd }) => {
   const { t } = useTranslation();
   const { addObjective, updateObjective } = useObjectives();
+  const [isLoading, setIsLoading] = useState(false);
 
   const [formData, setFormData] = useState<{ [key: string]: any }>({
     title: objective?.title || '',
@@ -41,20 +42,38 @@ const ObjectiveForm: React.FC<ObjectiveFormProps> = ({ isOpen, onClose, objectiv
   };
 
   const handleSubmit = async () => {
-    const payload: any = {
-      title: formData.title,
-      description: formData.description,
-      metric: formData.metric,
-      targetAmount: parseFloat(formData.targetAmount),
-      periodType: formData.periodType,
-    };
-    if (formData.periodType === 'predefined') {
-      payload.predefined = formData.predefined;
-    } else if (formData.customRange) {
-      payload.startAt = formData.customRange.from;
-      payload.endAt = formData.customRange.to;
+    // Validate required fields
+    if (!formData.title.trim()) {
+      showErrorToast(t('objectives.messages.titleRequired'));
+      return;
     }
+    if (!formData.targetAmount || parseFloat(formData.targetAmount) <= 0) {
+      showErrorToast(t('objectives.messages.targetRequired'));
+      return;
+    }
+    if (!formData.metric) {
+      showErrorToast(t('objectives.messages.metricRequired'));
+      return;
+    }
+
+    setIsLoading(true);
+    
     try {
+      const payload: any = {
+        title: formData.title.trim(),
+        description: formData.description.trim(),
+        metric: formData.metric,
+        targetAmount: parseFloat(formData.targetAmount),
+        periodType: formData.periodType,
+      };
+      
+      if (formData.periodType === 'predefined') {
+        payload.predefined = formData.predefined;
+      } else if (formData.customRange) {
+        payload.startAt = formData.customRange.from;
+        payload.endAt = formData.customRange.to;
+      }
+
       if (objective) {
         await updateObjective(objective.id!, payload);
         showSuccessToast(t('objectives.messages.updateSuccess'));
@@ -65,8 +84,10 @@ const ObjectiveForm: React.FC<ObjectiveFormProps> = ({ isOpen, onClose, objectiv
       }
       onClose();
     } catch (err) {
+      console.error('Objective operation error:', err);
       showErrorToast(t('objectives.messages.operationError'));
-      console.error(err);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -125,8 +146,12 @@ const ObjectiveForm: React.FC<ObjectiveFormProps> = ({ isOpen, onClose, objectiv
           )}
         </div>
         <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={onClose}>{t('common.cancel')}</Button>
-          <Button onClick={handleSubmit}>{t('common.save')}</Button>
+          <Button variant="outline" onClick={onClose} disabled={isLoading}>
+            {t('common.cancel')}
+          </Button>
+          <Button onClick={handleSubmit} isLoading={isLoading} disabled={isLoading}>
+            {objective ? t('common.update') : t('common.save')}
+          </Button>
         </div>
       </div>
     </Modal>

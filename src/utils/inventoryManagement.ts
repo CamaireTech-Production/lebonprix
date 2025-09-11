@@ -123,7 +123,7 @@ export const calculateStockValue = (batches: StockBatch[]): {
   averageCostPrice: number;
   activeBatches: number;
 } => {
-  const activeBatches = batches.filter(batch => batch.status === 'active');
+  const activeBatches = batches.filter(batch => batch.status === 'active' && batch.remainingQuantity > 0);
   const totalStock = activeBatches.reduce((sum, batch) => sum + batch.remainingQuantity, 0);
   const totalValue = activeBatches.reduce((sum, batch) => sum + (batch.remainingQuantity * batch.costPrice), 0);
   const averageCostPrice = totalStock > 0 ? totalValue / totalStock : 0;
@@ -146,7 +146,7 @@ export const getBatchStatistics = (batches: StockBatch[]): {
   totalStockValue: number;
   averageCostPrice: number;
 } => {
-  const activeBatches = batches.filter(batch => batch.status === 'active');
+  const activeBatches = batches.filter(batch => batch.status === 'active' && batch.remainingQuantity > 0);
   const depletedBatches = batches.filter(batch => batch.status === 'depleted');
   const totalStockValue = activeBatches.reduce((sum, batch) => sum + (batch.remainingQuantity * batch.costPrice), 0);
   const totalStock = activeBatches.reduce((sum, batch) => sum + batch.remainingQuantity, 0);

@@ -8,6 +8,7 @@ import Modal, { ModalFooter } from '../components/common/Modal';
 import Input from '../components/common/Input';
 import CreatableSelect from '../components/common/CreatableSelect';
 import { useProducts, useStockChanges, useCategories, useSuppliers } from '../hooks/useFirestore';
+import { useAllStockBatches } from '../hooks/useStockBatches';
 import { createSupplierDebt, createSupplier } from '../services/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import LoadingScreen from '../components/common/LoadingScreen';
@@ -17,6 +18,12 @@ import Papa from 'papaparse';
 import type { Product } from '../types/models';
 import type { ParseResult } from 'papaparse';
 import { getLatestCostPrice, getDisplayCostPrice } from '../utils/productUtils';
+import { 
+  getProductBatchesForAdjustment,
+  adjustBatchWithDebtManagement
+} from '../services/stockAdjustments';
+import type { StockBatch } from '../types/models';
+import CostPriceCarousel from '../components/products/CostPriceCarousel';
 
 interface CsvRow {
   [key: string]: string;
@@ -28,6 +35,7 @@ const Products = () => {
   const { stockChanges } = useStockChanges();
   useCategories();
   const { suppliers } = useSuppliers();
+  const { batches: allStockBatches } = useAllStockBatches();
   const { user } = useAuth();
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [searchQuery, setSearchQuery] = useState('');
@@ -84,7 +92,7 @@ const Products = () => {
   const [editTab, setEditTab] = useState<'info' | 'stock' | 'pricing'>('info');
   // State for stock adjustment tab
   const [stockAdjustment, setStockAdjustment] = useState('');
-  const [stockReason, setStockReason] = useState<'restock' | 'adjustment'>('restock');
+  const [stockReason, setStockReason] = useState<'restock' | 'adjustment' | 'damage'>('restock');
   
   // State for stock adjustment supplier info
   const [stockAdjustmentSupplier, setStockAdjustmentSupplier] = useState({
@@ -92,6 +100,39 @@ const Products = () => {
     supplierId: '',
     paymentType: 'paid' as 'credit' | 'paid',
     costPrice: '',
+  });
+
+  // Enhanced Stock Management State (All Scenarios)
+  const [availableBatches, setAvailableBatches] = useState<StockBatch[]>([]);
+  const [selectedBatchId, setSelectedBatchId] = useState('');
+  const [selectedBatch, setSelectedBatch] = useState<StockBatch | null>(null);
+  const [loadingBatches, setLoadingBatches] = useState(false);
+  
+  // Scenario 2: Manual Adjustment - Enhanced with purchase method editing
+  const [tempBatchEdits, setTempBatchEdits] = useState<Array<{
+    batchId: string;
+    batch: StockBatch;
+    newStock: number;
+    newCostPrice: number;
+    quantityChange: number;
+    newSupplyType: 'ownPurchase' | 'fromSupplier';
+    newSupplierId?: string;
+    newPaymentType: 'paid' | 'credit';
+    timestamp: Date;
+    scenario: 'adjustment' | 'damage';
+  }>>([]);
+  
+  const [batchEditForm, setBatchEditForm] = useState({
+    stock: '',
+    costPrice: '',
+    supplyType: 'ownPurchase' as 'ownPurchase' | 'fromSupplier',
+    supplierId: '',
+    paymentType: 'paid' as 'paid' | 'credit'
+  });
+  
+  // Scenario 3: Damage State
+  const [damageForm, setBatchDamageForm] = useState({
+    damagedQuantity: ''
   });
   
   const [isBulkSelection, setIsBulkSelection] = useState(false);
@@ -140,7 +181,13 @@ const Products = () => {
   
   const handleStep2InputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setStep2Data(prev => ({ ...prev, [name]: value }));
+    
+    // Filter out decimals for price fields
+    const filteredValue = ['stockCostPrice', 'sellingPrice', 'cataloguePrice'].includes(name) 
+      ? value.replace(/[^0-9]/g, '') 
+      : value;
+    
+    setStep2Data(prev => ({ ...prev, [name]: filteredValue }));
   };
   
   const handleQuickSupplierInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -249,8 +296,10 @@ const Products = () => {
         cataloguePrice: step2Data.cataloguePrice ? parseFloat(step2Data.cataloguePrice) : undefined,
         category: step1Data.category,
         stock: stockQuantity,
+        costPrice: stockCostPrice,
         images: (step1Data.images ?? []).length > 0 ? step1Data.images : [],
       isAvailable: true,
+      enableBatchTracking: true, // Explicitly enable batch tracking
       userId: user.uid,
       updatedAt: { seconds: 0, nanoseconds: 0 }
     };
@@ -267,21 +316,8 @@ const Products = () => {
         costPrice: stockCostPrice
       };
       
-      // Create the product with supplier information
+      // Create the product with supplier information (debt creation is now handled in createProduct)
       await addProduct(productData, supplierInfo);
-      
-      // Create supplier debt if applicable (this will be handled by the createProduct function)
-      if (step2Data.supplyType === 'fromSupplier' && step2Data.paymentType === 'credit') {
-        const debtAmount = stockCostPrice * stockQuantity;
-        const description = `Initial stock purchase for ${step1Data.name} (${stockQuantity} units)`;
-        
-        await createSupplierDebt(
-          step2Data.supplierId,
-          debtAmount,
-          description,
-          user.uid
-        );
-      }
       
       setIsAddModalOpen(false);
       resetForm();
@@ -357,6 +393,201 @@ const Products = () => {
     setStockAdjustmentSupplier(prev => ({ ...prev, [name]: value }));
   };
 
+  // Enhanced Manual Adjustment Functions
+  const loadBatchesForAdjustment = async (productId: string) => {
+    if (!productId) return;
+    
+    setLoadingBatches(true);
+    try {
+      const batches = await getProductBatchesForAdjustment(productId);
+      // Filter out batches that are already in temp edits
+      const filteredBatches = batches.filter(batch => 
+        !tempBatchEdits.some(edit => edit.batchId === batch.id)
+      );
+      setAvailableBatches(filteredBatches);
+    } catch (error) {
+      console.error('Error loading batches:', error);
+      showErrorToast('Failed to load available batches');
+    } finally {
+      setLoadingBatches(false);
+    }
+  };
+
+  const handleBatchSelection = (batchId: string) => {
+    setSelectedBatchId(batchId);
+    const batch = availableBatches.find(b => b.id === batchId);
+    if (batch) {
+      setSelectedBatch(batch);
+      
+      // Pre-fill form based on scenario
+      if (stockReason === 'adjustment') {
+        // Manual adjustment: pre-fill with TOTAL QUANTITY (not remaining)
+        // This maintains coherence between quantity and remainingQuantity
+        // For manual adjustment, we preserve the original batch's supplier and payment type
+        setBatchEditForm({
+          stock: batch.quantity.toString(), // Use total quantity instead of remaining
+          costPrice: batch.costPrice.toString(),
+          supplyType: batch.isOwnPurchase ? 'ownPurchase' : 'fromSupplier',
+          supplierId: batch.supplierId || '', // Preserve original supplier
+          paymentType: batch.isCredit ? 'credit' : 'paid' // Preserve original payment type
+        });
+      } else if (stockReason === 'damage') {
+        // Damage: only pre-fill damage quantity form
+        setBatchDamageForm({
+          damagedQuantity: ''
+        });
+      }
+    } else {
+      setSelectedBatch(null);
+      setBatchEditForm({ 
+        stock: '', 
+        costPrice: '',
+        supplyType: 'ownPurchase',
+        supplierId: '',
+        paymentType: 'paid'
+      });
+      setBatchDamageForm({ damagedQuantity: '' });
+    }
+  };
+
+  const handleBatchEditFormChange = (field: string, value: string) => {
+    setBatchEditForm(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleDamageFormChange = (field: string, value: string) => {
+    setBatchDamageForm(prev => ({ ...prev, [field]: value }));
+    
+    // Real-time validation for damage quantity
+    if (field === 'damagedQuantity' && selectedBatch && value) {
+      const damagedQuantity = parseFloat(value);
+      if (!isNaN(damagedQuantity) && damagedQuantity > selectedBatch.remainingQuantity) {
+        showErrorToast(`Cannot exceed available stock: ${selectedBatch.remainingQuantity} units`);
+      }
+    }
+  };
+
+  const addTempBatchEdit = () => {
+    if (!selectedBatch) return;
+
+    // Validation based on scenario
+    if (stockReason === 'adjustment') {
+      if (!batchEditForm.stock || !batchEditForm.costPrice) {
+        showErrorToast('Please fill in all required fields');
+        return;
+      }
+      // For manual adjustment, supplier is preserved from the original batch
+      // No need to validate supplier selection as it's automatically set
+
+      const newTotalQuantity = parseFloat(batchEditForm.stock);
+      const usedQuantity = selectedBatch.quantity - selectedBatch.remainingQuantity;
+      const newRemainingQuantity = newTotalQuantity - usedQuantity;
+
+      // Check if the new remaining quantity would be negative
+      if (newRemainingQuantity < 0) {
+        showErrorToast(`Invalid quantity! This batch has ${usedQuantity} units already used. Minimum total quantity: ${usedQuantity}`);
+        return;
+      }
+
+      // Calculate the actual quantity change (difference in total quantity)
+      const quantityChange = newTotalQuantity - selectedBatch.quantity;
+
+      const newEdit = {
+        batchId: selectedBatch.id,
+        batch: selectedBatch,
+        newStock: newTotalQuantity,
+        newCostPrice: parseFloat(batchEditForm.costPrice),
+        quantityChange,
+        newSupplyType: selectedBatch.isOwnPurchase ? 'ownPurchase' as const : 'fromSupplier' as const,
+        newSupplierId: selectedBatch.supplierId, // Preserve the original supplier from the batch
+        newPaymentType: selectedBatch.isCredit ? 'credit' as const : 'paid' as const, // Preserve the original payment type
+        timestamp: new Date(),
+        scenario: 'adjustment' as const
+      };
+
+      setTempBatchEdits(prev => [...prev, newEdit]);
+      showSuccessToast(`Manual adjustment added: ${quantityChange >= 0 ? '+' : ''}${quantityChange} units @ ${parseFloat(batchEditForm.costPrice).toLocaleString()} XAF`);
+
+    } else if (stockReason === 'damage') {
+      if (!damageForm.damagedQuantity) {
+        showErrorToast('Please enter the damaged quantity');
+        return;
+      }
+
+      const damagedQuantity = parseFloat(damageForm.damagedQuantity);
+      if (damagedQuantity <= 0 || damagedQuantity > selectedBatch.remainingQuantity) {
+        showErrorToast(`Invalid quantity. Must be between 1 and ${selectedBatch.remainingQuantity}`);
+        return;
+      }
+
+      const newEdit = {
+        batchId: selectedBatch.id,
+        batch: selectedBatch,
+        newStock: selectedBatch.remainingQuantity - damagedQuantity,
+        newCostPrice: selectedBatch.costPrice,
+        quantityChange: -damagedQuantity,
+        newSupplyType: selectedBatch.isOwnPurchase ? 'ownPurchase' as const : 'fromSupplier' as const,
+        newSupplierId: selectedBatch.supplierId,
+        newPaymentType: selectedBatch.isCredit ? 'credit' as const : 'paid' as const,
+        timestamp: new Date(),
+        scenario: 'damage' as const
+      };
+
+      setTempBatchEdits(prev => [...prev, newEdit]);
+      showSuccessToast(`Damage recorded: -${damagedQuantity} units`);
+    }
+
+    // Reset form and reload batches
+    setBatchEditForm({
+      stock: '',
+      costPrice: '',
+      supplyType: 'ownPurchase',
+      supplierId: '',
+      paymentType: 'paid'
+    });
+    setBatchDamageForm({ damagedQuantity: '' });
+    setSelectedBatchId('');
+    setSelectedBatch(null);
+    
+    // Reload batches to exclude the one just added
+    if (currentProduct?.id) {
+      loadBatchesForAdjustment(currentProduct.id);
+    }
+  };
+
+  const removeTempBatchEdit = (batchId: string) => {
+    setTempBatchEdits(prev => prev.filter(edit => edit.batchId !== batchId));
+    showSuccessToast('Batch edit removed from list');
+    
+    // Reload batches to include the removed one back
+    if (currentProduct?.id) {
+      loadBatchesForAdjustment(currentProduct.id);
+    }
+  };
+
+  const clearAllTempBatchEdits = () => {
+    setTempBatchEdits([]);
+    setBatchEditForm({
+      stock: '',
+      costPrice: '',
+      supplyType: 'ownPurchase',
+      supplierId: '',
+      paymentType: 'paid'
+    });
+    setBatchDamageForm({ damagedQuantity: '' });
+    setSelectedBatchId('');
+    setSelectedBatch(null);
+    showSuccessToast('All batch edits cleared');
+    
+    // Reload batches
+    if (currentProduct?.id) {
+      loadBatchesForAdjustment(currentProduct.id);
+    }
+  };
+
+
+
+
+
   const handleQuickAddSupplierForStock = async () => {
     if (!user?.uid) return;
     if (!quickSupplierData.name || !quickSupplierData.contact) {
@@ -419,6 +650,21 @@ const Products = () => {
       cataloguePrice: product.cataloguePrice?.toString() || '',
       costPrice: latestStockChange?.costPrice?.toString() || ''
     });
+    
+    // Reset enhancement states for all scenarios
+    setTempBatchEdits([]);
+    setSelectedBatchId('');
+    setSelectedBatch(null);
+    setBatchEditForm({ 
+      stock: '', 
+      costPrice: '',
+      supplyType: 'ownPurchase',
+      supplierId: '',
+      paymentType: 'paid'
+    });
+    setBatchDamageForm({ damagedQuantity: '' });
+    setStockReason('restock');
+    
     setIsEditModalOpen(true);
     setEditTab('info');
     setStockAdjustment('');
@@ -454,8 +700,28 @@ const Products = () => {
     }
     
     try {
-      // Handle stock adjustment if provided
-      if (stockAdjustment && parseInt(stockAdjustment) !== 0) {
+      // Handle enhanced manual adjustment and damage scenarios with batch edits
+      if ((stockReason === 'adjustment' || stockReason === 'damage') && tempBatchEdits.length > 0) {
+        // First update product info
+        await updateProduct(currentProduct.id, updateData, user.uid);
+        
+        // Then apply all batch adjustments with enhanced debt management
+        const adjustments = tempBatchEdits.map(edit => ({
+          batchId: edit.batchId,
+          quantityChange: edit.quantityChange,
+          newCostPrice: edit.newCostPrice,
+          newSupplyType: edit.newSupplyType,
+          newSupplierId: edit.newSupplierId,
+          newPaymentType: edit.newPaymentType,
+          scenario: edit.scenario,
+          notes: `${edit.scenario === 'damage' ? 'Damage' : 'Manual adjustment'} via product edit`
+        }));
+        
+        await adjustBatchWithDebtManagement(currentProduct.id, adjustments, user.uid);
+        showSuccessToast(`Applied ${tempBatchEdits.length} ${stockReason === 'damage' ? 'damage records' : 'batch adjustments'}!`);
+      }
+      // Handle traditional stock adjustment if provided (restock or simple adjustment)
+      else if (stockAdjustment && parseInt(stockAdjustment) !== 0) {
         const stockChange = parseInt(stockAdjustment);
         const stockReasonType = stockReason as 'restock' | 'adjustment';
         
@@ -471,8 +737,17 @@ const Products = () => {
             isCredit: stockAdjustmentSupplier.paymentType === 'credit',
             costPrice: stockAdjustmentSupplier.costPrice ? parseFloat(stockAdjustmentSupplier.costPrice) : undefined
           });
+          
+          // Create supplier debt if applicable (same logic as product creation)
+          if (stockAdjustmentSupplier.supplyType === 'fromSupplier' && stockAdjustmentSupplier.paymentType === 'credit' && stockAdjustmentSupplier.supplierId) {
+            const debtAmount = parseFloat(stockAdjustmentSupplier.costPrice) * stockChange;
+            const description = `Restock purchase for ${currentProduct.name} (${stockChange} units)`;
+            
+            // Note: Debt creation with batchId is now handled in updateProduct function
+            // The batchId will be included automatically
+          }
         } else {
-          // For adjustment, set to new value
+          // For simple adjustment, set to new value
           updateData.stock = stockChange;
           await updateProduct(currentProduct.id, updateData, user.uid, stockReasonType, stockChange - (currentProduct.stock || 0));
         }
@@ -530,6 +805,13 @@ const Products = () => {
   useEffect(() => {
     setSelectedCategory(t('products.filters.allCategories'));
   }, [i18n.language, t]);
+
+  // Load batches when stock reason changes to adjustment or damage
+  useEffect(() => {
+    if ((stockReason === 'adjustment' || stockReason === 'damage') && currentProduct?.id && isEditModalOpen) {
+      loadBatchesForAdjustment(currentProduct.id);
+    }
+  }, [stockReason, currentProduct?.id, isEditModalOpen]);
 
   const toggleBulkSelection = () => {
     setIsBulkSelection((prev) => !prev);
@@ -626,6 +908,11 @@ const Products = () => {
     setStep1Data(prev => ({ ...prev, images: prev.images.filter((_, i) => i !== idx) }));
   };
 
+  // Helper function to get batches for a specific product
+  const getProductBatches = (productId: string): StockBatch[] => {
+    return allStockBatches.filter(batch => batch.productId === productId);
+  };
+
   // Place filteredProducts and resetImportState above their first usage
   const filteredProducts: Product[] = products?.filter((product: Product) => {
     if (typeof product.isAvailable !== 'undefined' && product.isAvailable === false) return false;
@@ -696,6 +983,7 @@ const Products = () => {
         cataloguePrice,
         category,
         stock,
+        costPrice: costPrice || 0,
         images: [],
         isAvailable: true,
         userId: user.uid,
@@ -955,7 +1243,9 @@ const Products = () => {
                   <div className="mt-2 space-y-1">
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">{t('products.table.columns.costPrice')}:</span>
-                      <span className="font-medium">{getDisplayCostPrice(product.id, stockChanges).toLocaleString()} XAF</span>
+                      <div className="font-medium">
+                        <CostPriceCarousel batches={getProductBatches(product.id)} />
+                      </div>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">{t('products.table.columns.sellingPrice')}:</span>
@@ -1090,7 +1380,9 @@ const Products = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{getDisplayCostPrice(product.id, stockChanges).toLocaleString()} XAF</div>
+                      <div className="text-sm text-gray-900">
+                        <CostPriceCarousel batches={getProductBatches(product.id)} />
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-emerald-600 font-medium">{product.sellingPrice.toLocaleString()} XAF</div>
@@ -1429,24 +1721,63 @@ const Products = () => {
         )}
         {editTab === 'stock' && (
           <div className="space-y-6">
-            {/* Info Box */}
-            <div className="flex items-start bg-blue-50 border-l-4 border-blue-400 p-4 rounded-md mb-4">
-              <svg className="w-5 h-5 text-blue-400 mt-0.5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M12 20a8 8 0 100-16 8 8 0 000 16z" /></svg>
-              <div className="text-sm text-blue-800">
-                {t('products.editTabs.stockInfoBox', 'Use this section to add or adjust stock. Restock increases available units, while adjustment is for correcting errors or losses.')}
+            {/* Current Stock Display */}
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4 mb-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Current Stock Level</h3>
+                  <p className="text-sm text-gray-600">Total available units for this product</p>
+              </div>
+                <div className="text-right">
+                  <div className="text-3xl font-bold text-blue-600">{currentProduct?.stock ?? 0}</div>
+                  <div className="text-sm text-gray-500">units</div>
+            </div>
               </div>
             </div>
-            {/* Stock Change Type Selector */}
+            {/* Stock Management Scenario Selector */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">{t('products.form.stockChangeType', 'Stock Change Type')}</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Stock Management Scenario</label>
             <select 
               className="block w-full rounded-md border border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm px-3 py-2" 
               value={stockReason} 
-              onChange={e => setStockReason(e.target.value as 'restock' | 'adjustment')}
+                onChange={e => setStockReason(e.target.value as 'restock' | 'adjustment' | 'damage')}
             >
-              <option value="restock">{t('products.actions.restock')}</option>
-              <option value="adjustment">{t('products.actions.adjustment')}</option>
+                <option value="restock">📦 Restock - Add New Stock Batch</option>
+                <option value="adjustment">✏️ Manual Adjustment - Edit Existing Batch</option>
+                <option value="damage">💥 Damage - Record Physical Losses</option>
             </select>
+            </div>
+
+            {/* Scenario Explanations */}
+            <div className="bg-blue-50 border-l-4 border-blue-400 p-4 rounded-md">
+              <div className="flex items-start">
+                <svg className="w-5 h-5 text-blue-400 mt-0.5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M12 20a8 8 0 100-16 8 8 0 000 16z" />
+                </svg>
+                <div className="text-sm text-blue-800">
+                  {stockReason === 'restock' && (
+                    <div>
+                      <strong>📦 Restock Scenario:</strong> Create a new stock batch by adding fresh inventory. 
+                      Specify the quantity, cost price, and purchase method (own purchase or from supplier). 
+                      If purchased from a supplier on credit, this will create a supplier debt automatically.
+                    </div>
+                  )}
+                  {stockReason === 'adjustment' && (
+                    <div>
+                      <strong>✏️ Manual Adjustment Scenario:</strong> Edit an existing stock batch comprehensively. 
+                      You can modify stock quantity, cost price, and even the purchase details (supplier, payment method). 
+                      This will automatically adjust any related supplier debts to maintain data coherence.
+                    </div>
+                  )}
+                  {stockReason === 'damage' && (
+                    <div>
+                      <strong>💥 Damage Scenario:</strong> Record physically damaged or lost inventory. 
+                      Only the stock quantity is reduced - cost prices and supplier debts remain unchanged 
+                      since the financial obligations still exist despite physical losses.
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
             {/* Stock Value Input */}
             {stockReason === 'restock' ? (
@@ -1462,8 +1793,24 @@ const Products = () => {
                   helpText={t('products.form.restockHelp', 'This value will be added to your current stock.')}
                 />
                 {/* Live Preview */}
-                <div className="text-sm text-gray-700 bg-gray-50 rounded-md p-2">
-                  {`Current Stock: ${currentProduct?.stock ?? 0} → New Stock: ${(currentProduct?.stock ?? 0) + (parseInt(stockAdjustment) || 0)} (+${parseInt(stockAdjustment) || 0})`}
+                <div className="bg-green-50 border border-green-200 rounded-md p-3">
+                  <h4 className="text-sm font-medium text-green-800 mb-2">📦 Restock Preview</h4>
+                  <div className="grid grid-cols-3 gap-4 text-sm">
+                    <div>
+                      <span className="font-medium text-green-700">Current Total Stock:</span>
+                      <div className="text-lg font-bold text-green-900">{currentProduct?.stock ?? 0}</div>
+                    </div>
+                    <div>
+                      <span className="font-medium text-green-700">Adding:</span>
+                      <div className="text-lg font-bold text-blue-600">+{parseInt(stockAdjustment) || 0}</div>
+                    </div>
+                    <div>
+                      <span className="font-medium text-green-700">New Total Stock:</span>
+                      <div className="text-lg font-bold text-green-600">
+                        {(currentProduct?.stock ?? 0) + (parseInt(stockAdjustment) || 0)}
+                      </div>
+                    </div>
+                  </div>
                 </div>
                 {/* Supplier Section (only for restock) */}
                 <div className="space-y-4">
@@ -1523,6 +1870,439 @@ const Products = () => {
               </>
             ) : (
               <>
+                {/* Enhanced Manual Adjustment with Batch Selection */}
+                
+                {/* Temporary Edits History */}
+                {tempBatchEdits.length > 0 && (
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                      <h4 className="font-medium text-gray-900">Pending Batch Adjustments</h4>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={clearAllTempBatchEdits}
+                        className="text-red-600 border-red-600 hover:bg-red-50"
+                      >
+                        Clear All
+                      </Button>
+                    </div>
+                    
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                      <div className="space-y-3">
+                        {tempBatchEdits.map((edit) => (
+                          <div key={edit.batchId} className="bg-white p-3 rounded border">
+                            <div className="flex justify-between items-start">
+                              <div className="flex-1">
+                                <div className="flex items-center justify-between mb-2">
+                                  <h5 className="font-medium text-gray-900">
+                                    Batch {edit.batchId.slice(-8)}
+                                  </h5>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => removeTempBatchEdit(edit.batchId)}
+                                    className="text-red-600 border-red-600 hover:bg-red-50"
+                                  >
+                                    Remove
+                                  </Button>
+                                </div>
+                                <div className="space-y-2 text-sm">
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                      <span className="font-medium text-gray-600">Current Stock:</span>
+                                      <span className="ml-2 text-gray-900">{edit.batch.remainingQuantity}</span>
+                                    </div>
+                                    <div>
+                                      <span className="font-medium text-gray-600">New Stock:</span>
+                                      <span className="ml-2 text-gray-900">{edit.newStock}</span>
+                                    </div>
+                                    <div>
+                                      <span className="font-medium text-gray-600">Total Quantity Change:</span>
+                                      <span className={`ml-2 ${edit.quantityChange > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                        {edit.quantityChange > 0 ? '+' : ''}{edit.quantityChange}
+                                      </span>
+                                    </div>
+                                    <div>
+                                      <span className="font-medium text-gray-600">New Remaining:</span>
+                                      <span className="ml-2 text-blue-600">
+                                        {edit.newStock} units
+                                      </span>
+                                    </div>
+                                    <div>
+                                      <span className="font-medium text-gray-600">Cost Price:</span>
+                                      <span className="ml-2 text-gray-900">
+                                        {edit.newCostPrice.toLocaleString()} XAF
+                                        {edit.scenario === 'damage' && (
+                                          <span className="text-xs text-gray-500"> (Unchanged)</span>
+                                        )}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  
+                                  {/* Purchase Method Info */}
+                                  <div className="pt-2 border-t border-gray-200">
+                                    <div className="grid grid-cols-2 gap-2">
+                                      <div>
+                                        <span className="font-medium text-gray-600">Type:</span>
+                                        <span className="ml-2 text-gray-900">
+                                          {edit.newSupplyType === 'ownPurchase' ? 'Own Purchase' : 'From Supplier'}
+                                        </span>
+                                      </div>
+                                      <div>
+                                        <span className="font-medium text-gray-600">Payment:</span>
+                                        <span className="ml-2 text-gray-900">
+                                          {edit.newPaymentType === 'credit' ? 'Credit' : 'Paid'}
+                                        </span>
+                                      </div>
+                                    </div>
+                                    {edit.newSupplierId && (
+                                      <div className="mt-1">
+                                        <span className="font-medium text-gray-600">Supplier:</span>
+                                        <span className="ml-2 text-gray-900">
+                                          {suppliers.find(s => s.id === edit.newSupplierId)?.name || 'Unknown'}
+                                        </span>
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  {/* Scenario Badge */}
+                                  <div className="pt-2">
+                                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                      edit.scenario === 'damage' 
+                                        ? 'bg-red-100 text-red-800' 
+                                        : 'bg-blue-100 text-blue-800'
+                                    }`}>
+                                      {edit.scenario === 'damage' ? '💥 Damage' : '✏️ Manual Adjustment'}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Batch Selection */}
+                <div className="space-y-4">
+                  <h4 className="font-medium text-gray-900">
+                    {tempBatchEdits.length > 0 ? 'Add Another Batch' : 'Select Stock Batch to Adjust'}
+                  </h4>
+                  
+                  {loadingBatches ? (
+                    <div className="text-center py-4">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
+                      <p className="mt-2 text-sm text-gray-600">Loading available batches...</p>
+                    </div>
+                  ) : availableBatches.length === 0 ? (
+                    <div className="bg-yellow-50 p-4 rounded-lg">
+                      <p className="text-sm text-yellow-800">
+                        {tempBatchEdits.length > 0 
+                          ? 'All available batches have been added to the adjustment list.'
+                          : 'No active batches found for this product. Please create a batch first.'
+                        }
+                      </p>
+                    </div>
+                  ) : (
+                    <select
+                      value={selectedBatchId}
+                      onChange={(e) => handleBatchSelection(e.target.value)}
+                      className="block w-full rounded-md border border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm px-3 py-2"
+                    >
+                      <option value="">Select a batch to adjust</option>
+                      {availableBatches.map(batch => (
+                        <option key={batch.id} value={batch.id}>
+                          Batch {batch.id.slice(-8)} - {batch.remainingQuantity} units @ {batch.costPrice.toLocaleString()} XAF
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+
+                {/* Batch Edit Form */}
+                {selectedBatch && (
+                  <div className="space-y-4">
+                    <div className="bg-blue-50 p-4 rounded-lg">
+                      <h4 className="font-medium text-blue-900 mb-2">Selected Batch Information</h4>
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <span className="font-medium text-blue-700">Batch ID:</span>
+                          <p className="text-blue-900 font-mono">{selectedBatch.id}</p>
+                        </div>
+                        <div>
+                          <span className="font-medium text-blue-700">Total Quantity:</span>
+                          <p className="text-blue-900">{selectedBatch.quantity} (original)</p>
+                        </div>
+                        <div>
+                          <span className="font-medium text-blue-700">Remaining:</span>
+                          <p className="text-blue-900">{selectedBatch.remainingQuantity} units</p>
+                        </div>
+                        <div>
+                          <span className="font-medium text-blue-700">Used:</span>
+                          <p className="text-blue-900">{selectedBatch.quantity - selectedBatch.remainingQuantity} units</p>
+                        </div>
+                        <div>
+                          <span className="font-medium text-blue-700">Damaged:</span>
+                          <p className="text-blue-900">{(selectedBatch.damagedQuantity || 0)} units</p>
+                        </div>
+                        <div>
+                          <span className="font-medium text-blue-700">Current Cost Price:</span>
+                          <p className="text-blue-900">{selectedBatch.costPrice.toLocaleString()} XAF</p>
+                        </div>
+                        <div>
+                          <span className="font-medium text-blue-700">Status:</span>
+                          <p className="text-blue-900 capitalize">{selectedBatch.status}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {stockReason === 'adjustment' ? (
+                      <div className="space-y-4">
+                        {/* Stock and Cost Price */}
+                        <div className="grid grid-cols-2 gap-4">
+                          <Input
+                            label="Total Batch Quantity"
+                            type="number"
+                            min={selectedBatch ? (selectedBatch.quantity - selectedBatch.remainingQuantity).toString() : "0"}
+                            value={batchEditForm.stock}
+                            onChange={(e) => handleBatchEditFormChange('stock', e.target.value)}
+                            placeholder="Enter total batch quantity"
+                            helpText={selectedBatch ? `Minimum: ${selectedBatch.quantity - selectedBatch.remainingQuantity} (${selectedBatch.quantity - selectedBatch.remainingQuantity} already used)` : undefined}
+                            required
+                          />
+                          <Input
+                            label="New Cost Price"
+                            type="number"
+                            min="0"
+                            value={batchEditForm.costPrice}
+                            onChange={(e) => handleBatchEditFormChange('costPrice', e.target.value.replace(/[^0-9]/g, ''))}
+                            placeholder="Enter new cost price"
+                            required
+                          />
+                        </div>
+
+                        {/* Purchase Method Section - Read Only for Manual Adjustment */}
+                        <div className="bg-gray-50 p-4 rounded-lg">
+                          <h4 className="font-medium text-gray-800 mb-3">📝 Purchase Method (Preserved from Original Batch)</h4>
+                          
+                          <div className="space-y-4">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Purchase Type</label>
+                              <div className="block w-full rounded-md border border-gray-300 bg-gray-100 px-3 py-2 text-gray-700">
+                                {batchEditForm.supplyType === 'ownPurchase' ? 'Own Purchase' : 'From Supplier'}
+                              </div>
+                            </div>
+
+                            {batchEditForm.supplyType === 'fromSupplier' && (
+                              <>
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-1">Supplier</label>
+                                  <div className="block w-full rounded-md border border-gray-300 bg-gray-100 px-3 py-2 text-gray-700">
+                                    {suppliers.find(s => s.id === batchEditForm.supplierId)?.name || 'Unknown Supplier'}
+                                  </div>
+                                </div>
+
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-1">Payment Type</label>
+                                  <div className="block w-full rounded-md border border-gray-300 bg-gray-100 px-3 py-2 text-gray-700">
+                                    {batchEditForm.paymentType === 'credit' ? 'Credit' : 'Paid'}
+                                  </div>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                          <p className="text-sm text-gray-600 mt-3">
+                            ℹ️ For manual adjustments, the original purchase method and supplier information are preserved to maintain data integrity.
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      /* Damage Scenario: Only quantity adjustment */
+                      <div className="space-y-4">
+                        <div className="bg-red-50 p-4 rounded-lg">
+                          <h4 className="font-medium text-red-800 mb-3">💥 Damage Recording</h4>
+                          <p className="text-sm text-red-700 mb-4">
+                            Record the quantity of damaged/lost items. Cost price and supplier debt will remain unchanged.
+                          </p>
+                          
+                          {/* Show batch supplier information for damage */}
+                          {selectedBatch.supplierId && (
+                            <div className="bg-white p-3 rounded border border-red-200 mb-4">
+                              <h5 className="font-medium text-red-800 mb-2">Batch Supplier Information</h5>
+                              <div className="grid grid-cols-2 gap-2 text-sm">
+                                <div>
+                                  <span className="font-medium text-red-700">Supplier:</span>
+                                  <span className="ml-2 text-red-900">
+                                    {suppliers.find(s => s.id === selectedBatch.supplierId)?.name || 'Unknown'}
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className="font-medium text-red-700">Payment Type:</span>
+                                  <span className="ml-2 text-red-900">
+                                    {selectedBatch.isCredit ? 'Credit' : 'Paid'}
+                                  </span>
+                                </div>
+                              </div>
+                              <p className="text-xs text-red-600 mt-2">
+                                ℹ️ Supplier debt will remain unchanged as this is only a physical damage adjustment.
+                              </p>
+                            </div>
+                          )}
+                          <Input
+                            label="Damaged Quantity"
+                            type="number"
+                            min="1"
+                            max={selectedBatch.remainingQuantity.toString()}
+                            value={damageForm.damagedQuantity}
+                            onChange={(e) => handleDamageFormChange('damagedQuantity', e.target.value)}
+                            placeholder="Enter damaged quantity"
+                            required
+                            helpText={`Maximum: ${selectedBatch.remainingQuantity} units available`}
+                            error={
+                              damageForm.damagedQuantity && 
+                              (parseFloat(damageForm.damagedQuantity) > selectedBatch.remainingQuantity || parseFloat(damageForm.damagedQuantity) <= 0)
+                                ? `Invalid quantity. Must be between 1 and ${selectedBatch.remainingQuantity}`
+                                : undefined
+                            }
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Preview Changes */}
+                    {((stockReason === 'adjustment' && batchEditForm.stock && batchEditForm.costPrice) || 
+                      (stockReason === 'damage' && damageForm.damagedQuantity)) && (
+                      <div className="bg-green-50 p-4 rounded-lg">
+                        <h4 className="font-medium text-green-800 mb-2">Preview Changes</h4>
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                          {stockReason === 'adjustment' ? (
+                            <>
+                              <div>
+                                <span className="font-medium text-green-700">Total Quantity Change:</span>
+                                <span className={`ml-2 ${(parseFloat(batchEditForm.stock) - selectedBatch.quantity) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                  {(parseFloat(batchEditForm.stock) - selectedBatch.quantity) >= 0 ? '+' : ''}
+                                  {parseFloat(batchEditForm.stock) - selectedBatch.quantity}
+                                </span>
+                              </div>
+                              <div>
+                                <span className="font-medium text-green-700">New Remaining:</span>
+                                <span className="ml-2 text-blue-600">
+                                  {parseFloat(batchEditForm.stock) - (selectedBatch.quantity - selectedBatch.remainingQuantity)} units
+                                </span>
+                              </div>
+                              <div>
+                                <span className="font-medium text-green-700">Cost Price Change:</span>
+                                <span className={`ml-2 ${(parseFloat(batchEditForm.costPrice) - selectedBatch.costPrice) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                  {(parseFloat(batchEditForm.costPrice) - selectedBatch.costPrice) >= 0 ? '+' : ''}
+                                  {(parseFloat(batchEditForm.costPrice) - selectedBatch.costPrice).toLocaleString()} XAF
+                                </span>
+                              </div>
+                              <div>
+                                <span className="font-medium text-green-700">Purchase Type:</span>
+                                <span className="ml-2 text-green-900">
+                                  {batchEditForm.supplyType === 'ownPurchase' ? 'Own Purchase' : 'From Supplier'}
+                                </span>
+                              </div>
+                              {batchEditForm.supplyType === 'fromSupplier' && (
+                                <>
+                                  <div>
+                                    <span className="font-medium text-green-700">Supplier:</span>
+                                    <span className="ml-2 text-green-900">
+                                      {suppliers.find(s => s.id === batchEditForm.supplierId)?.name || 'Unknown'}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <span className="font-medium text-green-700">Payment Type:</span>
+                                    <span className="ml-2 text-green-900">
+                                      {batchEditForm.paymentType === 'credit' ? 'Credit' : 'Paid'}
+                                    </span>
+                                  </div>
+                                </>
+                              )}
+                                <div>
+                                  <span className="font-medium text-green-700">Payment:</span>
+                                  <span className="ml-2 text-green-900">
+                                    {batchEditForm.paymentType === 'credit' ? 'Credit (Debt Impact)' : 'Paid'}
+                                  </span>
+                                </div>
+                            </>
+                          ) : (
+                            <>
+                              <div>
+                                <span className="font-medium text-green-700">Damaged Quantity:</span>
+                                <span className="ml-2 text-red-600">-{damageForm.damagedQuantity}</span>
+                              </div>
+                              <div>
+                                <span className="font-medium text-green-700">New Stock:</span>
+                                <span className="ml-2 text-green-900">
+                                  {selectedBatch.remainingQuantity - parseFloat(damageForm.damagedQuantity)}
+                                </span>
+                              </div>
+                              <div>
+                                <span className="font-medium text-green-700">Total Damaged:</span>
+                                <span className="ml-2 text-red-600">
+                                  {(selectedBatch.damagedQuantity || 0) + parseFloat(damageForm.damagedQuantity)} units
+                                </span>
+                              </div>
+                              <div className="col-span-2">
+                                <span className="font-medium text-green-700">Cost Price:</span>
+                                <span className="ml-2 text-green-900">
+                                  {selectedBatch.costPrice.toLocaleString()} XAF (Unchanged)
+                                </span>
+                              </div>
+                              {selectedBatch.supplierId && (
+                                <>
+                                  <div>
+                                    <span className="font-medium text-green-700">Supplier:</span>
+                                    <span className="ml-2 text-green-900">
+                                      {suppliers.find(s => s.id === selectedBatch.supplierId)?.name || 'Unknown'}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <span className="font-medium text-green-700">Payment Type:</span>
+                                    <span className="ml-2 text-green-900">
+                                      {selectedBatch.isCredit ? 'Credit' : 'Paid'} (Debt Unchanged)
+                                    </span>
+                                  </div>
+                                </>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    <Button
+                      type="button"
+                      onClick={addTempBatchEdit}
+                      className="w-full"
+                      disabled={
+                        stockReason === 'adjustment' 
+                          ? (batchEditForm.stock === '' || batchEditForm.costPrice === '' || 
+                             (selectedBatch && batchEditForm.stock !== '' && 
+                              parseFloat(batchEditForm.stock) < (selectedBatch.quantity - selectedBatch.remainingQuantity)))
+                          : (damageForm.damagedQuantity === '' || 
+                             (selectedBatch && parseFloat(damageForm.damagedQuantity) > selectedBatch.remainingQuantity) ||
+                             parseFloat(damageForm.damagedQuantity) <= 0)
+                      }
+                    >
+                      {stockReason === 'damage' ? '💥 Record Damage & Add to List' : '✏️ Validate & Add to List'}
+                    </Button>
+                  </div>
+                )}
+
+                {/* Fallback: Simple Stock Adjustment for old flow */}
+                {availableBatches.length === 0 && tempBatchEdits.length === 0 && !loadingBatches && (
+                  <div className="space-y-4">
+                    <div className="bg-yellow-50 p-4 rounded-lg">
+                      <p className="text-sm text-yellow-800">
+                        No batches available. Using simple stock adjustment.
+                      </p>
+                    </div>
             <Input
                   label={t('products.actions.newTotalStock', 'New Stock Value')}
                   name="stockAdjustment"
@@ -1533,14 +2313,16 @@ const Products = () => {
               required
                   helpText={t('products.form.adjustmentHelp', 'Set the actual stock you have after counting. This will replace the current stock value.')}
                 />
-                {/* Live Preview */}
                 <div className="text-sm text-gray-700 bg-gray-50 rounded-md p-2">
                   {`Current Stock: ${currentProduct?.stock ?? 0} → New Stock: ${parseInt(stockAdjustment) || 0} (${(parseInt(stockAdjustment) || 0) - (currentProduct?.stock ?? 0) >= 0 ? '+' : ''}${(parseInt(stockAdjustment) || 0) - (currentProduct?.stock ?? 0)})`}
           </div>
+                  </div>
+                )}
               </>
             )}
             
-                         {/* Cost Price Field - Always Visible for all stock operations */}
+            {/* Cost Price Field - Only for Restock Scenario */}
+            {stockReason === 'restock' && (
              <div className="space-y-2">
                <Input
                  label={t('products.form.step2.stockCostPrice')}
@@ -1548,23 +2330,12 @@ const Products = () => {
                  type="number"
                  min={0}
                  value={stockAdjustmentSupplier.costPrice}
-                 onChange={e => setStockAdjustmentSupplier(prev => ({ ...prev, costPrice: e.target.value.replace(/[^0-9.]/g, '') }))}
+                  onChange={e => setStockAdjustmentSupplier(prev => ({ ...prev, costPrice: e.target.value.replace(/[^0-9]/g, '') }))}
                  required
                  helpText={t('products.form.step2.stockCostPriceHelp')}
                />
-               
-                               {/* Current Cost Price Display */}
-                {currentProduct && (
-                  <div className="text-sm text-gray-600 bg-blue-50 rounded-md p-2">
-                    <span className="font-medium">{t('products.form.step2.currentCostPrice')}:</span> {getDisplayCostPrice(currentProduct.id, stockChanges).toLocaleString()} XAF
-                    {stockReason === 'adjustment' && (
-                      <div className="mt-1 text-xs text-gray-500">
-                        {t('products.form.step2.costPriceUpdateNote')}
                       </div>
                     )}
-                  </div>
-                )}
-             </div>
              
              {/* Mini Stock History Table (last 2 changes) */}
              <div className="mt-6">
@@ -1647,7 +2418,7 @@ const Products = () => {
               type="number"
               min={0}
               value={editPrices.sellingPrice}
-              onChange={e => setEditPrices(p => ({ ...p, sellingPrice: e.target.value.replace(/[^0-9.]/g, '') }))}
+              onChange={e => setEditPrices(p => ({ ...p, sellingPrice: e.target.value.replace(/[^0-9]/g, '') }))}
               required
               helpText={t('products.form.sellingPriceHelp', 'Required: The price at which you sell this product.')}
             />
@@ -1658,18 +2429,18 @@ const Products = () => {
               type="number"
               min={0}
               value={editPrices.cataloguePrice}
-              onChange={e => setEditPrices(p => ({ ...p, cataloguePrice: e.target.value.replace(/[^0-9.]/g, '') }))}
+              onChange={e => setEditPrices(p => ({ ...p, cataloguePrice: e.target.value.replace(/[^0-9]/g, '') }))}
               helpText={t('products.form.cataloguePriceHelp', 'Optional: Used for reference or promotions.')}
             />
             {/* Profit/Cost Info */}
             <div className="space-y-1">
               <div className="text-sm text-gray-700">
-                {t('products.form.latestCostPrice', 'Latest Cost Price')}: {(getLatestCostPrice(currentProduct?.id || '', stockChanges) ?? 0)} XAF
+                {t('products.form.latestCostPrice', 'Latest Cost Price')}: {(getLatestCostPrice(currentProduct?.id || '', Array.isArray(stockChanges) ? stockChanges : []) ?? 0)} XAF
               </div>
               <div className="text-sm text-gray-700">
-                {t('products.form.profitPerUnit', 'Profit per unit')}: {editPrices.sellingPrice && getLatestCostPrice(currentProduct?.id || '', stockChanges) !== undefined ? (parseFloat(editPrices.sellingPrice) - (getLatestCostPrice(currentProduct?.id || '', stockChanges) ?? 0)).toLocaleString() : '-'} XAF
+                {t('products.form.profitPerUnit', 'Profit per unit')}: {editPrices.sellingPrice && getLatestCostPrice(currentProduct?.id || '', Array.isArray(stockChanges) ? stockChanges : []) !== undefined ? (parseFloat(editPrices.sellingPrice) - (getLatestCostPrice(currentProduct?.id || '', Array.isArray(stockChanges) ? stockChanges : []) ?? 0)).toLocaleString() : '-'} XAF
               </div>
-              {editPrices.sellingPrice && getLatestCostPrice(currentProduct?.id || '', stockChanges) !== undefined && parseFloat(editPrices.sellingPrice) < (getLatestCostPrice(currentProduct?.id || '', stockChanges) ?? 0) && (
+              {editPrices.sellingPrice && getLatestCostPrice(currentProduct?.id || '', Array.isArray(stockChanges) ? stockChanges : []) !== undefined && parseFloat(editPrices.sellingPrice) < (getLatestCostPrice(currentProduct?.id || '', Array.isArray(stockChanges) ? stockChanges : []) ?? 0) && (
                 <div className="flex items-center bg-red-50 border-l-4 border-red-400 p-2 rounded-md mt-2">
                   <svg className="w-4 h-4 text-red-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                   <span className="text-xs text-red-800">{t('products.form.sellingBelowCost', 'Warning: Selling price is below cost price!')}</span>
@@ -2054,7 +2825,7 @@ const Products = () => {
                   )}
                   <div>
                     <label className="block text-sm font-medium text-gray-700">{t('products.form.latestCostPrice', 'Latest Cost Price')}</label>
-                    <p className="mt-1 text-sm text-gray-900">{getLatestCostPrice(detailProduct?.id || '', stockChanges)?.toLocaleString() || '0'} XAF</p>
+                    <p className="mt-1 text-sm text-gray-900">{getLatestCostPrice(detailProduct?.id || '', Array.isArray(stockChanges) ? stockChanges : [])?.toLocaleString() || '0'} XAF</p>
                   </div>
                 </div>
               </div>
@@ -2075,8 +2846,8 @@ const Products = () => {
                 <div>
                   <label className="block text-sm font-medium text-gray-700">{t('products.detailTabs.profitPerUnit', 'Profit per Unit')}</label>
                   <p className="mt-1 text-sm font-semibold text-emerald-600">
-                    {detailProduct && getLatestCostPrice(detailProduct.id, stockChanges) !== undefined
-                      ? (detailProduct.sellingPrice - (getLatestCostPrice(detailProduct.id, stockChanges) || 0)).toLocaleString()
+                    {detailProduct && getLatestCostPrice(detailProduct.id, Array.isArray(stockChanges) ? stockChanges : []) !== undefined
+? (detailProduct.sellingPrice - (getLatestCostPrice(detailProduct.id, Array.isArray(stockChanges) ? stockChanges : []) || 0)).toLocaleString()
                       : '-'
                     } XAF
                   </p>
@@ -2084,8 +2855,8 @@ const Products = () => {
                 <div>
                   <label className="block text-sm font-medium text-gray-700">{t('products.detailTabs.totalValue', 'Total Stock Value')}</label>
                   <p className="mt-1 text-sm text-gray-900">
-                    {detailProduct && getLatestCostPrice(detailProduct.id, stockChanges) !== undefined
-                      ? ((getLatestCostPrice(detailProduct.id, stockChanges) || 0) * detailProduct.stock).toLocaleString()
+                    {detailProduct && getLatestCostPrice(detailProduct.id, Array.isArray(stockChanges) ? stockChanges : []) !== undefined
+? ((getLatestCostPrice(detailProduct.id, Array.isArray(stockChanges) ? stockChanges : []) || 0) * detailProduct.stock).toLocaleString()
                       : '0'
                     } XAF
                   </p>
@@ -2242,14 +3013,14 @@ const Products = () => {
               const paginatedStockChanges = filteredStockChanges.slice(startIndex, startIndex + stockHistoryPerPage);
               
               return (
-                <div>
+                <div className="max-h-96 overflow-y-auto">
                   {/* Table */}
                   <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
+                      <thead className="bg-gray-50 sticky top-0 z-10">
                         <tr>
                           <th 
-                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                            className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                             onClick={() => {
                               if (stockHistorySortBy === 'date') {
                                 setStockHistorySortOrder(stockHistorySortOrder === 'asc' ? 'desc' : 'asc');
@@ -2267,7 +3038,7 @@ const Products = () => {
                             )}
                           </th>
                           <th 
-                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                            className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                             onClick={() => {
                               if (stockHistorySortBy === 'change') {
                                 setStockHistorySortOrder(stockHistorySortOrder === 'asc' ? 'desc' : 'asc');
@@ -2285,7 +3056,7 @@ const Products = () => {
                             )}
                           </th>
                           <th 
-                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                            className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                             onClick={() => {
                               if (stockHistorySortBy === 'reason') {
                                 setStockHistorySortOrder(stockHistorySortOrder === 'asc' ? 'desc' : 'asc');
@@ -2302,13 +3073,13 @@ const Products = () => {
                               </span>
                             )}
                           </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             {t('products.form.step2.supplier', 'Supplier')}
                           </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             {t('products.form.step2.paymentType', 'Payment')}
                           </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             {t('products.form.step2.stockCostPrice', 'Cost Price')}
                           </th>
                         </tr>
@@ -2318,21 +3089,21 @@ const Products = () => {
                           const supplier = stockChange.supplierId ? suppliers.find(s => s.id === stockChange.supplierId) : null;
                           return (
                             <tr key={stockChange.id} className="hover:bg-gray-50">
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
                                 {stockChange.createdAt?.seconds 
                                   ? new Date(stockChange.createdAt.seconds * 1000).toLocaleString()
                                   : '-'
                                 }
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm">
+                              <td className="px-4 py-3 whitespace-nowrap text-sm">
                                 <span className={`font-medium ${stockChange.change > 0 ? 'text-green-600' : 'text-red-600'}`}>
                                   {stockChange.change > 0 ? '+' : ''}{stockChange.change}
                                 </span>
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
                                 {stockChange.reason}
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
                                 {stockChange.isOwnPurchase ? (
                                   <span className="text-gray-500">{t('products.form.step2.ownPurchase')}</span>
                                 ) : supplier ? (
@@ -2344,7 +3115,7 @@ const Products = () => {
                                   <span className="text-gray-400">Unknown</span>
                                 )}
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm">
+                              <td className="px-4 py-3 whitespace-nowrap text-sm">
                                 {stockChange.isOwnPurchase ? (
                                   <span className="text-gray-500">-</span>
                                 ) : stockChange.isCredit ? (
@@ -2353,7 +3124,7 @@ const Products = () => {
                                   <span className="text-green-600">{t('products.form.step2.paid')}</span>
                                 )}
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
                                 {stockChange.costPrice ? stockChange.costPrice.toLocaleString() : '-'} XAF
                               </td>
                             </tr>
@@ -2365,7 +3136,7 @@ const Products = () => {
 
                   {/* Pagination */}
                   {totalPages > 1 && (
-                    <div className="flex items-center justify-between mt-4">
+                    <div className="flex items-center justify-between mt-4 sticky bottom-0 bg-white border-t pt-2">
                       <div className="text-sm text-gray-700">
                         Showing {startIndex + 1} to {Math.min(startIndex + stockHistoryPerPage, filteredStockChanges.length)} of {filteredStockChanges.length} results
                       </div>
@@ -2403,6 +3174,8 @@ const Products = () => {
           </div>
         )}
       </Modal>
+      {/* Mobile spacing for floating action button */}
+      <div className="h-20 md:hidden"></div>
     </div>
   );
 };

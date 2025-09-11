@@ -5,6 +5,8 @@ import { ChevronDown, Pencil, Trash2 } from 'lucide-react';
 import { Objective } from '../../types/models';
 import { useTranslation } from 'react-i18next';
 import { format, differenceInCalendarDays, endOfMonth, endOfYear } from 'date-fns';
+import { useObjectives } from '../../hooks/useObjectives';
+import { showSuccessToast, showErrorToast } from '../../utils/toast';
 
 interface ObjectiveItemProps {
   objective: Objective & { progress: number; currentValue?: number };
@@ -12,10 +14,12 @@ interface ObjectiveItemProps {
   onDelete: (obj: Objective) => void;
   open: boolean;
   onToggle: () => void;
+  isDeleting?: boolean;
 }
 
-const ObjectiveItem: React.FC<ObjectiveItemProps> = ({ objective, onEdit, onDelete, open, onToggle }) => {
+const ObjectiveItem: React.FC<ObjectiveItemProps> = ({ objective, onEdit, onDelete, open, onToggle, isDeleting = false }) => {
   const { t } = useTranslation();
+  const { updateObjective } = useObjectives();
 
   // Determine translation key for metric
   const metricLabel = t(`dashboard.stats.${objective.metric}`);
@@ -120,11 +124,25 @@ const ObjectiveItem: React.FC<ObjectiveItemProps> = ({ objective, onEdit, onDele
             }</span>
           </div>
           <div className="flex gap-2 pt-2">
-            <Button size="sm" variant="outline" icon={<Pencil size={14} />} onClick={() => onEdit(objective)}>
+            <Button size="sm" variant="outline" icon={<Pencil size={14} />} onClick={() => onEdit(objective)} disabled={isDeleting}>
               {t('common.edit')}
             </Button>
-            <Button size="sm" variant="outline" icon={<Trash2 size={14} />} onClick={() => onDelete(objective)}>
+            <Button size="sm" variant="outline" icon={<Trash2 size={14} />} onClick={() => onDelete(objective)} isLoading={isDeleting} disabled={isDeleting}>
               {t('common.delete')}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={async () => {
+                try {
+                  await updateObjective(objective.id!, { isAvailable: objective.isAvailable === false ? true : false });
+                  showSuccessToast(objective.isAvailable === false ? t('objectives.messages.activated', 'Objective activated') : t('objectives.messages.deactivated', 'Objective deactivated'));
+                } catch (err) {
+                  showErrorToast(t('objectives.messages.operationError'));
+                }
+              }}
+            >
+              {objective.isAvailable === false ? t('objectives.activate', 'Activate') : t('objectives.deactivate', 'Deactivate')}
             </Button>
           </div>
         </div>

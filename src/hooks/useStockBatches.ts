@@ -167,6 +167,7 @@ export const useAllStockBatches = () => {
       return;
     }
 
+    console.log('🔄 useAllStockBatches: Starting to fetch batches for user:', user.uid);
     setLoading(true);
     setError(null);
 
@@ -179,14 +180,18 @@ export const useAllStockBatches = () => {
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
+        console.log('🔥 Stock batches snapshot received, docs count:', snapshot.docs.length);
         const stockBatches = snapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
         })) as StockBatch[];
+        console.log('📦 Processed stock batches:', stockBatches);
+        console.log('📦 Stock batches count:', stockBatches.length);
         setBatches(stockBatches);
         setLoading(false);
       },
       (err) => {
+        console.error('❌ Error fetching stock batches:', err);
         setError(err.message);
         setLoading(false);
       }

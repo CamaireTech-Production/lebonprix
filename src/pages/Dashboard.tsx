@@ -4,7 +4,7 @@ import SalesChart from '../components/dashboard/SalesChart';
 import ActivityList from '../components/dashboard/ActivityList';
 import Table from '../components/common/Table';
 import Card from '../components/common/Card';
-import { useSales, useExpenses, useProducts, useStockChanges, useFinanceEntries } from '../hooks/useFirestore';
+import { useSales, useExpenses, useProducts, useStockChanges, useFinanceEntries, useAuditLogs } from '../hooks/useFirestore';
 import LoadingScreen from '../components/common/LoadingScreen';
 import { useState } from 'react';
 import Modal from '../components/common/Modal';
@@ -18,14 +18,16 @@ import { startOfMonth, endOfMonth, differenceInDays, format, startOfWeek, endOfW
 import DateRangePicker from '../components/common/DateRangePicker';
 import ObjectivesBar from '../components/objectives/ObjectivesBar';
 import ObjectivesModal from '../components/objectives/ObjectivesModal';
+import { combineActivities } from '../utils/activityUtils';
 
 const Dashboard = () => {
   const { t } = useTranslation();
-  const { sales = [], loading: salesLoading } = useSales();
-  const { expenses = [], loading: expensesLoading } = useExpenses();
-  const { products = [], loading: productsLoading } = useProducts();
-  const { stockChanges = [], loading: stockChangesLoading } = useStockChanges();
-  const { entries: financeEntries = [], loading: financeLoading } = useFinanceEntries();
+  const { sales, loading: salesLoading } = useSales();
+  const { expenses, loading: expensesLoading } = useExpenses();
+  const { products, loading: productsLoading } = useProducts();
+  const { stockChanges, loading: stockChangesLoading } = useStockChanges();
+  const { entries: financeEntries, loading: financeLoading } = useFinanceEntries();
+  const { auditLogs, loading: auditLogsLoading } = useAuditLogs();
   const [showCalculationsModal, setShowCalculationsModal] = useState(false);
   const { company } = useAuth();
   const [] = useState<Partial<DashboardStats>>({});
@@ -46,41 +48,46 @@ const Dashboard = () => {
   ];
 
   // Filter sales and expenses by selected date range
-  const filteredSales = (sales || []).filter(sale => {
+  const filteredSales = sales?.filter(sale => {
     if (!sale.createdAt?.seconds) return false;
     const saleDate = new Date(sale.createdAt.seconds * 1000);
     return saleDate >= dateRange.from && saleDate <= dateRange.to;
   });
 
-  const filteredExpenses = (expenses || []).filter(expense => {
+  // Filter out soft-deleted expenses and apply date range filter
+  const filteredExpenses = expenses?.filter(expense => {
+    // First filter out soft-deleted expenses
+    if (expense.isAvailable === false) return false;
+    // Then apply date range filter
     if (!expense.createdAt?.seconds) return false;
     const expenseDate = new Date(expense.createdAt.seconds * 1000);
     return expenseDate >= dateRange.from && expenseDate <= dateRange.to;
   });
 
   // Calculate profit (gross profit: selling price - purchase price) * quantity for all sales
-  const profit = filteredSales.reduce((sum, sale) => {
+  const profit = filteredSales?.reduce((sum, sale) => {
     return sum + sale.products.reduce((productSum, product) => {
-      const productData = (products || []).find(p => p.id === product.productId);
+      const productData = products?.find(p => p.id === product.productId);
       if (!productData) return productSum;
       const sellingPrice = product.negotiatedPrice || product.basePrice;
-      const costPrice = getLatestCostPrice(productData.id, stockChanges);
+      const safeStockChanges = Array.isArray(stockChanges) ? stockChanges : [];
+      const costPrice = getLatestCostPrice(productData.id, safeStockChanges);
       if (costPrice === undefined) return productSum;
       return productSum + (sellingPrice - costPrice) * product.quantity;
     }, 0);
-  }, 0);
+  }, 0) || 0;
 
   // Calculate total expenses
-  const totalExpenses = filteredExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+  const totalExpenses = filteredExpenses?.reduce((sum, exp) => sum + exp.amount, 0) || 0;
 
   // Total orders
-  const totalOrders = filteredSales.length;
+  const totalOrders = filteredSales?.length || 0;
 
   // Total delivery fee (from sales)
-  const totalDeliveryFee = filteredSales.reduce((sum, sale) => sum + (sale.deliveryFee || 0), 0);
+  const totalDeliveryFee = filteredSales?.reduce((sum, sale) => sum + (sale.deliveryFee || 0), 0) || 0;
 
   // Total sales amount
-  const totalSalesAmount = filteredSales.reduce((sum, sale) => sum + sale.totalAmount, 0);
+  const totalSalesAmount = filteredSales?.reduce((sum, sale) => sum + sale.totalAmount, 0) || 0;
 
   // Calculate total purchase price for all products in stock as of the end of the selected period
   const getStockAtDate = (productId: string, date: Date) => {
@@ -89,18 +96,19 @@ const Dashboard = () => {
       .filter((sc: any) => sc.productId === productId && sc.createdAt?.seconds && new Date(sc.createdAt.seconds * 1000) <= date)
       .reduce((sum: number, sc: any) => sum + sc.change, 0);
   };
-  const totalPurchasePrice = (products || []).reduce((sum, product) => {
+  const totalPurchasePrice = products?.reduce((sum, product) => {
     const stockAtDate = getStockAtDate(product.id, dateRange.to);
-    const costPrice = getLatestCostPrice(product.id, stockChanges);
+    const safeStockChanges = Array.isArray(stockChanges) ? stockChanges : [];
+    const costPrice = getLatestCostPrice(product.id, safeStockChanges);
     if (costPrice === undefined) return sum;
     return sum + (costPrice * stockAtDate);
-  }, 0);
+  }, 0) || 0;
 
   // Best selling products (by quantity sold)
   const productSalesMap: Record<string, { name: string; quantity: number; sales: number }> = {};
-  filteredSales.forEach(sale => {
+  filteredSales?.forEach(sale => {
     sale.products.forEach(product => {
-      const productData = (products || []).find(p => p.id === product.productId);
+      const productData = products?.find(p => p.id === product.productId);
       if (!productData) return;
       if (!productSalesMap[product.productId]) {
         productSalesMap[product.productId] = { name: productData.name, quantity: 0, sales: 0 };
@@ -220,27 +228,12 @@ const Dashboard = () => {
     }
   };
 
-  if (salesLoading || expensesLoading || productsLoading || stockChangesLoading || financeLoading) {
+  if (salesLoading || expensesLoading || productsLoading || stockChangesLoading || financeLoading || auditLogsLoading) {
     return <LoadingScreen />;
   }
 
-  // Process recent activities
-  const recentActivities = [
-    ...(filteredSales?.slice(0, 3).map(sale => ({
-      id: sale.id,
-      title: 'New sale recorded',
-      description: `${sale.customerInfo.name} purchased items for ${sale.totalAmount.toLocaleString()} XAF`,
-      timestamp: sale.createdAt?.seconds ? new Date(sale.createdAt.seconds * 1000) : new Date(),
-      type: 'sale' as const,
-    })) || []),
-    ...(filteredExpenses?.slice(0, 3).map(expense => ({
-      id: expense.id,
-      title: 'Expense added',
-      description: `${expense.description}: ${expense.amount.toLocaleString()} XAF`,
-      timestamp: expense.createdAt?.seconds ? new Date(expense.createdAt.seconds * 1000) : new Date(),
-      type: 'expense' as const,
-    })) || []),
-  ].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+  // Process recent activities using the new activity system
+  const recentActivities = combineActivities(filteredSales, filteredExpenses, auditLogs, t);
 
   // Table columns for best selling products
   const bestProductColumns = [
@@ -261,9 +254,12 @@ const Dashboard = () => {
     totalSalesCount: totalOrders,
   };
 
-  // Calculate balance (solde) from all active finance entries (not soft deleted)
+  // Calculate balance (solde) from all active finance entries (not soft deleted), excluding debt/refund/supplier_debt/supplier_refund
   const activeFinanceEntries = financeEntries?.filter(entry => !entry.isDeleted) || [];
-  const solde = activeFinanceEntries.reduce((sum, entry) => sum + entry.amount, 0);
+  const nonDebtEntries = activeFinanceEntries.filter(
+    (entry) => entry.type !== 'debt' && entry.type !== 'refund' && entry.type !== 'supplier_debt' && entry.type !== 'supplier_refund'
+  );
+  const solde = nonDebtEntries.reduce((sum, entry) => sum + entry.amount, 0);
 
   // Stat cards (show only solde, profit, depense, produit vendu)
   const statCards: { title: string; value: string | number; icon: JSX.Element; type: 'products' | 'sales' | 'expenses' | 'profit' | 'orders' | 'delivery' | 'solde'; }[] = [
@@ -474,6 +470,28 @@ const Dashboard = () => {
               {t('dashboard.calculations.deliveryFee.description')}
               <br /><br />
               {t('dashboard.calculations.deliveryFee.formula')}
+            </p>
+          </div>
+
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <h3 className="text-lg font-medium text-gray-900 mb-2">{t('dashboard.calculations.balance.title')}</h3>
+            <p className="text-gray-600">
+              {t('dashboard.calculations.balance.description')}
+              <br /><br />
+              <b>{t('dashboard.calculations.balance.formula')}</b>
+              <br /><br />
+              {t('dashboard.calculations.balance.note')}
+            </p>
+          </div>
+
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <h3 className="text-lg font-medium text-gray-900 mb-2">{t('dashboard.calculations.totalDebt.title')}</h3>
+            <p className="text-gray-600">
+              {t('dashboard.calculations.totalDebt.description')}
+              <br /><br />
+              <b>{t('dashboard.calculations.totalDebt.formula')}</b>
+              <br /><br />
+              {t('dashboard.calculations.totalDebt.note')}
             </p>
           </div>
 

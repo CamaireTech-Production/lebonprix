@@ -352,19 +352,19 @@ const Suppliers = () => {
       </div>
 
       {/* Balance Card (Solde) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-        <div className="w-full md:w-[100%] min-w-[200px] max-w-[480px]">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6 mb-6">
+        <div className="w-full">
           <StatCard
             title={t('dashboard.stats.solde')}
-            value={(() => {
-              // Calculate solde: sum of all non-supplier_debt/refund entries
-              const nonSupplierEntries = entries.filter(
-                (entry: FinanceEntry) => entry.type !== 'supplier_debt' && entry.type !== 'supplier_refund'
-              );
-              const nonSupplierSum = nonSupplierEntries.reduce((sum, entry) => sum + entry.amount, 0);
-              // Add total supplier debt (outstanding)
-              return (nonSupplierSum + totalSupplierDebt).toLocaleString() + ' XAF';
-            })()}
+                         value={(() => {
+               // Calculate solde: sum of all non-debt/refund/supplier_debt/supplier_refund entries
+               const nonSupplierEntries = entries.filter(
+                 (entry: FinanceEntry) => entry.type !== 'debt' && entry.type !== 'refund' && entry.type !== 'supplier_debt' && entry.type !== 'supplier_refund'
+               );
+               const nonSupplierSum = nonSupplierEntries.reduce((sum, entry) => sum + entry.amount, 0);
+               // Don't add supplier debt to balance - it's a liability, not cash
+               return nonSupplierSum.toLocaleString() + ' XAF';
+             })()}
             icon={<DollarSign size={24} />}
             type="solde"
             className="ring-2 ring-green-400 shadow bg-green-50 text-green-900 border border-green-200 rounded-xl py-2 mb-2 w-full text-base md:text-xl font-bold break-words"
@@ -622,6 +622,8 @@ const Suppliers = () => {
           </div>
         )}
       </Modal>
+      {/* Mobile spacing for floating action button */}
+      <div className="h-20 md:hidden"></div>
     </div>
   );
 };

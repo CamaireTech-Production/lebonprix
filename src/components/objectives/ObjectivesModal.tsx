@@ -30,6 +30,7 @@ const ObjectivesModal: React.FC<ObjectivesModalProps> = ({ isOpen, onClose, stat
   const [editingObjective, setEditingObjective] = useState<Objective | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [openObjectiveId, setOpenObjectiveId] = useState<string | null>(null);
+  const [deletingObjectiveId, setDeletingObjectiveId] = useState<string | null>(null);
 
   const isOverlapping = (obj: any) => {
     // Compute the objective's active window
@@ -67,13 +68,22 @@ const ObjectivesModal: React.FC<ObjectivesModalProps> = ({ isOpen, onClose, stat
       from = obj.startAt?.toDate ? obj.startAt.toDate() : new Date(obj.startAt);
       to = obj.endAt?.toDate ? obj.endAt.toDate() : new Date(obj.endAt);
     }
-    const salesInPeriod = (sales || []).filter(sale => sale.createdAt?.seconds && new Date(sale.createdAt.seconds * 1000) >= from && new Date(sale.createdAt.seconds * 1000) <= to);
-    const expensesInPeriod = (expenses || []).filter(exp => exp.createdAt?.seconds && new Date(exp.createdAt.seconds * 1000) >= from && new Date(exp.createdAt.seconds * 1000) <= to);
+    const salesInPeriod = sales?.filter(sale => sale.createdAt?.seconds && new Date(sale.createdAt.seconds * 1000) >= from && new Date(sale.createdAt.seconds * 1000) <= to) || [];
+    // Filter out soft-deleted expenses and apply date range filter
+    const expensesInPeriod = expenses?.filter(exp => {
+      // First filter out soft-deleted expenses
+      if (exp.isAvailable === false) return false;
+      // Then apply date range filter
+      if (!exp.createdAt?.seconds) return false;
+      const expDate = new Date(exp.createdAt.seconds * 1000);
+      return expDate >= from && expDate <= to;
+    }) || [];
     switch (obj.metric) {
       case 'profit': {
         const profit = salesInPeriod.reduce((sum: number, sale: any) => sum + sale.products.reduce((productSum: number, product: any) => {
           const sellingPrice = product.negotiatedPrice || product.basePrice || 0;
-          const latestCost = getLatestCostPrice(product.productId, stockChanges);
+          const safeStockChanges = Array.isArray(stockChanges) ? stockChanges : [];
+          const latestCost = getLatestCostPrice(product.productId, safeStockChanges);
           const costPrice = latestCost ?? 0;
           return productSum + (sellingPrice - costPrice) * (product.quantity || 0);
         }, 0), 0);
@@ -113,11 +123,15 @@ const ObjectivesModal: React.FC<ObjectivesModalProps> = ({ isOpen, onClose, stat
   const handleDelete = async (obj: Objective) => {
     try {
       if (confirm(t('objectives.confirmDelete'))) {
+        setDeletingObjectiveId(obj.id!);
         await deleteObjective(obj.id!);
         showSuccessToast(t('objectives.messages.deleteSuccess'));
       }
     } catch (err) {
+      console.error('Delete objective error:', err);
       showErrorToast(t('objectives.messages.operationError'));
+    } finally {
+      setDeletingObjectiveId(null);
     }
   };
 
@@ -133,6 +147,7 @@ const ObjectivesModal: React.FC<ObjectivesModalProps> = ({ isOpen, onClose, stat
               onDelete={handleDelete}
               open={openObjectiveId === obj.id}
               onToggle={() => setOpenObjectiveId(openObjectiveId === obj.id ? null : obj.id)}
+              isDeleting={deletingObjectiveId === obj.id}
             />
           ))}
           {objsWithProgress.length === 0 && (

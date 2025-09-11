@@ -23,20 +23,20 @@ const MobileNav = () => {
 
   return (
     <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 md:hidden">
-      <nav className="flex justify-around overflow-x-auto">
+      <nav className="flex overflow-x-auto scrollbar-hide">
         {navigationItems.map((item) => (
           <Link
             key={item.path}
             to={item.path}
             className={`
-              flex flex-col items-center py-2 px-3 text-xs 
+              flex flex-col items-center py-2 px-3 text-xs flex-shrink-0 min-w-0
               ${isActive(item.path) 
                 ? 'text-emerald-600' 
                 : 'text-gray-600 hover:text-gray-900'}
             `}
           >
             {item.icon}
-            <span className="mt-1">{item.name}</span>
+            <span className="mt-1 truncate">{item.name}</span>
           </Link>
         ))}
       </nav>

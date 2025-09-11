@@ -10,6 +10,9 @@ import {
   ChevronRight,
   Loader2,
   Info,
+  ChevronsLeft,
+  ChevronLeft,
+  ChevronsRight,
 } from 'lucide-react';
 import Select from 'react-select';
 import Modal, { ModalFooter } from '../components/common/Modal';
@@ -60,15 +63,12 @@ const Sales: React.FC = () => {
   const [viewedSale, setViewedSale] = useState<Sale | null>(null);
   const [profitSale, setProfitSale] = useState<Sale | null>(null);
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
-  const [shareableLink, setShareableLink] = useState<string | null>(null);
+  const [shareableLink] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [foundCustomer, setFoundCustomer] = useState<Customer | null>(null);
-  const [isSavingCustomer, setIsSavingCustomer] = useState(false);
-  const [showAllProducts, setShowAllProducts] = useState(false);
-  const [productSearchQuery, setProductSearchQuery] = useState('');
-  const [autoSaveCustomer, setAutoSaveCustomer] = useState(true);
-  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
+  const [showAllProducts] = useState(false);
+  const [productSearchQuery] = useState('');
   const [customerSearch, setCustomerSearch] = useState('');
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const [expandedSaleId, setExpandedSaleId] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [page, setPage] = useState(1);
@@ -90,6 +90,8 @@ const Sales: React.FC = () => {
     null
   );
   const phoneInputRef = useRef<HTMLInputElement>(null);
+
+
 
   const normalizePhone = (phone: string): string => phone.replace(/\D/g, '');
 
@@ -115,6 +117,8 @@ const Sales: React.FC = () => {
     setCustomerSearch(value);
     setShowCustomerDropdown(!!value);
   };
+
+
 
   const handleProductChange = (index: number, option: ProductOption | null): void => {
     setFormData((prev) => {
@@ -160,7 +164,6 @@ const Sales: React.FC = () => {
       deliveryFee: '',
       products: [{ product: null, quantity: '', negotiatedPrice: '' }],
     });
-    setFoundCustomer(null);
     setShowCustomerDropdown(false);
     setCustomerSearch('');
   };
@@ -199,11 +202,7 @@ const Sales: React.FC = () => {
     return errors;
   };
 
-  const handleGenerateLink = (saleId: string): void => {
-    const link = `${window.location.origin}/track/${saleId}`;
-    setShareableLink(link);
-    setIsLinkModalOpen(true);
-  };
+  // Removed unused handleGenerateLink to avoid warnings
 
   const handleViewSale = (sale: Sale): void => {
     setViewedSale(sale);
@@ -578,12 +577,6 @@ const Sales: React.FC = () => {
   }
 
   const availableProducts = products?.filter((p) => p.isAvailable && p.stock > 0) || [];
-  const filteredProducts = (productSearchQuery
-    ? availableProducts.filter((product) =>
-        product.name.toLowerCase().includes(productSearchQuery.toLowerCase())
-      )
-    : availableProducts
-  ).slice(0, showAllProducts ? undefined : 10);
 
   const productOptions = availableProducts.map((product) => ({
     label: (
@@ -612,27 +605,7 @@ const Sales: React.FC = () => {
     value: product,
   }));
 
-  const handleSaveCustomer = async (): Promise<void> => {
-    if (!user?.uid || !formData.customerPhone) return;
-    try {
-      setIsSavingCustomer(true);
-      const customerData: Customer = {
-        phone: formData.customerPhone,
-        name: formData.customerName,
-        quarter: formData.customerQuarter,
-        userId: user.uid,
-        createdAt: new Date(),
-      };
-      await addCustomer(customerData);
-      setFoundCustomer(customerData);
-      showSuccessToast(t('sales.messages.customerSaved'));
-    } catch (err) {
-      console.error('Error saving customer:', err);
-      showErrorToast(t('sales.messages.errors.saveCustomer'));
-    } finally {
-      setIsSavingCustomer(false);
-    }
-  };
+  // Removed unused handleSaveCustomer to avoid warnings
 
   const handleSelectCustomer = (customer: Customer): void => {
     setFormData((prev) => ({
@@ -642,7 +615,6 @@ const Sales: React.FC = () => {
       customerQuarter: customer.quarter || '',
     }));
     setShowCustomerDropdown(false);
-    setFoundCustomer(customer);
   };
 
   return (
@@ -763,34 +735,60 @@ const Sales: React.FC = () => {
             </tbody>
           </table>
         </div>
-        <div className="flex items-center justify-between mt-4 px-4">
-          <span className="text-sm text-gray-600">
-            {t('sales.table.showing', {
-              from: (page - 1) * rowsPerPage + 1,
-              to: Math.min(page * rowsPerPage, totalRows),
-              total: totalRows,
-            }) ||
-              `Showing ${(page - 1) * rowsPerPage + 1}-${Math.min(page * rowsPerPage, totalRows)} of ${totalRows}`}
-          </span>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => setPage(1)} disabled={page === 1}>
-              {t('common.first') || 'First'}
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setPage(page - 1)} disabled={page === 1}>
-              {t('common.prev') || 'Prev'}
-            </Button>
-            <span className="text-sm">
-              {page} / {totalPages}
-            </span>
-            <Button variant="outline" size="sm" onClick={() => setPage(page + 1)} disabled={page === totalPages}>
-              {t('common.next') || 'Next'}
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setPage(totalPages)} disabled={page === totalPages}>
-              {t('common.last') || 'Last'}
-            </Button>
-          </div>
-        </div>
+                 <div className="flex items-center justify-between mt-4 px-2 sm:px-4">
+           <span className="text-xs sm:text-sm text-gray-600">
+             {t('sales.table.showing', {
+               from: (page - 1) * rowsPerPage + 1,
+               to: Math.min(page * rowsPerPage, totalRows),
+               total: totalRows,
+             }) ||
+               `Showing ${(page - 1) * rowsPerPage + 1}-${Math.min(page * rowsPerPage, totalRows)} of ${totalRows}`}
+           </span>
+           <div className="flex items-center gap-1 sm:gap-2">
+             <Button 
+               variant="outline" 
+               size="sm" 
+               onClick={() => setPage(1)} 
+               disabled={page === 1}
+               icon={<ChevronsLeft size={14} />}
+               title={t('common.first') || 'First'}
+               className="p-1 sm:p-2"
+             >{t('common.first') || 'First'}</Button>
+             <Button 
+               variant="outline" 
+               size="sm" 
+               onClick={() => setPage(page - 1)} 
+               disabled={page === 1}
+               icon={<ChevronLeft size={14} />}
+               title={t('common.prev') || 'Previous'}
+               className="p-1 sm:p-2"
+             >{t('common.prev') || 'Previous'}</Button>
+             <span className="text-xs sm:text-sm px-2 sm:px-3 py-1 bg-gray-100 rounded-md">
+               {page} / {totalPages}
+             </span>
+             <Button 
+               variant="outline" 
+               size="sm" 
+               onClick={() => setPage(page + 1)} 
+               disabled={page === totalPages}
+               icon={<ChevronRight size={14} />}
+               title={t('common.next') || 'Next'}
+               className="p-1 sm:p-2"
+             >{t('common.next') || 'Next'}</Button>
+             <Button 
+               variant="outline" 
+               size="sm" 
+               onClick={() => setPage(totalPages)} 
+               disabled={page === totalPages}
+               icon={<ChevronsRight size={14} />}
+               title={t('common.last') || 'Last'}
+               className="p-1 sm:p-2"
+             >{t('common.last') || 'Last'}</Button>
+           </div>
+         </div>
       </Card>
+      {/* Mobile spacing for floating action button */}
+      <div className="h-20 md:hidden"></div>
       <AddSaleModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} />
       <SaleDetailsModal
         isOpen={isViewModalOpen}

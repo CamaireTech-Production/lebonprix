@@ -63,7 +63,7 @@ const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({ isOpen, onClose, sa
         <ModalFooter
           onCancel={onClose}
           onConfirm={onClose}
-          confirmText={t('common.cancel')}
+          confirmText={t('navigation.close')}
           cancelText={t('common.cancel')}
         />
       }
