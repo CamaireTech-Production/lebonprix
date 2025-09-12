@@ -1,4 +1,4 @@
-import { ShoppingCart, DollarSign, TrendingUp, Package2, BarChart2, Info, Receipt, Copy, Check, ExternalLink, Plus } from 'lucide-react';
+import { DollarSign, TrendingUp, Package2, Info, Receipt, Copy, Check, ExternalLink} from 'lucide-react';
 import StatCard from '../components/dashboard/StatCard';
 import SalesChart from '../components/dashboard/SalesChart';
 import ActivityList from '../components/dashboard/ActivityList';
@@ -14,7 +14,7 @@ import type { DashboardStats } from '../types/models';
 import { showSuccessToast, showErrorToast } from '../utils/toast';
 import { useTranslation } from 'react-i18next';
 import { getLatestCostPrice } from '../utils/productUtils';
-import { startOfMonth, endOfMonth, differenceInDays, format, startOfWeek, endOfWeek, addDays, addWeeks, startOfMonth as startMonth, endOfMonth as endMonth, addMonths, isSameMonth, isSameWeek, isSameDay } from 'date-fns';
+import { differenceInDays, format, startOfWeek, endOfWeek, addDays, addWeeks, startOfMonth as startMonth, endOfMonth as endMonth, addMonths, isSameMonth, isSameDay } from 'date-fns';
 import DateRangePicker from '../components/common/DateRangePicker';
 import ObjectivesBar from '../components/objectives/ObjectivesBar';
 import ObjectivesModal from '../components/objectives/ObjectivesModal';
@@ -33,8 +33,8 @@ const Dashboard = () => {
   const [] = useState<Partial<DashboardStats>>({});
   const [copied, setCopied] = useState(false);
   const [dateRange, setDateRange] = useState({
-    from: new Date(2025, 3, 1), // April 1st, 2025
-    to: new Date(2100, 0, 1),
+    from: new Date(2025, 0, 1), // January 1st, 2025
+    to: new Date(), // Current date
   });
   const [showObjectivesModal, setShowObjectivesModal] = useState(false);
   const [applyDateFilter, setApplyDateFilter] = useState(true);
