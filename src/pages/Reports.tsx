@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { Calendar, FileDown, Filter } from 'lucide-react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
+import { Calendar, FileDown } from 'lucide-react';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Input from '../components/common/Input';
@@ -30,26 +30,40 @@ ChartJS.register(
 );
 
 const Reports = () => {
-  // UI (staged) filters
-  const [startDate, setStartDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
-  const [endDate, setEndDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
-  const [selectedProduct, setSelectedProduct] = useState('all');
-  const [period, setPeriod] = useState<'none' | 'today' | 'daily' | 'weekly' | 'monthly' | 'yearly'>('today');
+  // Calculate default weekly range
+  const getDefaultWeeklyRange = () => {
+    const today = new Date();
+    const startOfWeek = new Date(today);
+    const day = (today.getDay() + 6) % 7; // make Monday=0
+    startOfWeek.setDate(today.getDate() - day);
+    startOfWeek.setHours(0, 0, 0, 0);
+    
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(endOfWeek.getDate() + 6);
+    endOfWeek.setHours(23, 59, 59, 999);
+    
+    return {
+      start: startOfWeek.toISOString().slice(0, 10),
+      end: endOfWeek.toISOString().slice(0, 10)
+    };
+  };
 
-  // Applied filters (used for computations/rendering)
-  const [appliedStartDate, setAppliedStartDate] = useState<string>(startDate);
-  const [appliedEndDate, setAppliedEndDate] = useState<string>(endDate);
-  const [appliedSelectedProduct, setAppliedSelectedProduct] = useState<string>(selectedProduct);
-  const [appliedPeriod, setAppliedPeriod] = useState<'none' | 'today' | 'daily' | 'weekly' | 'monthly' | 'yearly'>(period);
+  const defaultRange = getDefaultWeeklyRange();
+  
+  // UI filters - now directly used for computations
+  const [startDate, setStartDate] = useState<string>(defaultRange.start);
+  const [endDate, setEndDate] = useState<string>(defaultRange.end);
+  const [selectedProduct, setSelectedProduct] = useState('all');
+  const [period, setPeriod] = useState<'none' | 'today' | 'daily' | 'weekly' | 'monthly' | 'yearly'>('weekly');
   
   const { sales } = useSales();
   const { expenses } = useExpenses();
   const { products } = useProducts();
 
   const toDate = (ts?: Timestamp) => (ts?.seconds ? new Date(ts.seconds * 1000) : null);
-  const start = useMemo(() => new Date(appliedStartDate + 'T00:00:00'), [appliedStartDate]);
-  const end = useMemo(() => new Date(appliedEndDate + 'T23:59:59'), [appliedEndDate]);
-  const inRange = (d: Date | null) => !!d && d >= start && d <= end;
+  const start = useMemo(() => new Date(startDate + 'T00:00:00'), [startDate]);
+  const end = useMemo(() => new Date(endDate + 'T23:59:59'), [endDate]);
+  const inRange = useCallback((d: Date | null) => !!d && d >= start && d <= end, [start, end]);
 
   const productOptions = useMemo(() => {
     const opts = products.map(p => ({ value: p.id, label: p.name }));
@@ -57,124 +71,65 @@ const Reports = () => {
   }, [products]);
 
   const toYMD = (d: Date) => d.toISOString().slice(0, 10);
-  const parseYMD = (s: string) => new Date(s + 'T00:00:00');
-
-  const applyFilters = () => {
-    const reference = (startDate ? parseYMD(startDate) : (endDate ? parseYMD(endDate) : new Date()));
-    if (period === 'none') {
-      // Use explicit dates if provided; otherwise default to today
-      if (startDate && endDate) {
-        setAppliedStartDate(startDate);
-        setAppliedEndDate(endDate);
-      } else if (startDate && !endDate) {
-        setAppliedStartDate(startDate);
-        setAppliedEndDate(startDate);
-      } else if (!startDate && endDate) {
-        setAppliedStartDate(endDate);
-        setAppliedEndDate(endDate);
-      } else {
-        const today = toYMD(new Date());
-        setAppliedStartDate(today);
-        setAppliedEndDate(today);
-      }
-      setAppliedSelectedProduct(selectedProduct);
-      setAppliedPeriod('none');
-      return;
-    }
-    if (period === 'today') {
-      const today = toYMD(new Date());
-      setAppliedStartDate(today);
-      setAppliedEndDate(today);
-      setAppliedSelectedProduct(selectedProduct);
-      setAppliedPeriod(period);
-      return;
-    }
-    if (period === 'daily') {
-      const day = toYMD(reference);
-      setAppliedStartDate(day);
-      setAppliedEndDate(day);
-      setAppliedSelectedProduct(selectedProduct);
-      setAppliedPeriod(period);
-      return;
-    }
-    if (period === 'weekly') {
-      const startW = startOfWeek(reference);
-      const endW = new Date(startW);
-      endW.setDate(endW.getDate() + 6);
-      setAppliedStartDate(toYMD(startW));
-      setAppliedEndDate(toYMD(endW));
-      setAppliedSelectedProduct(selectedProduct);
-      setAppliedPeriod(period);
-      return;
-    }
-    if (period === 'monthly') {
-      const startM = startOfMonth(reference);
-      const endM = new Date(startM.getFullYear(), startM.getMonth() + 1, 0);
-      setAppliedStartDate(toYMD(startM));
-      setAppliedEndDate(toYMD(endM));
-      setAppliedSelectedProduct(selectedProduct);
-      setAppliedPeriod(period);
-      return;
-    }
-    if (period === 'yearly') {
-      const startY = startOfYear(reference);
-      const endY = new Date(startY.getFullYear(), 11, 31);
-      setAppliedStartDate(toYMD(startY));
-      setAppliedEndDate(toYMD(endY));
-      setAppliedSelectedProduct(selectedProduct);
-      setAppliedPeriod(period);
-      return;
-    }
-
-    // Fallback: explicit dates provided without relying on period
-    if (startDate && endDate) {
-      setAppliedStartDate(startDate);
-      setAppliedEndDate(endDate);
-      setAppliedSelectedProduct(selectedProduct);
-      setAppliedPeriod('daily');
-      return;
-    }
-    if (startDate && !endDate) {
-      setAppliedStartDate(startDate);
-      setAppliedEndDate(startDate);
-      setAppliedSelectedProduct(selectedProduct);
-      setAppliedPeriod('daily');
-      return;
-    }
-    if (!startDate && endDate) {
-      setAppliedStartDate(endDate);
-      setAppliedEndDate(endDate);
-      setAppliedSelectedProduct(selectedProduct);
-      setAppliedPeriod('daily');
-      return;
-    }
-  };
-
-  const filteredSales: Sale[] = useMemo(() => {
-    const byDate = sales.filter(s => inRange(toDate(s.createdAt)));
-    if (appliedSelectedProduct === 'all') return byDate;
-    return byDate.filter(sale => sale.products.some(sp => sp.productId === appliedSelectedProduct));
-  }, [sales, start, end, appliedSelectedProduct]);
-
-  const filteredExpenses: Expense[] = useMemo(() => {
-    return expenses.filter(e => inRange(toDate(e.createdAt)));
-  }, [expenses, start, end]);
 
   // Period helpers
-  const startOfWeek = (d: Date) => {
+  const startOfWeek = useCallback((d: Date) => {
     const date = new Date(d);
     const day = (date.getDay() + 6) % 7; // make Monday=0
     date.setDate(date.getDate() - day);
     date.setHours(0, 0, 0, 0);
     return date;
-  };
-  const startOfMonth = (d: Date) => new Date(d.getFullYear(), d.getMonth(), 1, 0, 0, 0, 0);
-  const startOfYear = (d: Date) => new Date(d.getFullYear(), 0, 1, 0, 0, 0, 0);
+  }, []);
+  const startOfMonth = useCallback((d: Date) => new Date(d.getFullYear(), d.getMonth(), 1, 0, 0, 0, 0), []);
+  const startOfYear = useCallback((d: Date) => new Date(d.getFullYear(), 0, 1, 0, 0, 0, 0), []);
 
-  const formatKey = (d: Date) => {
-    if (appliedPeriod === 'yearly') return String(d.getFullYear());
-    if (appliedPeriod === 'monthly') return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-    if (appliedPeriod === 'weekly') {
+  // Auto-update date ranges when period changes
+  useEffect(() => {
+    const today = new Date();
+    
+    if (period === 'today') {
+      const todayStr = toYMD(today);
+      setStartDate(todayStr);
+      setEndDate(todayStr);
+    } else if (period === 'daily') {
+      const dayStr = toYMD(today);
+      setStartDate(dayStr);
+      setEndDate(dayStr);
+    } else if (period === 'weekly') {
+      const startW = startOfWeek(today);
+      const endW = new Date(startW);
+      endW.setDate(endW.getDate() + 6);
+      setStartDate(toYMD(startW));
+      setEndDate(toYMD(endW));
+    } else if (period === 'monthly') {
+      const startM = startOfMonth(today);
+      const endM = new Date(startM.getFullYear(), startM.getMonth() + 1, 0);
+      setStartDate(toYMD(startM));
+      setEndDate(toYMD(endM));
+    } else if (period === 'yearly') {
+      const startY = startOfYear(today);
+      const endY = new Date(startY.getFullYear(), 11, 31);
+      setStartDate(toYMD(startY));
+      setEndDate(toYMD(endY));
+    }
+    // For 'none' period, keep the current date range as is
+  }, [period, startOfWeek, startOfMonth, startOfYear]);
+
+
+  const filteredSales: Sale[] = useMemo(() => {
+    const byDate = sales.filter(s => inRange(toDate(s.createdAt)));
+    if (selectedProduct === 'all') return byDate;
+    return byDate.filter(sale => sale.products.some(sp => sp.productId === selectedProduct));
+  }, [sales, inRange, selectedProduct]);
+
+  const filteredExpenses: Expense[] = useMemo(() => {
+    return expenses.filter(e => inRange(toDate(e.createdAt)));
+  }, [expenses, inRange]);
+
+  const formatKey = useCallback((d: Date) => {
+    if (period === 'yearly') return String(d.getFullYear());
+    if (period === 'monthly') return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    if (period === 'weekly') {
       const weekStart = startOfWeek(d);
       const y = weekStart.getFullYear();
       const m = String(weekStart.getMonth() + 1).padStart(2, '0');
@@ -183,23 +138,23 @@ const Reports = () => {
     }
     // daily/today
     return d.toISOString().slice(0, 10);
-  };
+  }, [period, startOfWeek]);
 
-  const nextBucket = (d: Date) => {
+  const nextBucket = useCallback((d: Date) => {
     const nd = new Date(d);
-    if (appliedPeriod === 'yearly') nd.setFullYear(nd.getFullYear() + 1);
-    else if (appliedPeriod === 'monthly') nd.setMonth(nd.getMonth() + 1);
-    else if (appliedPeriod === 'weekly') nd.setDate(nd.getDate() + 7);
+    if (period === 'yearly') nd.setFullYear(nd.getFullYear() + 1);
+    else if (period === 'monthly') nd.setMonth(nd.getMonth() + 1);
+    else if (period === 'weekly') nd.setDate(nd.getDate() + 7);
     else nd.setDate(nd.getDate() + 1);
     return nd;
-  };
+  }, [period]);
 
-  const normalizeToBucketStart = (d: Date) => {
-    if (appliedPeriod === 'yearly') return startOfYear(d);
-    if (appliedPeriod === 'monthly') return startOfMonth(d);
-    if (appliedPeriod === 'weekly') return startOfWeek(d);
+  const normalizeToBucketStart = useCallback((d: Date) => {
+    if (period === 'yearly') return startOfYear(d);
+    if (period === 'monthly') return startOfMonth(d);
+    if (period === 'weekly') return startOfWeek(d);
     const dd = new Date(d); dd.setHours(0, 0, 0, 0); return dd;
-  };
+  }, [period, startOfYear, startOfMonth, startOfWeek]);
 
   const dateKeys = useMemo(() => {
     const keys: string[] = [];
@@ -210,17 +165,29 @@ const Reports = () => {
       cur = nextBucket(cur);
     }
     return keys;
-  }, [start, end, appliedPeriod]);
+  }, [start, end, formatKey, nextBucket, normalizeToBucketStart]);
 
   const series = useMemo(() => {
     const salesByDay: Record<string, number> = Object.fromEntries(dateKeys.map(k => [k, 0]));
     const expensesByDay: Record<string, number> = Object.fromEntries(dateKeys.map(k => [k, 0]));
+    const costOfGoodsSoldByDay: Record<string, number> = Object.fromEntries(dateKeys.map(k => [k, 0]));
 
     for (const s of filteredSales) {
       const d = toDate(s.createdAt);
       if (!d) continue;
       const key = formatKey(normalizeToBucketStart(d));
-      if (key in salesByDay) salesByDay[key] += s.totalAmount || 0;
+      if (key in salesByDay) {
+        salesByDay[key] += s.totalAmount || 0;
+        
+        // Calculate cost of goods sold for this sale
+        const costOfGoodsSold = s.products.reduce((sum, saleProduct) => {
+          const product = products.find(p => p.id === saleProduct.productId);
+          if (!product) return sum;
+          return sum + ((product.costPrice || 0) * saleProduct.quantity);
+        }, 0);
+        
+        costOfGoodsSoldByDay[key] += costOfGoodsSold;
+      }
     }
     for (const ex of filteredExpenses) {
       const d = toDate(ex.createdAt);
@@ -231,19 +198,20 @@ const Reports = () => {
 
     const salesData = dateKeys.map(k => salesByDay[k]);
     const expensesData = dateKeys.map(k => expensesByDay[k]);
-    const profitData = dateKeys.map((_, i) => salesData[i] - expensesData[i]);
-    return { salesData, expensesData, profitData };
-  }, [dateKeys, filteredSales, filteredExpenses]);
+    const costOfGoodsSoldData = dateKeys.map(k => costOfGoodsSoldByDay[k]);
+    const profitData = dateKeys.map((_, i) => salesData[i] - costOfGoodsSoldData[i] - expensesData[i]);
+    return { salesData, expensesData, costOfGoodsSoldData, profitData };
+  }, [dateKeys, filteredSales, filteredExpenses, products, formatKey, normalizeToBucketStart]);
 
   const labels = useMemo(() => {
     return dateKeys.map(k => {
-      if (appliedPeriod === 'yearly') return k;
-      if (appliedPeriod === 'monthly') {
+      if (period === 'yearly') return k;
+      if (period === 'monthly') {
         const [y, m] = k.split('-').map(Number);
         const dt = new Date(y, (m || 1) - 1, 1);
         return dt.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
       }
-      if (appliedPeriod === 'weekly') {
+      if (period === 'weekly') {
         const dt = new Date(k + 'T00:00:00');
         const endW = new Date(dt);
         endW.setDate(endW.getDate() + 6);
@@ -253,14 +221,15 @@ const Reports = () => {
       const dt = new Date(k + 'T00:00:00');
       return dt.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
     });
-  }, [dateKeys, appliedPeriod]);
+  }, [dateKeys, period]);
 
   const chartData = useMemo(() => ({
     labels,
     datasets: [
       { label: 'Sales', data: series.salesData, borderColor: '#10B981', backgroundColor: 'rgba(16, 185, 129, 0.1)', fill: false, tension: 0.4, borderWidth: 2 },
+      { label: 'Cost of Goods Sold', data: series.costOfGoodsSoldData, borderColor: '#F59E0B', backgroundColor: 'rgba(245, 158, 11, 0.1)', fill: false, tension: 0.4, borderWidth: 2 },
       { label: 'Expenses', data: series.expensesData, borderColor: '#EF4444', backgroundColor: 'rgba(239, 68, 68, 0.1)', fill: false, tension: 0.4, borderWidth: 2 },
-      { label: 'Profit', data: series.profitData, borderColor: '#4F46E5', backgroundColor: 'rgba(79, 70, 229, 0.1)', fill: false, tension: 0.4, borderWidth: 2 },
+      { label: 'Net Profit', data: series.profitData, borderColor: '#4F46E5', backgroundColor: 'rgba(79, 70, 229, 0.1)', fill: false, tension: 0.4, borderWidth: 2 },
     ],
   }), [labels, series]);
   
@@ -323,7 +292,23 @@ const Reports = () => {
   // Aggregates and rankings
   const totalSales = useMemo(() => filteredSales.reduce((sum, s) => sum + (s.totalAmount || 0), 0), [filteredSales]);
   const totalExpenses = useMemo(() => filteredExpenses.reduce((sum, e) => sum + (e.amount || 0), 0), [filteredExpenses]);
-  const netProfit = useMemo(() => totalSales - totalExpenses, [totalSales, totalExpenses]);
+  
+  // Calculate total cost of goods sold
+  const totalCostOfGoodsSold = useMemo(() => {
+    return filteredSales.reduce((sum, sale) => {
+      return sum + sale.products.reduce((productSum, saleProduct) => {
+        // Find the product to get its cost price
+        const product = products.find(p => p.id === saleProduct.productId);
+        if (!product) return productSum;
+        
+        // Use the cost price from the product (this assumes all products have costPrice)
+        const costPrice = product.costPrice || 0;
+        return productSum + (costPrice * saleProduct.quantity);
+      }, 0);
+    }, 0);
+  }, [filteredSales, products]);
+  
+  const netProfit = useMemo(() => totalSales - totalCostOfGoodsSold - totalExpenses, [totalSales, totalCostOfGoodsSold, totalExpenses]);
 
   const topProducts = useMemo(() => {
     const byId = new Map<string, { name: string; quantity: number; customers: Set<string> }>();
@@ -357,15 +342,16 @@ const Reports = () => {
   }, [filteredSales]);
 
   const handleExport = () => {
-    const header = ['Date', 'Sales', 'Expenses', 'Profit'];
+    const header = ['Date', 'Sales', 'Cost of Goods Sold', 'Expenses', 'Net Profit'];
     const rows = dateKeys.map((key, i) => [
       key,
       String(series.salesData[i] || 0),
+      String(series.costOfGoodsSoldData[i] || 0),
       String(series.expensesData[i] || 0),
       String(series.profitData[i] || 0),
     ]);
-    rows.push(['TOTAL', String(totalSales), String(totalExpenses), String(netProfit)]);
-    const csv = [header, ...rows].map(r => r.map(field => /[,\"]/.test(field) ? '"' + field.replace(/\"/g, '""') + '"' : field).join(',')).join('\n');
+    rows.push(['TOTAL', String(totalSales), String(totalCostOfGoodsSold), String(totalExpenses), String(netProfit)]);
+    const csv = [header, ...rows].map(r => r.map(field => /[,"]/.test(field) ? '"' + field.replace(/"/g, '""') + '"' : field).join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -428,7 +414,7 @@ const Reports = () => {
             <select
               className="w-full rounded-md border border-gray-300 shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
               value={period}
-              onChange={(e) => setPeriod(e.target.value as any)}
+              onChange={(e) => setPeriod(e.target.value as 'none' | 'today' | 'daily' | 'weekly' | 'monthly' | 'yearly')}
             >
               <option value="none">None</option>
               <option value="today">Today</option>
@@ -454,25 +440,26 @@ const Reports = () => {
             </select>
           </div>
         </div>
-        
-        <div className="mt-4 flex justify-end">
-          <Button
-            icon={<Filter size={16} />}
-            onClick={applyFilters}
-          >
-            Apply Filters
-          </Button>
-        </div>
       </Card>
       
       {/* Summary Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <Card className="bg-emerald-50 border border-emerald-100">
           <div className="text-center">
             <p className="text-sm font-medium text-emerald-700">Total Sales</p>
             <p className="mt-1 text-3xl font-semibold text-emerald-900">{totalSales.toLocaleString()} XAF</p>
             <p className="mt-1 text-sm text-emerald-600">
               <span className="font-medium">{filteredSales.length}</span> orders
+            </p>
+          </div>
+        </Card>
+        
+        <Card className="bg-amber-50 border border-amber-100">
+          <div className="text-center">
+            <p className="text-sm font-medium text-amber-700">Cost of Goods Sold</p>
+            <p className="mt-1 text-3xl font-semibold text-amber-900">{totalCostOfGoodsSold.toLocaleString()} XAF</p>
+            <p className="mt-1 text-sm text-amber-600">
+              <span className="font-medium">{(totalSales ? Math.round(((totalCostOfGoodsSold) / totalSales) * 100) : 0)}%</span> of sales
             </p>
           </div>
         </Card>
