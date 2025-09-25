@@ -9,6 +9,8 @@ import { Toaster } from 'react-hot-toast';
 import { FloatingActionButton } from './components/common/Button';
 import AddSaleModal from './components/sales/AddSaleModal';
 import Finance from './pages/Finance';
+import { EnhancedPWAInstallPrompt } from './components/EnhancedPWAInstallPrompt';
+import { PWAStatusIndicator } from './components/PWAStatusIndicator';
 
 // Lazy load pages
 const Login = lazy(() => import('./pages/auth/Login'));
@@ -47,6 +49,10 @@ function AppWithFAB({ isAddSaleModalOpen, setIsAddSaleModalOpen }: { isAddSaleMo
         <FloatingActionButton onClick={() => setIsAddSaleModalOpen(true)} label="Add Sale" />
       )}
       <AddSaleModal isOpen={isAddSaleModalOpen} onClose={() => setIsAddSaleModalOpen(false)} />
+      
+      {/* PWA Components */}
+      <PWAStatusIndicator />
+      
       <Suspense fallback={<LoadingScreen />}>
         <Toaster />
         <Routes>
