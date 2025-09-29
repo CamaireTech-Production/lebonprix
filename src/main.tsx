@@ -9,12 +9,21 @@ import './i18n/config';
 // In development, we'll register manually
 if ('serviceWorker' in navigator && import.meta.env.DEV) {
   // Only register manually in development
+  // Try to register firebase-messaging-sw.js first (it exists and works)
   navigator.serviceWorker.register('/firebase-messaging-sw.js')
     .then((registration) => {
       console.log('Firebase service worker registered in development:', registration);
     })
     .catch((error) => {
-      console.log('Service worker registration failed in development:', error);
+      console.log('Firebase service worker registration failed in development:', error);
+      // If firebase-messaging-sw.js doesn't work, try to register the service worker that Vite PWA generates
+      navigator.serviceWorker.register('/sw.js')
+        .then((registration) => {
+          console.log('Vite PWA service worker registered in development:', registration);
+        })
+        .catch((viteError) => {
+          console.log('Vite PWA service worker registration also failed:', viteError);
+        });
     });
 }
 
