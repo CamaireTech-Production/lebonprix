@@ -5,8 +5,10 @@ import ActivityList from '../components/dashboard/ActivityList';
 import Table from '../components/common/Table';
 import Card from '../components/common/Card';
 import { useSales, useExpenses, useProducts, useStockChanges, useFinanceEntries, useAuditLogs } from '../hooks/useFirestore';
+import { subscribeToAllSales } from '../services/firestore';
 import LoadingScreen from '../components/common/LoadingScreen';
-import { useState } from 'react';
+import { SkeletonStatCard, SkeletonChart, SkeletonTable, SkeletonActivityList, SkeletonObjectivesBar } from '../components/common/SkeletonLoader';
+import { useState, useEffect } from 'react';
 import Modal from '../components/common/Modal';
 import Button from '../components/common/Button';
 import { useAuth } from '../contexts/AuthContext';
@@ -27,6 +29,11 @@ const Dashboard = () => {
   const { sales, loading: salesLoading } = useSales();
   const { products, loading: productsLoading } = useProducts();
   
+  // 🔄 BACKGROUND LOADING: Load all sales in background after initial render
+  const [allSales, setAllSales] = useState<any[]>([]);
+  const [loadingAllSales, setLoadingAllSales] = useState(false);
+  const { user } = useAuth();
+  
   // 🔄 BACKGROUND LOADING: Load secondary data in background (don't block UI)
   const { expenses, loading: expensesLoading } = useExpenses();
   const { stockChanges, loading: stockChangesLoading } = useStockChanges();
@@ -35,6 +42,25 @@ const Dashboard = () => {
   
   // 🎯 ESSENTIAL DATA: Only block UI for critical data (sales + products)
   const essentialDataLoading = salesLoading || productsLoading;
+
+  // 🔄 LOAD ALL SALES IN BACKGROUND: After initial UI renders
+  useEffect(() => {
+    if (!user || essentialDataLoading) return;
+    
+    console.log('🔄 Loading all sales in background...');
+    setLoadingAllSales(true);
+    
+    const unsubscribe = subscribeToAllSales(user.uid, (allSalesData) => {
+      setAllSales(allSalesData);
+      setLoadingAllSales(false);
+      console.log(`✅ All sales loaded: ${allSalesData.length} total sales`);
+    });
+    
+    // Cleanup function
+    return () => {
+      unsubscribe();
+    };
+  }, [user, essentialDataLoading]);
   const [showCalculationsModal, setShowCalculationsModal] = useState(false);
   const { company } = useAuth();
   const [] = useState<Partial<DashboardStats>>({});
@@ -54,8 +80,9 @@ const Dashboard = () => {
     { value: 'totalSalesCount', label: t('dashboard.stats.totalSalesCount') },
   ];
 
-  // Filter sales and expenses by selected date range
-  const filteredSales = sales?.filter(sale => {
+  // 🎯 SMART SALES FILTERING: Use all sales when available, recent sales for immediate display
+  const salesDataToUse = allSales.length > 0 ? allSales : sales;
+  const filteredSales = salesDataToUse?.filter(sale => {
     if (!sale.createdAt?.seconds) return false;
     const saleDate = new Date(sale.createdAt.seconds * 1000);
     return saleDate >= dateRange.from && saleDate <= dateRange.to;
@@ -386,18 +413,22 @@ const Dashboard = () => {
         </div>
       </div>
       {/* Objectives global bar */}
-      <ObjectivesBar
-        onAdd={() => { setShowObjectivesModal(true); }}
-        onView={() => { setShowObjectivesModal(true); }}
-        stats={statsMap}
-        dateRange={dateRange}
-        applyDateFilter={applyDateFilter}
-        onToggleFilter={setApplyDateFilter}
-        sales={sales}
-        expenses={expenses}
-        products={products}
-        stockChanges={stockChanges}
-      />
+      {(expensesLoading || stockChangesLoading) ? (
+        <SkeletonObjectivesBar />
+      ) : (
+        <ObjectivesBar
+          onAdd={() => { setShowObjectivesModal(true); }}
+          onView={() => { setShowObjectivesModal(true); }}
+          stats={statsMap}
+          dateRange={dateRange}
+          applyDateFilter={applyDateFilter}
+          onToggleFilter={setApplyDateFilter}
+          sales={sales}
+          expenses={expenses}
+          products={products}
+          stockChanges={stockChanges}
+        />
+      )}
       {showObjectivesModal && (
         <ObjectivesModal
           isOpen={showObjectivesModal}
@@ -416,43 +447,71 @@ const Dashboard = () => {
       {/* Stats section */}
       <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {statCards.map((card, index) => (
-          <StatCard
-            key={index}
-            title={card.title}
-            value={card.value}
-            icon={card.icon}
-            type={card.type}
-          />
+          card.loading ? (
+            <SkeletonStatCard key={`skeleton-${index}`} />
+          ) : (
+            <StatCard
+              key={index}
+              title={card.title}
+              value={card.value}
+              icon={card.icon}
+              type={card.type}
+            />
+          )
         ))}
       </div>
+      
+      {/* Data Loading Status */}
+      {loadingAllSales && (
+        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="flex items-center">
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500 mr-2"></div>
+            <span className="text-sm text-blue-700">Loading complete sales history for accurate calculations...</span>
+          </div>
+        </div>
+      )}
+      
+      {allSales.length > 0 && !loadingAllSales && allSales.length > sales.length && (
+        <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+          <div className="flex items-center">
+            <div className="h-4 w-4 bg-green-500 rounded-full mr-2"></div>
+            <span className="text-sm text-green-700">
+              Complete data loaded: {allSales.length} total sales (showing calculations for all data)
+            </span>
+          </div>
+        </div>
+      )}
       {/* Chart section */}
       <div className="mb-6">
-        <SalesChart
-          labels={chartData.labels}
-          salesData={chartData.salesData}
-          expensesData={chartData.expensesData}
-        />
+        {expensesLoading ? (
+          <SkeletonChart />
+        ) : (
+          <SalesChart
+            labels={chartData.labels}
+            salesData={chartData.salesData}
+            expensesData={chartData.expensesData}
+          />
+        )}
       </div>
       {/* Best Selling Products Table */}
       <div className="mb-6">
-        <Card title={t('dashboard.bestSellingProducts.title')}>
-          <Table
-            data={bestSellingProducts}
-            columns={bestProductColumns}
-            keyExtractor={row => row.name}
-            emptyMessage={t('dashboard.bestSellingProducts.noData')}
-          />
-        </Card>
+        {(salesLoading || loadingAllSales) ? (
+          <SkeletonTable rows={5} />
+        ) : (
+          <Card title={t('dashboard.bestSellingProducts.title')}>
+            <Table
+              data={bestSellingProducts}
+              columns={bestProductColumns}
+              keyExtractor={row => row.name}
+              emptyMessage={t('dashboard.bestSellingProducts.noData')}
+            />
+          </Card>
+        )}
       </div>
       {/* Activity section */}
       <div>
         {(expensesLoading || auditLogsLoading) ? (
-          <Card title={t('dashboard.recentActivity')}>
-            <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
-              <span className="ml-3 text-gray-600">Loading activities...</span>
-            </div>
-          </Card>
+          <SkeletonActivityList />
         ) : (
           <ActivityList activities={recentActivities} />
         )}

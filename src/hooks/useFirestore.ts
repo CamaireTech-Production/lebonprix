@@ -165,12 +165,13 @@ export const useCategories = () => {
   return { categories, loading, error, addCategory };
 };
 
-// Sales Hook
+// Sales Hook - PROGRESSIVE LOADING
 export const useSales = () => {
   const { user } = useAuth();
   const [sales, setSales] = useState<Sale[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   // Function to update local state after a sale is modified
   const updateLocalSale = (updatedSale: Sale) => {
@@ -184,10 +185,19 @@ export const useSales = () => {
   useEffect(() => {
     if (!user) return;
     
+    // 🚀 PROGRESSIVE LOADING: Start with recent sales for fast UI
+    let isInitialLoad = true;
+    
     const unsubscribe = subscribeToSales(user.uid, (data) => {
-      // No need to filter anymore - already filtered by Firebase query
       setSales(data);
-      setLoading(false);
+      
+      if (isInitialLoad) {
+        console.log(`✅ Initial sales loaded: ${data.length} items`);
+        setLoading(false);
+        isInitialLoad = false;
+      } else {
+        console.log(`🔄 Sales updated: ${data.length} items`);
+      }
     });
 
     return () => unsubscribe();

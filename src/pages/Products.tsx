@@ -8,13 +8,15 @@ import Modal, { ModalFooter } from '../components/common/Modal';
 import Input from '../components/common/Input';
 import CreatableSelect from '../components/common/CreatableSelect';
 import { useProducts, useStockChanges, useCategories, useSuppliers } from '../hooks/useFirestore';
+import { useInfiniteProducts } from '../hooks/useInfiniteProducts';
+import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 import { useAllStockBatches } from '../hooks/useStockBatches';
 import { createSupplierDebt, createSupplier } from '../services/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import LoadingScreen from '../components/common/LoadingScreen';
 import { showSuccessToast, showErrorToast, showWarningToast } from '../utils/toast';
 import imageCompression from 'browser-image-compression';
-import Papa from 'papaparse';
+import * as Papa from 'papaparse';
 import type { Product } from '../types/models';
 import type { ParseResult } from 'papaparse';
 import { getLatestCostPrice, getDisplayCostPrice } from '../utils/productUtils';
@@ -31,12 +33,33 @@ interface CsvRow {
 
 const Products = () => {
   const { t, i18n } = useTranslation();
-  const { products, loading, error, addProduct, updateProduct } = useProducts();
+  // Use infinite scroll for products instead of limited loading
+  const { 
+    products: infiniteProducts, 
+    loading: infiniteLoading, 
+    loadingMore, 
+    hasMore, 
+    error: infiniteError, 
+    loadMore, 
+    refresh 
+  } = useInfiniteProducts();
+  
+  // Keep original hook for adding/updating products
+  const { addProduct, updateProduct } = useProducts();
   const { stockChanges } = useStockChanges();
   useCategories();
   const { suppliers } = useSuppliers();
   const { batches: allStockBatches } = useAllStockBatches();
   const { user } = useAuth();
+  
+  // Set up infinite scroll
+  useInfiniteScroll({
+    hasMore,
+    loading: loadingMore,
+    onLoadMore: loadMore,
+    threshold: 300 // Load more when 300px from bottom
+  });
+  
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState(t('products.filters.allCategories'));
@@ -215,7 +238,7 @@ const Products = () => {
   };
 
   // Get unique categories from products
-  const categories = [t('products.filters.allCategories'), ...new Set(products?.map(p => p.category) || [])];
+  const categories = [t('products.filters.allCategories'), ...new Set(infiniteProducts?.map(p => p.category) || [])];
 
   const handleCategoryChange = (option: { label: string; value: string } | null) => {
     setStep1Data(prev => ({
@@ -280,7 +303,7 @@ const Products = () => {
       // Auto-generate reference: first 3 uppercase letters of name + 3-digit number
         const prefix = step1Data.name.substring(0, 3).toUpperCase();
       // Count existing products with this prefix
-      const samePrefixCount = products.filter(p => p.reference && p.reference.startsWith(prefix)).length;
+      const samePrefixCount = infiniteProducts.filter(p => p.reference && p.reference.startsWith(prefix)).length;
       const nextNumber = (samePrefixCount + 1).toString().padStart(3, '0');
       reference = `${prefix}${nextNumber}`;
     }
@@ -790,8 +813,8 @@ const Products = () => {
 
   // Migration: create initial StockChange for products with stock > 0 and no StockChange
   useEffect(() => {
-    if (!products?.length || !stockChanges?.length || !user?.uid) return;
-    products.forEach(async (product) => {
+    if (!infiniteProducts?.length || !stockChanges?.length || !user?.uid) return;
+    infiniteProducts.forEach(async (product) => {
       const hasStockChange = stockChanges.some((sc) => sc.productId === product.id);
       if (product.stock > 0 && !hasStockChange) {
         // Create an initial adjustment with 'creation' reason
@@ -800,7 +823,7 @@ const Products = () => {
         } catch (e) { console.error(`Failed to create initial stock for ${product.id}:`, e) }
       }
     });
-  }, [products, stockChanges, user, updateProduct]);
+  }, [infiniteProducts, stockChanges, user, updateProduct]);
 
   useEffect(() => {
     setSelectedCategory(t('products.filters.allCategories'));
@@ -837,7 +860,7 @@ const Products = () => {
     try {
       setIsDeleting(true);
       for (const id of selectedProducts) {
-        const product = products.find(p => p.id === id);
+        const product = infiniteProducts.find(p => p.id === id);
         if (!product) continue;
         const safeProduct = {
           ...product,
@@ -914,7 +937,7 @@ const Products = () => {
   };
 
   // Place filteredProducts and resetImportState above their first usage
-  const filteredProducts: Product[] = products?.filter((product: Product) => {
+  const filteredProducts: Product[] = infiniteProducts?.filter((product: Product) => {
     if (typeof product.isAvailable !== 'undefined' && product.isAvailable === false) return false;
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          product.reference.toLowerCase().includes(searchQuery.toLowerCase());
@@ -929,11 +952,11 @@ const Products = () => {
     setImportProgress(0);
   };
 
-  if (loading) {
+  if (infiniteLoading) {
     return <LoadingScreen />;
   }
 
-  if (error) {
+  if (infiniteError) {
     return (
       <div className="p-4 text-center text-red-600">
         <p>{t('products.messages.errors.loadProducts')}</p>
@@ -1426,6 +1449,21 @@ const Products = () => {
             </table>
           </div>
         </Card>
+      )}
+      
+      {/* Infinite Scroll Loading Indicator */}
+      {loadingMore && (
+        <div className="flex justify-center items-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
+          <span className="ml-3 text-gray-600">Loading more products...</span>
+        </div>
+      )}
+      
+      {/* End of products indicator */}
+      {!hasMore && infiniteProducts.length > 0 && (
+        <div className="text-center py-6 text-gray-500">
+          <p>✅ All products loaded ({infiniteProducts.length} total)</p>
+        </div>
       )}
       
       {/* Add Product Modal */}

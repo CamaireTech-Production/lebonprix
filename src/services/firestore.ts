@@ -285,8 +285,8 @@ export const subscribeToProducts = (userId: string, callback: (products: Product
   const q = query(
     collection(db, 'products'),
     where('userId', '==', userId), // Filter by user first
-    orderBy('createdAt', 'desc'),
-    limit(20) // 🚀 REDUCED: Load only recent products for faster initial load
+    orderBy('createdAt', 'desc')
+    // 🔄 NO LIMIT: Products page now uses infinite scroll for better UX
   );
   
   return onSnapshot(q, (snapshot) => {
@@ -298,14 +298,21 @@ export const subscribeToProducts = (userId: string, callback: (products: Product
   });
 };
 
-// Sales - OPTIMIZED for faster initial load
-export const subscribeToSales = (userId: string, callback: (sales: Sale[]) => void): (() => void) => {
-  const q = query(
-    collection(db, 'sales'),
-    where('userId', '==', userId), // Filter by user first
-    orderBy('createdAt', 'desc'),
-    limit(20) // 🚀 REDUCED: Load only recent sales for faster initial load
-  );
+// Sales - PROGRESSIVE LOADING: Load recent first, then all
+export const subscribeToSales = (userId: string, callback: (sales: Sale[]) => void, limitCount?: number): (() => void) => {
+  const q = limitCount 
+    ? query(
+        collection(db, 'sales'),
+        where('userId', '==', userId), // Filter by user first
+        orderBy('createdAt', 'desc'),
+        limit(limitCount) // 🚀 CONFIGURABLE: Allow different limits
+      )
+    : query(
+        collection(db, 'sales'),
+        where('userId', '==', userId), // Filter by user first
+        orderBy('createdAt', 'desc')
+        // 🔄 NO LIMIT: Load all sales when needed
+      );
   
   return onSnapshot(q, (snapshot) => {
     const sales = snapshot.docs.map(doc => ({
@@ -315,6 +322,11 @@ export const subscribeToSales = (userId: string, callback: (sales: Sale[]) => vo
     // Only return sales that are not soft-deleted
     callback(sales.filter(sale => sale.isAvailable !== false));
   });
+};
+
+// Sales - Load ALL sales (for reports, analytics, etc.)
+export const subscribeToAllSales = (userId: string, callback: (sales: Sale[]) => void): (() => void) => {
+  return subscribeToSales(userId, callback); // No limit
 };
 
 // Expenses
