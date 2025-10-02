@@ -4,6 +4,7 @@ import {
   query,
   where,
   orderBy,
+  limit,
   getDocs,
   getDoc,
   addDoc,
@@ -262,10 +263,12 @@ export const createStockChange = (
 // ============================================================================
 
 // Categories
-export const subscribeToCategories = (callback: (categories: Category[]) => void): (() => void) => {
+export const subscribeToCategories = (userId: string, callback: (categories: Category[]) => void): (() => void) => {
   const q = query(
     collection(db, 'categories'),
-    orderBy('name', 'asc')
+    where('userId', '==', userId), // Filter by user first
+    orderBy('name', 'asc'),
+    limit(50) // Add pagination
   );
   
   return onSnapshot(q, (snapshot) => {
@@ -277,11 +280,13 @@ export const subscribeToCategories = (callback: (categories: Category[]) => void
   });
 };
 
-// Products
-export const subscribeToProducts = (callback: (products: Product[]) => void): (() => void) => {
+// Products - OPTIMIZED for faster initial load
+export const subscribeToProducts = (userId: string, callback: (products: Product[]) => void): (() => void) => {
   const q = query(
     collection(db, 'products'),
-    orderBy('createdAt', 'desc')
+    where('userId', '==', userId), // Filter by user first
+    orderBy('createdAt', 'desc'),
+    limit(20) // 🚀 REDUCED: Load only recent products for faster initial load
   );
   
   return onSnapshot(q, (snapshot) => {
@@ -293,11 +298,13 @@ export const subscribeToProducts = (callback: (products: Product[]) => void): ((
   });
 };
 
-// Sales
-export const subscribeToSales = (callback: (sales: Sale[]) => void): (() => void) => {
+// Sales - OPTIMIZED for faster initial load
+export const subscribeToSales = (userId: string, callback: (sales: Sale[]) => void): (() => void) => {
   const q = query(
     collection(db, 'sales'),
-    orderBy('createdAt', 'desc')
+    where('userId', '==', userId), // Filter by user first
+    orderBy('createdAt', 'desc'),
+    limit(20) // 🚀 REDUCED: Load only recent sales for faster initial load
   );
   
   return onSnapshot(q, (snapshot) => {
@@ -311,10 +318,12 @@ export const subscribeToSales = (callback: (sales: Sale[]) => void): (() => void
 };
 
 // Expenses
-export const subscribeToExpenses = (callback: (expenses: Expense[]) => void): (() => void) => {
+export const subscribeToExpenses = (userId: string, callback: (expenses: Expense[]) => void): (() => void) => {
   const q = query(
     collection(db, 'expenses'),
-    orderBy('createdAt', 'desc')
+    where('userId', '==', userId), // Filter by user first
+    orderBy('createdAt', 'desc'),
+    limit(100) // Add pagination
   );
   
   return onSnapshot(q, (snapshot) => {
@@ -1145,10 +1154,15 @@ export const subscribeToCompanies = (callback: (companies: Company[]) => void): 
   });
 };
 
-export const subscribeToStockChanges = (callback: (stockChanges: StockChange[]) => void): (() => void) => {
-  const stockChangesRef = collection(db, 'stockChanges');
+export const subscribeToStockChanges = (userId: string, callback: (stockChanges: StockChange[]) => void): (() => void) => {
+  const q = query(
+    collection(db, 'stockChanges'),
+    where('userId', '==', userId), // Filter by user first
+    orderBy('createdAt', 'desc'),
+    limit(200) // Stock changes can be numerous but are small
+  );
   
-  return onSnapshot(stockChangesRef, (snapshot) => {
+  return onSnapshot(q, (snapshot) => {
     const stockChanges = snapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
@@ -1576,7 +1590,7 @@ export const getFinanceEntryTypes = async (userId: string): Promise<FinanceEntry
   return types;
 };
 
-// Ensure default finance entry types exist
+// Ensure default finance entry types exist - OPTIMIZED VERSION
 export const ensureDefaultFinanceEntryTypes = async (): Promise<void> => {
   const defaultTypes = [
     { name: 'loan', isDefault: true },
@@ -1590,34 +1604,45 @@ export const ensureDefaultFinanceEntryTypes = async (): Promise<void> => {
     { name: 'other', isDefault: true }
   ];
 
+  // 🚀 OPTIMIZATION: Single query to get ALL existing default types
+  const existingDefaultsQuery = query(
+    collection(db, 'financeEntryTypes'),
+    where('isDefault', '==', true)
+  );
+  const existingDefaultsSnap = await getDocs(existingDefaultsQuery);
+  
+  // Create a Set of existing type names for fast lookup
+  const existingTypeNames = new Set(
+    existingDefaultsSnap.docs.map(doc => doc.data().name)
+  );
+  
+  // 🚀 OPTIMIZATION: Only create missing types
+  const missingTypes = defaultTypes.filter(type => !existingTypeNames.has(type.name));
+  
+  // If all types exist, skip the batch operation entirely
+  if (missingTypes.length === 0) {
+    console.log('✅ All default finance entry types already exist - skipping');
+    return;
+  }
+  
+  // Create batch for missing types only
   const batch = writeBatch(db);
   
-  for (const typeData of defaultTypes) {
-    // Check if type already exists
-    const existingQuery = query(
-      collection(db, 'financeEntryTypes'),
-      where('name', '==', typeData.name),
-      where('isDefault', '==', true)
-    );
-    const existingSnap = await getDocs(existingQuery);
-    
-    if (existingSnap.empty) {
-      // Create the default type
-      const typeRef = doc(collection(db, 'financeEntryTypes'));
-      const newType = {
-        id: typeRef.id,
-        name: typeData.name,
-        isDefault: true,
-        createdAt: serverTimestamp()
-      };
-      batch.set(typeRef, newType);
-      console.log(`✅ Created default finance entry type: ${typeData.name}`);
-    }
+  for (const typeData of missingTypes) {
+    const typeRef = doc(collection(db, 'financeEntryTypes'));
+    const newType = {
+      id: typeRef.id,
+      name: typeData.name,
+      isDefault: true,
+      createdAt: serverTimestamp()
+    };
+    batch.set(typeRef, newType);
+    console.log(`✅ Creating missing default finance entry type: ${typeData.name}`);
   }
   
   try {
     await batch.commit();
-    console.log('✅ All default finance entry types ensured');
+    console.log(`✅ Created ${missingTypes.length} missing default finance entry types`);
   } catch (error) {
     console.error('❌ Error creating default finance entry types:', error);
     throw error;
@@ -1626,10 +1651,12 @@ export const ensureDefaultFinanceEntryTypes = async (): Promise<void> => {
 
 // --- Suppliers ---
 
-export const subscribeToSuppliers = (callback: (suppliers: Supplier[]) => void): (() => void) => {
+export const subscribeToSuppliers = (userId: string, callback: (suppliers: Supplier[]) => void): (() => void) => {
   const q = query(
     collection(db, 'suppliers'),
-    orderBy('createdAt', 'desc')
+    where('userId', '==', userId), // Filter by user first
+    orderBy('createdAt', 'desc'),
+    limit(50) // Add pagination
   );
   
   return onSnapshot(q, (snapshot) => {

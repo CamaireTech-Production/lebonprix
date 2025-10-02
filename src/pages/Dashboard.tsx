@@ -22,12 +22,19 @@ import { combineActivities } from '../utils/activityUtils';
 
 const Dashboard = () => {
   const { t } = useTranslation();
+  
+  // 🚀 PROGRESSIVE LOADING: Load essential data first
   const { sales, loading: salesLoading } = useSales();
-  const { expenses, loading: expensesLoading } = useExpenses();
   const { products, loading: productsLoading } = useProducts();
+  
+  // 🔄 BACKGROUND LOADING: Load secondary data in background (don't block UI)
+  const { expenses, loading: expensesLoading } = useExpenses();
   const { stockChanges, loading: stockChangesLoading } = useStockChanges();
   const { entries: financeEntries, loading: financeLoading } = useFinanceEntries();
   const { auditLogs, loading: auditLogsLoading } = useAuditLogs();
+  
+  // 🎯 ESSENTIAL DATA: Only block UI for critical data (sales + products)
+  const essentialDataLoading = salesLoading || productsLoading;
   const [showCalculationsModal, setShowCalculationsModal] = useState(false);
   const { company } = useAuth();
   const [] = useState<Partial<DashboardStats>>({});
@@ -77,8 +84,8 @@ const Dashboard = () => {
     }, 0);
   }, 0) || 0;
 
-  // Calculate total expenses
-  const totalExpenses = filteredExpenses?.reduce((sum, exp) => sum + exp.amount, 0) || 0;
+  // 🔄 BACKGROUND DATA: Calculate expenses only when available
+  const totalExpenses = expensesLoading ? 0 : (filteredExpenses?.reduce((sum, exp) => sum + exp.amount, 0) || 0);
 
   // Total orders
   const totalOrders = filteredSales?.length || 0;
@@ -228,12 +235,15 @@ const Dashboard = () => {
     }
   };
 
-  if (salesLoading || expensesLoading || productsLoading || stockChangesLoading || financeLoading || auditLogsLoading) {
+  // 🚀 SHOW UI IMMEDIATELY: Only block for essential data
+  if (essentialDataLoading) {
     return <LoadingScreen />;
   }
 
-  // Process recent activities using the new activity system
-  const recentActivities = combineActivities(filteredSales, filteredExpenses, auditLogs, t);
+  // 🔄 BACKGROUND DATA: Process activities only when data is available
+  const recentActivities = (expensesLoading || auditLogsLoading) 
+    ? [] // Show empty while loading
+    : combineActivities(filteredSales, filteredExpenses, auditLogs, t);
 
   // Table columns for best selling products
   const bestProductColumns = [
@@ -254,19 +264,45 @@ const Dashboard = () => {
     totalSalesCount: totalOrders,
   };
 
-  // Calculate balance (solde) from all active finance entries (not soft deleted), excluding debt/refund/supplier_debt/supplier_refund
-  const activeFinanceEntries = financeEntries?.filter(entry => !entry.isDeleted) || [];
-  const nonDebtEntries = activeFinanceEntries.filter(
-    (entry) => entry.type !== 'debt' && entry.type !== 'refund' && entry.type !== 'supplier_debt' && entry.type !== 'supplier_refund'
-  );
-  const solde = nonDebtEntries.reduce((sum, entry) => sum + entry.amount, 0);
+  // 🔄 BACKGROUND DATA: Calculate balance only when finance data is available
+  const solde = financeLoading ? 0 : (() => {
+    const activeFinanceEntries = financeEntries?.filter(entry => !entry.isDeleted) || [];
+    const nonDebtEntries = activeFinanceEntries.filter(
+      (entry) => entry.type !== 'debt' && entry.type !== 'refund' && entry.type !== 'supplier_debt' && entry.type !== 'supplier_refund'
+    );
+    return nonDebtEntries.reduce((sum, entry) => sum + entry.amount, 0);
+  })();
 
-  // Stat cards (show only solde, profit, depense, produit vendu)
-  const statCards: { title: string; value: string | number; icon: JSX.Element; type: 'products' | 'sales' | 'expenses' | 'profit' | 'orders' | 'delivery' | 'solde'; }[] = [
-    { title: t('dashboard.stats.solde'), value: `${solde.toLocaleString()} XAF`, icon: <DollarSign size={20} />, type: 'solde' },
-    { title: t('dashboard.stats.profit'), value: `${profit.toLocaleString()} XAF`, icon: <TrendingUp size={20} />, type: 'profit' },
-    { title: t('dashboard.stats.expenses'), value: `${totalExpenses.toLocaleString()} XAF`, icon: <Receipt size={20} />, type: 'expenses' },
-    { title: t('dashboard.stats.productsSold'), value: totalProductsSold, icon: <Package2 size={20} />, type: 'products' },
+  // 🎯 STAT CARDS: Show loading states for background data
+  const statCards: { title: string; value: string | number; icon: JSX.Element; type: 'products' | 'sales' | 'expenses' | 'profit' | 'orders' | 'delivery' | 'solde'; loading?: boolean; }[] = [
+    { 
+      title: t('dashboard.stats.solde'), 
+      value: financeLoading ? '...' : `${solde.toLocaleString()} XAF`, 
+      icon: <DollarSign size={20} />, 
+      type: 'solde',
+      loading: financeLoading
+    },
+    { 
+      title: t('dashboard.stats.profit'), 
+      value: stockChangesLoading ? '...' : `${profit.toLocaleString()} XAF`, 
+      icon: <TrendingUp size={20} />, 
+      type: 'profit',
+      loading: stockChangesLoading
+    },
+    { 
+      title: t('dashboard.stats.expenses'), 
+      value: expensesLoading ? '...' : `${totalExpenses.toLocaleString()} XAF`, 
+      icon: <Receipt size={20} />, 
+      type: 'expenses',
+      loading: expensesLoading
+    },
+    { 
+      title: t('dashboard.stats.productsSold'), 
+      value: totalProductsSold, 
+      icon: <Package2 size={20} />, 
+      type: 'products',
+      loading: false // Products already loaded
+    },
   ];
 
   return (
@@ -410,7 +446,16 @@ const Dashboard = () => {
       </div>
       {/* Activity section */}
       <div>
-        <ActivityList activities={recentActivities} />
+        {(expensesLoading || auditLogsLoading) ? (
+          <Card title={t('dashboard.recentActivity')}>
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
+              <span className="ml-3 text-gray-600">Loading activities...</span>
+            </div>
+          </Card>
+        ) : (
+          <ActivityList activities={recentActivities} />
+        )}
       </div>
       {/* Calculations Explanation Modal */}
       <Modal

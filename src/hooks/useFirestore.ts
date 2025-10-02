@@ -18,6 +18,7 @@ import {
   syncFinanceEntryWithSale,
   syncFinanceEntryWithExpense,
   subscribeToSuppliers,
+  subscribeToStockChanges,
   createSupplier,
   updateSupplier,
   softDeleteSupplier
@@ -61,10 +62,9 @@ export const useProducts = () => {
   useEffect(() => {
     if (!user) return;
     
-    const unsubscribe = subscribeToProducts((data) => {
-      // Filter products for the current user
-      const userProducts = data.filter(product => product.userId === user.uid);
-      setProducts(userProducts);
+    const unsubscribe = subscribeToProducts(user.uid, (data) => {
+      // No need to filter anymore - already filtered by Firebase query
+      setProducts(data);
       setLoading(false);
     });
 
@@ -142,10 +142,9 @@ export const useCategories = () => {
   useEffect(() => {
     if (!user) return;
     
-    const unsubscribe = subscribeToCategories((data) => {
-      // Filter categories for the current user
-      const userCategories = data.filter(category => category.userId === user.uid);
-      setCategories(userCategories);
+    const unsubscribe = subscribeToCategories(user.uid, (data) => {
+      // No need to filter anymore - already filtered by Firebase query
+      setCategories(data);
       setLoading(false);
     });
 
@@ -185,10 +184,9 @@ export const useSales = () => {
   useEffect(() => {
     if (!user) return;
     
-    const unsubscribe = subscribeToSales((data) => {
-      // Filter sales for the current user
-      const userSales = data.filter(sale => sale.userId === user.uid);
-      setSales(userSales);
+    const unsubscribe = subscribeToSales(user.uid, (data) => {
+      // No need to filter anymore - already filtered by Firebase query
+      setSales(data);
       setLoading(false);
     });
 
@@ -332,10 +330,9 @@ export const useExpenses = () => {
   useEffect(() => {
     if (!user) return;
     
-    const unsubscribe = subscribeToExpenses((data) => {
-      // Filter expenses for the current user
-      const userExpenses = data.filter(expense => expense.userId === user.uid);
-      setExpenses(userExpenses);
+    const unsubscribe = subscribeToExpenses(user.uid, (data) => {
+      // No need to filter anymore - already filtered by Firebase query
+      setExpenses(data);
       setLoading(false);
     });
 
@@ -415,12 +412,11 @@ export const useStockChanges = () => {
 
   useEffect(() => {
     if (!user) return;
-    const q = query(collection(db, 'stockChanges'), where('userId', '==', user.uid), orderBy('createdAt', 'asc'));
-    const unsub = onSnapshot(q, snapshot => {
-      setStockChanges(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+    const unsubscribe = subscribeToStockChanges(user.uid, (data) => {
+      setStockChanges(data);
       setLoading(false);
     });
-    return () => unsub();
+    return () => unsubscribe();
   }, [user]);
 
   return { stockChanges, loading };
@@ -488,10 +484,10 @@ export const useSuppliers = () => {
   useEffect(() => {
     if (!user) return;
     
-    const unsubscribe = subscribeToSuppliers((data) => {
-      // Filter suppliers for the current user and not soft-deleted
-      const userSuppliers = data.filter(supplier => supplier.userId === user.uid && !supplier.isDeleted);
-      setSuppliers(userSuppliers);
+    const unsubscribe = subscribeToSuppliers(user.uid, (data) => {
+      // Filter out soft-deleted suppliers (user filtering already done by Firebase)
+      const activeSuppliers = data.filter(supplier => !supplier.isDeleted);
+      setSuppliers(activeSuppliers);
       setLoading(false);
     });
 

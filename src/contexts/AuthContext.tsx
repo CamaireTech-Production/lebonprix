@@ -17,6 +17,7 @@ interface AuthContextType {
   currentUser: User | null; // For backward compatibility
   company: Company | null;
   loading: boolean;
+  companyLoading: boolean; // New: indicates if company data is still loading in background
   signUp: (email: string, password: string, companyData: Omit<Company, 'id' | 'createdAt' | 'updatedAt' | 'userId'>) => Promise<User>;
   signIn: (email: string, password: string) => Promise<User>;
   signOut: () => Promise<void>;
@@ -42,31 +43,84 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [user, setUser] = useState<User | null>(null);
   const [company, setCompany] = useState<Company | null>(null);
   const [loading, setLoading] = useState(true);
+  const [companyLoading, setCompanyLoading] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      console.log('🔥 Auth state changed:', user ? 'User logged in' : 'User logged out');
       setUser(user);
+      
       if (user) {
-        // Fetch company data when user is logged in
-        const companyDoc = await getDoc(doc(db, 'companies', user.uid));
-        if (companyDoc.exists()) {
-          setCompany({ id: companyDoc.id, ...companyDoc.data() } as Company);
-        }
+        // 🚀 IMMEDIATE UI RENDER: Set loading to false right away
+        console.log('✅ User authenticated - rendering UI immediately');
+        setLoading(false);
         
-        // Ensure default finance entry types exist
-        try {
-          await ensureDefaultFinanceEntryTypes();
-        } catch (error) {
-          console.error('Failed to ensure default finance entry types:', error);
-        }
+        // 🔄 BACKGROUND LOADING: Start company data fetch in background
+        console.log('🔄 Starting background company data loading...');
+        loadCompanyDataInBackground(user.uid);
+        
+        // 🔄 BACKGROUND LOADING: Start finance types in background
+        console.log('🔄 Starting background finance types loading...');
+        loadFinanceTypesInBackground();
+        
       } else {
         setCompany(null);
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     return unsubscribe;
   }, []);
+
+  // 🔄 Background company data loading function
+  const loadCompanyDataInBackground = async (userId: string) => {
+    setCompanyLoading(true);
+    try {
+      console.log('📡 Fetching company data in background...');
+      
+      // Add timeout protection
+      const companyDoc = await Promise.race([
+        getDoc(doc(db, 'companies', userId)),
+        new Promise<never>((_, reject) => 
+          setTimeout(() => reject(new Error('Company fetch timeout after 10 seconds')), 10000)
+        )
+      ]);
+      
+      if (companyDoc.exists()) {
+        setCompany({ id: companyDoc.id, ...companyDoc.data() } as Company);
+        console.log('✅ Company data loaded successfully in background');
+      } else {
+        console.log('⚠️ No company document found for user');
+      }
+    } catch (error) {
+      console.error('❌ Background company loading failed:', error);
+      // App continues to work without company data
+      // You could show a subtle notification to user if needed
+    } finally {
+      setCompanyLoading(false);
+    }
+  };
+
+  // 🔄 Background finance types loading function
+  const loadFinanceTypesInBackground = async () => {
+    try {
+      console.log('📡 Ensuring finance types in background...');
+      
+      // Add timeout protection
+      await Promise.race([
+        ensureDefaultFinanceEntryTypes(),
+        new Promise<never>((_, reject) => 
+          setTimeout(() => reject(new Error('Finance types timeout after 15 seconds')), 15000)
+        )
+      ]);
+      
+      console.log('✅ Finance types ensured successfully in background');
+    } catch (error) {
+      console.error('❌ Background finance types loading failed:', error);
+      // App continues to work without finance types setup
+      // Finance features might have fallbacks or show setup prompts
+    }
+  };
 
   const signUp = async (
     email: string, 
@@ -133,6 +187,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     currentUser: user, // For backward compatibility
     company,
     loading,
+    companyLoading,
     signUp,
     signIn,
     signOut,
