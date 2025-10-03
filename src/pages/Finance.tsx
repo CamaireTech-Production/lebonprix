@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import Button from '../components/common/Button';
 import { useFinanceEntries, useProducts, useSales, useExpenses, useCustomers, useStockChanges, useSuppliers } from '../hooks/useFirestore';
-import { useFinancialData } from '../hooks/useFinancialData';
+// Removed useFinancialData import - back to direct calculations
 import { useObjectives } from '../hooks/useObjectives';
 import { format } from 'date-fns';
 import Modal, { ModalFooter } from '../components/common/Modal';
@@ -18,14 +18,7 @@ import ObjectivesModal from '../components/objectives/ObjectivesModal';
 import { showSuccessToast, showErrorToast } from '../utils/toast';
 import type { FinanceEntry } from '../types/models';
 import { getLatestCostPrice } from '../utils/productUtils';
-import SyncIndicator from '../components/common/SyncIndicator';
-import { 
-  SkeletonFinancialBalance, 
-  SkeletonDebtCard, 
-  SkeletonFinancialCalculations,
-  SkeletonFinancialEntriesTable,
-  SkeletonObjectivesBar 
-} from '../components/common/FinancialSkeletonLoaders';
+// Removed skeleton loaders and sync indicator imports - back to original approach
 
 type CustomerDebt = {
   phone: string;
@@ -49,11 +42,7 @@ const Finance: React.FC = () => {
     to: new Date(), // Current date
   });
   
-  // 🚀 NEW: Hybrid financial data hook
-  const { 
-    financialCalculations, 
-    referenceData 
-  } = useFinancialData(dateRange);
+  // 🚀 REVERTED: Back to direct calculations without localStorage
 
   useCustomers(); // Only call the hook for side effects if needed, but don't destructure unused values
   const { user } = useAuth();
@@ -149,11 +138,43 @@ const Finance: React.FC = () => {
     };
   }, [effectiveEntries]);
 
-  // 🚀 REMOVED: Old totalDebt calculation - now using financialCalculations.totalDebt from useFinancialData hook
+  // Calculate total remaining debt (sum of each debt minus its refunds)
+  const totalDebt = useMemo<number>(() => {
+    return userDebt.debtEntries.reduce((sum: number, debt: FinanceEntry) => {
+      const linkedRefunds = userDebt.refundEntries.filter(
+        (refund: FinanceEntry) => {
+          const match = refund.refundedDebtId && String(refund.refundedDebtId) === String(debt.id);
+          return match;
+        }
+      );
+      const refundedAmount = linkedRefunds.reduce((s: number, r: FinanceEntry) => s + r.amount, 0);
+      return sum + Math.max(0, debt.amount - refundedAmount);
+    }, 0);
+  }, [userDebt.debtEntries, userDebt.refundEntries]);
 
-
-
-  // 🚀 REMOVED: Old solde calculation - now using financialCalculations.solde from useFinancialData hook
+  // Calculate solde: sum of all non-debt/refund/supplier_debt/supplier_refund entries plus only customer debt (excluding supplier debt)
+  const solde = useMemo<number>(() => {
+    const nonDebtEntries = filteredFinanceEntries.filter(
+      (entry: FinanceEntry) => entry.type !== 'debt' && entry.type !== 'refund' && entry.type !== 'supplier_debt' && entry.type !== 'supplier_refund'
+    );
+    const nonDebtSum = nonDebtEntries.reduce((sum: number, entry: FinanceEntry) => sum + entry.amount, 0);
+    
+    // Calculate only customer debt (excluding supplier debt)
+    const customerDebt = userDebt.debtEntries
+      .filter(debt => debt.type === 'debt') // Only customer debts, not supplier debts
+      .reduce((sum: number, debt: FinanceEntry) => {
+        const linkedRefunds = userDebt.refundEntries.filter(
+          (refund: FinanceEntry) => {
+            const match = refund.refundedDebtId && String(refund.refundedDebtId) === String(debt.id);
+            return match;
+          }
+        );
+        const refundedAmount = linkedRefunds.reduce((s: number, r: FinanceEntry) => s + r.amount, 0);
+        return sum + Math.max(0, debt.amount - refundedAmount);
+      }, 0);
+    
+    return nonDebtSum + customerDebt;
+  }, [filteredFinanceEntries, userDebt.debtEntries, userDebt.refundEntries]);
 
   // Filtering logic
   const filteredAndSearchedEntries = useMemo(() => {
@@ -201,73 +222,88 @@ const Finance: React.FC = () => {
     }
   }, [refreshTrigger]);
 
+  // 🚀 REVERTED: Direct financial calculations (as they were working before) - MOVED BEFORE EARLY RETURN
+  const profit = useMemo<number>(() => {
+    return filteredSales.reduce((sum, sale) => {
+      return sum + sale.products.reduce((productSum, product) => {
+        const productData = products.find(p => p.id === product.productId);
+        if (!productData) return productSum;
+        const sellingPrice = product.negotiatedPrice || product.basePrice;
+        const safeStockChanges = Array.isArray(stockChanges) ? stockChanges : [];
+        const costPrice = getLatestCostPrice(productData.id, safeStockChanges);
+        if (costPrice === undefined) return productSum;
+        return productSum + (sellingPrice - costPrice) * product.quantity;
+      }, 0);
+    }, 0);
+  }, [filteredSales, products, stockChanges]);
+
+  const totalExpenses = useMemo<number>(() => {
+    return filteredExpenses.reduce((sum, exp) => sum + exp.amount, 0) + 
+      filteredManualEntries.filter(e => e.amount < 0).reduce((sum, e) => sum + Math.abs(e.amount), 0);
+  }, [filteredExpenses, filteredManualEntries]);
+
+  const totalOrders = filteredSales.length;
+  const totalDeliveryFee = filteredSales.reduce((sum, sale) => sum + (sale.deliveryFee || 0), 0);
+  const totalSalesAmount = filteredSales.reduce((sum, sale) => sum + sale.totalAmount, 0);
+  const totalProductsSold = filteredSales.reduce((sum, sale) => sum + sale.products.reduce((pSum, p) => pSum + p.quantity, 0), 0);
+
+  const totalPurchasePrice = useMemo<number>(() => {
+    return products.reduce((sum, product) => {
+      const safeStockChanges = Array.isArray(stockChanges) ? stockChanges : [];
+      const costPrice = getLatestCostPrice(product.id, safeStockChanges);
+      if (costPrice === undefined) return sum;
+      return sum + (costPrice * product.stock);
+    }, 0);
+  }, [products, stockChanges]);
+
   // 🚀 HYBRID APPROACH: Only show loading screen if essential data is loading
   if (loading || productsLoading || salesLoading || expensesLoading) {
     return <LoadingScreen />;
   }
 
-  // 🚀 NEW: Use hybrid financial calculations (real-time data with skeleton loaders)
-  const {
-    profit,
-    totalExpenses,
-    totalSalesAmount,
-    totalOrders,
-    totalDeliveryFee,
-    totalProductsSold,
-    totalPurchasePrice,
-    solde,
-    totalDebt
-  } = financialCalculations;
-
-  // Stat cards with loading states
+  // Stat cards with direct calculations
   const statCards = [
     { 
       title: t('dashboard.stats.profit'), 
-      value: financialCalculations.loading ? '...' : `${profit.toLocaleString()} XAF`, 
+      value: `${profit.toLocaleString()} XAF`, 
       icon: <BarChart2 size={20} />, 
       tooltipKey: 'profit', 
-      type: 'profit',
-      loading: financialCalculations.loading
+      type: 'profit'
     },
     { 
       title: t('dashboard.stats.totalExpenses'), 
-      value: financialCalculations.loading ? '...' : `${totalExpenses.toLocaleString()} XAF`, 
+      value: `${totalExpenses.toLocaleString()} XAF`, 
       icon: <Receipt size={20} />, 
       tooltipKey: 'totalExpenses', 
-      type: 'expenses',
-      loading: financialCalculations.loading
+      type: 'expenses'
     },
     { 
       title: t('dashboard.stats.deliveryFee'), 
-      value: financialCalculations.loading ? '...' : `${totalDeliveryFee.toLocaleString()} XAF`, 
+      value: `${totalDeliveryFee.toLocaleString()} XAF`, 
       icon: <DollarSign size={20} />, 
       tooltipKey: 'deliveryFee', 
-      type: 'delivery',
-      loading: financialCalculations.loading
+      type: 'delivery'
     },
     { 
       title: t('dashboard.stats.totalSalesAmount'), 
-      value: financialCalculations.loading ? '...' : `${totalSalesAmount.toLocaleString()} XAF`, 
+      value: `${totalSalesAmount.toLocaleString()} XAF`, 
       icon: <ShoppingCart size={20} />, 
       tooltipKey: 'totalSalesAmount', 
-      type: 'sales',
-      loading: financialCalculations.loading
+      type: 'sales'
     },
     { 
       title: t('dashboard.stats.totalSalesCount'), 
-      value: financialCalculations.loading ? '...' : totalOrders, 
+      value: totalOrders, 
       icon: <ShoppingCart size={20} />, 
       tooltipKey: 'totalSalesCount', 
-      type: 'sales',
-      loading: financialCalculations.loading
+      type: 'sales'
     },
     { 
       title: t('dashboard.stats.totalPurchasePrice'), 
-      value: financialCalculations.loading ? '...' : `${totalPurchasePrice.toLocaleString()} XAF`, 
+      value: `${totalPurchasePrice.toLocaleString()} XAF`, 
       icon: <DollarSign size={20} />, 
       tooltipKey: 'totalPurchasePrice', 
-      type: 'products',
-      loading: financialCalculations.loading
+      type: 'products'
     },
   ];
 
@@ -301,10 +337,8 @@ const Finance: React.FC = () => {
     setModalOpen(true);
     setModalLoading(true);
     
-    // 🚀 NEW: Use cached entry types from reference data
-    const types = referenceData.entryTypes.length > 0 
-      ? referenceData.entryTypes 
-      : await getFinanceEntryTypes(user.uid);
+    // 🚀 REVERTED: Back to direct fetch of entry types
+    const types = await getFinanceEntryTypes(user.uid);
     
     setEntryTypes(types.map(typeObj => ({ label: t(`finance.types.${typeObj.name}`, typeObj.name), value: typeObj.name })));
     if (editEntry) {
@@ -460,68 +494,56 @@ const Finance: React.FC = () => {
           {/* Primary metrics - full width on mobile */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             {/* Balance - most important */}
-            {financialCalculations.loading ? (
-              <SkeletonFinancialBalance />
-            ) : (
-              <div className="bg-gradient-to-r from-green-50 to-green-100 border-2 border-green-200 rounded-xl p-4 shadow-sm">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <DollarSign size={20} className="text-green-600" />
-                    <span className="font-semibold text-green-800">{t('dashboard.stats.solde')}</span>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-2xl md:text-3xl font-bold text-green-900">
-                      {solde.toLocaleString()} XAF
-                    </div>
+            <div className="bg-gradient-to-r from-green-50 to-green-100 border-2 border-green-200 rounded-xl p-4 shadow-sm">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <DollarSign size={20} className="text-green-600" />
+                  <span className="font-semibold text-green-800">{t('dashboard.stats.solde')}</span>
+                </div>
+                <div className="text-right">
+                  <div className="text-2xl md:text-3xl font-bold text-green-900">
+                    {solde.toLocaleString()} XAF
                   </div>
                 </div>
               </div>
-            )}
+            </div>
             
             {/* Debt - second most important */}
-            {financialCalculations.loading ? (
-              <SkeletonDebtCard />
-            ) : (
-              <div className="bg-gradient-to-r from-red-50 to-red-100 border-2 border-red-200 rounded-xl p-4 shadow-sm">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <Receipt size={20} className="text-red-600" />
-                    <span className="font-semibold text-red-800">{t('finance.debtCardTitle', 'Outstanding Debt')}</span>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-2xl md:text-3xl font-bold text-red-900">
-                      {totalDebt.toLocaleString()} XAF
-                    </div>
+            <div className="bg-gradient-to-r from-red-50 to-red-100 border-2 border-red-200 rounded-xl p-4 shadow-sm">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <Receipt size={20} className="text-red-600" />
+                  <span className="font-semibold text-red-800">{t('finance.debtCardTitle', 'Outstanding Debt')}</span>
+                </div>
+                <div className="text-right">
+                  <div className="text-2xl md:text-3xl font-bold text-red-900">
+                    {totalDebt.toLocaleString()} XAF
                   </div>
                 </div>
-                <Button 
-                  variant="outline" 
-                  onClick={() => setShowDebtHistoryModal(true)} 
-                  className="w-full text-xs px-3 py-1 mt-2 border-red-300 text-red-700 hover:bg-red-50"
-                >
-                  {t('finance.viewHistory', 'View History')}
-                </Button>
               </div>
-            )}
+              <Button 
+                variant="outline" 
+                onClick={() => setShowDebtHistoryModal(true)} 
+                className="w-full text-xs px-3 py-1 mt-2 border-red-300 text-red-700 hover:bg-red-50"
+              >
+                {t('finance.viewHistory', 'View History')}
+              </Button>
+            </div>
           </div>
 
           {/* Objectives - collapsible on mobile */}
           <div className="mb-4">
-            {financialCalculations.loading ? (
-              <SkeletonObjectivesBar />
-            ) : (
-              <ObjectivesBar
-                onAdd={() => setShowObjectivesModal(true)}
-                onView={() => setShowObjectivesModal(true)}
-                stats={statsMap}
-                dateRange={dateRange}
-                applyDateFilter={applyDateFilter}
-                onToggleFilter={setApplyDateFilter}
-                sales={sales}
-                expenses={expenses}
-                products={products}
-              />
-            )}
+            <ObjectivesBar
+              onAdd={() => setShowObjectivesModal(true)}
+              onView={() => setShowObjectivesModal(true)}
+              stats={statsMap}
+              dateRange={dateRange}
+              applyDateFilter={applyDateFilter}
+              onToggleFilter={setApplyDateFilter}
+              sales={sales}
+              expenses={expenses}
+              products={products}
+            />
             {showObjectivesModal && (
               <ObjectivesModal
                 isOpen={showObjectivesModal}
@@ -553,42 +575,33 @@ const Finance: React.FC = () => {
             </Button>
           </div>
           
-          {/* Sync Indicator for reference data */}
-          <SyncIndicator 
-            isSyncing={referenceData.syncing} 
-            message="Updating financial reference data..." 
-            className="mt-4"
-          />
+          {/* Removed Sync Indicator - back to original approach */}
         </div>
         {/* Additional stats - collapsible on mobile */}
         <div className="mb-6">
-          {financialCalculations.loading ? (
-            <SkeletonFinancialCalculations />
-          ) : (
-            <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
-              <div className="p-4 border-b border-gray-100">
-                <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                  <BarChart2 size={20} />
-                  {t('finance.additionalStats', 'Additional Statistics')}
-                </h3>
-              </div>
-              <div className="p-4">
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  {statCards.map((stat) => (
-                    <div key={stat.title} className="bg-gray-50 rounded-lg p-3 text-center">
-                      <div className="flex items-center justify-center mb-1">
-                        {stat.icon}
-                      </div>
-                      <div className="text-xs text-gray-600 mb-1">{stat.title}</div>
-                      <div className="text-sm font-semibold text-gray-900 break-words">
-                        {typeof stat.value === 'string' ? stat.value : String(stat.value)}
-                      </div>
+          <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
+            <div className="p-4 border-b border-gray-100">
+              <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                <BarChart2 size={20} />
+                {t('finance.additionalStats', 'Additional Statistics')}
+              </h3>
+            </div>
+            <div className="p-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                {statCards.map((stat) => (
+                  <div key={stat.title} className="bg-gray-50 rounded-lg p-3 text-center">
+                    <div className="flex items-center justify-center mb-1">
+                      {stat.icon}
                     </div>
-                  ))}
-                </div>
+                    <div className="text-xs text-gray-600 mb-1">{stat.title}</div>
+                    <div className="text-sm font-semibold text-gray-900 break-words">
+                      {typeof stat.value === 'string' ? stat.value : String(stat.value)}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
-          )}
+          </div>
         </div>
         {/* Mobile-optimized controls */}
         <div className="mb-4 space-y-3">
@@ -659,9 +672,7 @@ const Finance: React.FC = () => {
         </div>
         </div>
         {/* Finance entries - mobile card layout, desktop table */}
-        {loading ? (
-          <SkeletonFinancialEntriesTable rows={5} />
-        ) : paginatedEntries.length === 0 ? (
+        {paginatedEntries.length === 0 ? (
           <div className="bg-white rounded-lg shadow-sm border border-gray-200">
             <div className="text-gray-400 text-center py-8">{t('finance.noEntries')}</div>
           </div>

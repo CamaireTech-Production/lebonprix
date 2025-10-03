@@ -5,6 +5,7 @@ import AuthLayout from './components/layout/AuthLayout';
 import MainLayout from './components/layout/MainLayout';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import LoadingScreen from './components/common/LoadingScreen';
+import LazyPage from './components/common/LazyPage';
 import { Toaster } from 'react-hot-toast';
 import { FloatingActionButton } from './components/common/Button';
 import AddSaleModal from './components/sales/AddSaleModal';
@@ -58,24 +59,24 @@ function AppWithFAB({ isAddSaleModalOpen, setIsAddSaleModalOpen }: { isAddSaleMo
         <Routes>
           {/* Auth Routes */}
           <Route element={<AuthLayout />}>
-            <Route path="/auth/login" element={<Login />} />
-            <Route path="/auth/register" element={<Register />} />
+            <Route path="/auth/login" element={<LazyPage><Login /></LazyPage>} />
+            <Route path="/auth/register" element={<LazyPage><Register /></LazyPage>} />
           </Route>
           {/* Public Routes */}
-          <Route path="/track/:id" element={<TimelinePage />} />
-          <Route path="/company/:companyId/products" element={<CompanyProducts />} />
+          <Route path="/track/:id" element={<LazyPage><TimelinePage /></LazyPage>} />
+          <Route path="/company/:companyId/products" element={<LazyPage><CompanyProducts /></LazyPage>} />
           {/* Protected Routes */}
           <Route element={<ProtectedRoute />}>
             <Route element={<MainLayout />}>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/sales" element={<Sales />} />
-              <Route path="/expenses" element={<Expenses />} />
+              <Route path="/" element={<LazyPage><Dashboard /></LazyPage>} />
+              <Route path="/sales" element={<LazyPage><Sales /></LazyPage>} />
+              <Route path="/expenses" element={<LazyPage><Expenses /></LazyPage>} />
               <Route path="/finance" element={<Finance />} />
-              <Route path="/products" element={<Products />} />
-              <Route path="/suppliers" element={<Suppliers />} />
-              <Route path="/reports" element={<Reports />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="/fifo-debugger" element={<FIFODebugger />} />
+              <Route path="/products" element={<LazyPage><Products /></LazyPage>} />
+              <Route path="/suppliers" element={<LazyPage><Suppliers /></LazyPage>} />
+              <Route path="/reports" element={<LazyPage><Reports /></LazyPage>} />
+              <Route path="/settings" element={<LazyPage><Settings /></LazyPage>} />
+              <Route path="/fifo-debugger" element={<LazyPage><FIFODebugger /></LazyPage>} />
             </Route>
           </Route>
           {/* Redirect to login if no route matches */}

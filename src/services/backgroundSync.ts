@@ -35,6 +35,19 @@ class BackgroundSyncService {
       // Check if sync is needed
       if (!ProductsManager.needsSync(userId)) {
         console.log(`✅ Products data is fresh, skipping sync: ${userId}`);
+        
+        // Still notify callback that sync is complete (data is fresh)
+        const callback = this.syncCallbacks.get(key);
+        if (callback) {
+          const localProducts = ProductsManager.load(userId);
+          if (localProducts) {
+            callback(localProducts);
+          }
+        }
+        
+        // Clean up
+        this.syncInProgress.delete(key);
+        this.syncCallbacks.delete(key);
         return;
       }
 
@@ -49,6 +62,17 @@ class BackgroundSyncService {
         if (localProducts && !ProductsManager.hasChanged(localProducts, freshProducts)) {
           console.log(`✅ Products data unchanged, updating sync timestamp only`);
           ProductsManager.updateLastSync(userId);
+          
+          // Still notify callback that sync is complete (even if no data change)
+          const callback = this.syncCallbacks.get(key);
+          if (callback) {
+            callback(freshProducts);
+          }
+          
+          // Clean up
+          unsubscribe();
+          this.syncInProgress.delete(key);
+          this.syncCallbacks.delete(key);
           return;
         }
 
@@ -129,6 +153,19 @@ class BackgroundSyncService {
       // Check if sync is needed
       if (!SalesManager.needsSync(userId)) {
         console.log(`✅ Sales data is fresh, skipping sync: ${userId}`);
+        
+        // Still notify callback that sync is complete (data is fresh)
+        const callback = this.syncCallbacks.get(key);
+        if (callback) {
+          const localSales = SalesManager.load(userId);
+          if (localSales) {
+            callback(localSales);
+          }
+        }
+        
+        // Clean up
+        this.syncInProgress.delete(key);
+        this.syncCallbacks.delete(key);
         return;
       }
 
@@ -143,6 +180,17 @@ class BackgroundSyncService {
         if (localSales && !SalesManager.hasChanged(localSales, freshSales)) {
           console.log(`✅ Sales data unchanged, updating sync timestamp only`);
           SalesManager.updateLastSync(userId);
+          
+          // Still notify callback that sync is complete (even if no data change)
+          const callback = this.syncCallbacks.get(key);
+          if (callback) {
+            callback(freshSales);
+          }
+          
+          // Clean up
+          unsubscribe();
+          this.syncInProgress.delete(key);
+          this.syncCallbacks.delete(key);
           return;
         }
 
@@ -223,6 +271,19 @@ class BackgroundSyncService {
       // Check if sync is needed
       if (!ExpensesManager.needsSync(userId)) {
         console.log(`✅ Expenses data is fresh, skipping sync: ${userId}`);
+        
+        // Still notify callback that sync is complete (data is fresh)
+        const callback = this.syncCallbacks.get(key);
+        if (callback) {
+          const localExpenses = ExpensesManager.load(userId);
+          if (localExpenses) {
+            callback(localExpenses);
+          }
+        }
+        
+        // Clean up
+        this.syncInProgress.delete(key);
+        this.syncCallbacks.delete(key);
         return;
       }
 
@@ -237,6 +298,17 @@ class BackgroundSyncService {
         if (localExpenses && !ExpensesManager.hasChanged(localExpenses, freshExpenses)) {
           console.log(`✅ Expenses data unchanged, updating sync timestamp only`);
           ExpensesManager.updateLastSync(userId);
+          
+          // Still notify callback that sync is complete (even if no data change)
+          const callback = this.syncCallbacks.get(key);
+          if (callback) {
+            callback(freshExpenses);
+          }
+          
+          // Clean up
+          unsubscribe();
+          this.syncInProgress.delete(key);
+          this.syncCallbacks.delete(key);
           return;
         }
 
