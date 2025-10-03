@@ -43,11 +43,17 @@ const Finance: React.FC = () => {
   const { stockChanges } = useStockChanges();
   const { suppliers } = useSuppliers();
   
+  // Date range filter (default: from beginning of 2025 to current date) - MOVED UP
+  const [dateRange, setDateRange] = useState({
+    from: new Date(2025, 0, 1), // January 1st, 2025
+    to: new Date(), // Current date
+  });
+  
   // 🚀 NEW: Hybrid financial data hook
   const { 
     financialCalculations, 
     referenceData 
-  } = useFinancialData();
+  } = useFinancialData(dateRange);
 
   useCustomers(); // Only call the hook for side effects if needed, but don't destructure unused values
   const { user } = useAuth();
@@ -65,11 +71,6 @@ const Finance: React.FC = () => {
     refundedDebtId: '', // NEW
   });
   const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; entryId: string | null; entryType?: string; sourceType?: string } | null>({ open: false, entryId: null });
-  // Date range filter (default: from beginning of 2025 to current date)
-  const [dateRange, setDateRange] = useState({
-    from: new Date(2025, 0, 1), // January 1st, 2025
-    to: new Date(), // Current date
-  });
   // Other filters
   const [filterType, setFilterType] = useState<string>('');
   const [filterSearch, setFilterSearch] = useState('');

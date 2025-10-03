@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useFinanceEntries, useSales, useExpenses, useProducts, useStockChanges } from './useFirestore';
 import FinanceEntryTypesManager from '../services/storage/FinanceEntryTypesManager';
 import BackgroundSyncService from '../services/backgroundSync';
+import { getLatestCostPrice } from '../utils/productUtils';
 import type { FinanceEntryType } from '../types/models';
 
 interface UseFinancialDataReturn {
@@ -34,7 +35,7 @@ interface UseFinancialDataReturn {
   refreshReferenceData: () => void;
 }
 
-export const useFinancialData = (): UseFinancialDataReturn => {
+export const useFinancialData = (dateRange: { from: Date; to: Date } = { from: new Date(2025, 0, 1), to: new Date() }): UseFinancialDataReturn => {
   const { user } = useAuth();
   
   // Real-time data hooks (always fresh)
@@ -70,8 +71,28 @@ export const useFinancialData = (): UseFinancialDataReturn => {
   useEffect(() => {
     if (calculationsLoading) return;
     
-    // Calculate profit (gross profit: selling price - purchase price) * quantity for all sales
-    const profit = sales.reduce((sum, sale) => {
+    // Filter data by date range
+    const filteredSales = sales.filter(sale => {
+      if (!sale.createdAt?.seconds) return false;
+      const saleDate = new Date(sale.createdAt.seconds * 1000);
+      return saleDate >= dateRange.from && saleDate <= dateRange.to;
+    });
+    
+    const filteredExpenses = expenses.filter(exp => {
+      if (exp.isAvailable === false) return false;
+      if (!exp.createdAt?.seconds) return false;
+      const expDate = new Date(exp.createdAt.seconds * 1000);
+      return expDate >= dateRange.from && expDate <= dateRange.to;
+    });
+    
+    const filteredFinanceEntries = financeEntries.filter(entry => 
+      !entry.isDeleted && entry.createdAt?.seconds && 
+      new Date(entry.createdAt.seconds * 1000) >= dateRange.from && 
+      new Date(entry.createdAt.seconds * 1000) <= dateRange.to
+    );
+    
+    // Calculate profit (gross profit: selling price - purchase price) * quantity for filtered sales
+    const profit = filteredSales.reduce((sum, sale) => {
       return sum + sale.products.reduce((productSum, product) => {
         const productData = products.find(p => p.id === product.productId);
         if (!productData) return productSum;
@@ -83,23 +104,24 @@ export const useFinancialData = (): UseFinancialDataReturn => {
       }, 0);
     }, 0);
     
-    // Calculate total expenses
-    const totalExpenses = expenses.reduce((sum, exp) => sum + exp.amount, 0) + 
-      financeEntries.filter(e => e.amount < 0).reduce((sum, e) => sum + Math.abs(e.amount), 0);
+    // Calculate total expenses (filtered expenses + manual negative entries)
+    const filteredManualEntries = filteredFinanceEntries.filter(entry => entry.sourceType === 'manual');
+    const totalExpenses = filteredExpenses.reduce((sum, exp) => sum + exp.amount, 0) + 
+      filteredManualEntries.filter(e => e.amount < 0).reduce((sum, e) => sum + Math.abs(e.amount), 0);
     
-    // Total orders
-    const totalOrders = sales.length;
+    // Total orders (filtered)
+    const totalOrders = filteredSales.length;
     
-    // Total delivery fee (from sales)
-    const totalDeliveryFee = sales.reduce((sum, sale) => sum + (sale.deliveryFee || 0), 0);
+    // Total delivery fee (from filtered sales)
+    const totalDeliveryFee = filteredSales.reduce((sum, sale) => sum + (sale.deliveryFee || 0), 0);
     
-    // Total sales amount
-    const totalSalesAmount = sales.reduce((sum, sale) => sum + sale.totalAmount, 0);
+    // Total sales amount (filtered)
+    const totalSalesAmount = filteredSales.reduce((sum, sale) => sum + sale.totalAmount, 0);
     
-    // Total products sold (sum of all product quantities in sales)
-    const totalProductsSold = sales.reduce((sum, sale) => sum + sale.products.reduce((pSum, p) => pSum + p.quantity, 0), 0);
+    // Total products sold (sum of all product quantities in filtered sales)
+    const totalProductsSold = filteredSales.reduce((sum, sale) => sum + sale.products.reduce((pSum, p) => pSum + p.quantity, 0), 0);
     
-    // Calculate total purchase price for all products in stock
+    // Calculate total purchase price for all products in stock (this is not date-filtered as it's current stock)
     const totalPurchasePrice = products.reduce((sum, product) => {
       const safeStockChanges = Array.isArray(stockChanges) ? stockChanges : [];
       const costPrice = getLatestCostPrice(product.id, safeStockChanges);
@@ -107,13 +129,13 @@ export const useFinancialData = (): UseFinancialDataReturn => {
       return sum + (costPrice * product.stock);
     }, 0);
     
-    // Calculate solde: sum of all non-debt/refund entries
-    const nonDebtEntries = financeEntries.filter(
+    // Calculate solde: sum of all non-debt/refund entries (filtered by date)
+    const nonDebtEntries = filteredFinanceEntries.filter(
       (entry) => entry.type !== 'debt' && entry.type !== 'refund' && entry.type !== 'supplier_debt' && entry.type !== 'supplier_refund'
     );
     const solde = nonDebtEntries.reduce((sum, entry) => sum + entry.amount, 0);
     
-    // Calculate total debt
+    // Calculate total debt (all debt entries, not date-filtered as debt is ongoing)
     const debtEntries = financeEntries.filter(entry => entry.type === 'debt' || entry.type === 'supplier_debt');
     const refundEntries = financeEntries.filter(entry => entry.type === 'refund' || entry.type === 'supplier_refund');
     const totalDebt = debtEntries.reduce((sum, debt) => {
@@ -137,7 +159,21 @@ export const useFinancialData = (): UseFinancialDataReturn => {
       solde,
       totalDebt
     });
-  }, [sales, expenses, products, stockChanges, financeEntries, calculationsLoading]);
+    
+    // Debug logging
+    console.log('🔍 Financial Calculations Updated:', {
+      dateRange: `${dateRange.from.toISOString().split('T')[0]} to ${dateRange.to.toISOString().split('T')[0]}`,
+      filteredSales: filteredSales.length,
+      filteredExpenses: filteredExpenses.length,
+      filteredFinanceEntries: filteredFinanceEntries.length,
+      profit,
+      totalExpenses,
+      totalSalesAmount,
+      totalOrders,
+      solde,
+      totalDebt
+    });
+  }, [sales, expenses, products, stockChanges, financeEntries, calculationsLoading, dateRange]);
   
   // Load reference data from localStorage with background sync
   useEffect(() => {
@@ -195,15 +231,6 @@ export const useFinancialData = (): UseFinancialDataReturn => {
     refreshCalculations,
     refreshReferenceData
   };
-};
-
-// Helper function to get latest cost price (imported from utils)
-const getLatestCostPrice = (productId: string, stockChanges: any[]): number | undefined => {
-  const productStockChanges = stockChanges
-    .filter(change => change.productId === productId && change.costPrice !== undefined)
-    .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
-  
-  return productStockChanges.length > 0 ? productStockChanges[0].costPrice : undefined;
 };
 
 export default useFinancialData;
