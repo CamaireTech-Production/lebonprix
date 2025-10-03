@@ -6,11 +6,13 @@ import Table from '../components/common/Table';
 import Badge from '../components/common/Badge';
 import Modal, { ModalFooter } from '../components/common/Modal';
 import Input from '../components/common/Input';
-import { useExpenses } from '../hooks/useFirestore';
+import { useInfiniteExpenses } from '../hooks/useInfiniteExpenses';
+import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 import CreatableSelect from '../components/common/CreatableSelect';
 import { getExpenseTypes, createExpenseType } from '../services/firestore';
 import { softDeleteExpense } from '../services/firestore';
 import LoadingScreen from '../components/common/LoadingScreen';
+import SyncIndicator from '../components/common/SyncIndicator';
 import { showSuccessToast, showErrorToast, showWarningToast } from '../utils/toast';
 import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
@@ -21,7 +23,25 @@ type CategoryKey = 'transportation' | 'purchase' | 'other';
 const Expenses = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const { expenses, loading, error, addExpense, updateExpense } = useExpenses();
+  const { 
+    expenses, 
+    loading, 
+    loadingMore: expensesLoadingMore,
+    syncing: expensesSyncing,
+    hasMore: expensesHasMore,
+    error, 
+    loadMore: loadMoreExpenses,
+    refresh: refreshExpenses
+  } = useInfiniteExpenses();
+  
+  // Infinite scroll for expenses
+  useInfiniteScroll({
+    hasMore: expensesHasMore,
+    loading: expensesLoadingMore,
+    onLoadMore: loadMoreExpenses,
+    threshold: 300 // Load more when 300px from bottom
+  });
+  
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [currentExpense, setCurrentExpense] = useState<Expense | null>(null);
@@ -256,6 +276,13 @@ const Expenses = () => {
           <p className="text-gray-600">{t('expenses.subtitle')}</p>
         </div>
         
+        {/* Sync Indicator */}
+        <SyncIndicator 
+          isSyncing={expensesSyncing} 
+          message="Updating expenses..." 
+          className="mb-4"
+        />
+        
         <div className="mt-4 md:mt-0 flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
           <select
             className="rounded-md border border-gray-300 shadow-sm py-2 px-3 bg-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
@@ -315,6 +342,19 @@ const Expenses = () => {
           keyExtractor={(expense) => expense.id}
           emptyMessage={t('expenses.messages.noExpenses')}
         />
+        
+        {/* Infinite Scroll Loading Indicator */}
+        {expensesLoadingMore && (
+          <div className="flex justify-center items-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
+            <span className="ml-3 text-gray-600">Loading more expenses...</span>
+          </div>
+        )}
+        {!expensesHasMore && expenses.length > 0 && (
+          <div className="text-center py-6 text-gray-500">
+            <p>✅ All expenses loaded ({expenses.length} total)</p>
+          </div>
+        )}
       </Card>
       {/* Mobile spacing for floating action button */}
       <div className="h-20 md:hidden"></div>

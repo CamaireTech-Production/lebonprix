@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import Button from '../components/common/Button';
 import { useFinanceEntries, useProducts, useSales, useExpenses, useCustomers, useStockChanges, useSuppliers } from '../hooks/useFirestore';
+import { useFinancialData } from '../hooks/useFinancialData';
 import { useObjectives } from '../hooks/useObjectives';
 import { format } from 'date-fns';
 import Modal, { ModalFooter } from '../components/common/Modal';
@@ -17,6 +18,14 @@ import ObjectivesModal from '../components/objectives/ObjectivesModal';
 import { showSuccessToast, showErrorToast } from '../utils/toast';
 import type { FinanceEntry } from '../types/models';
 import { getLatestCostPrice } from '../utils/productUtils';
+import SyncIndicator from '../components/common/SyncIndicator';
+import { 
+  SkeletonFinancialBalance, 
+  SkeletonDebtCard, 
+  SkeletonFinancialCalculations,
+  SkeletonFinancialEntriesTable,
+  SkeletonObjectivesBar 
+} from '../components/common/FinancialSkeletonLoaders';
 
 type CustomerDebt = {
   phone: string;
@@ -33,6 +42,12 @@ const Finance: React.FC = () => {
   const { products, loading: productsLoading } = useProducts();
   const { stockChanges } = useStockChanges();
   const { suppliers } = useSuppliers();
+  
+  // 🚀 NEW: Hybrid financial data hook
+  const { 
+    financialCalculations, 
+    referenceData 
+  } = useFinancialData();
 
   useCustomers(); // Only call the hook for side effects if needed, but don't destructure unused values
   const { user } = useAuth();
@@ -133,45 +148,11 @@ const Finance: React.FC = () => {
     };
   }, [effectiveEntries]);
 
-  // Calculate total remaining debt (sum of each debt minus its refunds)
-  const totalDebt = useMemo<number>(() => {
-    return userDebt.debtEntries.reduce((sum: number, debt: FinanceEntry) => {
-      const linkedRefunds = userDebt.refundEntries.filter(
-        (refund: FinanceEntry) => {
-          const match = refund.refundedDebtId && String(refund.refundedDebtId) === String(debt.id);
-          return match;
-        }
-      );
-      const refundedAmount = linkedRefunds.reduce((s: number, r: FinanceEntry) => s + r.amount, 0);
-      return sum + Math.max(0, debt.amount - refundedAmount);
-    }, 0);
-  }, [userDebt.debtEntries, userDebt.refundEntries]);
+  // 🚀 REMOVED: Old totalDebt calculation - now using financialCalculations.totalDebt from useFinancialData hook
 
 
 
-  // Calculate solde: sum of all non-debt/refund/supplier_debt/supplier_refund entries plus only customer debt (excluding supplier debt)
-  const solde = useMemo<number>(() => {
-    const nonDebtEntries = filteredFinanceEntries.filter(
-      (entry: FinanceEntry) => entry.type !== 'debt' && entry.type !== 'refund' && entry.type !== 'supplier_debt' && entry.type !== 'supplier_refund'
-    );
-    const nonDebtSum = nonDebtEntries.reduce((sum: number, entry: FinanceEntry) => sum + entry.amount, 0);
-    
-    // Calculate only customer debt (excluding supplier debt)
-    const customerDebt = userDebt.debtEntries
-      .filter(debt => debt.type === 'debt') // Only customer debts, not supplier debts
-      .reduce((sum: number, debt: FinanceEntry) => {
-        const linkedRefunds = userDebt.refundEntries.filter(
-          (refund: FinanceEntry) => {
-            const match = refund.refundedDebtId && String(refund.refundedDebtId) === String(debt.id);
-            return match;
-          }
-        );
-        const refundedAmount = linkedRefunds.reduce((s: number, r: FinanceEntry) => s + r.amount, 0);
-        return sum + Math.max(0, debt.amount - refundedAmount);
-      }, 0);
-    
-    return nonDebtSum + customerDebt;
-  }, [filteredFinanceEntries, userDebt.debtEntries, userDebt.refundEntries]);
+  // 🚀 REMOVED: Old solde calculation - now using financialCalculations.solde from useFinancialData hook
 
   // Filtering logic
   const filteredAndSearchedEntries = useMemo(() => {
@@ -219,49 +200,74 @@ const Finance: React.FC = () => {
     }
   }, [refreshTrigger]);
 
+  // 🚀 HYBRID APPROACH: Only show loading screen if essential data is loading
   if (loading || productsLoading || salesLoading || expensesLoading) {
     return <LoadingScreen />;
   }
 
-  // --- Stat calculations (copied from Dashboard) ---
-  // Calculate profit (gross profit: selling price - purchase price) * quantity for all sales
-  const profit = filteredSales.reduce((sum, sale) => {
-    return sum + sale.products.reduce((productSum, product) => {
-      const productData = products.find(p => p.id === product.productId);
-      if (!productData) return productSum;
-      const sellingPrice = product.negotiatedPrice || product.basePrice;
-      const safeStockChanges = Array.isArray(stockChanges) ? stockChanges : [];
-      const costPrice = getLatestCostPrice(productData.id, safeStockChanges);
-      if (costPrice === undefined) return productSum;
-      return productSum + (sellingPrice - costPrice) * product.quantity;
-    }, 0);
-  }, 0);
-  // Calculate total expenses
-  const totalExpenses = filteredExpenses.reduce((sum, exp) => sum + exp.amount, 0) + filteredManualEntries.filter(e => e.amount < 0).reduce((sum, e) => sum + Math.abs(e.amount), 0);
-  // Total orders
-  const totalOrders = filteredSales.length;
-  // Total delivery fee (from sales)
-  const totalDeliveryFee = filteredSales.reduce((sum, sale) => sum + (sale.deliveryFee || 0), 0);
-  // Total sales amount
-  const totalSalesAmount = filteredSales.reduce((sum, sale) => sum + sale.totalAmount, 0);
-  // Total products sold (sum of all product quantities in filteredSales)
-  const totalProductsSold = filteredSales.reduce((sum, sale) => sum + sale.products.reduce((pSum, p) => pSum + p.quantity, 0), 0);
-  // Calculate total purchase price for all products in stock as of the end of the selected period
-  const totalPurchasePrice = products.reduce((sum, product) => {
-    const safeStockChanges = Array.isArray(stockChanges) ? stockChanges : [];
-    const costPrice = getLatestCostPrice(product.id, safeStockChanges);
-    if (costPrice === undefined) return sum;
-    return sum + (costPrice * product.stock);
-  }, 0);
+  // 🚀 NEW: Use hybrid financial calculations (real-time data with skeleton loaders)
+  const {
+    profit,
+    totalExpenses,
+    totalSalesAmount,
+    totalOrders,
+    totalDeliveryFee,
+    totalProductsSold,
+    totalPurchasePrice,
+    solde,
+    totalDebt
+  } = financialCalculations;
 
-  // Stat cards (dashboard style, now using dashboard logic)
+  // Stat cards with loading states
   const statCards = [
-    { title: t('dashboard.stats.profit'), value: `${profit.toLocaleString()} XAF`, icon: <BarChart2 size={20} />, tooltipKey: 'profit', type: 'profit' },
-    { title: t('dashboard.stats.totalExpenses'), value: `${totalExpenses.toLocaleString()} XAF`, icon: <Receipt size={20} />, tooltipKey: 'totalExpenses', type: 'expenses' },
-    { title: t('dashboard.stats.deliveryFee'), value: `${totalDeliveryFee.toLocaleString()} XAF`, icon: <DollarSign size={20} />, tooltipKey: 'deliveryFee', type: 'delivery' },
-    { title: t('dashboard.stats.totalSalesAmount'), value: `${totalSalesAmount.toLocaleString()} XAF`, icon: <ShoppingCart size={20} />, tooltipKey: 'totalSalesAmount', type: 'sales' },
-    { title: t('dashboard.stats.totalSalesCount'), value: totalOrders, icon: <ShoppingCart size={20} />, tooltipKey: 'totalSalesCount', type: 'sales' },
-    { title: t('dashboard.stats.totalPurchasePrice'), value: `${totalPurchasePrice.toLocaleString()} XAF`, icon: <DollarSign size={20} />, tooltipKey: 'totalPurchasePrice', type: 'products' },
+    { 
+      title: t('dashboard.stats.profit'), 
+      value: financialCalculations.loading ? '...' : `${profit.toLocaleString()} XAF`, 
+      icon: <BarChart2 size={20} />, 
+      tooltipKey: 'profit', 
+      type: 'profit',
+      loading: financialCalculations.loading
+    },
+    { 
+      title: t('dashboard.stats.totalExpenses'), 
+      value: financialCalculations.loading ? '...' : `${totalExpenses.toLocaleString()} XAF`, 
+      icon: <Receipt size={20} />, 
+      tooltipKey: 'totalExpenses', 
+      type: 'expenses',
+      loading: financialCalculations.loading
+    },
+    { 
+      title: t('dashboard.stats.deliveryFee'), 
+      value: financialCalculations.loading ? '...' : `${totalDeliveryFee.toLocaleString()} XAF`, 
+      icon: <DollarSign size={20} />, 
+      tooltipKey: 'deliveryFee', 
+      type: 'delivery',
+      loading: financialCalculations.loading
+    },
+    { 
+      title: t('dashboard.stats.totalSalesAmount'), 
+      value: financialCalculations.loading ? '...' : `${totalSalesAmount.toLocaleString()} XAF`, 
+      icon: <ShoppingCart size={20} />, 
+      tooltipKey: 'totalSalesAmount', 
+      type: 'sales',
+      loading: financialCalculations.loading
+    },
+    { 
+      title: t('dashboard.stats.totalSalesCount'), 
+      value: financialCalculations.loading ? '...' : totalOrders, 
+      icon: <ShoppingCart size={20} />, 
+      tooltipKey: 'totalSalesCount', 
+      type: 'sales',
+      loading: financialCalculations.loading
+    },
+    { 
+      title: t('dashboard.stats.totalPurchasePrice'), 
+      value: financialCalculations.loading ? '...' : `${totalPurchasePrice.toLocaleString()} XAF`, 
+      icon: <DollarSign size={20} />, 
+      tooltipKey: 'totalPurchasePrice', 
+      type: 'products',
+      loading: financialCalculations.loading
+    },
   ];
 
   // Metrics options for objectives
@@ -293,7 +299,12 @@ const Finance: React.FC = () => {
     if (!user) return;
     setModalOpen(true);
     setModalLoading(true);
-    const types = await getFinanceEntryTypes(user.uid);
+    
+    // 🚀 NEW: Use cached entry types from reference data
+    const types = referenceData.entryTypes.length > 0 
+      ? referenceData.entryTypes 
+      : await getFinanceEntryTypes(user.uid);
+    
     setEntryTypes(types.map(typeObj => ({ label: t(`finance.types.${typeObj.name}`, typeObj.name), value: typeObj.name })));
     if (editEntry) {
       if (editEntry.id) {
@@ -448,45 +459,56 @@ const Finance: React.FC = () => {
           {/* Primary metrics - full width on mobile */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             {/* Balance - most important */}
-            <div className="bg-gradient-to-r from-green-50 to-green-100 border-2 border-green-200 rounded-xl p-4 shadow-sm">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <DollarSign size={20} className="text-green-600" />
-                  <span className="font-semibold text-green-800">{t('dashboard.stats.solde')}</span>
-            </div>
-                <div className="text-right">
-                  <div className="text-2xl md:text-3xl font-bold text-green-900">
-                    {solde.toLocaleString()} XAF
+            {financialCalculations.loading ? (
+              <SkeletonFinancialBalance />
+            ) : (
+              <div className="bg-gradient-to-r from-green-50 to-green-100 border-2 border-green-200 rounded-xl p-4 shadow-sm">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <DollarSign size={20} className="text-green-600" />
+                    <span className="font-semibold text-green-800">{t('dashboard.stats.solde')}</span>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-2xl md:text-3xl font-bold text-green-900">
+                      {solde.toLocaleString()} XAF
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
+            )}
             
             {/* Debt - second most important */}
-            <div className="bg-gradient-to-r from-red-50 to-red-100 border-2 border-red-200 rounded-xl p-4 shadow-sm">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <Receipt size={20} className="text-red-600" />
-                  <span className="font-semibold text-red-800">{t('finance.debtCardTitle', 'Outstanding Debt')}</span>
-                </div>
-                <div className="text-right">
-                  <div className="text-2xl md:text-3xl font-bold text-red-900">
-                    {totalDebt.toLocaleString()} XAF
+            {financialCalculations.loading ? (
+              <SkeletonDebtCard />
+            ) : (
+              <div className="bg-gradient-to-r from-red-50 to-red-100 border-2 border-red-200 rounded-xl p-4 shadow-sm">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Receipt size={20} className="text-red-600" />
+                    <span className="font-semibold text-red-800">{t('finance.debtCardTitle', 'Outstanding Debt')}</span>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-2xl md:text-3xl font-bold text-red-900">
+                      {totalDebt.toLocaleString()} XAF
+                    </div>
                   </div>
                 </div>
-              </div>
-              <Button 
-                variant="outline" 
-                onClick={() => setShowDebtHistoryModal(true)} 
-                className="w-full text-xs px-3 py-1 mt-2 border-red-300 text-red-700 hover:bg-red-50"
-              >
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowDebtHistoryModal(true)} 
+                  className="w-full text-xs px-3 py-1 mt-2 border-red-300 text-red-700 hover:bg-red-50"
+                >
                   {t('finance.viewHistory', 'View History')}
                 </Button>
               </div>
-            </div>
+            )}
+          </div>
 
           {/* Objectives - collapsible on mobile */}
           <div className="mb-4">
+            {financialCalculations.loading ? (
+              <SkeletonObjectivesBar />
+            ) : (
               <ObjectivesBar
                 onAdd={() => setShowObjectivesModal(true)}
                 onView={() => setShowObjectivesModal(true)}
@@ -498,27 +520,28 @@ const Finance: React.FC = () => {
                 expenses={expenses}
                 products={products}
               />
-              {showObjectivesModal && (
-                <ObjectivesModal
-                  isOpen={showObjectivesModal}
-                  onClose={() => setShowObjectivesModal(false)}
-                  stats={statsMap}
-                  dateRange={dateRange}
-                  metricsOptions={metricsOptions}
-                  applyDateFilter={applyDateFilter}
-                  sales={sales}
-                  expenses={expenses}
-                  products={products}
-                />
-              )}
-            </div>
+            )}
+            {showObjectivesModal && (
+              <ObjectivesModal
+                isOpen={showObjectivesModal}
+                onClose={() => setShowObjectivesModal(false)}
+                stats={statsMap}
+                dateRange={dateRange}
+                metricsOptions={metricsOptions}
+                applyDateFilter={applyDateFilter}
+                sales={sales}
+                expenses={expenses}
+                products={products}
+              />
+            )}
           </div>
+        </div>
         {/* Date filter and info - same row */}
         <div className="mb-6">
           <div className="flex flex-row gap-3 items-center justify-between">
             <div className="flex-1">
               <DateRangePicker onChange={setDateRange} className="w-full" />
-          </div>
+            </div>
             <Button
               variant="outline"
               icon={<Info size={16} />}
@@ -528,32 +551,43 @@ const Finance: React.FC = () => {
               {t('dashboard.howCalculated')}
             </Button>
           </div>
+          
+          {/* Sync Indicator for reference data */}
+          <SyncIndicator 
+            isSyncing={referenceData.syncing} 
+            message="Updating financial reference data..." 
+            className="mt-4"
+          />
         </div>
         {/* Additional stats - collapsible on mobile */}
         <div className="mb-6">
-          <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
-            <div className="p-4 border-b border-gray-100">
-              <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                <BarChart2 size={20} />
-                {t('finance.additionalStats', 'Additional Statistics')}
-              </h3>
+          {financialCalculations.loading ? (
+            <SkeletonFinancialCalculations />
+          ) : (
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
+              <div className="p-4 border-b border-gray-100">
+                <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                  <BarChart2 size={20} />
+                  {t('finance.additionalStats', 'Additional Statistics')}
+                </h3>
+              </div>
+              <div className="p-4">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {statCards.map((stat) => (
+                    <div key={stat.title} className="bg-gray-50 rounded-lg p-3 text-center">
+                      <div className="flex items-center justify-center mb-1">
+                        {stat.icon}
+                      </div>
+                      <div className="text-xs text-gray-600 mb-1">{stat.title}</div>
+                      <div className="text-sm font-semibold text-gray-900 break-words">
+                        {typeof stat.value === 'string' ? stat.value : String(stat.value)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
-            <div className="p-4">
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-            {statCards.map((stat) => (
-                  <div key={stat.title} className="bg-gray-50 rounded-lg p-3 text-center">
-                    <div className="flex items-center justify-center mb-1">
-                      {stat.icon}
-                    </div>
-                    <div className="text-xs text-gray-600 mb-1">{stat.title}</div>
-                    <div className="text-sm font-semibold text-gray-900 break-words">
-                      {typeof stat.value === 'string' ? stat.value : String(stat.value)}
-                    </div>
-                  </div>
-            ))}
-          </div>
-        </div>
-          </div>
+          )}
         </div>
         {/* Mobile-optimized controls */}
         <div className="mb-4 space-y-3">
@@ -624,14 +658,15 @@ const Finance: React.FC = () => {
         </div>
         </div>
         {/* Finance entries - mobile card layout, desktop table */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-          {loading ? (
-            <div className="text-gray-400 text-center py-8">{t('common.loading')}</div>
-          ) : paginatedEntries.length === 0 ? (
+        {loading ? (
+          <SkeletonFinancialEntriesTable rows={5} />
+        ) : paginatedEntries.length === 0 ? (
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200">
             <div className="text-gray-400 text-center py-8">{t('finance.noEntries')}</div>
-          ) : (
-            <>
-              {/* Desktop table view */}
+          </div>
+        ) : (
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+            {/* Desktop table view */}
               <div className="hidden md:block overflow-x-auto">
                 <table className="w-full text-sm">
               <thead>
@@ -755,9 +790,10 @@ const Finance: React.FC = () => {
                   </div>
                 ))}
               </div>
-            </>
-          )}
-          {/* Mobile-optimized pagination */}
+          </div>
+        )}
+        
+        {/* Mobile-optimized pagination */}
           {totalPages > 1 && (
             <div className="border-t border-gray-100 p-4">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -851,7 +887,6 @@ const Finance: React.FC = () => {
             </div>
           )}
         </div>
-      </div>
       {/* Mobile spacing for floating action button */}
       <div className="h-20 md:hidden"></div>
       {/* Add/Edit Finance Entry Modal, Delete Confirmation Modal, Calculations Modal (unchanged) */}

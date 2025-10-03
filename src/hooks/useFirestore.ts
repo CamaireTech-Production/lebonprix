@@ -24,6 +24,10 @@ import {
   softDeleteSupplier
 } from '../services/firestore';
 import { dataCache, cacheKeys, invalidateSpecificCache } from '../utils/dataCache';
+import ProductsManager from '../services/storage/ProductsManager';
+import SalesManager from '../services/storage/SalesManager';
+import ExpensesManager from '../services/storage/ExpensesManager';
+import BackgroundSyncService from '../services/backgroundSync';
 import type {
   Product,
   Sale,
@@ -53,33 +57,46 @@ function removeUndefined(obj: unknown): unknown {
   return obj;
 }
 
-// Products Hook with Caching
+// Products Hook with localStorage + Background Sync
 export const useProducts = () => {
   const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // Start as false - no loading spinner by default
+  const [syncing, setSyncing] = useState(false); // New state for background sync indicator
   const [error, setError] = useState<Error | null>(null);
   const { user } = useAuth();
 
   useEffect(() => {
     if (!user) return;
     
-    const cacheKey = cacheKeys.products(user.uid);
-    
-    // Check cache first
-    const cachedProducts = dataCache.get<Product[]>(cacheKey);
-    if (cachedProducts) {
-      setProducts(cachedProducts);
-      setLoading(false);
-      console.log('🚀 Products loaded from cache');
+    // 1. Check localStorage FIRST - instant display if data exists
+    const localProducts = ProductsManager.load(user.uid);
+    if (localProducts && localProducts.length > 0) {
+      setProducts(localProducts);
+      setLoading(false); // No loading spinner - data is available
+      setSyncing(true); // Show background sync indicator
+      console.log('🚀 Products loaded instantly from localStorage');
+    } else {
+      setLoading(true); // Only show loading spinner if no cached data
+      console.log('📡 No cached products, loading from Firebase...');
     }
     
+    // 2. Start background sync with Firebase
+    BackgroundSyncService.syncProducts(user.uid, (freshProducts) => {
+      setProducts(freshProducts);
+      setSyncing(false); // Hide background sync indicator
+      setLoading(false); // Ensure loading is false
+      console.log('🔄 Products updated from background sync');
+    });
+
+    // 3. Also maintain real-time subscription for immediate updates
     const unsubscribe = subscribeToProducts(user.uid, (data) => {
       setProducts(data);
       setLoading(false);
+      setSyncing(false);
       
-      // Cache the data for 5 minutes
-      dataCache.set(cacheKey, data, 5 * 60 * 1000);
-      console.log('📦 Products cached for faster loading');
+      // Save to localStorage for future instant loads
+      ProductsManager.save(user.uid, data);
+      console.log('💾 Products saved to localStorage');
     });
 
     return () => unsubscribe();
@@ -99,6 +116,10 @@ export const useProducts = () => {
       await createProduct(productData, user.uid, supplierInfo);
       // Invalidate products cache when new product is added
       invalidateSpecificCache(user.uid, 'products');
+      // Force sync to update localStorage
+      BackgroundSyncService.forceSyncProducts(user.uid, (freshProducts) => {
+        setProducts(freshProducts);
+      });
     } catch (err) {
       setError(err as Error);
       throw err;
@@ -122,6 +143,10 @@ export const useProducts = () => {
       await updateProduct(productId, data, user.uid, stockReason, stockChange, supplierInfo);
       // Invalidate products cache when product is updated
       invalidateSpecificCache(user.uid, 'products');
+      // Force sync to update localStorage
+      BackgroundSyncService.forceSyncProducts(user.uid, (freshProducts) => {
+        setProducts(freshProducts);
+      });
     } catch (err) {
       setError(err as Error);
       throw err;
@@ -136,6 +161,10 @@ export const useProducts = () => {
       setProducts(prev => prev.filter(p => p.id !== productId));
       // Invalidate products cache when product is deleted
       invalidateSpecificCache(user.uid, 'products');
+      // Force sync to update localStorage
+      BackgroundSyncService.forceSyncProducts(user.uid, (freshProducts) => {
+        setProducts(freshProducts);
+      });
     } catch (err) {
       console.error('Error deleting product:', err);
       throw err;
@@ -145,6 +174,7 @@ export const useProducts = () => {
   return {
     products,
     loading,
+    syncing, // Export syncing state for UI indicators
     error,
     addProduct,
     updateProductData,
@@ -198,13 +228,13 @@ export const useCategories = () => {
   return { categories, loading, error, addCategory };
 };
 
-// Sales Hook - PROGRESSIVE LOADING
+// Sales Hook with localStorage + Background Sync
 export const useSales = () => {
   const { user } = useAuth();
   const [sales, setSales] = useState<Sale[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // Start as false - no loading spinner by default
+  const [syncing, setSyncing] = useState(false); // New state for background sync indicator
   const [error, setError] = useState<Error | null>(null);
-  // const [loadingMore, setLoadingMore] = useState(false); // Not used in this hook
 
   // Function to update local state after a sale is modified
   const updateLocalSale = (updatedSale: Sale) => {
@@ -218,33 +248,35 @@ export const useSales = () => {
   useEffect(() => {
     if (!user) return;
     
-    const cacheKey = cacheKeys.sales(user.uid);
-    
-    // Check cache first
-    const cachedSales = dataCache.get<Sale[]>(cacheKey);
-    if (cachedSales) {
-      setSales(cachedSales);
-      setLoading(false);
-      console.log('🚀 Sales loaded from cache');
+    // 1. Check localStorage FIRST - instant display if data exists
+    const localSales = SalesManager.load(user.uid);
+    if (localSales && localSales.length > 0) {
+      setSales(localSales);
+      setLoading(false); // No loading spinner - data is available
+      setSyncing(true); // Show background sync indicator
+      console.log('🚀 Sales loaded instantly from localStorage');
+    } else {
+      setLoading(true); // Only show loading spinner if no cached data
+      console.log('📡 No cached sales, loading from Firebase...');
     }
     
-    // 🚀 PROGRESSIVE LOADING: Start with recent sales for fast UI
-    let isInitialLoad = true;
-    
+    // 2. Start background sync with Firebase
+    BackgroundSyncService.syncSales(user.uid, (freshSales) => {
+      setSales(freshSales);
+      setSyncing(false); // Hide background sync indicator
+      setLoading(false); // Ensure loading is false
+      console.log('🔄 Sales updated from background sync');
+    });
+
+    // 3. Also maintain real-time subscription for immediate updates
     const unsubscribe = subscribeToSales(user.uid, (data) => {
       setSales(data);
+      setLoading(false);
+      setSyncing(false);
       
-      // Cache the data for 3 minutes (sales change more frequently)
-      dataCache.set(cacheKey, data, 3 * 60 * 1000);
-      console.log('📦 Sales cached for faster loading');
-      
-      if (isInitialLoad) {
-        console.log(`✅ Initial sales loaded: ${data.length} items`);
-        setLoading(false);
-        isInitialLoad = false;
-      } else {
-        console.log(`🔄 Sales updated: ${data.length} items`);
-      }
+      // Save to localStorage for future instant loads
+      SalesManager.save(user.uid, data);
+      console.log('💾 Sales saved to localStorage');
     });
 
     return () => unsubscribe();
@@ -259,6 +291,10 @@ export const useSales = () => {
       await syncFinanceEntryWithSale(newSale);
       // Invalidate sales cache when new sale is added
       invalidateSpecificCache(user.uid, 'sales');
+      // Force sync to update localStorage
+      BackgroundSyncService.forceSyncSales(user.uid, (freshSales) => {
+        setSales(freshSales);
+      });
       return newSale;
     } catch (err) {
       setError(err as Error);
@@ -308,6 +344,10 @@ export const useSales = () => {
       
       // Invalidate sales cache when sale is updated
       invalidateSpecificCache(user.uid, 'sales');
+      // Force sync to update localStorage
+      BackgroundSyncService.forceSyncSales(user.uid, (freshSales) => {
+        setSales(freshSales);
+      });
     } catch (err) {
       console.error('Error updating sale:', err);
       throw err;
@@ -379,36 +419,49 @@ export const useSales = () => {
     }
   };
 
-  return { sales, loading, error, addSale, updateSale, deleteSale, updateStatus };
+  return { sales, loading, syncing, error, addSale, updateSale, deleteSale, updateStatus };
 };
 
-// Expenses Hook with Caching
+// Expenses Hook with localStorage + Background Sync
 export const useExpenses = () => {
   const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // Start as false - no loading spinner by default
+  const [syncing, setSyncing] = useState(false); // New state for background sync indicator
   const [error, setError] = useState<Error | null>(null);
   const { user } = useAuth();
 
   useEffect(() => {
     if (!user) return;
     
-    const cacheKey = cacheKeys.expenses(user.uid);
-    
-    // Check cache first
-    const cachedExpenses = dataCache.get<Expense[]>(cacheKey);
-    if (cachedExpenses) {
-      setExpenses(cachedExpenses);
-      setLoading(false);
-      console.log('🚀 Expenses loaded from cache');
+    // 1. Check localStorage FIRST - instant display if data exists
+    const localExpenses = ExpensesManager.load(user.uid);
+    if (localExpenses && localExpenses.length > 0) {
+      setExpenses(localExpenses);
+      setLoading(false); // No loading spinner - data is available
+      setSyncing(true); // Show background sync indicator
+      console.log('🚀 Expenses loaded instantly from localStorage');
+    } else {
+      setLoading(true); // Only show loading spinner if no cached data
+      console.log('📡 No cached expenses, loading from Firebase...');
     }
     
+    // 2. Start background sync with Firebase
+    BackgroundSyncService.syncExpenses(user.uid, (freshExpenses) => {
+      setExpenses(freshExpenses);
+      setSyncing(false); // Hide background sync indicator
+      setLoading(false); // Ensure loading is false
+      console.log('🔄 Expenses updated from background sync');
+    });
+
+    // 3. Also maintain real-time subscription for immediate updates
     const unsubscribe = subscribeToExpenses(user.uid, (data) => {
       setExpenses(data);
       setLoading(false);
+      setSyncing(false);
       
-      // Cache the data for 5 minutes
-      dataCache.set(cacheKey, data, 5 * 60 * 1000);
-      console.log('📦 Expenses cached for faster loading');
+      // Save to localStorage for future instant loads
+      ExpensesManager.save(user.uid, data);
+      console.log('💾 Expenses saved to localStorage');
     });
 
     return () => unsubscribe();
@@ -419,6 +472,10 @@ export const useExpenses = () => {
     try {
       const newExpense = await createExpense({ ...data, userId: user.uid }, user.uid);
       await syncFinanceEntryWithExpense(newExpense);
+      // Force sync to update localStorage
+      BackgroundSyncService.forceSyncExpenses(user.uid, (freshExpenses) => {
+        setExpenses(freshExpenses);
+      });
     } catch (err) {
       setError(err as Error);
       throw err;
@@ -429,13 +486,17 @@ export const useExpenses = () => {
     if (!user) throw new Error('User not authenticated');
     try {
       await updateExpense(id, { ...data, userId: user.uid }, user.uid);
+      // Force sync to update localStorage
+      BackgroundSyncService.forceSyncExpenses(user.uid, (freshExpenses) => {
+        setExpenses(freshExpenses);
+      });
     } catch (err) {
       setError(err as Error);
       throw err;
     }
   };
 
-  return { expenses, loading, error, addExpense, updateExpense: updateExpenseData };
+  return { expenses, loading, syncing, error, addExpense, updateExpense: updateExpenseData };
 };
 
 // Dashboard Stats Hook

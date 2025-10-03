@@ -14,6 +14,7 @@ import { useAllStockBatches } from '../hooks/useStockBatches';
 import { createSupplierDebt, createSupplier } from '../services/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import LoadingScreen from '../components/common/LoadingScreen';
+import SyncIndicator from '../components/common/SyncIndicator';
 import { showSuccessToast, showErrorToast, showWarningToast } from '../utils/toast';
 import imageCompression from 'browser-image-compression';
 import * as Papa from 'papaparse';
@@ -38,6 +39,7 @@ const Products = () => {
     products: infiniteProducts, 
     loading: infiniteLoading, 
     loadingMore, 
+    syncing: infiniteSyncing, // Add syncing state
     hasMore, 
     error: infiniteError, 
     loadMore, 
@@ -1162,6 +1164,13 @@ const Products = () => {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
+        
+        {/* Sync Indicator */}
+        <SyncIndicator 
+          isSyncing={infiniteSyncing} 
+          message="Updating products..." 
+          className="mb-4"
+        />
         
         <div className="flex space-x-2">
           <select
