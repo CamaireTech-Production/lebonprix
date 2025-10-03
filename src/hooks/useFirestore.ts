@@ -23,6 +23,7 @@ import {
   updateSupplier,
   softDeleteSupplier
 } from '../services/firestore';
+import { dataCache, cacheKeys, invalidateSpecificCache } from '../utils/dataCache';
 import type {
   Product,
   Sale,
@@ -41,18 +42,18 @@ import { doc, getDoc, deleteDoc, collection, query, where, orderBy, getDocs, onS
 import { db } from '../services/firebase';
 
 // Utility to deeply remove undefined fields from an object
-function removeUndefined(obj: any): any {
+function removeUndefined(obj: unknown): unknown {
   if (Array.isArray(obj)) {
     return obj.map(removeUndefined);
   } else if (obj && typeof obj === 'object') {
-    return Object.entries(obj)
-      .filter(([_, v]) => v !== undefined)
+    return Object.entries(obj as Record<string, unknown>)
+      .filter(([, v]) => v !== undefined)
       .reduce((acc, [k, v]) => ({ ...acc, [k]: removeUndefined(v) }), {});
   }
   return obj;
 }
 
-// Products Hook
+// Products Hook with Caching
 export const useProducts = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -62,10 +63,23 @@ export const useProducts = () => {
   useEffect(() => {
     if (!user) return;
     
+    const cacheKey = cacheKeys.products(user.uid);
+    
+    // Check cache first
+    const cachedProducts = dataCache.get<Product[]>(cacheKey);
+    if (cachedProducts) {
+      setProducts(cachedProducts);
+      setLoading(false);
+      console.log('🚀 Products loaded from cache');
+    }
+    
     const unsubscribe = subscribeToProducts(user.uid, (data) => {
-      // No need to filter anymore - already filtered by Firebase query
       setProducts(data);
       setLoading(false);
+      
+      // Cache the data for 5 minutes
+      dataCache.set(cacheKey, data, 5 * 60 * 1000);
+      console.log('📦 Products cached for faster loading');
     });
 
     return () => unsubscribe();
@@ -83,6 +97,8 @@ export const useProducts = () => {
     if (!user) throw new Error('User not authenticated');
     try {
       await createProduct(productData, user.uid, supplierInfo);
+      // Invalidate products cache when new product is added
+      invalidateSpecificCache(user.uid, 'products');
     } catch (err) {
       setError(err as Error);
       throw err;
@@ -104,6 +120,8 @@ export const useProducts = () => {
     if (!user) throw new Error('User not authenticated');
     try {
       await updateProduct(productId, data, user.uid, stockReason, stockChange, supplierInfo);
+      // Invalidate products cache when product is updated
+      invalidateSpecificCache(user.uid, 'products');
     } catch (err) {
       setError(err as Error);
       throw err;
@@ -116,6 +134,8 @@ export const useProducts = () => {
     try {
       await deleteDoc(doc(db, 'products', productId));
       setProducts(prev => prev.filter(p => p.id !== productId));
+      // Invalidate products cache when product is deleted
+      invalidateSpecificCache(user.uid, 'products');
     } catch (err) {
       console.error('Error deleting product:', err);
       throw err;
@@ -127,12 +147,12 @@ export const useProducts = () => {
     loading,
     error,
     addProduct,
-    updateProduct,
+    updateProductData,
     deleteProduct
   };
 };
 
-// Categories Hook
+// Categories Hook with Caching
 export const useCategories = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -142,10 +162,23 @@ export const useCategories = () => {
   useEffect(() => {
     if (!user) return;
     
+    const cacheKey = cacheKeys.categories(user.uid);
+    
+    // Check cache first
+    const cachedCategories = dataCache.get<Category[]>(cacheKey);
+    if (cachedCategories) {
+      setCategories(cachedCategories);
+      setLoading(false);
+      console.log('🚀 Categories loaded from cache');
+    }
+    
     const unsubscribe = subscribeToCategories(user.uid, (data) => {
-      // No need to filter anymore - already filtered by Firebase query
       setCategories(data);
       setLoading(false);
+      
+      // Cache the data for 10 minutes (categories change rarely)
+      dataCache.set(cacheKey, data, 10 * 60 * 1000);
+      console.log('📦 Categories cached for faster loading');
     });
 
     return () => unsubscribe();
@@ -171,7 +204,7 @@ export const useSales = () => {
   const [sales, setSales] = useState<Sale[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-  const [loadingMore, setLoadingMore] = useState(false);
+  // const [loadingMore, setLoadingMore] = useState(false); // Not used in this hook
 
   // Function to update local state after a sale is modified
   const updateLocalSale = (updatedSale: Sale) => {
@@ -185,11 +218,25 @@ export const useSales = () => {
   useEffect(() => {
     if (!user) return;
     
+    const cacheKey = cacheKeys.sales(user.uid);
+    
+    // Check cache first
+    const cachedSales = dataCache.get<Sale[]>(cacheKey);
+    if (cachedSales) {
+      setSales(cachedSales);
+      setLoading(false);
+      console.log('🚀 Sales loaded from cache');
+    }
+    
     // 🚀 PROGRESSIVE LOADING: Start with recent sales for fast UI
     let isInitialLoad = true;
     
     const unsubscribe = subscribeToSales(user.uid, (data) => {
       setSales(data);
+      
+      // Cache the data for 3 minutes (sales change more frequently)
+      dataCache.set(cacheKey, data, 3 * 60 * 1000);
+      console.log('📦 Sales cached for faster loading');
       
       if (isInitialLoad) {
         console.log(`✅ Initial sales loaded: ${data.length} items`);
@@ -210,6 +257,8 @@ export const useSales = () => {
     try {
       const newSale = await createSale({ ...data, userId: user.uid }, user.uid);
       await syncFinanceEntryWithSale(newSale);
+      // Invalidate sales cache when new sale is added
+      invalidateSpecificCache(user.uid, 'sales');
       return newSale;
     } catch (err) {
       setError(err as Error);
@@ -245,17 +294,20 @@ export const useSales = () => {
       const cleanedSale = removeUndefined(updatedSale);
 
       // Update in Firestore
-      await updateSaleDocument(saleId, cleanedSale, user.uid);
+      await updateSaleDocument(saleId, cleanedSale as Partial<Sale>, user.uid);
       
       // Create a complete sale object with ID for finance sync
       const saleForSync = {
-        ...cleanedSale,
+        ...(cleanedSale as Sale),
         id: saleId
       };
       await syncFinanceEntryWithSale(saleForSync);
 
       // Update local state
       updateLocalSale(saleForSync);
+      
+      // Invalidate sales cache when sale is updated
+      invalidateSpecificCache(user.uid, 'sales');
     } catch (err) {
       console.error('Error updating sale:', err);
       throw err;
@@ -280,7 +332,7 @@ export const useSales = () => {
     }
   };
 
-  const deleteSale = async (saleId: string, userId: string) => {
+  const deleteSale = async (saleId: string) => {
     if (!user) throw new Error('User not authenticated');
     
     try {
@@ -330,7 +382,7 @@ export const useSales = () => {
   return { sales, loading, error, addSale, updateSale, deleteSale, updateStatus };
 };
 
-// Expenses Hook
+// Expenses Hook with Caching
 export const useExpenses = () => {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
@@ -340,10 +392,23 @@ export const useExpenses = () => {
   useEffect(() => {
     if (!user) return;
     
+    const cacheKey = cacheKeys.expenses(user.uid);
+    
+    // Check cache first
+    const cachedExpenses = dataCache.get<Expense[]>(cacheKey);
+    if (cachedExpenses) {
+      setExpenses(cachedExpenses);
+      setLoading(false);
+      console.log('🚀 Expenses loaded from cache');
+    }
+    
     const unsubscribe = subscribeToExpenses(user.uid, (data) => {
-      // No need to filter anymore - already filtered by Firebase query
       setExpenses(data);
       setLoading(false);
+      
+      // Cache the data for 5 minutes
+      dataCache.set(cacheKey, data, 5 * 60 * 1000);
+      console.log('📦 Expenses cached for faster loading');
     });
 
     return () => unsubscribe();
@@ -414,17 +479,32 @@ export const useDashboardStats = () => {
   return { stats, loading, error };
 };
 
-// Stock Changes Hook
+// Stock Changes Hook with Caching
 export const useStockChanges = () => {
   const { user } = useAuth();
-  const [stockChanges, setStockChanges] = useState<any[]>([]);
+  const [stockChanges, setStockChanges] = useState<unknown[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!user) return;
+    
+    const cacheKey = cacheKeys.stockChanges(user.uid);
+    
+    // Check cache first
+    const cachedStockChanges = dataCache.get<unknown[]>(cacheKey);
+    if (cachedStockChanges) {
+      setStockChanges(cachedStockChanges);
+      setLoading(false);
+      console.log('🚀 Stock changes loaded from cache');
+    }
+    
     const unsubscribe = subscribeToStockChanges(user.uid, (data) => {
       setStockChanges(data);
       setLoading(false);
+      
+      // Cache the data for 3 minutes (stock changes frequently)
+      dataCache.set(cacheKey, data, 3 * 60 * 1000);
+      console.log('📦 Stock changes cached for faster loading');
     });
     return () => unsubscribe();
   }, [user]);
@@ -484,7 +564,7 @@ export const useFinanceEntries = () => {
   return { entries, loading };
 };
 
-// Suppliers Hook
+// Suppliers Hook with Caching
 export const useSuppliers = () => {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
@@ -494,11 +574,25 @@ export const useSuppliers = () => {
   useEffect(() => {
     if (!user) return;
     
+    const cacheKey = cacheKeys.suppliers(user.uid);
+    
+    // Check cache first
+    const cachedSuppliers = dataCache.get<Supplier[]>(cacheKey);
+    if (cachedSuppliers) {
+      setSuppliers(cachedSuppliers);
+      setLoading(false);
+      console.log('🚀 Suppliers loaded from cache');
+    }
+    
     const unsubscribe = subscribeToSuppliers(user.uid, (data) => {
       // Filter out soft-deleted suppliers (user filtering already done by Firebase)
       const activeSuppliers = data.filter(supplier => !supplier.isDeleted);
       setSuppliers(activeSuppliers);
       setLoading(false);
+      
+      // Cache the data for 5 minutes
+      dataCache.set(cacheKey, activeSuppliers, 5 * 60 * 1000);
+      console.log('📦 Suppliers cached for faster loading');
     });
 
     return () => unsubscribe();
@@ -547,7 +641,7 @@ export const useSuppliers = () => {
 // Audit Logs Hook
 export const useAuditLogs = () => {
   const { currentUser } = useAuth();
-  const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [auditLogs, setAuditLogs] = useState<unknown[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

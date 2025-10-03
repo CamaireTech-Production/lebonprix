@@ -11,6 +11,7 @@ import {
 import { doc, setDoc, getDoc, updateDoc, Timestamp } from 'firebase/firestore';
 import type { Company } from '../types/models';
 import { ensureDefaultFinanceEntryTypes } from '../services/firestore';
+import { dataCache, cacheKeys } from '../utils/dataCache';
 
 interface AuthContextType {
   user: User | null;
@@ -72,10 +73,21 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     return unsubscribe;
   }, []);
 
-  // 🔄 Background company data loading function
+  // 🔄 Background company data loading function with caching
   const loadCompanyDataInBackground = async (userId: string) => {
     setCompanyLoading(true);
     try {
+      const cacheKey = cacheKeys.company(userId);
+      
+      // Check cache first
+      const cachedCompany = dataCache.get<Company>(cacheKey);
+      if (cachedCompany) {
+        setCompany(cachedCompany);
+        setCompanyLoading(false);
+        console.log('🚀 Company data loaded from cache');
+        return;
+      }
+      
       console.log('📡 Fetching company data in background...');
       
       // Add timeout protection
@@ -87,8 +99,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       ]);
       
       if (companyDoc.exists()) {
-        setCompany({ id: companyDoc.id, ...companyDoc.data() } as Company);
-        console.log('✅ Company data loaded successfully in background');
+        const companyData = { id: companyDoc.id, ...companyDoc.data() } as Company;
+        setCompany(companyData);
+        
+        // Cache company data for 15 minutes (company data changes rarely)
+        dataCache.set(cacheKey, companyData, 15 * 60 * 1000);
+        console.log('✅ Company data loaded and cached successfully in background');
       } else {
         console.log('⚠️ No company document found for user');
       }
