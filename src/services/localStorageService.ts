@@ -34,6 +34,20 @@ class LocalStorageService {
       console.log(`💾 Stored data in localStorage: ${key}`);
     } catch (error) {
       console.error(`❌ Failed to store data in localStorage: ${key}`, error);
+      
+      // If quota exceeded, try to clean up old data
+      if (error instanceof Error && error.name === 'QuotaExceededError') {
+        console.log('🧹 localStorage quota exceeded, attempting cleanup...');
+        this.cleanupOldData();
+        
+        // Try again after cleanup
+        try {
+          localStorage.setItem(key, JSON.stringify(entry));
+          console.log(`💾 Successfully stored data after cleanup: ${key}`);
+        } catch (retryError) {
+          console.error(`❌ Still failed to store data after cleanup: ${key}`, retryError);
+        }
+      }
     }
   }
 
@@ -82,6 +96,30 @@ class LocalStorageService {
     } catch (error) {
       console.error(`❌ Failed to remove data from localStorage: ${key}`, error);
     }
+  }
+
+  /**
+   * Clean up old data when localStorage quota is exceeded
+   */
+  static cleanupOldData(): void {
+    const keys = Object.keys(localStorage);
+    const dataKeys = keys.filter(key => key.startsWith('products_') || key.startsWith('sales_') || key.startsWith('expenses_'));
+    
+    // Sort by last sync time (oldest first)
+    const sortedKeys = dataKeys.sort((a, b) => {
+      const lastSyncA = this.getLastSync(a);
+      const lastSyncB = this.getLastSync(b);
+      return (lastSyncA || 0) - (lastSyncB || 0);
+    });
+
+    // Remove oldest 25% of data
+    const keysToRemove = sortedKeys.slice(0, Math.ceil(sortedKeys.length * 0.25));
+    
+    keysToRemove.forEach(key => {
+      this.remove(key);
+    });
+
+    console.log(`🧹 Cleaned up ${keysToRemove.length} old data entries`);
   }
 
   /**

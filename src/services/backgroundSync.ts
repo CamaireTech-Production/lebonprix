@@ -1,11 +1,14 @@
 // src/services/backgroundSync.ts
 import { subscribeToProducts, subscribeToSales, subscribeToExpenses, getFinanceEntryTypes } from './firestore';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from './firebase';
 import ProductsManager from './storage/ProductsManager';
 import SalesManager from './storage/SalesManager';
 import ExpensesManager from './storage/ExpensesManager';
 import FinanceEntryTypesManager from './storage/FinanceEntryTypesManager';
 import FinancialCategoriesManager from './storage/FinancialCategoriesManager';
-import type { Product, Sale, Expense, FinanceEntryType } from '../types/models';
+import CompanyManager from './storage/CompanyManager';
+import type { Product, Sale, Expense, FinanceEntryType, Company } from '../types/models';
 
 class BackgroundSyncService {
   private static syncInProgress = new Set<string>();
@@ -524,9 +527,109 @@ class BackgroundSyncService {
   }
 
   /**
+   * Sync company data in background
+   */
+  static async syncCompany(userId: string, onUpdate?: (company: Company) => void): Promise<void> {
+    const key = `company_${userId}`;
+    
+    // Prevent duplicate syncs
+    if (this.syncInProgress.has(key)) {
+      console.log(`🔄 Company sync already in progress for user: ${userId}`);
+      return;
+    }
+
+    this.syncInProgress.add(key);
+    
+    if (onUpdate) {
+      this.syncCallbacks.set(key, onUpdate);
+    }
+
+    try {
+      console.log(`🔄 Starting background sync for company: ${userId}`);
+      
+      // Check if sync is needed
+      if (!CompanyManager.needsSync(userId)) {
+        console.log(`✅ Company data is fresh, skipping sync: ${userId}`);
+        
+        // Still notify callback that sync is complete (data is fresh)
+        const callback = this.syncCallbacks.get(key);
+        if (callback) {
+          const localCompany = CompanyManager.load(userId);
+          if (localCompany) {
+            callback(localCompany);
+          }
+        }
+        
+        // Clean up
+        this.syncInProgress.delete(key);
+        this.syncCallbacks.delete(key);
+        return;
+      }
+
+      // Fetch fresh data from Firebase
+      const companyDoc = await getDoc(doc(db, 'companies', userId));
+      console.log(`📡 Received fresh company data from Firebase`);
+      
+      if (companyDoc.exists()) {
+        const freshCompany = { id: companyDoc.id, ...companyDoc.data() } as Company;
+        
+        // Get current local data
+        const localCompany = CompanyManager.load(userId);
+        
+        // Check if data has actually changed
+        if (localCompany && !CompanyManager.hasChanged(localCompany, freshCompany)) {
+          console.log(`✅ Company data unchanged, updating sync timestamp only`);
+          CompanyManager.updateLastSync(userId);
+          
+          // Still notify callback that sync is complete (even if no data change)
+          const callback = this.syncCallbacks.get(key);
+          if (callback) {
+            callback(freshCompany);
+          }
+          
+          // Clean up
+          this.syncInProgress.delete(key);
+          this.syncCallbacks.delete(key);
+          return;
+        }
+
+        // Data has changed, update localStorage
+        console.log(`🔄 Company data changed, updating localStorage`);
+        CompanyManager.save(userId, freshCompany);
+        
+        // Notify callback if provided
+        const callback = this.syncCallbacks.get(key);
+        if (callback) {
+          callback(freshCompany);
+        }
+      } else {
+        console.log(`⚠️ No company document found for user: ${userId}`);
+      }
+      
+    } catch (error) {
+      console.error(`❌ Background sync failed for company: ${userId}`, error);
+    } finally {
+      this.syncInProgress.delete(key);
+      this.syncCallbacks.delete(key);
+    }
+  }
+
+  /**
+   * Check if company sync is in progress
+   */
+  static isSyncingCompany(userId: string): boolean {
+    return this.syncInProgress.has(`company_${userId}`);
+  }
+
+  /**
    * Get sync status for all data types
    */
   static getSyncStatus(userId: string): {
+    company: {
+      inProgress: boolean;
+      lastSync: number | null;
+      needsSync: boolean;
+    };
     products: {
       inProgress: boolean;
       lastSync: number | null;
@@ -554,6 +657,11 @@ class BackgroundSyncService {
     };
   } {
     return {
+      company: {
+        inProgress: this.isSyncingCompany(userId),
+        lastSync: CompanyManager.getLastSync ? CompanyManager.getLastSync(userId) : null,
+        needsSync: CompanyManager.needsSync(userId)
+      },
       products: {
         inProgress: this.isSyncing(userId),
         lastSync: ProductsManager.getLastSync(userId),

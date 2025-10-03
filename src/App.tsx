@@ -24,7 +24,7 @@ const Suppliers = lazy(() => import('./pages/Suppliers'));
 const Reports = lazy(() => import('./pages/Reports'));
 const Settings = lazy(() => import('./pages/Settings'));
 const TimelinePage = lazy(() => import('./pages/TimelinePage'));
-const CompanyProducts = lazy(() => import('./pages/CompanyProducts'));
+const Catalogue = lazy(() => import('./pages/Catalogue'));
 const FIFODebugger = lazy(() => import('./pages/FIFODebugger'));
 
 function App() {
@@ -42,11 +42,11 @@ function App() {
 function AppWithFAB({ isAddSaleModalOpen, setIsAddSaleModalOpen }: { isAddSaleModalOpen: boolean, setIsAddSaleModalOpen: (open: boolean) => void }) {
   const location = useLocation();
   const isAuthPage = location.pathname.startsWith('/auth/login') || location.pathname.startsWith('/auth/register');
-  const isCompanyProductsPage = /^\/company\/[^/]+\/products$/.test(location.pathname);
+  const isCataloguePage = /^\/catalogue\/[^/]+\/[^/]+$/.test(location.pathname);
   const isTrackSalesPage = location.pathname.startsWith('/track/');
   return (
     <>
-      {!isAuthPage && !isCompanyProductsPage && !isTrackSalesPage && (
+      {!isAuthPage && !isCataloguePage && !isTrackSalesPage && (
         <FloatingActionButton onClick={() => setIsAddSaleModalOpen(true)} label="Add Sale" />
       )}
       <AddSaleModal isOpen={isAddSaleModalOpen} onClose={() => setIsAddSaleModalOpen(false)} />
@@ -64,7 +64,7 @@ function AppWithFAB({ isAddSaleModalOpen, setIsAddSaleModalOpen }: { isAddSaleMo
           </Route>
           {/* Public Routes */}
           <Route path="/track/:id" element={<LazyPage><TimelinePage /></LazyPage>} />
-          <Route path="/company/:companyId/products" element={<LazyPage><CompanyProducts /></LazyPage>} />
+          <Route path="/catalogue/:companyName/:companyId" element={<LazyPage><Catalogue /></LazyPage>} />
           {/* Protected Routes */}
           <Route element={<ProtectedRoute />}>
             <Route element={<MainLayout />}>

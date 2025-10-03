@@ -11,8 +11,8 @@ import Badge from '../components/common/Badge';
 
 const placeholderImg = '/placeholder.png';
 
-const CompanyProducts = () => {
-  const { companyId } = useParams<{ companyId: string }>();
+const Catalogue = () => {
+  const { companyName, companyId } = useParams<{ companyName: string; companyId: string }>();
   const navigate = useNavigate();
   useAuth();
   const [company, setCompany] = useState<Company | null>(null);
@@ -92,9 +92,9 @@ const CompanyProducts = () => {
   useEffect(() => {
     if (!companyId) return;
 
-    const unsubscribe = subscribeToProducts((productsData) => {
+    const unsubscribe = subscribeToProducts(companyId, (productsData) => {
       const companyProducts = productsData.filter(
-        p => p.userId === companyId && p.isAvailable !== false && p.isDeleted !== true
+        p => p.isAvailable !== false && p.isDeleted !== true
       );
       setProducts(companyProducts);
       setLoading(false);
@@ -466,4 +466,4 @@ const CompanyProducts = () => {
   );
 };
 
-export default CompanyProducts; 
+export default Catalogue; 

@@ -11,7 +11,9 @@ import {
 import { doc, setDoc, getDoc, updateDoc, Timestamp } from 'firebase/firestore';
 import type { Company } from '../types/models';
 import { ensureDefaultFinanceEntryTypes } from '../services/firestore';
-import { dataCache, cacheKeys } from '../utils/dataCache';
+import CompanyManager from '../services/storage/CompanyManager';
+import FinanceTypesManager from '../services/storage/FinanceTypesManager';
+import BackgroundSyncService from '../services/backgroundSync';
 
 interface AuthContextType {
   user: User | null;
@@ -73,68 +75,70 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     return unsubscribe;
   }, []);
 
-  // 🔄 Background company data loading function with caching
+  // 🚀 INSTANT company data loading from localStorage with background sync
   const loadCompanyDataInBackground = async (userId: string) => {
     setCompanyLoading(true);
+    
+    // 1. INSTANT LOAD: Check localStorage first
+    const localCompany = CompanyManager.load(userId);
+    if (localCompany) {
+      setCompany(localCompany);
+      setCompanyLoading(false);
+      console.log('🚀 Company data loaded instantly from localStorage');
+      
+      // 2. BACKGROUND SYNC: Update localStorage if needed
+      BackgroundSyncService.syncCompany(userId, (freshCompany) => {
+        setCompany(freshCompany);
+        console.log('🔄 Company data updated from background sync');
+      });
+      return;
+    }
+    
+    // 3. FALLBACK: No localStorage data, fetch from Firebase
     try {
-      const cacheKey = cacheKeys.company(userId);
+      console.log('📡 No cached company data, fetching from Firebase...');
       
-      // Check cache first
-      const cachedCompany = dataCache.get<Company>(cacheKey);
-      if (cachedCompany) {
-        setCompany(cachedCompany);
-        setCompanyLoading(false);
-        console.log('🚀 Company data loaded from cache');
-        return;
-      }
-      
-      console.log('📡 Fetching company data in background...');
-      
-      // Add timeout protection
-      const companyDoc = await Promise.race([
-        getDoc(doc(db, 'companies', userId)),
-        new Promise<never>((_, reject) => 
-          setTimeout(() => reject(new Error('Company fetch timeout after 10 seconds')), 10000)
-        )
-      ]);
+      const companyDoc = await getDoc(doc(db, 'companies', userId));
       
       if (companyDoc.exists()) {
         const companyData = { id: companyDoc.id, ...companyDoc.data() } as Company;
         setCompany(companyData);
         
-        // Cache company data for 15 minutes (company data changes rarely)
-        dataCache.set(cacheKey, companyData, 15 * 60 * 1000);
-        console.log('✅ Company data loaded and cached successfully in background');
+        // Save to localStorage for future instant loads
+        CompanyManager.save(userId, companyData);
+        console.log('✅ Company data loaded from Firebase and cached to localStorage');
       } else {
         console.log('⚠️ No company document found for user');
       }
     } catch (error) {
-      console.error('❌ Background company loading failed:', error);
-      // App continues to work without company data
-      // You could show a subtle notification to user if needed
+      console.error('❌ Company loading failed:', error);
     } finally {
       setCompanyLoading(false);
     }
   };
 
-  // 🔄 Background finance types loading function
+  // 🚀 INSTANT finance types loading with localStorage flag
   const loadFinanceTypesInBackground = async () => {
+    if (!user?.uid) return;
+    
+    // 1. INSTANT CHECK: Check localStorage flag first
+    if (!FinanceTypesManager.needsSetup(user.uid)) {
+      console.log('🚀 Finance types already setup - skipping');
+      return;
+    }
+    
+    // 2. SETUP NEEDED: Ensure finance types and mark as setup
     try {
-      console.log('📡 Ensuring finance types in background...');
+      console.log('📡 Setting up finance types...');
       
-      // Add timeout protection
-      await Promise.race([
-        ensureDefaultFinanceEntryTypes(),
-        new Promise<never>((_, reject) => 
-          setTimeout(() => reject(new Error('Finance types timeout after 15 seconds')), 15000)
-        )
-      ]);
+      await ensureDefaultFinanceEntryTypes();
       
-      console.log('✅ Finance types ensured successfully in background');
+      // Mark as setup in localStorage to skip future checks
+      FinanceTypesManager.markAsSetup(user.uid);
+      console.log('✅ Finance types setup completed and marked in localStorage');
     } catch (error) {
-      console.error('❌ Background finance types loading failed:', error);
+      console.error('❌ Finance types setup failed:', error);
       // App continues to work without finance types setup
-      // Finance features might have fallbacks or show setup prompts
     }
   };
 
@@ -156,8 +160,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
     await setDoc(doc(db, 'companies', user.uid), companyDoc);
 
-    // Set company in state
-    setCompany({ id: user.uid, ...companyDoc } as Company);
+    // Set company in state and localStorage
+    const company = { id: user.uid, ...companyDoc } as Company;
+    setCompany(company);
+    CompanyManager.save(user.uid, company);
 
     return user;
   };
@@ -184,8 +190,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
     await updateDoc(companyRef, updateData);
     
-    // Update local state
-    setCompany(prev => prev ? { ...prev, ...updateData } : null);
+    // Update local state and localStorage
+    const updatedCompany = company ? { ...company, ...updateData } : null;
+    setCompany(updatedCompany);
+    
+    if (updatedCompany) {
+      CompanyManager.save(user.uid, updatedCompany);
+    }
   };
 
   const updateUserPassword = async (currentPassword: string, newPassword: string) => {

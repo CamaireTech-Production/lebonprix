@@ -229,8 +229,8 @@ const Dashboard = () => {
 
   const chartData = processChartData();
 
-  // Generate the company's product page URL
-  const productPageUrl = company ? `${window.location.origin}/company/${company.id}/products` : '';
+  // Generate the company's catalogue page URL
+  const productPageUrl = company ? `${window.location.origin}/catalogue/${encodeURIComponent(company.name.toLowerCase().replace(/\s+/g, '-'))}/${company.id}` : '';
 
   const handleCopyLink = async () => {
     try {
