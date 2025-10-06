@@ -1,6 +1,7 @@
 import { lazy, Suspense, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
+import { CartProvider } from './contexts/CartContext';
 import AuthLayout from './components/layout/AuthLayout';
 import MainLayout from './components/layout/MainLayout';
 import ProtectedRoute from './components/auth/ProtectedRoute';
@@ -25,6 +26,7 @@ const Reports = lazy(() => import('./pages/Reports'));
 const Settings = lazy(() => import('./pages/Settings'));
 const TimelinePage = lazy(() => import('./pages/TimelinePage'));
 const Catalogue = lazy(() => import('./pages/Catalogue'));
+const ProductDetail = lazy(() => import('./pages/ProductDetail'));
 const FIFODebugger = lazy(() => import('./pages/FIFODebugger'));
 
 function App() {
@@ -32,9 +34,11 @@ function App() {
   // BrowserRouter must wrap AppWithFAB for useLocation to work
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <AppWithFAB isAddSaleModalOpen={isAddSaleModalOpen} setIsAddSaleModalOpen={setIsAddSaleModalOpen} />
-      </BrowserRouter>
+      <CartProvider>
+        <BrowserRouter>
+          <AppWithFAB isAddSaleModalOpen={isAddSaleModalOpen} setIsAddSaleModalOpen={setIsAddSaleModalOpen} />
+        </BrowserRouter>
+      </CartProvider>
     </AuthProvider>
   );
 }
@@ -43,14 +47,11 @@ function AppWithFAB({ isAddSaleModalOpen, setIsAddSaleModalOpen }: { isAddSaleMo
   const location = useLocation();
   const isAuthPage = location.pathname.startsWith('/auth/login') || location.pathname.startsWith('/auth/register');
   const isCataloguePage = /^\/catalogue\/[^/]+\/[^/]+$/.test(location.pathname);
+  const isProductDetailPage = /^\/product\/[^/]+\/[^/]+$/.test(location.pathname);
   const isTrackSalesPage = location.pathname.startsWith('/track/');
+  
   return (
     <>
-      {!isAuthPage && !isCataloguePage && !isTrackSalesPage && (
-        <FloatingActionButton onClick={() => setIsAddSaleModalOpen(true)} label="Add Sale" />
-      )}
-      <AddSaleModal isOpen={isAddSaleModalOpen} onClose={() => setIsAddSaleModalOpen(false)} />
-      
       {/* PWA Components */}
       <PWAStatusIndicator />
       
@@ -65,9 +66,10 @@ function AppWithFAB({ isAddSaleModalOpen, setIsAddSaleModalOpen }: { isAddSaleMo
           {/* Public Routes */}
           <Route path="/track/:id" element={<LazyPage><TimelinePage /></LazyPage>} />
           <Route path="/catalogue/:companyName/:companyId" element={<LazyPage><Catalogue /></LazyPage>} />
+          <Route path="/product/:companyId/:productId" element={<LazyPage><ProductDetail /></LazyPage>} />
           {/* Protected Routes */}
           <Route element={<ProtectedRoute />}>
-            <Route element={<MainLayout />}>
+            <Route element={<MainLayout isAddSaleModalOpen={isAddSaleModalOpen} setIsAddSaleModalOpen={setIsAddSaleModalOpen} />}>
               <Route path="/" element={<LazyPage><Dashboard /></LazyPage>} />
               <Route path="/sales" element={<LazyPage><Sales /></LazyPage>} />
               <Route path="/expenses" element={<LazyPage><Expenses /></LazyPage>} />

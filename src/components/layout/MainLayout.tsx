@@ -1,12 +1,20 @@
 import { useState, useEffect } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import Navbar from './Navbar';
 import Sidebar from './Sidebar';
 import MobileNav from './MobileNav';
+import { FloatingActionButton } from '../common/Button';
+import AddSaleModal from '../sales/AddSaleModal';
 
-const MainLayout = () => {
+interface MainLayoutProps {
+  isAddSaleModalOpen: boolean;
+  setIsAddSaleModalOpen: (open: boolean) => void;
+}
+
+const MainLayout = ({ isAddSaleModalOpen, setIsAddSaleModalOpen }: MainLayoutProps) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const location = useLocation();
 
   // Handle responsive layout
   useEffect(() => {
@@ -86,6 +94,14 @@ const MainLayout = () => {
       
       {/* Mobile navigation */}
       {isMobile && <MobileNav />}
+      
+      {/* Floating Action Button - only show on main dashboard pages */}
+      {location.pathname === '/' && (
+        <FloatingActionButton onClick={() => setIsAddSaleModalOpen(true)} label="Add Sale" />
+      )}
+      
+      {/* Add Sale Modal */}
+      <AddSaleModal isOpen={isAddSaleModalOpen} onClose={() => setIsAddSaleModalOpen(false)} />
     </div>
   );
 };

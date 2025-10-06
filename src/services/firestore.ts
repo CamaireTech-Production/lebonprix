@@ -37,6 +37,7 @@ import type {
   Supplier,
   ExpenseType
 } from '../types/models';
+import type { SellerSettings } from '../types/order';
 import { useState, useEffect } from 'react';
 import type { InventoryMethod } from '../utils/inventoryManagement';
 import { 
@@ -1207,6 +1208,39 @@ export const getCompanyByUserId = async (userId: string): Promise<Company> => {
     id: companyDoc.id,
     ...companyDoc.data()
   } as Company;
+};
+
+// ============================================================================
+// SELLER ORDERING SETTINGS
+// ============================================================================
+
+export const getSellerSettings = async (userId: string): Promise<SellerSettings | null> => {
+  try {
+    const ref = doc(db, 'sellerSettings', userId);
+    const snap = await getDoc(ref);
+    if (!snap.exists()) return null;
+    const data = snap.data() as SellerSettings;
+    return { ...data };
+  } catch (error) {
+    console.error('Error fetching seller settings:', error);
+    throw error;
+  }
+};
+
+export const updateSellerSettings = async (userId: string, settings: Partial<SellerSettings>): Promise<void> => {
+  try {
+    const ref = doc(db, 'sellerSettings', userId);
+    const now = serverTimestamp();
+    const snap = await getDoc(ref);
+    if (snap.exists()) {
+      await updateDoc(ref, { ...settings, updatedAt: now });
+    } else {
+      await setDoc(ref, { userId, createdAt: now, updatedAt: now, currency: 'XAF', paymentMethods: {}, ...settings });
+    }
+  } catch (error) {
+    console.error('Error updating seller settings:', error);
+    throw error;
+  }
 };
 
 export const subscribeToCompanies = (callback: (companies: Company[]) => void): (() => void) => {
