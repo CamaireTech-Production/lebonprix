@@ -11,7 +11,7 @@ import { useProducts, useStockChanges, useCategories, useSuppliers } from '../ho
 import { useInfiniteProducts } from '../hooks/useInfiniteProducts';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 import { useAllStockBatches } from '../hooks/useStockBatches';
-import { createSupplierDebt, createSupplier } from '../services/firestore';
+import { createSupplier } from '../services/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import LoadingScreen from '../components/common/LoadingScreen';
 import SyncIndicator from '../components/common/SyncIndicator';
@@ -20,7 +20,7 @@ import imageCompression from 'browser-image-compression';
 import * as Papa from 'papaparse';
 import type { Product } from '../types/models';
 import type { ParseResult } from 'papaparse';
-import { getLatestCostPrice, getDisplayCostPrice } from '../utils/productUtils';
+import { getLatestCostPrice} from '../utils/productUtils';
 import { 
   getProductBatchesForAdjustment,
   adjustBatchWithDebtManagement
@@ -1146,6 +1146,17 @@ const Products = () => {
             onClick={() => setIsAddModalOpen(true)}
           >
             {t('products.actions.addProduct')}
+          </Button>
+          
+          {/* Temporary refresh button to clear old cached data */}
+          <Button 
+            variant="outline"
+            onClick={() => {
+              refresh();
+              showSuccessToast('Products refreshed - images should now load properly');
+            }}
+          >
+            🔄 Refresh Images
           </Button>
         </div>
       </div>

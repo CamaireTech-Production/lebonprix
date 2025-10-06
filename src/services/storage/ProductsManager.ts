@@ -22,10 +22,13 @@ class ProductsManager {
   }
 
   /**
-   * Save products to localStorage
+   * Save products to localStorage (including images for better UX)
    */
   static save(userId: string, products: Product[]): void {
     const key = this.getKey(userId);
+    
+    // Save products with images for immediate display
+    // Modern browsers can handle larger localStorage quotas
     LocalStorageService.set(key, products, this.TTL, userId);
   }
 
@@ -38,9 +41,10 @@ class ProductsManager {
   }
 
   /**
-   * Check if products data has changed
+   * Check if products data has changed (including images)
    */
   static hasChanged(localProducts: Product[], remoteProducts: Product[]): boolean {
+    // Compare products with images included for accurate change detection
     return LocalStorageService.hasDataChanged(localProducts, remoteProducts);
   }
 

@@ -957,6 +957,9 @@ export const createExpenseType = async (type: Omit<ExpenseType, 'id' | 'createdA
 };
 
 export const getExpenseTypes = async (userId: string): Promise<ExpenseType[]> => {
+  // Ensure default expense types exist first
+  await ensureDefaultExpenseTypes();
+  
   const defaultSnap = await getDocs(query(collection(db, 'expenseTypes'), where('isDefault', '==', true)));
   const userSnap = await getDocs(query(collection(db, 'expenseTypes'), where('userId', '==', userId)));
   const allDocs = [...defaultSnap.docs, ...userSnap.docs];
@@ -969,6 +972,59 @@ export const getExpenseTypes = async (userId: string): Promise<ExpenseType[]> =>
     }
   }
   return types;
+};
+
+// Ensure default expense types exist
+export const ensureDefaultExpenseTypes = async (): Promise<void> => {
+  const defaultTypes = [
+    { name: 'transportation', isDefault: true },
+    { name: 'purchase', isDefault: true },
+    { name: 'other', isDefault: true }
+  ];
+
+  // Get existing default types
+  const existingDefaultsQuery = query(
+    collection(db, 'expenseTypes'),
+    where('isDefault', '==', true)
+  );
+  const existingDefaultsSnap = await getDocs(existingDefaultsQuery);
+  
+  // Create a Set of existing type names for fast lookup
+  const existingTypeNames = new Set(
+    existingDefaultsSnap.docs.map(doc => doc.data().name)
+  );
+  
+  // Only create missing types
+  const missingTypes = defaultTypes.filter(type => !existingTypeNames.has(type.name));
+  
+  // If all types exist, skip the batch operation entirely
+  if (missingTypes.length === 0) {
+    console.log('✅ All default expense types already exist - skipping');
+    return;
+  }
+  
+  // Create batch for missing types only
+  const batch = writeBatch(db);
+  
+  for (const typeData of missingTypes) {
+    const typeRef = doc(collection(db, 'expenseTypes'));
+    const newType = {
+      id: typeRef.id,
+      name: typeData.name,
+      isDefault: true,
+      createdAt: serverTimestamp()
+    };
+    batch.set(typeRef, newType);
+    console.log(`✅ Creating missing default expense type: ${typeData.name}`);
+  }
+  
+  try {
+    await batch.commit();
+    console.log(`✅ Created ${missingTypes.length} missing default expense types`);
+  } catch (error) {
+    console.error('❌ Error creating default expense types:', error);
+    throw error;
+  }
 };
 
 // ============================================================================

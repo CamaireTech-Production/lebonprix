@@ -29,9 +29,18 @@ class LocalStorageService {
       }
     };
 
+    // Check data size before storing (2MB limit)
+    const dataString = JSON.stringify(entry);
+    const dataSize = new Blob([dataString]).size;
+    
+    if (dataSize > 2 * 1024 * 1024) { // 2MB limit
+      console.warn(`⚠️ Data too large for localStorage (${(dataSize / 1024 / 1024).toFixed(2)}MB), skipping cache: ${key}`);
+      return;
+    }
+
     try {
-      localStorage.setItem(key, JSON.stringify(entry));
-      console.log(`💾 Stored data in localStorage: ${key}`);
+      localStorage.setItem(key, dataString);
+      console.log(`💾 Stored data in localStorage: ${key} (${(dataSize / 1024).toFixed(2)}KB)`);
     } catch (error) {
       console.error(`❌ Failed to store data in localStorage: ${key}`, error);
       

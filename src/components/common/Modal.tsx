@@ -32,10 +32,10 @@ const Modal = ({ isOpen, onClose, title, children, footer, size = 'md', closeBut
       />
       
       {/* Modal */}
-      <div className="fixed inset-0 z-50 overflow-y-auto">
+      <div className="fixed inset-0 z-[60] overflow-y-auto">
         <div className="flex min-h-full items-center justify-center p-2 sm:p-4">
           <div 
-            className={`relative bg-white rounded-lg shadow-xl w-full ${sizeClasses[size]} transform transition-all max-h-[90vh] overflow-hidden`}
+            className={`relative bg-white rounded-lg shadow-xl w-full ${sizeClasses[size]} transform transition-all max-h-[90vh] overflow-visible`}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}

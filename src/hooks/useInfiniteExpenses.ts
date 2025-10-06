@@ -16,6 +16,8 @@ interface UseInfiniteExpensesReturn {
   error: Error | null;
   loadMore: () => void;
   refresh: () => void;
+  addExpense: (expense: Expense) => void; // Add function to manually add expense
+  removeExpense: (expenseId: string) => void; // Add function to manually remove expense
 }
 
 const EXPENSES_PER_PAGE = 20;
@@ -138,6 +140,32 @@ export const useInfiniteExpenses = (): UseInfiniteExpensesReturn => {
     loadInitialExpenses();
   }, [loadInitialExpenses]);
 
+  // Function to manually add an expense to the local state
+  const addExpense = useCallback((newExpense: Expense) => {
+    if (!user?.uid) return;
+    
+    setExpenses(prev => {
+      // Add the new expense at the beginning (most recent first)
+      const updatedExpenses = [newExpense, ...prev];
+      // Update localStorage with the new expense
+      ExpensesManager.save(user.uid, updatedExpenses);
+      return updatedExpenses;
+    });
+  }, [user?.uid]);
+
+  // Function to manually remove an expense from the local state
+  const removeExpense = useCallback((expenseId: string) => {
+    if (!user?.uid) return;
+    
+    setExpenses(prev => {
+      // Remove the expense with the given ID
+      const updatedExpenses = prev.filter(expense => expense.id !== expenseId);
+      // Update localStorage with the updated expenses
+      ExpensesManager.save(user.uid, updatedExpenses);
+      return updatedExpenses;
+    });
+  }, [user?.uid]);
+
   useEffect(() => {
     if (user?.uid) {
       loadInitialExpenses();
@@ -158,6 +186,8 @@ export const useInfiniteExpenses = (): UseInfiniteExpensesReturn => {
     hasMore,
     error,
     loadMore,
-    refresh
+    refresh,
+    addExpense,
+    removeExpense
   };
 };

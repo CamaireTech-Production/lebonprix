@@ -128,6 +128,7 @@ const CreatableSelect = ({
       isLoading={isCreating}
       isDisabled={isCreating}
       menuIsOpen={isCreating ? false : undefined}
+      menuPlacement="top"
       styles={{
         menu: (base) => ({
           ...base,

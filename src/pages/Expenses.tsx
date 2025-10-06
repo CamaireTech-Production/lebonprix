@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Plus, FileDown, Edit2, Trash2, Loader2 } from 'lucide-react';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
@@ -9,7 +9,7 @@ import Input from '../components/common/Input';
 import { useInfiniteExpenses } from '../hooks/useInfiniteExpenses';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 import CreatableSelect from '../components/common/CreatableSelect';
-import { getExpenseTypes, createExpenseType } from '../services/firestore';
+import { getExpenseTypes, createExpenseType, createExpense, updateExpense } from '../services/firestore';
 import { softDeleteExpense } from '../services/firestore';
 import LoadingScreen from '../components/common/LoadingScreen';
 import SyncIndicator from '../components/common/SyncIndicator';
@@ -31,7 +31,9 @@ const Expenses = () => {
     hasMore: expensesHasMore,
     error, 
     loadMore: loadMoreExpenses,
-    refresh: refreshExpenses
+    refresh: refreshExpenses,
+    addExpense: addExpenseToState,
+    removeExpense: removeExpenseFromState
   } = useInfiniteExpenses();
   
   // Infinite scroll for expenses
@@ -60,6 +62,49 @@ const Expenses = () => {
   const [expenseTypes, setExpenseTypes] = useState<{ label: string; value: string }[]>([]);
   const [selectedType, setSelectedType] = useState<{ label: string; value: string } | null>(null);
   
+  const loadExpenseTypes = useCallback(async () => {
+    if (!user) return;
+    try {
+      console.log('Loading expense types for user:', user.uid);
+      const types = await getExpenseTypes(user.uid);
+      console.log('Fetched expense types:', types);
+      
+      // Map fetched types using translations when keys match known categories
+      const options = types.map(tDoc => {
+        const key = tDoc.name;
+        const label = t(`expenses.categories.${key}`, key);
+        return { label, value: key };
+      });
+      
+      // Ensure legacy defaults visible even before migration
+      const legacyDefaults = ['transportation', 'purchase', 'other'];
+      legacyDefaults.forEach(name => {
+        if (!options.find(o => o.value === name)) {
+          options.push({ label: t(`expenses.categories.${name}`, name), value: name });
+        }
+      });
+      
+      console.log('Final expense type options:', options);
+      setExpenseTypes(options);
+    } catch (error) {
+      console.error('Error loading expense types:', error);
+      // Fallback to legacy defaults if there's an error
+      const legacyDefaults = ['transportation', 'purchase', 'other'];
+      const fallbackOptions = legacyDefaults.map(name => ({
+        label: t(`expenses.categories.${name}`, name),
+        value: name
+      }));
+      setExpenseTypes(fallbackOptions);
+    }
+  }, [user, t]);
+  
+  // Load expense types on component mount
+  useEffect(() => {
+    if (user) {
+      loadExpenseTypes();
+    }
+  }, [user, loadExpenseTypes]);
+  
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -72,23 +117,6 @@ const Expenses = () => {
       category: 'transportation',
     });
     setSelectedType(null);
-  };
-
-  const loadExpenseTypes = async () => {
-    if (!user) return;
-    const types = await getExpenseTypes(user.uid);
-    // Map fetched types using translations when keys match known categories
-    const options = types.map(tDoc => {
-      const key = tDoc.name;
-      const label = t(`expenses.categories.${key}`, key);
-      return { label, value: key };
-    });
-    // Ensure legacy defaults visible even before migration
-    const legacyDefaults = ['transportation', 'purchase', 'other'];
-    legacyDefaults.forEach(name => {
-      if (!options.find(o => o.value === name)) options.push({ label: t(`expenses.categories.${name}`, name), value: name });
-    });
-    setExpenseTypes(options);
   };
   
   const handleAddExpense = async () => {
@@ -105,12 +133,15 @@ const Expenses = () => {
       }
 
       setIsSubmitting(true);
-      await addExpense({
+      const newExpense = await createExpense({
         description: formData.description,
         amount: parseFloat(formData.amount),
         category: typeValue,
         userId: user.uid,
-      });
+      }, user.uid);
+      
+      // Add the new expense to the local state immediately for instant UI update
+      addExpenseToState(newExpense);
       
       setIsAddModalOpen(false);
       resetForm();
@@ -143,11 +174,13 @@ const Expenses = () => {
         description: formData.description,
         amount: parseFloat(formData.amount),
         category: typeValue,
-      });
+      }, user.uid);
       
       setIsEditModalOpen(false);
       resetForm();
       showSuccessToast(t('expenses.messages.updateSuccess'));
+      // Refresh the expenses list to show the updated expense
+      refreshExpenses();
     } catch (err) {
       console.error('Failed to update expense:', err);
       showErrorToast(t('expenses.messages.updateError'));
@@ -174,10 +207,15 @@ const Expenses = () => {
     setDeleteLoading(true);
     try {
       await softDeleteExpense(expenseToDelete.id, user.uid);
+      
+      // Remove the expense from the local state immediately for instant UI update
+      removeExpenseFromState(expenseToDelete.id);
+      
       showSuccessToast(t('expenses.messages.deleteSuccess'));
       setIsDeleteModalOpen(false);
       setExpenseToDelete(null);
-    } catch (err) {
+    } catch (error) {
+      console.error('Failed to delete expense:', error);
       showErrorToast(t('expenses.messages.deleteError'));
     } finally {
       setDeleteLoading(false);

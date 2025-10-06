@@ -134,11 +134,15 @@ export const useInfiniteProducts = (): UseInfiniteProductsReturn => {
 
   // Refresh products (reset and reload)
   const refresh = useCallback(() => {
+    // Clear localStorage to force fresh data with images
+    if (user?.uid) {
+      ProductsManager.remove(user.uid);
+    }
     setProducts([]);
     setLastDoc(null);
     setHasMore(true);
     loadInitialProducts();
-  }, [loadInitialProducts]);
+  }, [loadInitialProducts, user?.uid]);
 
   // Load initial products when user changes
   useEffect(() => {
