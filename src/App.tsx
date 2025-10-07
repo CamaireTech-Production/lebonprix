@@ -33,7 +33,6 @@ const FIFODebugger = lazy(() => import('./pages/FIFODebugger'));
 
 function App() {
   const [isAddSaleModalOpen, setIsAddSaleModalOpen] = useState(false);
-  const { isUpdateAvailable, applyUpdate, dismissUpdate } = usePWAUpdate();
   // BrowserRouter must wrap AppWithFAB for useLocation to work
   return (
     <AuthProvider>
@@ -48,6 +47,7 @@ function App() {
 
 function AppWithFAB({ isAddSaleModalOpen, setIsAddSaleModalOpen }: { isAddSaleModalOpen: boolean, setIsAddSaleModalOpen: (open: boolean) => void }) {
   const location = useLocation();
+  const { isUpdateAvailable, applyUpdate, dismissUpdate } = usePWAUpdate();
   const isAuthPage = location.pathname.startsWith('/auth/login') || location.pathname.startsWith('/auth/register');
   const isCataloguePage = /^\/catalogue\/[^/]+\/[^/]+$/.test(location.pathname);
   // ProductDetail page removed - now using modal

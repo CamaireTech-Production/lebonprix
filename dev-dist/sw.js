@@ -67,10 +67,13 @@ if (!self.define) {
     });
   };
 }
-define(['./workbox-ce4f0d5f'], (function (workbox) { 'use strict';
+define(['./workbox-13fdf7ef'], (function (workbox) { 'use strict';
 
-  self.skipWaiting();
-  workbox.clientsClaim();
+  self.addEventListener('message', event => {
+    if (event.data && event.data.type === 'SKIP_WAITING') {
+      self.skipWaiting();
+    }
+  });
 
   /**
    * The precacheAndRoute() method efficiently caches and responds to
@@ -82,7 +85,7 @@ define(['./workbox-ce4f0d5f'], (function (workbox) { 'use strict';
     "revision": "3ca0b8505b4bec776b69afdba2768812"
   }, {
     "url": "index.html",
-    "revision": "0.m7o3dvsfc4g"
+    "revision": "0.645uucrfeso"
   }], {});
   workbox.cleanupOutdatedCaches();
   workbox.registerRoute(new workbox.NavigationRoute(workbox.createHandlerBoundToURL("index.html"), {
@@ -111,6 +114,30 @@ define(['./workbox-ce4f0d5f'], (function (workbox) { 'use strict';
     plugins: [new workbox.ExpirationPlugin({
       maxEntries: 100,
       maxAgeSeconds: 2592000
+    })]
+  }), 'GET');
+  workbox.registerRoute(/^https:\/\/.*\.firebaseapp\.com\/.*/i, new workbox.NetworkFirst({
+    "cacheName": "firebase-cache",
+    "networkTimeoutSeconds": 3,
+    plugins: [new workbox.ExpirationPlugin({
+      maxEntries: 50,
+      maxAgeSeconds: 86400
+    })]
+  }), 'GET');
+  workbox.registerRoute(/^https:\/\/.*\.googleapis\.com\/.*/i, new workbox.NetworkFirst({
+    "cacheName": "google-apis-cache",
+    "networkTimeoutSeconds": 5,
+    plugins: [new workbox.ExpirationPlugin({
+      maxEntries: 100,
+      maxAgeSeconds: 86400
+    })]
+  }), 'GET');
+  workbox.registerRoute(/^https:\/\/.*\.firebaseio\.com\/.*/i, new workbox.NetworkFirst({
+    "cacheName": "firebase-realtime-cache",
+    "networkTimeoutSeconds": 3,
+    plugins: [new workbox.ExpirationPlugin({
+      maxEntries: 100,
+      maxAgeSeconds: 86400
     })]
   }), 'GET');
 
