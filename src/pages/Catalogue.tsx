@@ -7,6 +7,8 @@ import type { Company, Product } from '../types/models';
 import { Search, Package, AlertCircle, MapPin, Plus, ShoppingBag, Heart, Phone } from 'lucide-react';
 import Button from '../components/common/Button';
 import FloatingCartButton from '../components/common/FloatingCartButton';
+import ProductDetailModal from '../components/common/ProductDetailModal';
+import { ImageWithSkeleton } from '../components/common/ImageWithSkeleton';
 
 const placeholderImg = '/placeholder.png';
 
@@ -21,6 +23,9 @@ const Catalogue = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
+  // Cache for products to prevent re-fetching
+  const [productsCache, setProductsCache] = useState<Map<string, Product[]>>(new Map());
+  
   // Cart modal state (removed - using FloatingCartButton instead)
   
   // Cart management functions (now using global context)
@@ -28,8 +33,23 @@ const Catalogue = () => {
     addToCart(product, 1);
   };
 
+  // Product detail modal functions
+  const handleProductClick = (product: Product) => {
+    setSelectedProduct(product);
+    setIsProductModalOpen(true);
+  };
+
+  const handleCloseProductModal = () => {
+    setIsProductModalOpen(false);
+    setSelectedProduct(null);
+  };
+
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // Product detail modal state
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [isProductModalOpen, setIsProductModalOpen] = useState(false);
 
   // Fetch company data
   useEffect(() => {
@@ -56,15 +76,31 @@ const Catalogue = () => {
     fetchCompany();
   }, [companyId]);
 
-  // Subscribe to products
+  // Subscribe to products with caching
   useEffect(() => {
     if (!companyId) return;
 
+    // Check if we already have cached products for this company
+    if (productsCache.has(companyId)) {
+      const cachedProducts = productsCache.get(companyId)!;
+      const filteredProducts = cachedProducts.filter(
+        p => p.isAvailable !== false && p.isDeleted !== true
+      );
+      setProducts(filteredProducts);
+      setLoading(false);
+      return;
+    }
+
+    // Only fetch if not cached
     const unsubscribe = subscribeToProducts(companyId, (productsData) => {
       const companyProducts = productsData.filter(
         p => p.isAvailable !== false && p.isDeleted !== true
       );
+      
+      // Cache the products for future use
+      setProductsCache(prev => new Map(prev).set(companyId, productsData));
       setProducts(companyProducts);
+      
       // Only set loading to false if we have company data
       if (company) {
         setLoading(false);
@@ -72,7 +108,7 @@ const Catalogue = () => {
     });
 
     return () => unsubscribe();
-  }, [companyId, company]);
+  }, [companyId, company, productsCache]);
 
   // Apply search filter
   useEffect(() => {
@@ -113,39 +149,39 @@ const Catalogue = () => {
     <div className="min-h-screen bg-gray-50">
       {/* Enhanced Top Section - Shop Information */}
       <div className="bg-gradient-to-r from-emerald-500 to-emerald-600 text-white">
-        <div className="p-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           {/* Shop Header with Logo, Name, and Contact */}
-          <div className="flex items-center space-x-4 mb-4">
+          <div className="flex items-center space-x-6 mb-6">
             {/* Shop Logo */}
             <div className="flex-shrink-0">
               {company?.logo ? (
-                <img
-                  src={company.logo}
+              <img
+                src={company.logo}
                   alt={company.name || 'Shop Logo'}
-                  className="w-16 h-16 rounded-full object-cover border-2 border-white shadow-lg"
+                  className="w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover border-3 border-white shadow-lg"
                 />
               ) : (
-                <div className="w-16 h-16 rounded-full bg-white bg-opacity-20 flex items-center justify-center border-2 border-white">
-                  <Package className="h-8 w-8 text-white" />
+                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-white bg-opacity-20 flex items-center justify-center border-3 border-white">
+                  <Package className="h-10 w-10 sm:h-12 sm:w-12 text-white" />
                 </div>
               )}
-            </div>
+                </div>
             
             {/* Shop Info */}
             <div className="flex-1 min-w-0">
-              <h1 className="text-xl font-bold text-white mb-1 truncate">
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white mb-2">
                 {company?.name || 'Best Products in your home'}
               </h1>
-              <div className="flex items-center space-x-4 text-sm text-emerald-100">
+              <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-6 text-sm sm:text-base text-emerald-100">
                 {company?.location && (
                   <div className="flex items-center">
-                    <MapPin className="h-4 w-4 mr-1" />
+                    <MapPin className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
                     <span className="truncate">{company.location}</span>
                   </div>
                 )}
                 {company?.phone && (
                   <div className="flex items-center">
-                    <Phone className="h-4 w-4 mr-1" />
+                    <Phone className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
                     <span>{company.phone}</span>
                   </div>
                 )}
@@ -154,70 +190,73 @@ const Catalogue = () => {
           </div>
           
           {/* Search Bar */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <div className="relative max-w-2xl">
+            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
             <input
-              type="text"
+                type="text"
               placeholder="Search products..."
-              value={searchQuery}
+                value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 bg-white rounded-lg border-0 focus:ring-2 focus:ring-emerald-300 focus:outline-none text-gray-900 placeholder-gray-500"
-            />
-          </div>
-        </div>
-      </div>
+              className="w-full pl-12 pr-4 py-4 bg-white rounded-xl border-0 focus:ring-2 focus:ring-emerald-300 focus:outline-none text-gray-900 placeholder-gray-500 text-lg shadow-lg"
+              />
+            </div>
+                </div>
+              </div>
 
       {/* Main Content */}
-      <div className="p-4">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* New Arrival Section */}
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-semibold text-gray-900">New Arrival</h2>
-          <button className="text-emerald-600 text-sm font-medium">See all →</button>
+        <div className="flex items-center justify-between mb-8">
+          <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">Products</h2>
+          <button className="text-emerald-600 text-sm sm:text-base font-medium hover:text-emerald-700 transition-colors">
+            See all →
+                </button>
         </div>
 
         {/* Products Grid */}
       {filteredProducts.length === 0 ? (
-        <div className="text-center py-12">
-          <Package className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-2 text-sm font-medium text-gray-900">No products found</h3>
-          <p className="mt-1 text-sm text-gray-500">
+          <div className="text-center py-16">
+            <Package className="mx-auto h-16 w-16 text-gray-400" />
+            <h3 className="mt-4 text-lg font-medium text-gray-900">No products found</h3>
+            <p className="mt-2 text-gray-500">
               Try adjusting your search or filters
           </p>
         </div>
         ) : (
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
             {filteredProducts.map((product) => {
                     const images = product.images ?? [];
-              const mainImg = images.length > 0 ? (images[0]?.startsWith('data:image') ? images[0] : `data:image/jpeg;base64,${images[0]}`) : placeholderImg;
+              const mainImg = images.length > 0 ? images[0] : placeholderImg;
               
-              return (
-                <div key={product.id} className="bg-white rounded-lg shadow-sm overflow-hidden">
+                    return (
+                <div key={product.id} className="bg-white rounded-xl shadow-sm hover:shadow-lg transition-shadow duration-200 overflow-hidden group">
                   {/* Product Image - Clickable */}
                   <div 
-                    className="relative aspect-square cursor-pointer"
-                    onClick={() => navigate(`/product/${companyId}/${product.id}`)}
+                    className="relative aspect-square cursor-pointer overflow-hidden"
+                    onClick={() => handleProductClick(product)}
                   >
-                    <img
-                      src={mainImg}
-                      alt={product.name}
-                      className="w-full h-full object-cover"
-                    />
-                    <button className="absolute top-2 right-2 p-1 bg-white rounded-full shadow-sm">
-                      <Heart className="h-4 w-4 text-gray-400" />
+                      <ImageWithSkeleton
+                        src={mainImg}
+                        alt={product.name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                        placeholder={placeholderImg}
+                      />
+                    <button className="absolute top-3 right-3 p-2 bg-white rounded-full shadow-md hover:shadow-lg transition-shadow">
+                      <Heart className="h-4 w-4 text-gray-400 hover:text-red-500 transition-colors" />
                     </button>
-                  </div>
+                </div>
                   
                   {/* Product Info */}
-                  <div className="p-3">
+                  <div className="p-4">
                     <h3 
-                      className="font-medium text-gray-900 text-sm mb-1 line-clamp-2 cursor-pointer hover:text-emerald-600 transition-colors"
-                      onClick={() => navigate(`/product/${companyId}/${product.id}`)}
+                      className="font-semibold text-gray-900 text-sm sm:text-base mb-2 line-clamp-2 cursor-pointer hover:text-emerald-600 transition-colors"
+                      onClick={() => handleProductClick(product)}
                     >
                       {product.name}
                     </h3>
-                    <p className="text-xs text-gray-500 mb-2">{product.category}</p>
+                    <p className="text-xs sm:text-sm text-gray-500 mb-3">{product.category}</p>
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-semibold text-emerald-600">
+                      <span className="text-sm sm:text-base font-bold text-emerald-600">
                         {(product.cataloguePrice ?? 0).toLocaleString('fr-FR', {
                           style: 'currency',
                           currency: 'XAF'
@@ -228,9 +267,9 @@ const Catalogue = () => {
                           e.stopPropagation();
                           handleAddToCart(product);
                         }}
-                        className="w-8 h-8 bg-emerald-600 rounded-full flex items-center justify-center text-white hover:bg-emerald-700 transition-colors"
+                        className="w-8 h-8 sm:w-10 sm:h-10 bg-emerald-600 rounded-full flex items-center justify-center text-white hover:bg-emerald-700 transition-colors shadow-md hover:shadow-lg"
                       >
-                        <Plus className="h-4 w-4" />
+                        <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
                       </button>
                     </div>
                   </div>
@@ -242,8 +281,8 @@ const Catalogue = () => {
         </div>
 
 
-      {/* Bottom Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-2">
+      {/* Bottom Navigation - Hidden */}
+      {/* <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-2 md:hidden">
         <div className="flex items-center justify-around">
           <button className="flex flex-col items-center space-y-1 text-emerald-600">
             <div className="w-6 h-6 bg-emerald-600 rounded"></div>
@@ -252,16 +291,27 @@ const Catalogue = () => {
           <button className="flex flex-col items-center space-y-1 text-gray-400">
             <ShoppingBag className="w-6 h-6" />
             <span className="text-xs">Bag</span>
-          </button>
+                                  </button>
           <button className="flex flex-col items-center space-y-1 text-gray-400">
             <div className="w-6 h-6 bg-gray-300 rounded-full"></div>
             <span className="text-xs">Profile</span>
-          </button>
-        </div>
-      </div>
+                                  </button>
+                        </div>
+      </div> */}
 
       {/* Floating Cart Button */}
       <FloatingCartButton />
+
+      {/* Product Detail Modal */}
+      {selectedProduct && company && (
+        <ProductDetailModal
+          isOpen={isProductModalOpen}
+          onClose={handleCloseProductModal}
+          product={selectedProduct}
+          company={company}
+          companyId={companyId || ''}
+        />
+      )}
     </div>
   );
 };

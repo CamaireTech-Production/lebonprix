@@ -40,9 +40,9 @@ const FloatingCartButton: React.FC<FloatingCartButtonProps> = ({ className = '' 
       {/* Cart Modal */}
       {isCartOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-end">
-          <div className="bg-white w-full max-h-[80vh] rounded-t-lg">
+          <div className="bg-white w-full max-h-[90vh] rounded-t-lg flex flex-col">
             {/* Cart Header */}
-            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200 flex-shrink-0">
               <h3 className="text-lg font-semibold text-gray-900">
                 Cart ({getCartItemCount()})
               </h3>
@@ -54,8 +54,8 @@ const FloatingCartButton: React.FC<FloatingCartButtonProps> = ({ className = '' 
               </button>
             </div>
 
-            {/* Cart Content */}
-            <div className="flex-1 overflow-y-auto">
+            {/* Cart Content - Scrollable */}
+            <div className="flex-1 overflow-y-auto min-h-0">
               {cart.length === 0 ? (
                 <div className="text-center py-12">
                   <ShoppingBag className="mx-auto h-12 w-12 text-gray-400 mb-4" />
@@ -63,7 +63,7 @@ const FloatingCartButton: React.FC<FloatingCartButtonProps> = ({ className = '' 
                   <p className="text-gray-400 text-sm mt-2">Add some products to get started</p>
                 </div>
               ) : (
-                <div className="p-4 space-y-4">
+                <div className="p-4 space-y-4 pb-4">
                   {cart.map((item) => (
                     <div key={`${item.productId}-${item.selectedColor || 'default'}-${item.selectedSize || 'default'}`} 
                          className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
@@ -114,9 +114,9 @@ const FloatingCartButton: React.FC<FloatingCartButtonProps> = ({ className = '' 
               )}
             </div>
 
-            {/* Cart Footer */}
+            {/* Cart Footer - Always visible */}
             {cart.length > 0 && (
-              <div className="border-t border-gray-200 p-4">
+              <div className="border-t border-gray-200 p-4 flex-shrink-0">
                 <div className="flex justify-between items-center mb-4">
                   <span className="font-semibold text-gray-900">Total:</span>
                   <span className="text-emerald-600 font-bold text-lg">

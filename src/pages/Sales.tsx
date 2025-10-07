@@ -20,6 +20,7 @@ import Input from '../components/common/Input';
 import Badge from '../components/common/Badge';
 import Button from '../components/common/Button';
 import Card from '../components/common/Card';
+import { ImageWithSkeleton } from '../components/common/ImageWithSkeleton';
 import { useProducts, useCustomers } from '../hooks/useFirestore';
 import { useInfiniteSales } from '../hooks/useInfiniteSales';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
@@ -602,16 +603,11 @@ const Sales: React.FC = () => {
     label: (
       <div className="flex items-center space-x-2">
         <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
-          <img
-            src={
-              product.images && product.images.length > 0
-                ? product.images[0].startsWith('data:image')
-                  ? product.images[0]
-                  : `data:image/jpeg;base64,${product.images[0]}`
-                : '/placeholder.png'
-            }
+          <ImageWithSkeleton
+            src={product.images && product.images.length > 0 ? product.images[0] : '/placeholder.png'}
             alt={product.name}
             className="w-full h-full object-cover"
+            placeholder="/placeholder.png"
           />
         </div>
         <div>

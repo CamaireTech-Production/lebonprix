@@ -95,8 +95,8 @@ const MainLayout = ({ isAddSaleModalOpen, setIsAddSaleModalOpen }: MainLayoutPro
       {/* Mobile navigation */}
       {isMobile && <MobileNav />}
       
-      {/* Floating Action Button - only show on main dashboard pages */}
-      {location.pathname === '/' && (
+      {/* Floating Action Button - show on all dashboard pages except catalogue */}
+      {!location.pathname.startsWith('/catalogue') && (
         <FloatingActionButton onClick={() => setIsAddSaleModalOpen(true)} label="Add Sale" />
       )}
       

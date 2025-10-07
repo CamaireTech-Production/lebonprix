@@ -13,6 +13,7 @@ import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 import { useAllStockBatches } from '../hooks/useStockBatches';
 import { createSupplier } from '../services/firestore';
 import { useAuth } from '../contexts/AuthContext';
+import { ImageWithSkeleton } from '../components/common/ImageWithSkeleton';
 import LoadingScreen from '../components/common/LoadingScreen';
 import SyncIndicator from '../components/common/SyncIndicator';
 import { showSuccessToast, showErrorToast, showWarningToast } from '../utils/toast';
@@ -1247,13 +1248,14 @@ const Products = () => {
                   {(() => {
                     const images = product.images ?? [];
                     const mainIdx = mainImageIndexes[product.id] ?? 0;
-                    const mainImg = images.length > 0 ? (images[mainIdx]?.startsWith('data:image') ? images[mainIdx] : `data:image/jpeg;base64,${images[mainIdx]}`) : '/placeholder.png';
+                    const mainImg = images.length > 0 ? images[mainIdx] : '/placeholder.png';
+                    
                     return (
-                      <img
+                      <ImageWithSkeleton
                         src={mainImg}
                         alt={product.name}
-                        className="absolute h-full w-full object-cover transition-all duration-300"
-                        key={mainImg}
+                        className="h-full w-full object-cover transition-all duration-300"
+                        placeholder="/placeholder.png"
                       />
                     );
                   })()}
@@ -1262,11 +1264,12 @@ const Products = () => {
                   className="flex items-center gap-1 px-2 py-2 bg-white border-b border-gray-100 overflow-x-auto custom-scrollbar"
                 >
                   {(product.images ?? []).map((img, idx) => (
-                    <img
+                    <ImageWithSkeleton
                       key={idx}
-                      src={img.startsWith('data:image') ? img : `data:image/jpeg;base64,${img}`}
+                      src={img}
                       alt={`Preview ${idx + 1}`}
                       className={`w-10 h-10 object-cover rounded border cursor-pointer transition-transform duration-200 ${mainImageIndexes[product.id] === idx ? 'ring-2 ring-emerald-500 scale-105' : 'opacity-70 hover:opacity-100'}`}
+                      placeholder="/placeholder.png"
                       onClick={() => handleSetMainImage(product.id, idx)}
                     />
                   ))}
@@ -1382,7 +1385,7 @@ const Products = () => {
                           {(() => {
                             const images = product.images ?? [];
                             const mainIdx = mainImageIndexes[product.id] ?? 0;
-                            const mainImg = images.length > 0 ? (images[mainIdx]?.startsWith('data:image') ? images[mainIdx] : `data:image/jpeg;base64,${images[mainIdx]}`) : '/placeholder.png';
+                            const mainImg = images.length > 0 ? images[mainIdx] : '/placeholder.png';
                             return (
                               <>
                                 {images.length > 1 && (
@@ -1398,7 +1401,12 @@ const Products = () => {
                                     </svg>
                                   </button>
                                 )}
-                                <img className="h-10 w-10 rounded-md object-cover transition-all duration-300" src={mainImg} alt="" key={mainImg} />
+                                <ImageWithSkeleton
+                                  src={mainImg}
+                                  alt={product.name}
+                                  className="h-10 w-10 rounded-md object-cover transition-all duration-300"
+                                  placeholder="/placeholder.png"
+                                />
                                 {images.length > 1 && (
                                   <button
                                     className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white bg-opacity-80 rounded-full p-0.5 border border-gray-200 opacity-40 group-hover:opacity-90 transition-opacity duration-200"
@@ -1569,10 +1577,11 @@ const Products = () => {
               <div className="flex overflow-x-auto custom-scrollbar space-x-2 py-1">
                     {(step1Data.images ?? []).map((img, idx) => (
                   <div key={idx} className="relative w-20 h-20 flex-shrink-0 rounded-md overflow-hidden group">
-                    <img
-                      src={img.startsWith('data:image') ? img : `data:image/jpeg;base64,${img}`}
+                    <ImageWithSkeleton
+                      src={img}
                       alt={`Product ${idx + 1}`}
                       className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
+                      placeholder="/placeholder.png"
                     />
                     <button
                       type="button"
@@ -2527,10 +2536,11 @@ const Products = () => {
                 <div className="flex overflow-x-auto custom-scrollbar space-x-2 py-1">
                   {(step1Data.images ?? []).map((img, idx) => (
                     <div key={idx} className="relative w-20 h-20 flex-shrink-0 rounded-md overflow-hidden group">
-                      <img
-                        src={img.startsWith('data:image') ? img : `data:image/jpeg;base64,${img}`}
+                      <ImageWithSkeleton
+                        src={img}
                         alt={`Product ${idx + 1}`}
                         className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
+                        placeholder="/placeholder.png"
                       />
                       <button
                         type="button"
@@ -2832,11 +2842,12 @@ const Products = () => {
               {detailProduct?.images && detailProduct.images.length > 0 ? (
                 <div className="flex space-x-2 overflow-x-auto pb-2">
                   {detailProduct.images.map((img, idx) => (
-                    <img
+                    <ImageWithSkeleton
                       key={idx}
-                      src={img.startsWith('data:image') ? img : `data:image/jpeg;base64,${img}`}
+                      src={img}
                       alt={`${detailProduct.name} - Image ${idx + 1}`}
                       className="w-24 h-24 object-cover rounded-lg border border-gray-200 flex-shrink-0"
+                      placeholder="/placeholder.png"
                     />
                   ))}
                 </div>

@@ -279,8 +279,8 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, companyI
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white w-full max-w-md rounded-2xl shadow-xl max-h-[90vh] overflow-hidden">
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-2 sm:p-4">
+      <div className="bg-white w-full max-w-md rounded-2xl shadow-xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200">
           <div className="flex items-center space-x-3">
@@ -318,7 +318,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, companyI
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4">
+        <div className="flex-1 overflow-y-auto p-4 pb-2">
           {currentStep === 1 ? (
             // Step 1: Cart Review
             <div className="space-y-4">
@@ -398,7 +398,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, companyI
                 <span className="font-medium">Delivery Information</span>
               </div>
               
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {/* Name */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -458,15 +458,15 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, companyI
                   <textarea
                     value={customerInfo.deliveryInstructions}
                     onChange={(e) => handleInputChange('deliveryInstructions', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 resize-none"
                     placeholder="Any special delivery instructions..."
-                    rows={3}
+                    rows={2}
                   />
                 </div>
               </div>
 
               {/* Payment Info */}
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-2">
                 <div className="flex items-center space-x-2 text-blue-800">
                   <CreditCard className="h-4 w-4" />
                   <span className="text-sm font-medium">Payment Information</span>
@@ -480,7 +480,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, companyI
         </div>
 
         {/* Footer */}
-        <div className="border-t border-gray-200 p-4">
+        <div className="border-t border-gray-200 p-4 flex-shrink-0">
           <button
             onClick={handleNextStep}
             disabled={submitting}

@@ -1,22 +1,29 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
 import { getCompanyByUserId, subscribeToProducts } from '../services/firestore';
 import type { Company, Product } from '../types/models';
 import { ArrowLeft, Share2, Heart, Star, Plus, Minus, ChevronRight } from 'lucide-react';
 import FloatingCartButton from '../components/common/FloatingCartButton';
+import { ImageWithSkeleton } from '../components/common/ImageWithSkeleton';
 
 const placeholderImg = '/placeholder.png';
 
 const ProductDetail = () => {
   const { companyId, productId } = useParams<{ companyId: string; productId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   useAuth();
   const { addToCart } = useCart();
-  const [, setCompany] = useState<Company | null>(null);
-  const [product, setProduct] = useState<Product | null>(null);
-  const [loading, setLoading] = useState(true);
+  
+  // Get passed data from navigation state
+  const passedProduct = location.state?.product as Product | undefined;
+  const passedCompany = location.state?.company as Company | undefined;
+  
+  const [company, setCompany] = useState<Company | null>(passedCompany || null);
+  const [product, setProduct] = useState<Product | null>(passedProduct || null);
+  const [loading, setLoading] = useState(!passedProduct); // No loading if data passed
   const [error, setError] = useState<string | null>(null);
   
   // Product detail state
@@ -26,46 +33,85 @@ const ProductDetail = () => {
   const [isFavorite, setIsFavorite] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
-  // Fetch company data
+  // Hybrid approach: Use passed data immediately, fetch fresh data in background
   useEffect(() => {
-    const fetchCompany = async () => {
-      if (!companyId) {
-        setError('Company ID is required');
+    const fetchProductData = async () => {
+      if (!companyId || !productId) {
+        setError('Company ID and Product ID are required');
         setLoading(false);
         return;
       }
 
       try {
-        const companyData = await getCompanyByUserId(companyId);
-        setCompany(companyData);
+        // If we have passed data, show it immediately and fetch fresh data in background
+        if (passedProduct && passedCompany) {
+          setProduct(passedProduct);
+          setCompany(passedCompany);
+          setLoading(false);
+          
+          // Fetch fresh data in background to ensure data freshness
+          fetchFreshData();
+        } else {
+          // Fallback: fetch from Firebase if no data passed (direct URL access)
+          setLoading(true);
+          await fetchFromFirebase();
+        }
       } catch (err) {
-        setError('Company not found');
-        console.error('Error fetching company:', err);
+        console.error('Error fetching product data:', err);
+        setError('Failed to load product');
+        setLoading(false);
       }
     };
 
-    fetchCompany();
-  }, [companyId]);
+    const fetchFreshData = async () => {
+      try {
+        // Silent background fetch to ensure data freshness
+        const [companyData, productsData] = await Promise.all([
+          getCompanyByUserId(companyId),
+          new Promise<Product[]>((resolve) => {
+            const unsubscribe = subscribeToProducts(companyId, (products) => {
+              unsubscribe(); // Unsubscribe immediately after getting data
+              resolve(products);
+            });
+          })
+        ]);
 
-  // Subscribe to products and find the specific product
-  useEffect(() => {
-    if (!companyId || !productId) return;
+        const foundProduct = productsData.find(p => p.id === productId);
+        if (foundProduct) {
+          // Only update if there are actual changes to avoid unnecessary re-renders
+          setProduct(prev => prev?.id === foundProduct.id ? foundProduct : prev);
+          setCompany(companyData);
+        }
+      } catch (err) {
+        console.error('Error fetching fresh data:', err);
+        // Don't show error for background fetch failures
+      }
+    };
 
-    const unsubscribe = subscribeToProducts(companyId, (productsData) => {
+    const fetchFromFirebase = async () => {
+      const [companyData, productsData] = await Promise.all([
+        getCompanyByUserId(companyId),
+        new Promise<Product[]>((resolve) => {
+          const unsubscribe = subscribeToProducts(companyId, (products) => {
+            unsubscribe(); // Unsubscribe immediately after getting data
+            resolve(products);
+          });
+        })
+      ]);
+
+      setCompany(companyData);
+      
       const foundProduct = productsData.find(p => p.id === productId);
       if (foundProduct) {
         setProduct(foundProduct);
-        // Set default color and size if available (placeholder for future implementation)
-        // Note: Product type doesn't currently have colors/sizes properties
-        // This is prepared for future enhancement
       } else {
         setError('Product not found');
       }
       setLoading(false);
-    });
+    };
 
-    return () => unsubscribe();
-  }, [companyId, productId]);
+    fetchProductData();
+  }, [companyId, productId, passedProduct, passedCompany]);
 
   // Cart management functions (using global context)
   const handleAddToCart = () => {
@@ -123,7 +169,7 @@ const ProductDetail = () => {
   }
 
   const images = product?.images ?? [];
-  const currentImg = images.length > 0 ? (images[currentImageIndex]?.startsWith('data:image') ? images[currentImageIndex] : `data:image/jpeg;base64,${images[currentImageIndex]}`) : placeholderImg;
+  const currentImg = images.length > 0 ? images[currentImageIndex] : placeholderImg;
 
   // Mock colors and sizes for demonstration (placeholder for future implementation)
   const colors = ['green', 'orange', 'pink'];
@@ -151,10 +197,11 @@ const ProductDetail = () => {
 
       {/* Product Image Area */}
       <div className="relative h-[50vh] bg-gray-100 mx-4 my-4 rounded-2xl overflow-hidden">
-        <img
+        <ImageWithSkeleton
           src={currentImg}
           alt={product.name}
           className="w-full h-full object-cover"
+          placeholder={placeholderImg}
         />
         
         {/* Image Navigation Arrows */}
@@ -320,7 +367,7 @@ const ProductDetail = () => {
       </div>
 
       {/* Sticky Add to Cart Button */}
-      <div className="fixed bottom-16 left-0 right-0 bg-white border-t border-gray-200 px-6 py-4 z-20">
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-6 py-4 z-20">
         <button
           onClick={handleAddToCart}
           className="w-full bg-emerald-600 text-white py-4 rounded-xl font-semibold text-lg hover:bg-emerald-700 transition-colors shadow-lg"
@@ -332,8 +379,8 @@ const ProductDetail = () => {
         </button>
       </div>
 
-      {/* Bottom Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-2 z-20">
+      {/* Bottom Navigation - Hidden */}
+      {/* <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-2 z-20">
         <div className="flex items-center justify-around">
           <button className="flex flex-col items-center space-y-1 text-emerald-600">
             <div className="w-6 h-6 bg-emerald-600 rounded"></div>
@@ -352,7 +399,7 @@ const ProductDetail = () => {
             <span className="text-xs">Profile</span>
           </button>
         </div>
-      </div>
+      </div> */}
 
       {/* Floating Cart Button */}
       <FloatingCartButton />

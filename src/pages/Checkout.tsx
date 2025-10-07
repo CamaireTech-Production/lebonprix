@@ -7,6 +7,7 @@ import type { Company } from '../types/models';
 import type { CustomerInfo, OrderData } from '../types/order';
 import { ArrowLeft, MapPin, Phone, User, MessageSquare, CreditCard, Truck } from 'lucide-react';
 import Button from '../components/common/Button';
+import ImageWithSkeleton from '../components/common/ImageWithSkeleton';
 
 const Checkout = () => {
   const { companyId } = useParams<{ companyId: string }>();
@@ -256,10 +257,11 @@ const Checkout = () => {
             {cart.map((item) => (
               <div key={`${item.productId}-${item.selectedColor || 'default'}-${item.selectedSize || 'default'}`} 
                    className="flex items-center space-x-3">
-                <img
+                <ImageWithSkeleton
                   src={item.image || '/placeholder.png'}
                   alt={item.name}
                   className="w-12 h-12 object-cover rounded"
+                  placeholder="/placeholder.png"
                 />
                 <div className="flex-1">
                   <h3 className="font-medium text-sm">{item.name}</h3>

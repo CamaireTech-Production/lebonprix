@@ -26,7 +26,7 @@ const Reports = lazy(() => import('./pages/Reports'));
 const Settings = lazy(() => import('./pages/Settings'));
 const TimelinePage = lazy(() => import('./pages/TimelinePage'));
 const Catalogue = lazy(() => import('./pages/Catalogue'));
-const ProductDetail = lazy(() => import('./pages/ProductDetail'));
+// ProductDetail removed - now using modal instead
 const FIFODebugger = lazy(() => import('./pages/FIFODebugger'));
 
 function App() {
@@ -47,7 +47,7 @@ function AppWithFAB({ isAddSaleModalOpen, setIsAddSaleModalOpen }: { isAddSaleMo
   const location = useLocation();
   const isAuthPage = location.pathname.startsWith('/auth/login') || location.pathname.startsWith('/auth/register');
   const isCataloguePage = /^\/catalogue\/[^/]+\/[^/]+$/.test(location.pathname);
-  const isProductDetailPage = /^\/product\/[^/]+\/[^/]+$/.test(location.pathname);
+  // ProductDetail page removed - now using modal
   const isTrackSalesPage = location.pathname.startsWith('/track/');
   
   return (
@@ -66,7 +66,7 @@ function AppWithFAB({ isAddSaleModalOpen, setIsAddSaleModalOpen }: { isAddSaleMo
           {/* Public Routes */}
           <Route path="/track/:id" element={<LazyPage><TimelinePage /></LazyPage>} />
           <Route path="/catalogue/:companyName/:companyId" element={<LazyPage><Catalogue /></LazyPage>} />
-          <Route path="/product/:companyId/:productId" element={<LazyPage><ProductDetail /></LazyPage>} />
+          {/* ProductDetail route removed - now using modal */}
           {/* Protected Routes */}
           <Route element={<ProtectedRoute />}>
             <Route element={<MainLayout isAddSaleModalOpen={isAddSaleModalOpen} setIsAddSaleModalOpen={setIsAddSaleModalOpen} />}>
