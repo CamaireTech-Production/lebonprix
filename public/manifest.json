@@ -2,64 +2,64 @@
   "name": "Le Bon Prix",
   "short_name": "LeBonPrix",
   "description": "Diversité en un clic, votre boutique, votre choix",
-  "theme_color": "#dc2626",
+  "theme_color": "#10b981",
   "background_color": "#ffffff",
   "display": "standalone",
   "orientation": "portrait-primary",
   "scope": "/",
   "start_url": "/",
+  "categories": ["business", "productivity", "shopping"],
+  "lang": "fr",
+  "dir": "ltr",
   "icons": [
     {
-      "src": "/android-icon-36x36.png",
-      "sizes": "36x36",
+      "src": "/android-icon-192x192.png",
+      "sizes": "192x192",
       "type": "image/png",
-      "density": "0.75"
+      "purpose": "any"
     },
     {
-      "src": "/android-icon-48x48.png",
-      "sizes": "48x48",
+      "src": "/android-icon-192x192.png",
+      "sizes": "192x192",
       "type": "image/png",
-      "density": "1.0"
+      "purpose": "maskable"
     },
     {
-      "src": "/android-icon-72x72.png",
-      "sizes": "72x72",
+      "src": "/ms-icon-310x310.png",
+      "sizes": "310x310",
       "type": "image/png",
-      "density": "1.5"
+      "purpose": "any"
     },
     {
-      "src": "/android-icon-96x96.png",
-      "sizes": "96x96",
+      "src": "/ms-icon-310x310.png",
+      "sizes": "310x310",
       "type": "image/png",
-      "density": "2.0"
+      "purpose": "maskable"
     },
     {
       "src": "/android-icon-144x144.png",
       "sizes": "144x144",
-      "type": "image/png",
-      "density": "3.0"
-    },
-    {
-      "src": "/android-icon-192x192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "density": "4.0"
-    },
-    {
-      "src": "/android-icon-192x192.png",
-      "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "/ms-icon-310x310.png",
-      "sizes": "310x310",
+      "src": "/android-icon-96x96.png",
+      "sizes": "96x96",
       "type": "image/png"
     },
     {
-      "src": "/ms-icon-310x310.png",
-      "sizes": "310x310",
-      "type": "image/png",
-      "purpose": "any maskable"
+      "src": "/android-icon-72x72.png",
+      "sizes": "72x72",
+      "type": "image/png"
+    },
+    {
+      "src": "/android-icon-48x48.png",
+      "sizes": "48x48",
+      "type": "image/png"
+    },
+    {
+      "src": "/android-icon-36x36.png",
+      "sizes": "36x36",
+      "type": "image/png"
     }
   ]
 }

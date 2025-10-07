@@ -12,7 +12,7 @@ import { FloatingActionButton } from './components/common/Button';
 import AddSaleModal from './components/sales/AddSaleModal';
 import Finance from './pages/Finance';
 import { EnhancedPWAInstallPrompt } from './components/EnhancedPWAInstallPrompt';
-import { PWAStatusIndicator } from './components/PWAStatusIndicator';
+import { PWAErrorHandler } from './components/PWAErrorHandler';
 
 // Lazy load pages
 const Login = lazy(() => import('./pages/auth/Login'));
@@ -51,10 +51,7 @@ function AppWithFAB({ isAddSaleModalOpen, setIsAddSaleModalOpen }: { isAddSaleMo
   const isTrackSalesPage = location.pathname.startsWith('/track/');
   
   return (
-    <>
-      {/* PWA Components */}
-      <PWAStatusIndicator />
-      
+    <PWAErrorHandler>
       <Suspense fallback={<LoadingScreen />}>
         <Toaster />
         <Routes>
@@ -85,7 +82,7 @@ function AppWithFAB({ isAddSaleModalOpen, setIsAddSaleModalOpen }: { isAddSaleMo
           <Route path="*" element={<Navigate to="/auth/login" replace />} />
         </Routes>
       </Suspense>
-    </>
+    </PWAErrorHandler>
   );
 }
 

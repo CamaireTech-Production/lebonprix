@@ -15,33 +15,46 @@ export default defineConfig(({ mode }) => {
           name: 'Le Bon Prix',
           short_name: 'LeBonPrix',
           description: 'Diversité en un clic, votre boutique, votre choix',
-          theme_color: '#dc2626',
+          theme_color: '#10b981',
           background_color: '#ffffff',
           display: 'standalone',
           orientation: 'portrait-primary',
           scope: '/',
           start_url: '/',
+          categories: ['business', 'productivity', 'shopping'],
+          lang: 'fr',
+          dir: 'ltr',
           icons: [
             {
               src: 'android-icon-192x192.png',
               sizes: '192x192',
-              type: 'image/png'
+              type: 'image/png',
+              purpose: 'any'
             },
             {
-              src: 'ms-icon-310x310.png',
-              sizes: '310x310',
-              type: 'image/png'
+              src: 'android-icon-192x192.png',
+              sizes: '192x192',
+              type: 'image/png',
+              purpose: 'maskable'
             },
             {
               src: 'ms-icon-310x310.png',
               sizes: '310x310',
               type: 'image/png',
-              purpose: 'any maskable'
+              purpose: 'any'
+            },
+            {
+              src: 'ms-icon-310x310.png',
+              sizes: '310x310',
+              type: 'image/png',
+              purpose: 'maskable'
             }
           ]
         },
         workbox: {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+          navigateFallback: '/offline.html',
+          navigateFallbackDenylist: [/^\/_/, /\/[^/?]+\.[^/]+$/],
           runtimeCaching: [
             {
               urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
@@ -80,6 +93,18 @@ export default defineConfig(({ mode }) => {
                   maxEntries: 100,
                   maxAgeSeconds: 60 * 60 * 24 * 30 // 30 days
                 }
+              }
+            },
+            {
+              urlPattern: /^https:\/\/.*\.firebaseapp\.com\/.*/i,
+              handler: 'NetworkFirst',
+              options: {
+                cacheName: 'firebase-cache',
+                expiration: {
+                  maxEntries: 50,
+                  maxAgeSeconds: 60 * 60 * 24 // 1 day
+                },
+                networkTimeoutSeconds: 3
               }
             }
           ]

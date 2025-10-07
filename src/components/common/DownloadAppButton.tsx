@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Download, Smartphone, Monitor, ExternalLink } from 'lucide-react';
 import { getDeviceInfo, getDownloadLinks } from '../../utils/deviceDetection';
 import { usePWA } from '../../hooks/usePWA';
+import { PWAInstallModal } from '../PWAInstallModal';
 
 interface BeforeInstallPromptEvent extends Event {
   readonly platforms: string[];
@@ -25,6 +26,7 @@ export const DownloadAppButton: React.FC<DownloadAppButtonProps> = ({
 }) => {
   const [deviceInfo, setDeviceInfo] = useState(getDeviceInfo());
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [showInstallModal, setShowInstallModal] = useState(false);
   const { isInstalled, isInstallable } = usePWA();
 
   useEffect(() => {
@@ -60,72 +62,15 @@ export const DownloadAppButton: React.FC<DownloadAppButtonProps> = ({
         return;
       } catch (error) {
         console.error('Error during automatic installation:', error);
-        // Fall back to manual guide
-      }
-    }
-    
-    // Try to force the beforeinstallprompt event
-    console.log('Attempting to force install prompt...');
-    
-    // Check if we can trigger the install prompt manually
-    if ('serviceWorker' in navigator) {
-      try {
-        // Try to register the service worker again to trigger the event
-        // Try firebase-messaging-sw.js first (it exists and works), then sw.js as fallback
-        let registration;
-        try {
-          registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
-        } catch (error) {
-          console.log('firebase-messaging-sw.js not found, trying sw.js');
-          registration = await navigator.serviceWorker.register('/sw.js');
-        }
-        console.log('Service worker registered:', registration);
-        
-        // Wait a moment for the event to fire
-        setTimeout(() => {
-          if (deferredPrompt) {
-            console.log('Found deferred prompt after service worker registration');
-            deferredPrompt.prompt().then(() => {
-              return deferredPrompt.userChoice;
-            }).then((choiceResult) => {
-              if (choiceResult.outcome === 'accepted') {
-                console.log('User accepted the install prompt');
-              } else {
-                console.log('User dismissed the install prompt');
-              }
-              setDeferredPrompt(null);
-            });
-          } else {
-            console.log('No deferred prompt available, showing manual guide');
-            showManualInstallGuide();
-          }
-        }, 1000);
-      } catch (error) {
-        console.error('Service worker registration failed:', error);
-        showManualInstallGuide();
+        // Fall back to showing the modal
+        setShowInstallModal(true);
       }
     } else {
-      showManualInstallGuide();
+      // No automatic prompt available, show the detailed modal
+      setShowInstallModal(true);
     }
   };
 
-  const showManualInstallGuide = () => {
-    const links = getDownloadLinks();
-    
-    if (deviceInfo.isMobile) {
-      // Open app store
-      window.open(links.current, '_blank');
-    } else {
-      // For desktop, show PWA install instructions
-      if (deviceInfo.isIOS) {
-        // Show iOS PWA install instructions
-        alert('Pour installer l\'app sur iOS:\n1. Appuyez sur le bouton Partager\n2. Sélectionnez "Sur l\'écran d\'accueil"\n3. Appuyez sur "Ajouter"');
-      } else {
-        // For other platforms, show manual install instructions
-        alert('Pour installer l\'app:\n1. Regardez dans la barre d\'adresse de votre navigateur\n2. Cherchez une icône d\'installation (📱 ou ⬇️)\n3. Cliquez dessus pour installer\n\nOu utilisez le menu de votre navigateur:\n• Chrome/Edge: Menu (⋮) → "Installer Le Bon Prix"\n• Firefox: Menu (⋮) → "Installer"');
-      }
-    }
-  };
 
   // Don't show if already installed
   if (isInstalled) {
@@ -196,13 +141,21 @@ export const DownloadAppButton: React.FC<DownloadAppButtonProps> = ({
   };
 
   return (
-    <button
-      onClick={handleDownload}
-      className={getButtonClasses()}
-      title={deferredPrompt ? 'Installer l\'application maintenant' : 'Installer l\'application'}
-    >
-      {getButtonContent()}
-    </button>
+    <>
+      <button
+        onClick={handleDownload}
+        className={getButtonClasses()}
+        title={deferredPrompt ? 'Installer l\'application maintenant' : 'Installer l\'application'}
+      >
+        {getButtonContent()}
+      </button>
+      
+      {/* PWA Install Modal */}
+      <PWAInstallModal 
+        isOpen={showInstallModal}
+        onClose={() => setShowInstallModal(false)}
+      />
+    </>
   );
 };
 

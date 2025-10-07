@@ -5,6 +5,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import UserAvatar from '../common/UserAvatar';
 import LanguageSwitcher from '../common/LanguageSwitcher';
 import DownloadAppButton from '../common/DownloadAppButton';
+import { PWAStatusIndicator } from '../PWAStatusIndicator';
 import { useTranslation } from 'react-i18next';
 
 interface NavbarProps {
@@ -73,6 +74,9 @@ const Navbar = ({ onMenuClick }: NavbarProps) => {
         {/* Right actions */}
         <div className="flex items-center space-x-4">
           <LanguageSwitcher />
+          
+          {/* PWA Status Indicator */}
+          <PWAStatusIndicator variant="header" />
           
           {/* Download App Button */}
           <DownloadAppButton variant="header" />
