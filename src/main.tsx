@@ -12,18 +12,11 @@ if ('serviceWorker' in navigator) {
     .then((registration) => {
       console.log('PWA Service Worker registered successfully:', registration);
       
-      // Check for updates
-      registration.addEventListener('updatefound', () => {
-        const newWorker = registration.installing;
-        if (newWorker) {
-          newWorker.addEventListener('statechange', () => {
-            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-              // New content is available, prompt user to refresh
-              if (confirm('New version available! Refresh to update?')) {
-                window.location.reload();
-              }
-            }
-          });
+      // Listen for messages from the service worker
+      navigator.serviceWorker.addEventListener('message', (event) => {
+        if (event.data && event.data.type === 'SKIP_WAITING') {
+          // Service worker is ready to activate
+          window.location.reload();
         }
       });
     })

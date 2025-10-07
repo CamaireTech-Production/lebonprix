@@ -13,6 +13,8 @@ import AddSaleModal from './components/sales/AddSaleModal';
 import Finance from './pages/Finance';
 import { EnhancedPWAInstallPrompt } from './components/EnhancedPWAInstallPrompt';
 import { PWAErrorHandler } from './components/PWAErrorHandler';
+import { PWAUpdateNotification } from './components/PWAUpdateNotification';
+import { usePWAUpdate } from './hooks/usePWAUpdate';
 
 // Lazy load pages
 const Login = lazy(() => import('./pages/auth/Login'));
@@ -31,6 +33,7 @@ const FIFODebugger = lazy(() => import('./pages/FIFODebugger'));
 
 function App() {
   const [isAddSaleModalOpen, setIsAddSaleModalOpen] = useState(false);
+  const { isUpdateAvailable, applyUpdate, dismissUpdate } = usePWAUpdate();
   // BrowserRouter must wrap AppWithFAB for useLocation to work
   return (
     <AuthProvider>
@@ -54,6 +57,15 @@ function AppWithFAB({ isAddSaleModalOpen, setIsAddSaleModalOpen }: { isAddSaleMo
     <PWAErrorHandler>
       <Suspense fallback={<LoadingScreen />}>
         <Toaster />
+        
+        {/* PWA Update Notification */}
+        {isUpdateAvailable && (
+          <PWAUpdateNotification
+            onUpdate={applyUpdate}
+            onDismiss={dismissUpdate}
+          />
+        )}
+        
         <Routes>
           {/* Auth Routes */}
           <Route element={<AuthLayout />}>

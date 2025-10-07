@@ -9,7 +9,7 @@ export default defineConfig(({ mode }) => {
     plugins: [
       react(),
       VitePWA({
-        registerType: 'autoUpdate',
+        registerType: 'prompt',
         includeAssets: ['favicon.ico', 'apple-icon.png', 'android-icon-192x192.png', 'ms-icon-310x310.png'],
         manifest: {
           name: 'Le Bon Prix',
