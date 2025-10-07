@@ -367,7 +367,7 @@ const ProductDetail = () => {
       </div>
 
       {/* Sticky Add to Cart Button */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-6 py-4 z-20">
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-6 py-4 z-20 pb-safe">
         <button
           onClick={handleAddToCart}
           className="w-full bg-emerald-600 text-white py-4 rounded-xl font-semibold text-lg hover:bg-emerald-700 transition-colors shadow-lg"
