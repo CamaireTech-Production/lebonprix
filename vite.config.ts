@@ -53,8 +53,6 @@ export default defineConfig(({ mode }) => {
         },
         workbox: {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-          navigateFallback: '/offline.html',
-          navigateFallbackDenylist: [/^\/_/, /\/[^/?]+\.[^/]+$/],
           runtimeCaching: [
             {
               urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
@@ -102,6 +100,30 @@ export default defineConfig(({ mode }) => {
                 cacheName: 'firebase-cache',
                 expiration: {
                   maxEntries: 50,
+                  maxAgeSeconds: 60 * 60 * 24 // 1 day
+                },
+                networkTimeoutSeconds: 3
+              }
+            },
+            {
+              urlPattern: /^https:\/\/.*\.googleapis\.com\/.*/i,
+              handler: 'NetworkFirst',
+              options: {
+                cacheName: 'google-apis-cache',
+                expiration: {
+                  maxEntries: 100,
+                  maxAgeSeconds: 60 * 60 * 24 // 1 day
+                },
+                networkTimeoutSeconds: 5
+              }
+            },
+            {
+              urlPattern: /^https:\/\/.*\.firebaseio\.com\/.*/i,
+              handler: 'NetworkFirst',
+              options: {
+                cacheName: 'firebase-realtime-cache',
+                expiration: {
+                  maxEntries: 100,
                   maxAgeSeconds: 60 * 60 * 24 // 1 day
                 },
                 networkTimeoutSeconds: 3
