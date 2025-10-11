@@ -47,6 +47,9 @@ const Catalogue = () => {
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
   
+  // Category filter state
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  
   // Product detail modal state
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
@@ -110,7 +113,29 @@ const Catalogue = () => {
     return () => unsubscribe();
   }, [companyId, company, productsCache]);
 
-  // Apply search filter
+  // Get unique categories from products
+  const getUniqueCategories = () => {
+    const categories = products.map(product => product.category);
+    return Array.from(new Set(categories)).sort();
+  };
+
+  // Handle category filter toggle
+  const handleCategoryToggle = (category: string) => {
+    setSelectedCategories(prev => {
+      if (prev.includes(category)) {
+        return prev.filter(c => c !== category);
+      } else {
+        return [...prev, category];
+      }
+    });
+  };
+
+  // Clear all category filters
+  const clearCategoryFilters = () => {
+    setSelectedCategories([]);
+  };
+
+  // Apply search and category filters
   useEffect(() => {
     let result = [...products];
 
@@ -123,8 +148,15 @@ const Catalogue = () => {
       );
     }
 
+    // Apply category filter
+    if (selectedCategories.length > 0) {
+      result = result.filter(product =>
+        selectedCategories.includes(product.category)
+      );
+    }
+
     setFilteredProducts(result);
-  }, [products, searchQuery]);
+  }, [products, searchQuery, selectedCategories]);
 
   if (loading) {
     return (
@@ -202,6 +234,47 @@ const Catalogue = () => {
             </div>
                 </div>
               </div>
+
+      {/* Category Filter Chips */}
+      {products.length > 0 && (
+        <div className="bg-white border-b border-gray-200">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div className="flex items-center space-x-3 overflow-x-auto scrollbar-hide pb-2">
+              {/* All Categories Chip */}
+              <button
+                onClick={clearCategoryFilters}
+                className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                  selectedCategories.length === 0
+                    ? 'bg-emerald-600 text-white shadow-md'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                All ({products.length})
+              </button>
+              
+              {/* Category Chips */}
+              {getUniqueCategories().map((category) => {
+                const categoryCount = products.filter(p => p.category === category).length;
+                const isSelected = selectedCategories.includes(category);
+                
+                return (
+                  <button
+                    key={category}
+                    onClick={() => handleCategoryToggle(category)}
+                    className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                      isSelected
+                        ? 'bg-emerald-600 text-white shadow-md'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    {category} ({categoryCount})
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
