@@ -223,13 +223,13 @@ const Catalogue = () => {
           </p>
         </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-6">
             {filteredProducts.map((product) => {
                     const images = product.images ?? [];
               const mainImg = images.length > 0 ? images[0] : placeholderImg;
               
                     return (
-                <div key={product.id} className="bg-white rounded-xl shadow-sm hover:shadow-lg transition-shadow duration-200 overflow-hidden group">
+                <div key={product.id} className="bg-white rounded-lg sm:rounded-xl shadow-sm hover:shadow-lg transition-shadow duration-200 overflow-hidden group">
                   {/* Product Image - Clickable */}
                   <div 
                     className="relative aspect-square cursor-pointer overflow-hidden"
@@ -241,22 +241,22 @@ const Catalogue = () => {
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                         placeholder={placeholderImg}
                       />
-                    <button className="absolute top-3 right-3 p-2 bg-white rounded-full shadow-md hover:shadow-lg transition-shadow">
-                      <Heart className="h-4 w-4 text-gray-400 hover:text-red-500 transition-colors" />
+                    <button className="absolute top-2 right-2 sm:top-3 sm:right-3 p-1.5 sm:p-2 bg-white rounded-full shadow-md hover:shadow-lg transition-shadow">
+                      <Heart className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400 hover:text-red-500 transition-colors" />
                     </button>
                 </div>
                   
                   {/* Product Info */}
-                  <div className="p-4">
+                  <div className="p-3 sm:p-4">
                     <h3 
-                      className="font-semibold text-gray-900 text-sm sm:text-base mb-2 line-clamp-2 cursor-pointer hover:text-emerald-600 transition-colors"
+                      className="font-semibold text-gray-900 text-xs sm:text-sm md:text-base mb-1 sm:mb-2 line-clamp-2 cursor-pointer hover:text-emerald-600 transition-colors"
                       onClick={() => handleProductClick(product)}
                     >
                       {product.name}
                     </h3>
-                    <p className="text-xs sm:text-sm text-gray-500 mb-3">{product.category}</p>
+                    <p className="text-xs text-gray-500 mb-2 sm:mb-3">{product.category}</p>
                     <div className="flex items-center justify-between">
-                      <span className="text-sm sm:text-base font-bold text-emerald-600">
+                      <span className="text-xs sm:text-sm md:text-base font-bold text-emerald-600">
                         {(product.cataloguePrice ?? 0).toLocaleString('fr-FR', {
                           style: 'currency',
                           currency: 'XAF'
@@ -267,9 +267,9 @@ const Catalogue = () => {
                           e.stopPropagation();
                           handleAddToCart(product);
                         }}
-                        className="w-8 h-8 sm:w-10 sm:h-10 bg-emerald-600 rounded-full flex items-center justify-center text-white hover:bg-emerald-700 transition-colors shadow-md hover:shadow-lg"
+                        className="w-7 h-7 sm:w-8 sm:h-8 md:w-10 md:h-10 bg-emerald-600 rounded-full flex items-center justify-center text-white hover:bg-emerald-700 transition-colors shadow-md hover:shadow-lg"
                       >
-                        <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
+                        <Plus className="h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5" />
                       </button>
                     </div>
                   </div>
