@@ -2,6 +2,7 @@ import { useLocation, Link } from 'react-router-dom';
 import { LayoutDashboard, ShoppingCart, DollarSign, Package2, FileBarChart, Settings, X, Receipt, Users } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import UserAvatar from '../common/UserAvatar';
+import DownloadAppButton from '../common/DownloadAppButton';
 import { useTranslation } from 'react-i18next';
 
 interface SidebarProps {
@@ -64,6 +65,11 @@ const Sidebar = ({ onClose }: SidebarProps) => {
               </Link>
             </li>
           ))}
+          
+          {/* Download App Button */}
+          <li className="px-2">
+            <DownloadAppButton variant="sidebar" />
+          </li>
         </ul>
       </nav>
       

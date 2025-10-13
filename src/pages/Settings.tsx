@@ -1,4 +1,4 @@
-import { useState, ChangeEvent } from 'react';
+import { useState, ChangeEvent, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
@@ -7,35 +7,131 @@ import ActivityList from '../components/dashboard/ActivityList';
 import { showSuccessToast, showErrorToast } from '../utils/toast';
 import { useTranslation } from 'react-i18next';
 import { useSales, useExpenses, useAuditLogs } from '../hooks/useFirestore';
+import { getSellerSettings, updateSellerSettings } from '../services/firestore';
+import type { SellerSettings, PaymentMethod } from '../types/order';
+import PaymentMethodModal from '../components/settings/PaymentMethodModal';
 import i18n from '../i18n/config';
 import { combineActivities } from '../utils/activityUtils';
+import { Plus } from 'lucide-react';
 
 const Settings = () => {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('account');
-  const { company, updateCompany, updateUserPassword } = useAuth();
+  const { company, updateCompany, updateUserPassword, user } = useAuth();
+  
+  // Only fetch data if user is authenticated
   const { sales } = useSales();
   const { expenses } = useExpenses();
   const { auditLogs } = useAuditLogs();
   
   // Combine and sort recent activities using the new activity system
-  const activities = combineActivities(sales, expenses, auditLogs, t);
+  const activities = user ? combineActivities(sales, expenses, auditLogs, t) : [];
 
   // Form state for company settings
   const [formData, setFormData] = useState({
-    name: company?.name || '',
-    description: company?.description || '',
-    phone: company?.phone?.replace('+237', '') || '', // Remove +237 prefix for display
-    location: company?.location || '',
-    email: company?.email || '',
-    logo: company?.logo || '',
+    name: '',
+    description: '',
+    phone: '',
+    location: '',
+    email: '',
+    logo: '',
     currentPassword: '',
     newPassword: '',
     confirmPassword: '',
   });
+
+  // Update form data when company data becomes available
+  useEffect(() => {
+    if (company) {
+      setFormData(prev => ({
+        ...prev,
+        name: company.name || '',
+        description: company.description || '',
+        phone: company.phone?.replace('+237', '') || '',
+        location: company.location || '',
+        email: company.email || '',
+        logo: company.logo || '',
+      }));
+    }
+  }, [company]);
   
   const [isLoading, setIsLoading] = useState(false);
   const [passwordError, setPasswordError] = useState('');
+
+  // Ordering settings state
+  const [orderingSettings, setOrderingSettings] = useState<SellerSettings | null>(null);
+  const [orderingLoading, setOrderingLoading] = useState(false);
+  const [orderingSaving, setOrderingSaving] = useState(false);
+  const [isPaymentMethodModalOpen, setIsPaymentMethodModalOpen] = useState(false);
+
+  useEffect(() => {
+    const loadSettings = async () => {
+      if (!company?.id) return;
+      setOrderingLoading(true);
+      try {
+        const settings = await getSellerSettings(company.id);
+        setOrderingSettings(settings || {
+          whatsappNumber: company.phone || '+237',
+          businessName: company.name || '',
+          paymentMethods: {
+            mobileMoney: true,
+            bankTransfer: false,
+            cashOnDelivery: true,
+            customMethods: []
+          },
+          deliveryFee: 0,
+          currency: 'XAF'
+        });
+      } catch (e) {
+        console.error('Failed to load seller settings', e);
+      } finally {
+        setOrderingLoading(false);
+      }
+    };
+    loadSettings();
+  }, [company?.id]);
+
+  // Payment method management functions
+  const handleAddPaymentMethod = (paymentMethod: PaymentMethod) => {
+    if (!orderingSettings) return;
+    
+    const updatedSettings = {
+      ...orderingSettings,
+      paymentMethods: {
+        ...orderingSettings.paymentMethods,
+        customMethods: [...(orderingSettings.paymentMethods.customMethods || []), paymentMethod]
+      }
+    };
+    setOrderingSettings(updatedSettings);
+  };
+
+  const handleUpdatePaymentMethod = (id: string, updatedMethod: Partial<PaymentMethod>) => {
+    if (!orderingSettings) return;
+    
+    const updatedSettings = {
+      ...orderingSettings,
+      paymentMethods: {
+        ...orderingSettings.paymentMethods,
+        customMethods: (orderingSettings.paymentMethods.customMethods || []).map(method =>
+          method.id === id ? { ...method, ...updatedMethod } : method
+        )
+      }
+    };
+    setOrderingSettings(updatedSettings);
+  };
+
+  const handleDeletePaymentMethod = (id: string) => {
+    if (!orderingSettings) return;
+    
+    const updatedSettings = {
+      ...orderingSettings,
+      paymentMethods: {
+        ...orderingSettings.paymentMethods,
+        customMethods: (orderingSettings.paymentMethods.customMethods || []).filter(method => method.id !== id)
+      }
+    };
+    setOrderingSettings(updatedSettings);
+  };
   
   const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -128,17 +224,20 @@ const Settings = () => {
   };
 
   const handleCancel = () => {
-    setFormData({
-      name: company?.name || '',
-      description: company?.description || '',
-      phone: company?.phone?.replace('+237', '') || '',
-      location: company?.location || '',
-      email: company?.email || '',
-      logo: company?.logo || '',
-      currentPassword: '',
-      newPassword: '',
-      confirmPassword: '',
-    });
+    if (company) {
+      setFormData(prev => ({
+        ...prev,
+        name: company.name || '',
+        description: company.description || '',
+        phone: company.phone?.replace('+237', '') || '',
+        location: company.location || '',
+        email: company.email || '',
+        logo: company.logo || '',
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: '',
+      }));
+    }
     setPasswordError('');
   };
 
@@ -146,6 +245,15 @@ const Settings = () => {
   const handleLanguageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     i18n.changeLanguage(e.target.value);
   };
+
+  // Show loading if company data is not yet available
+  if (!company && !user) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="pb-16 md:pb-0">
@@ -178,6 +286,17 @@ const Settings = () => {
             `}
           >
             {t('settings.tabs.activity')}
+          </button>
+          <button
+            onClick={() => setActiveTab('ordering')}
+            className={`
+              whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm
+              ${activeTab === 'ordering'
+                ? 'border-emerald-500 text-emerald-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
+            `}
+          >
+            Ordering Settings
           </button>
         </nav>
       </div>
@@ -372,10 +491,196 @@ const Settings = () => {
         </form>
       )}
       
+      {/* Ordering Settings Tab */}
+      {activeTab === 'ordering' && (
+        <Card>
+          <div className="max-w-xl mx-auto">
+            <div className="space-y-6">
+              <h3 className="text-lg font-medium text-gray-900">Ordering and Delivery</h3>
+              {/* Business Info */}
+              <div className="space-y-4">
+                <Input
+                  label="Business Name"
+                  name="businessName"
+                  value={orderingSettings?.businessName || ''}
+                  onChange={(e) => setOrderingSettings(prev => prev ? { ...prev, businessName: e.target.value } : prev)}
+                />
+                <Input
+                  label="WhatsApp Number"
+                  name="whatsappNumber"
+                  value={orderingSettings?.whatsappNumber || ''}
+                  onChange={(e) => setOrderingSettings(prev => prev ? { ...prev, whatsappNumber: e.target.value } : prev)}
+                  helpText="Include country code, e.g. +237..."
+                />
+              </div>
+
+              {/* Payment Methods */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-medium text-gray-800">Payment Methods</h4>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsPaymentMethodModalOpen(true)}
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add Payment Method
+                  </Button>
+                </div>
+                
+                {/* Standard Payment Methods */}
+                <div className="space-y-3">
+                  <div className="flex items-center space-x-2">
+                    <input
+                      id="pm-mm"
+                      type="checkbox"
+                      className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded"
+                      checked={!!orderingSettings?.paymentMethods?.mobileMoney}
+                      onChange={(e) => setOrderingSettings(prev => prev ? { ...prev, paymentMethods: { ...prev.paymentMethods, mobileMoney: e.target.checked } } : prev)}
+                    />
+                    <label htmlFor="pm-mm" className="text-sm text-gray-700">Mobile Money</label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      id="pm-bank"
+                      type="checkbox"
+                      className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded"
+                      checked={!!orderingSettings?.paymentMethods?.bankTransfer}
+                      onChange={(e) => setOrderingSettings(prev => prev ? { ...prev, paymentMethods: { ...prev.paymentMethods, bankTransfer: e.target.checked } } : prev)}
+                    />
+                    <label htmlFor="pm-bank" className="text-sm text-gray-700">Bank Transfer</label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      id="pm-cod"
+                      type="checkbox"
+                      className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded"
+                      checked={!!orderingSettings?.paymentMethods?.cashOnDelivery}
+                      onChange={(e) => setOrderingSettings(prev => prev ? { ...prev, paymentMethods: { ...prev.paymentMethods, cashOnDelivery: e.target.checked } } : prev)}
+                    />
+                    <label htmlFor="pm-cod" className="text-sm text-gray-700">Cash on Delivery</label>
+                  </div>
+                </div>
+
+                {/* Custom Payment Methods */}
+                {orderingSettings?.paymentMethods?.customMethods && orderingSettings.paymentMethods.customMethods.length > 0 && (
+                  <div className="mt-4">
+                    <h5 className="text-xs font-medium text-gray-600 mb-2">Custom Payment Methods</h5>
+                    <div className="space-y-2">
+                      {orderingSettings.paymentMethods.customMethods.map((method) => (
+                        <div key={method.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                          <div className="flex items-center space-x-2">
+                            <span className={`px-2 py-1 text-xs rounded-full ${
+                              method.isActive 
+                                ? 'bg-green-100 text-green-800' 
+                                : 'bg-gray-100 text-gray-800'
+                            }`}>
+                              {method.isActive ? 'Active' : 'Inactive'}
+                            </span>
+                            <span className="text-sm font-medium text-gray-900">{method.name}</span>
+                            <span className="text-xs text-gray-500">
+                              {method.type === 'phone' && '📞'}
+                              {method.type === 'ussd' && '🔢'}
+                              {method.type === 'link' && '🔗'}
+                              {' '}{method.value}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Delivery Fee and Currency */}
+              <div className="grid grid-cols-2 gap-4">
+                <Input
+                  label="Delivery Fee"
+                  name="deliveryFee"
+                  type="number"
+                  value={orderingSettings?.deliveryFee ?? 0}
+                  onChange={(e) => setOrderingSettings(prev => prev ? { ...prev, deliveryFee: Number(e.target.value) } : prev)}
+                />
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Currency</label>
+                  <select
+                    className="w-full rounded-md border border-gray-300 shadow-sm py-2 px-3 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
+                    value={orderingSettings?.currency || 'XAF'}
+                    onChange={(e) => setOrderingSettings(prev => prev ? { ...prev, currency: e.target.value } : prev)}
+                  >
+                    <option value="XAF">XAF</option>
+                    <option value="XOF">XOF</option>
+                    <option value="USD">USD</option>
+                    <option value="EUR">EUR</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex justify-end space-x-3">
+                <Button
+                  variant="outline"
+                  type="button"
+                  disabled={orderingSaving || orderingLoading}
+                  onClick={() => {
+                    // Reset from server/company defaults
+                    if (!company) return;
+                    setOrderingSettings({
+                      whatsappNumber: company.phone || '+237',
+                      businessName: company.name || '',
+                      paymentMethods: {
+                        mobileMoney: true,
+                        bankTransfer: false,
+                        cashOnDelivery: true,
+                        customMethods: []
+                      },
+                      deliveryFee: 0,
+                      currency: 'XAF'
+                    });
+                  }}
+                >
+                  Reset
+                </Button>
+                <Button
+                  type="button"
+                  isLoading={orderingSaving}
+                  disabled={orderingSaving || orderingLoading || !orderingSettings}
+                  onClick={async () => {
+                    if (!company?.id || !orderingSettings) return;
+                    try {
+                      setOrderingSaving(true);
+                      await updateSellerSettings(company.id, orderingSettings);
+                      showSuccessToast('Ordering settings updated');
+                    } catch (e: any) {
+                      console.error(e);
+                      showErrorToast(e.message || 'Failed to update settings');
+                    } finally {
+                      setOrderingSaving(false);
+                    }
+                  }}
+                >
+                  Save Ordering Settings
+                </Button>
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
       {/* Activity Logs Tab */}
       {activeTab === 'activity' && (
         <ActivityList activities={activities} />
       )}
+
+      {/* Payment Method Modal */}
+      <PaymentMethodModal
+        isOpen={isPaymentMethodModalOpen}
+        onClose={() => setIsPaymentMethodModalOpen(false)}
+        onSave={handleAddPaymentMethod}
+        onUpdate={handleUpdatePaymentMethod}
+        onDelete={handleDeletePaymentMethod}
+        paymentMethods={orderingSettings?.paymentMethods?.customMethods || []}
+      />
     </div>
   );
 };

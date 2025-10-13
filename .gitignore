@@ -12,6 +12,7 @@ update-migration
 firebase-export
 dist
 dist-ssr
+firebase-service-account.json
 *.local
 
 # Editor directories and files

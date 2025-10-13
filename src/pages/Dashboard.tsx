@@ -1,12 +1,14 @@
-import { ShoppingCart, DollarSign, TrendingUp, Package2, BarChart2, Info, Receipt, Copy, Check, ExternalLink, Plus } from 'lucide-react';
+import { DollarSign, TrendingUp, Package2, Info, Receipt, Copy, Check, ExternalLink} from 'lucide-react';
 import StatCard from '../components/dashboard/StatCard';
 import SalesChart from '../components/dashboard/SalesChart';
 import ActivityList from '../components/dashboard/ActivityList';
 import Table from '../components/common/Table';
 import Card from '../components/common/Card';
 import { useSales, useExpenses, useProducts, useStockChanges, useFinanceEntries, useAuditLogs } from '../hooks/useFirestore';
+import { subscribeToAllSales } from '../services/firestore';
 import LoadingScreen from '../components/common/LoadingScreen';
-import { useState } from 'react';
+import { SkeletonStatCard, SkeletonChart, SkeletonTable, SkeletonActivityList, SkeletonObjectivesBar } from '../components/common/SkeletonLoader';
+import { useState, useEffect } from 'react';
 import Modal from '../components/common/Modal';
 import Button from '../components/common/Button';
 import { useAuth } from '../contexts/AuthContext';
@@ -14,7 +16,7 @@ import type { DashboardStats } from '../types/models';
 import { showSuccessToast, showErrorToast } from '../utils/toast';
 import { useTranslation } from 'react-i18next';
 import { getLatestCostPrice } from '../utils/productUtils';
-import { startOfMonth, endOfMonth, differenceInDays, format, startOfWeek, endOfWeek, addDays, addWeeks, startOfMonth as startMonth, endOfMonth as endMonth, addMonths, isSameMonth, isSameWeek, isSameDay } from 'date-fns';
+import { differenceInDays, format, startOfWeek, endOfWeek, addDays, addWeeks, startOfMonth as startMonth, endOfMonth as endMonth, addMonths, isSameMonth, isSameDay } from 'date-fns';
 import DateRangePicker from '../components/common/DateRangePicker';
 import ObjectivesBar from '../components/objectives/ObjectivesBar';
 import ObjectivesModal from '../components/objectives/ObjectivesModal';
@@ -22,19 +24,50 @@ import { combineActivities } from '../utils/activityUtils';
 
 const Dashboard = () => {
   const { t } = useTranslation();
+  
+  // 🚀 PROGRESSIVE LOADING: Load essential data first
   const { sales, loading: salesLoading } = useSales();
-  const { expenses, loading: expensesLoading } = useExpenses();
   const { products, loading: productsLoading } = useProducts();
+  
+  // 🔄 BACKGROUND LOADING: Load all sales in background after initial render
+  const [allSales, setAllSales] = useState<any[]>([]);
+  const [loadingAllSales, setLoadingAllSales] = useState(false);
+  const { user } = useAuth();
+  
+  // 🔄 BACKGROUND LOADING: Load secondary data in background (don't block UI)
+  const { expenses, loading: expensesLoading } = useExpenses();
   const { stockChanges, loading: stockChangesLoading } = useStockChanges();
   const { entries: financeEntries, loading: financeLoading } = useFinanceEntries();
   const { auditLogs, loading: auditLogsLoading } = useAuditLogs();
+  
+  // 🎯 ESSENTIAL DATA: Only block UI for critical data (sales + products)
+  const essentialDataLoading = salesLoading || productsLoading;
+
+  // 🔄 LOAD ALL SALES IN BACKGROUND: After initial UI renders
+  useEffect(() => {
+    if (!user || essentialDataLoading) return;
+    
+    console.log('🔄 Loading all sales in background...');
+    setLoadingAllSales(true);
+    
+    const unsubscribe = subscribeToAllSales(user.uid, (allSalesData) => {
+      setAllSales(allSalesData);
+      setLoadingAllSales(false);
+      console.log(`✅ All sales loaded: ${allSalesData.length} total sales`);
+    });
+    
+    // Cleanup function
+    return () => {
+      unsubscribe();
+    };
+  }, [user, essentialDataLoading]);
   const [showCalculationsModal, setShowCalculationsModal] = useState(false);
   const { company } = useAuth();
   const [] = useState<Partial<DashboardStats>>({});
   const [copied, setCopied] = useState(false);
   const [dateRange, setDateRange] = useState({
-    from: new Date(2025, 3, 1), // April 1st, 2025
-    to: new Date(2100, 0, 1),
+    from: new Date(2025, 0, 1), // January 1st, 2025
+    to: new Date(), // Current date
   });
   const [showObjectivesModal, setShowObjectivesModal] = useState(false);
   const [applyDateFilter, setApplyDateFilter] = useState(true);
@@ -47,8 +80,9 @@ const Dashboard = () => {
     { value: 'totalSalesCount', label: t('dashboard.stats.totalSalesCount') },
   ];
 
-  // Filter sales and expenses by selected date range
-  const filteredSales = sales?.filter(sale => {
+  // 🎯 SMART SALES FILTERING: Use all sales when available, recent sales for immediate display
+  const salesDataToUse = allSales.length > 0 ? allSales : sales;
+  const filteredSales = salesDataToUse?.filter(sale => {
     if (!sale.createdAt?.seconds) return false;
     const saleDate = new Date(sale.createdAt.seconds * 1000);
     return saleDate >= dateRange.from && saleDate <= dateRange.to;
@@ -77,8 +111,8 @@ const Dashboard = () => {
     }, 0);
   }, 0) || 0;
 
-  // Calculate total expenses
-  const totalExpenses = filteredExpenses?.reduce((sum, exp) => sum + exp.amount, 0) || 0;
+  // 🔄 BACKGROUND DATA: Calculate expenses only when available
+  const totalExpenses = expensesLoading ? 0 : (filteredExpenses?.reduce((sum, exp) => sum + exp.amount, 0) || 0);
 
   // Total orders
   const totalOrders = filteredSales?.length || 0;
@@ -195,8 +229,8 @@ const Dashboard = () => {
 
   const chartData = processChartData();
 
-  // Generate the company's product page URL
-  const productPageUrl = company ? `${window.location.origin}/company/${company.id}/products` : '';
+  // Generate the company's catalogue page URL
+  const productPageUrl = company ? `${window.location.origin}/catalogue/${encodeURIComponent(company.name.toLowerCase().replace(/\s+/g, '-'))}/${company.id}` : '';
 
   const handleCopyLink = async () => {
     try {
@@ -228,12 +262,15 @@ const Dashboard = () => {
     }
   };
 
-  if (salesLoading || expensesLoading || productsLoading || stockChangesLoading || financeLoading || auditLogsLoading) {
+  // 🚀 SHOW UI IMMEDIATELY: Only block for essential data
+  if (essentialDataLoading) {
     return <LoadingScreen />;
   }
 
-  // Process recent activities using the new activity system
-  const recentActivities = combineActivities(filteredSales, filteredExpenses, auditLogs, t);
+  // 🔄 BACKGROUND DATA: Process activities only when data is available
+  const recentActivities = (expensesLoading || auditLogsLoading) 
+    ? [] // Show empty while loading
+    : combineActivities(filteredSales, filteredExpenses, auditLogs, t);
 
   // Table columns for best selling products
   const bestProductColumns = [
@@ -254,19 +291,45 @@ const Dashboard = () => {
     totalSalesCount: totalOrders,
   };
 
-  // Calculate balance (solde) from all active finance entries (not soft deleted), excluding debt/refund/supplier_debt/supplier_refund
-  const activeFinanceEntries = financeEntries?.filter(entry => !entry.isDeleted) || [];
-  const nonDebtEntries = activeFinanceEntries.filter(
-    (entry) => entry.type !== 'debt' && entry.type !== 'refund' && entry.type !== 'supplier_debt' && entry.type !== 'supplier_refund'
-  );
-  const solde = nonDebtEntries.reduce((sum, entry) => sum + entry.amount, 0);
+  // 🔄 BACKGROUND DATA: Calculate balance only when finance data is available
+  const solde = financeLoading ? 0 : (() => {
+    const activeFinanceEntries = financeEntries?.filter(entry => !entry.isDeleted) || [];
+    const nonDebtEntries = activeFinanceEntries.filter(
+      (entry) => entry.type !== 'debt' && entry.type !== 'refund' && entry.type !== 'supplier_debt' && entry.type !== 'supplier_refund'
+    );
+    return nonDebtEntries.reduce((sum, entry) => sum + entry.amount, 0);
+  })();
 
-  // Stat cards (show only solde, profit, depense, produit vendu)
-  const statCards: { title: string; value: string | number; icon: JSX.Element; type: 'products' | 'sales' | 'expenses' | 'profit' | 'orders' | 'delivery' | 'solde'; }[] = [
-    { title: t('dashboard.stats.solde'), value: `${solde.toLocaleString()} XAF`, icon: <DollarSign size={20} />, type: 'solde' },
-    { title: t('dashboard.stats.profit'), value: `${profit.toLocaleString()} XAF`, icon: <TrendingUp size={20} />, type: 'profit' },
-    { title: t('dashboard.stats.expenses'), value: `${totalExpenses.toLocaleString()} XAF`, icon: <Receipt size={20} />, type: 'expenses' },
-    { title: t('dashboard.stats.productsSold'), value: totalProductsSold, icon: <Package2 size={20} />, type: 'products' },
+  // 🎯 STAT CARDS: Show loading states for background data
+  const statCards: { title: string; value: string | number; icon: JSX.Element; type: 'products' | 'sales' | 'expenses' | 'profit' | 'orders' | 'delivery' | 'solde'; loading?: boolean; }[] = [
+    { 
+      title: t('dashboard.stats.solde'), 
+      value: financeLoading ? '...' : `${solde.toLocaleString()} XAF`, 
+      icon: <DollarSign size={20} />, 
+      type: 'solde',
+      loading: financeLoading
+    },
+    { 
+      title: t('dashboard.stats.profit'), 
+      value: stockChangesLoading ? '...' : `${profit.toLocaleString()} XAF`, 
+      icon: <TrendingUp size={20} />, 
+      type: 'profit',
+      loading: stockChangesLoading
+    },
+    { 
+      title: t('dashboard.stats.expenses'), 
+      value: expensesLoading ? '...' : `${totalExpenses.toLocaleString()} XAF`, 
+      icon: <Receipt size={20} />, 
+      type: 'expenses',
+      loading: expensesLoading
+    },
+    { 
+      title: t('dashboard.stats.productsSold'), 
+      value: totalProductsSold, 
+      icon: <Package2 size={20} />, 
+      type: 'products',
+      loading: false // Products already loaded
+    },
   ];
 
   return (
@@ -350,18 +413,22 @@ const Dashboard = () => {
         </div>
       </div>
       {/* Objectives global bar */}
-      <ObjectivesBar
-        onAdd={() => { setShowObjectivesModal(true); }}
-        onView={() => { setShowObjectivesModal(true); }}
-        stats={statsMap}
-        dateRange={dateRange}
-        applyDateFilter={applyDateFilter}
-        onToggleFilter={setApplyDateFilter}
-        sales={sales}
-        expenses={expenses}
-        products={products}
-        stockChanges={stockChanges}
-      />
+      {(expensesLoading || stockChangesLoading) ? (
+        <SkeletonObjectivesBar />
+      ) : (
+        <ObjectivesBar
+          onAdd={() => { setShowObjectivesModal(true); }}
+          onView={() => { setShowObjectivesModal(true); }}
+          stats={statsMap}
+          dateRange={dateRange}
+          applyDateFilter={applyDateFilter}
+          onToggleFilter={setApplyDateFilter}
+          sales={sales}
+          expenses={expenses}
+          products={products}
+          stockChanges={stockChanges}
+        />
+      )}
       {showObjectivesModal && (
         <ObjectivesModal
           isOpen={showObjectivesModal}
@@ -380,37 +447,74 @@ const Dashboard = () => {
       {/* Stats section */}
       <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {statCards.map((card, index) => (
-          <StatCard
-            key={index}
-            title={card.title}
-            value={card.value}
-            icon={card.icon}
-            type={card.type}
-          />
+          card.loading ? (
+            <SkeletonStatCard key={`skeleton-${index}`} />
+          ) : (
+            <StatCard
+              key={index}
+              title={card.title}
+              value={card.value}
+              icon={card.icon}
+              type={card.type}
+            />
+          )
         ))}
       </div>
+      
+      {/* Data Loading Status */}
+      {loadingAllSales && (
+        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="flex items-center">
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500 mr-2"></div>
+            <span className="text-sm text-blue-700">Loading complete sales history for accurate calculations...</span>
+          </div>
+        </div>
+      )}
+      
+      {allSales.length > 0 && !loadingAllSales && allSales.length > sales.length && (
+        <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+          <div className="flex items-center">
+            <div className="h-4 w-4 bg-green-500 rounded-full mr-2"></div>
+            <span className="text-sm text-green-700">
+              Complete data loaded: {allSales.length} total sales (showing calculations for all data)
+            </span>
+          </div>
+        </div>
+      )}
       {/* Chart section */}
       <div className="mb-6">
-        <SalesChart
-          labels={chartData.labels}
-          salesData={chartData.salesData}
-          expensesData={chartData.expensesData}
-        />
+        {expensesLoading ? (
+          <SkeletonChart />
+        ) : (
+          <SalesChart
+            labels={chartData.labels}
+            salesData={chartData.salesData}
+            expensesData={chartData.expensesData}
+          />
+        )}
       </div>
       {/* Best Selling Products Table */}
       <div className="mb-6">
-        <Card title={t('dashboard.bestSellingProducts.title')}>
-          <Table
-            data={bestSellingProducts}
-            columns={bestProductColumns}
-            keyExtractor={row => row.name}
-            emptyMessage={t('dashboard.bestSellingProducts.noData')}
-          />
-        </Card>
+        {(salesLoading || loadingAllSales) ? (
+          <SkeletonTable rows={5} />
+        ) : (
+          <Card title={t('dashboard.bestSellingProducts.title')}>
+            <Table
+              data={bestSellingProducts}
+              columns={bestProductColumns}
+              keyExtractor={row => row.name}
+              emptyMessage={t('dashboard.bestSellingProducts.noData')}
+            />
+          </Card>
+        )}
       </div>
       {/* Activity section */}
       <div>
-        <ActivityList activities={recentActivities} />
+        {(expensesLoading || auditLogsLoading) ? (
+          <SkeletonActivityList />
+        ) : (
+          <ActivityList activities={recentActivities} />
+        )}
       </div>
       {/* Calculations Explanation Modal */}
       <Modal

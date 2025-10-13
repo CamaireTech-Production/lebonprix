@@ -5,6 +5,7 @@ import Button from '../common/Button';
 import Select from 'react-select';
 import { Plus, Trash2, Save, Info} from 'lucide-react';
 import { createPortal } from 'react-dom';
+import { ImageWithSkeleton } from '../common/ImageWithSkeleton';
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Sale, StockBatch } from '../../types/models';
@@ -124,10 +125,11 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
     label: (
       <div className="flex items-center space-x-2">
         <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
-          <img 
-            src={product.images && product.images.length > 0 ? (product.images[0].startsWith('data:image') ? product.images[0] : `data:image/jpeg;base64,${product.images[0]}`) : '/placeholder.png'} 
+          <ImageWithSkeleton 
+            src={product.images && product.images.length > 0 ? product.images[0] : '/placeholder.png'} 
             alt={product.name}
             className="w-full h-full object-cover"
+            placeholder="/placeholder.png"
           />
         </div>
         <div>
@@ -337,10 +339,11 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                     <div key={index} className="p-4 border rounded-lg space-y-4">
                       <div className="flex items-center space-x-3">
                         <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0">
-                          <img 
-                            src={product.product.images && product.product.images.length > 0 ? (product.product.images[0].startsWith('data:image') ? product.product.images[0] : `data:image/jpeg;base64,${product.product.images[0]}`) : '/placeholder.png'} 
+                          <ImageWithSkeleton 
+                            src={product.product.images && product.product.images.length > 0 ? product.product.images[0] : '/placeholder.png'} 
                             alt={product.product.name}
                             className="w-full h-full object-cover"
+                            placeholder="/placeholder.png"
                           />
                         </div>
                         <div className="flex-1">
@@ -649,10 +652,11 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                 >
                   <div className="flex items-center space-x-3">
                     <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0">
-                      <img 
-                        src={product.images && product.images.length > 0 ? (product.images[0].startsWith('data:image') ? product.images[0] : `data:image/jpeg;base64,${product.images[0]}`) : '/placeholder.png'} 
+                      <ImageWithSkeleton 
+                        src={product.images && product.images.length > 0 ? product.images[0] : '/placeholder.png'} 
                         alt={product.name}
                         className="w-full h-full object-cover"
+                        placeholder="/placeholder.png"
                       />
                     </div>
                     <div className="flex-1 min-w-0">

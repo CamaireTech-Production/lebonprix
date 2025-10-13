@@ -1,0 +1,714 @@
+# Image Migration Implementation Rule
+
+## Overview
+This rule guides the implementation of migrating product images from base64 strings stored in Firestore to Firebase Storage URLs. Follow this rule when implementing the image migration system.
+
+## Core Principles
+- **Zero Downtime**: Migration should not affect application functionality
+- **Data Integrity**: Ensure all images are properly migrated and accessible
+- **Error Handling**: Comprehensive error handling with rollback capabilities
+- **Performance**: Optimize for speed and efficiency
+- **Monitoring**: Real-time progress tracking and logging
+
+## Implementation Guidelines
+
+### 1. Service Architecture
+
+#### ImageProcessor Service
+```typescript
+// src/services/imageProcessor.ts
+export class ImageProcessor {
+  async processBase64Image(base64Data: string): Promise<{
+    blob: Blob;
+    metadata: ImageMetadata;
+  }> {
+    // 1. Validate base64 format
+    if (!this.validateBase64Image(base64Data)) {
+      throw new Error('Invalid base64 image data');
+    }
+    
+    // 2. Extract image type and data
+    const [header, data] = base64Data.split(',');
+    const mimeType = header.match(/data:([^;]+)/)?.[1] || 'image/jpeg';
+    
+    // 3. Convert to blob
+    const byteCharacters = atob(data);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: mimeType });
+    
+    // 4. Compress if needed (optional)
+    const compressedBlob = await this.compressImage(blob);
+    
+    return {
+      blob: compressedBlob,
+      metadata: {
+        originalSize: byteArray.length,
+        compressedSize: compressedBlob.size,
+        format: mimeType
+      }
+    };
+  }
+
+  private validateBase64Image(base64Data: string): boolean {
+    // Check if string starts with data:image/ or is pure base64
+    const base64Regex = /^data:image\/(jpeg|jpg|png|gif|webp);base64,/;
+    const pureBase64Regex = /^[A-Za-z0-9+/]*={0,2}$/;
+    
+    return base64Regex.test(base64Data) || 
+           (base64Data.length > 100 && pureBase64Regex.test(base64Data));
+  }
+
+  private async compressImage(blob: Blob, maxSizeKB: number = 500): Promise<Blob> {
+    if (blob.size <= maxSizeKB * 1024) {
+      return blob;
+    }
+    
+    // Use Canvas API for compression
+    return new Promise((resolve) => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const img = new Image();
+      
+      img.onload = () => {
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx?.drawImage(img, 0, 0);
+        
+        canvas.toBlob((compressedBlob) => {
+          resolve(compressedBlob || blob);
+        }, 'image/jpeg', 0.8);
+      };
+      
+      img.src = URL.createObjectURL(blob);
+    });
+  }
+}
+```
+
+#### FirebaseStorageService
+```typescript
+// src/services/firebaseStorageService.ts
+export class FirebaseStorageService {
+  async uploadProductImage(
+    blob: Blob,
+    userId: string,
+    productId: string,
+    imageIndex: number
+  ): Promise<StorageResult> {
+    try {
+      // 1. Generate smart file path
+      const filePath = this.generateImagePath(userId, productId, imageIndex);
+      const storageRef = ref(storage, filePath);
+      
+      // 2. Set metadata
+      const metadata = {
+        contentType: blob.type,
+        customMetadata: {
+          userId,
+          productId,
+          imageIndex: imageIndex.toString(),
+          uploadedAt: new Date().toISOString()
+        }
+      };
+      
+      // 3. Upload with retry logic
+      const snapshot = await this.uploadWithRetry(storageRef, blob, metadata);
+      
+      // 4. Get download URL
+      const downloadURL = await getDownloadURL(snapshot.ref);
+      
+      return {
+        url: downloadURL,
+        path: snapshot.ref.fullPath,
+        size: blob.size
+      };
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      throw new Error(`Failed to upload image: ${error.message}`);
+    }
+  }
+
+  private generateImagePath(
+    userId: string,
+    productId: string,
+    imageIndex: number
+  ): string {
+    const timestamp = Date.now();
+    const randomId = Math.random().toString(36).substr(2, 9);
+    return `products/${userId}/${productId}/image_${imageIndex}_${timestamp}_${randomId}.jpg`;
+  }
+
+  private async uploadWithRetry(
+    ref: any,
+    blob: Blob,
+    metadata: any,
+    maxRetries: number = 3
+  ): Promise<any> {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        return await uploadBytes(ref, blob, metadata);
+      } catch (error) {
+        if (attempt === maxRetries) throw error;
+        
+        // Exponential backoff
+        const delay = Math.pow(2, attempt) * 1000;
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+
+  async deleteProductImages(imagePaths: string[]): Promise<void> {
+    const deletePromises = imagePaths.map(async (path) => {
+      try {
+        const imageRef = ref(storage, path);
+        await deleteObject(imageRef);
+      } catch (error) {
+        console.warn(`Failed to delete image ${path}:`, error);
+        // Don't throw - continue with other deletions
+      }
+    });
+    
+    await Promise.all(deletePromises);
+  }
+}
+```
+
+### 2. Migration Service Implementation
+
+#### Core Migration Logic
+```typescript
+// src/services/migrationService.ts
+export class ImageMigrationService {
+  private config: MigrationConfig;
+  private imageProcessor: ImageProcessor;
+  private storageService: FirebaseStorageService;
+  private logger: MigrationLogger;
+
+  constructor(config: MigrationConfig) {
+    this.config = config;
+    this.imageProcessor = new ImageProcessor();
+    this.storageService = new FirebaseStorageService();
+    this.logger = new MigrationLogger();
+  }
+
+  async migrateAllProducts(): Promise<MigrationResult[]> {
+    this.logger.log('info', 'Starting image migration', { config: this.config });
+    
+    try {
+      // 1. Get all products with images
+      const products = await this.getProductsWithImages();
+      this.logger.log('info', `Found ${products.length} products to migrate`);
+      
+      // 2. Process in batches
+      const results: MigrationResult[] = [];
+      for (let i = 0; i < products.length; i += this.config.batchSize) {
+        const batch = products.slice(i, i + this.config.batchSize);
+        const batchResults = await this.processBatch(batch);
+        results.push(...batchResults);
+        
+        // Rate limiting
+        if (i + this.config.batchSize < products.length) {
+          await this.delay(1000);
+        }
+      }
+      
+      // 3. Generate final report
+      this.logger.log('info', 'Migration completed', {
+        total: products.length,
+        successful: results.filter(r => r.success).length,
+        failed: results.filter(r => !r.success).length
+      });
+      
+      return results;
+    } catch (error) {
+      this.logger.log('error', 'Migration failed', { error: error.message });
+      throw error;
+    }
+  }
+
+  private async processBatch(products: any[]): Promise<MigrationResult[]> {
+    const promises = products.map(product => this.migrateProduct(product));
+    
+    // Limit concurrent operations
+    const results: MigrationResult[] = [];
+    for (let i = 0; i < promises.length; i += this.config.maxConcurrent) {
+      const batch = promises.slice(i, i + this.config.maxConcurrent);
+      const batchResults = await Promise.allSettled(batch);
+      
+      batchResults.forEach((result, index) => {
+        if (result.status === 'fulfilled') {
+          results.push(result.value);
+        } else {
+          results.push({
+            productId: products[i + index].id,
+            success: false,
+            imagesUploaded: 0,
+            errors: [result.reason.message],
+            newImageUrls: [],
+            processingTime: 0
+          });
+        }
+      });
+    }
+    
+    return results;
+  }
+
+  private async migrateProduct(product: any): Promise<MigrationResult> {
+    const startTime = Date.now();
+    const result: MigrationResult = {
+      productId: product.id,
+      success: false,
+      imagesUploaded: 0,
+      errors: [],
+      newImageUrls: [],
+      processingTime: 0
+    };
+    
+    try {
+      if (!product.images || product.images.length === 0) {
+        result.success = true;
+        return result;
+      }
+      
+      const newImageUrls: string[] = [];
+      
+      // Process each image
+      for (let i = 0; i < product.images.length; i++) {
+        try {
+          const base64Image = product.images[i];
+          
+          // Process base64 to blob
+          const { blob } = await this.imageProcessor.processBase64Image(base64Image);
+          
+          // Upload to Firebase Storage
+          const uploadResult = await this.storageService.uploadProductImage(
+            blob,
+            product.userId,
+            product.id,
+            i
+          );
+          
+          newImageUrls.push(uploadResult.url);
+          result.imagesUploaded++;
+          
+        } catch (error) {
+          result.errors.push(`Image ${i}: ${error.message}`);
+        }
+      }
+      
+      // Update product document if all images uploaded successfully
+      if (newImageUrls.length === product.images.length) {
+        await this.updateProductDocument(product.id, newImageUrls);
+        result.success = true;
+        result.newImageUrls = newImageUrls;
+      } else {
+        result.errors.push('Not all images uploaded successfully');
+      }
+      
+    } catch (error) {
+      result.errors.push(`Product migration failed: ${error.message}`);
+    } finally {
+      result.processingTime = Date.now() - startTime;
+    }
+    
+    return result;
+  }
+
+  private async getProductsWithImages(): Promise<any[]> {
+    // Implementation depends on your Firestore setup
+    // Return products that have images array with base64 data
+  }
+
+  private async updateProductDocument(productId: string, imageUrls: string[]): Promise<void> {
+    // Update Firestore document with new image URLs
+    // Add migratedAt timestamp
+  }
+
+  private delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+}
+```
+
+### 3. Migration Scripts
+
+#### Analysis Script
+```javascript
+// scripts/analyzeImages.js
+const admin = require('firebase-admin');
+
+async function analyzeCurrentImages() {
+  const db = admin.firestore();
+  const productsSnapshot = await db.collection('products').get();
+  
+  let totalProducts = 0;
+  let totalImages = 0;
+  let totalSize = 0;
+  let usersWithImages = new Set();
+  let sizeByUser = new Map();
+  
+  for (const doc of productsSnapshot.docs) {
+    const product = doc.data();
+    if (product.images && product.images.length > 0) {
+      totalProducts++;
+      totalImages += product.images.length;
+      usersWithImages.add(product.userId);
+      
+      // Calculate size for this user
+      const userSize = sizeByUser.get(product.userId) || 0;
+      let productSize = 0;
+      
+      product.images.forEach(img => {
+        const size = (img.length * 3) / 4; // Approximate byte size
+        productSize += size;
+      });
+      
+      sizeByUser.set(product.userId, userSize + productSize);
+      totalSize += productSize;
+    }
+  }
+  
+  console.log('=== IMAGE MIGRATION ANALYSIS ===');
+  console.log(`Total products with images: ${totalProducts}`);
+  console.log(`Total images: ${totalImages}`);
+  console.log(`Total size: ${(totalSize / 1024 / 1024).toFixed(2)} MB`);
+  console.log(`Unique users: ${usersWithImages.size}`);
+  console.log('\nSize by user:');
+  
+  for (const [userId, size] of sizeByUser.entries()) {
+    console.log(`  ${userId}: ${(size / 1024 / 1024).toFixed(2)} MB`);
+  }
+  
+  console.log('\n=== MIGRATION ESTIMATES ===');
+  console.log(`Estimated Firebase Storage cost: $${(totalSize / 1024 / 1024 * 0.026).toFixed(4)}/month`);
+  console.log(`Estimated time: ${Math.ceil(totalProducts / 10)} minutes`);
+}
+
+analyzeCurrentImages().catch(console.error);
+```
+
+#### Main Migration Script
+```javascript
+// scripts/migrateImages.js
+const admin = require('firebase-admin');
+const { ImageMigrationService } = require('../src/services/migrationService');
+
+async function runMigration() {
+  // Initialize Firebase Admin
+  const serviceAccount = require('../path/to/serviceAccountKey.json');
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount),
+    storageBucket: process.env.FIREBASE_STORAGE_BUCKET
+  });
+  
+  const config = {
+    batchSize: parseInt(process.env.BATCH_SIZE) || 10,
+    maxConcurrent: parseInt(process.env.MAX_CONCURRENT) || 5,
+    retryAttempts: parseInt(process.env.RETRY_ATTEMPTS) || 3,
+    dryRun: process.env.DRY_RUN === 'true',
+    userId: process.env.USER_ID // Optional: migrate specific user
+  };
+  
+  console.log('Starting migration with config:', config);
+  
+  if (config.dryRun) {
+    console.log('🔍 DRY RUN MODE - No actual changes will be made');
+  }
+  
+  const migrationService = new ImageMigrationService(config);
+  
+  try {
+    const results = await migrationService.migrateAllProducts();
+    
+    // Generate report
+    const successful = results.filter(r => r.success).length;
+    const failed = results.filter(r => !r.success).length;
+    
+    console.log('\n=== MIGRATION COMPLETED ===');
+    console.log(`✅ Successful: ${successful}`);
+    console.log(`❌ Failed: ${failed}`);
+    console.log(`📊 Success rate: ${((successful / results.length) * 100).toFixed(2)}%`);
+    
+    if (failed > 0) {
+      console.log('\nFailed products:');
+      results.filter(r => !r.success).forEach(r => {
+        console.log(`  - ${r.productId}: ${r.errors.join(', ')}`);
+      });
+    }
+    
+  } catch (error) {
+    console.error('Migration failed:', error);
+    process.exit(1);
+  }
+}
+
+runMigration().catch(console.error);
+```
+
+### 4. Application Code Updates
+
+#### Update Image Display Logic
+```typescript
+// Replace all instances of this pattern:
+const mainImg = images.length > 0 
+  ? (images[0]?.startsWith('data:image') 
+      ? images[0] 
+      : `data:image/jpeg;base64,${images[0]}`) 
+  : placeholderImg;
+
+// With this simplified pattern:
+const mainImg = images && images.length > 0 ? images[0] : placeholderImg;
+```
+
+#### Update Product Creation
+```typescript
+// src/services/firestore.ts
+import { uploadProductImages } from './firebaseStorageService';
+
+export const createProduct = async (
+  data: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>,
+  userId: string
+): Promise<Product> => {
+  try {
+    let imageUrls: string[] = [];
+    
+    // If images are provided as base64, upload them
+    if (data.images && data.images.length > 0) {
+      const uploadResults = await uploadProductImages(data.images, userId, 'temp');
+      imageUrls = uploadResults.map(result => result.url);
+    }
+    
+    const productData = {
+      ...data,
+      images: imageUrls,
+      userId,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    };
+    
+    const docRef = await addDoc(collection(db, 'products'), productData);
+    
+    // Update image paths with actual product ID
+    if (imageUrls.length > 0) {
+      // Re-upload with correct product ID and update document
+      const finalUploadResults = await uploadProductImages(data.images, userId, docRef.id);
+      const finalImageUrls = finalUploadResults.map(result => result.url);
+      
+      await updateDoc(docRef, {
+        images: finalImageUrls,
+        updatedAt: serverTimestamp()
+      });
+      
+      // Delete temporary images
+      await deleteProductImages(imageUrls);
+    }
+    
+    return { id: docRef.id, ...productData } as Product;
+  } catch (error) {
+    console.error('Error creating product:', error);
+    throw error;
+  }
+};
+```
+
+## Error Handling Patterns
+
+### Retry Logic
+```typescript
+async function withRetry<T>(
+  operation: () => Promise<T>,
+  maxRetries: number = 3,
+  delay: number = 1000
+): Promise<T> {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await operation();
+    } catch (error) {
+      if (attempt === maxRetries) throw error;
+      
+      const backoffDelay = delay * Math.pow(2, attempt - 1);
+      await new Promise(resolve => setTimeout(resolve, backoffDelay));
+    }
+  }
+  throw new Error('Max retries exceeded');
+}
+```
+
+### Error Classification
+```typescript
+function classifyError(error: any): 'retry' | 'skip' | 'abort' {
+  if (error.code === 'storage/quota-exceeded') return 'abort';
+  if (error.code === 'storage/unauthorized') return 'retry';
+  if (error.code === 'firestore/permission-denied') return 'skip';
+  if (error.message.includes('Invalid base64')) return 'skip';
+  return 'retry';
+}
+```
+
+## Testing Requirements
+
+### Unit Tests
+- Test ImageProcessor with various base64 formats
+- Test FirebaseStorageService upload/delete operations
+- Test MigrationService batch processing
+- Test error handling scenarios
+
+### Integration Tests
+- Test end-to-end migration flow
+- Test rollback functionality
+- Test with large datasets
+- Test concurrent operations
+
+### Performance Tests
+- Measure migration speed
+- Test memory usage
+- Test storage quota handling
+- Test network failure scenarios
+
+## Monitoring and Logging
+
+### Progress Tracking
+```typescript
+interface MigrationProgress {
+  totalProducts: number;
+  migratedProducts: number;
+  failedProducts: number;
+  currentBatch: number;
+  estimatedTimeRemaining: number;
+  storageUsage: {
+    before: number;
+    after: number;
+    saved: number;
+  };
+}
+```
+
+### Logging Levels
+- **INFO**: General progress updates
+- **WARN**: Non-critical issues (skipped images)
+- **ERROR**: Critical failures (migration stopped)
+- **DEBUG**: Detailed operation logs
+
+## Security Considerations
+
+### Access Control
+- Use service account with minimal required permissions
+- Implement proper authentication for migration scripts
+- Validate all input data before processing
+
+### Data Protection
+- Encrypt sensitive data in transit
+- Implement proper error handling to avoid data leaks
+- Use secure storage for temporary files
+
+## Performance Optimization
+
+### Batch Processing
+- Process products in configurable batches
+- Implement rate limiting to avoid quotas
+- Use concurrent processing with limits
+
+### Memory Management
+- Process images one at a time to avoid memory issues
+- Clean up temporary objects
+- Implement garbage collection hints
+
+### Network Optimization
+- Use compression for image uploads
+- Implement connection pooling
+- Use retry logic with exponential backoff
+
+## Rollback Strategy
+
+### Individual Product Rollback
+```typescript
+async function rollbackProduct(productId: string): Promise<void> {
+  // 1. Get product document
+  // 2. Delete uploaded images from Storage
+  // 3. Restore original base64 images
+  // 4. Update product document
+}
+```
+
+### Batch Rollback
+```typescript
+async function rollbackBatch(productIds: string[]): Promise<void> {
+  const rollbackPromises = productIds.map(id => rollbackProduct(id));
+  await Promise.all(rollbackPromises);
+}
+```
+
+## Validation Requirements
+
+### Pre-Migration Validation
+- Verify Firebase Storage quota
+- Check service account permissions
+- Validate base64 image data
+- Test image upload functionality
+
+### Post-Migration Validation
+- Verify all images are accessible
+- Check product documents are updated
+- Validate image URLs
+- Test application functionality
+
+## Documentation Requirements
+
+### Code Documentation
+- Document all public methods
+- Include usage examples
+- Document error conditions
+- Provide troubleshooting guides
+
+### User Documentation
+- Migration process overview
+- Configuration options
+- Monitoring and logging
+- Rollback procedures
+
+## Compliance and Standards
+
+### Code Standards
+- Follow TypeScript best practices
+- Use consistent naming conventions
+- Implement proper error handling
+- Include comprehensive logging
+
+### Testing Standards
+- Maintain >90% code coverage
+- Include integration tests
+- Test error scenarios
+- Performance benchmarks
+
+## Deployment Considerations
+
+### Environment Setup
+- Configure Firebase Storage
+- Set up service accounts
+- Configure environment variables
+- Set up monitoring
+
+### Production Deployment
+- Run in maintenance window
+- Monitor progress closely
+- Have rollback plan ready
+- Test thoroughly before deployment
+
+## Maintenance and Support
+
+### Ongoing Maintenance
+- Monitor storage usage
+- Clean up temporary files
+- Update documentation
+- Performance optimization
+
+### Support Procedures
+- Error investigation process
+- Rollback procedures
+- Performance troubleshooting
+- User support guidelines

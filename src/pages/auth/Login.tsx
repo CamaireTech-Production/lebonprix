@@ -4,6 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
 import LoadingScreen from '../../components/common/LoadingScreen';
+import { LoginPWAInstallButton } from '../../components/LoginPWAInstallButton';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -117,6 +118,9 @@ const Login = () => {
           </Link>
         </p>
       </div>
+
+      {/* PWA Install Button */}
+      <LoginPWAInstallButton />
     </div>
   );
 };

@@ -20,9 +20,13 @@ import Input from '../components/common/Input';
 import Badge from '../components/common/Badge';
 import Button from '../components/common/Button';
 import Card from '../components/common/Card';
-import { useSales, useProducts, useCustomers } from '../hooks/useFirestore';
+import { ImageWithSkeleton } from '../components/common/ImageWithSkeleton';
+import { useProducts, useCustomers } from '../hooks/useFirestore';
+import { useInfiniteSales } from '../hooks/useInfiniteSales';
+import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 import type { Product, OrderStatus, Sale, SaleProduct, Customer } from '../types/models';
 import LoadingScreen from '../components/common/LoadingScreen';
+import SyncIndicator from '../components/common/SyncIndicator';
 import { showSuccessToast, showErrorToast, showWarningToast } from '../utils/toast';
 import Invoice from '../components/sales/Invoice';
 import { generatePDF, generatePDFBlob } from '../utils/pdf';
@@ -48,10 +52,27 @@ interface ProductOption {
 
 const Sales: React.FC = () => {
   const { t } = useTranslation();
-  const { sales, loading: salesLoading, error: salesError, addSale, updateSale } = useSales();
+  const { 
+    sales, 
+    loading: salesLoading, 
+    loadingMore: salesLoadingMore,
+    syncing: salesSyncing,
+    hasMore: salesHasMore,
+    error: salesError, 
+    loadMore: loadMoreSales,
+    refresh: refreshSales
+  } = useInfiniteSales();
   const { products, loading: productsLoading } = useProducts();
   const { customers } = useCustomers();
   const { user, company } = useAuth();
+
+  // Infinite scroll for sales
+  useInfiniteScroll({
+    hasMore: salesHasMore,
+    loading: salesLoadingMore,
+    onLoadMore: loadMoreSales,
+    threshold: 300 // Load more when 300px from bottom
+  });
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -582,16 +603,11 @@ const Sales: React.FC = () => {
     label: (
       <div className="flex items-center space-x-2">
         <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
-          <img
-            src={
-              product.images && product.images.length > 0
-                ? product.images[0].startsWith('data:image')
-                  ? product.images[0]
-                  : `data:image/jpeg;base64,${product.images[0]}`
-                : '/placeholder.png'
-            }
+          <ImageWithSkeleton
+            src={product.images && product.images.length > 0 ? product.images[0] : '/placeholder.png'}
             alt={product.name}
             className="w-full h-full object-cover"
+            placeholder="/placeholder.png"
           />
         </div>
         <div>
@@ -660,6 +676,14 @@ const Sales: React.FC = () => {
             {t('sales.overallProfit', { defaultValue: 'Total Profit:' })} {overallTotalProfit.toLocaleString()} XAF
           </p>
         </div>
+        
+        {/* Sync Indicator */}
+        <SyncIndicator 
+          isSyncing={salesSyncing} 
+          message="Updating sales..." 
+          className="mb-4"
+        />
+        
         <div className="mt-4 md:mt-0 flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
           <select
             className="border rounded-md p-2"
@@ -786,6 +810,19 @@ const Sales: React.FC = () => {
              >{t('common.last') || 'Last'}</Button>
            </div>
          </div>
+         
+         {/* Infinite Scroll Loading Indicator */}
+         {salesLoadingMore && (
+           <div className="flex justify-center items-center py-8">
+             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
+             <span className="ml-3 text-gray-600">Loading more sales...</span>
+           </div>
+         )}
+         {!salesHasMore && sales.length > 0 && (
+           <div className="text-center py-6 text-gray-500">
+             <p>✅ All sales loaded ({sales.length} total)</p>
+           </div>
+         )}
       </Card>
       {/* Mobile spacing for floating action button */}
       <div className="h-20 md:hidden"></div>

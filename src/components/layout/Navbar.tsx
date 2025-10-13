@@ -4,6 +4,8 @@ import { Menu, Bell, Search, User, Settings, LogOut } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import UserAvatar from '../common/UserAvatar';
 import LanguageSwitcher from '../common/LanguageSwitcher';
+import DownloadAppButton from '../common/DownloadAppButton';
+import { PWAStatusIndicator } from '../PWAStatusIndicator';
 import { useTranslation } from 'react-i18next';
 
 interface NavbarProps {
@@ -72,6 +74,12 @@ const Navbar = ({ onMenuClick }: NavbarProps) => {
         {/* Right actions */}
         <div className="flex items-center space-x-4">
           <LanguageSwitcher />
+          
+          {/* PWA Status Indicator */}
+          <PWAStatusIndicator variant="header" />
+          
+          {/* Download App Button */}
+          <DownloadAppButton variant="header" />
           
           <button 
             className="p-1 rounded-full text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"

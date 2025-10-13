@@ -1,14 +1,20 @@
 import { lazy, Suspense, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
+import { CartProvider } from './contexts/CartContext';
 import AuthLayout from './components/layout/AuthLayout';
 import MainLayout from './components/layout/MainLayout';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import LoadingScreen from './components/common/LoadingScreen';
+import LazyPage from './components/common/LazyPage';
 import { Toaster } from 'react-hot-toast';
 import { FloatingActionButton } from './components/common/Button';
 import AddSaleModal from './components/sales/AddSaleModal';
 import Finance from './pages/Finance';
+import { EnhancedPWAInstallPrompt } from './components/EnhancedPWAInstallPrompt';
+import { PWAErrorHandler } from './components/PWAErrorHandler';
+import { PWAUpdateNotification } from './components/PWAUpdateNotification';
+import { usePWAUpdate } from './hooks/usePWAUpdate';
 
 // Lazy load pages
 const Login = lazy(() => import('./pages/auth/Login'));
@@ -21,7 +27,8 @@ const Suppliers = lazy(() => import('./pages/Suppliers'));
 const Reports = lazy(() => import('./pages/Reports'));
 const Settings = lazy(() => import('./pages/Settings'));
 const TimelinePage = lazy(() => import('./pages/TimelinePage'));
-const CompanyProducts = lazy(() => import('./pages/CompanyProducts'));
+const Catalogue = lazy(() => import('./pages/Catalogue'));
+// ProductDetail removed - now using modal instead
 const FIFODebugger = lazy(() => import('./pages/FIFODebugger'));
 
 function App() {
@@ -29,54 +36,65 @@ function App() {
   // BrowserRouter must wrap AppWithFAB for useLocation to work
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <AppWithFAB isAddSaleModalOpen={isAddSaleModalOpen} setIsAddSaleModalOpen={setIsAddSaleModalOpen} />
-      </BrowserRouter>
+      <CartProvider>
+        <BrowserRouter>
+          <AppWithFAB isAddSaleModalOpen={isAddSaleModalOpen} setIsAddSaleModalOpen={setIsAddSaleModalOpen} />
+        </BrowserRouter>
+      </CartProvider>
     </AuthProvider>
   );
 }
 
 function AppWithFAB({ isAddSaleModalOpen, setIsAddSaleModalOpen }: { isAddSaleModalOpen: boolean, setIsAddSaleModalOpen: (open: boolean) => void }) {
   const location = useLocation();
+  const { isUpdateAvailable, applyUpdate, dismissUpdate } = usePWAUpdate();
   const isAuthPage = location.pathname.startsWith('/auth/login') || location.pathname.startsWith('/auth/register');
-  const isCompanyProductsPage = /^\/company\/[^/]+\/products$/.test(location.pathname);
+  const isCataloguePage = /^\/catalogue\/[^/]+\/[^/]+$/.test(location.pathname);
+  // ProductDetail page removed - now using modal
   const isTrackSalesPage = location.pathname.startsWith('/track/');
+  
   return (
-    <>
-      {!isAuthPage && !isCompanyProductsPage && !isTrackSalesPage && (
-        <FloatingActionButton onClick={() => setIsAddSaleModalOpen(true)} label="Add Sale" />
-      )}
-      <AddSaleModal isOpen={isAddSaleModalOpen} onClose={() => setIsAddSaleModalOpen(false)} />
+    <PWAErrorHandler>
       <Suspense fallback={<LoadingScreen />}>
         <Toaster />
+        
+        {/* PWA Update Notification */}
+        {isUpdateAvailable && (
+          <PWAUpdateNotification
+            onUpdate={applyUpdate}
+            onDismiss={dismissUpdate}
+          />
+        )}
+        
         <Routes>
           {/* Auth Routes */}
           <Route element={<AuthLayout />}>
-            <Route path="/auth/login" element={<Login />} />
-            <Route path="/auth/register" element={<Register />} />
+            <Route path="/auth/login" element={<LazyPage><Login /></LazyPage>} />
+            <Route path="/auth/register" element={<LazyPage><Register /></LazyPage>} />
           </Route>
           {/* Public Routes */}
-          <Route path="/track/:id" element={<TimelinePage />} />
-          <Route path="/company/:companyId/products" element={<CompanyProducts />} />
+          <Route path="/track/:id" element={<LazyPage><TimelinePage /></LazyPage>} />
+          <Route path="/catalogue/:companyName/:companyId" element={<LazyPage><Catalogue /></LazyPage>} />
+          {/* ProductDetail route removed - now using modal */}
           {/* Protected Routes */}
           <Route element={<ProtectedRoute />}>
-            <Route element={<MainLayout />}>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/sales" element={<Sales />} />
-              <Route path="/expenses" element={<Expenses />} />
+            <Route element={<MainLayout isAddSaleModalOpen={isAddSaleModalOpen} setIsAddSaleModalOpen={setIsAddSaleModalOpen} />}>
+              <Route path="/" element={<LazyPage><Dashboard /></LazyPage>} />
+              <Route path="/sales" element={<LazyPage><Sales /></LazyPage>} />
+              <Route path="/expenses" element={<LazyPage><Expenses /></LazyPage>} />
               <Route path="/finance" element={<Finance />} />
-              <Route path="/products" element={<Products />} />
-              <Route path="/suppliers" element={<Suppliers />} />
-              <Route path="/reports" element={<Reports />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="/fifo-debugger" element={<FIFODebugger />} />
+              <Route path="/products" element={<LazyPage><Products /></LazyPage>} />
+              <Route path="/suppliers" element={<LazyPage><Suppliers /></LazyPage>} />
+              <Route path="/reports" element={<LazyPage><Reports /></LazyPage>} />
+              <Route path="/settings" element={<LazyPage><Settings /></LazyPage>} />
+              <Route path="/fifo-debugger" element={<LazyPage><FIFODebugger /></LazyPage>} />
             </Route>
           </Route>
           {/* Redirect to login if no route matches */}
           <Route path="*" element={<Navigate to="/auth/login" replace />} />
         </Routes>
       </Suspense>
-    </>
+    </PWAErrorHandler>
   );
 }
 

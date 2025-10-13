@@ -8,16 +8,20 @@ import Modal, { ModalFooter } from '../components/common/Modal';
 import Input from '../components/common/Input';
 import CreatableSelect from '../components/common/CreatableSelect';
 import { useProducts, useStockChanges, useCategories, useSuppliers } from '../hooks/useFirestore';
+import { useInfiniteProducts } from '../hooks/useInfiniteProducts';
+import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 import { useAllStockBatches } from '../hooks/useStockBatches';
-import { createSupplierDebt, createSupplier } from '../services/firestore';
+import { createSupplier } from '../services/firestore';
 import { useAuth } from '../contexts/AuthContext';
+import { ImageWithSkeleton } from '../components/common/ImageWithSkeleton';
 import LoadingScreen from '../components/common/LoadingScreen';
+import SyncIndicator from '../components/common/SyncIndicator';
 import { showSuccessToast, showErrorToast, showWarningToast } from '../utils/toast';
 import imageCompression from 'browser-image-compression';
-import Papa from 'papaparse';
+import * as Papa from 'papaparse';
 import type { Product } from '../types/models';
 import type { ParseResult } from 'papaparse';
-import { getLatestCostPrice, getDisplayCostPrice } from '../utils/productUtils';
+import { getLatestCostPrice} from '../utils/productUtils';
 import { 
   getProductBatchesForAdjustment,
   adjustBatchWithDebtManagement
@@ -31,12 +35,34 @@ interface CsvRow {
 
 const Products = () => {
   const { t, i18n } = useTranslation();
-  const { products, loading, error, addProduct, updateProduct } = useProducts();
+  // Use infinite scroll for products instead of limited loading
+  const { 
+    products: infiniteProducts, 
+    loading: infiniteLoading, 
+    loadingMore, 
+    syncing: infiniteSyncing, // Add syncing state
+    hasMore, 
+    error: infiniteError, 
+    loadMore, 
+    refresh 
+  } = useInfiniteProducts();
+  
+  // Keep original hook for adding/updating products
+  const { addProduct, updateProduct } = useProducts();
   const { stockChanges } = useStockChanges();
   useCategories();
   const { suppliers } = useSuppliers();
   const { batches: allStockBatches } = useAllStockBatches();
   const { user } = useAuth();
+  
+  // Set up infinite scroll
+  useInfiniteScroll({
+    hasMore,
+    loading: loadingMore,
+    onLoadMore: loadMore,
+    threshold: 300 // Load more when 300px from bottom
+  });
+  
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState(t('products.filters.allCategories'));
@@ -215,7 +241,7 @@ const Products = () => {
   };
 
   // Get unique categories from products
-  const categories = [t('products.filters.allCategories'), ...new Set(products?.map(p => p.category) || [])];
+  const categories = [t('products.filters.allCategories'), ...new Set(infiniteProducts?.map(p => p.category) || [])];
 
   const handleCategoryChange = (option: { label: string; value: string } | null) => {
     setStep1Data(prev => ({
@@ -280,7 +306,7 @@ const Products = () => {
       // Auto-generate reference: first 3 uppercase letters of name + 3-digit number
         const prefix = step1Data.name.substring(0, 3).toUpperCase();
       // Count existing products with this prefix
-      const samePrefixCount = products.filter(p => p.reference && p.reference.startsWith(prefix)).length;
+      const samePrefixCount = infiniteProducts.filter(p => p.reference && p.reference.startsWith(prefix)).length;
       const nextNumber = (samePrefixCount + 1).toString().padStart(3, '0');
       reference = `${prefix}${nextNumber}`;
     }
@@ -790,8 +816,8 @@ const Products = () => {
 
   // Migration: create initial StockChange for products with stock > 0 and no StockChange
   useEffect(() => {
-    if (!products?.length || !stockChanges?.length || !user?.uid) return;
-    products.forEach(async (product) => {
+    if (!infiniteProducts?.length || !stockChanges?.length || !user?.uid) return;
+    infiniteProducts.forEach(async (product) => {
       const hasStockChange = stockChanges.some((sc) => sc.productId === product.id);
       if (product.stock > 0 && !hasStockChange) {
         // Create an initial adjustment with 'creation' reason
@@ -800,7 +826,7 @@ const Products = () => {
         } catch (e) { console.error(`Failed to create initial stock for ${product.id}:`, e) }
       }
     });
-  }, [products, stockChanges, user, updateProduct]);
+  }, [infiniteProducts, stockChanges, user, updateProduct]);
 
   useEffect(() => {
     setSelectedCategory(t('products.filters.allCategories'));
@@ -837,7 +863,7 @@ const Products = () => {
     try {
       setIsDeleting(true);
       for (const id of selectedProducts) {
-        const product = products.find(p => p.id === id);
+        const product = infiniteProducts.find(p => p.id === id);
         if (!product) continue;
         const safeProduct = {
           ...product,
@@ -914,7 +940,7 @@ const Products = () => {
   };
 
   // Place filteredProducts and resetImportState above their first usage
-  const filteredProducts: Product[] = products?.filter((product: Product) => {
+  const filteredProducts: Product[] = infiniteProducts?.filter((product: Product) => {
     if (typeof product.isAvailable !== 'undefined' && product.isAvailable === false) return false;
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          product.reference.toLowerCase().includes(searchQuery.toLowerCase());
@@ -929,11 +955,11 @@ const Products = () => {
     setImportProgress(0);
   };
 
-  if (loading) {
+  if (infiniteLoading) {
     return <LoadingScreen />;
   }
 
-  if (error) {
+  if (infiniteError) {
     return (
       <div className="p-4 text-center text-red-600">
         <p>{t('products.messages.errors.loadProducts')}</p>
@@ -1122,6 +1148,17 @@ const Products = () => {
           >
             {t('products.actions.addProduct')}
           </Button>
+          
+          {/* Temporary refresh button to clear old cached data */}
+          <Button 
+            variant="outline"
+            onClick={() => {
+              refresh();
+              showSuccessToast('Products refreshed - images should now load properly');
+            }}
+          >
+            🔄 Refresh Images
+          </Button>
         </div>
       </div>
       
@@ -1139,6 +1176,13 @@ const Products = () => {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
+        
+        {/* Sync Indicator */}
+        <SyncIndicator 
+          isSyncing={infiniteSyncing} 
+          message="Updating products..." 
+          className="mb-4"
+        />
         
         <div className="flex space-x-2">
           <select
@@ -1204,13 +1248,14 @@ const Products = () => {
                   {(() => {
                     const images = product.images ?? [];
                     const mainIdx = mainImageIndexes[product.id] ?? 0;
-                    const mainImg = images.length > 0 ? (images[mainIdx]?.startsWith('data:image') ? images[mainIdx] : `data:image/jpeg;base64,${images[mainIdx]}`) : '/placeholder.png';
+                    const mainImg = images.length > 0 ? images[mainIdx] : '/placeholder.png';
+                    
                     return (
-                      <img
+                      <ImageWithSkeleton
                         src={mainImg}
                         alt={product.name}
-                        className="absolute h-full w-full object-cover transition-all duration-300"
-                        key={mainImg}
+                        className="h-full w-full object-cover transition-all duration-300"
+                        placeholder="/placeholder.png"
                       />
                     );
                   })()}
@@ -1219,11 +1264,12 @@ const Products = () => {
                   className="flex items-center gap-1 px-2 py-2 bg-white border-b border-gray-100 overflow-x-auto custom-scrollbar"
                 >
                   {(product.images ?? []).map((img, idx) => (
-                    <img
+                    <ImageWithSkeleton
                       key={idx}
-                      src={img.startsWith('data:image') ? img : `data:image/jpeg;base64,${img}`}
+                      src={img}
                       alt={`Preview ${idx + 1}`}
                       className={`w-10 h-10 object-cover rounded border cursor-pointer transition-transform duration-200 ${mainImageIndexes[product.id] === idx ? 'ring-2 ring-emerald-500 scale-105' : 'opacity-70 hover:opacity-100'}`}
+                      placeholder="/placeholder.png"
                       onClick={() => handleSetMainImage(product.id, idx)}
                     />
                   ))}
@@ -1339,7 +1385,7 @@ const Products = () => {
                           {(() => {
                             const images = product.images ?? [];
                             const mainIdx = mainImageIndexes[product.id] ?? 0;
-                            const mainImg = images.length > 0 ? (images[mainIdx]?.startsWith('data:image') ? images[mainIdx] : `data:image/jpeg;base64,${images[mainIdx]}`) : '/placeholder.png';
+                            const mainImg = images.length > 0 ? images[mainIdx] : '/placeholder.png';
                             return (
                               <>
                                 {images.length > 1 && (
@@ -1355,7 +1401,12 @@ const Products = () => {
                                     </svg>
                                   </button>
                                 )}
-                                <img className="h-10 w-10 rounded-md object-cover transition-all duration-300" src={mainImg} alt="" key={mainImg} />
+                                <ImageWithSkeleton
+                                  src={mainImg}
+                                  alt={product.name}
+                                  className="h-10 w-10 rounded-md object-cover transition-all duration-300"
+                                  placeholder="/placeholder.png"
+                                />
                                 {images.length > 1 && (
                                   <button
                                     className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white bg-opacity-80 rounded-full p-0.5 border border-gray-200 opacity-40 group-hover:opacity-90 transition-opacity duration-200"
@@ -1426,6 +1477,21 @@ const Products = () => {
             </table>
           </div>
         </Card>
+      )}
+      
+      {/* Infinite Scroll Loading Indicator */}
+      {loadingMore && (
+        <div className="flex justify-center items-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
+          <span className="ml-3 text-gray-600">Loading more products...</span>
+        </div>
+      )}
+      
+      {/* End of products indicator */}
+      {!hasMore && infiniteProducts.length > 0 && (
+        <div className="text-center py-6 text-gray-500">
+          <p>✅ All products loaded ({infiniteProducts.length} total)</p>
+        </div>
       )}
       
       {/* Add Product Modal */}
@@ -1511,10 +1577,11 @@ const Products = () => {
               <div className="flex overflow-x-auto custom-scrollbar space-x-2 py-1">
                     {(step1Data.images ?? []).map((img, idx) => (
                   <div key={idx} className="relative w-20 h-20 flex-shrink-0 rounded-md overflow-hidden group">
-                    <img
-                      src={img.startsWith('data:image') ? img : `data:image/jpeg;base64,${img}`}
+                    <ImageWithSkeleton
+                      src={img}
                       alt={`Product ${idx + 1}`}
                       className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
+                      placeholder="/placeholder.png"
                     />
                     <button
                       type="button"
@@ -2469,10 +2536,11 @@ const Products = () => {
                 <div className="flex overflow-x-auto custom-scrollbar space-x-2 py-1">
                   {(step1Data.images ?? []).map((img, idx) => (
                     <div key={idx} className="relative w-20 h-20 flex-shrink-0 rounded-md overflow-hidden group">
-                      <img
-                        src={img.startsWith('data:image') ? img : `data:image/jpeg;base64,${img}`}
+                      <ImageWithSkeleton
+                        src={img}
                         alt={`Product ${idx + 1}`}
                         className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
+                        placeholder="/placeholder.png"
                       />
                       <button
                         type="button"
@@ -2774,11 +2842,12 @@ const Products = () => {
               {detailProduct?.images && detailProduct.images.length > 0 ? (
                 <div className="flex space-x-2 overflow-x-auto pb-2">
                   {detailProduct.images.map((img, idx) => (
-                    <img
+                    <ImageWithSkeleton
                       key={idx}
-                      src={img.startsWith('data:image') ? img : `data:image/jpeg;base64,${img}`}
+                      src={img}
                       alt={`${detailProduct.name} - Image ${idx + 1}`}
                       className="w-24 h-24 object-cover rounded-lg border border-gray-200 flex-shrink-0"
+                      placeholder="/placeholder.png"
                     />
                   ))}
                 </div>
