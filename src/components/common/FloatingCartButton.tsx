@@ -26,11 +26,11 @@ const FloatingCartButton: React.FC<FloatingCartButtonProps> = ({ className = '' 
       <div className={`fixed bottom-20 right-4 z-40 ${className}`}>
         <button
           onClick={() => setIsCartOpen(true)}
-          className="relative bg-emerald-600 hover:bg-emerald-700 text-white p-4 rounded-full shadow-lg transition-all duration-200 hover:scale-105"
+          className="relative bg-gradient-to-br from-theme-olive to-theme-forest text-white p-4 rounded-full shadow-lg transition-all duration-200 hover:scale-105"
         >
           <ShoppingBag className="h-6 w-6" />
           {getCartItemCount() > 0 && (
-            <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-semibold">
+            <div className="absolute -top-2 -right-2 bg-theme-brown text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-semibold">
               {getCartItemCount()}
             </div>
           )}
@@ -76,7 +76,7 @@ const FloatingCartButton: React.FC<FloatingCartButtonProps> = ({ className = '' 
                       
                       {/* Product Info */}
                       <div className="flex-1 min-w-0">
-                        <h4 className="font-medium text-sm text-gray-900 truncate">
+                        <h4 className="font-medium text-sm text-theme-brown truncate">
                           {item.name}
                         </h4>
                         <p className="text-xs text-gray-500">
@@ -84,7 +84,7 @@ const FloatingCartButton: React.FC<FloatingCartButtonProps> = ({ className = '' 
                           {item.selectedColor && ` • ${item.selectedColor}`}
                           {item.selectedSize && ` • ${item.selectedSize}`}
                         </p>
-                        <p className="text-emerald-600 font-semibold text-sm">
+                        <p className="text-theme-brown font-semibold text-sm">
                           {(item.price * item.quantity).toLocaleString('fr-FR', {
                             style: 'currency',
                             currency: 'XAF'
@@ -131,7 +131,7 @@ const FloatingCartButton: React.FC<FloatingCartButtonProps> = ({ className = '' 
                     setIsCartOpen(false);
                     setIsCheckoutOpen(true);
                   }}
-                  className="w-full bg-emerald-600 text-white py-3 rounded-lg font-semibold hover:bg-emerald-700 transition-colors"
+                  className="w-full bg-gradient-to-br from-theme-beige to-theme-forest text-white py-3 rounded-lg font-semibold hover:bg-emerald-700 transition-colors"
                 >
                   Checkout Now
                 </button>

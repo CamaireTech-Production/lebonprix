@@ -339,8 +339,8 @@ const Dashboard = () => {
         <div className="bg-white rounded-lg shadow-sm p-6 mt-6">
           <div className="flex flex-col gap-4">
             <div>
-              <h2 className="text-lg font-semibold text-gray-900 mb-1">
-                {t('dashboard.publicProducts.title')}
+              <h2 className="text-lg  font-semibold text-gray-900 mb-1">
+                {t('dashboard.publicProducts.title')} 
               </h2>
               <p className="text-sm text-gray-600">
                 {t('dashboard.publicProducts.description')}

@@ -180,7 +180,7 @@ const Catalogue = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Enhanced Top Section - Shop Information */}
-      <div className="bg-gradient-to-r from-emerald-500 to-emerald-600 text-white">
+      <div className="bg-gradient-to-r from-theme-brown  to-theme-forest text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           {/* Shop Header with Logo, Name, and Contact */}
           <div className="flex items-center space-x-6 mb-6">
@@ -201,7 +201,7 @@ const Catalogue = () => {
             
             {/* Shop Info */}
             <div className="flex-1 min-w-0">
-              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white mb-2">
+              <h1 className="text-2xl font-allura sm:text-3xl lg:text-4xl font-bold text-white mb-2">
                 {company?.name || 'Best Products in your home'}
               </h1>
               <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-6 text-sm sm:text-base text-emerald-100">
@@ -223,13 +223,13 @@ const Catalogue = () => {
           
           {/* Search Bar */}
           <div className="relative max-w-2xl">
-            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-theme-brown" />
             <input
                 type="text"
               placeholder="Search products..."
                 value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-12 pr-4 py-4 bg-white rounded-xl border-0 focus:ring-2 focus:ring-emerald-300 focus:outline-none text-gray-900 placeholder-gray-500 text-lg shadow-lg"
+              className="w-full pl-12 pr-4 py-4 bg-white rounded-xl border-0 focus:ring-2 focus:ring-theme-forest/60 focus:outline-none text-gray-900 placeholder-gray-500 text-lg shadow-lg"
               />
             </div>
                 </div>
@@ -245,7 +245,7 @@ const Catalogue = () => {
                 onClick={clearCategoryFilters}
                 className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
                   selectedCategories.length === 0
-                    ? 'bg-emerald-600 text-white shadow-md'
+                    ? 'bg-theme-orange text-white shadow-md'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
@@ -263,7 +263,7 @@ const Catalogue = () => {
                     onClick={() => handleCategoryToggle(category)}
                     className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
                       isSelected
-                        ? 'bg-emerald-600 text-white shadow-md'
+                        ? 'bg-theme-orange text-white shadow-md'
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
                   >
@@ -280,8 +280,8 @@ const Catalogue = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* New Arrival Section */}
         <div className="flex items-center justify-between mb-8">
-          <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">Products</h2>
-          <button className="text-emerald-600 text-sm sm:text-base font-medium hover:text-emerald-700 transition-colors">
+          <h2 className="text-2xl sm:text-3xl font-semibold  font-allura text-gray-900">Products</h2>
+          <button className="text-theme-forest text-sm sm:text-base font-medium hover:text-theme-brown transition-colors">
             See all →
                 </button>
         </div>
@@ -298,7 +298,7 @@ const Catalogue = () => {
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-6">
             {filteredProducts.map((product) => {
-                    const images = product.images ?? [];
+                    const images = product.images! ;
               const mainImg = images.length > 0 ? images[0] : placeholderImg;
               
                     return (
@@ -315,21 +315,21 @@ const Catalogue = () => {
                         placeholder={placeholderImg}
                       />
                     <button className="absolute top-2 right-2 sm:top-3 sm:right-3 p-1.5 sm:p-2 bg-white rounded-full shadow-md hover:shadow-lg transition-shadow">
-                      <Heart className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400 hover:text-red-500 transition-colors" />
+                      <Heart className="h-3 w-3 sm:h-4 sm:w-4 border-theme-brown text-gray-400 hover:text-red-500 transition-colors" />
                     </button>
                 </div>
                   
                   {/* Product Info */}
                   <div className="p-3 sm:p-4">
                     <h3 
-                      className="font-semibold text-gray-900 text-xs sm:text-sm md:text-base mb-1 sm:mb-2 line-clamp-2 cursor-pointer hover:text-emerald-600 transition-colors"
+                      className="font-semibold text-theme-brown  text-xs sm:text-sm md:text-base mb-1 sm:mb-2 line-clamp-2 cursor-pointer hover:text-emerald-600 transition-colors"
                       onClick={() => handleProductClick(product)}
                     >
                       {product.name}
                     </h3>
                     <p className="text-xs text-gray-500 mb-2 sm:mb-3">{product.category}</p>
                     <div className="flex items-center justify-between">
-                      <span className="text-xs sm:text-sm md:text-base font-bold text-emerald-600">
+                      <span className="text-xs sm:text-sm md:text-base font-bold text-theme-brown">
                         {(product.cataloguePrice ?? 0).toLocaleString('fr-FR', {
                           style: 'currency',
                           currency: 'XAF'
@@ -340,7 +340,7 @@ const Catalogue = () => {
                           e.stopPropagation();
                           handleAddToCart(product);
                         }}
-                        className="w-7 h-7 sm:w-8 sm:h-8 md:w-10 md:h-10 bg-emerald-600 rounded-full flex items-center justify-center text-white hover:bg-emerald-700 transition-colors shadow-md hover:shadow-lg"
+                        className="w-7 h-7 sm:w-8 sm:h-8 md:w-10 md:h-10 bg-gradient-to-br from-theme-olive to-theme-forest rounded-full flex items-center justify-center text-white hover:bg-emerald-700 transition-colors shadow-md hover:shadow-lg"
                       >
                         <Plus className="h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5" />
                       </button>

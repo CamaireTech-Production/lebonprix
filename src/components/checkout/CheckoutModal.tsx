@@ -312,8 +312,8 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, companyI
         {/* Progress Bar */}
         <div className="px-4 py-2">
           <div className="flex space-x-2">
-            <div className={`flex-1 h-2 rounded-full ${currentStep >= 1 ? 'bg-emerald-500' : 'bg-gray-200'}`} />
-            <div className={`flex-1 h-2 rounded-full ${currentStep >= 2 ? 'bg-emerald-500' : 'bg-gray-200'}`} />
+            <div className={`flex-1 h-2 rounded-full ${currentStep >= 1 ? 'bg-theme-beige' : 'bg-gray-200'}`} />
+            <div className={`flex-1 h-2 rounded-full ${currentStep >= 2 ? 'bg-theme-beige' : 'bg-gray-200'}`} />
           </div>
         </div>
 
@@ -322,9 +322,9 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, companyI
           {currentStep === 1 ? (
             // Step 1: Cart Review
             <div className="space-y-4">
-              <div className="flex items-center space-x-2 text-emerald-600">
+              <div className="flex items-center space-x-2 text-theme-brown">
                 <ShoppingBag className="h-5 w-5" />
-                <span className="font-medium">Order Summary</span>
+                <span className="font-medium">Order  Summary</span>
               </div>
               
               <div className="space-y-3">
@@ -337,7 +337,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, companyI
                       className="w-12 h-12 object-cover rounded"
                     />
                     <div className="flex-1">
-                      <h3 className="font-medium text-sm">{item.name}</h3>
+                      <h3 className="font-medium text-theme-brown text-sm">{item.name}</h3>
                       <p className="text-xs text-gray-500">
                         {item.category}
                         {item.selectedColor && ` • ${item.selectedColor}`}
@@ -346,7 +346,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, companyI
                     </div>
                     <div className="text-right">
                       <p className="text-sm font-medium">x{item.quantity}</p>
-                      <p className="text-emerald-600 font-semibold text-sm">
+                      <p className="text-theme-brown font-semibold text-sm">
                         {(item.price * item.quantity).toLocaleString('fr-FR', {
                           style: 'currency',
                           currency: 'XAF'
@@ -381,7 +381,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, companyI
                 )}
                 <div className="flex justify-between text-lg font-semibold">
                   <span>Total:</span>
-                  <span className="text-emerald-600">
+                  <span className="text-theme-brown">
                     {finalTotal.toLocaleString('fr-FR', {
                       style: 'currency',
                       currency: 'XAF'
@@ -393,7 +393,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, companyI
           ) : (
             // Step 2: Customer Information
             <div className="space-y-4">
-              <div className="flex items-center space-x-2 text-emerald-600">
+              <div className="flex items-center space-x-2 text-theme-brown">
                 <User className="h-5 w-5" />
                 <span className="font-medium">Delivery Information</span>
               </div>
@@ -409,7 +409,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, companyI
                     type="text"
                     value={customerInfo.name}
                     onChange={(e) => handleInputChange('name', e.target.value)}
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-theme-brown focus:border-theme-brown ${
                       errors.name ? 'border-red-500' : 'border-gray-300'
                     }`}
                     placeholder="Enter your full name"
@@ -441,7 +441,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, companyI
                     type="text"
                     value={customerInfo.location}
                     onChange={(e) => handleInputChange('location', e.target.value)}
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-theme-brown focus:border-theme-brown ${
                       errors.location ? 'border-red-500' : 'border-gray-300'
                     }`}
                     placeholder="Enter your delivery address"
@@ -458,7 +458,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, companyI
                   <textarea
                     value={customerInfo.deliveryInstructions}
                     onChange={(e) => handleInputChange('deliveryInstructions', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 resize-none"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-theme-brown focus:border-theme-brown resize-none"
                     placeholder="Any special delivery instructions..."
                     rows={2}
                   />
@@ -484,7 +484,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, companyI
           <button
             onClick={handleNextStep}
             disabled={submitting}
-            className="w-full bg-emerald-600 text-white py-3 rounded-lg font-semibold hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+            className="w-full bg-gradient-to-br from-theme-olive to-theme-forest text-white py-3 rounded-lg font-semibold hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
           >
             {submitting ? (
               <>

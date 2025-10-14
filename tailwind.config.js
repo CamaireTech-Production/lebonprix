@@ -4,6 +4,17 @@ export default {
   theme: {
     extend: {
       colors: {
+        // Couleurs du thème MANSA'A AFRICA
+        'theme': {
+          'yellow': '#fdd21d',
+          'orange': '#ea580c',
+          'brown': '#773619',
+          'beige': '#e2b069',
+          'forest': '#183524',
+          'gray': '#b9b5ae',
+          'olive': '#7e9a63',
+        },
+        // Palette Emerald/Indigo (conservée)
         emerald: {
           50: '#ecfdf5',
           100: '#d1fae5',
@@ -32,6 +43,13 @@ export default {
         },
       },
       fontFamily: {
+        // Polices personnalisées du dossier public/fonts
+        'tan-mon-cheri': ['Tan Mon Cheri', 'Playfair Display', 'Georgia', 'serif'],
+        'allura': ['Allura', 'Brush Script MT', 'cursive'],
+        'lemon-milk': ['Lemon Milk', 'Inter', 'Helvetica Neue', 'Arial', 'sans-serif'],
+        'libre-baskerville': ['Libre Baskerville', 'Georgia', 'Times New Roman', 'serif'],
+        
+        // Police système par défaut
         sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'],
       },
     },
