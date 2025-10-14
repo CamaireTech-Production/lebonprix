@@ -1,6 +1,0 @@
-﻿name,reference,costPrice,sellingPrice,cataloguePrice,category,stock,supplyType,supplierId,paymentType
-"Product A","A001",1000,1500,1600,"Toys",10,ownPurchase,,paid
-"Product B","B001",2000,2500,2600,"Books",5,fromSupplier,supplier123,paid
-"Product C","C001",3000,3500,3600,"Games",8,fromSupplier,supplier456,credit
-"Product D","D001",1200,1700,1800,"Toys",12,ownPurchase,,paid
-"Product E","E001",2200,2700,2800,"Books",7,fromSupplier,supplier789,credit

@@ -161,7 +161,7 @@ const Catalogue = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2" style={{borderColor: '#183524'}}></div>
       </div>
     );
   }
@@ -180,7 +180,7 @@ const Catalogue = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Enhanced Top Section - Shop Information */}
-      <div className="bg-gradient-to-r from-emerald-500 to-emerald-600 text-white">
+      <div className="text-white" style={{background: 'linear-gradient(to right, #183524, #2a4a3a)'}}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           {/* Shop Header with Logo, Name, and Contact */}
           <div className="flex items-center space-x-6 mb-6">
@@ -204,7 +204,7 @@ const Catalogue = () => {
               <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white mb-2">
                 {company?.name || 'Best Products in your home'}
               </h1>
-              <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-6 text-sm sm:text-base text-emerald-100">
+              <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-6 text-sm sm:text-base" style={{color: 'rgba(255, 255, 255, 0.8)'}}>
                 {company?.location && (
                   <div className="flex items-center">
                     <MapPin className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
@@ -229,7 +229,7 @@ const Catalogue = () => {
               placeholder="Search products..."
                 value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-12 pr-4 py-4 bg-white rounded-xl border-0 focus:ring-2 focus:ring-emerald-300 focus:outline-none text-gray-900 placeholder-gray-500 text-lg shadow-lg"
+              className="w-full pl-12 pr-4 py-4 bg-white rounded-xl border-0 focus:outline-none text-gray-900 placeholder-gray-500 text-lg shadow-lg" style={{focusRingColor: '#e2b069'}}
               />
             </div>
                 </div>
@@ -245,9 +245,10 @@ const Catalogue = () => {
                 onClick={clearCategoryFilters}
                 className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
                   selectedCategories.length === 0
-                    ? 'bg-emerald-600 text-white shadow-md'
+                    ? 'text-white shadow-md'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
+                style={selectedCategories.length === 0 ? {backgroundColor: '#183524'} : {}}
               >
                 All ({products.length})
               </button>
@@ -263,9 +264,10 @@ const Catalogue = () => {
                     onClick={() => handleCategoryToggle(category)}
                     className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
                       isSelected
-                        ? 'bg-emerald-600 text-white shadow-md'
+                        ? 'text-white shadow-md'
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
+                    style={isSelected ? {backgroundColor: '#183524'} : {}}
                   >
                     {category} ({categoryCount})
                   </button>
@@ -281,7 +283,7 @@ const Catalogue = () => {
         {/* New Arrival Section */}
         <div className="flex items-center justify-between mb-8">
           <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">Products</h2>
-          <button className="text-emerald-600 text-sm sm:text-base font-medium hover:text-emerald-700 transition-colors">
+          <button className="text-sm sm:text-base font-medium transition-colors" style={{color: '#183524'}} onMouseEnter={(e) => (e.target as HTMLButtonElement).style.color = '#2a4a3a'} onMouseLeave={(e) => (e.target as HTMLButtonElement).style.color = '#183524'}>
             See all →
                 </button>
         </div>
@@ -322,14 +324,14 @@ const Catalogue = () => {
                   {/* Product Info */}
                   <div className="p-3 sm:p-4">
                     <h3 
-                      className="font-semibold text-gray-900 text-xs sm:text-sm md:text-base mb-1 sm:mb-2 line-clamp-2 cursor-pointer hover:text-emerald-600 transition-colors"
+                      className="font-semibold text-gray-900 text-xs sm:text-sm md:text-base mb-1 sm:mb-2 line-clamp-2 cursor-pointer transition-colors" style={{color: '#183524'}} onMouseEnter={(e) => (e.target as HTMLElement).style.color = '#e2b069'} onMouseLeave={(e) => (e.target as HTMLElement).style.color = '#183524'}
                       onClick={() => handleProductClick(product)}
                     >
                       {product.name}
                     </h3>
                     <p className="text-xs text-gray-500 mb-2 sm:mb-3">{product.category}</p>
                     <div className="flex items-center justify-between">
-                      <span className="text-xs sm:text-sm md:text-base font-bold text-emerald-600">
+                      <span className="text-xs sm:text-sm md:text-base font-bold" style={{color: '#e2b069'}}>
                         {(product.cataloguePrice ?? 0).toLocaleString('fr-FR', {
                           style: 'currency',
                           currency: 'XAF'
@@ -340,7 +342,7 @@ const Catalogue = () => {
                           e.stopPropagation();
                           handleAddToCart(product);
                         }}
-                        className="w-7 h-7 sm:w-8 sm:h-8 md:w-10 md:h-10 bg-emerald-600 rounded-full flex items-center justify-center text-white hover:bg-emerald-700 transition-colors shadow-md hover:shadow-lg"
+                        className="w-7 h-7 sm:w-8 sm:h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center text-white transition-colors shadow-md hover:shadow-lg" style={{backgroundColor: '#e2b069'}} onMouseEnter={(e) => (e.target as HTMLButtonElement).style.backgroundColor = '#d4a05a'} onMouseLeave={(e) => (e.target as HTMLButtonElement).style.backgroundColor = '#e2b069'}
                       >
                         <Plus className="h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5" />
                       </button>
