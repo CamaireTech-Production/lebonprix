@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useCart } from '../../contexts/CartContext';
 import { getCompanyByUserId, subscribeToProducts } from '../../services/firestore';
-import type { Company, Product } from '../../types/models';
+import type { Company, Product, ProductTag, TagVariation } from '../../types/models';
 import { X, Share2, Heart, Star, Plus, Minus, ChevronRight } from 'lucide-react';
 import FloatingCartButton from './FloatingCartButton';
 import { ImageWithSkeleton } from './ImageWithSkeleton';
@@ -33,8 +33,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   
   // Product detail state
   const [quantity, setQuantity] = useState(1);
-  const [selectedColor, setSelectedColor] = useState<string>('');
-  const [selectedSize, setSelectedSize] = useState<string>('');
+  const [selectedVariations, setSelectedVariations] = useState<Record<string, string>>({});
   const [isFavorite, setIsFavorite] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
@@ -75,8 +74,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
       setProduct(initialProduct);
       setCompany(initialCompany);
       setQuantity(1);
-      setSelectedColor('');
-      setSelectedSize('');
+      setSelectedVariations({});
       setCurrentImageIndex(0);
       setError(null);
     }
@@ -85,8 +83,11 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   // Cart management functions
   const handleAddToCart = () => {
     if (!product) return;
+    // Convert selectedVariations to the format expected by addToCart
+    const selectedColor = selectedVariations['Color'] || '';
+    const selectedSize = selectedVariations['Size'] || '';
     addToCart(product, quantity, selectedColor, selectedSize);
-    console.log('Added to cart:', product.name, 'Quantity:', quantity);
+    console.log('Added to cart:', product.name, 'Quantity:', quantity, 'Variations:', selectedVariations);
   };
 
   const updateQuantity = (newQuantity: number) => {
@@ -114,14 +115,30 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     setCurrentImageIndex(index);
   };
 
+  // Handle variation selection
+  const handleVariationChange = (tagId: string, variationId: string) => {
+    setSelectedVariations(prev => ({
+      ...prev,
+      [tagId]: variationId
+    }));
+    
+    // If this variation has an associated image, switch to it
+    if (product?.tags) {
+      const tag = product.tags.find(t => t.id === tagId);
+      const variation = tag?.variations.find(v => v.id === variationId);
+      if (variation?.imageIndex !== undefined && variation.imageIndex < images.length) {
+        setCurrentImageIndex(variation.imageIndex);
+      }
+    }
+  };
+
   if (!isOpen || !product) return null;
 
   const images = product.images ?? [];
   const currentImage = images.length > 0 ? images[currentImageIndex] : placeholderImg;
 
-  // Mock colors and sizes for demonstration
-  const availableColors = ['Red', 'Blue', 'Green', 'Black'];
-  const availableSizes = ['S', 'M', 'L', 'XL'];
+  // Get available tags for this product
+  const availableTags = product.tags || [];
 
   return (
     <div className="fixed inset-0 bg-white z-50 overflow-hidden">
@@ -248,45 +265,34 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             <div className="mb-6">
               <h3 className="text-sm font-medium text-gray-900 mb-3">Product Details</h3>
               
-              {/* Colors */}
-              <div className="mb-4">
-                <h4 className="text-sm font-medium text-gray-700 mb-2">Color</h4>
-                <div className="flex space-x-2">
-                  {availableColors.map((color) => (
-                    <button
-                      key={color}
-                      onClick={() => setSelectedColor(color)}
-                      className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
-                        selectedColor === color
-                          ? 'bg-emerald-100 text-emerald-700 border-emerald-300'
-                          : 'bg-gray-100 text-gray-700 border-gray-300'
-                      }`}
-                    >
-                      {color}
-                    </button>
-                  ))}
+              {/* Dynamic Tags */}
+              {availableTags.length > 0 ? (
+                availableTags.map((tag) => (
+                  <div key={tag.id} className="mb-4">
+                    <h4 className="text-sm font-medium text-gray-700 mb-2">{tag.name}</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {tag.variations.map((variation) => (
+                        <button
+                          key={variation.id}
+                          onClick={() => handleVariationChange(tag.id, variation.id)}
+                          className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                            selectedVariations[tag.id] === variation.id
+                              ? 'text-gray-700 border-gray-300'
+                              : 'bg-gray-100 text-gray-700 border-gray-300'
+                          }`}
+                          style={selectedVariations[tag.id] === variation.id ? {backgroundColor: 'rgba(226, 176, 105, 0.1)', color: '#183524', borderColor: '#e2b069'} : {}}
+                        >
+                          {variation.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-sm text-gray-500 italic">
+                  No variations available for this product
                 </div>
-              </div>
-
-              {/* Sizes */}
-              <div className="mb-4">
-                <h4 className="text-sm font-medium text-gray-700 mb-2">Size</h4>
-                <div className="flex space-x-2">
-                  {availableSizes.map((size) => (
-                    <button
-                      key={size}
-                      onClick={() => setSelectedSize(size)}
-                      className={`w-10 h-10 rounded-full text-sm font-medium border transition-colors ${
-                        selectedSize === size
-                          ? 'bg-emerald-100 text-emerald-700 border-emerald-300'
-                          : 'bg-gray-100 text-gray-700 border-gray-300'
-                      }`}
-                    >
-                      {size}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              )}
 
               {/* Description */}
               <div>

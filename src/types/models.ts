@@ -40,6 +40,19 @@ export interface Product extends BaseModel {
   isDeleted?: boolean;
   inventoryMethod?: 'FIFO' | 'LIFO';
   enableBatchTracking?: boolean;
+  tags?: ProductTag[]; // Dynamic product tags for variations
+}
+
+export interface ProductTag {
+  id: string;
+  name: string; // e.g., "Model", "Color", "Size", "Material"
+  variations: TagVariation[];
+}
+
+export interface TagVariation {
+  id: string;
+  name: string; // e.g., "N1", "N2", "Red", "Blue", "Large"
+  imageIndex?: number; // Which image in the images array corresponds to this variation
 }
 
 export interface SaleProduct {

@@ -15,42 +15,46 @@ export const usePWAUpdate = () => {
 
   useEffect(() => {
     if ('serviceWorker' in navigator) {
-      // Register service worker
-      navigator.serviceWorker.register('/sw.js')
+      // Get existing service worker registration (registered by Vite PWA)
+      navigator.serviceWorker.getRegistration()
         .then((registration) => {
-          console.log('PWA Service Worker registered successfully:', registration);
-          
-          // Check for updates immediately
-          registration.update();
-          
-          // Listen for updates
-          registration.addEventListener('updatefound', () => {
-            const newWorker = registration.installing;
-            if (newWorker) {
-              newWorker.addEventListener('statechange', () => {
-                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                  // New content is available
-                  setUpdateState(prev => ({
-                    ...prev,
-                    isUpdateAvailable: true,
-                    registration,
-                  }));
-                }
-              });
-            }
-          });
+          if (registration) {
+            console.log('PWA Service Worker found:', registration);
+            
+            // Check for updates immediately
+            registration.update();
+            
+            // Listen for updates
+            registration.addEventListener('updatefound', () => {
+              const newWorker = registration.installing;
+              if (newWorker) {
+                newWorker.addEventListener('statechange', () => {
+                  if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                    // New content is available
+                    setUpdateState(prev => ({
+                      ...prev,
+                      isUpdateAvailable: true,
+                      registration,
+                    }));
+                  }
+                });
+              }
+            });
 
-          // Check if there's already an update waiting
-          if (registration.waiting) {
-            setUpdateState(prev => ({
-              ...prev,
-              isUpdateAvailable: true,
-              registration,
-            }));
+            // Check if there's already an update waiting
+            if (registration.waiting) {
+              setUpdateState(prev => ({
+                ...prev,
+                isUpdateAvailable: true,
+                registration,
+              }));
+            }
+          } else {
+            console.log('No service worker registration found');
           }
         })
         .catch((error) => {
-          console.error('PWA Service Worker registration failed:', error);
+          console.error('PWA Service Worker error:', error);
         });
     }
   }, []);
