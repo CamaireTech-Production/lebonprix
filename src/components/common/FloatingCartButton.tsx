@@ -26,7 +26,7 @@ const FloatingCartButton: React.FC<FloatingCartButtonProps> = ({ className = '' 
       <div className={`fixed bottom-20 right-4 z-40 ${className}`}>
         <button
           onClick={() => setIsCartOpen(true)}
-          className="relative bg-emerald-600 hover:bg-emerald-700 text-white p-4 rounded-full shadow-lg transition-all duration-200 hover:scale-105"
+          className="relative text-white p-4 rounded-full shadow-lg transition-all duration-200 hover:scale-105" style={{backgroundColor: '#e2b069'}} onMouseEnter={(e) => (e.target as HTMLButtonElement).style.backgroundColor = '#d4a05a'} onMouseLeave={(e) => (e.target as HTMLButtonElement).style.backgroundColor = '#e2b069'}
         >
           <ShoppingBag className="h-6 w-6" />
           {getCartItemCount() > 0 && (
@@ -84,7 +84,7 @@ const FloatingCartButton: React.FC<FloatingCartButtonProps> = ({ className = '' 
                           {item.selectedColor && ` • ${item.selectedColor}`}
                           {item.selectedSize && ` • ${item.selectedSize}`}
                         </p>
-                        <p className="text-emerald-600 font-semibold text-sm">
+                        <p className="font-semibold text-sm" style={{color: '#e2b069'}}>
                           {(item.price * item.quantity).toLocaleString('fr-FR', {
                             style: 'currency',
                             currency: 'XAF'
@@ -119,7 +119,7 @@ const FloatingCartButton: React.FC<FloatingCartButtonProps> = ({ className = '' 
               <div className="border-t border-gray-200 p-4 flex-shrink-0">
                 <div className="flex justify-between items-center mb-4">
                   <span className="font-semibold text-gray-900">Total:</span>
-                  <span className="text-emerald-600 font-bold text-lg">
+                  <span className="font-bold text-lg" style={{color: '#e2b069'}}>
                     {getCartTotal().toLocaleString('fr-FR', {
                       style: 'currency',
                       currency: 'XAF'
@@ -131,7 +131,7 @@ const FloatingCartButton: React.FC<FloatingCartButtonProps> = ({ className = '' 
                     setIsCartOpen(false);
                     setIsCheckoutOpen(true);
                   }}
-                  className="w-full bg-emerald-600 text-white py-3 rounded-lg font-semibold hover:bg-emerald-700 transition-colors"
+                  className="w-full text-white py-3 rounded-lg font-semibold transition-colors" style={{backgroundColor: '#e2b069'}} onMouseEnter={(e) => (e.target as HTMLButtonElement).style.backgroundColor = '#d4a05a'} onMouseLeave={(e) => (e.target as HTMLButtonElement).style.backgroundColor = '#e2b069'}
                 >
                   Checkout Now
                 </button>

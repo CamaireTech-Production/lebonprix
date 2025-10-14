@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useCart } from '../../contexts/CartContext';
 import { getCompanyByUserId, subscribeToProducts } from '../../services/firestore';
-import type { Company, Product, ProductTag, TagVariation } from '../../types/models';
+import type { Company, Product} from '../../types/models';
 import { X, Share2, Heart, Star, Plus, Minus, ChevronRight } from 'lucide-react';
 import FloatingCartButton from './FloatingCartButton';
 import { ImageWithSkeleton } from './ImageWithSkeleton';
@@ -158,8 +158,9 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             <button
               onClick={() => setIsFavorite(!isFavorite)}
               className={`p-2 rounded-full transition-colors ${
-                isFavorite ? 'bg-emerald-100 text-emerald-500' : 'bg-gray-100 text-gray-400'
+                isFavorite ? 'bg-gray-100' : 'bg-gray-100 text-gray-400'
               }`}
+              style={isFavorite ? {backgroundColor: 'rgba(226, 176, 105, 0.1)', color: '#e2b069'} : {}}
             >
               <Heart className={`h-5 w-5 ${isFavorite ? 'fill-current' : ''}`} />
             </button>
@@ -219,7 +220,10 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             <div className="bg-white rounded-lg border border-gray-200 p-2 shadow-lg">
               <button
                 onClick={() => updateQuantity(quantity - 1)}
-                className="w-8 h-8 flex items-center justify-center text-emerald-600 hover:bg-emerald-50 rounded transition-colors"
+                className="w-8 h-8 flex items-center justify-center rounded transition-colors"
+                style={{color: '#e2b069'}}
+                onMouseEnter={(e) => (e.target as HTMLButtonElement).style.backgroundColor = 'rgba(226, 176, 105, 0.1)'}
+                onMouseLeave={(e) => (e.target as HTMLButtonElement).style.backgroundColor = 'transparent'}
               >
                 <Minus className="h-4 w-4" />
               </button>
@@ -228,7 +232,10 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               </div>
               <button
                 onClick={() => updateQuantity(quantity + 1)}
-                className="w-8 h-8 flex items-center justify-center text-emerald-600 hover:bg-emerald-50 rounded transition-colors"
+                className="w-8 h-8 flex items-center justify-center rounded transition-colors"
+                style={{color: '#e2b069'}}
+                onMouseEnter={(e) => (e.target as HTMLButtonElement).style.backgroundColor = 'rgba(226, 176, 105, 0.1)'}
+                onMouseLeave={(e) => (e.target as HTMLButtonElement).style.backgroundColor = 'transparent'}
               >
                 <Plus className="h-4 w-4" />
               </button>
@@ -310,7 +317,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-6 py-4 z-20 pb-safe">
         <button
           onClick={handleAddToCart}
-          className="w-full bg-emerald-600 text-white py-4 rounded-xl font-semibold text-lg hover:bg-emerald-700 transition-colors shadow-lg"
+          className="w-full text-white py-4 rounded-xl font-semibold text-lg transition-colors shadow-lg" style={{backgroundColor: '#e2b069'}} onMouseEnter={(e) => (e.target as HTMLButtonElement).style.backgroundColor = '#d4a05a'} onMouseLeave={(e) => (e.target as HTMLButtonElement).style.backgroundColor = '#e2b069'}
         >
           Add to Cart - {((product.cataloguePrice ?? 0) * quantity).toLocaleString('fr-FR', {
             style: 'currency',
