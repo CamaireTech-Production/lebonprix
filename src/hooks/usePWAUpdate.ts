@@ -68,8 +68,9 @@ export const usePWAUpdate = () => {
       
       // Listen for the controlling service worker to change
       navigator.serviceWorker.addEventListener('controllerchange', () => {
-        // Reload the page to use the new service worker
-        window.location.reload();
+        console.log('Service worker controller changed, reloading...');
+        // The hard reload is now handled in the component
+        // This ensures the service worker update is processed
       });
     }
   };
