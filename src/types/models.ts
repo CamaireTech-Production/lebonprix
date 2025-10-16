@@ -17,6 +17,10 @@ export interface Company extends BaseModel {
   phone: string;
   location?: string;
   email: string;
+  // Color customization for catalogue
+  primaryColor?: string; // Primary brand color (default: #183524)
+  secondaryColor?: string; // Secondary brand color (default: #e2b069)
+  tertiaryColor?: string; // Tertiary/accent color (default: #2a4a3a)
 }
 
 export interface Category extends BaseModel {

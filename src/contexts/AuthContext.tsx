@@ -82,16 +82,27 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     // 1. INSTANT LOAD: Check localStorage first
     const localCompany = CompanyManager.load(userId);
     if (localCompany) {
-      setCompany(localCompany);
-      setCompanyLoading(false);
-      console.log('🚀 Company data loaded instantly from localStorage');
+      // Check if color fields are missing (for backward compatibility)
+      const hasColorFields = localCompany.primaryColor !== undefined || 
+                            localCompany.secondaryColor !== undefined || 
+                            localCompany.tertiaryColor !== undefined;
       
-      // 2. BACKGROUND SYNC: Update localStorage if needed
-      BackgroundSyncService.syncCompany(userId, (freshCompany) => {
-        setCompany(freshCompany);
-        console.log('🔄 Company data updated from background sync');
-      });
-      return;
+      if (!hasColorFields) {
+        console.log('🔄 Color fields missing from cache, forcing refresh...');
+        // Force a fresh fetch from Firebase
+        CompanyManager.remove(userId);
+      } else {
+        setCompany(localCompany);
+        setCompanyLoading(false);
+        console.log('🚀 Company data loaded instantly from localStorage');
+        
+        // 2. BACKGROUND SYNC: Update localStorage if needed
+        BackgroundSyncService.syncCompany(userId, (freshCompany) => {
+          setCompany(freshCompany);
+          console.log('🔄 Company data updated from background sync');
+        });
+        return;
+      }
     }
     
     // 3. FALLBACK: No localStorage data, fetch from Firebase
@@ -196,6 +207,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     
     if (updatedCompany) {
       CompanyManager.save(user.uid, updatedCompany);
+      console.log('✅ Company data updated and cached with new color fields');
     }
   };
 

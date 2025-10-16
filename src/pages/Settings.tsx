@@ -6,13 +6,13 @@ import Input from '../components/common/Input';
 import ActivityList from '../components/dashboard/ActivityList';
 import { showSuccessToast, showErrorToast } from '../utils/toast';
 import { useTranslation } from 'react-i18next';
-import { useSales, useExpenses, useAuditLogs } from '../hooks/useFirestore';
+import { useSales, useExpenses, useAuditLogs, useProducts } from '../hooks/useFirestore';
 import { getSellerSettings, updateSellerSettings } from '../services/firestore';
 import type { SellerSettings, PaymentMethod } from '../types/order';
 import PaymentMethodModal from '../components/settings/PaymentMethodModal';
 import i18n from '../i18n/config';
 import { combineActivities } from '../utils/activityUtils';
-import { Plus } from 'lucide-react';
+import { Plus, Copy, Check, ExternalLink } from 'lucide-react';
 
 const Settings = () => {
   const { t } = useTranslation();
@@ -23,6 +23,7 @@ const Settings = () => {
   const { sales } = useSales();
   const { expenses } = useExpenses();
   const { auditLogs } = useAuditLogs();
+  const { products } = useProducts();
   
   // Combine and sort recent activities using the new activity system
   const activities = user ? combineActivities(sales, expenses, auditLogs, t) : [];
@@ -35,6 +36,9 @@ const Settings = () => {
     location: '',
     email: '',
     logo: '',
+    primaryColor: '#183524',
+    secondaryColor: '#e2b069',
+    tertiaryColor: '#2a4a3a',
     currentPassword: '',
     newPassword: '',
     confirmPassword: '',
@@ -43,6 +47,7 @@ const Settings = () => {
   // Update form data when company data becomes available
   useEffect(() => {
     if (company) {
+      
       setFormData(prev => ({
         ...prev,
         name: company.name || '',
@@ -51,6 +56,9 @@ const Settings = () => {
         location: company.location || '',
         email: company.email || '',
         logo: company.logo || '',
+        primaryColor: company.primaryColor || '#183524',
+        secondaryColor: company.secondaryColor || '#e2b069',
+        tertiaryColor: company.tertiaryColor || '#2a4a3a',
       }));
     }
   }, [company]);
@@ -63,6 +71,29 @@ const Settings = () => {
   const [orderingLoading, setOrderingLoading] = useState(false);
   const [orderingSaving, setOrderingSaving] = useState(false);
   const [isPaymentMethodModalOpen, setIsPaymentMethodModalOpen] = useState(false);
+  
+  // Catalogue links state
+  const [copiedLinks, setCopiedLinks] = useState<Set<string>>(new Set());
+
+  // Copy to clipboard function
+  const copyToClipboard = async (text: string, linkId: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedLinks(prev => new Set(prev).add(linkId));
+      showSuccessToast('Link copied to clipboard!');
+      
+      // Reset the copied state after 2 seconds
+      setTimeout(() => {
+        setCopiedLinks(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(linkId);
+          return newSet;
+        });
+      }, 2000);
+    } catch {
+      showErrorToast('Failed to copy link');
+    }
+  };
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -89,7 +120,7 @@ const Settings = () => {
       }
     };
     loadSettings();
-  }, [company?.id]);
+  }, [company?.id, company?.name, company?.phone]);
 
   // Payment method management functions
   const handleAddPaymentMethod = (paymentMethod: PaymentMethod) => {
@@ -196,7 +227,10 @@ const Settings = () => {
         phone: `+237${formData.phone}`,
         location: formData.location || undefined,
         logo: formData.logo || undefined,
-        email: formData.email
+        email: formData.email,
+        primaryColor: formData.primaryColor,
+        secondaryColor: formData.secondaryColor,
+        tertiaryColor: formData.tertiaryColor
       };
 
       await updateCompany(companyData);
@@ -215,9 +249,9 @@ const Settings = () => {
         newPassword: '',
         confirmPassword: '',
       }));
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error updating settings:', error);
-      showErrorToast(error.message || t('settings.messages.updateFailed'));
+      showErrorToast((error as Error).message || t('settings.messages.updateFailed'));
     } finally {
       setIsLoading(false);
     }
@@ -297,6 +331,17 @@ const Settings = () => {
             `}
           >
             Ordering Settings
+          </button>
+          <button
+            onClick={() => setActiveTab('catalogue')}
+            className={`
+              whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm
+              ${activeTab === 'catalogue'
+                ? 'border-emerald-500 text-emerald-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
+            `}
+          >
+            Catalogue Links
           </button>
         </nav>
       </div>
@@ -463,6 +508,117 @@ const Settings = () => {
                         <option value="en">{t('languages.en')}</option>
                         <option value="fr">{t('languages.fr')}</option>
                       </select>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Color Customization */}
+                <div className="pt-5 border-t border-gray-200">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">Catalogue Color Customization</h3>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Customize the colors of your catalogue page to match your brand identity.
+                  </p>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {/* Primary Color */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Primary Color
+                        </label>
+                        <div className="flex items-center space-x-3">
+                          <input
+                            type="color"
+                            name="primaryColor"
+                            value={formData.primaryColor}
+                            onChange={handleInputChange}
+                            className="h-10 w-16 rounded border border-gray-300 cursor-pointer"
+                          />
+                          <input
+                            type="text"
+                            name="primaryColor"
+                            value={formData.primaryColor}
+                            onChange={handleInputChange}
+                            className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm font-mono"
+                            placeholder="#183524"
+                          />
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">Used for main buttons and highlights</p>
+                      </div>
+                      
+                      {/* Secondary Color */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Secondary Color
+                        </label>
+                        <div className="flex items-center space-x-3">
+                          <input
+                            type="color"
+                            name="secondaryColor"
+                            value={formData.secondaryColor}
+                            onChange={handleInputChange}
+                            className="h-10 w-16 rounded border border-gray-300 cursor-pointer"
+                          />
+                          <input
+                            type="text"
+                            name="secondaryColor"
+                            value={formData.secondaryColor}
+                            onChange={handleInputChange}
+                            className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm font-mono"
+                            placeholder="#e2b069"
+                          />
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">Used for accents and secondary elements</p>
+                      </div>
+                      
+                      {/* Tertiary Color */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Tertiary Color
+                        </label>
+                        <div className="flex items-center space-x-3">
+                          <input
+                            type="color"
+                            name="tertiaryColor"
+                            value={formData.tertiaryColor}
+                            onChange={handleInputChange}
+                            className="h-10 w-16 rounded border border-gray-300 cursor-pointer"
+                          />
+                          <input
+                            type="text"
+                            name="tertiaryColor"
+                            value={formData.tertiaryColor}
+                            onChange={handleInputChange}
+                            className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm font-mono"
+                            placeholder="#2a4a3a"
+                          />
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">Used for text and subtle elements</p>
+                      </div>
+                    </div>
+                    
+                    {/* Color Preview */}
+                    <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                      <h4 className="text-sm font-medium text-gray-700 mb-3">Preview</h4>
+                      <div className="flex items-center space-x-3">
+                        <div 
+                          className="px-4 py-2 rounded text-white text-sm font-medium"
+                          style={{ backgroundColor: formData.primaryColor }}
+                        >
+                          Primary Button
+                        </div>
+                        <div 
+                          className="px-4 py-2 rounded text-white text-sm font-medium"
+                          style={{ backgroundColor: formData.secondaryColor }}
+                        >
+                          Secondary Button
+                        </div>
+                        <div 
+                          className="px-4 py-2 rounded text-white text-sm font-medium"
+                          style={{ backgroundColor: formData.tertiaryColor }}
+                        >
+                          Tertiary Button
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -652,9 +808,9 @@ const Settings = () => {
                       setOrderingSaving(true);
                       await updateSellerSettings(company.id, orderingSettings);
                       showSuccessToast('Ordering settings updated');
-                    } catch (e: any) {
+                    } catch (e: unknown) {
                       console.error(e);
-                      showErrorToast(e.message || 'Failed to update settings');
+                      showErrorToast((e as Error).message || 'Failed to update settings');
                     } finally {
                       setOrderingSaving(false);
                     }
@@ -670,6 +826,141 @@ const Settings = () => {
       {/* Activity Logs Tab */}
       {activeTab === 'activity' && (
         <ActivityList activities={activities} />
+      )}
+
+      {/* Catalogue Links Tab */}
+      {activeTab === 'catalogue' && (
+        <Card>
+          <div className="max-w-4xl mx-auto">
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">Catalogue Links</h3>
+                <p className="text-sm text-gray-600">
+                  Generate shareable links for your product categories to use on your external landing pages.
+                </p>
+              </div>
+
+              {/* Base Catalogue URL */}
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h4 className="font-medium text-gray-900 mb-2">Your Catalogue URL</h4>
+                <div className="flex items-center space-x-2">
+                  <code className="flex-1 bg-white p-2 rounded border text-sm font-mono">
+                    {typeof window !== 'undefined' 
+                      ? `${window.location.origin}/catalogue/${company?.name?.toLowerCase().replace(/\s+/g, '-')}/${user?.uid}`
+                      : 'Loading...'
+                    }
+                  </code>
+                  <Button
+                    size="sm"
+                    onClick={() => copyToClipboard(
+                      `${window.location.origin}/catalogue/${company?.name?.toLowerCase().replace(/\s+/g, '-')}/${user?.uid}`,
+                      'base-catalogue'
+                    )}
+                  >
+                    {copiedLinks.has('base-catalogue') ? (
+                      <Check className="h-4 w-4" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              {/* Category Links */}
+              <div>
+                <h4 className="font-medium text-gray-900 mb-4">Category-Specific Links</h4>
+                {(() => {
+                  const categories = Array.from(new Set(products.map(p => p.category))).sort();
+                  
+                  if (categories.length === 0) {
+                    return (
+                      <div className="text-center py-8 text-gray-500">
+                        <p>No products found. Add some products to generate category links.</p>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="space-y-3">
+                      {categories.map(category => {
+                        const categoryProducts = products.filter(p => p.category === category);
+                        const categoryUrl = `${window.location.origin}/catalogue/${company?.name?.toLowerCase().replace(/\s+/g, '-')}/${user?.uid}?categories=${encodeURIComponent(category)}`;
+                        const linkId = `category-${category}`;
+                        
+                        return (
+                          <div key={category} className="bg-white border rounded-lg p-4">
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1">
+                                <h5 className="font-medium text-gray-900">{category}</h5>
+                                <p className="text-sm text-gray-500">
+                                  {categoryProducts.length} product{categoryProducts.length !== 1 ? 's' : ''}
+                                </p>
+                                <code className="text-xs text-gray-600 mt-1 block font-mono">
+                                  {categoryUrl}
+                                </code>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => window.open(categoryUrl, '_blank')}
+                                >
+                                  <ExternalLink className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  onClick={() => copyToClipboard(categoryUrl, linkId)}
+                                >
+                                  {copiedLinks.has(linkId) ? (
+                                    <Check className="h-4 w-4" />
+                                  ) : (
+                                    <Copy className="h-4 w-4" />
+                                  )}
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* Multi-Category Links */}
+              {(() => {
+                const categories = Array.from(new Set(products.map(p => p.category))).sort();
+                return categories.length > 1;
+              })() && (
+                <div>
+                  <h4 className="font-medium text-gray-900 mb-4">Multi-Category Links</h4>
+                  <div className="bg-yellow-50 p-4 rounded-lg mb-4">
+                    <p className="text-sm text-yellow-800">
+                      You can combine multiple categories in one link by separating them with commas.
+                    </p>
+                    <div className="mt-2">
+                      <code className="text-xs bg-white p-2 rounded border font-mono">
+                        {window.location.origin}/catalogue/{company?.name?.toLowerCase().replace(/\s+/g, '-')}/{user?.uid}?categories=Category1,Category2
+                      </code>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Usage Instructions */}
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <h4 className="font-medium text-blue-900 mb-2">How to Use</h4>
+                <ul className="text-sm text-blue-800 space-y-1">
+                  <li>• Copy the base catalogue URL to link to your full product catalog</li>
+                  <li>• Copy category-specific links to showcase particular product types</li>
+                  <li>• Combine multiple categories by adding commas: ?categories=Electronics,Clothing</li>
+                  <li>• Paste these links into your external landing pages or websites</li>
+                  <li>• When customers click these links, they'll see your products in your POS system</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </Card>
       )}
 
       {/* Payment Method Modal */}
