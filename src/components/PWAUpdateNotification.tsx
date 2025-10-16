@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Download, RefreshCw, X, CheckCircle, AlertCircle } from 'lucide-react';
+import { PWAUpdateStorage } from '../utils/pwaUpdateStorage';
 
 interface PWAUpdateNotificationProps {
   onUpdate: () => void;
@@ -26,6 +27,9 @@ export const PWAUpdateNotification: React.FC<PWAUpdateNotificationProps> = ({ on
   };
 
   const handleConfirmUpdate = async () => {
+    // Mark update as confirmed in localStorage BEFORE clearing caches
+    PWAUpdateStorage.markUpdateAsConfirmed();
+    
     // Clear all caches first
     if ('caches' in window) {
       try {

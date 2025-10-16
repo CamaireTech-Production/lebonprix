@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { PWAUpdateStorage } from '../utils/pwaUpdateStorage';
 
 interface PWAUpdateState {
   isUpdateAvailable: boolean;
@@ -14,7 +15,18 @@ export const usePWAUpdate = () => {
   });
 
   useEffect(() => {
+    // Initialize debug tools in development
+    if (import.meta.env.DEV) {
+      PWAUpdateStorage.debug();
+    }
+
     if ('serviceWorker' in navigator) {
+      // Check if user has already handled the current update
+      if (PWAUpdateStorage.hasUserHandledUpdate()) {
+        console.log('User has already handled the current update, skipping notification');
+        return;
+      }
+
       // Get existing service worker registration (registered by Vite PWA)
       navigator.serviceWorker.getRegistration()
         .then((registration) => {
@@ -30,19 +42,23 @@ export const usePWAUpdate = () => {
               if (newWorker) {
                 newWorker.addEventListener('statechange', () => {
                   if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                    // New content is available
-                    setUpdateState(prev => ({
-                      ...prev,
-                      isUpdateAvailable: true,
-                      registration,
-                    }));
+                    // New content is available - check if user hasn't handled it
+                    if (!PWAUpdateStorage.hasUserHandledUpdate()) {
+                      PWAUpdateStorage.markUpdateAsAvailable(registration);
+                      setUpdateState(prev => ({
+                        ...prev,
+                        isUpdateAvailable: true,
+                        registration,
+                      }));
+                    }
                   }
                 });
               }
             });
 
-            // Check if there's already an update waiting
-            if (registration.waiting) {
+            // Check if there's already an update waiting and not handled
+            if (registration.waiting && !PWAUpdateStorage.hasUserHandledUpdate()) {
+              PWAUpdateStorage.markUpdateAsAvailable(registration);
               setUpdateState(prev => ({
                 ...prev,
                 isUpdateAvailable: true,
@@ -63,6 +79,9 @@ export const usePWAUpdate = () => {
     if (updateState.registration?.waiting) {
       setUpdateState(prev => ({ ...prev, isUpdating: true }));
       
+      // Mark update as confirmed in localStorage
+      PWAUpdateStorage.markUpdateAsConfirmed(updateState.registration);
+      
       // Tell the waiting service worker to skip waiting and become active
       updateState.registration.waiting.postMessage({ type: 'SKIP_WAITING' });
       
@@ -76,6 +95,9 @@ export const usePWAUpdate = () => {
   };
 
   const dismissUpdate = () => {
+    // Mark update as dismissed in localStorage
+    PWAUpdateStorage.markUpdateAsDismissed();
+    
     setUpdateState(prev => ({
       ...prev,
       isUpdateAvailable: false,
