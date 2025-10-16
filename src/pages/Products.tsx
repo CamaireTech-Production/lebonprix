@@ -1995,6 +1995,114 @@ const Products = () => {
                 className="custom-select"
               />
             </div>
+
+            {/* Product Images */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                {t('products.form.step1.images')}
+              </label>
+              <div className="space-y-4">
+                {/* Current Images Display */}
+                {step1Data.images.length > 0 && (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                    {step1Data.images.map((image, idx) => (
+                      <div key={idx} className="relative group">
+                        <div className="aspect-square rounded-lg overflow-hidden border border-gray-200">
+                          <ImageWithSkeleton
+                            src={image.startsWith('data:') ? image : `data:image/jpeg;base64,${image}`}
+                            alt={`Product image ${idx + 1}`}
+                            className="w-full h-full object-cover"
+                            placeholder="Loading image..."
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveImage(idx)}
+                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                          title={t('products.actions.removeImage')}
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Add Image Button */}
+                <div className="flex items-center justify-center w-full">
+                  <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors">
+                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                      <Upload className="w-8 h-8 mb-2 text-gray-400" />
+                      <p className="mb-2 text-sm text-gray-500">
+                        <span className="font-semibold">{t('products.actions.clickToUpload')}</span> {t('products.actions.orDragAndDrop')}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {t('products.form.step1.imageFormats')}
+                      </p>
+                    </div>
+                    <input
+                      type="file"
+                      multiple
+                      accept="image/*"
+                      onChange={handleImagesUpload}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+
+                {/* Image Upload Progress */}
+                {isUploadingImages && (
+                  <div className="flex items-center space-x-2 text-sm text-gray-600">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-emerald-500"></div>
+                    <span>{t('products.actions.uploadingImages')}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Product Tags Manager */}
+            <ProductTagsManager
+              tags={step1Data.tags}
+              onTagsChange={(tags) => setStep1Data(prev => ({ ...prev, tags }))}
+              images={step1Data.images}
+            />
+
+            {/* Visibility Toggle */}
+            <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="flex items-center space-x-2">
+                    {step1Data.isVisible ? (
+                      <Eye className="h-5 w-5 text-green-600" />
+                    ) : (
+                      <EyeOff className="h-5 w-5 text-gray-400" />
+                    )}
+                    <span className="text-sm font-medium text-gray-900">
+                      {t('products.form.step1.visibility')}
+                    </span>
+                  </div>
+                  <span className="text-xs text-gray-500">
+                    {step1Data.isVisible 
+                      ? t('products.form.step1.visibleInCatalogue') 
+                      : t('products.form.step1.hiddenFromCatalogue')
+                    }
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setStep1Data(prev => ({ ...prev, isVisible: !prev.isVisible }))}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 ${
+                    step1Data.isVisible ? 'bg-emerald-600' : 'bg-gray-200'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      step1Data.isVisible ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              </div>
+            </div>
           </div>
         )}
         {editTab === 'stock' && (
