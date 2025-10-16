@@ -694,6 +694,7 @@ const Products = () => {
       reference: product.reference,
       category: product.category,
       images: Array.isArray(product.images) ? product.images : (product.images ? [product.images] : []),
+      tags: product.tags || [], // Load existing tags
     });
     // Find latest stock change for this product
     const latestStockChange = stockChanges
@@ -749,6 +750,7 @@ const Products = () => {
         }
         return img;
       }) : [],
+      tags: step1Data.tags, // Include tags in the update
       isAvailable: safeProduct.isAvailable,
       userId: safeProduct.userId,
       updatedAt: { seconds: 0, nanoseconds: 0 },

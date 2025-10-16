@@ -5,6 +5,7 @@ import type { Company, Product} from '../../types/models';
 import { X, Share2, Heart, Star, Plus, Minus, ChevronRight } from 'lucide-react';
 import FloatingCartButton from './FloatingCartButton';
 import { ImageWithSkeleton } from './ImageWithSkeleton';
+import DesktopProductDetail from './DesktopProductDetail';
 
 const placeholderImg = '/placeholder.png';
 
@@ -24,6 +25,18 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   companyId
 }) => {
   const { addToCart } = useCart();
+  const [isDesktop, setIsDesktop] = useState(false);
+
+  // Check if screen is desktop size
+  useEffect(() => {
+    const checkScreenSize = () => {
+      setIsDesktop(window.innerWidth >= 1024); // lg breakpoint
+    };
+
+    checkScreenSize();
+    window.addEventListener('resize', checkScreenSize);
+    return () => window.removeEventListener('resize', checkScreenSize);
+  }, []);
   
   // Use passed data immediately
   const [company, setCompany] = useState<Company | null>(initialCompany);
@@ -133,6 +146,19 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   };
 
   if (!isOpen || !product) return null;
+
+  // Render desktop version for larger screens
+  if (isDesktop) {
+    return (
+      <DesktopProductDetail
+        isOpen={isOpen}
+        onClose={onClose}
+        product={product}
+        company={company || initialCompany}
+        companyId={companyId}
+      />
+    );
+  }
 
   const images = product.images ?? [];
   const currentImage = images.length > 0 ? images[currentImageIndex] : placeholderImg;
