@@ -5,7 +5,7 @@ import Input from '../common/Input';
 import { useAuth } from '../../contexts/AuthContext';
 import type { CompanyEmployee, UserRole } from '../../types/models';
 import { showErrorToast, showSuccessToast } from '../../utils/toast';
-import { buildDefaultHashedPassword, buildLoginLink } from '../../utils/security';
+import { buildLoginLink } from '../../utils/security';
 
 const defaultNewEmployee: CompanyEmployee = {
   firstname: '',
@@ -25,12 +25,6 @@ export default function EmployeesTab() {
 
   // Dashboard stats
   const totalEmployees = employees.length;
-  const totalByRole = useMemo(() => {
-    return employees.reduce<Record<string, number>>((acc, e) => {
-      acc[e.role] = (acc[e.role] || 0) + 1;
-      return acc;
-    }, {});
-  }, [employees]);
   const pendingInvites = useMemo(() => employees.filter(e => !e.loginLink).length, [employees]);
 
   const resetNew = () => setNewEmployee({ ...defaultNewEmployee });
@@ -55,15 +49,9 @@ export default function EmployeesTab() {
       showErrorToast('Email already exists for this company');
       return;
     }
-    try {
-      const hashedPassword = await buildDefaultHashedPassword(newEmployee.firstname, newEmployee.lastname);
-      const loginLink = buildLoginLink(newEmployee.firstname, newEmployee.lastname, 3);
-      setEmployees(prev => [...prev, { ...newEmployee, hashedPassword, loginLink }]);
-      resetNew();
-    } catch (e: any) {
-      console.error(e);
-      showErrorToast(e.message || 'Failed to prepare employee credentials');
-    }
+    const loginLink = buildLoginLink(newEmployee.firstname, newEmployee.lastname, 3);
+    setEmployees(prev => [...prev, { ...newEmployee, loginLink }]);
+    resetNew();
   };
 
   const updateEmployeeField = (index: number, field: keyof CompanyEmployee, value: string) => {
@@ -124,18 +112,10 @@ export default function EmployeesTab() {
         <h3 className="text-lg font-medium text-gray-900 mb-4">Employees</h3>
 
         {/* Dashboard summary */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
           <div className="p-4 rounded-lg border bg-white">
             <div className="text-xs text-gray-500">Total</div>
             <div className="text-2xl font-semibold text-gray-900">{totalEmployees}</div>
-          </div>
-          <div className="p-4 rounded-lg border bg-white">
-            <div className="text-xs text-gray-500">By Role</div>
-            <div className="mt-1 text-sm text-gray-800">
-              <div>Admin: {totalByRole['admin'] || 0}</div>
-              <div>Manager: {totalByRole['manager'] || 0}</div>
-              <div>Staff: {totalByRole['staff'] || 0}</div>
-            </div>
           </div>
           <div className="p-4 rounded-lg border bg-white">
             <div className="text-xs text-gray-500">Pending invite</div>
