@@ -13,10 +13,27 @@ import PaymentMethodModal from '../components/settings/PaymentMethodModal';
 import i18n from '../i18n/config';
 import { combineActivities } from '../utils/activityUtils';
 import { Plus } from 'lucide-react';
+import EmployeesTab from '../components/settings/EmployeesTab';
 
 const Settings = () => {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('account');
+
+  // Sync tab with URL (?tab=account|activity|ordering|employees)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get('tab');
+    if (tab && ['account', 'activity', 'ordering', 'employees'].includes(tab)) {
+      setActiveTab(tab);
+    }
+  }, []);
+
+  const switchTab = (tab: string) => {
+    setActiveTab(tab);
+    const url = new URL(window.location.href);
+    url.searchParams.set('tab', tab);
+    window.history.replaceState({}, '', url.toString());
+  };
   const { company, updateCompany, updateUserPassword, user } = useAuth();
   
   // Only fetch data if user is authenticated
@@ -266,7 +283,7 @@ const Settings = () => {
       <div className="mb-6 border-b border-gray-200">
         <nav className="-mb-px flex space-x-8">
           <button
-            onClick={() => setActiveTab('account')}
+            onClick={() => switchTab('account')}
             className={`
               whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm
               ${activeTab === 'account'
@@ -277,7 +294,7 @@ const Settings = () => {
             {t('settings.tabs.account')}
           </button>
           <button
-            onClick={() => setActiveTab('activity')}
+            onClick={() => switchTab('activity')}
             className={`
               whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm
               ${activeTab === 'activity'
@@ -288,7 +305,7 @@ const Settings = () => {
             {t('settings.tabs.activity')}
           </button>
           <button
-            onClick={() => setActiveTab('ordering')}
+            onClick={() => switchTab('ordering')}
             className={`
               whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm
               ${activeTab === 'ordering'
@@ -297,6 +314,17 @@ const Settings = () => {
             `}
           >
             Ordering Settings
+          </button>
+          <button
+            onClick={() => switchTab('employees')}
+            className={`
+              whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm
+              ${activeTab === 'employees'
+                ? 'border-emerald-500 text-emerald-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
+            `}
+          >
+            Employees
           </button>
         </nav>
       </div>
@@ -670,6 +698,10 @@ const Settings = () => {
       {/* Activity Logs Tab */}
       {activeTab === 'activity' && (
         <ActivityList activities={activities} />
+      )}
+      {/* Employees Tab */}
+      {activeTab === 'employees' && (
+        <EmployeesTab />
       )}
 
       {/* Payment Method Modal */}

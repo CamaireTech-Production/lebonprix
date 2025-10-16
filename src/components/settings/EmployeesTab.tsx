@@ -19,8 +19,19 @@ export default function EmployeesTab() {
   const [employees, setEmployees] = useState<CompanyEmployee[]>(company?.employees || []);
   const [newEmployee, setNewEmployee] = useState<CompanyEmployee>({ ...defaultNewEmployee });
   const [isSaving, setIsSaving] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
 
   const existingEmails = useMemo(() => new Set((employees || []).map(e => e.email.toLowerCase().trim())), [employees]);
+
+  // Dashboard stats
+  const totalEmployees = employees.length;
+  const totalByRole = useMemo(() => {
+    return employees.reduce<Record<string, number>>((acc, e) => {
+      acc[e.role] = (acc[e.role] || 0) + 1;
+      return acc;
+    }, {});
+  }, [employees]);
+  const pendingInvites = useMemo(() => employees.filter(e => !e.loginLink).length, [employees]);
 
   const resetNew = () => setNewEmployee({ ...defaultNewEmployee });
 
@@ -112,6 +123,26 @@ export default function EmployeesTab() {
       <div className="max-w-3xl mx-auto">
         <h3 className="text-lg font-medium text-gray-900 mb-4">Employees</h3>
 
+        {/* Dashboard summary */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+          <div className="p-4 rounded-lg border bg-white">
+            <div className="text-xs text-gray-500">Total</div>
+            <div className="text-2xl font-semibold text-gray-900">{totalEmployees}</div>
+          </div>
+          <div className="p-4 rounded-lg border bg-white">
+            <div className="text-xs text-gray-500">By Role</div>
+            <div className="mt-1 text-sm text-gray-800">
+              <div>Admin: {totalByRole['admin'] || 0}</div>
+              <div>Manager: {totalByRole['manager'] || 0}</div>
+              <div>Staff: {totalByRole['staff'] || 0}</div>
+            </div>
+          </div>
+          <div className="p-4 rounded-lg border bg-white">
+            <div className="text-xs text-gray-500">Pending invite</div>
+            <div className="text-2xl font-semibold text-gray-900">{pendingInvites}</div>
+          </div>
+        </div>
+
         {/* Add new employee */}
         <div className="space-y-3 p-4 mb-6 bg-gray-50 rounded-lg">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -169,6 +200,7 @@ export default function EmployeesTab() {
                   {emp.loginLink ? buildEmployeeLoginUrl(emp) : 'No invite link'}
                 </div>
                 <div className="flex items-center gap-2">
+                  <Button variant="outline" type="button" onClick={() => setSelectedIndex(index)}>View</Button>
                   <Button variant="outline" type="button" onClick={() => copyLoginLink(emp)}>Copy link</Button>
                   <Button variant="outline" type="button" onClick={() => openLoginLink(emp)}>Open</Button>
                   <Button variant="outline" type="button" onClick={() => removeEmployee(index)}>Remove</Button>
@@ -177,6 +209,25 @@ export default function EmployeesTab() {
             </div>
           ))}
         </div>
+
+        {/* Details panel */}
+        {selectedIndex !== null && employees[selectedIndex] && (
+          <div className="mt-6 p-4 rounded-lg border bg-white">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-md font-semibold text-gray-900">Employee details</h4>
+              <Button variant="outline" type="button" onClick={() => setSelectedIndex(null)}>Close</Button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+              <div><span className="text-gray-500">Firstname:</span> {employees[selectedIndex].firstname}</div>
+              <div><span className="text-gray-500">Lastname:</span> {employees[selectedIndex].lastname}</div>
+              <div><span className="text-gray-500">Email:</span> {employees[selectedIndex].email}</div>
+              <div><span className="text-gray-500">Phone:</span> {employees[selectedIndex].phone || '-'}</div>
+              <div><span className="text-gray-500">Role:</span> {employees[selectedIndex].role}</div>
+              <div><span className="text-gray-500">Birthday:</span> {employees[selectedIndex].birthday || '-'}</div>
+              <div className="md:col-span-2 break-all"><span className="text-gray-500">Login link:</span> {employees[selectedIndex].loginLink ? buildEmployeeLoginUrl(employees[selectedIndex]) : '-'}</div>
+            </div>
+          </div>
+        )}
 
         <div className="mt-6 flex justify-end">
           <Button type="button" isLoading={isSaving} disabled={isSaving} onClick={saveEmployees}>Save employees</Button>

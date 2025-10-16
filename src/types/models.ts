@@ -17,6 +17,7 @@ export interface Company extends BaseModel {
   phone: string;
   location?: string;
   email: string;
+  employees?: CompanyEmployee[]; // Optional list of employees
 }
 
 export interface Category extends BaseModel {
@@ -226,3 +227,17 @@ export interface ExpenseType {
 }
 
 // Rest of the existing interfaces...
+
+// Employees model additions
+export type UserRole = 'admin' | 'manager' | 'staff';
+
+export interface CompanyEmployee {
+  firstname: string;
+  lastname: string;
+  email: string;
+  phone?: string;
+  role: UserRole;
+  birthday?: string; // ISO date (YYYY-MM-DD)
+  loginLink?: string; // Invitation identifier
+  hashedPassword?: string; // Optional hashed default password
+}

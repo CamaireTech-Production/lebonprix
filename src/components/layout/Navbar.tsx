@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Menu, Bell, Search, User, Settings, LogOut } from 'lucide-react';
+import { Menu, Bell, Search, User, Settings, LogOut, Users } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import UserAvatar from '../common/UserAvatar';
 import LanguageSwitcher from '../common/LanguageSwitcher';
@@ -121,6 +121,15 @@ const Navbar = ({ onMenuClick }: NavbarProps) => {
                   >
                     <Settings size={16} className="mr-3" />
                     {t('navigation.settings')}
+                  </Link>
+                  <Link
+                    to="/settings?tab=employees"
+                    className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    role="menuitem"
+                    onClick={() => setIsDropdownOpen(false)}
+                  >
+                    <Users size={16} className="mr-3" />
+                    Employees
                   </Link>
                   <button
                     onClick={handleSignOut}
