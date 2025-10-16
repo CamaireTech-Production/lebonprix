@@ -39,14 +39,20 @@ export const useInfiniteProducts = (): UseInfiniteProductsReturn => {
     // 1. Check localStorage FIRST - instant display if data exists
     const localProducts = ProductsManager.load(user.uid);
     if (localProducts && localProducts.length > 0) {
-      setProducts(localProducts);
+      const visibleProducts = localProducts.filter(product => 
+        product.isAvailable !== false
+      );
+      setProducts(visibleProducts);
       setLoading(false); // No loading spinner - data is available
       setSyncing(true); // Show background sync indicator
       console.log('🚀 Products loaded instantly from localStorage');
       
       // Start background sync
       BackgroundSyncService.syncProducts(user.uid, (freshProducts) => {
-        setProducts(freshProducts);
+        const visibleProducts = freshProducts.filter(product => 
+          product.isAvailable !== false
+        );
+        setProducts(visibleProducts);
         setSyncing(false); // Hide background sync indicator
         console.log('🔄 Products updated from background sync');
       });
@@ -71,7 +77,9 @@ export const useInfiniteProducts = (): UseInfiniteProductsReturn => {
         ...doc.data()
       })) as Product[];
       
-      const productsData = allProducts.filter(product => product.isAvailable !== false);
+      const productsData = allProducts.filter(product => 
+        product.isAvailable !== false
+      );
 
       setProducts(productsData);
       setLastDoc(snapshot.docs[snapshot.docs.length - 1] || null);
@@ -110,7 +118,9 @@ export const useInfiniteProducts = (): UseInfiniteProductsReturn => {
         ...doc.data()
       })) as Product[];
       
-      const newProducts = allNewProducts.filter(product => product.isAvailable !== false);
+      const newProducts = allNewProducts.filter(product => 
+        product.isAvailable !== false
+      );
 
       if (newProducts.length > 0) {
         setProducts(prev => {

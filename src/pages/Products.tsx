@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Grid, List, Plus, Search, Edit2, Upload, Trash2, CheckSquare, Square, Info } from 'lucide-react';
+import { Grid, List, Plus, Search, Edit2, Upload, Trash2, CheckSquare, Square, Info, Eye, EyeOff } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
@@ -19,7 +19,7 @@ import SyncIndicator from '../components/common/SyncIndicator';
 import { showSuccessToast, showErrorToast, showWarningToast } from '../utils/toast';
 import imageCompression from 'browser-image-compression';
 import * as Papa from 'papaparse';
-import type { Product, ProductTag, TagVariation } from '../types/models';
+import type { Product, ProductTag} from '../types/models';
 import type { ParseResult } from 'papaparse';
 import { getLatestCostPrice} from '../utils/productUtils';
 import { 
@@ -49,7 +49,7 @@ const Products = () => {
   } = useInfiniteProducts();
   
   // Keep original hook for adding/updating products
-  const { addProduct, updateProduct } = useProducts();
+  const { addProduct, updateProductData } = useProducts();
   const { stockChanges } = useStockChanges();
   useCategories();
   const { suppliers } = useSuppliers();
@@ -73,6 +73,9 @@ const Products = () => {
   const [currentProduct, setCurrentProduct] = useState<Product | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
+  // Local state to track visibility changes for immediate UI updates
+  const [visibilityOverrides, setVisibilityOverrides] = useState<Record<string, boolean>>({});
+  
   // Two-step form state
   const [currentStep, setCurrentStep] = useState<1 | 2>(1);
   
@@ -83,6 +86,7 @@ const Products = () => {
     category: '',
     images: [] as string[],
     tags: [] as ProductTag[],
+    isVisible: true, // Default to visible
   });
   
   // Step 2: Initial stock and supply info
@@ -230,6 +234,7 @@ const Products = () => {
       category: '',
       images: [],
       tags: [],
+      isVisible: true,
     });
     setStep2Data({
       stock: '',
@@ -350,6 +355,7 @@ const Products = () => {
         }) : [],
         tags: step1Data.tags.length > 0 ? step1Data.tags : undefined,
       isAvailable: true,
+      isVisible: step1Data.isVisible, // Include visibility setting
       enableBatchTracking: true, // Explicitly enable batch tracking
       userId: user.uid,
       updatedAt: { seconds: 0, nanoseconds: 0 }
@@ -419,7 +425,7 @@ const Products = () => {
         contact: quickSupplierData.contact,
         location: quickSupplierData.location || undefined,
         userId: user.uid
-      }, user.uid);
+      });
 
       // Set the new supplier as selected
       setStep2Data(prev => ({
@@ -656,7 +662,7 @@ const Products = () => {
         contact: quickSupplierData.contact,
         location: quickSupplierData.location || undefined,
         userId: user.uid
-      }, user.uid);
+      });
 
       // Set the new supplier as selected for stock adjustment
       setStockAdjustmentSupplier(prev => ({
@@ -695,6 +701,7 @@ const Products = () => {
       category: product.category,
       images: Array.isArray(product.images) ? product.images : (product.images ? [product.images] : []),
       tags: product.tags || [], // Load existing tags
+      isVisible: product.isVisible !== undefined ? product.isVisible : true, // Load visibility setting
     });
     // Find latest stock change for this product
     const latestStockChange = stockChanges
@@ -752,6 +759,7 @@ const Products = () => {
       }) : [],
       tags: step1Data.tags, // Include tags in the update
       isAvailable: safeProduct.isAvailable,
+      isVisible: step1Data.isVisible, // Include visibility setting
       userId: safeProduct.userId,
       updatedAt: { seconds: 0, nanoseconds: 0 },
       sellingPrice: editPrices.sellingPrice ? parseFloat(editPrices.sellingPrice) : safeProduct.sellingPrice,
@@ -765,7 +773,7 @@ const Products = () => {
       // Handle enhanced manual adjustment and damage scenarios with batch edits
       if ((stockReason === 'adjustment' || stockReason === 'damage') && tempBatchEdits.length > 0) {
         // First update product info
-        await updateProduct(currentProduct.id, updateData, user.uid);
+        await updateProductData(currentProduct.id, updateData);
         
         // Then apply all batch adjustments with enhanced debt management
         const adjustments = tempBatchEdits.map(edit => ({
@@ -779,7 +787,7 @@ const Products = () => {
           notes: `${edit.scenario === 'damage' ? 'Damage' : 'Manual adjustment'} via product edit`
         }));
         
-        await adjustBatchWithDebtManagement(currentProduct.id, adjustments, user.uid);
+        await adjustBatchWithDebtManagement(currentProduct.id, adjustments);
         showSuccessToast(`Applied ${tempBatchEdits.length} ${stockReason === 'damage' ? 'damage records' : 'batch adjustments'}!`);
       }
       // Handle traditional stock adjustment if provided (restock or simple adjustment)
@@ -793,7 +801,7 @@ const Products = () => {
           updateData.stock = newStock;
           
           // Create stock change with supplier info
-          await updateProduct(currentProduct.id, updateData, user.uid, stockReasonType, stockChange, {
+          await updateProductData(currentProduct.id, updateData, stockReasonType, stockChange, {
             supplierId: stockAdjustmentSupplier.supplierId || undefined,
             isOwnPurchase: stockAdjustmentSupplier.supplyType === 'ownPurchase',
             isCredit: stockAdjustmentSupplier.paymentType === 'credit',
@@ -805,17 +813,17 @@ const Products = () => {
             const debtAmount = parseFloat(stockAdjustmentSupplier.costPrice) * stockChange;
             const description = `Restock purchase for ${currentProduct.name} (${stockChange} units)`;
             
-            // Note: Debt creation with batchId is now handled in updateProduct function
+            // Note: Debt creation with batchId is now handled in updateProductData function
             // The batchId will be included automatically
           }
         } else {
           // For simple adjustment, set to new value
           updateData.stock = stockChange;
-          await updateProduct(currentProduct.id, updateData, user.uid, stockReasonType, stockChange - (currentProduct.stock || 0));
+          await updateProductData(currentProduct.id, updateData, stockReasonType, stockChange - (currentProduct.stock || 0));
         }
       } else {
         // No stock adjustment, just update product info
-        await updateProduct(currentProduct.id, updateData, user.uid);
+        await updateProductData(currentProduct.id, updateData);
       }
       
       // Update latest stock change cost price if changed
@@ -823,8 +831,8 @@ const Products = () => {
         .filter(sc => sc.productId === currentProduct.id)
         .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))[0];
       if (latestStockChange && editPrices.costPrice && parseFloat(editPrices.costPrice) !== latestStockChange.costPrice) {
-        // Use updateProduct with stockReason 'adjustment' and stockChange 0 to update cost price only
-        await updateProduct(currentProduct.id, {}, user.uid, 'adjustment', 0, {
+        // Use updateProductData with stockReason 'adjustment' and stockChange 0 to update cost price only
+        await updateProductData(currentProduct.id, {}, 'adjustment', 0, {
           supplierId: latestStockChange.supplierId,
           isOwnPurchase: latestStockChange.isOwnPurchase,
           isCredit: latestStockChange.isCredit,
@@ -840,7 +848,7 @@ const Products = () => {
       showSuccessToast(t('products.messages.productUpdated'));
     } catch (err) {
       console.error('Error updating product:', err);
-      showErrorToast(t('products.messages.errors.updateProduct'));
+      showErrorToast(t('products.messages.errors.updateProductData'));
       setIsEditModalOpen(true);
     } finally {
       setIsSubmitting(false);
@@ -862,15 +870,42 @@ const Products = () => {
       if (product.stock > 0 && !hasStockChange) {
         // Create an initial adjustment with 'creation' reason
         try {
-          await updateProduct(product.id, { stock: product.stock }, user.uid, 'creation', product.stock);
+          await updateProductData(product.id, { stock: product.stock }, 'creation', product.stock);
         } catch (e) { console.error(`Failed to create initial stock for ${product.id}:`, e) }
       }
     });
-  }, [infiniteProducts, stockChanges, user, updateProduct]);
+  }, [infiniteProducts, stockChanges, user, updateProductData]);
 
   useEffect(() => {
     setSelectedCategory(t('products.filters.allCategories'));
   }, [i18n.language, t]);
+
+  // Clean up visibility overrides when server data matches our override
+  useEffect(() => {
+    if (infiniteProducts.length > 0) {
+      setVisibilityOverrides(prev => {
+        const newOverrides = { ...prev };
+        let hasChanges = false;
+        
+        // Only remove overrides when the server data actually matches our override
+        Object.keys(newOverrides).forEach(productId => {
+          const product = infiniteProducts.find(p => p.id === productId);
+          if (product && product.isVisible === newOverrides[productId]) {
+            // Server data now matches our override, so we can remove it
+            console.log('Cleaning up override for product:', productId, 'server data matches override');
+            delete newOverrides[productId];
+            hasChanges = true;
+          }
+        });
+        
+        if (hasChanges) {
+          console.log('Updated overrides:', newOverrides);
+        }
+        
+        return hasChanges ? newOverrides : prev;
+      });
+    }
+  }, [infiniteProducts]);
 
   // Load batches when stock reason changes to adjustment or damage
   useEffect(() => {
@@ -913,7 +948,7 @@ const Products = () => {
           updatedAt: product.updatedAt || { seconds: 0, nanoseconds: 0 },
         };
         const updateData = { isAvailable: false, images: safeProduct.images, userId: safeProduct.userId, updatedAt: { seconds: 0, nanoseconds: 0 } };
-        await updateProduct(id, updateData, user.uid);
+        await updateProductData(id, updateData);
       }
       
       // Refresh the product list to remove the deleted products
@@ -943,7 +978,7 @@ const Products = () => {
     const updateData = { isAvailable: false, images: safeProduct.images, userId: safeProduct.userId, updatedAt: { seconds: 0, nanoseconds: 0 } };
     try {
       setIsDeleting(true);
-      await updateProduct(productToDelete.id, updateData, user.uid);
+      await updateProductData(productToDelete.id, updateData);
       
       // Refresh the product list to remove the deleted product
       refresh();
@@ -983,9 +1018,59 @@ const Products = () => {
     setStep1Data(prev => ({ ...prev, images: prev.images.filter((_, i) => i !== idx) }));
   };
 
+  // Toggle product visibility
+  const handleToggleVisibility = async (product: Product) => {
+    if (!user?.uid) return;
+    
+    try {
+      const currentEffectiveVisibility = getEffectiveVisibility(product);
+      const newVisibility = !currentEffectiveVisibility;
+      
+      console.log('Toggle visibility:', {
+        productId: product.id,
+        originalVisibility: product.isVisible,
+        currentEffectiveVisibility,
+        newVisibility,
+        currentOverrides: visibilityOverrides
+      });
+      
+      // Optimistic update - immediately update the local state for instant UI feedback
+      setVisibilityOverrides(prev => ({
+        ...prev,
+        [product.id]: newVisibility
+      }));
+      
+      await updateProductData(product.id, { isVisible: newVisibility });
+      
+      showSuccessToast(
+        newVisibility 
+          ? t('products.messages.productShown') 
+          : t('products.messages.productHidden')
+      );
+      
+    } catch (error) {
+      console.error('Error toggling product visibility:', error);
+      showErrorToast(t('products.messages.errors.toggleVisibility'));
+      
+      // Revert the optimistic update on error
+      setVisibilityOverrides(prev => {
+        const newOverrides = { ...prev };
+        delete newOverrides[product.id];
+        return newOverrides;
+      });
+    }
+  };
+
   // Helper function to get batches for a specific product
   const getProductBatches = (productId: string): StockBatch[] => {
     return allStockBatches.filter(batch => batch.productId === productId);
+  };
+
+  // Helper function to get the effective visibility state (considering optimistic updates)
+  const getEffectiveVisibility = (product: Product): boolean => {
+    return visibilityOverrides[product.id] !== undefined 
+      ? visibilityOverrides[product.id] 
+      : product.isVisible !== false;
   };
 
   // Place filteredProducts and resetImportState above their first usage
@@ -1084,7 +1169,7 @@ const Products = () => {
               name: supplierName,
               contact: 'Imported',
               userId: user.uid
-            }, user.uid);
+            });
           }
           finalSupplierId = supplier.id;
         } else if (finalSupplierId) {
@@ -1094,7 +1179,7 @@ const Products = () => {
               name: finalSupplierId,
               contact: 'Imported',
               userId: user.uid
-            }, user.uid);
+            });
             finalSupplierId = supplier.id;
           }
         } else {
@@ -1375,6 +1460,17 @@ const Products = () => {
                     <Info size={16} />
                   </button>
                   <button
+                    onClick={() => handleToggleVisibility(product)}
+                    className={`px-2 py-1 text-xs rounded-full border transition-colors ${
+                      getEffectiveVisibility(product)
+                        ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100' 
+                        : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
+                    }`}
+                    title={getEffectiveVisibility(product) ? t('products.actions.hideFromCatalogue') : t('products.actions.showInCatalogue')}
+                  >
+                    {getEffectiveVisibility(product) ? 'Visible on catalogue' : 'Hidden from catalogue'}
+                  </button>
+                  <button
                     onClick={() => openEditModal(product)}
                     className="text-indigo-600 hover:text-indigo-900"
                     title={t('products.actions.editProduct')}
@@ -1514,6 +1610,17 @@ const Products = () => {
                           title={t('products.actions.viewDetails', 'View Details')}
                         >
                           <Info size={16} />
+                        </button>
+                        <button
+                          onClick={() => handleToggleVisibility(product)}
+                          className={`px-2 py-1 text-xs rounded-full border transition-colors ${
+                            getEffectiveVisibility(product)
+                              ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100' 
+                              : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
+                          }`}
+                          title={getEffectiveVisibility(product) ? t('products.actions.hideFromCatalogue') : t('products.actions.showInCatalogue')}
+                        >
+                          {getEffectiveVisibility(product) ? 'Visible on catalogue' : 'Hidden from catalogue'}
                         </button>
                         <button
                           onClick={() => openEditModal(product)}
@@ -1663,6 +1770,43 @@ const Products = () => {
             onTagsChange={(tags) => setStep1Data(prev => ({ ...prev, tags }))}
             images={step1Data.images}
           />
+
+          {/* Visibility Toggle */}
+          <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="flex items-center space-x-2">
+                  {step1Data.isVisible ? (
+                    <Eye className="h-5 w-5 text-green-600" />
+                  ) : (
+                    <EyeOff className="h-5 w-5 text-gray-400" />
+                  )}
+                  <span className="text-sm font-medium text-gray-900">
+                    {t('products.form.step1.visibility')}
+                  </span>
+                </div>
+                <span className="text-xs text-gray-500">
+                  {step1Data.isVisible 
+                    ? t('products.form.step1.visibleInCatalogue') 
+                    : t('products.form.step1.hiddenFromCatalogue')
+                  }
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setStep1Data(prev => ({ ...prev, isVisible: !prev.isVisible }))}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 ${
+                  step1Data.isVisible ? 'bg-emerald-600' : 'bg-gray-200'
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    step1Data.isVisible ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
             </div>
           ) : (
             /* Step 2: Initial Stock and Supply Information */

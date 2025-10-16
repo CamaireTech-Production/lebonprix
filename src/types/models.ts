@@ -38,6 +38,7 @@ export interface Product extends BaseModel {
   migratedAt?: Date; // Track migration status
   isAvailable: boolean;
   isDeleted?: boolean;
+  isVisible?: boolean; // Controls visibility in catalogue (default: true)
   inventoryMethod?: 'FIFO' | 'LIFO';
   enableBatchTracking?: boolean;
   tags?: ProductTag[]; // Dynamic product tags for variations

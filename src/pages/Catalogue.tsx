@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
 import { getCompanyByUserId, subscribeToProducts } from '../services/firestore';
 import type { Company, Product } from '../types/models';
-import { Search, Package, AlertCircle, MapPin, Plus, ShoppingBag, Heart, Phone } from 'lucide-react';
+import { Search, Package, AlertCircle, MapPin, Plus, Heart, Phone } from 'lucide-react';
 import Button from '../components/common/Button';
 import FloatingCartButton from '../components/common/FloatingCartButton';
 import ProductDetailModal from '../components/common/ProductDetailModal';
@@ -79,25 +79,14 @@ const Catalogue = () => {
     fetchCompany();
   }, [companyId]);
 
-  // Subscribe to products with caching
+  // Subscribe to products with caching and real-time updates
   useEffect(() => {
     if (!companyId) return;
 
-    // Check if we already have cached products for this company
-    if (productsCache.has(companyId)) {
-      const cachedProducts = productsCache.get(companyId)!;
-      const filteredProducts = cachedProducts.filter(
-        p => p.isAvailable !== false && p.isDeleted !== true
-      );
-      setProducts(filteredProducts);
-      setLoading(false);
-      return;
-    }
-
-    // Only fetch if not cached
+    // Always subscribe to real-time updates, even if we have cached data
     const unsubscribe = subscribeToProducts(companyId, (productsData) => {
       const companyProducts = productsData.filter(
-        p => p.isAvailable !== false && p.isDeleted !== true
+        p => p.isAvailable !== false && p.isDeleted !== true && p.isVisible !== false
       );
       
       // Cache the products for future use
@@ -109,6 +98,16 @@ const Catalogue = () => {
         setLoading(false);
       }
     });
+
+    // If we have cached data, show it immediately while waiting for real-time updates
+    if (productsCache.has(companyId)) {
+      const cachedProducts = productsCache.get(companyId)!;
+      const filteredProducts = cachedProducts.filter(
+        p => p.isAvailable !== false && p.isDeleted !== true && p.isVisible !== false
+      );
+      setProducts(filteredProducts);
+      setLoading(false);
+    }
 
     return () => unsubscribe();
   }, [companyId, company, productsCache]);
