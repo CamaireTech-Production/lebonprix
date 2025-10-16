@@ -132,7 +132,8 @@ export default defineConfig(({ mode }) => {
           ]
         },
         devOptions: {
-          enabled: true
+          enabled: true,
+          type: 'module'
         }
       })
     ],
@@ -144,6 +145,9 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       port: 3010, // Change this to your desired port
+      headers: {
+        'Service-Worker-Allowed': '/',
+      },
     },
   };
 });

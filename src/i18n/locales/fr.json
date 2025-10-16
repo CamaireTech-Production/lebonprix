@@ -760,6 +760,20 @@
     "en": "Anglais",
     "fr": "Français"
   },
+  "employees": {
+    "title": "Employés",
+    "copyLink": "Copier le lien",
+    "open": "Ouvrir",
+    "saved": "Employés enregistrés",
+    "noLink": "Pas de lien d'invitation"
+  },
+  "employeeLogin": {
+    "title": "Connexion Employé",
+    "passwordRequired": "Veuillez saisir votre mot de passe",
+    "invalid": "Lien invalide",
+    "error": "Informations de connexion incorrectes",
+    "success": "Connexion réussie"
+  },
   "expenses": {
     "title": "Dépenses",
     "subtitle": "Gérez vos dépenses d'entreprise",

@@ -1,0 +1,190 @@
+import { useMemo, useState } from 'react';
+import Card from '../common/Card';
+import Button from '../common/Button';
+import Input from '../common/Input';
+import { useAuth } from '../../contexts/AuthContext';
+import type { CompanyEmployee, UserRole } from '../../types/models';
+import { showErrorToast, showSuccessToast } from '../../utils/toast';
+import { buildDefaultHashedPassword, buildLoginLink } from '../../utils/security';
+
+const defaultNewEmployee: CompanyEmployee = {
+  firstname: '',
+  lastname: '',
+  email: '',
+  role: 'staff'
+};
+
+export default function EmployeesTab() {
+  const { company, updateCompany } = useAuth();
+  const [employees, setEmployees] = useState<CompanyEmployee[]>(company?.employees || []);
+  const [newEmployee, setNewEmployee] = useState<CompanyEmployee>({ ...defaultNewEmployee });
+  const [isSaving, setIsSaving] = useState(false);
+
+  const existingEmails = useMemo(() => new Set((employees || []).map(e => e.email.toLowerCase().trim())), [employees]);
+
+  const resetNew = () => setNewEmployee({ ...defaultNewEmployee });
+
+  const validateEmployee = (emp: CompanyEmployee): string | null => {
+    if (!emp.firstname.trim()) return 'Firstname is required';
+    if (!emp.lastname.trim()) return 'Lastname is required';
+    if (!emp.email.trim()) return 'Email is required';
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(emp.email)) return 'Invalid email';
+    if (!['admin', 'manager', 'staff'].includes(emp.role)) return 'Invalid role';
+    return null;
+  };
+
+  const addEmployee = async () => {
+    const err = validateEmployee(newEmployee);
+    if (err) {
+      showErrorToast(err);
+      return;
+    }
+    if (existingEmails.has(newEmployee.email.toLowerCase().trim())) {
+      showErrorToast('Email already exists for this company');
+      return;
+    }
+    try {
+      const hashedPassword = await buildDefaultHashedPassword(newEmployee.firstname, newEmployee.lastname);
+      const loginLink = buildLoginLink(newEmployee.firstname, newEmployee.lastname, 3);
+      setEmployees(prev => [...prev, { ...newEmployee, hashedPassword, loginLink }]);
+      resetNew();
+    } catch (e: any) {
+      console.error(e);
+      showErrorToast(e.message || 'Failed to prepare employee credentials');
+    }
+  };
+
+  const updateEmployeeField = (index: number, field: keyof CompanyEmployee, value: string) => {
+    setEmployees(prev => prev.map((emp, i) => i === index ? { ...emp, [field]: value } : emp));
+  };
+
+  const removeEmployee = (index: number) => {
+    setEmployees(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const saveEmployees = async () => {
+    try {
+      setIsSaving(true);
+      await updateCompany({ employees });
+      showSuccessToast('Employees saved');
+    } catch (e: any) {
+      console.error(e);
+      showErrorToast(e.message || 'Failed to save employees');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const buildEmployeeLoginUrl = (emp: CompanyEmployee) => {
+    if (!company?.id || !company?.name || !emp.loginLink) return '';
+    const base = window.location.origin;
+    const path = `/employee-login/${encodeURIComponent(company.name)}/${encodeURIComponent(company.id)}/${encodeURIComponent(emp.loginLink)}`;
+    return `${base}${path}`;
+  };
+
+  const copyLoginLink = async (emp: CompanyEmployee) => {
+    const url = buildEmployeeLoginUrl(emp);
+    if (!url) {
+      showErrorToast('Login link unavailable');
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      showSuccessToast('Login link copied');
+    } catch (e) {
+      console.error(e);
+      showErrorToast('Failed to copy link');
+    }
+  };
+
+  const openLoginLink = (emp: CompanyEmployee) => {
+    const url = buildEmployeeLoginUrl(emp);
+    if (!url) {
+      showErrorToast('Login link unavailable');
+      return;
+    }
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  return (
+    <Card>
+      <div className="max-w-3xl mx-auto">
+        <h3 className="text-lg font-medium text-gray-900 mb-4">Employees</h3>
+
+        {/* Add new employee */}
+        <div className="space-y-3 p-4 mb-6 bg-gray-50 rounded-lg">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <Input label="Firstname" value={newEmployee.firstname} onChange={(e) => setNewEmployee(prev => ({ ...prev, firstname: e.target.value }))} />
+            <Input label="Lastname" value={newEmployee.lastname} onChange={(e) => setNewEmployee(prev => ({ ...prev, lastname: e.target.value }))} />
+            <Input label="Email" type="email" value={newEmployee.email} onChange={(e) => setNewEmployee(prev => ({ ...prev, email: e.target.value }))} />
+            <Input label="Phone" value={newEmployee.phone || ''} onChange={(e) => setNewEmployee(prev => ({ ...prev, phone: e.target.value }))} />
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
+              <select
+                className="w-full rounded-md border border-gray-300 shadow-sm py-2 px-3 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
+                value={newEmployee.role}
+                onChange={(e) => setNewEmployee(prev => ({ ...prev, role: e.target.value as UserRole }))}
+              >
+                <option value="staff">staff</option>
+                <option value="manager">manager</option>
+                <option value="admin">admin</option>
+              </select>
+            </div>
+            <Input label="Birthday (YYYY-MM-DD)" value={newEmployee.birthday || ''} onChange={(e) => setNewEmployee(prev => ({ ...prev, birthday: e.target.value }))} />
+          </div>
+          <div className="flex justify-end">
+            <Button type="button" onClick={addEmployee}>Add employee</Button>
+          </div>
+        </div>
+
+        {/* Employees list */}
+        <div className="space-y-3">
+          {employees.length === 0 && (
+            <div className="text-sm text-gray-600">No employees yet.</div>
+          )}
+          {employees.map((emp, index) => (
+            <div key={`${emp.email}-${index}`} className="p-4 border rounded-lg">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <Input label="Firstname" value={emp.firstname} onChange={(e) => updateEmployeeField(index, 'firstname', e.target.value)} />
+                <Input label="Lastname" value={emp.lastname} onChange={(e) => updateEmployeeField(index, 'lastname', e.target.value)} />
+                <Input label="Email" type="email" value={emp.email} onChange={(e) => updateEmployeeField(index, 'email', e.target.value)} />
+                <Input label="Phone" value={emp.phone || ''} onChange={(e) => updateEmployeeField(index, 'phone', e.target.value)} />
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
+                  <select
+                    className="w-full rounded-md border border-gray-300 shadow-sm py-2 px-3 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
+                    value={emp.role}
+                    onChange={(e) => updateEmployeeField(index, 'role', e.target.value)}
+                  >
+                    <option value="staff">staff</option>
+                    <option value="manager">manager</option>
+                    <option value="admin">admin</option>
+                  </select>
+                </div>
+                <Input label="Birthday (YYYY-MM-DD)" value={emp.birthday || ''} onChange={(e) => updateEmployeeField(index, 'birthday', e.target.value)} />
+              </div>
+              <div className="mt-3 flex items-center justify-between gap-3 flex-wrap">
+                <div className="text-xs text-gray-500 break-all">
+                  {emp.loginLink ? buildEmployeeLoginUrl(emp) : 'No invite link'}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" type="button" onClick={() => copyLoginLink(emp)}>Copy link</Button>
+                  <Button variant="outline" type="button" onClick={() => openLoginLink(emp)}>Open</Button>
+                  <Button variant="outline" type="button" onClick={() => removeEmployee(index)}>Remove</Button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-6 flex justify-end">
+          <Button type="button" isLoading={isSaving} disabled={isSaving} onClick={saveEmployees}>Save employees</Button>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+
+

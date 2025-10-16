@@ -180,11 +180,7 @@ const Catalogue = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Enhanced Top Section - Shop Information */}
-<<<<<<< HEAD
       <div className="bg-gradient-to-r from-theme-brown  to-theme-forest text-white">
-=======
-      <div className="text-white" style={{background: 'linear-gradient(to right, #183524, #2a4a3a)'}}>
->>>>>>> 6ebbc3f2247be4ac81bd6a39eecb98d4aba53680
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           {/* Shop Header with Logo, Name, and Contact */}
           <div className="flex items-center space-x-6 mb-6">
@@ -233,11 +229,7 @@ const Catalogue = () => {
               placeholder="Search products..."
                 value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-<<<<<<< HEAD
               className="w-full pl-12 pr-4 py-4 bg-white rounded-xl border-0 focus:ring-2 focus:ring-theme-forest/60 focus:outline-none text-gray-900 placeholder-gray-500 text-lg shadow-lg"
-=======
-              className="w-full pl-12 pr-4 py-4 bg-white rounded-xl border-0 focus:outline-none text-gray-900 placeholder-gray-500 text-lg shadow-lg" style={{focusRingColor: '#e2b069'}}
->>>>>>> 6ebbc3f2247be4ac81bd6a39eecb98d4aba53680
               />
             </div>
                 </div>
@@ -253,11 +245,7 @@ const Catalogue = () => {
                 onClick={clearCategoryFilters}
                 className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
                   selectedCategories.length === 0
-<<<<<<< HEAD
                     ? 'bg-theme-orange text-white shadow-md'
-=======
-                    ? 'text-white shadow-md'
->>>>>>> 6ebbc3f2247be4ac81bd6a39eecb98d4aba53680
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
                 style={selectedCategories.length === 0 ? {backgroundColor: '#183524'} : {}}
@@ -276,11 +264,7 @@ const Catalogue = () => {
                     onClick={() => handleCategoryToggle(category)}
                     className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
                       isSelected
-<<<<<<< HEAD
                         ? 'bg-theme-orange text-white shadow-md'
-=======
-                        ? 'text-white shadow-md'
->>>>>>> 6ebbc3f2247be4ac81bd6a39eecb98d4aba53680
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
                     style={isSelected ? {backgroundColor: '#183524'} : {}}
@@ -298,13 +282,8 @@ const Catalogue = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* New Arrival Section */}
         <div className="flex items-center justify-between mb-8">
-<<<<<<< HEAD
           <h2 className="text-2xl sm:text-3xl font-semibold  font-allura text-gray-900">Products</h2>
           <button className="text-theme-forest text-sm sm:text-base font-medium hover:text-theme-brown transition-colors">
-=======
-          <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">Products</h2>
-          <button className="text-sm sm:text-base font-medium transition-colors" style={{color: '#183524'}} onMouseEnter={(e) => (e.target as HTMLButtonElement).style.color = '#2a4a3a'} onMouseLeave={(e) => (e.target as HTMLButtonElement).style.color = '#183524'}>
->>>>>>> 6ebbc3f2247be4ac81bd6a39eecb98d4aba53680
             See all →
                 </button>
         </div>
@@ -345,22 +324,14 @@ const Catalogue = () => {
                   {/* Product Info */}
                   <div className="p-3 sm:p-4">
                     <h3 
-<<<<<<< HEAD
                       className="font-semibold text-theme-brown  text-xs sm:text-sm md:text-base mb-1 sm:mb-2 line-clamp-2 cursor-pointer hover:text-emerald-600 transition-colors"
-=======
-                      className="font-semibold text-gray-900 text-xs sm:text-sm md:text-base mb-1 sm:mb-2 line-clamp-2 cursor-pointer transition-colors" style={{color: '#183524'}} onMouseEnter={(e) => (e.target as HTMLElement).style.color = '#e2b069'} onMouseLeave={(e) => (e.target as HTMLElement).style.color = '#183524'}
->>>>>>> 6ebbc3f2247be4ac81bd6a39eecb98d4aba53680
                       onClick={() => handleProductClick(product)}
                     >
                       {product.name}
                     </h3>
                     <p className="text-xs text-gray-500 mb-2 sm:mb-3">{product.category}</p>
                     <div className="flex items-center justify-between">
-<<<<<<< HEAD
                       <span className="text-xs sm:text-sm md:text-base font-bold text-theme-brown">
-=======
-                      <span className="text-xs sm:text-sm md:text-base font-bold" style={{color: '#e2b069'}}>
->>>>>>> 6ebbc3f2247be4ac81bd6a39eecb98d4aba53680
                         {(product.cataloguePrice ?? 0).toLocaleString('fr-FR', {
                           style: 'currency',
                           currency: 'XAF'
@@ -371,11 +342,7 @@ const Catalogue = () => {
                           e.stopPropagation();
                           handleAddToCart(product);
                         }}
-<<<<<<< HEAD
                         className="w-7 h-7 sm:w-8 sm:h-8 md:w-10 md:h-10 bg-gradient-to-br from-theme-olive to-theme-forest rounded-full flex items-center justify-center text-white hover:bg-emerald-700 transition-colors shadow-md hover:shadow-lg"
-=======
-                        className="w-7 h-7 sm:w-8 sm:h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center text-white transition-colors shadow-md hover:shadow-lg" style={{backgroundColor: '#e2b069'}} onMouseEnter={(e) => (e.target as HTMLButtonElement).style.backgroundColor = '#d4a05a'} onMouseLeave={(e) => (e.target as HTMLButtonElement).style.backgroundColor = '#e2b069'}
->>>>>>> 6ebbc3f2247be4ac81bd6a39eecb98d4aba53680
                       >
                         <Plus className="h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5" />
                       </button>

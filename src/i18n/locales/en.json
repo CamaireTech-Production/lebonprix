@@ -1006,5 +1006,19 @@
       "success": "Refund added successfully",
       "error": "Failed to add refund"
     }
+  },
+  "employees": {
+    "title": "Employees",
+    "copyLink": "Copy link",
+    "open": "Open",
+    "saved": "Employees saved",
+    "noLink": "No invite link"
+  },
+  "employeeLogin": {
+    "title": "Employee Login",
+    "passwordRequired": "Please enter your password",
+    "invalid": "Invalid link",
+    "error": "Incorrect login information",
+    "success": "Login successful"
   }
 } 

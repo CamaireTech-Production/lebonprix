@@ -35,7 +35,8 @@ import type {
   StockChange,
   StockBatch,
   Supplier,
-  ExpenseType
+  ExpenseType,
+  ProductTag
 } from '../types/models';
 import type { SellerSettings } from '../types/order';
 import { useState, useEffect } from 'react';
@@ -2427,4 +2428,137 @@ export const getProductAdjustmentHistory = async (productId: string): Promise<St
     id: doc.id,
     ...doc.data()
   })) as StockChange[];
+};
+
+// ============================================================================
+// USER TAGS MANAGEMENT
+// ============================================================================
+
+/**
+ * Subscribe to user tags
+ */
+export const subscribeToUserTags = (userId: string, callback: (tags: ProductTag[]) => void): (() => void) => {
+  const q = query(
+    collection(db, 'userTags'),
+    where('userId', '==', userId),
+    orderBy('createdAt', 'desc')
+  );
+  
+  return onSnapshot(q, (snapshot) => {
+    const tags = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    })) as ProductTag[];
+    callback(tags);
+  });
+};
+
+/**
+ * Create a new user tag
+ */
+export const createUserTag = async (
+  data: Omit<ProductTag, 'id'>,
+  userId: string
+): Promise<ProductTag> => {
+  const batch = writeBatch(db);
+  
+  // Create user tag
+  const tagRef = doc(collection(db, 'userTags'));
+  const tagData = {
+    ...data,
+    userId,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp()
+  };
+  batch.set(tagRef, tagData);
+  
+  // Create audit log
+  createAuditLog(batch, 'create', 'product', tagRef.id, tagData, userId);
+  
+  await batch.commit();
+  
+  return {
+    id: tagRef.id,
+    ...tagData,
+    createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 },
+    updatedAt: { seconds: Date.now() / 1000, nanoseconds: 0 }
+  };
+};
+
+/**
+ * Update a user tag
+ */
+export const updateUserTag = async (
+  id: string,
+  data: Partial<ProductTag>,
+  userId: string
+): Promise<void> => {
+  const batch = writeBatch(db);
+  const tagRef = doc(db, 'userTags', id);
+  
+  // Get current tag data for audit log
+  const tagSnap = await getDoc(tagRef);
+  if (!tagSnap.exists()) {
+    throw new Error('Tag not found');
+  }
+  
+  const tag = tagSnap.data() as ProductTag;
+  if (tag.userId !== userId) {
+    throw new Error('Unauthorized to update this tag');
+  }
+  
+  const updateData = {
+    ...data,
+    updatedAt: serverTimestamp()
+  };
+  batch.update(tagRef, updateData);
+  
+  // Create audit log
+  createAuditLog(batch, 'update', 'product', id, updateData, userId);
+  
+  await batch.commit();
+};
+
+/**
+ * Delete a user tag
+ */
+export const deleteUserTag = async (tagId: string, userId: string): Promise<void> => {
+  const batch = writeBatch(db);
+  const tagRef = doc(db, 'userTags', tagId);
+  
+  // Get current tag data for audit log
+  const tagSnap = await getDoc(tagRef);
+  if (!tagSnap.exists()) {
+    throw new Error('Tag not found');
+  }
+  
+  const tag = tagSnap.data() as ProductTag;
+  if (tag.userId !== userId) {
+    throw new Error('Unauthorized to delete this tag');
+  }
+  
+  // Delete the tag
+  batch.delete(tagRef);
+  
+  // Create audit log
+  createAuditLog(batch, 'delete', 'product', tagId, tag, userId);
+  
+  await batch.commit();
+};
+
+/**
+ * Get user tags (one-time fetch)
+ */
+export const getUserTags = async (userId: string): Promise<ProductTag[]> => {
+  const q = query(
+    collection(db, 'userTags'),
+    where('userId', '==', userId),
+    orderBy('createdAt', 'desc')
+  );
+  
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data()
+  })) as ProductTag[];
 };

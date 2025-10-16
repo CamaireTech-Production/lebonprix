@@ -30,6 +30,9 @@ const TimelinePage = lazy(() => import('./pages/TimelinePage'));
 const Catalogue = lazy(() => import('./pages/Catalogue'));
 // ProductDetail removed - now using modal instead
 const FIFODebugger = lazy(() => import('./pages/FIFODebugger'));
+// Public invite/employee login pages
+const InviteActivate = lazy(() => import('./pages/InviteActivate'));
+const EmployeeLogin = lazy(() => import('./pages/EmployeeLogin'));
 
 function App() {
   const [isAddSaleModalOpen, setIsAddSaleModalOpen] = useState(false);
@@ -76,6 +79,10 @@ function AppWithFAB({ isAddSaleModalOpen, setIsAddSaleModalOpen }: { isAddSaleMo
           <Route path="/track/:id" element={<LazyPage><TimelinePage /></LazyPage>} />
           <Route path="/catalogue/:companyName/:companyId" element={<LazyPage><Catalogue /></LazyPage>} />
           {/* ProductDetail route removed - now using modal */}
+          {/* Public Invite Activation Route */}
+          <Route path="/invite/:inviteId" element={<LazyPage><InviteActivate /></LazyPage>} />
+          {/* Public Employee Login Route */}
+          <Route path="/employee-login/:companyName/:companyId/:loginLink" element={<LazyPage><EmployeeLogin /></LazyPage>} />
           {/* Protected Routes */}
           <Route element={<ProtectedRoute />}>
             <Route element={<MainLayout isAddSaleModalOpen={isAddSaleModalOpen} setIsAddSaleModalOpen={setIsAddSaleModalOpen} />}>

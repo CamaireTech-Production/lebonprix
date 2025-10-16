@@ -19,7 +19,7 @@ import SyncIndicator from '../components/common/SyncIndicator';
 import { showSuccessToast, showErrorToast, showWarningToast } from '../utils/toast';
 import imageCompression from 'browser-image-compression';
 import * as Papa from 'papaparse';
-import type { Product } from '../types/models';
+import type { Product, ProductTag, TagVariation } from '../types/models';
 import type { ParseResult } from 'papaparse';
 import { getLatestCostPrice} from '../utils/productUtils';
 import { 
@@ -28,6 +28,7 @@ import {
 } from '../services/stockAdjustments';
 import type { StockBatch } from '../types/models';
 import CostPriceCarousel from '../components/products/CostPriceCarousel';
+import ProductTagsManager from '../components/products/ProductTagsManager';
 
 interface CsvRow {
   [key: string]: string;
@@ -81,6 +82,7 @@ const Products = () => {
     reference: '',
     category: '',
     images: [] as string[],
+    tags: [] as ProductTag[],
   });
   
   // Step 2: Initial stock and supply info
@@ -227,6 +229,7 @@ const Products = () => {
       reference: '',
       category: '',
       images: [],
+      tags: [],
     });
     setStep2Data({
       stock: '',
@@ -252,23 +255,28 @@ const Products = () => {
   
   const compressImage = async (file: File): Promise<string> => {
     try {
+      console.log('Compressing image:', file.name, 'Type:', file.type, 'Size:', file.size);
+      
       const options = {
         maxSizeMB: 0.5,
         maxWidthOrHeight: 600,
         useWebWorker: true,
         initialQuality: 0.7,
-        alwaysKeepResolution: false
+        alwaysKeepResolution: false,
+        fileType: 'image/jpeg' // Force JPEG output
       };
 
       const compressedFile = await imageCompression(file, options);
+      console.log('Compressed file:', compressedFile.name, 'Type:', compressedFile.type, 'Size:', compressedFile.size);
       
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.readAsDataURL(compressedFile);
         reader.onload = () => {
           const base64 = reader.result as string;
-          const base64Data = base64.split(',')[1];
-          resolve(base64Data);
+          console.log('Generated data URL:', base64.substring(0, 100) + '...');
+          // Return the complete data URL for image preview
+          resolve(base64);
         };
         reader.onerror = reject;
       });
@@ -323,7 +331,24 @@ const Products = () => {
         category: step1Data.category,
         stock: stockQuantity,
         costPrice: stockCostPrice,
-        images: (step1Data.images ?? []).length > 0 ? step1Data.images : [],
+        images: (step1Data.images ?? []).length > 0 ? step1Data.images.map(img => {
+          let converted;
+          if (img.startsWith('data:')) {
+            // Extract base64 data from data URL
+            const base64Index = img.indexOf(',');
+            if (base64Index !== -1) {
+              converted = img.substring(base64Index + 1);
+            } else {
+              console.error('Invalid data URL format:', img.substring(0, 100));
+              converted = img; // Fallback to original
+            }
+          } else {
+            converted = img; // Already base64 or URL
+          }
+          console.log('Converting image for database:', img.substring(0, 50) + '... -> ' + converted.substring(0, 50) + '...');
+          return converted;
+        }) : [],
+        tags: step1Data.tags.length > 0 ? step1Data.tags : undefined,
       isAvailable: true,
       enableBatchTracking: true, // Explicitly enable batch tracking
       userId: user.uid,
@@ -344,6 +369,9 @@ const Products = () => {
       
       // Create the product with supplier information (debt creation is now handled in createProduct)
       await addProduct(productData, supplierInfo);
+      
+      // Refresh the product list to show the new product
+      refresh();
       
       setIsAddModalOpen(false);
       resetForm();
@@ -666,6 +694,7 @@ const Products = () => {
       reference: product.reference,
       category: product.category,
       images: Array.isArray(product.images) ? product.images : (product.images ? [product.images] : []),
+      tags: product.tags || [], // Load existing tags
     });
     // Find latest stock change for this product
     const latestStockChange = stockChanges
@@ -714,7 +743,14 @@ const Products = () => {
     const updateData: Partial<Product> = {
       name: step1Data.name,
       category: step1Data.category,
-      images: (step1Data.images ?? []).length > 0 ? step1Data.images : [],
+      images: (step1Data.images ?? []).length > 0 ? step1Data.images.map(img => {
+        if (img.startsWith('data:')) {
+          const base64Index = img.indexOf(',');
+          return base64Index !== -1 ? img.substring(base64Index + 1) : img;
+        }
+        return img;
+      }) : [],
+      tags: step1Data.tags, // Include tags in the update
       isAvailable: safeProduct.isAvailable,
       userId: safeProduct.userId,
       updatedAt: { seconds: 0, nanoseconds: 0 },
@@ -795,6 +831,10 @@ const Products = () => {
           costPrice: parseFloat(editPrices.costPrice)
         });
       }
+      
+      // Refresh the product list to show the updated product
+      refresh();
+      
       setIsEditModalOpen(false);
       resetForm();
       showSuccessToast(t('products.messages.productUpdated'));
@@ -875,6 +915,10 @@ const Products = () => {
         const updateData = { isAvailable: false, images: safeProduct.images, userId: safeProduct.userId, updatedAt: { seconds: 0, nanoseconds: 0 } };
         await updateProduct(id, updateData, user.uid);
       }
+      
+      // Refresh the product list to remove the deleted products
+      refresh();
+      
       showSuccessToast(t('products.messages.bulkDeleteSuccess', { count: selectedProducts.length }));
       setIsBulkDeleteModalOpen(false);
       setSelectedProducts([]);
@@ -900,6 +944,10 @@ const Products = () => {
     try {
       setIsDeleting(true);
       await updateProduct(productToDelete.id, updateData, user.uid);
+      
+      // Refresh the product list to remove the deleted product
+      refresh();
+      
       showSuccessToast(t('products.messages.productDeleted'));
       setIsDeleteModalOpen(false);
       setProductToDelete(null);
@@ -926,6 +974,7 @@ const Products = () => {
         showErrorToast(t('products.messages.errors.addProduct'));
       }
     }
+    console.log('Adding new images to step1Data:', newImages.map(img => img.substring(0, 50) + '...'));
     setStep1Data(prev => ({ ...prev, images: [...prev.images, ...newImages] }));
     setIsUploadingImages(false);
   };
@@ -1250,6 +1299,17 @@ const Products = () => {
                     const mainIdx = mainImageIndexes[product.id] ?? 0;
                     const mainImg = images.length > 0 ? images[mainIdx] : '/placeholder.png';
                     
+                    // Debug logging for image data
+                    if (images.length > 0) {
+                      console.log(`Product ${product.name} image data:`, {
+                        totalImages: images.length,
+                        mainIndex: mainIdx,
+                        mainImagePreview: mainImg.substring(0, 100) + '...',
+                        isDataURL: mainImg.startsWith('data:'),
+                        isBase64: !mainImg.startsWith('data:') && !mainImg.startsWith('/') && !mainImg.startsWith('http')
+                      });
+                    }
+                    
                     return (
                       <ImageWithSkeleton
                         src={mainImg}
@@ -1530,7 +1590,7 @@ const Products = () => {
             /* Step 1: Basic Product Information */
         <div className="space-y-4">
           <Input
-            label={t('products.form.name')}
+            label={t('products.form.step1.name')}
             name="name"
                 value={step1Data.name}
                 onChange={handleStep1InputChange}
@@ -1538,7 +1598,7 @@ const Products = () => {
           />
           
           <Input
-            label={t('products.form.reference')}
+            label={t('products.form.step1.reference')}
             name="reference"
                 value={step1Data.reference}
                 onChange={handleStep1InputChange}
@@ -1546,18 +1606,18 @@ const Products = () => {
           
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              {t('products.form.category')}
+              {t('products.form.step1.category')}
             </label>
             <CreatableSelect
                   value={step1Data.category ? { label: step1Data.category, value: step1Data.category } : null}
               onChange={handleCategoryChange}
-              placeholder={t('products.form.categoryPlaceholder')}
+              placeholder={t('products.form.step1.categoryPlaceholder')}
               className="custom-select"
             />
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">{t('products.form.image')}</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('products.form.step1.image')}</label>
             <div className="flex items-center space-x-2 pb-2">
               <label className="w-20 h-20 flex items-center justify-center border-2 border-dashed border-gray-300 rounded-md cursor-pointer bg-gray-50 hover:bg-gray-100 transition-all duration-200 relative flex-shrink-0">
                 <input
@@ -1594,14 +1654,21 @@ const Products = () => {
                 ))}
               </div>
             </div>
-            <p className="mt-1 text-sm text-gray-500">{t('products.form.imageHelp')}</p>
+            <p className="mt-1 text-sm text-gray-500">{t('products.form.step1.imageHelp')}</p>
           </div>
+
+          {/* Product Tags Manager */}
+          <ProductTagsManager
+            tags={step1Data.tags}
+            onTagsChange={(tags) => setStep1Data(prev => ({ ...prev, tags }))}
+            images={step1Data.images}
+          />
             </div>
           ) : (
             /* Step 2: Initial Stock and Supply Information */
             <div className="space-y-4">
               <Input
-                label={t('products.form.stock')}
+                label={t('products.form.step2.stock')}
                 name="stock"
                 type="number"
                 value={step2Data.stock}

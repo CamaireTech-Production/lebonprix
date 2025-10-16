@@ -94,14 +94,14 @@ export const LoginPWAInstallButton: React.FC = () => {
     // Check if we can trigger the install prompt manually
     if ('serviceWorker' in navigator) {
       try {
-        // Try to register the service worker again to trigger the event
-        const registration = await navigator.serviceWorker.register('/sw.js');
-        console.log('Service worker registered:', registration);
+        // Get existing service worker registration
+        const registration = await navigator.serviceWorker.getRegistration();
+        console.log('Service worker found:', registration);
         
         // Wait a moment for the event to fire
         setTimeout(() => {
           if (deferredPrompt) {
-            console.log('Found deferred prompt after service worker registration');
+            console.log('Found deferred prompt');
             deferredPrompt.prompt().then(() => {
               return deferredPrompt.userChoice;
             }).then((choiceResult) => {
@@ -118,7 +118,7 @@ export const LoginPWAInstallButton: React.FC = () => {
           }
         }, 1000);
       } catch (error) {
-        console.error('Service worker registration failed:', error);
+        console.error('Service worker error:', error);
         setShowInstallGuide(true);
       }
     } else {
