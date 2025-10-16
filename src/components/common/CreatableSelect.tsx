@@ -123,12 +123,12 @@ const CreatableSelect = ({
         }
       }}
       placeholder={placeholder}
-      className={className}
+      className={className }
       isClearable
       isLoading={isCreating}
       isDisabled={isCreating}
       menuIsOpen={isCreating ? false : undefined}
-      menuPlacement="top"
+      menuPlacement='bottom'
       styles={{
         menu: (base) => ({
           ...base,

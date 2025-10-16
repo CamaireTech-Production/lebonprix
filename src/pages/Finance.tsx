@@ -905,7 +905,7 @@ const Finance: React.FC = () => {
       <Modal isOpen={modalOpen} onClose={handleCloseModal} title={form.isEdit ? t('finance.editEntry') : t('finance.addEntry')} size="md"
         footer={<ModalFooter onCancel={handleCloseModal} onConfirm={handleSubmit} isLoading={modalLoading} confirmText={t('common.save')} disabled={!!refundExceeds || (form.type?.value === 'sortie' && !form.description.trim())} />}
       >
-          <form className="space-y-4" onSubmit={e => { e.preventDefault(); handleSubmit(); }}>
+          <form className="space-y-4 pt-12" onSubmit={e => { e.preventDefault(); handleSubmit(); }}>
             <div>
               <label className="block text-sm font-medium mb-1">{t('common.type')}</label>
               <CreatableSelect

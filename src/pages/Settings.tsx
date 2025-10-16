@@ -10,10 +10,10 @@ import { useSales, useExpenses, useAuditLogs } from '../hooks/useFirestore';
 import { getSellerSettings, updateSellerSettings } from '../services/firestore';
 import type { SellerSettings, PaymentMethod } from '../types/order';
 import PaymentMethodModal from '../components/settings/PaymentMethodModal';
+import EmployeesTab from '../components/settings/EmployeesTab';
 import i18n from '../i18n/config';
 import { combineActivities } from '../utils/activityUtils';
 import { Plus } from 'lucide-react';
-import EmployeesTab from '../components/settings/EmployeesTab';
 
 const Settings = () => {
   const { t } = useTranslation();
@@ -695,13 +695,13 @@ const Settings = () => {
           </div>
         </Card>
       )}
-      {/* Activity Logs Tab */}
-      {activeTab === 'activity' && (
-        <ActivityList activities={activities} />
-      )}
       {/* Employees Tab */}
       {activeTab === 'employees' && (
         <EmployeesTab />
+      )}
+      {/* Activity Logs Tab */}
+      {activeTab === 'activity' && (
+        <ActivityList activities={activities} />
       )}
 
       {/* Payment Method Modal */}
