@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Card from '../components/common/Card';
 import Input from '../components/common/Input';
@@ -24,7 +24,10 @@ export default function EmployeeLogin() {
       try {
         const comp = await getCompanyById(companyId);
         setCompany(comp);
-        const emp = comp?.employees?.find(e => e.loginLink === loginLink) || null;
+        // Rechercher l'employé par loginLink dans le mappage des employés
+        const emp = comp?.employees ? 
+          Object.values(comp.employees).find(e => e.loginLink === loginLink) || null 
+          : null;
         setEmployee(emp || null);
         if (!emp) {
           showErrorToast('Lien invalide ou expiré');

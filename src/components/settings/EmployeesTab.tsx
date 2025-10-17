@@ -1,25 +1,41 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import Card from '../common/Card';
 import Button from '../common/Button';
 import Input from '../common/Input';
 import { useAuth } from '../../contexts/AuthContext';
 import type { CompanyEmployee, UserRole } from '../../types/models';
 import { showErrorToast, showSuccessToast } from '../../utils/toast';
-import { buildLoginLink } from '../../utils/security';
+import { saveEmployee } from '../../services/employeeService';
 
-const defaultNewEmployee: CompanyEmployee = {
+const defaultNewEmployee: Omit<CompanyEmployee, 'id' | 'firebaseUid' | 'createdAt' | 'updatedAt'> = {
   firstname: '',
   lastname: '',
   email: '',
-  role: 'staff'
+  role: 'staff',
+  phone: '',
+  birthday: ''
 };
 
 export default function EmployeesTab() {
-  const { company, updateCompany } = useAuth();
-  const [employees, setEmployees] = useState<CompanyEmployee[]>(company?.employees || []);
-  const [newEmployee, setNewEmployee] = useState<CompanyEmployee>({ ...defaultNewEmployee });
+  const { company } = useAuth();
+  
+  // Convert company.employees object to array if it exists
+  const initialEmployees = useMemo((): CompanyEmployee[] => {
+    if (!company?.employees) return [];
+    if (Array.isArray(company.employees)) return company.employees;
+    // If it's an object, convert to array
+    return Object.values(company.employees) as CompanyEmployee[];
+  }, [company?.employees]);
+  
+  const [employees, setEmployees] = useState<CompanyEmployee[]>(initialEmployees);
+  const [newEmployee, setNewEmployee] = useState<Omit<CompanyEmployee, 'id' | 'firebaseUid' | 'createdAt' | 'updatedAt'>>({ ...defaultNewEmployee });
   const [isSaving, setIsSaving] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+
+  // Update employees state when company changes
+  useEffect(() => {
+    setEmployees(initialEmployees);
+  }, [initialEmployees]);
 
   const existingEmails = useMemo(() => new Set((employees || []).map(e => e.email.toLowerCase().trim())), [employees]);
 
@@ -29,7 +45,7 @@ export default function EmployeesTab() {
 
   const resetNew = () => setNewEmployee({ ...defaultNewEmployee });
 
-  const validateEmployee = (emp: CompanyEmployee): string | null => {
+  const validateEmployee = (emp: Omit<CompanyEmployee, 'id' | 'firebaseUid' | 'createdAt' | 'updatedAt'>): string | null => {
     if (!emp.firstname.trim()) return 'Firstname is required';
     if (!emp.lastname.trim()) return 'Lastname is required';
     if (!emp.email.trim()) return 'Email is required';
@@ -40,6 +56,11 @@ export default function EmployeesTab() {
   };
 
   const addEmployee = async () => {
+    if (!company?.id) {
+      showErrorToast('Company not found');
+      return;
+    }
+
     const err = validateEmployee(newEmployee);
     if (err) {
       showErrorToast(err);
@@ -49,9 +70,26 @@ export default function EmployeesTab() {
       showErrorToast('Email already exists for this company');
       return;
     }
-    const loginLink = buildLoginLink(newEmployee.firstname, newEmployee.lastname, 3);
-    setEmployees(prev => [...prev, { ...newEmployee, loginLink }]);
-    resetNew();
+
+    try {
+      setIsSaving(true);
+      
+      // Utiliser le nouveau service qui crée automatiquement l'utilisateur Firebase Auth
+      const createdEmployee = await saveEmployee(company.id, newEmployee);
+      
+      // Ajouter à la liste locale
+      setEmployees(prev => [...prev, createdEmployee]);
+      
+      // Réinitialiser le formulaire
+      resetNew();
+      
+      showSuccessToast('Employé créé avec succès');
+    } catch (error: any) {
+      console.error('Erreur lors de l\'ajout de l\'employé:', error);
+      showErrorToast(error.message || 'Erreur lors de la création de l\'employé');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const updateEmployeeField = (index: number, field: keyof CompanyEmployee, value: string) => {
@@ -62,41 +100,14 @@ export default function EmployeesTab() {
     setEmployees(prev => prev.filter((_, i) => i !== index));
   };
 
-  const saveEmployees = async () => {
-    try {
-      setIsSaving(true);
-      await updateCompany({ employees });
-      showSuccessToast('Employees saved');
-    } catch (e: any) {
-      console.error(e);
-      showErrorToast(e.message || 'Failed to save employees');
-    } finally {
-      setIsSaving(false);
-    }
-  };
 
   const buildEmployeeLoginUrl = (emp: CompanyEmployee) => {
     if (!company?.id || !company?.name || !emp.loginLink) return '';
     const base = window.location.origin;
     const path = `/employee-login/${encodeURIComponent(company.name)}/${encodeURIComponent(company.id)}/${encodeURIComponent(emp.loginLink)}`;
     return `${base}${path}`;
-  };
-
-  const copyLoginLink = async (emp: CompanyEmployee) => {
-    const url = buildEmployeeLoginUrl(emp);
-    if (!url) {
-      showErrorToast('Login link unavailable');
-      return;
-    }
-    try {
-      await navigator.clipboard.writeText(url);
-      showSuccessToast('Login link copied');
-    } catch (e) {
-      console.error(e);
-      showErrorToast('Failed to copy link');
-    }
-  };
-
+  };  
+  
   const openLoginLink = (emp: CompanyEmployee) => {
     const url = buildEmployeeLoginUrl(emp);
     if (!url) {
@@ -145,7 +156,7 @@ export default function EmployeesTab() {
             <Input label="Birthday (YYYY-MM-DD)" value={newEmployee.birthday || ''} onChange={(e) => setNewEmployee(prev => ({ ...prev, birthday: e.target.value }))} />
           </div>
           <div className="flex justify-end">
-            <Button type="button" onClick={addEmployee}>Add employee</Button>
+            <Button type="button" onClick={addEmployee} isLoading={isSaving} disabled={isSaving}>Add employee</Button>
           </div>
         </div>
 
@@ -198,6 +209,8 @@ export default function EmployeesTab() {
               <Button variant="outline" type="button" onClick={() => setSelectedIndex(null)}>Close</Button>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+              <div><span className="text-gray-500">ID:</span> {employees[selectedIndex].id}</div>
+              <div><span className="text-gray-500">Firebase UID:</span> {employees[selectedIndex].firebaseUid || '-'}</div>
               <div><span className="text-gray-500">Firstname:</span> {employees[selectedIndex].firstname}</div>
               <div><span className="text-gray-500">Lastname:</span> {employees[selectedIndex].lastname}</div>
               <div><span className="text-gray-500">Email:</span> {employees[selectedIndex].email}</div>
@@ -209,9 +222,6 @@ export default function EmployeesTab() {
           </div>
         )}
 
-        <div className="mt-6 flex justify-end">
-          <Button type="button" isLoading={isSaving} disabled={isSaving} onClick={saveEmployees}>Save employees</Button>
-        </div>
       </div>
     </Card>
   );

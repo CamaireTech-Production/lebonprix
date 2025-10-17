@@ -10,14 +10,6 @@ export interface BaseModel {
   userId: string; // Reference to the user who owns this record
 }
 
-export interface Company extends BaseModel {
-  name: string;
-  logo?: string; // Base64 string for logo
-  description?: string;
-  phone: string;
-  location?: string;
-  email: string;
-}
 
 export interface Category extends BaseModel {
   name: string;
@@ -225,4 +217,30 @@ export interface ExpenseType {
   createdAt: Timestamp;
 }
 
-// Rest of the existing interfaces...
+// Employee management types
+export type UserRole = 'admin' | 'manager' | 'staff';
+
+export interface CompanyEmployee {
+  id: string; // ID unique généré automatiquement
+  firstname: string;
+  lastname: string;
+  email: string;
+  phone?: string;
+  role: UserRole;
+  birthday?: string; // ISO date (YYYY-MM-DD)
+  loginLink?: string; // lien d'invitation / connexion
+  firebaseUid?: string; // UID Firebase Auth (optionnel, pour liaison)
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+// Update Company interface to include employees
+export interface Company extends BaseModel {
+  name: string;
+  logo?: string; // Base64 string for logo
+  description?: string;
+  phone: string;
+  location?: string;
+  email: string;
+  employees?: Record<string, CompanyEmployee>; // mappage des employés par ID
+}

@@ -52,5 +52,10 @@ export function buildLoginLink(firstname: string, lastname: string, shift = 3): 
   return caesarCipher(base, shift);
 }
 
+// Generate unique employee ID
+export function generateEmployeeId(): string {
+  return `emp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+}
+
 
 

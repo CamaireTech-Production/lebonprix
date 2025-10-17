@@ -2,18 +2,18 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 import { auth, db } from '../services/firebase';
 import { 
   User, 
-  createUserWithEmailAndPassword, 
   signInWithEmailAndPassword, 
   signOut as firebaseSignOut, 
   onAuthStateChanged,
   updatePassword
 } from 'firebase/auth';
-import { doc, setDoc, getDoc, updateDoc, Timestamp } from 'firebase/firestore';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import type { Company } from '../types/models';
 import { ensureDefaultFinanceEntryTypes } from '../services/firestore';
 import CompanyManager from '../services/storage/CompanyManager';
 import FinanceTypesManager from '../services/storage/FinanceTypesManager';
 import BackgroundSyncService from '../services/backgroundSync';
+import { saveCompany } from '../services/companyService';
 
 interface AuthContextType {
   user: User | null;
@@ -147,25 +147,15 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     password: string, 
     companyData: Omit<Company, 'id' | 'createdAt' | 'updatedAt' | 'userId'>
   ): Promise<User> => {
-    const response = await createUserWithEmailAndPassword(auth, email, password);
-    const user = response.user;
-
-    // Create company document
-    const companyDoc = {
-      ...companyData,
-      userId: user.uid,
-      createdAt: Timestamp.now(),
-      updatedAt: Timestamp.now()
-    };
-
-    await setDoc(doc(db, 'companies', user.uid), companyDoc);
-
-    // Set company in state and localStorage
-    const company = { id: user.uid, ...companyDoc } as Company;
+    // Utiliser le nouveau service de compagnie qui préserve la logique existante
+    const company = await saveCompany(email, password, companyData);
+    
+    // Set company in state and localStorage (logique existante préservée)
     setCompany(company);
-    CompanyManager.save(user.uid, company);
+    CompanyManager.save(company.id, company);
 
-    return user;
+    // Retourner l'utilisateur (pour compatibilité avec l'interface existante)
+    return auth.currentUser!;
   };
 
   const signIn = async (email: string, password: string): Promise<User> => {

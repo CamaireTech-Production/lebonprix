@@ -18,7 +18,8 @@ export default function InviteActivate() {
 
   useEffect(() => {
     if (!inviteId || !company?.employees) return;
-    const emp = company.employees.find(e => e.loginLink === inviteId);
+    // Rechercher l'employé par loginLink dans le mappage des employés
+    const emp = Object.values(company.employees).find(e => e.loginLink === inviteId);
     if (emp?.email) {
       setEmail(emp.email);
     }
