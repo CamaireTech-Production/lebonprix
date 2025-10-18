@@ -19,6 +19,18 @@ const Navbar = ({ onMenuClick }: NavbarProps) => {
   const { company, signOut } = useAuth();
   const navigate = useNavigate();
 
+  // Get dashboard colors
+  const getDashboardColors = () => {
+    const colors = {
+      primary: company?.dashboardColors?.primary || company?.primaryColor || '#183524',
+      secondary: company?.dashboardColors?.secondary || company?.secondaryColor || '#e2b069',
+      tertiary: company?.dashboardColors?.tertiary || company?.tertiaryColor || '#2a4a3a'
+    };
+    return colors;
+  };
+  
+  const colors = getDashboardColors();
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -54,7 +66,7 @@ const Navbar = ({ onMenuClick }: NavbarProps) => {
 
         {/* Logo (mobile only) */}
         <div className="md:hidden flex-1 flex justify-center">
-          <span className="font-bold text-lg text-emerald-600">Le Bon Prix</span>
+          <span className="font-bold text-lg" style={{color: colors.primary}}>Geskap</span>
         </div>
 
         {/* Search bar (hidden on mobile) */}

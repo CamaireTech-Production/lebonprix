@@ -1,4 +1,4 @@
-# Le Bon Prix | Management System
+# Geskap | Management System
 
 A modern, production-ready management system for small businesses, built with React, TypeScript, Tailwind CSS, and Firebase. It provides sales, expenses, product, and finance management, with beautiful UI, responsive design, and multi-language support.
 
@@ -105,4 +105,4 @@ npm run lint
 For questions, issues, or feature requests, please open an issue or contact the maintainer.
 
 ---
-**Le Bon Prix** — Modern business management, made simple.
+**Geskap** — Modern business management, made simple.

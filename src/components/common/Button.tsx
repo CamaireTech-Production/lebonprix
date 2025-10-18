@@ -23,12 +23,12 @@ const Button = ({
 }: ButtonProps) => {
   const { company } = useAuth();
 
-  // Get company colors with fallbacks
+  // Get company colors with fallbacks - prioritize dashboard colors
   const getCompanyColors = () => {
     const colors = {
-      primary: company?.primaryColor || '#183524',
-      secondary: company?.secondaryColor || '#e2b069',
-      tertiary: company?.tertiaryColor || '#2a4a3a'
+      primary: company?.dashboardColors?.primary || company?.primaryColor || '#183524',
+      secondary: company?.dashboardColors?.secondary || company?.secondaryColor || '#e2b069',
+      tertiary: company?.dashboardColors?.tertiary || company?.tertiaryColor || '#2a4a3a'
     };
     return colors;
   };
@@ -122,15 +122,19 @@ export const FloatingActionButton: React.FC<{ onClick: () => void; label?: strin
       )}
       <button
         onClick={onClick}
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
+        onMouseEnter={(e) => {
+          setHovered(true);
+          (e.target as HTMLButtonElement).style.backgroundColor = colors.secondary;
+        }}
+        onMouseLeave={(e) => {
+          setHovered(false);
+          (e.target as HTMLButtonElement).style.backgroundColor = colors.primary;
+        }}
         className="text-white rounded-full shadow-lg w-16 h-16 flex items-center justify-center transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2"
         style={{
           backgroundColor: colors.primary,
           '--tw-ring-color': colors.primary
         } as React.CSSProperties}
-        onMouseEnter={(e) => (e.target as HTMLButtonElement).style.backgroundColor = colors.secondary}
-        onMouseLeave={(e) => (e.target as HTMLButtonElement).style.backgroundColor = colors.primary}
         aria-label={label || 'Add'}
         title={label || 'Add'}
       >

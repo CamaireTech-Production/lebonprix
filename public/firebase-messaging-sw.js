@@ -21,7 +21,7 @@ const messaging = firebase.messaging();
 messaging.onBackgroundMessage((payload) => {
   console.log('[firebase-messaging-sw.js] Received background message ', payload);
   
-  const notificationTitle = payload.notification?.title || 'Le Bon Prix';
+  const notificationTitle = payload.notification?.title || 'Geskap';
   const notificationOptions = {
     body: payload.notification?.body || 'Vous avez reçu une nouvelle notification',
     icon: '/android-icon-192x192.png',
@@ -77,7 +77,7 @@ self.addEventListener('push', (event) => {
     const data = event.data.json();
     console.log('[firebase-messaging-sw.js] Push data:', data);
     
-    const notificationTitle = data.notification?.title || 'Le Bon Prix';
+    const notificationTitle = data.notification?.title || 'Geskap';
     const notificationOptions = {
       body: data.notification?.body || 'Vous avez reçu une nouvelle notification',
       icon: '/android-icon-192x192.png',

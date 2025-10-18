@@ -610,7 +610,7 @@ const Settings = () => {
                   <div className="bg-white p-4 rounded-lg border border-blue-200">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm font-medium text-gray-700 mb-1">Company ID</p>
+                        <p className="text-sm font-medium text-gray-700 mb-1">Company ID (User ID)</p>
                         <code className="text-sm bg-gray-100 px-3 py-2 rounded font-mono text-gray-800">
                           {user?.uid || 'Loading...'}
                         </code>

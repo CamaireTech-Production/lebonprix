@@ -407,22 +407,25 @@ const Dashboard = () => {
         </div>
       )}
       {/* Dashboard Header with Company Colors */}
-      <div className="mb-6 mt-6" style={{background: getCompanyColors().secondary, color: getCompanyColors().headerText}}>
-        <div className="px-6 py-4 rounded-lg">
+      <div className="mb-6 mt-6 rounded-lg overflow-hidden" style={{
+        background: `linear-gradient(135deg, ${getCompanyColors().primary} 0%, ${getCompanyColors().secondary} 50%, ${getCompanyColors().tertiary} 100%)`,
+        color: getCompanyColors().headerText
+      }}>
+        <div className="px-6 py-6">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0">
             <div>
-              <h1 className="text-2xl font-semibold" style={{color: getCompanyColors().headerText}}>{t('dashboard.title')}</h1>
-              <p style={{color: `${getCompanyColors().headerText}90`}}>{t('dashboard.welcome')}</p>
+              <h1 className="text-3xl font-bold" style={{color: getCompanyColors().headerText}}>{t('dashboard.title')}</h1>
+              <p className="text-lg mt-1" style={{color: `${getCompanyColors().headerText}CC`}}>{t('dashboard.welcome')}</p>
             </div>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            icon={<Info size={16} />}
-            onClick={() => setShowCalculationsModal(true)}
-                className="bg-white/10 border-white/20 text-white hover:bg-white/20"
-          >
-            {t('dashboard.howCalculated')}
-          </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                icon={<Info size={16} />}
+                onClick={() => setShowCalculationsModal(true)}
+                className="bg-white/20 border-white/30 text-white hover:bg-white/30 backdrop-blur-sm"
+              >
+                {t('dashboard.howCalculated')}
+              </Button>
             </div>
           </div>
         </div>
@@ -465,37 +468,44 @@ const Dashboard = () => {
         />
       )}
       {/* Stats section */}
-      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        {statCards.map((card, index) => (
-          card.loading ? (
-            <SkeletonStatCard key={`skeleton-${index}`} />
-          ) : (
-            <StatCard
-              key={index}
-              title={card.title}
-              value={card.value}
-              icon={card.icon}
-              type={card.type}
-            />
-          )
-        ))}
+      <div className="mb-6">
+        <div className="mb-4">
+          <h3 className="text-lg font-semibold" style={{color: getCompanyColors().primary}}>
+            {t('dashboard.stats.title')}
+          </h3>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {statCards.map((card, index) => (
+            card.loading ? (
+              <SkeletonStatCard key={`skeleton-${index}`} />
+            ) : (
+              <StatCard
+                key={index}
+                title={card.title}
+                value={card.value}
+                icon={card.icon}
+                type={card.type}
+              />
+            )
+          ))}
+        </div>
       </div>
       
       {/* Data Loading Status */}
       {loadingAllSales && (
-        <div className="mb-4 p-3 rounded-lg" style={{backgroundColor: `${getCompanyColors().primary}15`, borderColor: `${getCompanyColors().primary}30`}}>
+        <div className="mb-4 p-4 rounded-lg border-2" style={{backgroundColor: `${getCompanyColors().primary}20`, borderColor: `${getCompanyColors().primary}40`}}>
           <div className="flex items-center">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 mr-2" style={{borderColor: getCompanyColors().primary}}></div>
-            <span className="text-sm" style={{color: getCompanyColors().primary}}>Loading complete sales history for accurate calculations...</span>
+            <div className="animate-spin rounded-full h-5 w-5 border-b-2 mr-3" style={{borderColor: getCompanyColors().primary}}></div>
+            <span className="text-sm font-medium" style={{color: getCompanyColors().primary}}>Loading complete sales history for accurate calculations...</span>
           </div>
         </div>
       )}
       
       {allSales.length > 0 && !loadingAllSales && allSales.length > sales.length && (
-        <div className="mb-4 p-3 rounded-lg" style={{backgroundColor: `${getCompanyColors().secondary}15`, borderColor: `${getCompanyColors().secondary}30`}}>
+        <div className="mb-4 p-4 rounded-lg border-2" style={{backgroundColor: `${getCompanyColors().secondary}20`, borderColor: `${getCompanyColors().secondary}40`}}>
           <div className="flex items-center">
-            <div className="h-4 w-4 rounded-full mr-2" style={{backgroundColor: getCompanyColors().secondary}}></div>
-            <span className="text-sm" style={{color: getCompanyColors().secondary}}>
+            <div className="h-5 w-5 rounded-full mr-3" style={{backgroundColor: getCompanyColors().secondary}}></div>
+            <span className="text-sm font-medium" style={{color: getCompanyColors().secondary}}>
               Complete data loaded: {allSales.length} total sales (showing calculations for all data)
             </span>
           </div>
@@ -503,6 +513,11 @@ const Dashboard = () => {
       )}
       {/* Chart section */}
       <div className="mb-6">
+        <div className="mb-4">
+          <h3 className="text-lg font-semibold" style={{color: getCompanyColors().primary}}>
+            {t('dashboard.salesChart.title')}
+          </h3>
+        </div>
         {expensesLoading ? (
           <SkeletonChart />
         ) : (
@@ -519,6 +534,11 @@ const Dashboard = () => {
           <SkeletonTable rows={5} />
         ) : (
           <Card title={t('dashboard.bestSellingProducts.title')}>
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold" style={{color: getCompanyColors().primary}}>
+                {t('dashboard.bestSellingProducts.title')}
+              </h3>
+            </div>
             <Table
               data={bestSellingProducts}
               columns={bestProductColumns}
@@ -530,6 +550,11 @@ const Dashboard = () => {
       </div>
       {/* Activity section */}
       <div>
+        <div className="mb-4">
+          <h3 className="text-lg font-semibold" style={{color: getCompanyColors().primary}}>
+            {t('dashboard.recentActivity.title')}
+          </h3>
+        </div>
         {(expensesLoading || auditLogsLoading) ? (
           <SkeletonActivityList />
         ) : (

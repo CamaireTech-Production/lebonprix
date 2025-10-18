@@ -47,7 +47,7 @@ const Sidebar = ({ onClose }: SidebarProps) => {
       {/* Sidebar header */}
       <div className="h-16 flex items-center justify-between px-4 border-b border-gray-200">
         <Link to="/" className="flex items-center">
-          <span className="font-bold text-xl text-emerald-600">Le Bon Prix</span>
+          <span className="font-bold text-xl" style={{color: colors.primary}}>Geskap</span>
         </Link>
         <button 
           className="md:hidden text-gray-500 hover:text-gray-700"

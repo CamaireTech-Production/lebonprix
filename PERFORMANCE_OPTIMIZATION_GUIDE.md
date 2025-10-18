@@ -1,7 +1,7 @@
 # 🚀 Performance Optimization Development Guide
 
 ## 📋 Overview
-This guide tracks all performance issues identified in the Le Bon Prix platform and provides a systematic approach to fixing slow loading times, especially on low-bandwidth connections.
+This guide tracks all performance issues identified in the Geskap platform and provides a systematic approach to fixing slow loading times, especially on low-bandwidth connections.
 
 **🚨 CRITICAL STATUS**: Platform takes **3 MINUTES (180 seconds)** to fully load on slow connections
 **🎯 EMERGENCY TARGET**: Reduce to 3-5 seconds (**98% improvement required**)

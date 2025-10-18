@@ -1,4 +1,4 @@
-# PWA Testing Guide - Le Bon Prix
+# PWA Testing Guide - Geskap
 
 ## ✅ PWA Issues Fixed
 

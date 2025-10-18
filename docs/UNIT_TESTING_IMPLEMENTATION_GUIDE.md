@@ -1,5 +1,5 @@
 # Unit Testing Implementation Guide
-## Le Bon Prix - React/TypeScript Application
+## Geskap - React/TypeScript Application
 
 ### Table of Contents
 1. [Project Overview](#project-overview)
@@ -17,7 +17,7 @@
 
 ## Project Overview
 
-**Le Bon Prix** is a comprehensive inventory and sales management application built with:
+**Geskap** is a comprehensive inventory and sales management application built with:
 
 - **Frontend**: React 18 + TypeScript + Vite
 - **State Management**: Zustand + React Context
@@ -954,7 +954,7 @@ const mockExpensiveFunction = vi.hoisted(() => vi.fn())
 
 ## Conclusion
 
-This comprehensive testing strategy will ensure your Le Bon Prix application is robust, maintainable, and reliable. The phased approach allows for incremental implementation while maintaining development velocity.
+This comprehensive testing strategy will ensure your Geskap application is robust, maintainable, and reliable. The phased approach allows for incremental implementation while maintaining development velocity.
 
 ### Key Success Factors:
 1. **Start with utilities** - They're the foundation of your application

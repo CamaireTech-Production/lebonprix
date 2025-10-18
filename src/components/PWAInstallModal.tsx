@@ -340,7 +340,7 @@ export const PWAInstallModal: React.FC<PWAInstallModalProps> = ({ isOpen, onClos
                       </p>
                       <ol className="text-emerald-100 text-sm space-y-1 list-decimal list-inside">
                         <li>Cherchez l'icône d'installation <span className="text-emerald-200">(📱 ou ⬇️)</span> dans la barre d'adresse</li>
-                        <li>Ou utilisez le menu : <span className="text-emerald-200">Menu (⋮) → "Installer Le Bon Prix"</span></li>
+                        <li>Ou utilisez le menu : <span className="text-emerald-200">Menu (⋮) → "Installer Geskap"</span></li>
                         <li>Confirmez l'installation</li>
                       </ol>
                     </div>
