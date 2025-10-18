@@ -1,3 +1,4 @@
+import type { Category } from '../types/models';
 import {
   collection,
   doc,
@@ -22,7 +23,6 @@ import type {
   Product,
   Sale,
   Expense,
-  Category,
   DashboardStats,
   OrderStatus,
   PaymentStatus,
@@ -268,11 +268,12 @@ export const createStockChange = (
 export const subscribeToCategories = (userId: string, callback: (categories: Category[]) => void): (() => void) => {
   const q = query(
     collection(db, 'categories'),
-    where('userId', '==', userId), // Filter by user first
+    where('userId', '==', userId),
+    where('isActive', '==', true), // Only get active categories
     orderBy('name', 'asc'),
-    limit(50) // Add pagination
+    limit(100) // Increased limit for categories
   );
-  
+
   return onSnapshot(q, (snapshot) => {
     const categories = snapshot.docs.map(doc => ({
       id: doc.id,
@@ -280,6 +281,99 @@ export const subscribeToCategories = (userId: string, callback: (categories: Cat
     })) as Category[];
     callback(categories);
   });
+};
+
+// Utility function to update category product count
+export const updateCategoryProductCount = async (categoryName: string, userId: string, increment: boolean = true): Promise<void> => {
+  if (!categoryName || !userId) return;
+
+  try {
+    // Find the category by name and userId
+    const q = query(
+      collection(db, 'categories'),
+      where('name', '==', categoryName),
+      where('userId', '==', userId),
+      where('isActive', '==', true)
+    );
+
+    const snapshot = await getDocs(q);
+    
+    if (snapshot.empty) {
+      console.warn(`Category "${categoryName}" not found for user ${userId}`);
+      return;
+    }
+
+    const categoryDoc = snapshot.docs[0];
+    const currentCount = categoryDoc.data().productCount || 0;
+    const newCount = increment ? currentCount + 1 : Math.max(0, currentCount - 1);
+
+    await updateDoc(categoryDoc.ref, {
+      productCount: newCount,
+      updatedAt: serverTimestamp()
+    });
+
+    console.log(`Updated category "${categoryName}" product count: ${currentCount} -> ${newCount}`);
+  } catch (error) {
+    console.error('Error updating category product count:', error);
+  }
+};
+
+// Utility function to recalculate all category product counts
+export const recalculateCategoryProductCounts = async (userId: string): Promise<void> => {
+  try {
+    // Get all categories for the user
+    const categoriesQuery = query(
+      collection(db, 'categories'),
+      where('userId', '==', userId),
+      where('isActive', '==', true)
+    );
+
+    const categoriesSnapshot = await getDocs(categoriesQuery);
+    const categories = categoriesSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    })) as Category[];
+
+    // Get all products for the user
+    const productsQuery = query(
+      collection(db, 'products'),
+      where('userId', '==', userId),
+      where('isDeleted', '==', false),
+      where('isVisible', '!=', false) // Include products where isVisible is true or undefined
+    );
+
+    const productsSnapshot = await getDocs(productsQuery);
+    const products = productsSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    })) as Product[];
+
+    // Count products per category
+    const categoryCounts: { [categoryName: string]: number } = {};
+    products.forEach(product => {
+      if (product.category) {
+        categoryCounts[product.category] = (categoryCounts[product.category] || 0) + 1;
+      }
+    });
+
+    // Update each category with the correct count
+    const batch = writeBatch(db);
+    categories.forEach(category => {
+      const correctCount = categoryCounts[category.name] || 0;
+      if (category.productCount !== correctCount) {
+        const categoryRef = doc(db, 'categories', category.id);
+        batch.update(categoryRef, {
+          productCount: correctCount,
+          updatedAt: serverTimestamp()
+        });
+      }
+    });
+
+    await batch.commit();
+    console.log('Recalculated all category product counts');
+  } catch (error) {
+    console.error('Error recalculating category product counts:', error);
+  }
 };
 
 // Products - OPTIMIZED for faster initial load
@@ -369,20 +463,138 @@ export const createCategory = async (
   data: Omit<Category, 'id' | 'createdAt' | 'updatedAt'>,
   userId: string
 ): Promise<Category> => {
-  const categoryRef = await addDoc(collection(db, 'categories'), {
+  const batch = writeBatch(db);
+  
+  // Validate category data
+  if (!data.name || data.name.trim() === '') {
+    throw new Error('Category name is required');
+  }
+  
+  const categoryData = {
     ...data,
     userId,
+    isActive: data.isActive !== false, // Default to true
+    productCount: 0, // Initialize with 0 products
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()
-  });
+  };
+  
+  const categoryRef = doc(collection(db, 'categories'));
+  batch.set(categoryRef, categoryData);
+  
+  // Create audit log
+  createAuditLog(batch, 'create', 'category', categoryRef.id, categoryData, userId);
+  
+  await batch.commit();
 
   return {
     id: categoryRef.id,
-    ...data,
-    userId,
+    ...categoryData,
     createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 },
     updatedAt: { seconds: Date.now() / 1000, nanoseconds: 0 }
   };
+};
+
+export const updateCategory = async (
+  id: string,
+  data: Partial<Category>,
+  userId: string
+): Promise<void> => {
+  const batch = writeBatch(db);
+  const categoryRef = doc(db, 'categories', id);
+  
+  // Get current category data
+  const categorySnap = await getDoc(categoryRef);
+  if (!categorySnap.exists()) {
+    throw new Error('Category not found');
+  }
+  
+  const currentCategory = categorySnap.data() as Category;
+  if (currentCategory.userId !== userId) {
+    throw new Error('Unauthorized to update this category');
+  }
+  
+  // Update category data
+  const updateData = {
+    ...data,
+    updatedAt: serverTimestamp()
+  };
+  
+  batch.update(categoryRef, updateData);
+  
+  // Create audit log
+  createAuditLog(batch, 'update', 'category', id, updateData, userId);
+  
+  await batch.commit();
+};
+
+export const deleteCategory = async (
+  id: string,
+  userId: string
+): Promise<void> => {
+  const batch = writeBatch(db);
+  const categoryRef = doc(db, 'categories', id);
+  
+  // Get current category data
+  const categorySnap = await getDoc(categoryRef);
+  if (!categorySnap.exists()) {
+    throw new Error('Category not found');
+  }
+  
+  const currentCategory = categorySnap.data() as Category;
+  if (currentCategory.userId !== userId) {
+    throw new Error('Unauthorized to delete this category');
+  }
+  
+  // Check if category has products
+  if (currentCategory.productCount && currentCategory.productCount > 0) {
+    throw new Error('Cannot delete category with existing products. Please move or delete products first.');
+  }
+  
+  // Soft delete by setting isActive to false
+  batch.update(categoryRef, {
+    isActive: false,
+    updatedAt: serverTimestamp()
+  });
+  
+  // Create audit log
+  createAuditLog(batch, 'delete', 'category', id, { isActive: false }, userId);
+  
+  await batch.commit();
+};
+
+export const getCategory = async (id: string, userId: string): Promise<Category | null> => {
+  const categoryRef = doc(db, 'categories', id);
+  const categorySnap = await getDoc(categoryRef);
+  
+  if (!categorySnap.exists()) {
+    return null;
+  }
+  
+  const category = categorySnap.data() as Category;
+  if (category.userId !== userId) {
+    throw new Error('Unauthorized to access this category');
+  }
+  
+  return {
+    id: categorySnap.id,
+    ...category
+  };
+};
+
+export const getUserCategories = async (userId: string): Promise<Category[]> => {
+  const q = query(
+    collection(db, 'categories'),
+    where('userId', '==', userId),
+    where('isActive', '==', true),
+    orderBy('name', 'asc')
+  );
+  
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data()
+  })) as Category[];
 };
 
 // ============================================================================
@@ -567,6 +779,16 @@ export const createProduct = async (
     throw error;
   }
   
+  // Update category product count after successful product creation
+  if (data.category) {
+    try {
+      await updateCategoryProductCount(data.category, userId, true);
+    } catch (error) {
+      console.error('Error updating category product count:', error);
+      // Don't throw here as the product was created successfully
+    }
+  }
+  
   return {
     id: productRef.id,
     ...productData,
@@ -703,8 +925,82 @@ export const updateProduct = async (
   createAuditLog(batch, 'update', 'product', id, { ...data, stockChange, stockReason }, userId);
   
     await batch.commit();
+    
+    // Update category product counts if category changed
+    if (data.category && data.category !== currentProduct.category) {
+      try {
+        // Decrement old category count
+        if (currentProduct.category) {
+          await updateCategoryProductCount(currentProduct.category, userId, false);
+        }
+        // Increment new category count
+        await updateCategoryProductCount(data.category, userId, true);
+      } catch (error) {
+        console.error('Error updating category product counts:', error);
+        // Don't throw here as the product was updated successfully
+      }
+    }
+    
+    // Update category product counts if visibility changed
+    if (data.isVisible !== undefined && data.isVisible !== currentProduct.isVisible) {
+      try {
+        const categoryName = data.category || currentProduct.category;
+        if (categoryName) {
+          // If product became invisible, decrement count
+          // If product became visible, increment count
+          const shouldIncrement = data.isVisible !== false;
+          await updateCategoryProductCount(categoryName, userId, shouldIncrement);
+        }
+      } catch (error) {
+        console.error('Error updating category product count for visibility change:', error);
+        // Don't throw here as the product was updated successfully
+      }
+    }
   } catch (error) {
     console.error('Error updating product:', error);
+    throw error;
+  }
+};
+
+// Soft delete product and update category count
+export const softDeleteProduct = async (id: string, userId: string): Promise<void> => {
+  try {
+    const productRef = doc(db, 'products', id);
+    const productSnap = await getDoc(productRef);
+    
+    if (!productSnap.exists()) {
+      throw new Error('Product not found');
+    }
+    
+    const currentProduct = productSnap.data() as Product;
+    if (currentProduct.userId !== userId) {
+      throw new Error('Unauthorized to delete this product');
+    }
+    
+    const batch = writeBatch(db);
+    
+    // Soft delete the product
+    batch.update(productRef, {
+      isDeleted: true,
+      updatedAt: serverTimestamp()
+    });
+    
+    // Create audit log
+    createAuditLog(batch, 'delete', 'product', id, { isDeleted: true }, userId);
+    
+    await batch.commit();
+    
+    // Update category product count
+    if (currentProduct.category) {
+      try {
+        await updateCategoryProductCount(currentProduct.category, userId, false);
+      } catch (error) {
+        console.error('Error updating category product count after deletion:', error);
+        // Don't throw here as the product was deleted successfully
+      }
+    }
+  } catch (error) {
+    console.error('Error soft deleting product:', error);
     throw error;
   }
 };

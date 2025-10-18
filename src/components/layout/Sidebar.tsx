@@ -1,5 +1,5 @@
 import { useLocation, Link } from 'react-router-dom';
-import { LayoutDashboard, ShoppingCart, DollarSign, Package2, FileBarChart, Settings, X, Receipt, Users } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, DollarSign, Package2, FileBarChart, Settings, X, Receipt, Users, Grid3X3 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import UserAvatar from '../common/UserAvatar';
 import DownloadAppButton from '../common/DownloadAppButton';
@@ -14,6 +14,18 @@ const Sidebar = ({ onClose }: SidebarProps) => {
   const location = useLocation();
   const { company } = useAuth();
   
+  // Get dashboard colors
+  const getDashboardColors = () => {
+    const colors = {
+      primary: company?.dashboardColors?.primary || company?.primaryColor || '#183524',
+      secondary: company?.dashboardColors?.secondary || company?.secondaryColor || '#e2b069',
+      tertiary: company?.dashboardColors?.tertiary || company?.tertiaryColor || '#2a4a3a'
+    };
+    return colors;
+  };
+  
+  const colors = getDashboardColors();
+  
   const isActive = (path: string) => {
     return location.pathname === path;
   };
@@ -24,6 +36,7 @@ const Sidebar = ({ onClose }: SidebarProps) => {
     { name: 'Expenses', path: '/expenses', icon: <Receipt size={20} /> },
     { name: 'Finance', path: '/finance', icon: <DollarSign size={20} /> },
     { name: t('navigation.products'), path: '/products', icon: <Package2 size={20} /> },
+    { name: 'Categories', path: '/categories', icon: <Grid3X3 size={20} /> },
     { name: t('navigation.suppliers'), path: '/suppliers', icon: <Users size={20} /> },
     { name: t('navigation.reports'), path: '/reports', icon: <FileBarChart size={20} /> },
     { name: t('navigation.settings'), path: '/settings', icon: <Settings size={20} /> },
@@ -56,9 +69,13 @@ const Sidebar = ({ onClose }: SidebarProps) => {
                 className={`
                   flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors
                   ${isActive(item.path)
-                    ? 'bg-emerald-50 text-emerald-600'
+                    ? 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
                     : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'}
                 `}
+                style={isActive(item.path) ? {
+                  backgroundColor: `${colors.primary}20`,
+                  color: colors.primary
+                } : {}}
               >
                 <span className="mr-3">{item.icon}</span>
                 {item.name}

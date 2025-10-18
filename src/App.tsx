@@ -8,10 +8,7 @@ import ProtectedRoute from './components/auth/ProtectedRoute';
 import LoadingScreen from './components/common/LoadingScreen';
 import LazyPage from './components/common/LazyPage';
 import { Toaster } from 'react-hot-toast';
-import { FloatingActionButton } from './components/common/Button';
-import AddSaleModal from './components/sales/AddSaleModal';
 import Finance from './pages/Finance';
-import { EnhancedPWAInstallPrompt } from './components/EnhancedPWAInstallPrompt';
 import { PWAErrorHandler } from './components/PWAErrorHandler';
 import { PWAUpdateNotification } from './components/PWAUpdateNotification';
 import { usePWAUpdate } from './hooks/usePWAUpdate';
@@ -23,6 +20,7 @@ const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Sales = lazy(() => import('./pages/Sales'));
 const Expenses = lazy(() => import('./pages/Expenses'));
 const Products = lazy(() => import('./pages/Products'));
+const Categories = lazy(() => import('./pages/Categories'));
 const Suppliers = lazy(() => import('./pages/Suppliers'));
 const Reports = lazy(() => import('./pages/Reports'));
 const Settings = lazy(() => import('./pages/Settings'));
@@ -84,6 +82,7 @@ function AppWithFAB({ isAddSaleModalOpen, setIsAddSaleModalOpen }: { isAddSaleMo
               <Route path="/expenses" element={<LazyPage><Expenses /></LazyPage>} />
               <Route path="/finance" element={<Finance />} />
               <Route path="/products" element={<LazyPage><Products /></LazyPage>} />
+              <Route path="/categories" element={<LazyPage><Categories /></LazyPage>} />
               <Route path="/suppliers" element={<LazyPage><Suppliers /></LazyPage>} />
               <Route path="/reports" element={<LazyPage><Reports /></LazyPage>} />
               <Route path="/settings" element={<LazyPage><Settings /></LazyPage>} />

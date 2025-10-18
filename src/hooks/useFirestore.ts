@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import type { Category } from '../types/models';
 import { 
   createSale, 
   updateSaleStatus, 

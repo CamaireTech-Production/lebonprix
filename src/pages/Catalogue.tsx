@@ -2,8 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
-import { getCompanyByUserId, subscribeToProducts } from '../services/firestore';
-import type { Company, Product } from '../types/models';
+import { getCompanyByUserId, subscribeToProducts, subscribeToCategories } from '../services/firestore';
+import type { Company, Product, Category } from '../types/models';
 import { Search, Package, AlertCircle, MapPin, Plus, Heart, Phone } from 'lucide-react';
 import Button from '../components/common/Button';
 import FloatingCartButton from '../components/common/FloatingCartButton';
@@ -22,6 +22,7 @@ const Catalogue = () => {
   const { addToCart } = useCart();
   const [company, setCompany] = useState<Company | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -60,14 +61,13 @@ const Catalogue = () => {
   // Ref to track if we're updating from URL to prevent infinite loops
   const isUpdatingFromUrl = useRef(false);
 
-  // Get company colors with fallbacks
+  // Get company colors with fallbacks - prioritize catalogue colors
   const getCompanyColors = () => {
     const colors = {
-      primary: company?.primaryColor || '#183524',
-      secondary: company?.secondaryColor || '#e2b069',
-      tertiary: company?.tertiaryColor || '#2a4a3a'
+      primary: company?.catalogueColors?.primary || company?.primaryColor || '#183524',
+      secondary: company?.catalogueColors?.secondary || company?.secondaryColor || '#e2b069',
+      tertiary: company?.catalogueColors?.tertiary || company?.tertiaryColor || '#2a4a3a'
     };
-    
     
     return colors;
   };
@@ -188,10 +188,43 @@ const Catalogue = () => {
     return () => unsubscribe();
   }, [companyId, company, productsCache]);
 
+  // Subscribe to categories for enhanced display
+  useEffect(() => {
+    if (!companyId) return;
+
+    const unsubscribe = subscribeToCategories(companyId, (categoriesData) => {
+      setCategories(categoriesData);
+    });
+
+    return () => unsubscribe();
+  }, [companyId]);
+
   // Get unique categories from products
   const getUniqueCategories = () => {
-    const categories = products.map(product => product.category);
-    return Array.from(new Set(categories)).sort();
+    const productCategories = products.map(product => product.category);
+    return Array.from(new Set(productCategories)).sort();
+  };
+
+  // Get category information (with fallback for categories without rich data)
+  const getCategoryInfo = (categoryName: string) => {
+    const category = categories.find(cat => cat.name === categoryName);
+    if (category) {
+      return {
+        name: category.name,
+        description: category.description,
+        image: category.image,
+        productCount: category.productCount || 0
+      };
+    }
+    
+    // Fallback for categories without rich data
+    const productCount = products.filter(p => p.category === categoryName).length;
+    return {
+      name: categoryName,
+      description: '',
+      image: null,
+      productCount
+    };
   };
 
   // Handle category filter toggle
@@ -349,22 +382,34 @@ const Catalogue = () => {
               </button>
               
               {/* Category Chips */}
-              {getUniqueCategories().map((category) => {
-                const categoryCount = products.filter(p => p.category === category).length;
-                const isSelected = selectedCategories.includes(category);
+              {getUniqueCategories().map((categoryName) => {
+                const isSelected = selectedCategories.includes(categoryName);
+                const categoryInfo = getCategoryInfo(categoryName);
                 
                 return (
                   <button
-                    key={category}
-                    onClick={() => handleCategoryToggle(category)}
-                    className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                    key={categoryName}
+                    onClick={() => handleCategoryToggle(categoryName)}
+                    className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 flex items-center space-x-2 ${
                       isSelected
                         ? 'text-white shadow-md'
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
                     style={isSelected ? {backgroundColor: getCompanyColors().primary} : {}}
                   >
-                    {category} ({categoryCount})
+                    {categoryInfo.image && (
+                      <div className="w-5 h-5 rounded-full overflow-hidden bg-white bg-opacity-20 flex-shrink-0">
+                        <ImageWithSkeleton
+                          src={categoryInfo.image.startsWith('data:') ? categoryInfo.image : `data:image/jpeg;base64,${categoryInfo.image}`}
+                          alt={categoryInfo.name}
+                          className="w-full h-full object-cover"
+                          placeholder=""
+                        />
+                      </div>
+                    )}
+                    <span>
+                      {categoryInfo.name} ({categoryInfo.productCount})
+                    </span>
                   </button>
                 );
               })}

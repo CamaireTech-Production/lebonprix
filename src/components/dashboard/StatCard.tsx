@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import Card from '../common/Card';
 import { Info } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface StatCardProps {
   title: string;
@@ -19,11 +20,22 @@ interface StatCardProps {
 
 const StatCard = ({ title, value, icon, trend, tooltipKey, type, className = '' }: StatCardProps) => {
   const { t } = useTranslation();
+  const { company } = useAuth();
   const [showTooltip, setShowTooltip] = useState(false);
   const [showValueTooltip, setShowValueTooltip] = useState(false);
   const [tooltipPosition, setTooltipPosition] = useState({ top: 0, left: 0, placement: 'top' as 'top' | 'bottom' });
   const triggerRef = useRef<HTMLDivElement>(null);
   const valueRef = useRef<HTMLParagraphElement>(null);
+
+  // Get company colors with fallbacks - prioritize dashboard colors
+  const getCompanyColors = () => {
+    const colors = {
+      primary: company?.dashboardColors?.primary || company?.primaryColor || '#183524',
+      secondary: company?.dashboardColors?.secondary || company?.secondaryColor || '#e2b069',
+      tertiary: company?.dashboardColors?.tertiary || company?.tertiaryColor || '#2a4a3a'
+    };
+    return colors;
+  };
 
   // Handle tooltip positioning
   useEffect(() => {
@@ -81,23 +93,24 @@ const StatCard = ({ title, value, icon, trend, tooltipKey, type, className = '' 
     });
   }, [showValueTooltip]);
 
-  // Determine icon color based on the type
+  // Determine icon color based on the type using company colors
   const getIconColor = (type: StatCardProps['type']) => {
+    const colors = getCompanyColors();
     switch (type) {
       case 'sales':
-        return 'bg-emerald-100 text-emerald-600';
+        return { backgroundColor: `${colors.primary}20`, color: colors.primary };
       case 'expenses':
-        return 'bg-red-100 text-red-600';
+        return { backgroundColor: `${colors.tertiary}20`, color: colors.tertiary };
       case 'profit':
-        return 'bg-indigo-100 text-indigo-600';
+        return { backgroundColor: `${colors.secondary}20`, color: colors.secondary };
       case 'products':
-        return 'bg-blue-100 text-blue-600';
+        return { backgroundColor: `${colors.primary}20`, color: colors.primary };
       case 'orders':
-        return 'bg-purple-100 text-purple-600';
+        return { backgroundColor: `${colors.secondary}20`, color: colors.secondary };
       case 'delivery':
-        return 'bg-orange-100 text-orange-600';
+        return { backgroundColor: `${colors.tertiary}20`, color: colors.tertiary };
       default:
-        return 'bg-gray-100 text-gray-600';
+        return { backgroundColor: '#f3f4f6', color: '#6b7280' };
     }
   };
 
@@ -173,7 +186,8 @@ const StatCard = ({ title, value, icon, trend, tooltipKey, type, className = '' 
           </div>
           <p
             ref={valueRef}
-            className="mt-1 text-lg sm:text-xl md:text-2xl font-semibold text-gray-900 truncate cursor-pointer"
+            className="mt-1 text-lg sm:text-xl md:text-2xl font-semibold truncate cursor-pointer"
+            style={{color: getCompanyColors().primary}}
             tabIndex={0}
             onMouseEnter={() => setShowValueTooltip(true)}
             onMouseLeave={() => setShowValueTooltip(false)}
@@ -187,9 +201,8 @@ const StatCard = ({ title, value, icon, trend, tooltipKey, type, className = '' 
           {trend && (
             <div className="mt-1 flex items-center">
               <span
-                className={`text-xs sm:text-sm font-medium ${
-                  trend.isPositive ? 'text-green-600' : 'text-red-600'
-                }`}
+                className="text-xs sm:text-sm font-medium"
+                style={{color: trend.isPositive ? getCompanyColors().secondary : '#ef4444'}}
               >
                 {trend.isPositive ? '+' : ''}{trend.value}%
               </span>
@@ -199,7 +212,7 @@ const StatCard = ({ title, value, icon, trend, tooltipKey, type, className = '' 
             </div>
           )}
         </div>
-        <div className={`p-1.5 sm:p-2 rounded-md ${getIconColor(type)} ml-2 flex-shrink-0`}>
+        <div className="p-1.5 sm:p-2 rounded-md ml-2 flex-shrink-0" style={getIconColor(type)}>
           <div className="w-5 h-5 sm:w-6 sm:h-6">{icon}</div>
         </div>
       </div>

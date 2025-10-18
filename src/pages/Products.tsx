@@ -6,7 +6,6 @@ import Button from '../components/common/Button';
 import Badge from '../components/common/Badge';
 import Modal, { ModalFooter } from '../components/common/Modal';
 import Input from '../components/common/Input';
-import CreatableSelect from '../components/common/CreatableSelect';
 import { useProducts, useStockChanges, useCategories, useSuppliers } from '../hooks/useFirestore';
 import { useInfiniteProducts } from '../hooks/useInfiniteProducts';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
@@ -29,6 +28,7 @@ import {
 import type { StockBatch } from '../types/models';
 import CostPriceCarousel from '../components/products/CostPriceCarousel';
 import ProductTagsManager from '../components/products/ProductTagsManager';
+import CategorySelector from '../components/products/CategorySelector';
 
 interface CsvRow {
   [key: string]: string;
@@ -251,12 +251,6 @@ const Products = () => {
   // Get unique categories from products
   const categories = [t('products.filters.allCategories'), ...new Set(infiniteProducts?.map(p => p.category) || [])];
 
-  const handleCategoryChange = (option: { label: string; value: string } | null) => {
-    setStep1Data(prev => ({
-      ...prev,
-      category: option?.label ?? ''
-    }));
-  };
   
   const compressImage = async (file: File): Promise<string> => {
     try {
@@ -332,7 +326,7 @@ const Products = () => {
         name: step1Data.name,
       reference,
         sellingPrice: parseFloat(step2Data.sellingPrice),
-        cataloguePrice: step2Data.cataloguePrice ? parseFloat(step2Data.cataloguePrice) : undefined,
+        cataloguePrice: step2Data.cataloguePrice ? parseFloat(step2Data.cataloguePrice) : 0,
         category: step1Data.category,
         stock: stockQuantity,
         costPrice: stockCostPrice,
@@ -353,9 +347,9 @@ const Products = () => {
           console.log('Converting image for database:', img.substring(0, 50) + '... -> ' + converted.substring(0, 50) + '...');
           return converted;
         }) : [],
-        tags: step1Data.tags.length > 0 ? step1Data.tags : undefined,
+        tags: step1Data.tags.length > 0 ? step1Data.tags : [],
       isAvailable: true,
-      isVisible: step1Data.isVisible, // Include visibility setting
+      isVisible: step1Data.isVisible !== false, // Default to true, never undefined
       enableBatchTracking: true, // Explicitly enable batch tracking
       userId: user.uid,
       updatedAt: { seconds: 0, nanoseconds: 0 }
@@ -757,9 +751,9 @@ const Products = () => {
         }
         return img;
       }) : [],
-      tags: step1Data.tags, // Include tags in the update
+      tags: step1Data.tags || [], // Include tags in the update, default to empty array
       isAvailable: safeProduct.isAvailable,
-      isVisible: step1Data.isVisible, // Include visibility setting
+      isVisible: step1Data.isVisible !== false, // Default to true, never undefined
       userId: safeProduct.userId,
       updatedAt: { seconds: 0, nanoseconds: 0 },
       sellingPrice: editPrices.sellingPrice ? parseFloat(editPrices.sellingPrice) : safeProduct.sellingPrice,
@@ -1715,11 +1709,11 @@ const Products = () => {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               {t('products.form.step1.category')}
             </label>
-            <CreatableSelect
-                  value={step1Data.category ? { label: step1Data.category, value: step1Data.category } : null}
-              onChange={handleCategoryChange}
+            <CategorySelector
+              value={step1Data.category}
+              onChange={(category) => setStep1Data(prev => ({ ...prev, category }))}
+              showImages={true}
               placeholder={t('products.form.step1.categoryPlaceholder')}
-              className="custom-select"
             />
           </div>
           
@@ -1988,11 +1982,11 @@ const Products = () => {
             {/* Category */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">{t('products.form.category')}</label>
-              <CreatableSelect
-                value={step1Data.category ? { label: step1Data.category, value: step1Data.category } : null}
-                onChange={handleCategoryChange}
+              <CategorySelector
+                value={step1Data.category}
+                onChange={(category) => setStep1Data(prev => ({ ...prev, category }))}
+                showImages={true}
                 placeholder={t('products.form.categoryPlaceholder')}
-                className="custom-select"
               />
             </div>
 

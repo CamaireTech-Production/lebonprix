@@ -16,7 +16,7 @@ import { Plus, Copy, Check, ExternalLink } from 'lucide-react';
 
 const Settings = () => {
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState('account');
+  const [activeTab, setActiveTab] = useState('colors');
   const { company, updateCompany, updateUserPassword, user } = useAuth();
   
   // Only fetch data if user is authenticated
@@ -36,6 +36,16 @@ const Settings = () => {
     location: '',
     email: '',
     logo: '',
+    // Catalogue colors
+    cataloguePrimaryColor: '#183524',
+    catalogueSecondaryColor: '#e2b069',
+    catalogueTertiaryColor: '#2a4a3a',
+    // Dashboard colors
+    dashboardPrimaryColor: '#183524',
+    dashboardSecondaryColor: '#e2b069',
+    dashboardTertiaryColor: '#2a4a3a',
+    dashboardHeaderTextColor: '#ffffff',
+    // Legacy colors (for backward compatibility)
     primaryColor: '#183524',
     secondaryColor: '#e2b069',
     tertiaryColor: '#2a4a3a',
@@ -47,7 +57,6 @@ const Settings = () => {
   // Update form data when company data becomes available
   useEffect(() => {
     if (company) {
-      
       setFormData(prev => ({
         ...prev,
         name: company.name || '',
@@ -56,6 +65,16 @@ const Settings = () => {
         location: company.location || '',
         email: company.email || '',
         logo: company.logo || '',
+        // Catalogue colors
+        cataloguePrimaryColor: company.catalogueColors?.primary || company.primaryColor || '#183524',
+        catalogueSecondaryColor: company.catalogueColors?.secondary || company.secondaryColor || '#e2b069',
+        catalogueTertiaryColor: company.catalogueColors?.tertiary || company.tertiaryColor || '#2a4a3a',
+        // Dashboard colors
+        dashboardPrimaryColor: company.dashboardColors?.primary || company.primaryColor || '#183524',
+        dashboardSecondaryColor: company.dashboardColors?.secondary || company.secondaryColor || '#e2b069',
+        dashboardTertiaryColor: company.dashboardColors?.tertiary || company.tertiaryColor || '#2a4a3a',
+        dashboardHeaderTextColor: company.dashboardColors?.headerText || '#ffffff',
+        // Legacy colors (for backward compatibility)
         primaryColor: company.primaryColor || '#183524',
         secondaryColor: company.secondaryColor || '#e2b069',
         tertiaryColor: company.tertiaryColor || '#2a4a3a',
@@ -228,6 +247,19 @@ const Settings = () => {
         location: formData.location || undefined,
         logo: formData.logo || undefined,
         email: formData.email,
+        // New color schemes
+        catalogueColors: {
+          primary: formData.cataloguePrimaryColor,
+          secondary: formData.catalogueSecondaryColor,
+          tertiary: formData.catalogueTertiaryColor
+        },
+        dashboardColors: {
+          primary: formData.dashboardPrimaryColor,
+          secondary: formData.dashboardSecondaryColor,
+          tertiary: formData.dashboardTertiaryColor,
+          headerText: formData.dashboardHeaderTextColor
+        },
+        // Legacy colors (for backward compatibility)
         primaryColor: formData.primaryColor,
         secondaryColor: formData.secondaryColor,
         tertiaryColor: formData.tertiaryColor
@@ -300,6 +332,17 @@ const Settings = () => {
       <div className="mb-6 border-b border-gray-200">
         <nav className="-mb-px flex space-x-8">
           <button
+            onClick={() => setActiveTab('colors')}
+            className={`
+              whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm
+              ${activeTab === 'colors'
+                ? 'border-emerald-500 text-emerald-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
+            `}
+          >
+            🎨 Colors
+          </button>
+          <button
             onClick={() => setActiveTab('account')}
             className={`
               whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm
@@ -345,6 +388,330 @@ const Settings = () => {
           </button>
         </nav>
       </div>
+      
+      {/* Colors Tab */}
+      {activeTab === 'colors' && (
+        <form onSubmit={handleSubmit}>
+          <Card>
+            <div className="max-w-4xl mx-auto">
+              <div className="space-y-6">
+                <div className="text-center mb-8">
+                  <h2 className="text-2xl font-bold text-gray-900 mb-2">🎨 Color Customization</h2>
+                  <p className="text-gray-600">
+                    Customize colors for different parts of your platform. You can have different color schemes for your catalogue and dashboard.
+                  </p>
+                </div>
+                
+                {/* Catalogue Colors */}
+                <div className="bg-blue-50 p-6 rounded-lg">
+                  <div className="flex items-center mb-4">
+                    <h3 className="text-lg font-semibold text-gray-800">Catalogue Colors</h3>
+                    <span className="ml-3 text-xs bg-blue-100 text-blue-800 px-3 py-1 rounded-full font-medium">Public</span>
+                  </div>
+                  <p className="text-sm text-gray-600 mb-6">
+                    Colors used on your public catalogue page that customers see.
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* Catalogue Primary Color */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Primary Color
+                      </label>
+                      <div className="flex items-center space-x-3">
+                        <input
+                          type="color"
+                          name="cataloguePrimaryColor"
+                          value={formData.cataloguePrimaryColor}
+                          onChange={handleInputChange}
+                          className="h-12 w-16 rounded border border-gray-300 cursor-pointer"
+                        />
+                        <input
+                          type="text"
+                          name="cataloguePrimaryColor"
+                          value={formData.cataloguePrimaryColor}
+                          onChange={handleInputChange}
+                          className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm font-mono"
+                          placeholder="#183524"
+                        />
+                      </div>
+                      <p className="text-xs text-gray-500 mt-2">Headers, buttons, highlights</p>
+                    </div>
+                    
+                    {/* Catalogue Secondary Color */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Secondary Color
+                      </label>
+                      <div className="flex items-center space-x-3">
+                        <input
+                          type="color"
+                          name="catalogueSecondaryColor"
+                          value={formData.catalogueSecondaryColor}
+                          onChange={handleInputChange}
+                          className="h-12 w-16 rounded border border-gray-300 cursor-pointer"
+                        />
+                        <input
+                          type="text"
+                          name="catalogueSecondaryColor"
+                          value={formData.catalogueSecondaryColor}
+                          onChange={handleInputChange}
+                          className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm font-mono"
+                          placeholder="#e2b069"
+                        />
+                      </div>
+                      <p className="text-xs text-gray-500 mt-2">Prices, accents, add to cart</p>
+                    </div>
+                    
+                    {/* Catalogue Tertiary Color */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Tertiary Color
+                      </label>
+                      <div className="flex items-center space-x-3">
+                        <input
+                          type="color"
+                          name="catalogueTertiaryColor"
+                          value={formData.catalogueTertiaryColor}
+                          onChange={handleInputChange}
+                          className="h-12 w-16 rounded border border-gray-300 cursor-pointer"
+                        />
+                        <input
+                          type="text"
+                          name="catalogueTertiaryColor"
+                          value={formData.catalogueTertiaryColor}
+                          onChange={handleInputChange}
+                          className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm font-mono"
+                          placeholder="#2a4a3a"
+                        />
+                      </div>
+                      <p className="text-xs text-gray-500 mt-2">Gradients, hover effects</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Dashboard Colors */}
+                <div className="bg-green-50 p-6 rounded-lg">
+                  <div className="flex items-center mb-4">
+                    <h3 className="text-lg font-semibold text-gray-800">Dashboard Colors</h3>
+                    <span className="ml-3 text-xs bg-green-100 text-green-800 px-3 py-1 rounded-full font-medium">Admin</span>
+                  </div>
+                  <p className="text-sm text-gray-600 mb-6">
+                    Colors used on your admin dashboard for internal management.
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* Dashboard Primary Color */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Primary Color
+                      </label>
+                      <div className="flex items-center space-x-3">
+                        <input
+                          type="color"
+                          name="dashboardPrimaryColor"
+                          value={formData.dashboardPrimaryColor}
+                          onChange={handleInputChange}
+                          className="h-12 w-16 rounded border border-gray-300 cursor-pointer"
+                        />
+                        <input
+                          type="text"
+                          name="dashboardPrimaryColor"
+                          value={formData.dashboardPrimaryColor}
+                          onChange={handleInputChange}
+                          className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm font-mono"
+                          placeholder="#183524"
+                        />
+                      </div>
+                      <p className="text-xs text-gray-500 mt-2">Headers, values, primary buttons</p>
+                    </div>
+                    
+                    {/* Dashboard Secondary Color */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Secondary Color
+                      </label>
+                      <div className="flex items-center space-x-3">
+                        <input
+                          type="color"
+                          name="dashboardSecondaryColor"
+                          value={formData.dashboardSecondaryColor}
+                          onChange={handleInputChange}
+                          className="h-12 w-16 rounded border border-gray-300 cursor-pointer"
+                        />
+                        <input
+                          type="text"
+                          name="dashboardSecondaryColor"
+                          value={formData.dashboardSecondaryColor}
+                          onChange={handleInputChange}
+                          className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm font-mono"
+                          placeholder="#e2b069"
+                        />
+                      </div>
+                      <p className="text-xs text-gray-500 mt-2">Trends, secondary buttons</p>
+                    </div>
+                    
+                    {/* Dashboard Tertiary Color */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Tertiary Color
+                      </label>
+                      <div className="flex items-center space-x-3">
+                        <input
+                          type="color"
+                          name="dashboardTertiaryColor"
+                          value={formData.dashboardTertiaryColor}
+                          onChange={handleInputChange}
+                          className="h-12 w-16 rounded border border-gray-300 cursor-pointer"
+                        />
+                        <input
+                          type="text"
+                          name="dashboardTertiaryColor"
+                          value={formData.dashboardTertiaryColor}
+                          onChange={handleInputChange}
+                          className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm font-mono"
+                          placeholder="#2a4a3a"
+                        />
+                      </div>
+                      <p className="text-xs text-gray-500 mt-2">Gradients, expenses, delivery</p>
+                    </div>
+                    
+                    {/* Dashboard Header Text Color */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Header Text Color
+                      </label>
+                      <div className="flex items-center space-x-3">
+                        <input
+                          type="color"
+                          name="dashboardHeaderTextColor"
+                          value={formData.dashboardHeaderTextColor}
+                          onChange={handleInputChange}
+                          className="h-12 w-16 rounded border border-gray-300 cursor-pointer"
+                        />
+                        <input
+                          type="text"
+                          name="dashboardHeaderTextColor"
+                          value={formData.dashboardHeaderTextColor}
+                          onChange={handleInputChange}
+                          className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm font-mono"
+                          placeholder="#ffffff"
+                        />
+                      </div>
+                      <p className="text-xs text-gray-500 mt-2">Text color for dashboard header</p>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Firebase Integration Info */}
+                <div className="bg-blue-50 p-6 rounded-lg">
+                  <h3 className="text-lg font-semibold text-blue-800 mb-4">Firebase Integration</h3>
+                  <p className="text-sm text-blue-700 mb-4">
+                    Use this Company ID to integrate your categories with external landing pages or applications.
+                  </p>
+                  <div className="bg-white p-4 rounded-lg border border-blue-200">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-gray-700 mb-1">Company ID</p>
+                        <code className="text-sm bg-gray-100 px-3 py-2 rounded font-mono text-gray-800">
+                          {user?.uid || 'Loading...'}
+                        </code>
+                      </div>
+                      <button 
+                        onClick={() => {
+                          if (user?.uid) {
+                            navigator.clipboard.writeText(user.uid);
+                            showSuccessToast('Company ID copied to clipboard!');
+                          }
+                        }}
+                        className="ml-4 px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors"
+                        disabled={!user?.uid}
+                      >
+                        Copy ID
+                      </button>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-2">
+                      Share this ID with developers to integrate your categories into external applications.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Color Preview */}
+                <div className="bg-gray-50 p-6 rounded-lg">
+                  <h3 className="text-lg font-semibold text-gray-800 mb-4">Live Preview</h3>
+                  
+                  {/* Catalogue Preview */}
+                  <div className="mb-6">
+                    <h4 className="text-sm font-medium text-gray-600 mb-3">Catalogue Preview</h4>
+                    <div className="flex items-center space-x-4">
+                      <div 
+                        className="px-4 py-3 rounded-lg text-white text-sm font-medium shadow-sm"
+                        style={{ backgroundColor: formData.cataloguePrimaryColor }}
+                      >
+                        Header
+                      </div>
+                      <div 
+                        className="px-4 py-3 rounded-lg text-white text-sm font-medium shadow-sm"
+                        style={{ backgroundColor: formData.catalogueSecondaryColor }}
+                      >
+                        Price
+                      </div>
+                      <div 
+                        className="px-4 py-3 rounded-lg text-white text-sm font-medium shadow-sm"
+                        style={{ backgroundColor: formData.catalogueTertiaryColor }}
+                      >
+                        Button
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Dashboard Preview */}
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-600 mb-3">Dashboard Preview</h4>
+                    <div className="flex items-center space-x-4">
+                      <div 
+                        className="px-4 py-3 rounded-lg text-white text-sm font-medium shadow-sm"
+                        style={{ backgroundColor: formData.dashboardPrimaryColor }}
+                      >
+                        Value
+                      </div>
+                      <div 
+                        className="px-4 py-3 rounded-lg text-white text-sm font-medium shadow-sm"
+                        style={{ backgroundColor: formData.dashboardSecondaryColor }}
+                      >
+                        Trend
+                      </div>
+                      <div 
+                        className="px-4 py-3 rounded-lg text-white text-sm font-medium shadow-sm"
+                        style={{ backgroundColor: formData.dashboardTertiaryColor }}
+                      >
+                        Icon
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Form Actions */}
+                <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200">
+                  <Button 
+                    type="button" 
+                    variant="outline"
+                    onClick={() => setActiveTab('account')}
+                    disabled={isLoading}
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    type="submit" 
+                    isLoading={isLoading}
+                    disabled={isLoading}
+                  >
+                    Save Colors
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </Card>
+        </form>
+      )}
       
       {/* Account Settings Tab */}
       {activeTab === 'account' && (
@@ -512,116 +879,6 @@ const Settings = () => {
                   </div>
                 </div>
                 
-                {/* Color Customization */}
-                <div className="pt-5 border-t border-gray-200">
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">Catalogue Color Customization</h3>
-                  <p className="text-sm text-gray-600 mb-4">
-                    Customize the colors of your catalogue page to match your brand identity.
-                  </p>
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      {/* Primary Color */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Primary Color
-                        </label>
-                        <div className="flex items-center space-x-3">
-                          <input
-                            type="color"
-                            name="primaryColor"
-                            value={formData.primaryColor}
-                            onChange={handleInputChange}
-                            className="h-10 w-16 rounded border border-gray-300 cursor-pointer"
-                          />
-                          <input
-                            type="text"
-                            name="primaryColor"
-                            value={formData.primaryColor}
-                            onChange={handleInputChange}
-                            className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm font-mono"
-                            placeholder="#183524"
-                          />
-                        </div>
-                        <p className="text-xs text-gray-500 mt-1">Used for main buttons and highlights</p>
-                      </div>
-                      
-                      {/* Secondary Color */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Secondary Color
-                        </label>
-                        <div className="flex items-center space-x-3">
-                          <input
-                            type="color"
-                            name="secondaryColor"
-                            value={formData.secondaryColor}
-                            onChange={handleInputChange}
-                            className="h-10 w-16 rounded border border-gray-300 cursor-pointer"
-                          />
-                          <input
-                            type="text"
-                            name="secondaryColor"
-                            value={formData.secondaryColor}
-                            onChange={handleInputChange}
-                            className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm font-mono"
-                            placeholder="#e2b069"
-                          />
-                        </div>
-                        <p className="text-xs text-gray-500 mt-1">Used for accents and secondary elements</p>
-                      </div>
-                      
-                      {/* Tertiary Color */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Tertiary Color
-                        </label>
-                        <div className="flex items-center space-x-3">
-                          <input
-                            type="color"
-                            name="tertiaryColor"
-                            value={formData.tertiaryColor}
-                            onChange={handleInputChange}
-                            className="h-10 w-16 rounded border border-gray-300 cursor-pointer"
-                          />
-                          <input
-                            type="text"
-                            name="tertiaryColor"
-                            value={formData.tertiaryColor}
-                            onChange={handleInputChange}
-                            className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm font-mono"
-                            placeholder="#2a4a3a"
-                          />
-                        </div>
-                        <p className="text-xs text-gray-500 mt-1">Used for text and subtle elements</p>
-                      </div>
-                    </div>
-                    
-                    {/* Color Preview */}
-                    <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                      <h4 className="text-sm font-medium text-gray-700 mb-3">Preview</h4>
-                      <div className="flex items-center space-x-3">
-                        <div 
-                          className="px-4 py-2 rounded text-white text-sm font-medium"
-                          style={{ backgroundColor: formData.primaryColor }}
-                        >
-                          Primary Button
-                        </div>
-                        <div 
-                          className="px-4 py-2 rounded text-white text-sm font-medium"
-                          style={{ backgroundColor: formData.secondaryColor }}
-                        >
-                          Secondary Button
-                        </div>
-                        <div 
-                          className="px-4 py-2 rounded text-white text-sm font-medium"
-                          style={{ backgroundColor: formData.tertiaryColor }}
-                        >
-                          Tertiary Button
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
                 
                 {/* Form Actions */}
                 <div className="flex justify-end space-x-3">
