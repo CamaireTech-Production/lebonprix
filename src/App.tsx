@@ -46,18 +46,15 @@ function App() {
 function AppWithFAB({ isAddSaleModalOpen, setIsAddSaleModalOpen }: { isAddSaleModalOpen: boolean, setIsAddSaleModalOpen: (open: boolean) => void }) {
   const location = useLocation();
   const { isUpdateAvailable, applyUpdate, dismissUpdate } = usePWAUpdate();
-  const isAuthPage = location.pathname.startsWith('/auth/login') || location.pathname.startsWith('/auth/register');
   const isCataloguePage = /^\/catalogue\/[^/]+\/[^/]+$/.test(location.pathname);
-  // ProductDetail page removed - now using modal
-  const isTrackSalesPage = location.pathname.startsWith('/track/');
   
   return (
     <PWAErrorHandler>
       <Suspense fallback={<LoadingScreen />}>
         <Toaster />
         
-        {/* PWA Update Notification */}
-        {isUpdateAvailable && (
+        {/* PWA Update Notification - Don't show on catalogue page */}
+        {isUpdateAvailable && !isCataloguePage && (
           <PWAUpdateNotification
             onUpdate={applyUpdate}
             onDismiss={dismissUpdate}
