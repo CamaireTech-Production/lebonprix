@@ -1,13 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
 import { getCompanyByUserId } from '../services/firestore';
+import { createOrder } from '../services/orderService';
 import type { Company } from '../types/models';
-import type { CustomerInfo, OrderData } from '../types/order';
-import { ArrowLeft, MapPin, Phone, User, MessageSquare, CreditCard, Truck } from 'lucide-react';
+import type { CustomerInfo, OrderData, OrderPaymentMethod, OrderPricing, DeliveryInfo, Order } from '../types/order';
+import { ArrowLeft, MapPin, Phone, User, MessageSquare, CreditCard, Truck, CheckCircle, Clock } from 'lucide-react';
 import Button from '../components/common/Button';
-import ImageWithSkeleton from '../components/common/ImageWithSkeleton';
+import { ImageWithSkeleton } from '../components/common/ImageWithSkeleton';
+import toast from 'react-hot-toast';
 
 const Checkout = () => {
   const { companyId } = useParams<{ companyId: string }>();
@@ -28,6 +30,12 @@ const Checkout = () => {
 
   // Form validation state
   const [errors, setErrors] = useState<Partial<CustomerInfo>>({});
+
+  // Payment method selection state
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<OrderPaymentMethod | null>(null);
+  const [showPaymentSelection, setShowPaymentSelection] = useState(false);
+  const [orderCreated, setOrderCreated] = useState(false);
+  const [createdOrder, setCreatedOrder] = useState<Order | null>(null);
 
   // Fetch company data
   useEffect(() => {
@@ -106,70 +114,114 @@ const Checkout = () => {
     }
   };
 
-  // Generate order ID
-  const generateOrderId = (): string => {
-    const timestamp = Date.now().toString(36);
-    const random = Math.random().toString(36).substr(2, 5);
-    return `ORD-${timestamp}-${random}`.toUpperCase();
-  };
 
   // Calculate totals
   const subtotal = getCartTotal();
   const deliveryFee = 0; // Can be configured later
   const finalTotal = subtotal + deliveryFee;
 
-  // Handle order submission
-  const handleSubmitOrder = async () => {
+  // Handle customer info submission
+  const handleSubmitCustomerInfo = () => {
     if (!validateForm()) {
+      return;
+    }
+    setShowPaymentSelection(true);
+  };
+
+  // Handle payment method selection
+  const handlePaymentMethodSelect = (method: OrderPaymentMethod) => {
+    setSelectedPaymentMethod(method);
+    handleCreateOrder(method);
+  };
+
+  // Create order based on selected payment method
+  const handleCreateOrder = async (paymentMethod: OrderPaymentMethod) => {
+    if (!companyId) {
+      toast.error('Company ID not found');
       return;
     }
 
     setSubmitting(true);
 
     try {
-      // Create order data
-      const orderData: OrderData = {
-        customerInfo: {
+      // Create pricing object
+      const pricing: OrderPricing = {
+        subtotal,
+        deliveryFee,
+        total: finalTotal
+      };
+
+      // Create delivery info
+      const deliveryInfo: DeliveryInfo = {
+        method: 'pickup',
+        instructions: customerInfo.deliveryInstructions
+      };
+
+      // Create order in database
+      const order = await createOrder(
+        cart,
+        {
           ...customerInfo,
           phone: formatPhoneNumber(customerInfo.phone)
         },
-        cartItems: cart,
-        totalAmount: subtotal,
-        deliveryFee,
-        finalTotal,
-        orderId: generateOrderId(),
-        timestamp: new Date()
-      };
+        pricing,
+        paymentMethod,
+        'online', // orderType
+        companyId, // userId for order creation
+        companyId, // companyId
+        deliveryInfo
+      );
 
-      // Generate WhatsApp message
-      const message = generateOrderMessage(orderData, company);
-      
-      // Create WhatsApp URL
-      const whatsappUrl = createWhatsAppUrl(company?.phone || '', message);
-      
-      // Clear cart
-      clearCart();
-      
-      // Redirect to WhatsApp
-      window.open(whatsappUrl, '_blank');
-      
-      // Navigate back to catalogue
-      navigate(`/catalogue/${companyId}`);
-      
+      setCreatedOrder(order);
+      setOrderCreated(true);
+
+      // Handle based on payment method
+      if (paymentMethod === 'onsite') {
+        // Send WhatsApp confirmation for onsite payment
+        const orderData: OrderData = {
+          customerInfo: {
+            ...customerInfo,
+            phone: formatPhoneNumber(customerInfo.phone)
+          },
+          cartItems: cart,
+          totalAmount: subtotal,
+          deliveryFee,
+          finalTotal,
+          orderId: order.orderId,
+          timestamp: new Date()
+        };
+
+        const message = generateOrderMessage(orderData, company, order.orderNumber);
+        const whatsappUrl = createWhatsAppUrl(company?.phone || '', message);
+        
+        // Clear cart
+        clearCart();
+        
+        // Open WhatsApp
+        window.open(whatsappUrl, '_blank');
+        
+        toast.success('Order created! WhatsApp confirmation sent.');
+      } else if (paymentMethod === 'online') {
+        // Show "payment pending" message for online payment
+        toast.success('Order created! Online payment integration coming soon.');
+      }
+
     } catch (error) {
-      console.error('Error submitting order:', error);
-      // TODO: Show error notification
+      console.error('Error creating order:', error);
+      toast.error('Failed to create order. Please try again.');
     } finally {
       setSubmitting(false);
     }
   };
 
+
   // Generate order message (following documentation template)
-  const generateOrderMessage = (orderData: OrderData, company: Company | null): string => {
+  const generateOrderMessage = (orderData: OrderData, company: Company | null, orderNumber?: string): string => {
     const { customerInfo, cartItems, totalAmount, deliveryFee, finalTotal, orderId } = orderData;
     const businessName = company?.name || 'Your Business';
+    const orderRef = orderNumber || orderId;
     
-    let message = `🛒 Commande ${businessName} #${orderId}\n\n`;
+    let message = `🛒 Commande ${businessName} #${orderRef}\n\n`;
     
     // Order details
     message += `📋 Détails:\n`;
@@ -186,14 +238,14 @@ const Checkout = () => {
       currency: 'XAF'
     })}\n`;
     
-    if (deliveryFee > 0) {
-      message += `🚚 Frais de livraison: ${deliveryFee.toLocaleString('fr-FR', {
+    if ((deliveryFee || 0) > 0) {
+      message += `🚚 Frais de livraison: ${(deliveryFee || 0).toLocaleString('fr-FR', {
         style: 'currency',
         currency: 'XAF'
       })}\n`;
     }
     
-    message += `💳 Total final: ${finalTotal.toLocaleString('fr-FR', {
+    message += `💳 Total final: ${(finalTotal || 0).toLocaleString('fr-FR', {
       style: 'currency',
       currency: 'XAF'
     })}\n\n`;
@@ -394,43 +446,121 @@ const Checkout = () => {
           </div>
         </div>
 
-        {/* Payment Information */}
-        <div className="bg-white rounded-lg p-4 shadow-sm">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-            <CreditCard className="h-5 w-5 mr-2" />
-            Payment Information
-          </h2>
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-            <p className="text-sm text-blue-800">
-              <strong>Payment will be confirmed via WhatsApp</strong>
-            </p>
-            <p className="text-xs text-blue-600 mt-1">
-              You'll receive a WhatsApp message with payment options and delivery details.
-            </p>
+        {/* Payment Method Selection */}
+        {showPaymentSelection && !orderCreated && (
+          <div className="bg-white rounded-lg p-4 shadow-sm">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+              <CreditCard className="h-5 w-5 mr-2" />
+              Choose Payment Method
+            </h2>
+            
+            <div className="space-y-3">
+              {/* Onsite Payment Option */}
+              <button
+                onClick={() => handlePaymentMethodSelect('onsite')}
+                disabled={submitting}
+                className="w-full p-4 border-2 border-gray-200 rounded-lg hover:border-emerald-500 hover:bg-emerald-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-emerald-100 rounded-full">
+                    <Truck className="h-5 w-5 text-emerald-600" />
+                  </div>
+                  <div className="text-left">
+                    <h3 className="font-semibold text-gray-900">Pay at Pickup</h3>
+                    <p className="text-sm text-gray-600">Pay when you collect your order</p>
+                  </div>
+                  <CheckCircle className="h-5 w-5 text-emerald-600 ml-auto" />
+                </div>
+              </button>
+
+              {/* Online Payment Option */}
+              <button
+                onClick={() => handlePaymentMethodSelect('online')}
+                disabled={submitting}
+                className="w-full p-4 border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-blue-100 rounded-full">
+                    <CreditCard className="h-5 w-5 text-blue-600" />
+                  </div>
+                  <div className="text-left">
+                    <h3 className="font-semibold text-gray-900">Pay Online</h3>
+                    <p className="text-sm text-gray-600">Secure online payment (Coming Soon)</p>
+                  </div>
+                  <Clock className="h-5 w-5 text-blue-600 ml-auto" />
+                </div>
+              </button>
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* Order Success */}
+        {orderCreated && createdOrder && (
+          <div className="bg-white rounded-lg p-4 shadow-sm">
+            <div className="text-center">
+              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-emerald-100 mb-4">
+                <CheckCircle className="h-6 w-6 text-emerald-600" />
+              </div>
+              <h2 className="text-lg font-semibold text-gray-900 mb-2">Order Created Successfully!</h2>
+              <p className="text-sm text-gray-600 mb-4">
+                Order Number: <span className="font-mono font-semibold">{createdOrder.orderNumber}</span>
+              </p>
+              
+              {selectedPaymentMethod === 'onsite' && (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 mb-4">
+                  <p className="text-sm text-emerald-800">
+                    <strong>WhatsApp confirmation sent!</strong>
+                  </p>
+                  <p className="text-xs text-emerald-600 mt-1">
+                    Please check your WhatsApp for pickup instructions and payment details.
+                  </p>
+                </div>
+              )}
+              
+              {selectedPaymentMethod === 'online' && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                  <p className="text-sm text-blue-800">
+                    <strong>Online payment integration coming soon!</strong>
+                  </p>
+                  <p className="text-xs text-blue-600 mt-1">
+                    Your order is saved and will be processed when online payment is available.
+                  </p>
+                </div>
+              )}
+              
+              <Button
+                onClick={() => navigate(`/catalogue/${companyId}`)}
+                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded-lg font-semibold"
+              >
+                Continue Shopping
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Submit Button */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 pb-safe">
-        <Button
-          onClick={handleSubmitOrder}
-          disabled={submitting}
-          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {submitting ? (
-            <div className="flex items-center justify-center">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-              Processing...
-            </div>
-          ) : (
-            <div className="flex items-center justify-center">
-              <Truck className="h-4 w-4 mr-2" />
-              Send Order via WhatsApp
-            </div>
-          )}
-        </Button>
-      </div>
+      {/* Submit Button - Only show if not in payment selection or order created */}
+      {!showPaymentSelection && !orderCreated && (
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 pb-safe">
+          <Button
+            onClick={handleSubmitCustomerInfo}
+            disabled={submitting}
+            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {submitting ? (
+              <div className="flex items-center justify-center">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                Processing...
+              </div>
+            ) : (
+              <div className="flex items-center justify-center">
+                <CreditCard className="h-4 w-4 mr-2" />
+                Choose Payment Method
+              </div>
+            )}
+          </Button>
+        </div>
+      )}
     </div>
   );
 };

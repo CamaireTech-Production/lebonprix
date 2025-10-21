@@ -1,8 +1,10 @@
 import { Outlet } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTranslation } from 'react-i18next';
 
 const AuthLayout = () => {
   const { company } = useAuth();
+  const { t } = useTranslation();
 
   // Get dashboard colors
   const getDashboardColors = () => {
@@ -23,7 +25,7 @@ const AuthLayout = () => {
           <span style={{color: colors.primary}}>Geskap</span>
         </h2>
         <p className="mt-2 text-center text-sm text-gray-600">
-          Internal Management System
+          {t('auth.internalSystem')}
         </p>
       </div>
 

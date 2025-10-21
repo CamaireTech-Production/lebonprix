@@ -8,16 +8,31 @@ import { showSuccessToast, showErrorToast } from '../utils/toast';
 import { useTranslation } from 'react-i18next';
 import { useSales, useExpenses, useAuditLogs, useProducts } from '../hooks/useFirestore';
 import { getSellerSettings, updateSellerSettings } from '../services/firestore';
+import { getCheckoutSettingsWithDefaults, saveCheckoutSettings, resetCheckoutSettings, subscribeToCheckoutSettings } from '../services/checkoutSettingsService';
+import { saveCinetPayConfig, subscribeToCinetPayConfig, validateCinetPayCredentials, initializeCinetPayConfig } from '../services/cinetpayService';
 import type { SellerSettings, PaymentMethod } from '../types/order';
+import type { CheckoutSettings, CheckoutSettingsUpdate } from '../types/checkoutSettings';
+import type { CinetPayConfig, CinetPayConfigUpdate } from '../types/cinetpay';
 import PaymentMethodModal from '../components/settings/PaymentMethodModal';
 import i18n from '../i18n/config';
 import { combineActivities } from '../utils/activityUtils';
-import { Plus, Copy, Check, ExternalLink } from 'lucide-react';
+import { Plus, Copy, Check, ExternalLink, CreditCard, Truck, ShoppingBag, Save, RotateCcw, Eye } from 'lucide-react';
 
 const Settings = () => {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('colors');
   const { company, updateCompany, updateUserPassword, user } = useAuth();
+  
+  // Checkout settings state
+  const [checkoutSettings, setCheckoutSettings] = useState<CheckoutSettings | null>(null);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [checkoutSaving, setCheckoutSaving] = useState(false);
+  
+  // CinetPay settings state
+  const [cinetpayConfig, setCinetpayConfig] = useState<CinetPayConfig | null>(null);
+  const [cinetpayLoading, setCinetpayLoading] = useState(true);
+  const [cinetpaySaving, setCinetpaySaving] = useState(false);
+  const [cinetpayTesting, setCinetpayTesting] = useState(false);
   
   // Only fetch data if user is authenticated
   const { sales } = useSales();
@@ -81,6 +96,51 @@ const Settings = () => {
       }));
     }
   }, [company]);
+
+  // Real-time checkout settings subscription
+  useEffect(() => {
+    if (!user?.uid) return;
+
+    const unsubscribe = subscribeToCheckoutSettings(user.uid, (settings) => {
+      if (settings) {
+        setCheckoutSettings(settings);
+        setCheckoutLoading(false);
+      } else {
+        // If no settings exist, get defaults
+        getCheckoutSettingsWithDefaults(user.uid).then(settings => {
+          setCheckoutSettings(settings);
+          setCheckoutLoading(false);
+        });
+      }
+    });
+
+    return () => unsubscribe();
+  }, [user?.uid]);
+
+  // Real-time CinetPay settings subscription
+  useEffect(() => {
+    if (!user?.uid) return;
+
+    setCinetpayLoading(true);
+
+    const unsubscribe = subscribeToCinetPayConfig(user.uid, (config) => {
+      if (config) {
+        setCinetpayConfig(config);
+        setCinetpayLoading(false);
+      } else {
+        // If no config exists, initialize with defaults
+        initializeCinetPayConfig(user.uid).then(config => {
+          setCinetpayConfig(config);
+          setCinetpayLoading(false);
+        }).catch(error => {
+          console.error('Error initializing CinetPay config:', error);
+          setCinetpayLoading(false);
+        });
+      }
+    });
+
+    return () => unsubscribe();
+  }, [user?.uid]);
   
   const [isLoading, setIsLoading] = useState(false);
   const [passwordError, setPasswordError] = useState('');
@@ -312,6 +372,90 @@ const Settings = () => {
     i18n.changeLanguage(e.target.value);
   };
 
+  // Checkout settings handlers
+  const handleCheckoutSettingsUpdate = (updates: CheckoutSettingsUpdate) => {
+    if (!checkoutSettings) return;
+    setCheckoutSettings(prev => prev ? { ...prev, ...updates } : null);
+  };
+
+  const handleSaveCheckoutSettings = async () => {
+    if (!user?.uid || !checkoutSettings) return;
+    
+    try {
+      setCheckoutSaving(true);
+      await saveCheckoutSettings(user.uid, checkoutSettings);
+      showSuccessToast('Checkout settings saved successfully!');
+    } catch (error) {
+      console.error('Error saving checkout settings:', error);
+      showErrorToast('Failed to save checkout settings');
+    } finally {
+      setCheckoutSaving(false);
+    }
+  };
+
+  const handleResetCheckoutSettings = async () => {
+    if (!user?.uid) return;
+    
+    if (window.confirm('Are you sure you want to reset all checkout settings to default?')) {
+      try {
+        setCheckoutSaving(true);
+        await resetCheckoutSettings(user.uid);
+        const settings = await getCheckoutSettingsWithDefaults(user.uid);
+        setCheckoutSettings(settings);
+        showSuccessToast('Checkout settings reset to default!');
+      } catch (error) {
+        console.error('Error resetting checkout settings:', error);
+        showErrorToast('Failed to reset checkout settings');
+      } finally {
+        setCheckoutSaving(false);
+      }
+    }
+  };
+
+  // CinetPay settings handlers
+  const handleCinetpayConfigUpdate = (updates: CinetPayConfigUpdate) => {
+    if (!cinetpayConfig) return;
+    setCinetpayConfig(prev => prev ? { ...prev, ...updates } : null);
+  };
+
+  const handleSaveCinetpayConfig = async () => {
+    if (!user?.uid || !cinetpayConfig) return;
+    
+    try {
+      setCinetpaySaving(true);
+      await saveCinetPayConfig(user.uid, cinetpayConfig);
+      showSuccessToast('Payment integration settings saved');
+    } catch (error) {
+      console.error('Error saving CinetPay config:', error);
+      showErrorToast('Failed to save payment integration settings');
+    } finally {
+      setCinetpaySaving(false);
+    }
+  };
+
+  const handleTestCinetpayConnection = async () => {
+    if (!cinetpayConfig?.siteId || !cinetpayConfig?.apiKey) {
+      showErrorToast('Please enter Site ID and API Key first');
+      return;
+    }
+    
+    try {
+      setCinetpayTesting(true);
+      const result = await validateCinetPayCredentials(cinetpayConfig.siteId, cinetpayConfig.apiKey);
+      
+      if (result.isValid) {
+        showSuccessToast('Connection successful! Credentials are valid.');
+      } else {
+        showErrorToast(`Connection failed: ${result.message}`);
+      }
+    } catch (error) {
+      console.error('Error testing CinetPay connection:', error);
+      showErrorToast('Failed to test connection');
+    } finally {
+      setCinetpayTesting(false);
+    }
+  };
+
   // Show loading if company data is not yet available
   if (!company && !user) {
     return (
@@ -340,7 +484,7 @@ const Settings = () => {
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
             `}
           >
-            🎨 Colors
+{t('settings.tabs.colors')}
           </button>
           <button
             onClick={() => setActiveTab('account')}
@@ -373,7 +517,7 @@ const Settings = () => {
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
             `}
           >
-            Ordering Settings
+{t('settings.tabs.ordering')}
           </button>
           <button
             onClick={() => setActiveTab('catalogue')}
@@ -384,7 +528,29 @@ const Settings = () => {
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
             `}
           >
-            Catalogue Links
+{t('settings.tabs.catalogue')}
+          </button>
+          <button
+            onClick={() => setActiveTab('checkout')}
+            className={`
+              whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm
+              ${activeTab === 'checkout'
+                ? 'border-emerald-500 text-emerald-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
+            `}
+          >
+            Checkout Settings
+          </button>
+          <button
+            onClick={() => setActiveTab('payment')}
+            className={`
+              whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm
+              ${activeTab === 'payment'
+                ? 'border-emerald-500 text-emerald-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
+            `}
+          >
+            Payment Integration
           </button>
         </nav>
       </div>
@@ -603,14 +769,14 @@ const Settings = () => {
                 
                 {/* Firebase Integration Info */}
                 <div className="bg-blue-50 p-6 rounded-lg">
-                  <h3 className="text-lg font-semibold text-blue-800 mb-4">Firebase Integration</h3>
+                  <h3 className="text-lg font-semibold text-blue-800 mb-4">{t('settings.firebaseIntegration.title')}</h3>
                   <p className="text-sm text-blue-700 mb-4">
-                    Use this Company ID to integrate your categories with external landing pages or applications.
+                    {t('settings.firebaseIntegration.description')}
                   </p>
                   <div className="bg-white p-4 rounded-lg border border-blue-200">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm font-medium text-gray-700 mb-1">Company ID (User ID)</p>
+                        <p className="text-sm font-medium text-gray-700 mb-1">{t('settings.firebaseIntegration.companyId')}</p>
                         <code className="text-sm bg-gray-100 px-3 py-2 rounded font-mono text-gray-800">
                           {user?.uid || 'Loading...'}
                         </code>
@@ -619,17 +785,17 @@ const Settings = () => {
                         onClick={() => {
                           if (user?.uid) {
                             navigator.clipboard.writeText(user.uid);
-                            showSuccessToast('Company ID copied to clipboard!');
+                            showSuccessToast(t('settings.firebaseIntegration.copySuccess'));
                           }
                         }}
                         className="ml-4 px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors"
                         disabled={!user?.uid}
                       >
-                        Copy ID
+{t('settings.firebaseIntegration.copyId')}
                       </button>
                     </div>
                     <p className="text-xs text-gray-500 mt-2">
-                      Share this ID with developers to integrate your categories into external applications.
+                      {t('settings.firebaseIntegration.helpText')}
                     </p>
                   </div>
                 </div>
@@ -1073,7 +1239,7 @@ const Settings = () => {
                     }
                   }}
                 >
-                  Save Ordering Settings
+{t('settings.ordering.saveSettings')}
                 </Button>
               </div>
             </div>
@@ -1091,7 +1257,7 @@ const Settings = () => {
           <div className="max-w-4xl mx-auto">
             <div className="space-y-6">
               <div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">Catalogue Links</h3>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">{t('settings.catalogue.title')}</h3>
                 <p className="text-sm text-gray-600">
                   Generate shareable links for your product categories to use on your external landing pages.
                 </p>
@@ -1218,6 +1384,936 @@ const Settings = () => {
             </div>
           </div>
         </Card>
+      )}
+
+      {/* Checkout Settings Tab */}
+      {activeTab === 'checkout' && (
+        <div className="space-y-6">
+          {checkoutLoading ? (
+            <Card>
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
+                <span className="ml-3 text-gray-600">Loading checkout settings...</span>
+              </div>
+            </Card>
+          ) : checkoutSettings ? (
+            <>
+              {/* General Sections */}
+              <Card>
+                <div className="max-w-4xl mx-auto">
+                  <div className="space-y-6">
+                    <div className="text-center mb-8">
+                      <h3 className="text-2xl font-semibold text-gray-900 mb-2">Checkout Settings</h3>
+                      <p className="text-gray-600">Customize your checkout form and payment options</p>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                      {/* Settings Controls */}
+                      <div className="space-y-6">
+                        {/* Section-Level Controls */}
+                        <div className="bg-white rounded-lg shadow-sm border p-6">
+                          <div className="flex items-center space-x-2 mb-4">
+                            <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                            <h2 className="text-xl font-semibold text-gray-900">Disable Entire Sections</h2>
+                          </div>
+                          <p className="text-sm text-gray-600 mb-6">Completely hide entire sections from the checkout form. When disabled, the entire section disappears.</p>
+                          <div className="space-y-4">
+                            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                              <div>
+                                <label className="text-sm font-medium text-gray-700">Contact Section</label>
+                                <p className="text-xs text-gray-500">Hide entire contact information section</p>
+                              </div>
+                              <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={checkoutSettings.showContactSection}
+                                  onChange={(e) => handleCheckoutSettingsUpdate({ showContactSection: e.target.checked })}
+                                  className="sr-only peer"
+                                />
+                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                              </label>
+                            </div>
+
+                            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                              <div>
+                                <label className="text-sm font-medium text-gray-700">Delivery Section</label>
+                                <p className="text-xs text-gray-500">Hide entire delivery address section</p>
+                              </div>
+                              <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={checkoutSettings.showDeliverySection}
+                                  onChange={(e) => handleCheckoutSettingsUpdate({ showDeliverySection: e.target.checked })}
+                                  className="sr-only peer"
+                                />
+                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                              </label>
+                            </div>
+
+                            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                              <div>
+                                <label className="text-sm font-medium text-gray-700">Payment Section</label>
+                                <p className="text-xs text-gray-500">Hide entire payment method selection</p>
+                              </div>
+                              <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={checkoutSettings.showPaymentSection}
+                                  onChange={(e) => handleCheckoutSettingsUpdate({ showPaymentSection: e.target.checked })}
+                                  className="sr-only peer"
+                                />
+                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                              </label>
+                            </div>
+
+                            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                              <div>
+                                <label className="text-sm font-medium text-gray-700">Order Summary Section</label>
+                                <p className="text-xs text-gray-500">Hide entire order summary section</p>
+                              </div>
+                              <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={checkoutSettings.showOrderSummary}
+                                  onChange={(e) => handleCheckoutSettingsUpdate({ showOrderSummary: e.target.checked })}
+                                  className="sr-only peer"
+                                />
+                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                              </label>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Contact Section Field Controls */}
+                        {checkoutSettings.showContactSection && (
+                          <div className="bg-white rounded-lg shadow-sm border p-6 ml-4 border-l-4 border-l-blue-200">
+                            <div className="flex items-center space-x-2 mb-4">
+                              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                              <h3 className="text-lg font-semibold text-gray-900">Contact Section Fields</h3>
+                            </div>
+                            <p className="text-sm text-gray-600 mb-4">Control which fields appear in the Contact section</p>
+                            <div className="space-y-3">
+                              <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                                <div>
+                                  <label className="text-sm font-medium text-gray-700">Email Field</label>
+                                  <p className="text-xs text-gray-500">Show email input field</p>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={checkoutSettings.showEmail}
+                                    onChange={(e) => handleCheckoutSettingsUpdate({ showEmail: e.target.checked })}
+                                    className="sr-only peer"
+                                  />
+                                  <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                                </label>
+                              </div>
+
+                              <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                                <div>
+                                  <label className="text-sm font-medium text-gray-700">Phone Field</label>
+                                  <p className="text-xs text-gray-500">Show phone number input field</p>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={checkoutSettings.showPhone}
+                                    onChange={(e) => handleCheckoutSettingsUpdate({ showPhone: e.target.checked })}
+                                    className="sr-only peer"
+                                  />
+                                  <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                                </label>
+                              </div>
+
+                              <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                                <div>
+                                  <label className="text-sm font-medium text-gray-700">Newsletter Opt-in</label>
+                                  <p className="text-xs text-gray-500">Show newsletter subscription checkbox</p>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={checkoutSettings.showNewsletter}
+                                    onChange={(e) => handleCheckoutSettingsUpdate({ showNewsletter: e.target.checked })}
+                                    className="sr-only peer"
+                                  />
+                                  <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                                </label>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Delivery Section Field Controls */}
+                        {checkoutSettings.showDeliverySection && (
+                          <div className="bg-white rounded-lg shadow-sm border p-6 ml-4 border-l-4 border-l-green-200">
+                            <div className="flex items-center space-x-2 mb-4">
+                              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                              <h3 className="text-lg font-semibold text-gray-900">Delivery Section Fields</h3>
+                            </div>
+                            <p className="text-sm text-gray-600 mb-4">Control which fields appear in the Delivery section</p>
+                            <div className="space-y-3">
+                              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                                <div>
+                                  <label className="text-sm font-medium text-gray-700">Country/Region</label>
+                                  <p className="text-xs text-gray-500">Show country selection dropdown</p>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={checkoutSettings.showCountry}
+                                    onChange={(e) => handleCheckoutSettingsUpdate({ showCountry: e.target.checked })}
+                                    className="sr-only peer"
+                                  />
+                                  <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
+                                </label>
+                              </div>
+
+                              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                                <div>
+                                  <label className="text-sm font-medium text-gray-700">First Name</label>
+                                  <p className="text-xs text-gray-500">Show first name input field</p>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={checkoutSettings.showFirstName}
+                                    onChange={(e) => handleCheckoutSettingsUpdate({ showFirstName: e.target.checked })}
+                                    className="sr-only peer"
+                                  />
+                                  <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
+                                </label>
+                              </div>
+
+                              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                                <div>
+                                  <label className="text-sm font-medium text-gray-700">Last Name</label>
+                                  <p className="text-xs text-gray-500">Show last name input field</p>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={checkoutSettings.showLastName}
+                                    onChange={(e) => handleCheckoutSettingsUpdate({ showLastName: e.target.checked })}
+                                    className="sr-only peer"
+                                  />
+                                  <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
+                                </label>
+                              </div>
+
+                              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                                <div>
+                                  <label className="text-sm font-medium text-gray-700">Address</label>
+                                  <p className="text-xs text-gray-500">Show address input field</p>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={checkoutSettings.showAddress}
+                                    onChange={(e) => handleCheckoutSettingsUpdate({ showAddress: e.target.checked })}
+                                    className="sr-only peer"
+                                  />
+                                  <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
+                                </label>
+                              </div>
+
+                              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                                <div>
+                                  <label className="text-sm font-medium text-gray-700">Apartment/Suite</label>
+                                  <p className="text-xs text-gray-500">Show apartment/suite input field</p>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={checkoutSettings.showApartment}
+                                    onChange={(e) => handleCheckoutSettingsUpdate({ showApartment: e.target.checked })}
+                                    className="sr-only peer"
+                                  />
+                                  <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
+                                </label>
+                              </div>
+
+                              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                                <div>
+                                  <label className="text-sm font-medium text-gray-700">City</label>
+                                  <p className="text-xs text-gray-500">Show city input field</p>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={checkoutSettings.showCity}
+                                    onChange={(e) => handleCheckoutSettingsUpdate({ showCity: e.target.checked })}
+                                    className="sr-only peer"
+                                  />
+                                  <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
+                                </label>
+                              </div>
+
+                              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                                <div>
+                                  <label className="text-sm font-medium text-gray-700">Delivery Instructions</label>
+                                  <p className="text-xs text-gray-500">Show delivery instructions textarea</p>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={checkoutSettings.showDeliveryInstructions}
+                                    onChange={(e) => handleCheckoutSettingsUpdate({ showDeliveryInstructions: e.target.checked })}
+                                    className="sr-only peer"
+                                  />
+                                  <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
+                                </label>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Payment Methods */}
+                        <div className="bg-white rounded-lg shadow-sm border p-6">
+                          <h2 className="text-xl font-semibold text-gray-900 mb-4">Payment Methods</h2>
+                          <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-2">
+                                <div className="w-6 h-6 bg-yellow-500 rounded flex items-center justify-center">
+                                  <span className="text-white font-bold text-xs">M</span>
+                                </div>
+                                <span className="text-sm font-medium text-gray-700">MTN Money</span>
+                              </div>
+                              <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={checkoutSettings.enabledPaymentMethods.mtnMoney}
+                                  onChange={(e) => handleCheckoutSettingsUpdate({ 
+                                    enabledPaymentMethods: { 
+                                      ...checkoutSettings.enabledPaymentMethods, 
+                                      mtnMoney: e.target.checked 
+                                    } 
+                                  })}
+                                  className="sr-only peer"
+                                />
+                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                              </label>
+                            </div>
+
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-2">
+                                <div className="w-6 h-6 bg-orange-500 rounded flex items-center justify-center">
+                                  <span className="text-white font-bold text-xs">O</span>
+                                </div>
+                                <span className="text-sm font-medium text-gray-700">Orange Money</span>
+                              </div>
+                              <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={checkoutSettings.enabledPaymentMethods.orangeMoney}
+                                  onChange={(e) => handleCheckoutSettingsUpdate({ 
+                                    enabledPaymentMethods: { 
+                                      ...checkoutSettings.enabledPaymentMethods, 
+                                      orangeMoney: e.target.checked 
+                                    } 
+                                  })}
+                                  className="sr-only peer"
+                                />
+                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                              </label>
+                            </div>
+
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-2">
+                                <CreditCard className="h-5 w-5 text-gray-600" />
+                                <span className="text-sm font-medium text-gray-700">Visa Card</span>
+                              </div>
+                              <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={checkoutSettings.enabledPaymentMethods.visaCard}
+                                  onChange={(e) => handleCheckoutSettingsUpdate({ 
+                                    enabledPaymentMethods: { 
+                                      ...checkoutSettings.enabledPaymentMethods, 
+                                      visaCard: e.target.checked 
+                                    } 
+                                  })}
+                                  className="sr-only peer"
+                                />
+                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                              </label>
+                            </div>
+
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-2">
+                                <Truck className="h-5 w-5 text-emerald-600" />
+                                <span className="text-sm font-medium text-gray-700">Pay Onsite</span>
+                              </div>
+                              <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={checkoutSettings.enabledPaymentMethods.payOnsite}
+                                  onChange={(e) => handleCheckoutSettingsUpdate({ 
+                                    enabledPaymentMethods: { 
+                                      ...checkoutSettings.enabledPaymentMethods, 
+                                      payOnsite: e.target.checked 
+                                    } 
+                                  })}
+                                  className="sr-only peer"
+                                />
+                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                              </label>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Catalogue Display Settings */}
+                        <div className="bg-white rounded-lg shadow-sm border p-6">
+                          <div className="flex items-center space-x-2 mb-4">
+                            <ShoppingBag className="h-5 w-5 text-emerald-600" />
+                            <h2 className="text-xl font-semibold text-gray-900">Catalogue Display</h2>
+                          </div>
+                          
+                          <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <label className="text-sm font-medium text-gray-700">Show Checkout in Catalogue</label>
+                                <p className="text-xs text-gray-500">Display checkout button on catalogue page</p>
+                              </div>
+                              <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={checkoutSettings.showCheckoutInCatalogue}
+                                  onChange={(e) => handleCheckoutSettingsUpdate({ showCheckoutInCatalogue: e.target.checked })}
+                                  className="sr-only peer"
+                                />
+                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                              </label>
+                            </div>
+
+                            {checkoutSettings.showCheckoutInCatalogue && (
+                              <div className="ml-4 space-y-4 border-l-2 border-gray-200 pl-4">
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Checkout Button Text
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={checkoutSettings.checkoutButtonText}
+                                    onChange={(e) => handleCheckoutSettingsUpdate({ checkoutButtonText: e.target.value })}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                    placeholder="Checkout Now"
+                                  />
+                                </div>
+
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Button Color
+                                  </label>
+                                  <div className="flex items-center space-x-3">
+                                    <input
+                                      type="color"
+                                      value={checkoutSettings.checkoutButtonColor}
+                                      onChange={(e) => handleCheckoutSettingsUpdate({ checkoutButtonColor: e.target.value })}
+                                      className="w-12 h-8 border border-gray-300 rounded cursor-pointer"
+                                    />
+                                    <input
+                                      type="text"
+                                      value={checkoutSettings.checkoutButtonColor}
+                                      onChange={(e) => handleCheckoutSettingsUpdate({ checkoutButtonColor: e.target.value })}
+                                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                      placeholder="#10b981"
+                                    />
+                                  </div>
+                                  <p className="text-xs text-gray-500 mt-1">
+                                    Choose a color for the checkout button in the catalogue
+                                  </p>
+                                </div>
+
+                                <div className="bg-gray-50 rounded-lg p-4">
+                                  <p className="text-sm font-medium text-gray-700 mb-2">Preview:</p>
+                                  <button
+                                    style={{ backgroundColor: checkoutSettings.checkoutButtonColor }}
+                                    className="px-4 py-2 text-white rounded-lg font-medium"
+                                  >
+                                    {checkoutSettings.checkoutButtonText}
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex justify-end space-x-4">
+                          <Button
+                            onClick={handleResetCheckoutSettings}
+                            disabled={checkoutSaving}
+                            variant="outline"
+                            className="flex items-center"
+                          >
+                            <RotateCcw size={20} className="mr-2" />
+                            Reset to Default
+                          </Button>
+                          <Button
+                            onClick={handleSaveCheckoutSettings}
+                            disabled={checkoutSaving}
+                            className="flex items-center"
+                          >
+                            {checkoutSaving ? (
+                              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                            ) : (
+                              <Save size={20} className="mr-2" />
+                            )}
+                            Save Settings
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Preview Panel */}
+                      <div className="bg-white rounded-lg shadow-sm border p-6 h-fit">
+                        <div className="flex items-center space-x-2 mb-4">
+                          <Eye className="h-5 w-5 text-emerald-600" />
+                          <h3 className="text-lg font-semibold text-gray-900">Live Preview</h3>
+                        </div>
+                        
+                        <div className="space-y-3 text-sm">
+                          <div className="flex items-center justify-between">
+                            <span className="text-gray-600">Contact Section</span>
+                            <span className={`px-2 py-1 rounded text-xs ${
+                              checkoutSettings.showContactSection ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'
+                            }`}>
+                              {checkoutSettings.showContactSection ? 'Enabled' : 'Disabled'}
+                            </span>
+                          </div>
+                          
+                          <div className="flex items-center justify-between">
+                            <span className="text-gray-600">Delivery Section</span>
+                            <span className={`px-2 py-1 rounded text-xs ${
+                              checkoutSettings.showDeliverySection ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'
+                            }`}>
+                              {checkoutSettings.showDeliverySection ? 'Enabled' : 'Disabled'}
+                            </span>
+                          </div>
+                          
+                          <div className="flex items-center justify-between">
+                            <span className="text-gray-600">Payment Section</span>
+                            <span className={`px-2 py-1 rounded text-xs ${
+                              checkoutSettings.showPaymentSection ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'
+                            }`}>
+                              {checkoutSettings.showPaymentSection ? 'Enabled' : 'Disabled'}
+                            </span>
+                          </div>
+                          
+                          <div className="flex items-center justify-between">
+                            <span className="text-gray-600">Order Summary</span>
+                            <span className={`px-2 py-1 rounded text-xs ${
+                              checkoutSettings.showOrderSummary ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'
+                            }`}>
+                              {checkoutSettings.showOrderSummary ? 'Enabled' : 'Disabled'}
+                            </span>
+                          </div>
+
+                          {/* Individual Field Status */}
+                          {checkoutSettings.showContactSection && (
+                            <div className="border-t border-gray-200 pt-3">
+                              <div className="text-gray-600 mb-2">Contact Fields:</div>
+                              <div className="space-y-1">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs text-gray-500">Email</span>
+                                  <span className={`w-2 h-2 rounded-full ${
+                                    checkoutSettings.showEmail ? 'bg-emerald-500' : 'bg-gray-300'
+                                  }`}></span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs text-gray-500">Phone</span>
+                                  <span className={`w-2 h-2 rounded-full ${
+                                    checkoutSettings.showPhone ? 'bg-emerald-500' : 'bg-gray-300'
+                                  }`}></span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs text-gray-500">Newsletter</span>
+                                  <span className={`w-2 h-2 rounded-full ${
+                                    checkoutSettings.showNewsletter ? 'bg-emerald-500' : 'bg-gray-300'
+                                  }`}></span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {checkoutSettings.showDeliverySection && (
+                            <div className="border-t border-gray-200 pt-3">
+                              <div className="text-gray-600 mb-2">Delivery Fields:</div>
+                              <div className="space-y-1">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs text-gray-500">Country</span>
+                                  <span className={`w-2 h-2 rounded-full ${
+                                    checkoutSettings.showCountry ? 'bg-emerald-500' : 'bg-gray-300'
+                                  }`}></span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs text-gray-500">First Name</span>
+                                  <span className={`w-2 h-2 rounded-full ${
+                                    checkoutSettings.showFirstName ? 'bg-emerald-500' : 'bg-gray-300'
+                                  }`}></span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs text-gray-500">Last Name</span>
+                                  <span className={`w-2 h-2 rounded-full ${
+                                    checkoutSettings.showLastName ? 'bg-emerald-500' : 'bg-gray-300'
+                                  }`}></span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs text-gray-500">Address</span>
+                                  <span className={`w-2 h-2 rounded-full ${
+                                    checkoutSettings.showAddress ? 'bg-emerald-500' : 'bg-gray-300'
+                                  }`}></span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs text-gray-500">Apartment</span>
+                                  <span className={`w-2 h-2 rounded-full ${
+                                    checkoutSettings.showApartment ? 'bg-emerald-500' : 'bg-gray-300'
+                                  }`}></span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs text-gray-500">City</span>
+                                  <span className={`w-2 h-2 rounded-full ${
+                                    checkoutSettings.showCity ? 'bg-emerald-500' : 'bg-gray-300'
+                                  }`}></span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs text-gray-500">Instructions</span>
+                                  <span className={`w-2 h-2 rounded-full ${
+                                    checkoutSettings.showDeliveryInstructions ? 'bg-emerald-500' : 'bg-gray-300'
+                                  }`}></span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                          
+                          <div className="border-t border-gray-200 pt-3">
+                            <div className="text-gray-600 mb-2">Payment Methods:</div>
+                            <div className="space-y-1">
+                              {Object.entries(checkoutSettings.enabledPaymentMethods).map(([method, enabled]) => (
+                                <div key={method} className="flex items-center justify-between">
+                                  <span className="text-xs text-gray-500 capitalize">
+                                    {method.replace(/([A-Z])/g, ' $1').trim()}
+                                  </span>
+                                  <span className={`w-2 h-2 rounded-full ${
+                                    enabled ? 'bg-emerald-500' : 'bg-gray-300'
+                                  }`}></span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="border-t border-gray-200 pt-3">
+                            <div className="flex items-center justify-between">
+                              <span className="text-gray-600">Catalogue Checkout</span>
+                              <span className={`px-2 py-1 rounded text-xs ${
+                                checkoutSettings.showCheckoutInCatalogue ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'
+                              }`}>
+                                {checkoutSettings.showCheckoutInCatalogue ? 'Enabled' : 'Disabled'}
+                              </span>
+                            </div>
+                            {checkoutSettings.showCheckoutInCatalogue && (
+                              <div className="mt-2">
+                                <div className="text-xs text-gray-500 mb-1">Button Preview:</div>
+                                <button
+                                  style={{ backgroundColor: checkoutSettings.checkoutButtonColor }}
+                                  className="px-3 py-1 text-white rounded text-xs font-medium"
+                                >
+                                  {checkoutSettings.checkoutButtonText}
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            </>
+          ) : (
+            <Card>
+              <div className="text-center py-8 text-gray-500">
+                <p>Failed to load checkout settings. Please try again.</p>
+              </div>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {/* Payment Integration Tab */}
+      {activeTab === 'payment' && (
+        <div className="space-y-6">
+          {cinetpayLoading ? (
+            <Card>
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
+                <span className="ml-3 text-gray-600">Loading payment integration settings...</span>
+              </div>
+            </Card>
+          ) : cinetpayConfig ? (
+            <>
+              {/* CinetPay Configuration */}
+              <Card>
+                <div className="max-w-4xl mx-auto">
+                  <div className="space-y-6">
+                    <div className="text-center mb-8">
+                      <h3 className="text-2xl font-semibold text-gray-900 mb-2">Payment Integration</h3>
+                      <p className="text-gray-600">Configure CinetPay for online payment processing</p>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                      {/* Configuration Controls */}
+                      <div className="space-y-6">
+                        {/* Master Enable/Disable */}
+                        <div className="bg-white rounded-lg shadow-sm border p-6">
+                          <div className="flex items-center space-x-2 mb-4">
+                            <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
+                            <h2 className="text-xl font-semibold text-gray-900">Payment Integration</h2>
+                          </div>
+                          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                            <div>
+                              <label className="text-sm font-medium text-gray-700">Enable Online Payments</label>
+                              <p className="text-xs text-gray-500">Master switch for all online payment processing</p>
+                            </div>
+                            <label className="relative inline-flex items-center cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={cinetpayConfig.isActive}
+                                onChange={(e) => handleCinetpayConfigUpdate({ isActive: e.target.checked })}
+                                className="sr-only peer"
+                              />
+                              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                            </label>
+                          </div>
+                        </div>
+
+                        {/* Test/Live Mode */}
+                        <div className="bg-white rounded-lg shadow-sm border p-6">
+                          <div className="flex items-center space-x-2 mb-4">
+                            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                            <h2 className="text-xl font-semibold text-gray-900">Environment Mode</h2>
+                          </div>
+                          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                            <div>
+                              <label className="text-sm font-medium text-gray-700">Test Mode</label>
+                              <p className="text-xs text-gray-500">Use sandbox environment for testing</p>
+                            </div>
+                            <label className="relative inline-flex items-center cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={cinetpayConfig.testMode}
+                                onChange={(e) => handleCinetpayConfigUpdate({ testMode: e.target.checked })}
+                                className="sr-only peer"
+                              />
+                              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                            </label>
+                          </div>
+                          {cinetpayConfig.testMode && (
+                            <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                              <div className="flex items-center">
+                                <div className="w-2 h-2 bg-yellow-500 rounded-full mr-2"></div>
+                                <span className="text-sm text-yellow-800 font-medium">Test Mode Active</span>
+                              </div>
+                              <p className="text-xs text-yellow-700 mt-1">All payments will be processed in sandbox mode</p>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* CinetPay Credentials */}
+                        <div className="bg-white rounded-lg shadow-sm border p-6">
+                          <div className="flex items-center space-x-2 mb-4">
+                            <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                            <h2 className="text-xl font-semibold text-gray-900">CinetPay Credentials</h2>
+                          </div>
+                          <div className="space-y-4">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">Site ID</label>
+                              <Input
+                                type="text"
+                                value={cinetpayConfig.siteId}
+                                onChange={(e) => handleCinetpayConfigUpdate({ siteId: e.target.value })}
+                                placeholder="Enter your CinetPay Site ID"
+                                className="w-full"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">API Key</label>
+                              <Input
+                                type="password"
+                                value={cinetpayConfig.apiKey}
+                                onChange={(e) => handleCinetpayConfigUpdate({ apiKey: e.target.value })}
+                                placeholder="Enter your CinetPay API Key"
+                                className="w-full"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">Currency</label>
+                              <div className="px-3 py-2 bg-gray-100 border border-gray-300 rounded-md text-sm text-gray-600">
+                                XAF (Cameroon Franc) - Fixed
+                              </div>
+                            </div>
+                            <div className="flex space-x-3">
+                              <Button
+                                onClick={handleTestCinetpayConnection}
+                                disabled={cinetpayTesting || !cinetpayConfig.siteId || !cinetpayConfig.apiKey}
+                                className="flex-1"
+                              >
+                                {cinetpayTesting ? 'Testing...' : 'Test Connection'}
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Payment Channels */}
+                        <div className="bg-white rounded-lg shadow-sm border p-6">
+                          <div className="flex items-center space-x-2 mb-4">
+                            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                            <h2 className="text-xl font-semibold text-gray-900">Enabled Payment Methods</h2>
+                          </div>
+                          <p className="text-sm text-gray-600 mb-4">Select which payment methods to offer to your customers</p>
+                          <div className="space-y-4">
+                            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                              <div>
+                                <label className="text-sm font-medium text-gray-700">Mobile Money</label>
+                                <p className="text-xs text-gray-500">MTN Money, Orange Money</p>
+                              </div>
+                              <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={cinetpayConfig.enabledChannels.mobileMoney}
+                                  onChange={(e) => handleCinetpayConfigUpdate({ 
+                                    enabledChannels: { 
+                                      ...cinetpayConfig.enabledChannels, 
+                                      mobileMoney: e.target.checked 
+                                    } 
+                                  })}
+                                  className="sr-only peer"
+                                />
+                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                              </label>
+                            </div>
+
+                            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                              <div>
+                                <label className="text-sm font-medium text-gray-700">Credit Card</label>
+                                <p className="text-xs text-gray-500">Visa, Mastercard</p>
+                              </div>
+                              <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={cinetpayConfig.enabledChannels.creditCard}
+                                  onChange={(e) => handleCinetpayConfigUpdate({ 
+                                    enabledChannels: { 
+                                      ...cinetpayConfig.enabledChannels, 
+                                      creditCard: e.target.checked 
+                                    } 
+                                  })}
+                                  className="sr-only peer"
+                                />
+                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                              </label>
+                            </div>
+
+                            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                              <div>
+                                <label className="text-sm font-medium text-gray-700">Wallet</label>
+                                <p className="text-xs text-gray-500">Electronic wallets</p>
+                              </div>
+                              <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={cinetpayConfig.enabledChannels.wallet}
+                                  onChange={(e) => handleCinetpayConfigUpdate({ 
+                                    enabledChannels: { 
+                                      ...cinetpayConfig.enabledChannels, 
+                                      wallet: e.target.checked 
+                                    } 
+                                  })}
+                                  className="sr-only peer"
+                                />
+                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                              </label>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Save Button */}
+                        <div className="flex justify-end space-x-3">
+                          <Button
+                            onClick={handleSaveCinetpayConfig}
+                            disabled={cinetpaySaving}
+                            className="flex items-center space-x-2"
+                          >
+                            <Save className="h-4 w-4" />
+                            <span>{cinetpaySaving ? 'Saving...' : 'Save Settings'}</span>
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Preview Panel */}
+                      <div className="space-y-6">
+                        <div className="bg-white rounded-lg shadow-sm border p-6">
+                          <h3 className="text-lg font-semibold text-gray-900 mb-4">Configuration Preview</h3>
+                          <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                              <span className="text-gray-600">Payment Integration</span>
+                              <span className={`px-2 py-1 rounded text-xs ${
+                                cinetpayConfig.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'
+                              }`}>
+                                {cinetpayConfig.isActive ? 'Enabled' : 'Disabled'}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-gray-600">Environment</span>
+                              <span className={`px-2 py-1 rounded text-xs ${
+                                cinetpayConfig.testMode ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'
+                              }`}>
+                                {cinetpayConfig.testMode ? 'Test Mode' : 'Live Mode'}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-gray-600">Site ID</span>
+                              <span className="text-xs text-gray-500">
+                                {cinetpayConfig.siteId ? `${cinetpayConfig.siteId.substring(0, 8)}...` : 'Not set'}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-gray-600">API Key</span>
+                              <span className="text-xs text-gray-500">
+                                {cinetpayConfig.apiKey ? '••••••••' : 'Not set'}
+                              </span>
+                            </div>
+                            <div className="border-t border-gray-200 pt-3">
+                              <div className="text-gray-600 mb-2">Enabled Payment Methods:</div>
+                              <div className="space-y-1">
+                                {Object.entries(cinetpayConfig.enabledChannels).map(([channel, enabled]) => (
+                                  <div key={channel} className="flex items-center justify-between">
+                                    <span className="text-xs text-gray-500 capitalize">
+                                      {channel.replace(/([A-Z])/g, ' $1').trim()}
+                                    </span>
+                                    <span className={`w-2 h-2 rounded-full ${
+                                      enabled ? 'bg-emerald-500' : 'bg-gray-300'
+                                    }`}></span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            </>
+          ) : (
+            <Card>
+              <div className="text-center py-8 text-gray-500">
+                <p>Failed to load payment integration settings. Please try again.</p>
+              </div>
+            </Card>
+          )}
+        </div>
       )}
 
       {/* Payment Method Modal */}

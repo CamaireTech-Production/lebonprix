@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { ShoppingBag, X, Plus, Minus } from 'lucide-react';
 import { useCart } from '../../contexts/CartContext';
-import CheckoutModal from '../checkout/CheckoutModal';
+import { useAuth } from '../../contexts/AuthContext';
 
 const placeholderImg = '/placeholder.png';
 
@@ -12,9 +12,21 @@ interface FloatingCartButtonProps {
 
 const FloatingCartButton: React.FC<FloatingCartButtonProps> = ({ className = '' }) => {
   const { companyId } = useParams<{ companyId: string }>();
+  const navigate = useNavigate();
   const { cart, updateCartItem, getCartItemCount, getCartTotal } = useCart();
+  const { company } = useAuth();
   const [isCartOpen, setIsCartOpen] = useState(false);
-  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+
+  // Get company colors with fallbacks
+  const getCompanyColors = () => {
+    const colors = {
+      primary: company?.catalogueColors?.primary || company?.primaryColor || '#183524',
+      secondary: company?.catalogueColors?.secondary || company?.secondaryColor || '#e2b069',
+      tertiary: company?.catalogueColors?.tertiary || company?.tertiaryColor || '#2a4a3a',
+      headerText: company?.catalogueColors?.headerText || '#ffffff',
+    };
+    return colors;
+  };
 
   const handleUpdateQuantity = (productId: string, quantity: number, selectedColor?: string, selectedSize?: string) => {
     updateCartItem(productId, quantity, selectedColor, selectedSize);
@@ -26,7 +38,10 @@ const FloatingCartButton: React.FC<FloatingCartButtonProps> = ({ className = '' 
       <div className={`fixed bottom-20 right-4 z-40 ${className}`}>
         <button
           onClick={() => setIsCartOpen(true)}
-          className="relative text-white p-4 rounded-full shadow-lg transition-all duration-200 hover:scale-105" style={{backgroundColor: '#e2b069'}} onMouseEnter={(e) => (e.target as HTMLButtonElement).style.backgroundColor = '#d4a05a'} onMouseLeave={(e) => (e.target as HTMLButtonElement).style.backgroundColor = '#e2b069'}
+          className="relative text-white p-4 rounded-full shadow-lg transition-all duration-200 hover:scale-105"
+          style={{backgroundColor: getCompanyColors().secondary}}
+          onMouseEnter={(e) => (e.target as HTMLButtonElement).style.backgroundColor = getCompanyColors().primary}
+          onMouseLeave={(e) => (e.target as HTMLButtonElement).style.backgroundColor = getCompanyColors().secondary}
         >
           <ShoppingBag className="h-6 w-6" />
           {getCartItemCount() > 0 && (
@@ -43,12 +58,15 @@ const FloatingCartButton: React.FC<FloatingCartButtonProps> = ({ className = '' 
           <div className="bg-white w-full max-h-[90vh] rounded-t-lg flex flex-col">
             {/* Cart Header */}
             <div className="flex items-center justify-between p-4 border-b border-gray-200 flex-shrink-0">
-              <h3 className="text-lg font-semibold text-gray-900">
+              <h3 className="text-lg font-semibold" style={{color: getCompanyColors().primary}}>
                 Cart ({getCartItemCount()})
               </h3>
               <button
                 onClick={() => setIsCartOpen(false)}
-                className="text-gray-500 hover:text-gray-700 p-1"
+                className="p-1 transition-colors"
+                style={{color: getCompanyColors().primary}}
+                onMouseEnter={(e) => (e.target as HTMLButtonElement).style.color = getCompanyColors().secondary}
+                onMouseLeave={(e) => (e.target as HTMLButtonElement).style.color = getCompanyColors().primary}
               >
                 <X className="h-5 w-5" />
               </button>
@@ -76,15 +94,15 @@ const FloatingCartButton: React.FC<FloatingCartButtonProps> = ({ className = '' 
                       
                       {/* Product Info */}
                       <div className="flex-1 min-w-0">
-                        <h4 className="font-medium text-sm text-gray-900 truncate">
+                        <h4 className="font-medium text-sm truncate" style={{color: getCompanyColors().primary}}>
                           {item.name}
                         </h4>
-                        <p className="text-xs text-gray-500">
+                        <p className="text-xs" style={{color: getCompanyColors().tertiary}}>
                           {item.category}
                           {item.selectedColor && ` • ${item.selectedColor}`}
                           {item.selectedSize && ` • ${item.selectedSize}`}
                         </p>
-                        <p className="font-semibold text-sm" style={{color: '#e2b069'}}>
+                        <p className="font-semibold text-sm" style={{color: getCompanyColors().secondary}}>
                           {(item.price * item.quantity).toLocaleString('fr-FR', {
                             style: 'currency',
                             currency: 'XAF'
@@ -96,16 +114,22 @@ const FloatingCartButton: React.FC<FloatingCartButtonProps> = ({ className = '' 
                       <div className="flex items-center space-x-2">
                         <button
                           onClick={() => handleUpdateQuantity(item.productId, item.quantity - 1, item.selectedColor, item.selectedSize)}
-                          className="w-6 h-6 bg-gray-200 hover:bg-gray-300 rounded-full flex items-center justify-center transition-colors"
+                          className="w-6 h-6 rounded-full flex items-center justify-center transition-colors"
+                          style={{backgroundColor: `${getCompanyColors().primary}20`}}
+                          onMouseEnter={(e) => (e.target as HTMLButtonElement).style.backgroundColor = `${getCompanyColors().primary}40`}
+                          onMouseLeave={(e) => (e.target as HTMLButtonElement).style.backgroundColor = `${getCompanyColors().primary}20`}
                         >
-                          <Minus className="h-3 w-3" />
+                          <Minus className="h-3 w-3" style={{color: getCompanyColors().primary}} />
                         </button>
-                        <span className="w-8 text-center text-sm font-medium">{item.quantity}</span>
+                        <span className="w-8 text-center text-sm font-medium" style={{color: getCompanyColors().primary}}>{item.quantity}</span>
                         <button
                           onClick={() => handleUpdateQuantity(item.productId, item.quantity + 1, item.selectedColor, item.selectedSize)}
-                          className="w-6 h-6 bg-gray-200 hover:bg-gray-300 rounded-full flex items-center justify-center transition-colors"
+                          className="w-6 h-6 rounded-full flex items-center justify-center transition-colors"
+                          style={{backgroundColor: `${getCompanyColors().primary}20`}}
+                          onMouseEnter={(e) => (e.target as HTMLButtonElement).style.backgroundColor = `${getCompanyColors().primary}40`}
+                          onMouseLeave={(e) => (e.target as HTMLButtonElement).style.backgroundColor = `${getCompanyColors().primary}20`}
                         >
-                          <Plus className="h-3 w-3" />
+                          <Plus className="h-3 w-3" style={{color: getCompanyColors().primary}} />
                         </button>
                       </div>
                     </div>
@@ -118,8 +142,8 @@ const FloatingCartButton: React.FC<FloatingCartButtonProps> = ({ className = '' 
             {cart.length > 0 && (
               <div className="border-t border-gray-200 p-4 flex-shrink-0">
                 <div className="flex justify-between items-center mb-4">
-                  <span className="font-semibold text-gray-900">Total:</span>
-                  <span className="font-bold text-lg" style={{color: '#e2b069'}}>
+                  <span className="font-semibold" style={{color: getCompanyColors().primary}}>Total:</span>
+                  <span className="font-bold text-lg" style={{color: getCompanyColors().secondary}}>
                     {getCartTotal().toLocaleString('fr-FR', {
                       style: 'currency',
                       currency: 'XAF'
@@ -129,9 +153,12 @@ const FloatingCartButton: React.FC<FloatingCartButtonProps> = ({ className = '' 
                 <button
                   onClick={() => {
                     setIsCartOpen(false);
-                    setIsCheckoutOpen(true);
+                    navigate('/checkout');
                   }}
-                  className="w-full text-white py-3 rounded-lg font-semibold transition-colors" style={{backgroundColor: '#e2b069'}} onMouseEnter={(e) => (e.target as HTMLButtonElement).style.backgroundColor = '#d4a05a'} onMouseLeave={(e) => (e.target as HTMLButtonElement).style.backgroundColor = '#e2b069'}
+                  className="w-full text-white py-3 rounded-lg font-semibold transition-colors"
+                  style={{backgroundColor: getCompanyColors().primary}}
+                  onMouseEnter={(e) => (e.target as HTMLButtonElement).style.backgroundColor = getCompanyColors().secondary}
+                  onMouseLeave={(e) => (e.target as HTMLButtonElement).style.backgroundColor = getCompanyColors().primary}
                 >
                   Checkout Now
                 </button>
@@ -141,14 +168,6 @@ const FloatingCartButton: React.FC<FloatingCartButtonProps> = ({ className = '' 
         </div>
       )}
 
-      {/* Checkout Modal */}
-      {companyId && (
-        <CheckoutModal
-          isOpen={isCheckoutOpen}
-          onClose={() => setIsCheckoutOpen(false)}
-          companyId={companyId}
-        />
-      )}
     </>
   );
 };

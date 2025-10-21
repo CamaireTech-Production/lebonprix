@@ -3,6 +3,7 @@ import { Plus, Trash2, X, Check, Copy, Bookmark } from 'lucide-react';
 import type { ProductTag, TagVariation } from '../../types/models';
 import { subscribeToUserTags, createUserTag } from '../../services/firestore';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTranslation } from 'react-i18next';
 
 interface ProductTagsManagerProps {
   tags?: ProductTag[];
@@ -12,6 +13,7 @@ interface ProductTagsManagerProps {
 
 const ProductTagsManager: React.FC<ProductTagsManagerProps> = ({ tags = [], onTagsChange, images = [] }) => {
   const { user } = useAuth();
+  const { t } = useTranslation();
   const [editingTag, setEditingTag] = useState<string | null>(null);
   const [newTagName, setNewTagName] = useState('');
   const [newVariationName, setNewVariationName] = useState('');
@@ -83,14 +85,14 @@ const ProductTagsManager: React.FC<ProductTagsManagerProps> = ({ tags = [], onTa
     onTagsChange(updatedTags);
   };
 
-  const updateVariationImage = (tagId: string, variationId: string, imageIndex: number) => {
+  const updateVariationImage = (tagId: string, variationId: string, imageIndex: number | undefined) => {
     const updatedTags = tags.map(tag => 
       tag.id === tagId 
         ? { 
             ...tag, 
             variations: tag.variations.map(v => 
               v.id === variationId 
-                ? { ...v, imageIndex: imageIndex >= 0 ? imageIndex : undefined }
+                ? { ...v, imageIndex: imageIndex !== undefined && imageIndex >= 0 ? imageIndex : undefined }
                 : v
             )
           }
@@ -169,14 +171,14 @@ const ProductTagsManager: React.FC<ProductTagsManagerProps> = ({ tags = [], onTa
                     }`}
                   >
                     <Copy className="h-3 w-3" />
-                    <span>{isTagAlreadyUsed(userTag) ? 'Used' : 'Copy'}</span>
+                    <span>{isTagAlreadyUsed(userTag) ? t('common.used') : t('common.copy')}</span>
                   </button>
                 </div>
               ))}
             </div>
           ) : (
             <div className="text-center py-4 text-blue-600">
-              <p className="text-sm">No saved tags yet</p>
+              <p className="text-sm">{t('products.tags.noSavedTags')}</p>
               <p className="text-xs mt-1">Create tags and they'll be saved here for future use</p>
             </div>
           )}

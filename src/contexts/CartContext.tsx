@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
 import type { Product } from '../types/models';
+import { loadCartData, saveCheckoutData, clearCheckoutData } from '../utils/checkoutPersistence';
 
 // Cart item interface (following the documentation structure)
 interface CartItem {
@@ -23,6 +24,12 @@ interface CartContextType {
   getCartTotal: () => number;
   getCartItemCount: () => number;
   getCartItemQuantity: (productId: string, selectedColor?: string, selectedSize?: string) => number;
+  // Company-specific persistence methods
+  loadCartForCompany: (companyId: string) => void;
+  saveCartForCompany: (companyId: string) => void;
+  clearCartForCompany: (companyId: string) => void;
+  currentCompanyId: string | null;
+  setCurrentCompanyId: (companyId: string | null) => void;
 }
 
 // Create the context
@@ -31,6 +38,7 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 // Cart provider component
 export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [currentCompanyId, setCurrentCompanyId] = useState<string | null>(null);
 
   // Generate unique key for cart item (product + color + size combination)
   const getItemKey = (productId: string, selectedColor?: string, selectedSize?: string) => {
@@ -142,6 +150,77 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return item ? item.quantity : 0;
   }, [cart]);
 
+  // Load cart for specific company
+  const loadCartForCompany = useCallback((companyId: string) => {
+    try {
+      console.log('Loading cart for company:', companyId);
+      const cartData = loadCartData(companyId);
+      console.log('Loaded cart data:', cartData);
+      if (cartData && cartData.cartItems && cartData.cartItems.length > 0) {
+        setCart(cartData.cartItems);
+        setCurrentCompanyId(companyId);
+        console.log('Cart loaded successfully:', cartData.cartItems);
+      } else {
+        console.log('No cart data found for company:', companyId);
+      }
+    } catch (error) {
+      console.error('Error loading cart for company:', error);
+    }
+  }, []);
+
+  // Save cart for specific company
+  const saveCartForCompany = useCallback((companyId: string) => {
+    try {
+      const cartTotal = getCartTotal();
+      console.log('Saving cart for company:', companyId, 'Items:', cart.length, 'Total:', cartTotal);
+      // Save cart data using the persistence utility
+      saveCheckoutData(companyId, {
+        customerInfo: {
+          name: '',
+          phone: '',
+          location: '',
+          deliveryInstructions: ''
+        },
+        selectedPaymentMethod: '',
+        selectedPaymentOption: '',
+        paymentFormData: {
+          mtnNumber: '',
+          orangeNumber: '',
+          cardNumber: '',
+          expiryDate: '',
+          securityCode: '',
+          nameOnCard: ''
+        }
+      }, cart, cartTotal);
+      console.log('Cart saved successfully for company:', companyId);
+    } catch (error) {
+      console.error('Error saving cart for company:', error);
+    }
+  }, [cart, getCartTotal]);
+
+  // Clear cart for specific company
+  const clearCartForCompany = useCallback((companyId: string) => {
+    try {
+      clearCheckoutData(companyId);
+      setCart([]);
+      setCurrentCompanyId(null);
+    } catch (error) {
+      console.error('Error clearing cart for company:', error);
+    }
+  }, []);
+
+  // Auto-save cart when it changes (if company is set)
+  useEffect(() => {
+    if (currentCompanyId && cart.length > 0) {
+      console.log('Auto-saving cart for company:', currentCompanyId, 'Items:', cart.length);
+      const timeoutId = setTimeout(() => {
+        saveCartForCompany(currentCompanyId);
+      }, 1000); // Debounce saves
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [cart, currentCompanyId, saveCartForCompany]);
+
   const value: CartContextType = {
     cart,
     addToCart,
@@ -150,7 +229,13 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     clearCart,
     getCartTotal,
     getCartItemCount,
-    getCartItemQuantity
+    getCartItemQuantity,
+    // Company-specific persistence methods
+    loadCartForCompany,
+    saveCartForCompany,
+    clearCartForCompany,
+    currentCompanyId,
+    setCurrentCompanyId
   };
 
   return (

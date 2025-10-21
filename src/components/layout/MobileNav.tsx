@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, ShoppingCart, DollarSign, Package2, FileBarChart, Receipt, Settings, Users, Grid3X3 } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, DollarSign, Package2, FileBarChart, Receipt, Settings, Users, Grid3X3, ShoppingBag} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 const MobileNav = () => {
@@ -13,6 +13,7 @@ const MobileNav = () => {
   const navigationItems = [
     { name: t('navigation.dashboard'), path: '/', icon: <LayoutDashboard size={20} /> },
     { name: t('navigation.sales'), path: '/sales', icon: <ShoppingCart size={20} /> },
+    { name: 'Orders', path: '/orders', icon: <ShoppingBag size={20} /> },
     { name: t('navigation.expenses'), path: '/expenses', icon: <Receipt size={20} /> },
     { name: t('navigation.products'), path: '/products', icon: <Package2 size={20} /> },
     { name: 'Categories', path: '/categories', icon: <Grid3X3 size={20} /> },

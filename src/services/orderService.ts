@@ -1,0 +1,426 @@
+import { db } from './firebase';
+import { 
+  collection, 
+  doc, 
+  addDoc, 
+  getDoc, 
+  getDocs, 
+  updateDoc, 
+  query, 
+  where, 
+  orderBy, 
+  onSnapshot, 
+  serverTimestamp,
+  Timestamp,
+  Unsubscribe
+} from 'firebase/firestore';
+import { 
+  Order, 
+  OrderFilters, 
+  OrderStats, 
+  OrderEvent, 
+  OrderStatus, 
+  PaymentStatus, 
+  OrderItem,
+  CustomerInfo,
+  OrderPricing,
+  DeliveryInfo,
+  OrderMetadata,
+  CartItem
+} from '../types/order';
+
+const COLLECTION_NAME = 'orders';
+
+// Generate unique order ID
+const generateOrderId = (): string => {
+  return `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+};
+
+// Generate human-readable order number
+const generateOrderNumber = (): string => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const sequence = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+  return `ORD-${year}${month}${day}-${sequence}`;
+};
+
+// Convert cart items to order items
+const convertCartToOrderItems = (cartItems: CartItem[]): OrderItem[] => {
+  return cartItems.map(item => ({
+    productId: item.productId || '',
+    name: item.name || '',
+    price: item.price || 0,
+    quantity: item.quantity || 0,
+    image: item.image || '',
+    category: item.category || '',
+    selectedColor: item.selectedColor || '',
+    selectedSize: item.selectedSize || '',
+    variations: {
+      color: item.selectedColor || '',
+      size: item.selectedSize || ''
+    }
+  }));
+};
+
+// Create initial order event
+const createInitialOrderEvent = (userId: string): OrderEvent => {
+  return {
+    id: `event-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    type: 'created',
+    status: 'pending',
+    paymentStatus: 'pending',
+    timestamp: new Date(),
+    userId: userId || '',
+    metadata: {}
+  };
+};
+
+// Create order in Firestore
+export const createOrder = async (
+  userId: string,
+  orderData: {
+    customerInfo: CustomerInfo;
+    cartItems: CartItem[];
+    pricing: OrderPricing;
+    paymentMethod: string;
+    paymentOption?: string;
+    paymentFormData?: Record<string, string>;
+    deliveryInfo?: DeliveryInfo;
+    metadata?: OrderMetadata;
+  }
+): Promise<Order> => {
+  try {
+    const orderId = generateOrderId();
+    const orderNumber = generateOrderNumber();
+    
+    // Sanitize customer info to prevent undefined values
+    const sanitizedCustomerInfo: CustomerInfo = {
+      name: orderData.customerInfo.name || '',
+      phone: orderData.customerInfo.phone || '',
+      location: orderData.customerInfo.location || '',
+      deliveryInstructions: orderData.customerInfo.deliveryInstructions || '',
+      email: orderData.customerInfo.email || '',
+      address: orderData.customerInfo.address || '',
+      city: orderData.customerInfo.city || '',
+      zipCode: orderData.customerInfo.zipCode || ''
+    };
+
+    // Convert cart items to order items
+    const orderItems = convertCartToOrderItems(orderData.cartItems);
+    
+    // Sanitize pricing to prevent undefined values
+    const sanitizedPricing: OrderPricing = {
+      subtotal: orderData.pricing.subtotal || 0,
+      deliveryFee: orderData.pricing.deliveryFee || 0,
+      tax: orderData.pricing.tax || 0,
+      discount: orderData.pricing.discount || 0,
+      total: orderData.pricing.total || 0
+    };
+
+    // Determine initial status based on payment method
+    const initialStatus: OrderStatus = 'pending';
+    const initialPaymentStatus: PaymentStatus = orderData.paymentMethod === 'pay_onsite' ? 'pending' : 'awaiting_payment';
+
+    // Create initial order event
+    const initialEvent = createInitialOrderEvent(userId);
+
+    // Sanitize delivery info
+    const sanitizedDeliveryInfo: DeliveryInfo = {
+      method: orderData.deliveryInfo?.method || 'delivery',
+      address: orderData.deliveryInfo?.address || '',
+      scheduledDate: orderData.deliveryInfo?.scheduledDate || undefined,
+      deliveredAt: orderData.deliveryInfo?.deliveredAt || undefined,
+      instructions: orderData.deliveryInfo?.instructions || ''
+    };
+
+    // Sanitize metadata
+    const sanitizedMetadata: OrderMetadata = {
+      source: orderData.metadata?.source || 'catalogue',
+      ipAddress: orderData.metadata?.ipAddress || '',
+      userAgent: orderData.metadata?.userAgent || '',
+      referrer: orderData.metadata?.referrer || '',
+      deviceInfo: orderData.metadata?.deviceInfo || {
+        type: 'desktop',
+        os: '',
+        browser: ''
+      }
+    };
+
+    // Create order document
+    const orderDoc = {
+      orderId: orderId || '',
+      orderNumber: orderNumber || '',
+      customerInfo: sanitizedCustomerInfo,
+      items: orderItems,
+      pricing: sanitizedPricing,
+      orderType: 'online' as const,
+      status: initialStatus,
+      paymentStatus: initialPaymentStatus,
+      paymentMethod: orderData.paymentMethod as any,
+      deliveryInfo: sanitizedDeliveryInfo,
+      timeline: [initialEvent],
+      metadata: sanitizedMetadata,
+      userId: userId || '',
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    };
+
+    const docRef = await addDoc(collection(db, COLLECTION_NAME), orderDoc);
+    
+    return {
+      id: docRef.id,
+      ...orderDoc,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    } as Order;
+  } catch (error) {
+    console.error('Error creating order:', error);
+    throw error;
+  }
+};
+
+// Get order by ID
+export const getOrderById = async (orderId: string): Promise<Order | null> => {
+  try {
+    const docRef = doc(db, COLLECTION_NAME, orderId);
+    const docSnap = await getDoc(docRef);
+    
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      return {
+        id: docSnap.id,
+        ...data,
+        createdAt: data.createdAt?.toDate() || new Date(),
+        updatedAt: data.updatedAt?.toDate() || new Date()
+      } as Order;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Error getting order:', error);
+    throw error;
+  }
+};
+
+// Subscribe to orders for a user
+export const subscribeToOrders = (
+  userId: string, 
+  callback: (orders: Order[]) => void,
+  filters?: OrderFilters
+): Unsubscribe => {
+  let q = query(
+    collection(db, COLLECTION_NAME),
+    where('userId', '==', userId),
+    orderBy('createdAt', 'desc')
+  );
+
+  // Apply filters if provided
+  if (filters?.status && filters.status.length > 0) {
+    q = query(q, where('status', 'in', filters.status));
+  }
+  
+  if (filters?.paymentStatus && filters.paymentStatus.length > 0) {
+    q = query(q, where('paymentStatus', 'in', filters.paymentStatus));
+  }
+
+  if (filters?.paymentMethod && filters.paymentMethod.length > 0) {
+    q = query(q, where('paymentMethod', 'in', filters.paymentMethod));
+  }
+
+  if (filters?.dateFrom) {
+    q = query(q, where('createdAt', '>=', Timestamp.fromDate(filters.dateFrom)));
+  }
+
+  if (filters?.dateTo) {
+    q = query(q, where('createdAt', '<=', Timestamp.fromDate(filters.dateTo)));
+  }
+
+  return onSnapshot(q, (snapshot) => {
+    const orders: Order[] = [];
+    snapshot.forEach((doc) => {
+      const data = doc.data();
+      orders.push({
+        id: doc.id,
+        ...data,
+        createdAt: data.createdAt?.toDate() || new Date(),
+        updatedAt: data.updatedAt?.toDate() || new Date()
+      } as Order);
+    });
+    callback(orders);
+  }, (error) => {
+    console.error('Error subscribing to orders:', error);
+    callback([]);
+  });
+};
+
+// Update order status
+export const updateOrderStatus = async (
+  orderId: string, 
+  status: OrderStatus,
+  userId: string,
+  note?: string
+): Promise<void> => {
+  try {
+    const orderRef = doc(db, COLLECTION_NAME, orderId);
+    
+    // Create status change event
+    const statusEvent: OrderEvent = {
+      id: `event-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      type: 'status_changed',
+      status,
+      timestamp: new Date(),
+      userId,
+      metadata: { note }
+    };
+
+    // Update order with new status and event
+    await updateDoc(orderRef, {
+      status,
+      updatedAt: serverTimestamp(),
+      timeline: [statusEvent] // This will be handled by arrayUnion in a real implementation
+    });
+  } catch (error) {
+    console.error('Error updating order status:', error);
+    throw error;
+  }
+};
+
+// Update payment status
+export const updateOrderPaymentStatus = async (
+  orderId: string,
+  paymentStatus: PaymentStatus,
+  userId: string,
+  cinetpayTransactionId?: string,
+  cinetpayStatus?: string
+): Promise<void> => {
+  try {
+    const orderRef = doc(db, COLLECTION_NAME, orderId);
+    
+    // Create payment update event
+    const paymentEvent: OrderEvent = {
+      id: `event-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      type: 'payment_updated',
+      paymentStatus,
+      timestamp: new Date(),
+      userId,
+      metadata: { 
+        cinetpayTransactionId,
+        cinetpayStatus 
+      }
+    };
+
+    const updateData: any = {
+      paymentStatus,
+      updatedAt: serverTimestamp()
+    };
+
+    // Add CinetPay details if provided
+    if (cinetpayTransactionId) {
+      updateData['paymentDetails.cinetpayTransactionId'] = cinetpayTransactionId;
+    }
+    if (cinetpayStatus) {
+      updateData['paymentDetails.cinetpayStatus'] = cinetpayStatus;
+    }
+
+    await updateDoc(orderRef, updateData);
+  } catch (error) {
+    console.error('Error updating payment status:', error);
+    throw error;
+  }
+};
+
+// Add note to order
+export const addOrderNote = async (
+  orderId: string,
+  note: string,
+  userId: string
+): Promise<void> => {
+  try {
+    const orderRef = doc(db, COLLECTION_NAME, orderId);
+    
+    // Create note event
+    const noteEvent: OrderEvent = {
+      id: `event-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      type: 'note_added',
+      note,
+      timestamp: new Date(),
+      userId,
+      metadata: {}
+    };
+
+    await updateDoc(orderRef, {
+      updatedAt: serverTimestamp()
+      // Note: In a real implementation, you'd use arrayUnion to add the event
+    });
+  } catch (error) {
+    console.error('Error adding order note:', error);
+    throw error;
+  }
+};
+
+// Get order statistics
+export const getOrderStats = async (userId: string): Promise<OrderStats> => {
+  try {
+    const q = query(
+      collection(db, COLLECTION_NAME),
+      where('userId', '==', userId)
+    );
+    
+    const snapshot = await getDocs(q);
+    const orders: Order[] = [];
+    
+    snapshot.forEach((doc) => {
+      const data = doc.data();
+      orders.push({
+        id: doc.id,
+        ...data,
+        createdAt: data.createdAt?.toDate() || new Date(),
+        updatedAt: data.updatedAt?.toDate() || new Date()
+      } as Order);
+    });
+
+    // Calculate statistics
+    const totalOrders = orders.length;
+    const pendingOrders = orders.filter(o => o.status === 'pending').length;
+    const completedOrders = orders.filter(o => o.status === 'delivered').length;
+    const cancelledOrders = orders.filter(o => o.status === 'cancelled').length;
+    const totalRevenue = orders
+      .filter(o => o.paymentStatus === 'paid')
+      .reduce((sum, o) => sum + o.pricing.total, 0);
+    const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+
+    // Orders by status
+    const ordersByStatus = orders.reduce((acc, order) => {
+      acc[order.status] = (acc[order.status] || 0) + 1;
+      return acc;
+    }, {} as Record<OrderStatus, number>);
+
+    // Orders by payment method
+    const ordersByPaymentMethod = orders.reduce((acc, order) => {
+      acc[order.paymentMethod] = (acc[order.paymentMethod] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    // Recent orders (last 10)
+    const recentOrders = orders
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .slice(0, 10);
+
+    return {
+      totalOrders,
+      pendingOrders,
+      completedOrders,
+      cancelledOrders,
+      totalRevenue,
+      averageOrderValue,
+      ordersByStatus,
+      ordersByPaymentMethod: ordersByPaymentMethod as any,
+      recentOrders
+    };
+  } catch (error) {
+    console.error('Error getting order stats:', error);
+    throw error;
+  }
+};

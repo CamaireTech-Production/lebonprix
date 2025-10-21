@@ -273,7 +273,6 @@ const Products = () => {
         reader.readAsDataURL(compressedFile);
         reader.onload = () => {
           const base64 = reader.result as string;
-          console.log('Generated data URL:', base64.substring(0, 100) + '...');
           // Return the complete data URL for image preview
           resolve(base64);
         };
@@ -344,7 +343,6 @@ const Products = () => {
           } else {
             converted = img; // Already base64 or URL
           }
-          console.log('Converting image for database:', img.substring(0, 50) + '... -> ' + converted.substring(0, 50) + '...');
           return converted;
         }) : [],
         tags: step1Data.tags.length > 0 ? step1Data.tags : [],
@@ -1003,7 +1001,6 @@ const Products = () => {
         showErrorToast(t('products.messages.errors.addProduct'));
       }
     }
-    console.log('Adding new images to step1Data:', newImages.map(img => img.substring(0, 50) + '...'));
     setStep1Data(prev => ({ ...prev, images: [...prev.images, ...newImages] }));
     setIsUploadingImages(false);
   };
@@ -1378,16 +1375,6 @@ const Products = () => {
                     const mainIdx = mainImageIndexes[product.id] ?? 0;
                     const mainImg = images.length > 0 ? images[mainIdx] : '/placeholder.png';
                     
-                    // Debug logging for image data
-                    if (images.length > 0) {
-                      console.log(`Product ${product.name} image data:`, {
-                        totalImages: images.length,
-                        mainIndex: mainIdx,
-                        mainImagePreview: mainImg.substring(0, 100) + '...',
-                        isDataURL: mainImg.startsWith('data:'),
-                        isBase64: !mainImg.startsWith('data:') && !mainImg.startsWith('/') && !mainImg.startsWith('http')
-                      });
-                    }
                     
                     return (
                       <ImageWithSkeleton
