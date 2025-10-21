@@ -10,6 +10,7 @@ import { useSales, useExpenses, useAuditLogs, useProducts } from '../hooks/useFi
 import { getSellerSettings, updateSellerSettings } from '../services/firestore';
 import { getCheckoutSettingsWithDefaults, saveCheckoutSettings, resetCheckoutSettings, subscribeToCheckoutSettings } from '../services/checkoutSettingsService';
 import { saveCinetPayConfig, subscribeToCinetPayConfig, validateCinetPayCredentials, initializeCinetPayConfig } from '../services/cinetpayService';
+import { AuditLogger } from '../utils/auditLogger';
 import type { SellerSettings, PaymentMethod } from '../types/order';
 import type { CheckoutSettings, CheckoutSettingsUpdate } from '../types/checkoutSettings';
 import type { CinetPayConfig, CinetPayConfigUpdate } from '../types/cinetpay';
@@ -424,6 +425,17 @@ const Settings = () => {
     try {
       setCinetpaySaving(true);
       await saveCinetPayConfig(user.uid, cinetpayConfig);
+      
+      // Log configuration change
+      await AuditLogger.logConfigChange(user.uid, 'cinetpay_config_saved', {
+        configType: 'cinetpay',
+        changes: {
+          isActive: cinetpayConfig.isActive,
+          testMode: cinetpayConfig.testMode,
+          enabledChannels: cinetpayConfig.enabledChannels
+        }
+      });
+      
       showSuccessToast('Payment integration settings saved');
     } catch (error) {
       console.error('Error saving CinetPay config:', error);

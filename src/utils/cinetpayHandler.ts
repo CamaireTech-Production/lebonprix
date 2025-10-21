@@ -1,4 +1,6 @@
 import { CinetPayConfig, CinetPaySDKOptions, CinetPayCallbacks } from '../types/cinetpay';
+import { SecureEncryption, PaymentValidator } from './encryption';
+import { AuditLogger } from './auditLogger';
 
 // Declare global CinetPay object
 declare global {
@@ -130,34 +132,51 @@ export const processCinetPayPayment = async (
       throw new Error('CinetPay is not properly configured');
     }
 
+    // Validate payment data
+    const validation = PaymentValidator.validatePaymentData(paymentData);
+    if (!validation.isValid) {
+      throw new Error(`Invalid payment data: ${validation.errors.join(', ')}`);
+    }
+
+    // Sanitize input data
+    const sanitizedPaymentData = PaymentValidator.sanitizeInput(paymentData);
+
+    // Log payment initiation
+    await AuditLogger.logPaymentEvent(config.userId, 'payment_initiated', {
+      orderId: paymentData.transactionId,
+      amount: paymentData.amount,
+      currency: paymentData.currency,
+      status: 'initiated'
+    });
+
     // Get enabled channels
     const enabledChannels = getEnabledChannels(config);
     if (enabledChannels.length === 0) {
       throw new Error('No payment channels are enabled');
     }
 
-    // Prepare payment options
+    // Prepare payment options with sanitized data
     const paymentOptions: CinetPaySDKOptions = {
       apikey: config.apiKey,
       site_id: config.siteId,
-      notify_url: paymentData.notifyUrl,
-      return_url: paymentData.returnUrl,
-      transaction_id: paymentData.transactionId,
-      amount: paymentData.amount,
-      currency: paymentData.currency,
+      notify_url: sanitizedPaymentData.notifyUrl,
+      return_url: sanitizedPaymentData.returnUrl,
+      transaction_id: sanitizedPaymentData.transactionId,
+      amount: sanitizedPaymentData.amount,
+      currency: sanitizedPaymentData.currency,
       channels: enabledChannels.join(','),
-      description: paymentData.description,
-      customer_name: paymentData.customerInfo.name.split(' ')[0] || '',
-      customer_surname: paymentData.customerInfo.name.split(' ').slice(1).join(' ') || '',
-      customer_phone: paymentData.customerInfo.phone,
-      customer_email: paymentData.customerInfo.email,
-      customer_address: paymentData.customerInfo.address,
-      customer_city: paymentData.customerInfo.city,
-      customer_country: paymentData.customerInfo.country,
-      customer_zip_code: paymentData.customerInfo.zipCode || '',
+      description: sanitizedPaymentData.description,
+      customer_name: sanitizedPaymentData.customerInfo.name.split(' ')[0] || '',
+      customer_surname: sanitizedPaymentData.customerInfo.name.split(' ').slice(1).join(' ') || '',
+      customer_phone: sanitizedPaymentData.customerInfo.phone,
+      customer_email: sanitizedPaymentData.customerInfo.email,
+      customer_address: sanitizedPaymentData.customerInfo.address,
+      customer_city: sanitizedPaymentData.customerInfo.city,
+      customer_country: sanitizedPaymentData.customerInfo.country,
+      customer_zip_code: sanitizedPaymentData.customerInfo.zipCode || '',
       metadata: {
         testMode: config.testMode,
-        userId: config.userId
+        userId: SecureEncryption.hash(config.userId) // Hash user ID for privacy
       }
     };
 
@@ -169,12 +188,14 @@ export const processCinetPayPayment = async (
           throw new Error('CinetPay SDK not loaded or not available');
         }
 
-        console.log('Initializing CinetPay payment with config:', {
-          apikey: paymentOptions.apikey,
+        // Log configuration without sensitive data
+        console.log('Initializing CinetPay payment with config:', SecureEncryption.sanitizeForLogging({
           site_id: paymentOptions.site_id,
           notify_url: paymentData.notifyUrl,
-          return_url: paymentData.returnUrl
-        });
+          return_url: paymentData.returnUrl,
+          amount: paymentOptions.amount,
+          currency: paymentOptions.currency
+        }));
 
         // Set up CinetPay configuration
         window.CinetPay.setConfig({
@@ -223,6 +244,15 @@ export const processCinetPayPayment = async (
             
             resolve(successResult);
             
+            // Log successful payment
+            AuditLogger.logPaymentEvent(config.userId, 'payment_success', {
+              orderId: paymentOptions.transaction_id,
+              transactionId: (dataObj?.transaction_id || dataObj?.transactionId) as string,
+              amount: paymentOptions.amount,
+              currency: paymentOptions.currency,
+              status: 'accepted'
+            });
+            
             if (callbacks.onSuccess) {
               // Create a basic transaction object from the response
               const transactionData = {
@@ -249,6 +279,15 @@ export const processCinetPayPayment = async (
             };
             
             resolve(errorResult);
+            
+            // Log failed payment
+            AuditLogger.logPaymentEvent(config.userId, 'payment_failed', {
+              orderId: paymentOptions.transaction_id,
+              amount: paymentOptions.amount,
+              currency: paymentOptions.currency,
+              status: 'refused',
+              error: 'Payment was declined by the payment provider'
+            });
             
             if (callbacks.onError) {
               callbacks.onError({

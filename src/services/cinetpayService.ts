@@ -13,6 +13,7 @@ import {
   CinetPayValidationResult,
   DEFAULT_CINETPAY_CONFIG
 } from '../types/cinetpay';
+import { SecureEncryption } from '../utils/encryption';
 
 const COLLECTION_NAME = 'cinetpay_configs';
 
@@ -24,10 +25,26 @@ export const getCinetPayConfig = async (userId: string): Promise<CinetPayConfig 
     
     if (docSnap.exists()) {
       const data = docSnap.data();
+      
+      // Decrypt API key if it exists
+      let decryptedApiKey = data.apiKey;
+      if (data.apiKey && !data.apiKey.includes('***REDACTED***')) {
+        try {
+          decryptedApiKey = SecureEncryption.decrypt(data.apiKey, userId);
+          console.log('API key decrypted successfully');
+        } catch (error) {
+          console.error('Failed to decrypt API key:', error);
+          // If decryption fails, use the original data (might be plain text)
+          decryptedApiKey = data.apiKey;
+          console.log('Using original API key as fallback');
+        }
+      }
+      
       return {
         id: docSnap.id,
         userId,
         ...data,
+        apiKey: decryptedApiKey,
         createdAt: data.createdAt?.toDate() || new Date(),
         updatedAt: data.updatedAt?.toDate() || new Date()
       } as CinetPayConfig;
@@ -49,11 +66,22 @@ export const saveCinetPayConfig = async (
     const docRef = doc(db, COLLECTION_NAME, userId);
     const now = serverTimestamp();
 
-    const dataToSave = {
+    // Encrypt API key before saving
+    const dataToSave: any = {
       ...config,
       userId,
       updatedAt: now
     };
+
+    // Encrypt API key if provided
+    if (config.apiKey) {
+      try {
+        dataToSave.apiKey = SecureEncryption.encrypt(config.apiKey, userId);
+      } catch (error) {
+        console.error('Failed to encrypt API key:', error);
+        throw new Error('Failed to encrypt API key');
+      }
+    }
 
     const docSnap = await getDoc(docRef);
     if (!docSnap.exists()) {
@@ -80,10 +108,26 @@ export const subscribeToCinetPayConfig = (
   return onSnapshot(docRef, (docSnap) => {
     if (docSnap.exists()) {
       const data = docSnap.data();
+      
+      // Decrypt API key if it exists
+      let decryptedApiKey = data.apiKey;
+      if (data.apiKey && !data.apiKey.includes('***REDACTED***')) {
+        try {
+          decryptedApiKey = SecureEncryption.decrypt(data.apiKey, userId);
+          console.log('API key decrypted successfully');
+        } catch (error) {
+          console.error('Failed to decrypt API key:', error);
+          // If decryption fails, use the original data (might be plain text)
+          decryptedApiKey = data.apiKey;
+          console.log('Using original API key as fallback');
+        }
+      }
+      
       callback({
         id: docSnap.id,
         userId,
         ...data,
+        apiKey: decryptedApiKey,
         createdAt: data.createdAt?.toDate() || new Date(),
         updatedAt: data.updatedAt?.toDate() || new Date()
       } as CinetPayConfig);
@@ -101,6 +145,22 @@ export const initializeCinetPayConfig = async (userId: string): Promise<CinetPay
   try {
     const existingConfig = await getCinetPayConfig(userId);
     if (existingConfig) {
+      // Check if API key needs migration (is plain text)
+      if (existingConfig.apiKey && !existingConfig.apiKey.includes('=') && !existingConfig.apiKey.includes('/')) {
+        console.log('Migrating plain text API key to encrypted format');
+        try {
+          // Re-save the config to encrypt the API key
+          await saveCinetPayConfig(userId, {
+            apiKey: existingConfig.apiKey,
+            isActive: existingConfig.isActive,
+            testMode: existingConfig.testMode,
+            enabledChannels: existingConfig.enabledChannels
+          });
+          console.log('API key migration completed');
+        } catch (error) {
+          console.error('Failed to migrate API key:', error);
+        }
+      }
       return existingConfig;
     }
 

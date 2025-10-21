@@ -243,5 +243,13 @@ service cloud.firestore {
       allow update: if isAuthenticated();
       allow delete: if false; // Transactions should not be deleted
     }
+    
+    // Audit Logs - Security and compliance logging
+    match /audit_logs/{logId} {
+      allow read: if isAuthenticated() && request.auth.uid == resource.data.userId;
+      allow create: if isAuthenticated();
+      allow update: if false; // Audit logs should not be modified
+      allow delete: if false; // Audit logs should not be deleted
+    }
   }
 }

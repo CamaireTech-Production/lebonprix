@@ -77,7 +77,22 @@ const SingleCheckout: React.FC = () => {
         return null;
       }
       
-      return payload;
+      // Handle both old and new data formats
+      if (payload.formData) {
+        // New format - return the full payload
+        return payload;
+      } else if (payload.data) {
+        // Old format - convert to new format
+        return {
+          formData: payload.data,
+          cartItems: payload.data.cartItems || [],
+          cartTotal: 0,
+          timestamp: payload.timestamp,
+          expiresAt: payload.expiresAt
+        };
+      }
+      
+      return null;
     } catch (error) {
       console.error('Error loading checkout data:', error);
       return null;
@@ -255,18 +270,37 @@ const SingleCheckout: React.FC = () => {
       const savedData = loadCheckoutData();
       console.log('Loading checkout data for company:', company.id);
       console.log('Saved data found:', savedData);
+      
       if (savedData) {
-        // Restore form data
-        setCustomerInfo(savedData.formData.customerInfo);
-        setSelectedPaymentMethod(savedData.formData.selectedPaymentMethod as PaymentMethodType);
-        setSelectedPaymentOption(savedData.formData.selectedPaymentOption);
-        setPaymentFormData(savedData.formData.paymentFormData);
+        console.log('Saved data structure:', {
+          hasFormData: !!savedData.formData,
+          formDataKeys: savedData.formData ? Object.keys(savedData.formData) : [],
+          hasCustomerInfo: !!(savedData.formData && savedData.formData.customerInfo)
+        });
         
-        console.log('Form data restored:', savedData.formData);
-        
-        // Show restoration message
-        if (savedData.formData.customerInfo.name || savedData.formData.customerInfo.phone) {
-          toast.success('Previous checkout data restored');
+        if (savedData.formData) {
+          // Restore form data with null checks
+          if (savedData.formData.customerInfo) {
+            setCustomerInfo(savedData.formData.customerInfo);
+          }
+          if (savedData.formData.selectedPaymentMethod) {
+            setSelectedPaymentMethod(savedData.formData.selectedPaymentMethod as PaymentMethodType);
+          }
+          if (savedData.formData.selectedPaymentOption) {
+            setSelectedPaymentOption(savedData.formData.selectedPaymentOption);
+          }
+          if (savedData.formData.paymentFormData) {
+            setPaymentFormData(savedData.formData.paymentFormData);
+          }
+          
+          console.log('Form data restored:', savedData.formData);
+          
+          // Show restoration message
+          if (savedData.formData.customerInfo && (savedData.formData.customerInfo.name || savedData.formData.customerInfo.phone)) {
+            toast.success('Previous checkout data restored');
+          }
+        } else {
+          console.log('No formData found in saved data');
         }
       } else {
         console.log('No saved checkout data found for company:', company.id);
