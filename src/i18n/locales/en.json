@@ -929,6 +929,23 @@
     "en": "English",
     "fr": "French"
   },
+  "catalogue": {
+    "title": "Catalogue",
+    "search": "Search products...",
+    "categories": "Categories",
+    "allCategories": "All Categories",
+    "addToCart": "Add to Cart",
+    "viewDetails": "View Details",
+    "noProducts": "No products found",
+    "loading": "Loading products...",
+    "error": "Error loading products",
+    "retry": "Retry",
+    "sortBy": "Sort by",
+    "price": "Price",
+    "name": "Name",
+    "newest": "Newest",
+    "oldest": "Oldest"
+  },
   "finance": {
     "historyTitle": "Financial Entries History",
     "addEntry": "Add Financial Entry",
@@ -1050,6 +1067,65 @@
       "refundExceeds": "Refund amount exceeds remaining debt!",
       "success": "Refund added successfully",
       "error": "Failed to add refund"
+    }
+  },
+  "checkout": {
+    "title": "Checkout",
+    "contact": "Contact Information",
+    "delivery": "Delivery Information",
+    "payment": "Payment Method",
+    "orderSummary": "Order Summary",
+    "completeOrder": "Complete Order",
+    "returnToCatalogue": "Return to Catalogue",
+    "saveDraft": "Save Draft",
+    "fields": {
+      "name": "Full Name",
+      "firstName": "First Name",
+      "lastName": "Last Name",
+      "phone": "Phone Number",
+      "email": "Email Address",
+      "address": "Address",
+      "city": "City",
+      "country": "Country",
+      "postalCode": "Postal Code",
+      "notes": "Delivery Notes"
+    },
+    "paymentMethods": {
+      "mtnMoney": "MTN Money",
+      "orangeMoney": "Orange Money",
+      "visaCard": "Visa Card",
+      "payOnsite": "Pay Onsite",
+      "cinetpayMobileMoney": "Mobile Money",
+      "cinetpayCreditCard": "Credit Card",
+      "cinetpayWallet": "Wallet"
+    },
+    "orderSummaryDetails": {
+      "subtotal": "Subtotal",
+      "deliveryFee": "Delivery Fee",
+      "total": "Total",
+      "items": "Items",
+      "quantity": "Quantity",
+      "price": "Price"
+    },
+    "validation": {
+      "nameRequired": "Name is required",
+      "phoneRequired": "Phone number is required",
+      "phoneInvalid": "Please enter a valid phone number",
+      "emailRequired": "Email is required",
+      "emailInvalid": "Please enter a valid email address",
+      "addressRequired": "Address is required",
+      "cityRequired": "City is required",
+      "countryRequired": "Country is required",
+      "postalCodeRequired": "Postal code is required for credit card payments"
+    },
+    "messages": {
+      "orderCreated": "Order created successfully!",
+      "orderFailed": "Failed to create order. Please try again.",
+      "paymentProcessing": "Processing payment...",
+      "paymentSuccess": "Payment successful!",
+      "paymentFailed": "Payment failed. Please try again.",
+      "draftSaved": "Draft saved",
+      "draftSaveFailed": "Failed to save draft"
     }
   }
 } 

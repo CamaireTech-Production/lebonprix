@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useCart } from '../contexts/CartContext';
 import { useAuth } from '../contexts/AuthContext';
 import { createOrder } from '../services/orderService';
@@ -44,6 +45,7 @@ interface SellerSettings {
 }
 
 const SingleCheckout: React.FC = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { cart, clearCart, getCartTotal, loadCartForCompany, setCurrentCompanyId } = useCart();
   const { user, company } = useAuth();
@@ -677,10 +679,10 @@ const SingleCheckout: React.FC = () => {
             onMouseLeave={(e) => (e.target as HTMLButtonElement).style.color = getCompanyColors().primary}
           >
             <ArrowLeft className="h-5 w-5 mr-2" />
-            Back to Catalogue
+            {t('checkout.returnToCatalogue')}
           </button>
           <div className="flex items-center justify-between">
-            <h1 className="text-3xl font-bold" style={{color: getCompanyColors().primary}}>Checkout</h1>
+            <h1 className="text-3xl font-bold" style={{color: getCompanyColors().primary}}>{t('checkout.title')}</h1>
             <div className="flex items-center space-x-3">
               <SaveStatusIndicator
                 isSaving={isSaving}
@@ -695,7 +697,7 @@ const SingleCheckout: React.FC = () => {
                 disabled={isSaving}
                 className="px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded-md transition-colors disabled:opacity-50"
               >
-                {isSaving ? 'Saving...' : 'Save Draft'}
+                {isSaving ? t('common.saving') : t('checkout.saveDraft')}
               </button>
             </div>
           </div>
@@ -707,20 +709,20 @@ const SingleCheckout: React.FC = () => {
             {/* Contact Section */}
             {checkoutSettings?.showContactSection && (
               <div className="bg-white rounded-lg shadow-sm border p-6">
-                <h2 className="text-xl font-bold mb-4" style={{color: getCompanyColors().primary}}>Contact</h2>
+                <h2 className="text-xl font-bold mb-4" style={{color: getCompanyColors().primary}}>{t('checkout.contact')}</h2>
                 
                 <div className="space-y-4">
                   {checkoutSettings.showEmail && (
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Email
+                        {t('checkout.fields.email')}
                       </label>
                       <input
                         type="email"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                        placeholder="Enter your email"
+                        placeholder={t('checkout.fields.email')}
                       />
                     </div>
                   )}
@@ -728,13 +730,13 @@ const SingleCheckout: React.FC = () => {
                   {checkoutSettings.showPhone && (
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Phone Number
+                        {t('checkout.fields.phone')}
                       </label>
                       <PhoneInput
                         value={customerInfo.phone}
                         onChange={(value) => handleInputChange('phone', value)}
                         error={errors.phone}
-                        placeholder="Enter your phone number"
+                        placeholder={t('checkout.fields.phone')}
                       />
                     </div>
                   )}
@@ -760,7 +762,7 @@ const SingleCheckout: React.FC = () => {
             {/* Delivery Section */}
             {checkoutSettings?.showDeliverySection && (
               <div className="bg-white rounded-lg shadow-sm border p-6">
-                <h2 className="text-xl font-bold mb-4" style={{color: getCompanyColors().primary}}>Delivery</h2>
+                <h2 className="text-xl font-bold mb-4" style={{color: getCompanyColors().primary}}>{t('checkout.delivery')}</h2>
                 
                 <div className="space-y-4">
                   {/* Country/Region */}
@@ -829,7 +831,7 @@ const SingleCheckout: React.FC = () => {
                   {checkoutSettings.showAddress && (
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Address *
+                        {t('checkout.fields.address')} *
                       </label>
                       <input
                         type="text"
@@ -864,7 +866,7 @@ const SingleCheckout: React.FC = () => {
                   {checkoutSettings.showCity && (
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        City
+                        {t('checkout.fields.city')}
                       </label>
                       <input
                         type="text"
@@ -925,7 +927,7 @@ const SingleCheckout: React.FC = () => {
             {/* Payment Section */}
             {checkoutSettings?.showPaymentSection && (
               <div className="bg-white rounded-lg shadow-sm border p-6">
-                <h2 className="text-xl font-bold mb-4" style={{color: getCompanyColors().primary}}>Payment</h2>
+                <h2 className="text-xl font-bold mb-4" style={{color: getCompanyColors().primary}}>{t('checkout.payment')}</h2>
                 <p className="text-sm text-gray-600 mb-4">All transactions are secure and encrypted.</p>
                 
                 {/* Payment Options Container */}
@@ -946,7 +948,7 @@ const SingleCheckout: React.FC = () => {
                       <div className="w-8 h-8 bg-yellow-500 rounded flex items-center justify-center">
                         <span className="text-white font-bold text-sm">MTN</span>
                       </div>
-                      <span className="font-medium text-gray-900">MTN Money</span>
+                      <span className="font-medium text-gray-900">{t('checkout.paymentMethods.mtnMoney')}</span>
                     </label>
                   </div>
                   
@@ -986,7 +988,7 @@ const SingleCheckout: React.FC = () => {
                           <div className="w-8 h-8 bg-orange-500 rounded flex items-center justify-center">
                             <span className="text-white font-bold text-sm">O</span>
                           </div>
-                          <span className="font-medium text-gray-900">Orange Money</span>
+                          <span className="font-medium text-gray-900">{t('checkout.paymentMethods.orangeMoney')}</span>
                         </label>
                       </div>
                       
@@ -1024,7 +1026,7 @@ const SingleCheckout: React.FC = () => {
                         />
                         <label htmlFor="visa_card" className="flex items-center space-x-3 cursor-pointer flex-1">
                           <CreditCard className="h-5 w-5 text-gray-600" />
-                          <span className="font-medium text-gray-900">Visa Card</span>
+                          <span className="font-medium text-gray-900">{t('checkout.paymentMethods.visaCard')}</span>
                           <div className="flex space-x-1 ml-auto">
                             <div className="w-8 h-5 bg-blue-600 rounded text-white text-xs flex items-center justify-center">V</div>
                             <div className="w-8 h-5 bg-red-600 rounded text-white text-xs flex items-center justify-center">M</div>
@@ -1233,7 +1235,7 @@ const SingleCheckout: React.FC = () => {
                         />
                         <label htmlFor="pay_onsite" className="flex items-center space-x-3 cursor-pointer flex-1">
                           <Truck className="h-5 w-5 text-emerald-600" />
-                          <span className="font-medium text-gray-900">Pay Onsite</span>
+                          <span className="font-medium text-gray-900">{t('checkout.paymentMethods.payOnsite')}</span>
                         </label>
                       </div>
                       
@@ -1262,7 +1264,7 @@ const SingleCheckout: React.FC = () => {
           {checkoutSettings?.showOrderSummary && (
             <div className="lg:sticky lg:top-8">
               <div className="bg-white rounded-lg shadow-sm border p-6">
-                <h3 className="text-lg font-semibold mb-6" style={{color: getCompanyColors().primary}}>Order Summary</h3>
+                <h3 className="text-lg font-semibold mb-6" style={{color: getCompanyColors().primary}}>{t('checkout.orderSummary')}</h3>
               
               {/* Cart Items */}
               <div className="space-y-4 mb-6">
@@ -1319,7 +1321,7 @@ const SingleCheckout: React.FC = () => {
               {/* Cost Breakdown */}
               <div className="space-y-3 mb-6">
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Subtotal</span>
+                  <span className="text-gray-600">{t('checkout.orderSummaryDetails.subtotal')}</span>
                   <span className="font-medium">
                     {subtotal.toLocaleString('fr-FR', {
                       style: 'currency',
@@ -1338,7 +1340,7 @@ const SingleCheckout: React.FC = () => {
                 </div>
                 <div className="border-t border-gray-200 pt-3">
                   <div className="flex justify-between text-lg font-bold">
-                    <span>Total</span>
+                    <span>{t('checkout.orderSummaryDetails.total')}</span>
                     <span className="text-emerald-600">
                       {finalTotal.toLocaleString('fr-FR', {
                         style: 'currency',
@@ -1394,7 +1396,7 @@ const SingleCheckout: React.FC = () => {
                       Processing...
                     </>
                   ) : (
-                    'Complete Order'
+                    t('checkout.completeOrder')
                   )}
                 </button>
               ) : (

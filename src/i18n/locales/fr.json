@@ -805,6 +805,23 @@
     "en": "Anglais",
     "fr": "Français"
   },
+  "catalogue": {
+    "title": "Catalogue",
+    "search": "Rechercher des produits...",
+    "categories": "Catégories",
+    "allCategories": "Toutes les catégories",
+    "addToCart": "Ajouter au panier",
+    "viewDetails": "Voir les détails",
+    "noProducts": "Aucun produit trouvé",
+    "loading": "Chargement des produits...",
+    "error": "Erreur lors du chargement des produits",
+    "retry": "Réessayer",
+    "sortBy": "Trier par",
+    "price": "Prix",
+    "name": "Nom",
+    "newest": "Plus récent",
+    "oldest": "Plus ancien"
+  },
   "expenses": {
     "title": "Dépenses",
     "subtitle": "Gérez vos dépenses d'entreprise",
@@ -1053,6 +1070,65 @@
       "refundExceeds": "Le montant du remboursement dépasse la dette restante !",
       "success": "Remboursement ajouté avec succès",
       "error": "Échec de l'ajout du remboursement"
+    }
+  },
+  "checkout": {
+    "title": "Commande",
+    "contact": "Informations de Contact",
+    "delivery": "Informations de Livraison",
+    "payment": "Méthode de Paiement",
+    "orderSummary": "Résumé de la Commande",
+    "completeOrder": "Finaliser la Commande",
+    "returnToCatalogue": "Retour au Catalogue",
+    "saveDraft": "Sauvegarder Brouillon",
+    "fields": {
+      "name": "Nom Complet",
+      "firstName": "Prénom",
+      "lastName": "Nom de Famille",
+      "phone": "Numéro de Téléphone",
+      "email": "Adresse Email",
+      "address": "Adresse",
+      "city": "Ville",
+      "country": "Pays",
+      "postalCode": "Code Postal",
+      "notes": "Notes de Livraison"
+    },
+    "paymentMethods": {
+      "mtnMoney": "MTN Money",
+      "orangeMoney": "Orange Money",
+      "visaCard": "Carte Visa",
+      "payOnsite": "Payer sur Place",
+      "cinetpayMobileMoney": "Mobile Money",
+      "cinetpayCreditCard": "Carte de Crédit",
+      "cinetpayWallet": "Portefeuille"
+    },
+    "orderSummaryDetails": {
+      "subtotal": "Sous-total",
+      "deliveryFee": "Frais de Livraison",
+      "total": "Total",
+      "items": "Articles",
+      "quantity": "Quantité",
+      "price": "Prix"
+    },
+    "validation": {
+      "nameRequired": "Le nom est requis",
+      "phoneRequired": "Le numéro de téléphone est requis",
+      "phoneInvalid": "Veuillez entrer un numéro de téléphone valide",
+      "emailRequired": "L'email est requis",
+      "emailInvalid": "Veuillez entrer une adresse email valide",
+      "addressRequired": "L'adresse est requise",
+      "cityRequired": "La ville est requise",
+      "countryRequired": "Le pays est requis",
+      "postalCodeRequired": "Le code postal est requis pour les paiements par carte de crédit"
+    },
+    "messages": {
+      "orderCreated": "Commande créée avec succès !",
+      "orderFailed": "Échec de la création de la commande. Veuillez réessayer.",
+      "paymentProcessing": "Traitement du paiement...",
+      "paymentSuccess": "Paiement réussi !",
+      "paymentFailed": "Échec du paiement. Veuillez réessayer.",
+      "draftSaved": "Brouillon sauvegardé",
+      "draftSaveFailed": "Échec de la sauvegarde du brouillon"
     }
   }
 } 

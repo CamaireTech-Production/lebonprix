@@ -17,7 +17,7 @@ import type { CinetPayConfig, CinetPayConfigUpdate } from '../types/cinetpay';
 import PaymentMethodModal from '../components/settings/PaymentMethodModal';
 import i18n from '../i18n/config';
 import { combineActivities } from '../utils/activityUtils';
-import { Plus, Copy, Check, ExternalLink, CreditCard, Truck, ShoppingBag, Save, RotateCcw, Eye } from 'lucide-react';
+import { Plus, Copy, Check, ExternalLink, CreditCard, Truck, ShoppingBag, Save, RotateCcw, Eye, Trash2 } from 'lucide-react';
 
 const Settings = () => {
   const { t } = useTranslation();
@@ -465,6 +465,48 @@ const Settings = () => {
       showErrorToast('Failed to test connection');
     } finally {
       setCinetpayTesting(false);
+    }
+  };
+
+  const handleClearCinetpayCredentials = async () => {
+    if (!user?.uid || !cinetpayConfig) return;
+
+    // Show confirmation dialog
+    const confirmed = window.confirm(
+      'Are you sure you want to clear your CinetPay credentials?\n\n' +
+      'This will remove your Site ID and API Key. You will need to re-enter them to use online payments.\n\n' +
+      'This action cannot be undone.'
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setCinetpaySaving(true);
+      
+      // Clear credentials by setting them to empty strings
+      await saveCinetPayConfig(user.uid, {
+        siteId: '',
+        apiKey: '',
+        isActive: false, // Also disable the integration
+        testMode: cinetpayConfig.testMode,
+        enabledChannels: cinetpayConfig.enabledChannels
+      });
+
+      // Log the action
+      await AuditLogger.logConfigChange(user.uid, 'cinetpay_credentials_cleared', {
+        configType: 'cinetpay',
+        changes: {
+          credentialsCleared: true,
+          integrationDisabled: true
+        }
+      });
+
+      showSuccessToast('CinetPay credentials cleared successfully');
+    } catch (error) {
+      console.error('Error clearing CinetPay credentials:', error);
+      showErrorToast('Failed to clear credentials');
+    } finally {
+      setCinetpaySaving(false);
     }
   };
 
@@ -2171,6 +2213,21 @@ const Settings = () => {
                                 className="flex-1"
                               >
                                 {cinetpayTesting ? 'Testing...' : 'Test Connection'}
+                              </Button>
+                              <Button
+                                onClick={handleClearCinetpayCredentials}
+                                disabled={cinetpaySaving || !cinetpayConfig.siteId || !cinetpayConfig.apiKey}
+                                variant="outline"
+                                className="flex-1 bg-red-50 border-red-200 text-red-700 hover:bg-red-100"
+                              >
+                                {cinetpaySaving ? (
+                                  'Clearing...'
+                                ) : (
+                                  <>
+                                    <Trash2 className="w-4 h-4 mr-2" />
+                                    Clear Credentials
+                                  </>
+                                )}
                               </Button>
                             </div>
                           </div>

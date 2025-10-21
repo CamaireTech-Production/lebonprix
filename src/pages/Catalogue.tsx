@@ -9,6 +9,7 @@ import Button from '../components/common/Button';
 import FloatingCartButton from '../components/common/FloatingCartButton';
 import ProductDetailModal from '../components/common/ProductDetailModal';
 import { ImageWithSkeleton } from '../components/common/ImageWithSkeleton';
+import LanguageSwitcher from '../components/common/LanguageSwitcher';
 
 const placeholderImg = '/placeholder.png';
 
@@ -307,6 +308,11 @@ const Catalogue = () => {
       {/* Enhanced Top Section - Shop Information */}
       <div className="text-white" style={{background: `linear-gradient(to right, ${getCompanyColors().primary}, ${getCompanyColors().tertiary})`}}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          {/* Language Switcher - Top Right */}
+          <div className="flex justify-end mb-4">
+            <LanguageSwitcher variant="dark" />
+          </div>
+          
           {/* Shop Header with Logo, Name, and Contact */}
           <div className="flex items-center space-x-6 mb-6">
             {/* Shop Logo */}
