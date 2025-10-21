@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode, useMemo } from 'react';
 import { auth, db } from '../services/firebase';
 import { 
   User, 
@@ -7,13 +7,14 @@ import {
   onAuthStateChanged,
   updatePassword
 } from 'firebase/auth';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import type { Company } from '../types/models';
+import { doc, getDoc, updateDoc, Timestamp } from 'firebase/firestore';
+import type { Company, UserRole } from '../types/models';
 import { ensureDefaultFinanceEntryTypes } from '../services/firestore';
 import CompanyManager from '../services/storage/CompanyManager';
 import FinanceTypesManager from '../services/storage/FinanceTypesManager';
 import BackgroundSyncService from '../services/backgroundSync';
 import { saveCompany } from '../services/companyService';
+import { saveCompanyToCache, getCompanyFromCache, clearCompanyCache } from '../utils/companyCache';
 
 interface AuthContextType {
   user: User | null;
@@ -21,6 +22,9 @@ interface AuthContextType {
   company: Company | null;
   loading: boolean;
   companyLoading: boolean; // New: indicates if company data is still loading in background
+  effectiveRole: UserRole | 'owner' | 'vendeur' | 'gestionnaire' | 'magasinier' | null; // Role effectif de l'utilisateur
+  isOwner: boolean; // Si l'utilisateur est propriétaire de l'entreprise
+  currentEmployee: any | null; // Informations de l'employé connecté
   signUp: (email: string, password: string, companyData: Omit<Company, 'id' | 'createdAt' | 'updatedAt' | 'userId'>) => Promise<User>;
   signIn: (email: string, password: string) => Promise<User>;
   signOut: () => Promise<void>;
@@ -47,6 +51,26 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [company, setCompany] = useState<Company | null>(null);
   const [loading, setLoading] = useState(true);
   const [companyLoading, setCompanyLoading] = useState(false);
+  const [effectiveRole, setEffectiveRole] = useState<UserRole | 'owner' | 'vendeur' | 'gestionnaire' | 'magasinier' | null>(null);
+  const [isOwner, setIsOwner] = useState(false);
+  const [currentEmployee, setCurrentEmployee] = useState<any | null>(null);
+
+  // Mémoriser les informations de la compagnie pour les restaurer lors de la reconnexion
+  const memoizedCompany = useMemo(() => {
+    if (company) {
+      // Sauvegarder les informations de la compagnie dans le cache
+      saveCompanyToCache(company);
+      return company;
+    }
+    
+    // Essayer de restaurer depuis le cache si pas de compagnie en mémoire
+    const cachedCompany = getCompanyFromCache();
+    if (cachedCompany) {
+      return cachedCompany;
+    }
+    
+    return null;
+  }, [company]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -58,6 +82,16 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         console.log('✅ User authenticated - rendering UI immediately');
         setLoading(false);
         
+        // 🚀 RESTORE COMPANY FROM CACHE: Try to restore company data immediately
+        const cachedCompany = getCompanyFromCache();
+        if (cachedCompany) {
+          setCompany(cachedCompany);
+          console.log('🚀 Company restored from cache:', cachedCompany.name);
+          
+          // Déterminer le rôle immédiatement si on a les données
+          determineUserRole(cachedCompany, user.uid);
+        }
+        
         // 🔄 BACKGROUND LOADING: Start company data fetch in background
         console.log('🔄 Starting background company data loading...');
         loadCompanyDataInBackground(user.uid);
@@ -68,7 +102,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         
       } else {
         setCompany(null);
+        setEffectiveRole(null);
+        setIsOwner(false);
+        setCurrentEmployee(null);
         setLoading(false);
+        // Nettoyer le cache lors de la déconnexion
+        clearCompanyCache();
       }
     });
 
@@ -86,9 +125,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       setCompanyLoading(false);
       console.log('🚀 Company data loaded instantly from localStorage');
       
+      // Déterminer le rôle effectif et ownership
+      determineUserRole(localCompany, userId);
+      
       // 2. BACKGROUND SYNC: Update localStorage if needed
       BackgroundSyncService.syncCompany(userId, (freshCompany) => {
         setCompany(freshCompany);
+        determineUserRole(freshCompany, userId);
         console.log('🔄 Company data updated from background sync');
       });
       return;
@@ -104,8 +147,14 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         const companyData = { id: companyDoc.id, ...companyDoc.data() } as Company;
         setCompany(companyData);
         
+        // Déterminer le rôle effectif et ownership
+        determineUserRole(companyData, userId);
+        
         // Save to localStorage for future instant loads
         CompanyManager.save(userId, companyData);
+        
+        // Mettre à jour le cache global
+        saveCompanyToCache(companyData);
         console.log('✅ Company data loaded from Firebase and cached to localStorage');
       } else {
         console.log('⚠️ No company document found for user');
@@ -114,6 +163,58 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       console.error('❌ Company loading failed:', error);
     } finally {
       setCompanyLoading(false);
+    }
+  };
+
+  // Déterminer le rôle effectif de l'utilisateur
+  const determineUserRole = async (companyData: Company, userId: string) => {
+    try {
+      // 1. Vérifier si l'utilisateur est propriétaire de l'entreprise
+      const isCompanyOwner = companyData.userId === userId;
+      setIsOwner(isCompanyOwner);
+      
+      if (isCompanyOwner) {
+        setEffectiveRole('owner');
+        console.log('✅ User is company owner');
+        return;
+      }
+      
+      // 2. Si ce n'est pas le propriétaire, vérifier si c'est un employé
+      const employee = companyData.employees ? 
+        Object.values(companyData.employees).find(emp => emp.firebaseUid === userId) : null;
+      
+      if (employee) {
+        // Mapper le rôle employé vers le rôle UI
+        const roleMapping = {
+          'staff': 'vendeur',
+          'manager': 'gestionnaire', 
+          'admin': 'magasinier'
+        };
+        setEffectiveRole(roleMapping[employee.role] as any);
+        setCurrentEmployee(employee);
+        console.log('✅ Employee role determined:', employee.role, '-> UI role:', roleMapping[employee.role]);
+        return;
+      }
+      
+      // 3. Si pas d'employé, chercher dans users/{uid} pour le rôle
+      const userDoc = await getDoc(doc(db, 'users', userId));
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        const role = userData.role as UserRole;
+        const roleMapping = {
+          'staff': 'vendeur',
+          'manager': 'gestionnaire',
+          'admin': 'magasinier'
+        };
+        setEffectiveRole(roleMapping[role] as any);
+        console.log('✅ User role determined:', role, '-> UI role:', roleMapping[role]);
+      } else {
+        setEffectiveRole(null);
+        console.log('⚠️ No role found for user');
+      }
+    } catch (error) {
+      console.error('❌ Error determining user role:', error);
+      setEffectiveRole(null);
     }
   };
 
@@ -164,6 +265,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   };
 
   const signOut = (): Promise<void> => {
+    // Nettoyer le cache lors de la déconnexion
+    clearCompanyCache();
+    setCompany(null);
+    setEffectiveRole(null);
+    setIsOwner(false);
+    setCurrentEmployee(null);
     return firebaseSignOut(auth);
   };
 
@@ -186,6 +293,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     
     if (updatedCompany) {
       CompanyManager.save(user.uid, updatedCompany);
+      // Mettre à jour le cache global
+      saveCompanyToCache(updatedCompany);
     }
   };
 
@@ -202,9 +311,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const value = {
     user,
     currentUser: user, // For backward compatibility
-    company,
+    company: memoizedCompany, // Utiliser la compagnie mémorisée
     loading,
     companyLoading,
+    effectiveRole,
+    isOwner,
+    currentEmployee,
     signUp,
     signIn,
     signOut,

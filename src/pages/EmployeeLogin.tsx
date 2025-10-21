@@ -55,9 +55,8 @@ export default function EmployeeLogin() {
     try {
       await signIn(employee.email, password);
       showSuccessToast('Connexion réussie');
-      const name = companyName || (company?.name || '');
-      const id = companyId || (company?.id || '');
-      navigate(`/catalogue/${encodeURIComponent(name)}/${encodeURIComponent(id)}`);
+      // Rediriger vers le dashboard principal avec accès restreint selon le rôle
+      navigate('/');
     } catch (e: any) {
       console.error(e);
       showErrorToast('Informations de connexion incorrectes');

@@ -28,28 +28,36 @@ export async function buildDefaultHashedPassword(firstname: string, lastname: st
   return hashCompanyPassword(defaultPwd);
 }
 
-// Caesar cipher utilities for loginLink
-export function caesarCipher(input: string, shift: number): string {
-  const a = 'a'.charCodeAt(0);
-  const z = 'z'.charCodeAt(0);
-  const A = 'A'.charCodeAt(0);
-  const Z = 'Z'.charCodeAt(0);
-  const mod = (n: number, m: number) => ((n % m) + m) % m;
-  return input.split('').map(ch => {
-    const code = ch.charCodeAt(0);
-    if (code >= a && code <= z) {
-      return String.fromCharCode(a + mod(code - a + shift, 26));
-    }
-    if (code >= A && code <= Z) {
-      return String.fromCharCode(A + mod(code - A + shift, 26));
-    }
-    return ch;
-  }).join('');
+
+function getRandomChar(): string {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+  const char = chars[Math.floor(Math.random() * chars.length)];
+  return char;
 }
 
-export function buildLoginLink(firstname: string, lastname: string, shift = 3): string {
+export function generateSafeRandomLink(firstname: string, lastname: string): string {
   const base = `${firstname}${lastname}`;
-  return caesarCipher(base, shift);
+  let link = '';
+
+  for (let i = 0; i < base.length; i++) {
+    let char = getRandomChar();
+
+    // Vérifie le caractère avec le regex des interdits
+    const forbiddenRegex = /[\[\]*.]/;
+    if (forbiddenRegex.test(char)) {
+      // Récursion jusqu'à obtenir un caractère valide
+      char = getRandomChar();
+    }
+
+    link += char;
+  }
+
+  return link;
+}
+
+
+export function buildLoginLink(firstname: string, lastname: string): string {
+  return generateSafeRandomLink(firstname, lastname );
 }
 
 // Generate unique employee ID

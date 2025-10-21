@@ -106,7 +106,17 @@ export default function EmployeesTab() {
     const base = window.location.origin;
     const path = `/employee-login/${encodeURIComponent(company.name)}/${encodeURIComponent(company.id)}/${encodeURIComponent(emp.loginLink)}`;
     return `${base}${path}`;
-  };  
+  }; 
+  
+  const copyLoginLink = (emp: CompanyEmployee) => {
+    const url = buildEmployeeLoginUrl(emp);
+    if (!url) {
+      showErrorToast('Login link unavailable');
+      return;
+    }
+    navigator.clipboard.writeText(url);
+    showSuccessToast('Login link copied');
+  };
   
   const openLoginLink = (emp: CompanyEmployee) => {
     const url = buildEmployeeLoginUrl(emp);
@@ -148,9 +158,9 @@ export default function EmployeesTab() {
                 value={newEmployee.role}
                 onChange={(e) => setNewEmployee(prev => ({ ...prev, role: e.target.value as UserRole }))}
               >
-                <option value="staff">staff</option>
-                <option value="manager">manager</option>
-                <option value="admin">admin</option>
+                <option value="staff">vendeur</option>
+                <option value="manager">gestionnaire</option>
+                <option value="admin">magasinier</option>
               </select>
             </div>
             <Input label="Birthday (YYYY-MM-DD)" value={newEmployee.birthday || ''} onChange={(e) => setNewEmployee(prev => ({ ...prev, birthday: e.target.value }))} />
@@ -179,9 +189,9 @@ export default function EmployeesTab() {
                     value={emp.role}
                     onChange={(e) => updateEmployeeField(index, 'role', e.target.value)}
                   >
-                    <option value="staff">staff</option>
-                    <option value="manager">manager</option>
-                    <option value="admin">admin</option>
+                    <option value="staff">vendeur</option>
+                    <option value="manager">gestionnaire</option>
+                    <option value="admin">magasinier</option>
                   </select>
                 </div>
                 <Input label="Birthday (YYYY-MM-DD)" value={emp.birthday || ''} onChange={(e) => updateEmployeeField(index, 'birthday', e.target.value)} />

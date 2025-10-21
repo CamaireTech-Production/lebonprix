@@ -240,6 +240,7 @@ export interface Company extends BaseModel {
   logo?: string; // Base64 string for logo
   description?: string;
   phone: string;
+  role : "Companie"
   location?: string;
   email: string;
   employees?: Record<string, CompanyEmployee>; // mappage des employés par ID

@@ -5,6 +5,7 @@ import { CartProvider } from './contexts/CartContext';
 import AuthLayout from './components/layout/AuthLayout';
 import MainLayout from './components/layout/MainLayout';
 import ProtectedRoute from './components/auth/ProtectedRoute';
+import RoleRoute from './components/auth/RoleRoute';
 import LoadingScreen from './components/common/LoadingScreen';
 import LazyPage from './components/common/LazyPage';
 import { Toaster } from 'react-hot-toast';
@@ -89,11 +90,11 @@ function AppWithFAB({ isAddSaleModalOpen, setIsAddSaleModalOpen }: { isAddSaleMo
               <Route path="/" element={<LazyPage><Dashboard /></LazyPage>} />
               <Route path="/sales" element={<LazyPage><Sales /></LazyPage>} />
               <Route path="/expenses" element={<LazyPage><Expenses /></LazyPage>} />
-              <Route path="/finance" element={<Finance />} />
+              <Route path="/finance" element={<RoleRoute allowedRoles={['gestionnaire', 'magasinier', 'owner']}><Finance /></RoleRoute>} />
               <Route path="/products" element={<LazyPage><Products /></LazyPage>} />
               <Route path="/suppliers" element={<LazyPage><Suppliers /></LazyPage>} />
-              <Route path="/reports" element={<LazyPage><Reports /></LazyPage>} />
-              <Route path="/settings" element={<LazyPage><Settings /></LazyPage>} />
+              <Route path="/reports" element={<RoleRoute allowedRoles={['gestionnaire', 'magasinier', 'owner']}><LazyPage><Reports /></LazyPage></RoleRoute>} />
+              <Route path="/settings" element={<RoleRoute allowedRoles={['magasinier', 'owner']}><LazyPage><Settings /></LazyPage></RoleRoute>} />
               <Route path="/fifo-debugger" element={<LazyPage><FIFODebugger /></LazyPage>} />
             </Route>
           </Route>

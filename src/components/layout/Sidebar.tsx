@@ -12,21 +12,22 @@ interface SidebarProps {
 const Sidebar = ({ onClose }: SidebarProps) => {
   const { t } = useTranslation();
   const location = useLocation();
-  const { company } = useAuth();
+  const { company, effectiveRole, isOwner, currentEmployee } = useAuth();
+
   
   const isActive = (path: string) => {
     return location.pathname === path;
   };
   
   const navigationItems = [
-    { name: t('navigation.dashboard'), path: '/', icon: <LayoutDashboard size={20} /> },
-    { name: t('navigation.sales'), path: '/sales', icon: <ShoppingCart size={20} /> },
-    { name: 'Expenses', path: '/expenses', icon: <Receipt size={20} /> },
-    { name: 'Finance', path: '/finance', icon: <DollarSign size={20} /> },
-    { name: t('navigation.products'), path: '/products', icon: <Package2 size={20} /> },
-    { name: t('navigation.suppliers'), path: '/suppliers', icon: <Users size={20} /> },
-    { name: t('navigation.reports'), path: '/reports', icon: <FileBarChart size={20} /> },
-    { name: t('navigation.settings'), path: '/settings', icon: <Settings size={20} /> },
+    { name: t('navigation.dashboard'), path: '/', icon: <LayoutDashboard size={20} />, allowedRoles: ['vendeur', 'gestionnaire', 'magasinier', 'owner'] },
+    { name: t('navigation.sales'), path: '/sales', icon: <ShoppingCart size={20} />, allowedRoles: ['vendeur', 'gestionnaire', 'magasinier', 'owner'] },
+    { name: 'Expenses', path: '/expenses', icon: <Receipt size={20} />, allowedRoles: ['vendeur', 'gestionnaire', 'magasinier', 'owner'] },
+    { name: 'Finance', path: '/finance', icon: <DollarSign size={20} />, allowedRoles: ['gestionnaire', 'magasinier', 'owner'] },
+    { name: t('navigation.products'), path: '/products', icon: <Package2 size={20} />, allowedRoles: ['vendeur', 'gestionnaire', 'magasinier', 'owner'] },
+    { name: t('navigation.suppliers'), path: '/suppliers', icon: <Users size={20} />, allowedRoles: ['vendeur', 'gestionnaire', 'magasinier', 'owner'] },
+    { name: t('navigation.reports'), path: '/reports', icon: <FileBarChart size={20} />, allowedRoles: ['gestionnaire', 'magasinier', 'owner'] },
+    { name: t('navigation.settings'), path: '/settings', icon: <Settings size={20} />, allowedRoles: ['magasinier', 'owner'] },
   ];
 
   return (
@@ -48,23 +49,30 @@ const Sidebar = ({ onClose }: SidebarProps) => {
       {/* Navigation items */}
       <nav className="flex-1 overflow-y-auto py-4">
         <ul className="space-y-1 px-2">
-          {navigationItems.map((item) => (
-            <li key={item.path}>
-              <Link
-                to={item.path}
-                onClick={onClose}
-                className={`
-                  flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors
-                  ${isActive(item.path)
-                    ? 'bg-emerald-50 text-emerald-600'
-                    : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'}
-                `}
-              >
-                <span className="mr-3">{item.icon}</span>
-                {item.name}
-              </Link>
-            </li>
-          ))}
+          {navigationItems.map((item) => {
+            // Vérifier si l'utilisateur a accès à cet élément
+            const hasAccess = isOwner || (effectiveRole && item.allowedRoles.includes(effectiveRole));
+            
+            if (!hasAccess) return null;
+            
+            return (
+              <li key={item.path}>
+                <Link
+                  to={item.path}
+                  onClick={onClose}
+                  className={`
+                    flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors
+                    ${isActive(item.path)
+                      ? 'bg-emerald-50 text-emerald-600'
+                      : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'}
+                  `}
+                >
+                  <span className="mr-3">{item.icon}</span>
+                  {item.name}
+                </Link>
+              </li>
+            );
+          })}
           
           {/* Download App Button */}
           <li className="px-2">
@@ -78,12 +86,29 @@ const Sidebar = ({ onClose }: SidebarProps) => {
         <div className="flex items-center">
           <UserAvatar company={company} size="sm" />
           <div className="ml-3 flex-1 min-w-0">
-            <p className="text-sm font-medium text-gray-700 truncate">
-              {company?.name || t('header.welcome')}
-            </p>
-            <p className="text-xs text-gray-500 truncate">
-              {company?.email || t('header.welcome')}
-            </p>
+            {currentEmployee && !isOwner ? (
+              // Affichage pour les employés
+              <div>
+                <p className="text-sm font-medium text-gray-700 truncate">
+                  Bonjour {currentEmployee.firstname}
+                </p>
+                <p className="text-xs text-gray-500 truncate">
+                  {currentEmployee.role === 'staff' ? 'Vendeur' : 
+                   currentEmployee.role === 'manager' ? 'Gestionnaire' : 
+                   currentEmployee.role === 'admin' ? 'Magasinier' : currentEmployee.role}
+                </p>
+              </div>
+            ) : (
+              // Affichage pour les propriétaires (rien ne s'affiche)
+              <div>
+                <p className="text-sm font-medium text-gray-700 truncate">
+                  {company?.name || t('header.welcome')}
+                </p>
+                <p className="text-xs text-gray-500 truncate">
+                  {company?.email || t('header.welcome')}
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>

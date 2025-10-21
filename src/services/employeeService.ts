@@ -38,7 +38,7 @@ export const saveEmployee = async (
     });
     
     // 4. Générer le loginLink
-    const loginLink = buildLoginLink(employeeData.firstname, employeeData.lastname, 3);
+    const loginLink = buildLoginLink(employeeData.firstname, employeeData.lastname);
     
     // 5. Créer l'objet employé complet
     const newEmployee: CompanyEmployee = {
