@@ -2,11 +2,53 @@
 
 ## Vue d'ensemble
 
-Le projet "Le Bon Prix" utilise Firebase Firestore comme base de données NoSQL. La structure est organisée autour de deux entités principales : les **Compagnies** et les **Employés**.
+Le projet "Le Bon Prix" utilise Firebase Firestore comme base de données NoSQL. La structure utilise maintenant une **architecture simplifiée centrée sur l'utilisateur** avec un dashboard type Netflix.
+
+### Architecture Simplifiée
+
+- **Connexion utilisateur** : Les utilisateurs se connectent (pas les entreprises)
+- **Dashboard Netflix** : Affichage de toutes les entreprises de l'utilisateur
+- **Références unidirectionnelles** : `users[].companies[]` uniquement (suppression de `companies[].employeeRefs`)
+- **Création d'entreprise** : Après connexion, via le dashboard avec bouton +
 
 ## Collections Principales
 
-### 1. Collection `companies`
+### 1. Collection `users` (Nouveau Système Unifié)
+**Chemin** : `/users/{userId}`
+
+**Structure** :
+```typescript
+interface User {
+  id: string;
+  firstname: string;
+  lastname: string;
+  email: string;
+  phone?: string;
+  photoURL?: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+  companies: UserCompanyRef[]; // Liste des entreprises où l'utilisateur est membre
+  status: 'active' | 'suspended' | 'invited';
+  lastLogin?: Timestamp;
+}
+
+interface UserCompanyRef {
+  companyId: string;
+  name: string;
+  description?: string;
+  logo?: string;
+  role: 'owner' | 'admin' | 'manager' | 'staff';
+  joinedAt: Timestamp;
+}
+```
+
+**Règles de sécurité** :
+- Lecture : L'utilisateur lui-même ou les membres de la même entreprise
+- Création : Utilisateur authentifié (userId = auth.uid)
+- Mise à jour : Utilisateur authentifié (userId = auth.uid)
+- Suppression : Interdite (soft delete uniquement)
+
+### 2. Collection `companies` (Système Unifié)
 **Chemin** : `/companies/{companyId}`
 
 **Structure** :
@@ -15,7 +57,7 @@ interface Company extends BaseModel {
   id: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
-  userId: string; // Référence vers l'utilisateur propriétaire
+  companyId: string; // ID de l'entreprise (remplace userId)
   
   // Informations de l'entreprise
   name: string;
@@ -26,19 +68,24 @@ interface Company extends BaseModel {
   location?: string;
   email: string;
   
-  // Employés de l'entreprise
+  // ❌ SUPPRIMÉ - Architecture simplifiée ne gère plus employeeRefs
+  // Les références sont uniquement dans users[].companies[]
+  
+  // Ancien système - Maintenu pour compatibilité
   employees?: Record<string, CompanyEmployee>; // Mapping des employés par ID
 }
 ```
 
 **Règles de sécurité** :
-- Lecture : Utilisateurs authentifiés
-- Création : Utilisateur authentifié (userId = auth.uid)
-- Mise à jour : Propriétaire de l'entreprise uniquement
+- Lecture : Membres de l'entreprise uniquement
+- Création : Utilisateur authentifié
+- Mise à jour : Propriétaire de l'entreprise (companyId = auth.uid)
 - Suppression : Propriétaire de l'entreprise uniquement
 
-### 2. Sous-collection `employees`
+### 3. Sous-collection `employees` (Ancien Système - Compatibilité)
 **Chemin** : `/companies/{companyId}/employees/{employeeId}`
+
+**Note** : Cette sous-collection est maintenue pour compatibilité avec l'ancien système. Les nouvelles implémentations doivent utiliser la collection `users` et les références `employeeRefs`.
 
 **Structure** :
 ```typescript
@@ -51,7 +98,7 @@ interface CompanyEmployee {
   role: UserRole; // 'admin' | 'manager' | 'staff'
   birthday?: string; // ISO date (YYYY-MM-DD)
   loginLink?: string; // Lien d'invitation/connexion chiffré
-  firebaseUid?: string; // UID Firebase Auth (optionnel)
+  firebaseUid?: string; // UID Firebase Auth (référence vers /users/{uid})
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
@@ -65,28 +112,45 @@ type UserRole = 'admin' | 'manager' | 'staff';
 - Mise à jour : Propriétaire de l'entreprise uniquement
 - Suppression : Propriétaire de l'entreprise uniquement
 
-### 3. Collection `users`
-**Chemin** : `/users/{userId}`
-
-**Structure** :
-```typescript
-interface User {
-  id: string;
-  role: UserRole; // 'admin' | 'manager' | 'staff'
-  // Autres champs utilisateur...
-}
-```
-
-**Utilisation** : Gestion des rôles globaux pour les permissions Firestore.
-
 ## Relations et Intégrations
 
-### Relation Compagnie ↔ Employés
+### Architecture Simplifiée: Relation Utilisateurs ↔ Entreprises
+
+#### Architecture Unidirectionnelle
+- **Type** : Relation unidirectionnelle (users → companies)
+- **Cardinalité** : N:N (un utilisateur peut être dans plusieurs entreprises)
+- **Source de vérité** : `users[].companies[]` uniquement
+
+#### Stockage des Références
+
+**Dans `/users/{userId}` uniquement:**
+```typescript
+companies: [
+  {
+    companyId: "company123",
+    name: "Mon Entreprise",
+    role: "owner",
+    joinedAt: Timestamp
+  },
+  {
+    companyId: "company456", 
+    name: "Autre Entreprise",
+    role: "staff",
+    joinedAt: Timestamp
+  }
+]
+```
+
+**❌ SUPPRIMÉ dans `/companies/{companyId}`:**
+- Plus de `employeeRefs` (architecture simplifiée)
+- Les références sont uniquement dans `users[].companies[]`
+
+### Relation Compagnie ↔ Employés (Ancien Système - Compatibilité)
 - **Type** : Relation hiérarchique (document → sous-collection)
 - **Cardinalité** : 1:N (une compagnie peut avoir plusieurs employés)
-- **Stockage** : Double stockage
-  1. Dans le document `companies/{companyId}` : champ `employees` (Record<string, CompanyEmployee>)
-  2. Dans la sous-collection `companies/{companyId}/employees/{employeeId}`
+- **Stockage** : Double stockage (pour compatibilité)
+  1. Dans `/users/{userId}` : liste `companies` avec références (source de vérité)
+  2. Dans la sous-collection `companies/{companyId}/employees/{employeeId}` (compatibilité)
 
 ### Intégration Firebase Auth
 - **Authentification** : Chaque employé a un compte Firebase Auth
@@ -123,16 +187,36 @@ match /companies/{companyId} {
 - **Employés** : Accès limité selon leur rôle
 - **Administrateurs** : Accès global (via `users/{uid}.role`)
 
-## Flux de Données
+## Flux de Données et Logique Métier
 
-### Création d'un Employé
-1. **Validation** : Vérification des champs obligatoires
-2. **Génération** : ID unique, mot de passe par défaut, lien de connexion
-3. **Authentification** : Création d'utilisateur Firebase Auth
-4. **Sauvegarde** : Stockage dans Firestore (sous-collection + document company)
-5. **Interface** : Mise à jour de l'état local
+### Inscription Utilisateur (Nouveau Flux)
+1. **Création du compte Firebase Auth** pour l'utilisateur
+2. **Création du document utilisateur** dans `/users/{uid}` avec `companies: []`
+3. **Redirection vers dashboard Netflix** (vide ou avec entreprises existantes)
 
-### Connexion d'un Employé
+### Création d'Entreprise (Post-Connexion)
+1. **Utilisateur connecté** accède au dashboard
+2. **Clic sur bouton +** pour créer une entreprise
+3. **Création du document entreprise** dans `/companies/{companyId}`
+4. **Ajout de la référence** dans `users[].companies[]` uniquement
+5. **Redirection vers l'entreprise** créée
+
+### Ajout d'Employé
+1. **Création du compte Firebase Auth** pour l'employé
+2. **Création du document utilisateur** dans `/users/{uid}`
+3. **Ajout de la référence** dans `users[].companies[]` uniquement
+4. **Création dans la sous-collection** `companies/{companyId}/employees/{employeeId}` (compatibilité)
+
+### Connexion Utilisateur (Dashboard Netflix)
+1. **Authentification Firebase Auth**
+2. **Chargement du document utilisateur** depuis `/users/{uid}`
+3. **Récupération des entreprises** depuis `user.companies[]`
+4. **Logique du dashboard** :
+   - 0 entreprise → Dashboard vide avec bouton "Créer entreprise"
+   - 1 entreprise → Chargement automatique
+   - 2+ entreprises → Dashboard Netflix avec sélection
+
+### Création d'un Employé (Ancien Système - Compatibilité)
 1. **Lien de connexion** : Décryptage et validation
 2. **Pré-remplissage** : Chargement des informations employé
 3. **Authentification** : Connexion Firebase Auth

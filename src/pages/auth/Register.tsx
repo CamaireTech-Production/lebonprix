@@ -1,31 +1,25 @@
-import { useState, FormEvent, ChangeEvent } from 'react';
+import { useState, FormEvent } from 'react';
 import { Link, useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
-import Textarea from '../../components/common/Textarea';
-import { Upload } from 'lucide-react';
 import { FirebaseError } from 'firebase/app';
 import LoadingScreen from '../../components/common/LoadingScreen';
+import { signUpUser } from '../../services/authService';
 
 const Register = () => {
-  // Company form state
-  const [companyName, setCompanyName] = useState('');
-  const [companyDescription, setCompanyDescription] = useState('');
-  const [companyPhone, setCompanyPhone] = useState('');
-  const [companyLocation, setCompanyLocation] = useState('');
-  const [companyLogo, setCompanyLogo] = useState<string | null>(null);
-  const [, setLogoFile] = useState<File | null>(null);
-
-  // User form state
+  // User form state only
+  const [firstname, setFirstname] = useState('');
+  const [lastname, setLastname] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   
-  const { currentUser, loading, signUp } = useAuth();
+  const { currentUser, loading } = useAuth();
   const navigate = useNavigate();
 
   if (loading) {
@@ -35,22 +29,10 @@ const Register = () => {
     return <Navigate to="/" replace />;
   }
 
-  const handleLogoChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setLogoFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setCompanyLogo(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handlePhoneChange = (e: ChangeEvent<HTMLInputElement>) => {
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.replace(/\D/g, ''); // Remove non-digits
     if (value.length <= 9) { // Only allow 9 digits after +237
-      setCompanyPhone(value);
+      setPhone(value);
     }
   };
 
@@ -58,11 +40,11 @@ const Register = () => {
     const errors: string[] = [];
 
     // Required fields validation
-    if (!companyName.trim()) {
-      errors.push('Le nom de l\'entreprise est requis');
+    if (!firstname.trim()) {
+      errors.push('Le prénom est requis');
     }
-    if (!companyPhone.trim()) {
-      errors.push('Le numéro de téléphone est requis');
+    if (!lastname.trim()) {
+      errors.push('Le nom est requis');
     }
     if (!email.trim()) {
       errors.push('L\'adresse email est requise');
@@ -86,14 +68,17 @@ const Register = () => {
       errors.push('Vous devez accepter les conditions d\'utilisation');
     }
 
-    // Validate phone number format (9 digits after +237)
-    if (companyPhone.length !== 9) {
+    // Validate phone number format (9 digits after +237) - only if provided
+    if (phone && phone.length !== 9) {
       errors.push('Le numéro de téléphone doit contenir 9 chiffres après +237');
     }
 
-    // Validate company name length
-    if (companyName.length < 2) {
-      errors.push('Le nom de l\'entreprise doit contenir au moins 2 caractères');
+    // Validate name length
+    if (firstname.length < 2) {
+      errors.push('Le prénom doit contenir au moins 2 caractères');
+    }
+    if (lastname.length < 2) {
+      errors.push('Le nom doit contenir au moins 2 caractères');
     }
 
     // Validate password strength
@@ -120,17 +105,15 @@ const Register = () => {
       setError('');
       setIsLoading(true);
 
-      const companyData = {
-        name: companyName.trim(),
-        description: companyDescription.trim() || undefined,
-        phone: `+237${companyPhone}`,
-        location: companyLocation.trim() || undefined,
-        logo: companyLogo || undefined,
-        email: email.trim().toLowerCase()
+      const userData = {
+        firstname: firstname.trim(),
+        lastname: lastname.trim(),
+        phone: phone ? `+237${phone}` : undefined
       };
 
-      await signUp(email, password, companyData);
-      navigate('/');
+      await signUpUser(email, password, userData);
+      // Redirection vers la page de connexion après inscription réussie
+      navigate('/auth/login');
     } catch (err) {
       if (err instanceof FirebaseError) {
         switch (err.code) {
@@ -186,30 +169,33 @@ const Register = () => {
       )}
       
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Company Information Section */}
+        {/* Personal Information Section */}
         <div className="space-y-4">
-          <h3 className="text-lg font-medium text-gray-900">Informations de l'entreprise</h3>
+          <h3 className="text-lg font-medium text-gray-900">Informations personnelles</h3>
           
-          <Input
-            label="Nom de l'entreprise"
-            id="company-name"
-            name="companyName"
-            type="text"
-            value={companyName}
-            onChange={(e) => setCompanyName(e.target.value)}
-            required
-            helpText="Minimum 2 caractères"
-          />
-          
-          <Textarea
-            label="Description de l'entreprise"
-            id="company-description"
-            name="companyDescription"
-            value={companyDescription}
-            onChange={(e) => setCompanyDescription(e.target.value)}
-            rows={3}
-            helpText="Optionnel"
-          />
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label="Prénom"
+              id="firstname"
+              name="firstname"
+              type="text"
+              value={firstname}
+              onChange={(e) => setFirstname(e.target.value)}
+              required
+              helpText="Minimum 2 caractères"
+            />
+            
+            <Input
+              label="Nom"
+              id="lastname"
+              name="lastname"
+              type="text"
+              value={lastname}
+              onChange={(e) => setLastname(e.target.value)}
+              required
+              helpText="Minimum 2 caractères"
+            />
+          </div>
           
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -221,53 +207,14 @@ const Register = () => {
               </span>
               <Input
                 type="tel"
-                name="companyPhone"
-                value={companyPhone}
+                name="phone"
+                value={phone}
                 onChange={handlePhoneChange}
                 placeholder="678904568"
                 className="flex-1 rounded-l-none"
-                required
-                helpText="9 chiffres après +237"
+                helpText="9 chiffres après +237 (optionnel)"
               />
             </div>
-          </div>
-          
-          <Input
-            label="Adresse"
-            id="company-location"
-            name="companyLocation"
-            type="text"
-            value={companyLocation}
-            onChange={(e) => setCompanyLocation(e.target.value)}
-            helpText="Optionnel"
-          />
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Company Logo
-            </label>
-            <div className="mt-1 flex items-center space-x-4">
-              <div className="flex-shrink-0">
-                {companyLogo ? (
-                  <img
-                    src={companyLogo}
-                    alt="Company logo preview"
-                    className="h-16 w-16 object-cover rounded-lg"
-                  />
-                ) : (
-                  <div className="h-16 w-16 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center">
-                    <Upload className="h-6 w-6 text-gray-400" />
-                  </div>
-                )}
-              </div>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleLogoChange}
-                className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border file:border-gray-300 file:text-sm file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
-              />
-            </div>
-            <p className="mt-1 text-sm text-gray-500">Optional. Upload your company logo</p>
           </div>
         </div>
 
@@ -338,7 +285,7 @@ const Register = () => {
           className="w-full"
           isLoading={isLoading}
         >
-          S'inscrire
+          Créer mon compte
         </Button>
       </form>
       
@@ -349,6 +296,19 @@ const Register = () => {
             Se connecter
           </Link>
         </p>
+      </div>
+
+      {/* Information sur le processus */}
+      <div className="mt-8 bg-blue-50 border border-blue-200 rounded-md p-4">
+        <h3 className="text-sm font-medium text-blue-800 mb-2">
+          Comment ça marche ?
+        </h3>
+        <ol className="text-sm text-blue-700 space-y-1">
+          <li>1. Créez votre compte utilisateur</li>
+          <li>2. Accédez au dashboard de vos entreprises</li>
+          <li>3. Créez votre première entreprise</li>
+          <li>4. Invitez des employés si nécessaire</li>
+        </ol>
       </div>
     </div>
   );

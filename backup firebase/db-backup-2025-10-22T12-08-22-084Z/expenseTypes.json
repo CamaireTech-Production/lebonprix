@@ -1,0 +1,86 @@
+[
+  {
+    "id": "7w6WDucuVw1lZPDDe2Vz",
+    "name": "facebook Adds",
+    "isDefault": false,
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "createdAt": {
+      "_seconds": 1759685189,
+      "_nanoseconds": 238000000
+    }
+  },
+  {
+    "id": "BHZaTUFU0MqlLb5YH9ns",
+    "name": "purchase",
+    "isDefault": true,
+    "createdAt": {
+      "_seconds": 1760455775,
+      "_nanoseconds": 391000000
+    }
+  },
+  {
+    "id": "JanmWBSnltNh0zU7TeJ7",
+    "name": "credit",
+    "isDefault": false,
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "createdAt": {
+      "_seconds": 1756068764,
+      "_nanoseconds": 473000000
+    }
+  },
+  {
+    "id": "K0jwbawQIVHHy4bxIeyI",
+    "name": "transportation",
+    "isDefault": true,
+    "createdAt": {
+      "_seconds": 1754916204,
+      "_nanoseconds": 924000000
+    }
+  },
+  {
+    "id": "LooShu09TpXfyd9NfMD9",
+    "name": "other",
+    "isDefault": true,
+    "createdAt": {
+      "_seconds": 1760455775,
+      "_nanoseconds": 391000000
+    }
+  },
+  {
+    "id": "LwyT5rYQXRepzmKoEzwf",
+    "name": "other",
+    "isDefault": true,
+    "createdAt": {
+      "_seconds": 1754916206,
+      "_nanoseconds": 765000000
+    }
+  },
+  {
+    "id": "bsx9nyGApyGW6ib2LeKU",
+    "name": "Internet Connexion",
+    "isDefault": false,
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "createdAt": {
+      "_seconds": 1759745599,
+      "_nanoseconds": 580000000
+    }
+  },
+  {
+    "id": "jQ7DOtQTeASI5BBye07z",
+    "name": "transportation",
+    "isDefault": true,
+    "createdAt": {
+      "_seconds": 1760455775,
+      "_nanoseconds": 391000000
+    }
+  },
+  {
+    "id": "kRElGtushnsNrETgL2wH",
+    "name": "purchase",
+    "isDefault": true,
+    "createdAt": {
+      "_seconds": 1754916205,
+      "_nanoseconds": 812000000
+    }
+  }
+]

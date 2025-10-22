@@ -1,8 +1,9 @@
-import { doc, setDoc, updateDoc, deleteDoc, Timestamp } from 'firebase/firestore';
+import { doc, setDoc, updateDoc, deleteDoc, getDoc, Timestamp } from 'firebase/firestore';
 import { db } from './firebase';
 import { CompanyEmployee, UserRole } from '../types/models';
 import { createFirebaseUser } from './userAuth';
 import { buildLoginLink, makeDefaultEmployeePassword, generateEmployeeId } from '../utils/security';
+import { createUser, addCompanyToUser, removeCompanyFromUser } from './userService';
 
 export interface EmployeeData {
   firstname: string;
@@ -37,10 +38,19 @@ export const saveEmployee = async (
       displayName: `${employeeData.firstname} ${employeeData.lastname}`
     });
     
-    // 4. Générer le loginLink
+    // 4. Créer l'utilisateur dans le système unifié
+    await createUser(firebaseUid, {
+      firstname: employeeData.firstname,
+      lastname: employeeData.lastname,
+      email: employeeData.email,
+      phone: employeeData.phone,
+      photoURL: undefined
+    }, companyId, employeeData.role);
+    
+    // 5. Générer le loginLink
     const loginLink = buildLoginLink(employeeData.firstname, employeeData.lastname);
     
-    // 5. Créer l'objet employé complet
+    // 6. Créer l'objet employé complet
     const newEmployee: CompanyEmployee = {
       ...employeeData,
       id: employeeId,
@@ -50,15 +60,18 @@ export const saveEmployee = async (
       updatedAt: Timestamp.now()
     };
     
-    // 6. Sauvegarder dans Firestore (sous-collection)
+    // 7. Sauvegarder dans Firestore (sous-collection) - Compatibilité
     const employeeRef = doc(db, 'companies', companyId, 'employees', employeeId);
     await setDoc(employeeRef, newEmployee);
     
-    // 7. Mettre à jour la liste des employés dans le document company
+    // 8. Mettre à jour la liste des employés dans le document company - Compatibilité
     const companyRef = doc(db, 'companies', companyId);
     await updateDoc(companyRef, {
       [`employees.${employeeId}`]: newEmployee
     });
+    
+    // 9. ❌ SUPPRIMÉ - Architecture simplifiée ne gère plus employeeRefs
+    // Les références sont uniquement dans users[].companies[]
     
     return newEmployee;
   } catch (error: any) {
@@ -104,13 +117,37 @@ export const removeEmployee = async (
   companyId: string,
   employeeId: string
 ): Promise<void> => {
-  // Supprimer de la sous-collection
-  const employeeRef = doc(db, 'companies', companyId, 'employees', employeeId);
-  await deleteDoc(employeeRef);
-  
-  // Supprimer du document company
-  const companyRef = doc(db, 'companies', companyId);
-  await updateDoc(companyRef, {
-    [`employees.${employeeId}`]: null
-  });
+  try {
+    // 1. Récupérer les données de l'employé pour obtenir le firebaseUid
+    const employeeRef = doc(db, 'companies', companyId, 'employees', employeeId);
+    const employeeDoc = await getDoc(employeeRef);
+    
+    if (!employeeDoc.exists()) {
+      throw new Error('Employé non trouvé');
+    }
+    
+    const employeeData = employeeDoc.data();
+    const firebaseUid = employeeData.firebaseUid;
+    
+    if (firebaseUid) {
+      // 2. Supprimer la référence de l'entreprise dans users/{uid}
+      await removeCompanyFromUser(firebaseUid, companyId);
+      
+      // 3. ❌ SUPPRIMÉ - Architecture simplifiée ne gère plus employeeRefs
+      // Les références sont uniquement dans users[].companies[]
+    }
+    
+    // 4. Supprimer de la sous-collection (compatibilité)
+    await deleteDoc(employeeRef);
+    
+    // 5. Supprimer du document company (compatibilité)
+    const companyDocRef = doc(db, 'companies', companyId);
+    await updateDoc(companyDocRef, {
+      [`employees.${employeeId}`]: null
+    });
+    
+  } catch (error: any) {
+    console.error('Erreur lors de la suppression de l\'employé:', error);
+    throw error;
+  }
 };

@@ -234,6 +234,44 @@ export interface CompanyEmployee {
   updatedAt: Timestamp;
 }
 
+// Nouvelle interface pour les références d'employés
+export interface EmployeeRef {
+  id: string;              // firebaseUid du user
+  firstname: string;       // Dupliqué depuis users
+  lastname: string;        // Dupliqué depuis users
+  email: string;          // Dupliqué depuis users
+  role: 'admin' | 'manager' | 'staff';  // Rôle dans cette companie
+  addedAt: Timestamp;     // Date d'ajout comme employé
+}
+
+// Référence d'une entreprise pour un utilisateur
+export interface UserCompanyRef {
+  companyId: string;
+  name: string;
+  description?: string;
+  logo?: string;
+  role: 'owner' | 'admin' | 'manager' | 'staff';
+  joinedAt: Timestamp;
+}
+
+// ❌ SUPPRIMÉ - Plus utilisé dans l'architecture simplifiée
+// Les références sont maintenant uniquement dans users[].companies[]
+
+// Nouveau modèle User unifié
+export interface User {
+  id: string;
+  firstname: string;
+  lastname: string;
+  email: string;
+  phone?: string;
+  photoURL?: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+  companies: UserCompanyRef[];
+  status: 'active' | 'suspended' | 'invited';
+  lastLogin?: Timestamp;
+}
+
 // Update Company interface to include employees
 export interface Company extends BaseModel {
   name: string;
@@ -243,5 +281,7 @@ export interface Company extends BaseModel {
   role : "Companie"
   location?: string;
   email: string;
-  employees?: Record<string, CompanyEmployee>; // mappage des employés par ID
+  companyId: string; // ID du propriétaire de l'entreprise
+  employees?: Record<string, CompanyEmployee>; // DEPRECATED - Lecture seule, utiliser employeeRefs
+  // Nouvelle architecture: employeeRefs via sous-collection companies/{id}/employeeRefs/{firebaseUid}
 }

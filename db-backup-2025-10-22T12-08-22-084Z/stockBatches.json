@@ -1,0 +1,6312 @@
+[
+  {
+    "id": "0KR5imZiceoaq16lRbiO",
+    "productId": "ndszRqM3Ty7zIrY1bA9Q",
+    "quantity": 6,
+    "costPrice": 490,
+    "createdAt": {
+      "_seconds": 1752690531,
+      "_nanoseconds": 84000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 4,
+    "initialQuantity": 4
+  },
+  {
+    "id": "0Qy7uVmHGoCtBJZqaAxW",
+    "productId": "TBE28ya1DqLdRFoboxMA",
+    "quantity": 20,
+    "costPrice": 750,
+    "createdAt": {
+      "_seconds": 1752691646,
+      "_nanoseconds": 688000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 18,
+    "initialQuantity": 18
+  },
+  {
+    "id": "0TN2VgzTcsBgfuAdhXP4",
+    "productId": "aIxD5qEz0zJvWKjsLHUy",
+    "quantity": 4,
+    "costPrice": 3919.5,
+    "createdAt": {
+      "_seconds": 1751990682,
+      "_nanoseconds": 540000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 3,
+    "initialQuantity": 3
+  },
+  {
+    "id": "0TWhuuiTZo0cu1iMkfaL",
+    "productId": "P2OBrElbsk9FcVy5qMWi",
+    "quantity": 1,
+    "costPrice": 4500,
+    "createdAt": {
+      "_seconds": 1752780807,
+      "_nanoseconds": 998000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 1,
+    "status": "active",
+    "initialQuantity": 1
+  },
+  {
+    "id": "0Y3nRuIegWgd65HSvQLG",
+    "productId": "KklKb8Y9GHFtuhBKdh9E",
+    "quantity": 14,
+    "costPrice": 400,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781144,
+      "_nanoseconds": 911000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 14,
+    "status": "active",
+    "notes": "Migration: creation - 14 units",
+    "initialQuantity": 14
+  },
+  {
+    "id": "0tf73fL9m7JV37X58zZy",
+    "productId": "OH1IcVJKxYSqpF4SrGee",
+    "quantity": 1,
+    "costPrice": 3000,
+    "createdAt": {
+      "_seconds": 1752779531,
+      "_nanoseconds": 567000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 1,
+    "status": "active",
+    "initialQuantity": 1
+  },
+  {
+    "id": "0vUBih2D3LLyWT8VvwPm",
+    "productId": "li9I5cX1QeRcr1HBCtIz",
+    "quantity": 3,
+    "costPrice": 3003,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781373,
+      "_nanoseconds": 778000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 3,
+    "status": "active",
+    "notes": "Migration: creation - 3 units",
+    "initialQuantity": 3
+  },
+  {
+    "id": "1ALTGhDEbdjHbmRZ8ZGb",
+    "productId": "Gwikw6UK8Uec4JcdEFFx",
+    "quantity": 3,
+    "costPrice": 840,
+    "createdAt": {
+      "_seconds": 1752944624,
+      "_nanoseconds": 866000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 3,
+    "status": "active",
+    "initialQuantity": 3
+  },
+  {
+    "id": "1J0wPIFqo80u4MeDQbJ7",
+    "productId": "oasN2e9BoEEVJS4SPCDZ",
+    "quantity": 5,
+    "costPrice": 3000,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781413,
+      "_nanoseconds": 75000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 5,
+    "status": "active",
+    "notes": "Migration: creation - 5 units",
+    "initialQuantity": 5
+  },
+  {
+    "id": "1ReFYNvUTp73jyhLDteK",
+    "productId": "Mn3LKFjZe4z3fBE5IZUL",
+    "quantity": 4,
+    "costPrice": 3250,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781158,
+      "_nanoseconds": 422000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 4,
+    "status": "active",
+    "notes": "Migration: creation - 4 units",
+    "initialQuantity": 4
+  },
+  {
+    "id": "1slMNRxiZZTdkDl0dsZd",
+    "productId": "OXmdnfhuGTL7MEgnefUG",
+    "quantity": 6,
+    "costPrice": 2546,
+    "createdAt": {
+      "_seconds": 1751992774,
+      "_nanoseconds": 786000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 5,
+    "initialQuantity": 5
+  },
+  {
+    "id": "1uKhlClrdRrpk7Ix5OZU",
+    "productId": "W3SjClWMMigx8jzCkJtP",
+    "quantity": 1,
+    "costPrice": 50000,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "userId": "D9EJnNTbQYTvkD1kAAP6IuQB1003",
+    "remainingQuantity": 1,
+    "status": "active",
+    "createdAt": {
+      "_seconds": 1761126526,
+      "_nanoseconds": 90000000
+    }
+  },
+  {
+    "id": "1ui5CH8Pk2COUjaWqudM",
+    "productId": "1815qXTbCSg9dXeCvbU0",
+    "quantity": 4,
+    "costPrice": 2891,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781000,
+      "_nanoseconds": 908000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 4,
+    "status": "active",
+    "notes": "Migration: creation - 4 units",
+    "initialQuantity": 4
+  },
+  {
+    "id": "26ZYvQ6lVNAfD3wnoe89",
+    "productId": "Jvm1WC9QeMz4VyrIdZPK",
+    "quantity": 4,
+    "costPrice": 11500,
+    "createdAt": {
+      "_seconds": 1751866177,
+      "_nanoseconds": 854000000
+    },
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "status": "active",
+    "remainingQuantity": 3,
+    "initialQuantity": 3
+  },
+  {
+    "id": "2EfpGR31HlRUj1CD6Ykh",
+    "productId": "hMhzoA106RM1ohyU6a4u",
+    "quantity": 3,
+    "costPrice": 3250,
+    "createdAt": {
+      "_seconds": 1752942744,
+      "_nanoseconds": 742000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 3,
+    "status": "active",
+    "initialQuantity": 3
+  },
+  {
+    "id": "2MrxO3EmowUpwkNjIUvy",
+    "productId": "Hb83jlw6cc5l5sNu0XiJ",
+    "quantity": 2,
+    "costPrice": 4000,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781116,
+      "_nanoseconds": 418000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 2,
+    "status": "active",
+    "notes": "Migration: creation - 2 units",
+    "initialQuantity": 2
+  },
+  {
+    "id": "2QQwE7zBFpieghdAqv1x",
+    "productId": "nD6TLaob9WSKxsckBUXx",
+    "quantity": 4,
+    "costPrice": 3290,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781388,
+      "_nanoseconds": 223000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 4,
+    "status": "active",
+    "notes": "Migration: creation - 4 units",
+    "initialQuantity": 4
+  },
+  {
+    "id": "2of44Jg5TxYbZZm8mLyj",
+    "productId": "bDk2Ie5vAQXZcWMjxHDb",
+    "quantity": 1,
+    "costPrice": 2000,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753823057,
+      "_nanoseconds": 248000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "notes": "Migration: creation - 1 units",
+    "remainingQuantity": 0,
+    "status": "depleted",
+    "initialQuantity": 0
+  },
+  {
+    "id": "2qorbdRGKUk9zp3E3pms",
+    "productId": "OvtoqyvLrgZoPgXcHzqd",
+    "quantity": 1,
+    "costPrice": 1500,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781170,
+      "_nanoseconds": 959000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 1,
+    "status": "active",
+    "notes": "Migration: creation - 1 units",
+    "initialQuantity": 1
+  },
+  {
+    "id": "2v7UEQDtt35oyqNkMPPX",
+    "productId": "euFNQCN9cxPa6OKdeRVa",
+    "quantity": 7,
+    "costPrice": 4000,
+    "createdAt": {
+      "_seconds": 1750756318,
+      "_nanoseconds": 642000000
+    },
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "status": "active",
+    "notes": "Migration: creation - 7 units",
+    "initialQuantity": 6,
+    "remainingQuantity": 5
+  },
+  {
+    "id": "321Jlxmn9155AleMRykH",
+    "productId": "H7EB7H9wMm6TlVjY9DDg",
+    "quantity": 2,
+    "costPrice": 3199,
+    "createdAt": {
+      "_seconds": 1752689407,
+      "_nanoseconds": 286000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 2,
+    "status": "active",
+    "initialQuantity": 2
+  },
+  {
+    "id": "35oRZIfSfuCkOXioWIE2",
+    "productId": "M5gagds0FGyAL0GUJInT",
+    "quantity": 4,
+    "costPrice": 3500,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781153,
+      "_nanoseconds": 8000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 4,
+    "status": "active",
+    "notes": "Migration: creation - 4 units",
+    "initialQuantity": 4
+  },
+  {
+    "id": "37nJCQiTKjxy4yNL5GtI",
+    "productId": "tPlw75Dy8WPc9JOcBbih",
+    "quantity": 3,
+    "costPrice": 4000,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781465,
+      "_nanoseconds": 304000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 3,
+    "status": "active",
+    "notes": "Migration: creation - 3 units",
+    "initialQuantity": 3
+  },
+  {
+    "id": "3C3i2yO9gpZ5UIrQmbNJ",
+    "productId": "C2aQ2s2Ov6dGCltO5J4u",
+    "quantity": 4,
+    "costPrice": 2555,
+    "createdAt": {
+      "_seconds": 1752685607,
+      "_nanoseconds": 116000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 3,
+    "initialQuantity": 3
+  },
+  {
+    "id": "3V0B5EsOmoT49kA1GW8G",
+    "productId": "qXmTTJp3oXx0o2eKL0Ip",
+    "quantity": 1,
+    "costPrice": 4000,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781435,
+      "_nanoseconds": 329000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 1,
+    "status": "active",
+    "notes": "Migration: creation - 1 units",
+    "initialQuantity": 1
+  },
+  {
+    "id": "3VSja8nFLlvrtWQw02Xq",
+    "productId": "Wd4x5975CqlXLfs2ezZj",
+    "quantity": 4,
+    "costPrice": 2608,
+    "createdAt": {
+      "_seconds": 1751458486,
+      "_nanoseconds": 302000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 4,
+    "status": "active",
+    "initialQuantity": 4
+  },
+  {
+    "id": "3ZxMVP1A16Zbe3Qzn1bT",
+    "productId": "RoUz6vAQEOsWOFjnsisL",
+    "quantity": 5,
+    "costPrice": 18000,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "status": "active",
+    "createdAt": {
+      "_seconds": 1754584615,
+      "_nanoseconds": 107000000
+    },
+    "remainingQuantity": 4
+  },
+  {
+    "id": "3wIFaHVwrset2UAlQXtt",
+    "productId": "Jp4lHukwGfjus7bhoRti",
+    "quantity": 3,
+    "costPrice": 5000,
+    "createdAt": {
+      "_seconds": 1750756318,
+      "_nanoseconds": 440000000
+    },
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "status": "active",
+    "notes": "Migration: creation - 3 units",
+    "initialQuantity": 2,
+    "remainingQuantity": 1
+  },
+  {
+    "id": "48biJls3END2ZkaY0yRz",
+    "productId": "nvVCM4jbe39Nxer2slIZ",
+    "quantity": 8,
+    "costPrice": 2500,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781400,
+      "_nanoseconds": 228000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 8,
+    "status": "active",
+    "notes": "Migration: creation - 8 units",
+    "initialQuantity": 8
+  },
+  {
+    "id": "4E3ksncfs26c9mfM02S4",
+    "productId": "ZWoKxIyUcMB6d3zCcTRj",
+    "quantity": 3,
+    "costPrice": 4557,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781273,
+      "_nanoseconds": 318000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 3,
+    "status": "active",
+    "notes": "Migration: creation - 3 units",
+    "initialQuantity": 3
+  },
+  {
+    "id": "4Hxw4cG3BP6ydTF0oEhi",
+    "productId": "hgNrEbDBBfQLcie7xwpr",
+    "quantity": 1,
+    "costPrice": 3178,
+    "createdAt": {
+      "_seconds": 1752778492,
+      "_nanoseconds": 530000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 0,
+    "status": "depleted",
+    "initialQuantity": 0
+  },
+  {
+    "id": "4JeZ6LyV1gKK8Oah9IdI",
+    "productId": "Ux1nZRd8UXEhZEJre0kL",
+    "quantity": 9,
+    "costPrice": 877.2,
+    "createdAt": {
+      "_seconds": 1752945003,
+      "_nanoseconds": 606000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 6,
+    "initialQuantity": 6
+  },
+  {
+    "id": "4a3zJ9VJAKyOEWIqBI92",
+    "productId": "hEtW5S7IjCU87jCZfyqL",
+    "quantity": 12,
+    "costPrice": 12,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "userId": "D9EJnNTbQYTvkD1kAAP6IuQB1003",
+    "remainingQuantity": 12,
+    "status": "active",
+    "createdAt": {
+      "_seconds": 1760448516,
+      "_nanoseconds": 814000000
+    }
+  },
+  {
+    "id": "4dSC8o2ivgw2xSymVRFq",
+    "productId": "EhdkSkKiJqILz7FP7Mhq",
+    "quantity": 1,
+    "costPrice": 2765,
+    "createdAt": {
+      "_seconds": 1752778379,
+      "_nanoseconds": 944000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 1,
+    "status": "active",
+    "initialQuantity": 1
+  },
+  {
+    "id": "4eOhka3bejkiKgUuGt4b",
+    "productId": "xjog8PTaJUVEhhHipUTI",
+    "quantity": 18,
+    "costPrice": 650,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781492,
+      "_nanoseconds": 221000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 18,
+    "status": "active",
+    "notes": "Migration: creation - 18 units",
+    "initialQuantity": 18
+  },
+  {
+    "id": "4foC6XrvCWFYL5aQ6TxT",
+    "productId": "FLfXimK3kJ3rKtxcxJwK",
+    "quantity": 4,
+    "costPrice": 4028,
+    "createdAt": {
+      "_seconds": 1751992962,
+      "_nanoseconds": 678000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 3,
+    "initialQuantity": 3
+  },
+  {
+    "id": "4fubfAYpRV7lYPLy6jwg",
+    "productId": "XH92V6hpntgDyaUqE64q",
+    "quantity": 31,
+    "costPrice": 3000,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781249,
+      "_nanoseconds": 43000000
+    },
+    "userId": "VlMpKl6uxtZrGgyiOPSusmh4Nfv1",
+    "status": "active",
+    "notes": "Migration: creation - 31 units",
+    "remainingQuantity": 29,
+    "initialQuantity": 29
+  },
+  {
+    "id": "4lddtOWA8fiOvXOvjbxA",
+    "productId": "S1a1ptwN46zE6c3ASQjq",
+    "quantity": 6,
+    "costPrice": 1250,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781193,
+      "_nanoseconds": 402000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 6,
+    "status": "active",
+    "notes": "Migration: creation - 6 units",
+    "initialQuantity": 6
+  },
+  {
+    "id": "50KsbNELoKltxlvhdYvA",
+    "productId": "5XWMvs6SreSB1x4Ktr2L",
+    "quantity": 12,
+    "costPrice": 155.1,
+    "createdAt": {
+      "_seconds": 1752690662,
+      "_nanoseconds": 462000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 9,
+    "initialQuantity": 9
+  },
+  {
+    "id": "5NNy1EVlXqfhyIgIikXp",
+    "productId": "ZZJ1amPmMkwzygsRQ35V",
+    "quantity": 5,
+    "costPrice": 11500,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "status": "active",
+    "createdAt": {
+      "_seconds": 1754585078,
+      "_nanoseconds": 242000000
+    },
+    "remainingQuantity": 2
+  },
+  {
+    "id": "5WqIuwFAFZp4Gpwp8xlo",
+    "productId": "VOm9MkHViDrzjtRAh3OB",
+    "quantity": 10,
+    "costPrice": 2100,
+    "createdAt": {
+      "_seconds": 1752684918,
+      "_nanoseconds": 17000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 9,
+    "initialQuantity": 9
+  },
+  {
+    "id": "5dEptYD9lhluNtFIZn5e",
+    "productId": "XaCe7GahxEninPcqpkkw",
+    "quantity": 1,
+    "costPrice": 3250,
+    "createdAt": {
+      "_seconds": 1752942674,
+      "_nanoseconds": 499000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 1,
+    "status": "active",
+    "initialQuantity": 1
+  },
+  {
+    "id": "5kkhbfcL1ZN1rkTSa4u2",
+    "productId": "fdCyXnj3kwul3avrAute",
+    "quantity": 4,
+    "costPrice": 2548,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781328,
+      "_nanoseconds": 379000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 4,
+    "status": "active",
+    "notes": "Migration: creation - 4 units",
+    "initialQuantity": 4
+  },
+  {
+    "id": "5yiumrDC4Fms3rr2Bi8c",
+    "productId": "VU1vjrhYTy5kO3egHt0K",
+    "quantity": 2,
+    "costPrice": 7670.4,
+    "createdAt": {
+      "_seconds": 1752821972,
+      "_nanoseconds": 110000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 1,
+    "initialQuantity": 1
+  },
+  {
+    "id": "69xYqE9Rk0f32k6wHBv1",
+    "productId": "TCi5kouUHL7lEPxt5lPY",
+    "quantity": 2,
+    "costPrice": 2387,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781201,
+      "_nanoseconds": 716000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 2,
+    "status": "active",
+    "notes": "Migration: creation - 2 units",
+    "initialQuantity": 2
+  },
+  {
+    "id": "6EHOTvvzYWV5WbVigWl8",
+    "productId": "0evx1idYjUTBNxg9axYP",
+    "quantity": 20,
+    "costPrice": 1000,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "createdAt": {
+      "_seconds": 1755871554,
+      "_nanoseconds": 426000000
+    },
+    "remainingQuantity": 0,
+    "status": "depleted"
+  },
+  {
+    "id": "6FOl4Arr7vJS1qwAUcsX",
+    "productId": "Wf8PuzRkdj3aT6oKMDSz",
+    "quantity": 1,
+    "costPrice": 3250,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781240,
+      "_nanoseconds": 620000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 1,
+    "status": "active",
+    "notes": "Migration: creation - 1 units",
+    "initialQuantity": 1
+  },
+  {
+    "id": "6Nbun9QN5FZhRLvNG0h2",
+    "productId": "EyhAHJG5d9KpvDKVUdnj",
+    "quantity": 4,
+    "costPrice": 3465,
+    "createdAt": {
+      "_seconds": 1752687569,
+      "_nanoseconds": 954000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 3,
+    "initialQuantity": 3
+  },
+  {
+    "id": "6OP9M9jOfNVrQD8zfNGX",
+    "productId": "BQzADiPKU9BNHbrL2h2v",
+    "quantity": 3,
+    "costPrice": 12,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "userId": "D9EJnNTbQYTvkD1kAAP6IuQB1003",
+    "remainingQuantity": 3,
+    "status": "active",
+    "createdAt": {
+      "_seconds": 1761083428,
+      "_nanoseconds": 878000000
+    }
+  },
+  {
+    "id": "6av5X0aR8vHr4l73wOwW",
+    "productId": "bkw0YgVElK3Sv52fhI0P",
+    "quantity": 13,
+    "costPrice": 750,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781291,
+      "_nanoseconds": 883000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 13,
+    "status": "active",
+    "notes": "Migration: creation - 13 units",
+    "initialQuantity": 13
+  },
+  {
+    "id": "6bSoKMOdUpIyajB1TNqa",
+    "productId": "53DRATemn12gqTmkXSE0",
+    "quantity": 2,
+    "costPrice": 2250,
+    "createdAt": {
+      "_seconds": 1752822391,
+      "_nanoseconds": 288000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 2,
+    "status": "active",
+    "initialQuantity": 2
+  },
+  {
+    "id": "6f4YDHwbC8z4rWCNzi7U",
+    "productId": "Cy6WnBTFI8lEg5NkAkI0",
+    "quantity": 4,
+    "costPrice": 2247,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781086,
+      "_nanoseconds": 4000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 4,
+    "status": "active",
+    "notes": "Migration: creation - 4 units",
+    "initialQuantity": 4
+  },
+  {
+    "id": "6rXjcJ4iAAEEKXXVaCNc",
+    "productId": "r8zaIunb7vAflxbSlDEA",
+    "quantity": 3,
+    "costPrice": 4060,
+    "createdAt": {
+      "_seconds": 1752688961,
+      "_nanoseconds": 762000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 2,
+    "initialQuantity": 2
+  },
+  {
+    "id": "7S7CL8Jl5fnw0zwvUchc",
+    "productId": "KFCalKEoN5sxX6MdZ7CE",
+    "quantity": 5,
+    "costPrice": 562.8,
+    "createdAt": {
+      "_seconds": 1751993689,
+      "_nanoseconds": 759000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 4,
+    "initialQuantity": 4
+  },
+  {
+    "id": "7Ujcqmn94zL137Hm2xoT",
+    "productId": "sfZwKAfCrvwGPXmErovi",
+    "quantity": 1,
+    "costPrice": 2500,
+    "createdAt": {
+      "_seconds": 1752956488,
+      "_nanoseconds": 416000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 1,
+    "status": "active",
+    "initialQuantity": 1
+  },
+  {
+    "id": "7jHwqLt8wTyE8Ow5Dq5H",
+    "productId": "nwTFJhoGJSdi0X21zAEN",
+    "quantity": 5,
+    "costPrice": 1500,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781401,
+      "_nanoseconds": 589000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 5,
+    "status": "active",
+    "notes": "Migration: creation - 5 units",
+    "initialQuantity": 5
+  },
+  {
+    "id": "7krmvViTIos79OZsx89Z",
+    "productId": "KEMr8uaPcviOEcAVrrqf",
+    "quantity": 8,
+    "costPrice": 3360,
+    "createdAt": {
+      "_seconds": 1752689817,
+      "_nanoseconds": 510000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 7,
+    "initialQuantity": 7
+  },
+  {
+    "id": "7liAptQpGJT8cE4EjAos",
+    "productId": "t771KBVxMk1Et4xGetJL",
+    "quantity": 9,
+    "costPrice": 1250,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781462,
+      "_nanoseconds": 602000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 9,
+    "status": "active",
+    "notes": "Migration: creation - 9 units",
+    "initialQuantity": 9
+  },
+  {
+    "id": "7n3IsWLQwG2v8hRbHttQ",
+    "productId": "nJwZse8dAAOUosRnEsYL",
+    "quantity": 3,
+    "costPrice": 3149,
+    "createdAt": {
+      "_seconds": 1751993187,
+      "_nanoseconds": 533000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 2,
+    "initialQuantity": 2
+  },
+  {
+    "id": "7oIOnU6lrnIkpePvpFiY",
+    "productId": "AcCsOIcDveMJwuo5Gojf",
+    "quantity": 4,
+    "costPrice": 2765,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781075,
+      "_nanoseconds": 72000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 4,
+    "status": "active",
+    "notes": "Migration: creation - 4 units",
+    "initialQuantity": 4
+  },
+  {
+    "id": "7t2pshu50CRVZvYMbnxJ",
+    "productId": "KALhrsmP32hM38H52SPt",
+    "quantity": 8,
+    "costPrice": 1632,
+    "createdAt": {
+      "_seconds": 1752944565,
+      "_nanoseconds": 357000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 7,
+    "initialQuantity": 7
+  },
+  {
+    "id": "7uftyGLmhOgzwKm3bEP7",
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "costPrice": 5924,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "productId": "IcRLe0PqUECDn7PybByq",
+    "status": "active",
+    "remainingQuantity": 1,
+    "quantity": 1,
+    "createdAt": {
+      "_seconds": 1759299438,
+      "_nanoseconds": 355000000
+    }
+  },
+  {
+    "id": "8BmZ46x0z0T7TzLZcEi9",
+    "productId": "OPHaxuWrKbct3AeCxc3M",
+    "quantity": 12,
+    "costPrice": 3723.3,
+    "createdAt": {
+      "_seconds": 1751990911,
+      "_nanoseconds": 789000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 11,
+    "initialQuantity": 11
+  },
+  {
+    "id": "8DCp9U2YGIC0k9dpqmfJ",
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "costPrice": 1600,
+    "quantity": 3,
+    "status": "active",
+    "productId": "e0nE0crHi76kHlFqQmTA",
+    "createdAt": {
+      "_seconds": 1759303649,
+      "_nanoseconds": 936000000
+    },
+    "remainingQuantity": 2
+  },
+  {
+    "id": "8jLDC5ATSSgPQoJ6jc8d",
+    "productId": "S8Sq0PYd4IFG4DcwMfYp",
+    "quantity": 6,
+    "costPrice": 1800,
+    "createdAt": {
+      "_seconds": 1752691864,
+      "_nanoseconds": 657000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 3,
+    "initialQuantity": 3
+  },
+  {
+    "id": "9JFCh3ZjUeFslcRkeK8I",
+    "productId": "R4JUhOYpEdQAe4gKOXyO",
+    "quantity": 3,
+    "costPrice": 3750,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781185,
+      "_nanoseconds": 118000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 3,
+    "status": "active",
+    "notes": "Migration: creation - 3 units",
+    "initialQuantity": 3
+  },
+  {
+    "id": "9QfKFBVxANwE9dOMdbYa",
+    "productId": "YkxcE2AIpGvluFaXxx6X",
+    "quantity": 33,
+    "costPrice": 1250,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781265,
+      "_nanoseconds": 284000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 33,
+    "status": "active",
+    "notes": "Migration: creation - 33 units",
+    "initialQuantity": 33
+  },
+  {
+    "id": "9RlH46nqzg4RYHRRlIxU",
+    "productId": "eWI8POw6XTKohkbJWnmb",
+    "quantity": 2,
+    "costPrice": 1250,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781318,
+      "_nanoseconds": 206000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 2,
+    "status": "active",
+    "notes": "Migration: creation - 2 units",
+    "initialQuantity": 2
+  },
+  {
+    "id": "9b3mwLxBMRslwNNaOckC",
+    "productId": "ILGWFsOzlKfapwxxZrj6",
+    "quantity": 1,
+    "costPrice": 4000,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781121,
+      "_nanoseconds": 993000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 1,
+    "status": "active",
+    "notes": "Migration: creation - 1 units",
+    "initialQuantity": 1
+  },
+  {
+    "id": "9i2an4TrX9czuVbcN0IA",
+    "productId": "M1q2eb2G7v7xORRiXrYA",
+    "quantity": 1,
+    "costPrice": 3000,
+    "createdAt": {
+      "_seconds": 1752821416,
+      "_nanoseconds": 518000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 1,
+    "status": "active",
+    "initialQuantity": 1
+  },
+  {
+    "id": "9iHDq2W9nh1ewywDsoUq",
+    "productId": "sXwD7bGWuGGHesgZDrix",
+    "quantity": 1,
+    "costPrice": 3000,
+    "createdAt": {
+      "_seconds": 1752957514,
+      "_nanoseconds": 882000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 1,
+    "status": "active",
+    "initialQuantity": 1
+  },
+  {
+    "id": "9ljIZQJwkNkBYAOpclGU",
+    "productId": "phd4HjvseWskPHZ5NLH6",
+    "quantity": 6,
+    "costPrice": 2500,
+    "createdAt": {
+      "_seconds": 1752691722,
+      "_nanoseconds": 100000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 4,
+    "initialQuantity": 4
+  },
+  {
+    "id": "9ph1S6e7kXnAPsgB440b",
+    "productId": "r72Oxa9Gn4rvinaPYwjw",
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "status": "active",
+    "remainingQuantity": 2,
+    "isOwnPurchase": true,
+    "quantity": 2,
+    "isCredit": false,
+    "costPrice": 1712,
+    "createdAt": {
+      "_seconds": 1759300647,
+      "_nanoseconds": 118000000
+    }
+  },
+  {
+    "id": "9wQB1UHILpkWrDXvWTq6",
+    "productId": "2RmHeYKCLnk0hlyFZGTV",
+    "quantity": 1,
+    "costPrice": 10000,
+    "createdAt": {
+      "_seconds": 1752504714,
+      "_nanoseconds": 436000000
+    },
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "remainingQuantity": 1,
+    "status": "active",
+    "initialQuantity": 1
+  },
+  {
+    "id": "A3ZGw2LGlCOB0HCM3W64",
+    "productId": "qp0Wcaufty1qXtZSZ7Sz",
+    "quantity": 10,
+    "costPrice": 1750,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781437,
+      "_nanoseconds": 993000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 10,
+    "status": "active",
+    "notes": "Migration: creation - 10 units",
+    "initialQuantity": 10
+  },
+  {
+    "id": "A78LDbPbh3PD3thMvtTf",
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "costPrice": 5500,
+    "productId": "7x9IjZVz2bnnrjoPIGs2",
+    "status": "active",
+    "isCredit": false,
+    "remainingQuantity": 6,
+    "isOwnPurchase": true,
+    "quantity": 6,
+    "createdAt": {
+      "_seconds": 1759304121,
+      "_nanoseconds": 442000000
+    }
+  },
+  {
+    "id": "AXqITAFk6HMgB5CxAlYa",
+    "productId": "9aEG19ModgxyM2n0yZjk",
+    "quantity": 4,
+    "costPrice": 5460,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781063,
+      "_nanoseconds": 646000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 4,
+    "status": "active",
+    "notes": "Migration: creation - 4 units",
+    "initialQuantity": 4
+  },
+  {
+    "id": "AimrF4bkc38gk9SeW6M8",
+    "productId": "b4VeyIlxHhK8ZkCwzjZv",
+    "quantity": 24,
+    "costPrice": 4445,
+    "createdAt": {
+      "_seconds": 1752687360,
+      "_nanoseconds": 303000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 23,
+    "initialQuantity": 23
+  },
+  {
+    "id": "AznWQC07X0w0exLcpCDF",
+    "productId": "R2OQpfPSF5oFIHvsedVk",
+    "quantity": 3,
+    "costPrice": 2250,
+    "createdAt": {
+      "_seconds": 1752957428,
+      "_nanoseconds": 700000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 3,
+    "status": "active",
+    "initialQuantity": 3
+  },
+  {
+    "id": "B9vuHXP5DzbyLOSzpYde",
+    "productId": "oK6ABxeywj1r0it9B2lm",
+    "quantity": 1,
+    "costPrice": 3250,
+    "createdAt": {
+      "_seconds": 1752821150,
+      "_nanoseconds": 660000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 1,
+    "status": "active",
+    "initialQuantity": 1
+  },
+  {
+    "id": "BHVqeW1dOi3MzV28MeBy",
+    "productId": "VWraMrkjhY20F4uoJwUM",
+    "quantity": 4,
+    "costPrice": 4165,
+    "createdAt": {
+      "_seconds": 1752686350,
+      "_nanoseconds": 821000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 3,
+    "initialQuantity": 3
+  },
+  {
+    "id": "BI0aLv1jR8SQOBQXaGi9",
+    "productId": "RZDAvlULaVTFSj0oNafD",
+    "quantity": 2,
+    "costPrice": 234,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "userId": "D9EJnNTbQYTvkD1kAAP6IuQB1003",
+    "remainingQuantity": 2,
+    "status": "active",
+    "createdAt": {
+      "_seconds": 1761085881,
+      "_nanoseconds": 76000000
+    }
+  },
+  {
+    "id": "BT8gis6cA9fksuviBfaj",
+    "productId": "kEqNQML9hQ059pQXfLeZ",
+    "quantity": 2,
+    "costPrice": 3750,
+    "createdAt": {
+      "_seconds": 1752942058,
+      "_nanoseconds": 199000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 2,
+    "status": "active",
+    "initialQuantity": 2
+  },
+  {
+    "id": "BUjGoxUskp0o1jZ4D2YW",
+    "productId": "lVQhmtI27b1REvq1b80S",
+    "quantity": 3,
+    "costPrice": 4250,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781372,
+      "_nanoseconds": 58000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 3,
+    "status": "active",
+    "notes": "Migration: creation - 3 units",
+    "initialQuantity": 3
+  },
+  {
+    "id": "BXRb21QNFwsTUFJOLkU6",
+    "productId": "p3mM4eSD5t4zcVJyVjnC",
+    "quantity": 1,
+    "costPrice": 3750,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781417,
+      "_nanoseconds": 994000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 1,
+    "status": "active",
+    "notes": "Migration: creation - 1 units",
+    "initialQuantity": 1
+  },
+  {
+    "id": "BcZkHaekP6vdch1HCoEL",
+    "productId": "VtZEzqXA30LxWuZaYZ4G",
+    "quantity": 2,
+    "costPrice": 4500,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781233,
+      "_nanoseconds": 647000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 2,
+    "status": "active",
+    "notes": "Migration: creation - 2 units",
+    "initialQuantity": 2
+  },
+  {
+    "id": "Bj5CvS9wQhL3zH5BfwCn",
+    "productId": "U32fh3uaOXt3JP9uH58D",
+    "quantity": 20,
+    "costPrice": 167,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781215,
+      "_nanoseconds": 810000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 20,
+    "status": "active",
+    "notes": "Migration: creation - 20 units",
+    "initialQuantity": 20
+  },
+  {
+    "id": "BqbEKt5YItHw1FGkyqP1",
+    "productId": "myba6j4t9St1U4wBGXjg",
+    "quantity": 4,
+    "costPrice": 2765,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781382,
+      "_nanoseconds": 286000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 4,
+    "status": "active",
+    "notes": "Migration: creation - 4 units",
+    "initialQuantity": 4
+  },
+  {
+    "id": "BvJsenD6IRRcr5MEkbJ1",
+    "productId": "gRwba9Qshtdl4p1EAkjU",
+    "quantity": 3,
+    "costPrice": 3801,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781336,
+      "_nanoseconds": 696000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 3,
+    "status": "active",
+    "notes": "Migration: creation - 3 units",
+    "initialQuantity": 3
+  },
+  {
+    "id": "By4dPa1DaH42LVzX2vDi",
+    "productId": "wpYZHYQzKYdNebGFVNsa",
+    "quantity": 6,
+    "costPrice": 3528,
+    "createdAt": {
+      "_seconds": 1751993277,
+      "_nanoseconds": 956000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 5,
+    "initialQuantity": 5
+  },
+  {
+    "id": "C1pO6vNOrbKvX8f9Eodh",
+    "productId": "qS2NbyatHeZjdR8yBw9K",
+    "quantity": 10,
+    "costPrice": 3000,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781432,
+      "_nanoseconds": 702000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 10,
+    "status": "active",
+    "notes": "Migration: creation - 10 units",
+    "initialQuantity": 10
+  },
+  {
+    "id": "C5dZC61mcOnxJCGCztRq",
+    "productId": "GlTpoIs0j2wPOTv32wTV",
+    "quantity": 1,
+    "costPrice": 4500,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781105,
+      "_nanoseconds": 700000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 1,
+    "status": "active",
+    "notes": "Migration: creation - 1 units",
+    "initialQuantity": 1
+  },
+  {
+    "id": "CNKS5ScnHfOUgc7yXWH8",
+    "productId": "Jqq3el8jSJH1fyGxhKG0",
+    "quantity": 1,
+    "costPrice": 4500,
+    "createdAt": {
+      "_seconds": 1752956856,
+      "_nanoseconds": 194000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 0,
+    "status": "depleted",
+    "initialQuantity": 0
+  },
+  {
+    "id": "CfusYLfmEb62eWc2kQ6c",
+    "productId": "IQpT7yLAMEif0PMDmCeu",
+    "quantity": 3,
+    "costPrice": 641,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753823121,
+      "_nanoseconds": 205000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "notes": "Migration: creation - 3 units",
+    "remainingQuantity": 0,
+    "status": "depleted",
+    "initialQuantity": 0
+  },
+  {
+    "id": "CqLuVKtTNjw53T2h5DHl",
+    "productId": "Wvq7XoQDt9qvKDMenYJ6",
+    "quantity": 1,
+    "costPrice": 2000,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753798303,
+      "_nanoseconds": 234000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "notes": "Migration: creation - 1 units",
+    "remainingQuantity": 0,
+    "status": "depleted",
+    "initialQuantity": 0
+  },
+  {
+    "id": "CrjMAvow3z1GZoRhASU3",
+    "productId": "oZs1GgUAguYmp194rPn1",
+    "quantity": 23,
+    "costPrice": 1400,
+    "createdAt": {
+      "_seconds": 1752692191,
+      "_nanoseconds": 704000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 20,
+    "initialQuantity": 20
+  },
+  {
+    "id": "CxAjf5pMaPv1wgHH8fqh",
+    "productId": "cBOcoPDTFvv2FqafUVPX",
+    "quantity": 3,
+    "costPrice": 3458,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781296,
+      "_nanoseconds": 23000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 3,
+    "status": "active",
+    "notes": "Migration: creation - 3 units",
+    "initialQuantity": 3
+  },
+  {
+    "id": "D4HnhxXs6jWEgFdGVUQN",
+    "productId": "WFeBCXDRLSMEEyGeAxzT",
+    "quantity": 1,
+    "costPrice": 12,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "userId": "D9EJnNTbQYTvkD1kAAP6IuQB1003",
+    "remainingQuantity": 1,
+    "status": "active",
+    "createdAt": {
+      "_seconds": 1760776643,
+      "_nanoseconds": 351000000
+    }
+  },
+  {
+    "id": "DHiiIYzSmmpr7vbf9MHr",
+    "productId": "0va304FexMGM6qF4HsI1",
+    "quantity": 1,
+    "costPrice": 4000,
+    "createdAt": {
+      "_seconds": 1752941362,
+      "_nanoseconds": 332000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 1,
+    "status": "active",
+    "initialQuantity": 1
+  },
+  {
+    "id": "DJNkt8lqiWxK3ERTseXJ",
+    "productId": "zXU78fAgpG4DpTZfrjoI",
+    "quantity": 2,
+    "costPrice": 3750,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781509,
+      "_nanoseconds": 393000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 2,
+    "status": "active",
+    "notes": "Migration: creation - 2 units",
+    "initialQuantity": 2
+  },
+  {
+    "id": "DN2mgoRjXf338RlXxTmd",
+    "productId": "8KR8SICDcreN9ln7tEgp",
+    "quantity": 5,
+    "costPrice": 8000,
+    "createdAt": {
+      "_seconds": 1750756318,
+      "_nanoseconds": 367000000
+    },
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "status": "active",
+    "notes": "Migration: creation - 5 units",
+    "remainingQuantity": 4,
+    "initialQuantity": 4
+  },
+  {
+    "id": "DPPbWxDfIHkq9AjbQSMa",
+    "productId": "6653zJ5RsRFFD5Ws1Qs5",
+    "quantity": 2,
+    "costPrice": 750,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781046,
+      "_nanoseconds": 959000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 2,
+    "status": "active",
+    "notes": "Migration: creation - 2 units",
+    "initialQuantity": 2
+  },
+  {
+    "id": "Dn87Yd3tBVT7X5lJDgHQ",
+    "productId": "UBVpPSACUvXEHCzP6iJH",
+    "quantity": 2,
+    "costPrice": 3500,
+    "createdAt": {
+      "_seconds": 1752944231,
+      "_nanoseconds": 587000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 2,
+    "status": "active",
+    "initialQuantity": 2
+  },
+  {
+    "id": "E2v8rz5bJA7J349Nwl24",
+    "productId": "R7CpDBsvLvnt6ZOI5Wnw",
+    "quantity": 4,
+    "costPrice": 3283,
+    "createdAt": {
+      "_seconds": 1751990485,
+      "_nanoseconds": 801000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 3,
+    "initialQuantity": 3
+  },
+  {
+    "id": "E88eHuvjV5svPcUPLYuk",
+    "productId": "4ODI7ycf9Ag4hCePuwqI",
+    "quantity": 3,
+    "costPrice": 1750,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781023,
+      "_nanoseconds": 31000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 3,
+    "status": "active",
+    "notes": "Migration: creation - 3 units",
+    "initialQuantity": 3
+  },
+  {
+    "id": "E9aEKxKYQir7CnswjQiu",
+    "productId": "Z2lV9YAz9a9LE4PaAM9x",
+    "quantity": 2,
+    "costPrice": 3374,
+    "createdAt": {
+      "_seconds": 1752779114,
+      "_nanoseconds": 816000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 1,
+    "initialQuantity": 1
+  },
+  {
+    "id": "E9js3RFGrx0bBTrlZuBD",
+    "productId": "oFisaLIrliwo7XCvvQRg",
+    "quantity": 2,
+    "costPrice": 2500,
+    "createdAt": {
+      "_seconds": 1752955628,
+      "_nanoseconds": 798000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 2,
+    "status": "active",
+    "initialQuantity": 2
+  },
+  {
+    "id": "EA6jKw8q6DrpPpFJehOJ",
+    "productId": "X5TDNj69O9gqvcs7saHO",
+    "quantity": 1,
+    "costPrice": 3750,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781247,
+      "_nanoseconds": 681000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 1,
+    "status": "active",
+    "notes": "Migration: creation - 1 units",
+    "initialQuantity": 1
+  },
+  {
+    "id": "EAPFyFU9zKUy2rD0N4TK",
+    "productId": "oJB8PzSh2gNEnn2ZQa5K",
+    "quantity": 2,
+    "costPrice": 2750,
+    "createdAt": {
+      "_seconds": 1752941665,
+      "_nanoseconds": 520000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 2,
+    "status": "active",
+    "initialQuantity": 2
+  },
+  {
+    "id": "EB1P4GauByMUjlNxld3U",
+    "quantity": 5,
+    "costPrice": 1577,
+    "status": "active",
+    "isOwnPurchase": true,
+    "productId": "ypN1Tz534pU42hb5M5ma",
+    "isCredit": false,
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "createdAt": {
+      "_seconds": 1759299976,
+      "_nanoseconds": 348000000
+    },
+    "remainingQuantity": 3
+  },
+  {
+    "id": "EBLVe0TsKIEbULUcpzPR",
+    "productId": "eqjR4WZWbsQdCxbNBS47",
+    "quantity": 71,
+    "costPrice": 641.5,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781319,
+      "_nanoseconds": 559000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 71,
+    "status": "active",
+    "notes": "Migration: creation - 71 units",
+    "initialQuantity": 71
+  },
+  {
+    "id": "EBVTudCdLvLHq4oyhjGd",
+    "productId": "MnSgNSNGp73RjpWANhAo",
+    "quantity": 4,
+    "costPrice": 4000,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781159,
+      "_nanoseconds": 797000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 4,
+    "status": "active",
+    "notes": "Migration: creation - 4 units",
+    "initialQuantity": 4
+  },
+  {
+    "id": "EDSdBB8BDrDWS8WhWs2F",
+    "productId": "iQlSWX3NS2RZJ026QNta",
+    "quantity": 1,
+    "costPrice": 3250,
+    "createdAt": {
+      "_seconds": 1752821216,
+      "_nanoseconds": 542000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 0,
+    "status": "depleted",
+    "initialQuantity": 0
+  },
+  {
+    "id": "EKC51f635qqyMQGPtFOU",
+    "productId": "IvxQf4xFa6Y4KaTMD2CF",
+    "quantity": 5,
+    "costPrice": 30000,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "userId": "D9EJnNTbQYTvkD1kAAP6IuQB1003",
+    "remainingQuantity": 5,
+    "status": "active",
+    "createdAt": {
+      "_seconds": 1761075550,
+      "_nanoseconds": 874000000
+    }
+  },
+  {
+    "id": "EQYMlmbeR4S5f65xoYWc",
+    "productId": "co27CUwzFKZAh6RbFHB7",
+    "quantity": 4,
+    "costPrice": 2275,
+    "createdAt": {
+      "_seconds": 1752686668,
+      "_nanoseconds": 330000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 2,
+    "initialQuantity": 2
+  },
+  {
+    "id": "EQy1gqFnVRMnxdC3sI5V",
+    "productId": "vyZ2Yoig1PaCYOXJUtoE",
+    "quantity": 6,
+    "costPrice": 4000,
+    "createdAt": {
+      "_seconds": 1752943438,
+      "_nanoseconds": 148000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 5,
+    "initialQuantity": 5
+  },
+  {
+    "id": "EUDUGSEX8kVwPgoyZtd0",
+    "productId": "o6TMRKnxJbsB8mF5RZWC",
+    "quantity": 3,
+    "costPrice": 4000,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781402,
+      "_nanoseconds": 944000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 3,
+    "status": "active",
+    "notes": "Migration: creation - 3 units",
+    "initialQuantity": 3
+  },
+  {
+    "id": "EUV2FUcTc9IlKnduH8nG",
+    "productId": "ptyjmQFpPOj4YItQ1Wg2",
+    "quantity": 4,
+    "costPrice": 3800,
+    "createdAt": {
+      "_seconds": 1752691794,
+      "_nanoseconds": 24000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 4,
+    "status": "active",
+    "initialQuantity": 4
+  },
+  {
+    "id": "Emda2QM07XUDCiQ0Eykh",
+    "productId": "i35dFFWduxEtDRLW2DN8",
+    "quantity": 2,
+    "costPrice": 4500,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781351,
+      "_nanoseconds": 209000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 2,
+    "status": "active",
+    "notes": "Migration: creation - 2 units",
+    "initialQuantity": 2
+  },
+  {
+    "id": "EnOkSrcQU4Nc24zAPIaz",
+    "productId": "ad1Uu9CNnvebXcQvusAs",
+    "quantity": 4,
+    "costPrice": 2765,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781284,
+      "_nanoseconds": 672000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 4,
+    "status": "active",
+    "notes": "Migration: creation - 4 units",
+    "initialQuantity": 4
+  },
+  {
+    "id": "Enr6WWBpDrs1540JmtTX",
+    "productId": "hTn6iBLsQjZPxn0tA9tM",
+    "quantity": 1,
+    "costPrice": 4000,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781345,
+      "_nanoseconds": 651000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 1,
+    "status": "active",
+    "notes": "Migration: creation - 1 units",
+    "initialQuantity": 1
+  },
+  {
+    "id": "Et1lYdkSfoJjPRBH9qda",
+    "productId": "59QRJx5e96m67T8hVGRZ",
+    "quantity": 5,
+    "costPrice": 3283,
+    "createdAt": {
+      "_seconds": 1751990199,
+      "_nanoseconds": 187000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 4,
+    "initialQuantity": 4
+  },
+  {
+    "id": "EuO1PGz3YSvtRX6mAhBW",
+    "productId": "31FW2pW9CSIgkuQ2wsbW",
+    "quantity": 5,
+    "costPrice": 11000,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "remainingQuantity": 5,
+    "status": "active",
+    "createdAt": {
+      "_seconds": 1754584890,
+      "_nanoseconds": 432000000
+    }
+  },
+  {
+    "id": "FDGqEVy0fzHpC7NEiW2o",
+    "productId": "uNVcn5dmPrC2s9tLx6pA",
+    "quantity": 4,
+    "costPrice": 2765,
+    "createdAt": {
+      "_seconds": 1752686857,
+      "_nanoseconds": 893000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 2,
+    "initialQuantity": 2
+  },
+  {
+    "id": "FMHy5vv1SkIhq7D8PFsS",
+    "productId": "GoqIRzATtsqI3bRoeZ3o",
+    "quantity": 4,
+    "costPrice": 3465,
+    "createdAt": {
+      "_seconds": 1752687733,
+      "_nanoseconds": 565000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 3,
+    "initialQuantity": 3
+  },
+  {
+    "id": "Fw1ZZxw7GEfCSEg3ygdK",
+    "productId": "wWwYZAbeEHT5KoY6ULH5",
+    "quantity": 5,
+    "costPrice": 562.8,
+    "createdAt": {
+      "_seconds": 1751993515,
+      "_nanoseconds": 61000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 2,
+    "initialQuantity": 2
+  },
+  {
+    "id": "Fy457ItTi44AvzpOJQpw",
+    "productId": "jjFaK0X9KrMZ6MAb0ihU",
+    "quantity": 2,
+    "costPrice": 11000,
+    "createdAt": {
+      "_seconds": 1750756318,
+      "_nanoseconds": 139000000
+    },
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "status": "active",
+    "notes": "Migration: creation - 2 units",
+    "remainingQuantity": 1,
+    "initialQuantity": 1
+  },
+  {
+    "id": "GNY1gYVBNgPTwMpPaJuD",
+    "productId": "HYNH1rovHDUxNgoUhseI",
+    "quantity": 4,
+    "costPrice": 3243.8,
+    "createdAt": {
+      "_seconds": 1751993358,
+      "_nanoseconds": 390000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 3,
+    "initialQuantity": 3
+  },
+  {
+    "id": "GXHy9KgkYEwY2qcBEtTP",
+    "productId": "5tQ7Eqed1ECOqGFWRZk6",
+    "quantity": 4,
+    "costPrice": 20000,
+    "createdAt": {
+      "_seconds": 1750756318,
+      "_nanoseconds": 96000000
+    },
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "status": "active",
+    "notes": "Migration: creation - 4 units",
+    "remainingQuantity": 3,
+    "initialQuantity": 3
+  },
+  {
+    "id": "GhHykU0WhebtpUuUbUH2",
+    "productId": "YJm73DIUlxvPMaehf4jq",
+    "quantity": 1,
+    "costPrice": 3000,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781261,
+      "_nanoseconds": 137000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 1,
+    "status": "active",
+    "notes": "Migration: creation - 1 units",
+    "initialQuantity": 1
+  },
+  {
+    "id": "GiOdmyfWuOzPIjanXzMh",
+    "productId": "C0omsbdSFQjpsJbs6iGs",
+    "quantity": 1,
+    "costPrice": 3115,
+    "createdAt": {
+      "_seconds": 1752778221,
+      "_nanoseconds": 526000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 0,
+    "status": "depleted",
+    "initialQuantity": 0
+  },
+  {
+    "id": "Gkbessf4awm4sl3vUzBX",
+    "productId": "dHpNPnnB4RzzY8jCWlYY",
+    "quantity": 1,
+    "costPrice": 3250,
+    "createdAt": {
+      "_seconds": 1752779810,
+      "_nanoseconds": 255000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 0,
+    "status": "depleted",
+    "initialQuantity": 0
+  },
+  {
+    "id": "GkdDWdq2sp5jw9zQ2HvX",
+    "productId": "xZvmLVL7Q7joVXSgzuWt",
+    "quantity": 4,
+    "costPrice": 2975,
+    "createdAt": {
+      "_seconds": 1752688008,
+      "_nanoseconds": 312000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 3,
+    "initialQuantity": 3
+  },
+  {
+    "id": "GqcJeBgek9M4P8wUlFaH",
+    "productId": "pyYCkw3lORutRSsQi4Ni",
+    "quantity": 4,
+    "costPrice": 3339,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781427,
+      "_nanoseconds": 325000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 4,
+    "status": "active",
+    "notes": "Migration: creation - 4 units",
+    "initialQuantity": 4
+  },
+  {
+    "id": "HQ7jx806DeV28164XsAe",
+    "productId": "0NnbOILc6zGwuH7ikLDa",
+    "quantity": 3,
+    "costPrice": 5000,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753780993,
+      "_nanoseconds": 37000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 3,
+    "status": "active",
+    "notes": "Migration: creation - 3 units",
+    "initialQuantity": 3
+  },
+  {
+    "id": "HQtbQIdcIMoZcWHsaGYK",
+    "productId": "ZKgCjctEw9tsqgDSNK3a",
+    "quantity": 6,
+    "costPrice": 500,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781270,
+      "_nanoseconds": 347000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 6,
+    "status": "active",
+    "notes": "Migration: creation - 6 units",
+    "initialQuantity": 6
+  },
+  {
+    "id": "Hb18PCCtEvsaAiFhFb3o",
+    "quantity": 3,
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "costPrice": 2613,
+    "isCredit": false,
+    "productId": "3RtYqai6eQENS3tyC1LU",
+    "isOwnPurchase": true,
+    "status": "active",
+    "remainingQuantity": 3,
+    "createdAt": {
+      "_seconds": 1759301525,
+      "_nanoseconds": 659000000
+    }
+  },
+  {
+    "id": "HmrpCPYtUeYQYzCzcr8h",
+    "productId": "uKEVHjmT53aDatpBPFJf",
+    "quantity": 3,
+    "costPrice": 6000,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "status": "active",
+    "createdAt": {
+      "_seconds": 1759610611,
+      "_nanoseconds": 314000000
+    },
+    "remainingQuantity": 2
+  },
+  {
+    "id": "HqdapwN7qRWVSAbZSe7L",
+    "productId": "QTsUaoa1mXiNVuKfaI32",
+    "quantity": 22,
+    "costPrice": 3999,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "userId": "oPxXrnQecQUxk00bDAmAZuDxUfD2",
+    "remainingQuantity": 22,
+    "status": "active",
+    "createdAt": {
+      "_seconds": 1760358178,
+      "_nanoseconds": 599000000
+    }
+  },
+  {
+    "id": "IK21a8GCDntXG2kzGAfX",
+    "productId": "r2HGFU7nCouISfaZLfoi",
+    "quantity": 2,
+    "costPrice": 750,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781439,
+      "_nanoseconds": 342000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 2,
+    "status": "active",
+    "notes": "Migration: creation - 2 units",
+    "initialQuantity": 2
+  },
+  {
+    "id": "ILWlROswttKDu0i6FxD4",
+    "productId": "BK2OJd6McXUam0HI8FZy",
+    "quantity": 3,
+    "costPrice": 3000,
+    "createdAt": {
+      "_seconds": 1752957632,
+      "_nanoseconds": 88000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 3,
+    "status": "active",
+    "initialQuantity": 3
+  },
+  {
+    "id": "InbRLB66WmZEVFramToa",
+    "productId": "WxKRRYGyb9JaNJR5OzNf",
+    "quantity": 6,
+    "costPrice": 1250,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781244,
+      "_nanoseconds": 902000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 6,
+    "status": "active",
+    "notes": "Migration: creation - 6 units",
+    "initialQuantity": 6
+  },
+  {
+    "id": "IqxyC2qUjlt0txab6B8v",
+    "productId": "rn0lBlLjznaVgZNmTgaf",
+    "quantity": 3,
+    "costPrice": 2250,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781444,
+      "_nanoseconds": 744000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 3,
+    "status": "active",
+    "notes": "Migration: creation - 3 units",
+    "initialQuantity": 3
+  },
+  {
+    "id": "Iy1PLzBV2osNW2tN0uIC",
+    "productId": "NKA2336hlEeuxcnKVFNS",
+    "quantity": 4,
+    "costPrice": 3752,
+    "createdAt": {
+      "_seconds": 1751992437,
+      "_nanoseconds": 880000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 3,
+    "initialQuantity": 3
+  },
+  {
+    "id": "J1WlIehYcjktqQwP0AXH",
+    "productId": "4PqdvgVhRnKqwj3EAmnb",
+    "quantity": 4,
+    "costPrice": 2275,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781024,
+      "_nanoseconds": 620000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 4,
+    "status": "active",
+    "notes": "Migration: creation - 4 units",
+    "initialQuantity": 4
+  },
+  {
+    "id": "J5W5VikdR95o7OoyHrac",
+    "productId": "xql8m6RrFHhXSEwipA6r",
+    "quantity": 2,
+    "costPrice": 4250,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781494,
+      "_nanoseconds": 798000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 2,
+    "status": "active",
+    "notes": "Migration: creation - 2 units",
+    "initialQuantity": 2
+  },
+  {
+    "id": "JFCGOxoRzzDcE6Jc2gPQ",
+    "productId": "hzZygunFwopieNFzSR2G",
+    "quantity": 5,
+    "costPrice": 588,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753794174,
+      "_nanoseconds": 30000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 5,
+    "status": "active",
+    "notes": "Migration: creation - 5 units",
+    "initialQuantity": 5
+  },
+  {
+    "id": "JZaOsIucQt4w8IUHoYyq",
+    "productId": "FA4b9U4k57iGgiPByfeA",
+    "quantity": 2,
+    "costPrice": 5138,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781096,
+      "_nanoseconds": 56000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 2,
+    "status": "active",
+    "notes": "Migration: creation - 2 units",
+    "initialQuantity": 2
+  },
+  {
+    "id": "JhzhXx0bb3T1i5BqlS1W",
+    "productId": "4hKyXAEXlpUERxTxGG7R",
+    "quantity": 1,
+    "costPrice": 3750,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781030,
+      "_nanoseconds": 292000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 1,
+    "status": "active",
+    "notes": "Migration: creation - 1 units",
+    "initialQuantity": 1
+  },
+  {
+    "id": "JttYicAMweAnwshFoLJO",
+    "productId": "FuLr8EfzWxyh2xudXVTS",
+    "quantity": 4,
+    "costPrice": 2650,
+    "createdAt": {
+      "_seconds": 1752955488,
+      "_nanoseconds": 296000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 4,
+    "status": "active",
+    "initialQuantity": 4
+  },
+  {
+    "id": "KClUuiamXQeKkQu3XS97",
+    "productId": "2weqXQX7aSX70q4tbYts",
+    "quantity": 12,
+    "costPrice": 1260,
+    "createdAt": {
+      "_seconds": 1752689963,
+      "_nanoseconds": 609000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 11,
+    "initialQuantity": 11
+  },
+  {
+    "id": "KEgwY72569Zmgvi5EQLp",
+    "productId": "ln6KmixsQuXUfherLbYt",
+    "quantity": 23,
+    "costPrice": 1500,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1754253379,
+      "_nanoseconds": 619000000
+    },
+    "userId": "UJpejkZE3zeaaE3NZ4Tl3G99AX42",
+    "status": "active",
+    "notes": "Migration: creation - 23 units",
+    "remainingQuantity": 13,
+    "initialQuantity": 13
+  },
+  {
+    "id": "KExfwGBisJ05ove8VJxA",
+    "productId": "rMkV3CXPI5V0KsW2bHLz",
+    "quantity": 4,
+    "costPrice": 2793,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781443,
+      "_nanoseconds": 391000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 4,
+    "status": "active",
+    "notes": "Migration: creation - 4 units",
+    "initialQuantity": 4
+  },
+  {
+    "id": "KLNTAlVvKLcws4dlmuRp",
+    "productId": "dj1J6r7JVfUR3f62l1qW",
+    "quantity": 1,
+    "costPrice": 3000,
+    "createdAt": {
+      "_seconds": 1752956926,
+      "_nanoseconds": 141000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 1,
+    "status": "active",
+    "initialQuantity": 1
+  },
+  {
+    "id": "KSmOxV1IBawaR2i8zlo8",
+    "productId": "38LvIx1FYNoN2WK9XQDb",
+    "status": "active",
+    "isCredit": false,
+    "quantity": 23,
+    "remainingQuantity": 23,
+    "costPrice": 1000,
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "isOwnPurchase": true,
+    "createdAt": {
+      "_seconds": 1759157968,
+      "_nanoseconds": 657000000
+    }
+  },
+  {
+    "id": "KVwKl9fNEKU48BKzpthB",
+    "productId": "eL9lH57AoCPRJJS8VQkU",
+    "quantity": 2,
+    "costPrice": 2750,
+    "createdAt": {
+      "_seconds": 1752956782,
+      "_nanoseconds": 653000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 2,
+    "status": "active",
+    "initialQuantity": 2
+  },
+  {
+    "id": "Kf11Frc1nRdHUJm0q8c7",
+    "costPrice": 1000,
+    "isCredit": false,
+    "productId": "EkQ3y6SHv1WhEDltTj6N",
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "quantity": 20,
+    "isOwnPurchase": true,
+    "status": "active",
+    "createdAt": {
+      "_seconds": 1759338102,
+      "_nanoseconds": 462000000
+    },
+    "remainingQuantity": 14
+  },
+  {
+    "id": "KmeRVnEvDLfCFfk5l3W9",
+    "productId": "zHRSFR8y3byGU0uXIz7m",
+    "quantity": 2,
+    "costPrice": 2500,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781506,
+      "_nanoseconds": 747000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 2,
+    "status": "active",
+    "notes": "Migration: creation - 2 units",
+    "initialQuantity": 2
+  },
+  {
+    "id": "KvXBJbs8k9HolmLV22uq",
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "status": "active",
+    "quantity": 3,
+    "costPrice": 1400,
+    "remainingQuantity": 3,
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "productId": "sSzyyxqfem0u2be2VeQ7",
+    "createdAt": {
+      "_seconds": 1759303712,
+      "_nanoseconds": 80000000
+    }
+  },
+  {
+    "id": "L05zMRG8EqJsxhj74ALb",
+    "productId": "ry5Mp2rjK1nWaFEJIgj5",
+    "quantity": 2,
+    "costPrice": 3750,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781447,
+      "_nanoseconds": 492000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 2,
+    "status": "active",
+    "notes": "Migration: creation - 2 units",
+    "initialQuantity": 2
+  },
+  {
+    "id": "L4T5pXBIONUs0JEfjdgl",
+    "productId": "mnpGf6wAwMmzgzBc6vrK",
+    "quantity": 1,
+    "costPrice": 3500,
+    "createdAt": {
+      "_seconds": 1752779439,
+      "_nanoseconds": 674000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 0,
+    "status": "depleted",
+    "initialQuantity": 0
+  },
+  {
+    "id": "L6D8kwoUNTNKTivO6Egf",
+    "productId": "eNqCApHkw5QVh9ErLlBX",
+    "quantity": 6,
+    "costPrice": 262.5,
+    "createdAt": {
+      "_seconds": 1752691401,
+      "_nanoseconds": 311000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 4,
+    "initialQuantity": 4
+  },
+  {
+    "id": "L7TrNc3c3xGlgYimsx1P",
+    "productId": "Q1xxVSbQypKjkh2I7Aod",
+    "quantity": 1,
+    "costPrice": 3500,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781178,
+      "_nanoseconds": 79000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 1,
+    "status": "active",
+    "notes": "Migration: creation - 1 units",
+    "initialQuantity": 1
+  },
+  {
+    "id": "L8SZHq0LIkyygSgQ2ZmM",
+    "productId": "1NBn6GmXfbI92Ihc3Lnk",
+    "quantity": 15,
+    "costPrice": 1500,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781005,
+      "_nanoseconds": 563000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 15,
+    "status": "active",
+    "notes": "Migration: creation - 15 units",
+    "initialQuantity": 15
+  },
+  {
+    "id": "LEs4jZpwyeqPcqaJGi2d",
+    "productId": "pEBfQzKk9dBW2OdEvdLl",
+    "quantity": 4,
+    "costPrice": 2765,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781419,
+      "_nanoseconds": 372000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 4,
+    "status": "active",
+    "notes": "Migration: creation - 4 units",
+    "initialQuantity": 4
+  },
+  {
+    "id": "LFZV6wuSnm1sz34RptTs",
+    "productId": "i2RvFKriZFou9WhTQDJ6",
+    "quantity": 7,
+    "costPrice": 455,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "userId": "D9EJnNTbQYTvkD1kAAP6IuQB1003",
+    "remainingQuantity": 7,
+    "status": "active",
+    "createdAt": {
+      "_seconds": 1761085668,
+      "_nanoseconds": 978000000
+    }
+  },
+  {
+    "id": "LGBK96hqQVOlZ72nGYet",
+    "productId": "hCHCxw6g1IwYx0H9xzfd",
+    "remainingQuantity": 4,
+    "costPrice": 3150,
+    "quantity": 4,
+    "isOwnPurchase": true,
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "isCredit": false,
+    "status": "active",
+    "createdAt": {
+      "_seconds": 1759301374,
+      "_nanoseconds": 310000000
+    }
+  },
+  {
+    "id": "LTaSyKWE6cHFYq4AkZtp",
+    "productId": "n99CUtHHtUiMZiINk4Xt",
+    "quantity": 4,
+    "costPrice": 2625,
+    "createdAt": {
+      "_seconds": 1752687020,
+      "_nanoseconds": 766000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 3,
+    "initialQuantity": 3
+  },
+  {
+    "id": "Lti6WzI33QxTT8n6tMCZ",
+    "productId": "zzptwUqVNL1Ayc56bTej",
+    "quantity": 4,
+    "costPrice": 2548,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781512,
+      "_nanoseconds": 213000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 4,
+    "status": "active",
+    "notes": "Migration: creation - 4 units",
+    "initialQuantity": 4
+  },
+  {
+    "id": "M24n6txUFGvif3KT7eFB",
+    "productId": "oPM5dO9To4llILHjgNU8",
+    "quantity": 1,
+    "costPrice": 2750,
+    "createdAt": {
+      "_seconds": 1752956046,
+      "_nanoseconds": 680000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 0,
+    "status": "depleted",
+    "initialQuantity": 0
+  },
+  {
+    "id": "MDZafzlHu0RCVxbMaZXq",
+    "productId": "Nsp0EY2dUxLYFNQc7WKP",
+    "quantity": 1,
+    "costPrice": 3750,
+    "createdAt": {
+      "_seconds": 1752942869,
+      "_nanoseconds": 103000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 1,
+    "status": "active",
+    "initialQuantity": 1
+  },
+  {
+    "id": "MZBO9CLIWV1mHysIU6kS",
+    "productId": "K3S8tF0OC60W8pevihfI",
+    "quantity": 4,
+    "costPrice": 3015,
+    "createdAt": {
+      "_seconds": 1751992634,
+      "_nanoseconds": 32000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 3,
+    "initialQuantity": 3
+  },
+  {
+    "id": "N1pJOnxTaGRIEyY16wkK",
+    "productId": "x2B3RVo9bzIDn0HffdL6",
+    "quantity": 1,
+    "costPrice": 3500,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781488,
+      "_nanoseconds": 588000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 1,
+    "status": "active",
+    "notes": "Migration: creation - 1 units",
+    "initialQuantity": 1
+  },
+  {
+    "id": "N5xiWTDo3Zj8hEbZ7FPE",
+    "productId": "YGw4pMB4oqLy1YlQMesV",
+    "quantity": 2,
+    "costPrice": 3500,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781259,
+      "_nanoseconds": 792000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 2,
+    "status": "active",
+    "notes": "Migration: creation - 2 units",
+    "initialQuantity": 2
+  },
+  {
+    "id": "NP9H27XQN8xAAM5uQWvf",
+    "productId": "ygpKOi04fRjdqCpyaivD",
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "costPrice": 2852,
+    "remainingQuantity": 4,
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "quantity": 4,
+    "status": "active",
+    "createdAt": {
+      "_seconds": 1759299730,
+      "_nanoseconds": 120000000
+    }
+  },
+  {
+    "id": "NermccuSsAOReeqTOtMm",
+    "productId": "2uY8mhBi9ylkjlBlL2T9",
+    "quantity": 3,
+    "costPrice": 2737,
+    "createdAt": {
+      "_seconds": 1752685402,
+      "_nanoseconds": 777000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 2,
+    "initialQuantity": 2
+  },
+  {
+    "id": "O6GWlsfItKiRTfygDuub",
+    "productId": "wzxS6TOvATaXY5Ntoazh",
+    "quantity": 4,
+    "costPrice": 2765,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781487,
+      "_nanoseconds": 245000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 4,
+    "status": "active",
+    "notes": "Migration: creation - 4 units",
+    "initialQuantity": 4
+  },
+  {
+    "id": "OAA85b7o8IxOOi1W0cg5",
+    "isOwnPurchase": true,
+    "productId": "L8K9EIfOWtFjtVDoLSr7",
+    "quantity": 6,
+    "status": "active",
+    "isCredit": false,
+    "remainingQuantity": 6,
+    "costPrice": 1000,
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "createdAt": {
+      "_seconds": 1759214925,
+      "_nanoseconds": 586000000
+    }
+  },
+  {
+    "id": "OQ5Hrmvu9S3BwRIZGbd2",
+    "productId": "1G4z4NK1bJg50IcCOISI",
+    "quantity": 60,
+    "costPrice": 216,
+    "createdAt": {
+      "_seconds": 1752690378,
+      "_nanoseconds": 773000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 58,
+    "initialQuantity": 58
+  },
+  {
+    "id": "OXJAk5ygvK0pKxWrUMfL",
+    "productId": "S0r5uVe1BbY4dsvgQ5zx",
+    "quantity": 1,
+    "costPrice": 4000,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781192,
+      "_nanoseconds": 65000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 1,
+    "status": "active",
+    "notes": "Migration: creation - 1 units",
+    "initialQuantity": 1
+  },
+  {
+    "id": "OmQYFtIQq1268a9j1IP2",
+    "productId": "RqPsWJR3osAXgtASklA4",
+    "quantity": 5,
+    "costPrice": 3500,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781190,
+      "_nanoseconds": 646000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 5,
+    "status": "active",
+    "notes": "Migration: creation - 5 units",
+    "initialQuantity": 5
+  },
+  {
+    "id": "OrN9icEyIHrMIfeo2LE5",
+    "productId": "Zn6adwRVxyxdjv2fT2pd",
+    "quantity": 24,
+    "costPrice": 278.5,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781274,
+      "_nanoseconds": 673000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 24,
+    "status": "active",
+    "notes": "Migration: creation - 24 units",
+    "initialQuantity": 24
+  },
+  {
+    "id": "P42SJwy8SDGNp41Rir8E",
+    "productId": "9Dtm9NVM849ozEbNYqDu",
+    "quantity": 6,
+    "costPrice": 2268,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781062,
+      "_nanoseconds": 278000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 6,
+    "status": "active",
+    "notes": "Migration: creation - 6 units",
+    "initialQuantity": 6
+  },
+  {
+    "id": "P6sxwgEKcgE1YVaj7zD4",
+    "productId": "wvhyDFAvEFINmN3g6Uef",
+    "quantity": 1,
+    "costPrice": 3000,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781485,
+      "_nanoseconds": 903000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 1,
+    "status": "active",
+    "notes": "Migration: creation - 1 units",
+    "initialQuantity": 1
+  },
+  {
+    "id": "PDiBoZnrahXABVI1oBbq",
+    "productId": "QlEBNNZOwZQRS8uHAdQc",
+    "quantity": 10,
+    "costPrice": 591.6,
+    "createdAt": {
+      "_seconds": 1752945935,
+      "_nanoseconds": 354000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 9,
+    "initialQuantity": 9
+  },
+  {
+    "id": "PMe3tFVBaEU5eEKSR3Ro",
+    "productId": "Die0x50sO7jCubc6LVAp",
+    "quantity": 3,
+    "costPrice": 4250,
+    "createdAt": {
+      "_seconds": 1752780148,
+      "_nanoseconds": 377000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 2,
+    "initialQuantity": 2
+  },
+  {
+    "id": "PbP1JcuvI6m6Mgw02zKi",
+    "productId": "JcEyyzDzMMVFLTCue5ft",
+    "quantity": 1,
+    "costPrice": 3000,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781128,
+      "_nanoseconds": 546000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 1,
+    "status": "active",
+    "notes": "Migration: creation - 1 units",
+    "initialQuantity": 1
+  },
+  {
+    "id": "PgYGmz2ykrDLZGhACiS0",
+    "productId": "q6am8aa0KMY2UwMq5c7I",
+    "quantity": 5,
+    "costPrice": 8000,
+    "createdAt": {
+      "_seconds": 1750756318,
+      "_nanoseconds": 575000000
+    },
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "status": "active",
+    "notes": "Migration: creation - 5 units",
+    "initialQuantity": 4,
+    "remainingQuantity": 1
+  },
+  {
+    "id": "PvV3wGb3LxrC2nIFxegB",
+    "productId": "ED9kifjhlX1wZf17uU6r",
+    "quantity": 5,
+    "costPrice": 2000,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753820398,
+      "_nanoseconds": 92000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "notes": "Migration: creation - 5 units",
+    "remainingQuantity": 3,
+    "initialQuantity": 3
+  },
+  {
+    "id": "PwlGaEancett3HPFG6qV",
+    "productId": "KplEdBeuhAQwenzWIzh1",
+    "quantity": 1,
+    "costPrice": 3000,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781146,
+      "_nanoseconds": 319000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 1,
+    "status": "active",
+    "notes": "Migration: creation - 1 units",
+    "initialQuantity": 1
+  },
+  {
+    "id": "Q0GRiQHhGYel84mOGVPO",
+    "productId": "kNCcdi84hhgmZ5tL5xy2",
+    "quantity": 4,
+    "costPrice": 2784.6,
+    "createdAt": {
+      "_seconds": 1751989856,
+      "_nanoseconds": 518000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 3,
+    "initialQuantity": 3
+  },
+  {
+    "id": "QECELaGfdR9tU134iaF4",
+    "productId": "4za69hJwtUbMSU4nWnSt",
+    "quantity": 4,
+    "costPrice": 2695,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781036,
+      "_nanoseconds": 64000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 4,
+    "status": "active",
+    "notes": "Migration: creation - 4 units",
+    "initialQuantity": 4
+  },
+  {
+    "id": "Qc1mhicqGuM3YsNH0zSe",
+    "productId": "UVmKmjUu3R9SFNUPJDuU",
+    "quantity": 17,
+    "costPrice": 1500,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781218,
+      "_nanoseconds": 507000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 17,
+    "status": "active",
+    "notes": "Migration: creation - 17 units",
+    "initialQuantity": 17
+  },
+  {
+    "id": "QeyqIQOjafAM8fSYiWGp",
+    "productId": "eB80w6CpH019NC3Ef6nG",
+    "quantity": 3,
+    "costPrice": 13000,
+    "createdAt": {
+      "_seconds": 1750756317,
+      "_nanoseconds": 961000000
+    },
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "status": "active",
+    "notes": "Migration: creation - 3 units",
+    "remainingQuantity": 2,
+    "initialQuantity": 2
+  },
+  {
+    "id": "QjKt2ItyP4dMqmkoBqj8",
+    "productId": "qKhsxEUfzhKpQD2pM8yB",
+    "quantity": 5,
+    "costPrice": 13500,
+    "createdAt": {
+      "_seconds": 1750756318,
+      "_nanoseconds": 205000000
+    },
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "status": "active",
+    "notes": "Migration: creation - 5 units",
+    "initialQuantity": 4,
+    "remainingQuantity": 3
+  },
+  {
+    "id": "QoNt8jIwn49IIbdUENb5",
+    "productId": "pUl8PpcfJ6aAA7eoCRWw",
+    "quantity": 1,
+    "costPrice": 3250,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781420,
+      "_nanoseconds": 698000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 1,
+    "status": "active",
+    "notes": "Migration: creation - 1 units",
+    "initialQuantity": 1
+  },
+  {
+    "id": "QsZwgmFFnnTpAm5lJSYp",
+    "productId": "h64UEZAn8WdfRDSmzOdr",
+    "quantity": 7,
+    "costPrice": 2200,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781340,
+      "_nanoseconds": 169000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "status": "active",
+    "notes": "Migration: creation - 7 units",
+    "remainingQuantity": 6,
+    "initialQuantity": 6
+  },
+  {
+    "id": "R5u9qvzvl9tvyx7K7Ofv",
+    "productId": "tbgOtzteWEAvQwFtQYrd",
+    "quantity": 3,
+    "costPrice": 3731,
+    "createdAt": {
+      "_seconds": 1752778988,
+      "_nanoseconds": 657000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 2,
+    "initialQuantity": 2
+  },
+  {
+    "id": "RV0tRNwENJ1MwdKcuY1s",
+    "productId": "iIJS1nEtIMekXADJc7Xn",
+    "quantity": 2,
+    "costPrice": 3250,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781353,
+      "_nanoseconds": 884000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 2,
+    "status": "active",
+    "notes": "Migration: creation - 2 units",
+    "initialQuantity": 2
+  },
+  {
+    "id": "Rptd72aRo4avpKiQ1rdk",
+    "productId": "Gs1APTMnUHleikjIfeG9",
+    "quantity": 1,
+    "costPrice": 4750,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781108,
+      "_nanoseconds": 429000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 1,
+    "status": "active",
+    "notes": "Migration: creation - 1 units",
+    "initialQuantity": 1
+  },
+  {
+    "id": "RtQtlCvSo2dzV9OlT18G",
+    "productId": "GW8vGJ8aX5VdONmQ7kUZ",
+    "quantity": 4,
+    "costPrice": 500,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781102,
+      "_nanoseconds": 950000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 4,
+    "status": "active",
+    "notes": "Migration: creation - 4 units",
+    "initialQuantity": 4
+  },
+  {
+    "id": "S0xLCz8GWbxbDRyA4OcP",
+    "productId": "TidO0V5oZwZRkpSYEMbd",
+    "quantity": 1,
+    "costPrice": 3000,
+    "createdAt": {
+      "_seconds": 1752941885,
+      "_nanoseconds": 956000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 0,
+    "status": "depleted",
+    "initialQuantity": 0
+  },
+  {
+    "id": "SWbqYnk9xpCMW8Ytufpo",
+    "productId": "RIORbnuGQ9pV0FHx5tFb",
+    "quantity": 2,
+    "costPrice": 2415,
+    "createdAt": {
+      "_seconds": 1752777684,
+      "_nanoseconds": 292000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 2,
+    "status": "active",
+    "initialQuantity": 2
+  },
+  {
+    "id": "TF8rh1ZL2gsDE3Y5T0LJ",
+    "productId": "5ldgy6fhSrqxLfOT0TRL",
+    "quantity": 7,
+    "costPrice": 3500,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753798173,
+      "_nanoseconds": 56000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "notes": "Migration: creation - 7 units",
+    "remainingQuantity": 5,
+    "initialQuantity": 5
+  },
+  {
+    "id": "TFDBHGV5vwmmFZdKlk5N",
+    "productId": "xu3uP1XCEcip2lnIpePM",
+    "quantity": 3,
+    "costPrice": 3730,
+    "createdAt": {
+      "_seconds": 1752688862,
+      "_nanoseconds": 855000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 2,
+    "initialQuantity": 2
+  },
+  {
+    "id": "TKoNNKIzuroYB7hpzKQN",
+    "productId": "TxlDvIOtNUUND1Xe87ED",
+    "quantity": 1,
+    "costPrice": 3045,
+    "createdAt": {
+      "_seconds": 1752777947,
+      "_nanoseconds": 56000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 1,
+    "status": "active",
+    "initialQuantity": 1
+  },
+  {
+    "id": "TVCtXSMTAhEWSXv1ZQCd",
+    "productId": "XHFY0jH9Ip2tPk6Lt0tl",
+    "quantity": 24,
+    "costPrice": 840,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781251,
+      "_nanoseconds": 354000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 24,
+    "status": "active",
+    "notes": "Migration: creation - 24 units",
+    "initialQuantity": 24
+  },
+  {
+    "id": "TdKYVCT0KklT0c39DeIk",
+    "productId": "2RmHeYKCLnk0hlyFZGTV",
+    "quantity": 13,
+    "costPrice": 10000,
+    "createdAt": {
+      "_seconds": 1752504695,
+      "_nanoseconds": 758000000
+    },
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "status": "active",
+    "initialQuantity": 12,
+    "remainingQuantity": 11
+  },
+  {
+    "id": "TdsuERuqUdy6t5yvbPAG",
+    "productId": "ZOSTO1Xjk2FTxVXwy9nq",
+    "quantity": 3,
+    "costPrice": 4250,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781271,
+      "_nanoseconds": 710000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 3,
+    "status": "active",
+    "notes": "Migration: creation - 3 units",
+    "initialQuantity": 3
+  },
+  {
+    "id": "TfF2vyWZJbiPdPGPMkNZ",
+    "costPrice": 1300,
+    "isOwnPurchase": true,
+    "quantity": 4,
+    "isCredit": false,
+    "productId": "Hz7fvlIGqiuUdEOR4R7l",
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "status": "active",
+    "remainingQuantity": 4,
+    "createdAt": {
+      "_seconds": 1759300233,
+      "_nanoseconds": 306000000
+    }
+  },
+  {
+    "id": "UE8NZ4vp2lStbzDygMbA",
+    "productId": "sADrmqEg4mftlYUcgvtj",
+    "quantity": 2,
+    "costPrice": 3626,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781451,
+      "_nanoseconds": 590000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 2,
+    "status": "active",
+    "notes": "Migration: creation - 2 units",
+    "initialQuantity": 2
+  },
+  {
+    "id": "ULmGF6yfEnyPHuVPv12n",
+    "productId": "3V6jf0CZ6F1zKlTb9HLf",
+    "quantity": 15,
+    "costPrice": 2000,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "status": "active",
+    "createdAt": {
+      "_seconds": 1760579272,
+      "_nanoseconds": 417000000
+    },
+    "remainingQuantity": 14
+  },
+  {
+    "id": "UQ1mwJtL7FVePXyuzzqh",
+    "productId": "nu8d0AcnKVt4YzWuUmU7",
+    "quantity": 4,
+    "costPrice": 4620,
+    "createdAt": {
+      "_seconds": 1752689327,
+      "_nanoseconds": 972000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 3,
+    "initialQuantity": 3
+  },
+  {
+    "id": "UhdmGH6ToYxzMzemcPqX",
+    "productId": "hI1LjzYxZeA0o8JqGD1D",
+    "quantity": 4,
+    "costPrice": 2529.6,
+    "createdAt": {
+      "_seconds": 1751989949,
+      "_nanoseconds": 349000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 3,
+    "initialQuantity": 3
+  },
+  {
+    "id": "UoxkYfP675fojPtygGeZ",
+    "productId": "UoVyG4PEFExWYdZE6sOU",
+    "quantity": 1,
+    "costPrice": 4250,
+    "createdAt": {
+      "_seconds": 1752781020,
+      "_nanoseconds": 797000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 0,
+    "status": "depleted",
+    "initialQuantity": 0
+  },
+  {
+    "id": "V0iF8o1Nz30wlDA6Qkix",
+    "productId": "CPbavGZmbAWBF1aiRMQb",
+    "quantity": 4,
+    "costPrice": 3950,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781084,
+      "_nanoseconds": 658000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 4,
+    "status": "active",
+    "notes": "Migration: creation - 4 units",
+    "initialQuantity": 4
+  },
+  {
+    "id": "VJBy84I0HleYzbdL93h3",
+    "productId": "4zJPFjeWwPQy2NjvLSJg",
+    "quantity": 17,
+    "costPrice": 1428,
+    "createdAt": {
+      "_seconds": 1752944860,
+      "_nanoseconds": 374000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 15,
+    "initialQuantity": 15
+  },
+  {
+    "id": "VKq1BuzW2S3qMfvQkjLp",
+    "productId": "dwLTCLS5zwIS0x1Grp4y",
+    "quantity": 3,
+    "costPrice": 2345,
+    "createdAt": {
+      "_seconds": 1752685305,
+      "_nanoseconds": 288000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 2,
+    "initialQuantity": 2
+  },
+  {
+    "id": "VQu2Afgeg2z96S8u0vPt",
+    "productId": "FZFpeNhpRgRc1hdjDbp7",
+    "quantity": 78,
+    "costPrice": 1507,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781100,
+      "_nanoseconds": 199000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 78,
+    "status": "active",
+    "notes": "Migration: creation - 78 units",
+    "initialQuantity": 78
+  },
+  {
+    "id": "VY6XyujmXmEGAIh5pwjZ",
+    "productId": "g0r5VsewdPDWM8YlzmXt",
+    "quantity": 2,
+    "costPrice": 3250,
+    "createdAt": {
+      "_seconds": 1752780370,
+      "_nanoseconds": 377000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 1,
+    "initialQuantity": 1
+  },
+  {
+    "id": "Vbx4w5G2m0nHztJ1LAUt",
+    "productId": "qMUz7sU2hkAmQGmy9OPT",
+    "quantity": 4,
+    "costPrice": 2784.6,
+    "createdAt": {
+      "_seconds": 1751458282,
+      "_nanoseconds": 905000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 4,
+    "status": "active",
+    "initialQuantity": 4
+  },
+  {
+    "id": "VvrMVt3Ke4yrrbo50Puw",
+    "productId": "IIUfm2hlklHrO5Tv9uBh",
+    "quantity": 4,
+    "costPrice": 5000,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781120,
+      "_nanoseconds": 663000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 4,
+    "status": "active",
+    "notes": "Migration: creation - 4 units",
+    "initialQuantity": 4
+  },
+  {
+    "id": "WDb1ibKlWbSSzanC6CG2",
+    "productId": "mzs5wcBGdH9PgVWfyWGb",
+    "quantity": 6,
+    "costPrice": 4032,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781384,
+      "_nanoseconds": 62000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 6,
+    "status": "active",
+    "notes": "Migration: creation - 6 units",
+    "initialQuantity": 6
+  },
+  {
+    "id": "WTD2PbJspPOhvs0KsxmJ",
+    "productId": "TtJRAwMbLFRHQTfHQ7qo",
+    "quantity": 2,
+    "costPrice": 3740,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781210,
+      "_nanoseconds": 250000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 2,
+    "status": "active",
+    "notes": "Migration: creation - 2 units",
+    "initialQuantity": 2
+  },
+  {
+    "id": "WW9j6aBENz89fuZuzX4Z",
+    "productId": "N50hQlRgAWjs9yLUebWH",
+    "quantity": 1,
+    "costPrice": 3000,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781161,
+      "_nanoseconds": 147000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 1,
+    "status": "active",
+    "notes": "Migration: creation - 1 units",
+    "initialQuantity": 1
+  },
+  {
+    "id": "Wc6Xw79Xy4K2y9z47RlV",
+    "productId": "aVLIxbRsPOwWt3g0228K",
+    "quantity": 4,
+    "costPrice": 1000,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "userId": "D9EJnNTbQYTvkD1kAAP6IuQB1003",
+    "remainingQuantity": 4,
+    "status": "active",
+    "createdAt": {
+      "_seconds": 1760447189,
+      "_nanoseconds": 998000000
+    }
+  },
+  {
+    "id": "WorMk1a5jHPy07YtyVjy",
+    "productId": "TF5AvbrgYhhSJTURu1NQ",
+    "quantity": 7,
+    "costPrice": 2750,
+    "createdAt": {
+      "_seconds": 1752955345,
+      "_nanoseconds": 921000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 7,
+    "status": "active",
+    "initialQuantity": 7
+  },
+  {
+    "id": "WpBnYiAvHvMerBAlzZlz",
+    "productId": "L8uXu5ebV2M3pqK3iVO6",
+    "quantity": 3,
+    "costPrice": 12,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "userId": "D9EJnNTbQYTvkD1kAAP6IuQB1003",
+    "remainingQuantity": 3,
+    "status": "active",
+    "createdAt": {
+      "_seconds": 1761076382,
+      "_nanoseconds": 876000000
+    }
+  },
+  {
+    "id": "WsrsRwelqGLV5SaHia2P",
+    "productId": "hsaSQShjCo2QThZPbDnR",
+    "quantity": 2,
+    "costPrice": 3000,
+    "createdAt": {
+      "_seconds": 1752941205,
+      "_nanoseconds": 282000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 2,
+    "status": "active",
+    "initialQuantity": 2
+  },
+  {
+    "id": "X8KQ1OXk70njFe2g9r9q",
+    "productId": "zxRvoJMI3hETQonbvCws",
+    "quantity": 8,
+    "costPrice": 4865,
+    "createdAt": {
+      "_seconds": 1752687501,
+      "_nanoseconds": 204000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 7,
+    "initialQuantity": 7
+  },
+  {
+    "id": "XIZ6r5QtCUYTTkkUqaRG",
+    "productId": "SaBrk6XzN80P8hLCMxJa",
+    "quantity": 1,
+    "costPrice": 3500,
+    "createdAt": {
+      "_seconds": 1752956308,
+      "_nanoseconds": 455000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 1,
+    "status": "active",
+    "initialQuantity": 1
+  },
+  {
+    "id": "XItzBLYBsoJZKYytLuqb",
+    "productId": "F4KgMH9Ld9H3BRUYwdao",
+    "quantity": 6,
+    "costPrice": 268.33,
+    "createdAt": {
+      "_seconds": 1752691482,
+      "_nanoseconds": 980000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 5,
+    "initialQuantity": 5
+  },
+  {
+    "id": "XJdyvch894tApuBaZkW1",
+    "productId": "ma88iOCRWpVCnWw4v3E2",
+    "quantity": 1,
+    "costPrice": 3500,
+    "createdAt": {
+      "_seconds": 1752779210,
+      "_nanoseconds": 23000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 0,
+    "status": "depleted",
+    "initialQuantity": 0
+  },
+  {
+    "id": "XTHV9hvLP6rM5nH5HQnL",
+    "productId": "VxbRElg7kIGT32o6Qbs0",
+    "quantity": 5,
+    "costPrice": 18500,
+    "createdAt": {
+      "_seconds": 1750756318,
+      "_nanoseconds": 27000000
+    },
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "status": "active",
+    "notes": "Migration: creation - 5 units",
+    "remainingQuantity": 4,
+    "initialQuantity": 4
+  },
+  {
+    "id": "Xl9xgTPFnNJgTsqpNT40",
+    "productId": "euFNQCN9cxPa6OKdeRVa",
+    "quantity": 3,
+    "costPrice": 4000,
+    "createdAt": {
+      "_seconds": 1753265191,
+      "_nanoseconds": 945000000
+    },
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "remainingQuantity": 3,
+    "status": "active",
+    "initialQuantity": 3
+  },
+  {
+    "id": "Y1nyDIagAV7d0TFzfnM1",
+    "productId": "7fqxyPdIeNSiDHUE3niD",
+    "quantity": 1,
+    "costPrice": 11000,
+    "createdAt": {
+      "_seconds": 1752000438,
+      "_nanoseconds": 822000000
+    },
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "remainingQuantity": 0,
+    "status": "depleted",
+    "initialQuantity": 0
+  },
+  {
+    "id": "Y3NRVUT4o006K7lxIWNn",
+    "productId": "F4KgMH9Ld9H3BRUYwdao",
+    "quantity": 8,
+    "costPrice": 268.33,
+    "createdAt": {
+      "_seconds": 1752957805,
+      "_nanoseconds": 126000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 8,
+    "status": "active",
+    "initialQuantity": 8
+  },
+  {
+    "id": "YKehsb4umW4Tfg5NtbIH",
+    "productId": "B3s4STrWGD8Dy33PWefu",
+    "quantity": 20,
+    "costPrice": 650,
+    "createdAt": {
+      "_seconds": 1752958092,
+      "_nanoseconds": 34000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 17,
+    "initialQuantity": 17
+  },
+  {
+    "id": "YlgmnVuSpb1X6dsASb6I",
+    "productId": "psp3Wx04bPC1HfV0ZDLQ",
+    "quantity": 3,
+    "costPrice": 3750,
+    "createdAt": {
+      "_seconds": 1752943063,
+      "_nanoseconds": 217000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 1,
+    "initialQuantity": 1
+  },
+  {
+    "id": "Z0bktgvh9yDTTZ8lIDyl",
+    "productId": "lI1f142N7wOI70T0m261",
+    "quantity": 33,
+    "costPrice": 32000,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "userId": "oPxXrnQecQUxk00bDAmAZuDxUfD2",
+    "remainingQuantity": 33,
+    "status": "active",
+    "createdAt": {
+      "_seconds": 1760356975,
+      "_nanoseconds": 277000000
+    }
+  },
+  {
+    "id": "Z45EgNW8cksRzOPVtpdc",
+    "productId": "2111NojCIUl6ibTnM8ke",
+    "quantity": 2,
+    "costPrice": 4000,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781010,
+      "_nanoseconds": 338000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 2,
+    "status": "active",
+    "notes": "Migration: creation - 2 units",
+    "initialQuantity": 2
+  },
+  {
+    "id": "ZXN1F0Ez4aPe4757cWZr",
+    "productId": "vxBRKvf7Fnz3EpaY1iAo",
+    "quantity": 4,
+    "costPrice": 2765,
+    "createdAt": {
+      "_seconds": 1752687643,
+      "_nanoseconds": 404000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 3,
+    "initialQuantity": 3
+  },
+  {
+    "id": "ZhM3GCgsUmy9Fe3oIume",
+    "productId": "XSKeWT4gEaTxgAMiqvl0",
+    "quantity": 3,
+    "costPrice": 3500,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781252,
+      "_nanoseconds": 773000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 3,
+    "status": "active",
+    "notes": "Migration: creation - 3 units",
+    "initialQuantity": 3
+  },
+  {
+    "id": "ZkJDkX4cSZl7Xyhdfum9",
+    "productId": "zLoo0KM3AqAiNF8RIqkr",
+    "quantity": 4,
+    "costPrice": 2765,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781508,
+      "_nanoseconds": 56000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 4,
+    "status": "active",
+    "notes": "Migration: creation - 4 units",
+    "initialQuantity": 4
+  },
+  {
+    "id": "ZlDzTfI52DywKr4UNbEx",
+    "productId": "sgUo6gXgqIpuwdcN0Utl",
+    "quantity": 2,
+    "costPrice": 3500,
+    "createdAt": {
+      "_seconds": 1752955899,
+      "_nanoseconds": 492000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 1,
+    "initialQuantity": 1
+  },
+  {
+    "id": "Zwd9bXnAmEc39zyzBSB6",
+    "productId": "RPZ8xgsWsmJIV0VRnHKV",
+    "quantity": 3,
+    "costPrice": 4500,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781189,
+      "_nanoseconds": 228000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 3,
+    "status": "active",
+    "notes": "Migration: creation - 3 units",
+    "initialQuantity": 3
+  },
+  {
+    "id": "a02Cv7P44TzO3ukIP9xe",
+    "productId": "0QhZykIEunWhGZHNXxY0",
+    "quantity": 2,
+    "costPrice": 2500,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753780994,
+      "_nanoseconds": 673000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 2,
+    "status": "active",
+    "notes": "Migration: creation - 2 units",
+    "initialQuantity": 2
+  },
+  {
+    "id": "a1IRdodylW5hROb6quPJ",
+    "isOwnPurchase": true,
+    "status": "active",
+    "productId": "50ZgHBhfXGDzPafkpjRL",
+    "costPrice": 3000,
+    "quantity": 4,
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "remainingQuantity": 4,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1759301446,
+      "_nanoseconds": 146000000
+    }
+  },
+  {
+    "id": "a94XHR8tMxQr0IqdSrs8",
+    "productId": "LekLWa22c68LhO2wfCLm",
+    "costPrice": 2600,
+    "quantity": 4,
+    "isCredit": false,
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "isOwnPurchase": true,
+    "status": "active",
+    "remainingQuantity": 4,
+    "createdAt": {
+      "_seconds": 1759301592,
+      "_nanoseconds": 809000000
+    }
+  },
+  {
+    "id": "aBscNvA7N0KM3Y2A5pUL",
+    "productId": "W3vKfuHORGa7K7JYT8WM",
+    "quantity": 2,
+    "costPrice": 4250,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781237,
+      "_nanoseconds": 892000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 2,
+    "status": "active",
+    "notes": "Migration: creation - 2 units",
+    "initialQuantity": 2
+  },
+  {
+    "id": "aHihhtsxpZ8nbDUlGkfj",
+    "productId": "2TvsZCW9bu8O4BFBGcXs",
+    "quantity": 1,
+    "costPrice": 4250,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781015,
+      "_nanoseconds": 119000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 1,
+    "status": "active",
+    "notes": "Migration: creation - 1 units",
+    "initialQuantity": 1
+  },
+  {
+    "id": "azSBSw28yqQ4xqsMjWdu",
+    "productId": "aqLyYajeoKI68Qqa1nrT",
+    "quantity": 4,
+    "costPrice": 3045,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781288,
+      "_nanoseconds": 747000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 4,
+    "status": "active",
+    "notes": "Migration: creation - 4 units",
+    "initialQuantity": 4
+  },
+  {
+    "id": "b820YCCP9uAOLfPAAAa9",
+    "productId": "wgluCG5uYgvNWv9essHK",
+    "quantity": 1,
+    "costPrice": 3000,
+    "createdAt": {
+      "_seconds": 1752820946,
+      "_nanoseconds": 684000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 1,
+    "status": "active",
+    "initialQuantity": 1
+  },
+  {
+    "id": "bSUbJS2Sn3RxTWybLQS1",
+    "productId": "c8ZvuGnTwuqbGEwVaDfM",
+    "quantity": 4,
+    "costPrice": 4401.9,
+    "createdAt": {
+      "_seconds": 1751993089,
+      "_nanoseconds": 306000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 3,
+    "initialQuantity": 3
+  },
+  {
+    "id": "bUx4epaylJmXlpMl9jwO",
+    "productId": "KT06mxf3R39R66ZkYW27",
+    "quantity": 4,
+    "costPrice": 4750,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781141,
+      "_nanoseconds": 865000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 4,
+    "status": "active",
+    "notes": "Migration: creation - 4 units",
+    "initialQuantity": 4
+  },
+  {
+    "id": "c0Ba0pq1dwIDZwn4Ez8j",
+    "productId": "erKUYHYtnA1KMij4wbIH",
+    "quantity": 7,
+    "costPrice": 1611.6,
+    "createdAt": {
+      "_seconds": 1752957972,
+      "_nanoseconds": 155000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 6,
+    "initialQuantity": 6
+  },
+  {
+    "id": "c9a4O9w5x1zy9plI2pbr",
+    "productId": "wrSpz2QzonZhJErCVbFC",
+    "quantity": 12,
+    "costPrice": 11998,
+    "supplierId": "7xl1lEbd7wrldA3v3WzG",
+    "isOwnPurchase": false,
+    "isCredit": true,
+    "userId": "oPxXrnQecQUxk00bDAmAZuDxUfD2",
+    "remainingQuantity": 12,
+    "status": "active",
+    "createdAt": {
+      "_seconds": 1760453396,
+      "_nanoseconds": 410000000
+    }
+  },
+  {
+    "id": "cBICxyxQ2fcjZ54uz8QI",
+    "productId": "MJ3KClrGkhASIkAFS6Pc",
+    "quantity": 3,
+    "costPrice": 3500,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753797457,
+      "_nanoseconds": 653000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "notes": "Migration: creation - 3 units",
+    "remainingQuantity": 2,
+    "initialQuantity": 2
+  },
+  {
+    "id": "cTLIjVMknkJh8oKEjErE",
+    "productId": "5nEkldePHoFgwLRZjdgb",
+    "quantity": 2,
+    "costPrice": 3500,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781042,
+      "_nanoseconds": 366000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 2,
+    "status": "active",
+    "notes": "Migration: creation - 2 units",
+    "initialQuantity": 2
+  },
+  {
+    "id": "cfDf6bSB2cU0KZCn77Dc",
+    "productId": "4tqoOizhGLsYOrrgbHkq",
+    "quantity": 1,
+    "costPrice": 2765,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753823025,
+      "_nanoseconds": 205000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "notes": "Migration: creation - 1 units",
+    "remainingQuantity": 0,
+    "status": "depleted",
+    "initialQuantity": 0
+  },
+  {
+    "id": "cn6d31iaqPJIoPAtE4sU",
+    "productId": "TaRqI8qp2Wx0NONKmk0v",
+    "quantity": 6,
+    "costPrice": 1000,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781204,
+      "_nanoseconds": 501000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 6,
+    "status": "active",
+    "notes": "Migration: creation - 6 units",
+    "initialQuantity": 6
+  },
+  {
+    "id": "crRA62dIXBEMSurBEoZT",
+    "productId": "1hLAyEsf1CG7cgJtkJMG",
+    "quantity": 1,
+    "costPrice": 3500,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781008,
+      "_nanoseconds": 703000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 1,
+    "status": "active",
+    "notes": "Migration: creation - 1 units",
+    "initialQuantity": 1
+  },
+  {
+    "id": "cwivsLQnKVBsENN4MiUW",
+    "productId": "EmUjI50ltJ4gk2NmbBGD",
+    "quantity": 3,
+    "costPrice": 3250,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781090,
+      "_nanoseconds": 533000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 3,
+    "status": "active",
+    "notes": "Migration: creation - 3 units",
+    "initialQuantity": 3
+  },
+  {
+    "id": "dEoscQCKejD1rbgHB7xE",
+    "productId": "0gL3fupCzizKtp1uomgY",
+    "quantity": 4,
+    "costPrice": 2529.6,
+    "createdAt": {
+      "_seconds": 1751989307,
+      "_nanoseconds": 702000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 4,
+    "status": "active",
+    "initialQuantity": 4
+  },
+  {
+    "id": "dIU5tINONTZMaecXY0ig",
+    "productId": "PlzBjKIkboVPQuZjbJsI",
+    "quantity": 5,
+    "costPrice": 3250,
+    "createdAt": {
+      "_seconds": 1752780261,
+      "_nanoseconds": 964000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 4,
+    "initialQuantity": 4
+  },
+  {
+    "id": "dNaJp39UHLd8zUNJU15W",
+    "productId": "vM1tZQXLSh7hr1Sz933d",
+    "quantity": 4,
+    "costPrice": 3465,
+    "createdAt": {
+      "_seconds": 1752687829,
+      "_nanoseconds": 405000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 3,
+    "initialQuantity": 3
+  },
+  {
+    "id": "dR9pfmngSRycATyLSq6p",
+    "productId": "0cXWtL4IfVJGifNVryDf",
+    "quantity": 12,
+    "costPrice": 1122,
+    "createdAt": {
+      "_seconds": 1752946491,
+      "_nanoseconds": 353000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 10,
+    "initialQuantity": 10
+  },
+  {
+    "id": "dUqxdmPtEiDKqdkieCea",
+    "productId": "4dmdpFqQILl3zC9BylKK",
+    "quantity": 85,
+    "costPrice": 750,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781028,
+      "_nanoseconds": 843000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 85,
+    "status": "active",
+    "notes": "Migration: creation - 85 units",
+    "initialQuantity": 85
+  },
+  {
+    "id": "dkPwQzyIZOn6G2ARN498",
+    "isCredit": false,
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "status": "active",
+    "costPrice": 1000,
+    "remainingQuantity": 56,
+    "quantity": 56,
+    "isOwnPurchase": true,
+    "productId": "LXKFwTO9P0Ob0AooX4C1",
+    "createdAt": {
+      "_seconds": 1759158118,
+      "_nanoseconds": 637000000
+    }
+  },
+  {
+    "id": "dy0ReQNm7Pnq6IVm6c4g",
+    "productId": "nMo36nvj16zEmoXJmKq5",
+    "quantity": 1,
+    "costPrice": 1000,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781390,
+      "_nanoseconds": 948000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 1,
+    "status": "active",
+    "notes": "Migration: creation - 1 units",
+    "initialQuantity": 1
+  },
+  {
+    "id": "dzvm7BJn35u2NA7o6xbT",
+    "productId": "FRtVoCLPwvuawfaaA6Mp",
+    "quantity": 2,
+    "costPrice": 1000,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781098,
+      "_nanoseconds": 847000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 2,
+    "status": "active",
+    "notes": "Migration: creation - 2 units",
+    "initialQuantity": 2
+  },
+  {
+    "id": "e8pqgtCP9SQ4YNvxU1mY",
+    "productId": "MZaI4V21JsbG9qGIoscx",
+    "quantity": 7,
+    "costPrice": 2000,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781157,
+      "_nanoseconds": 35000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 7,
+    "status": "active",
+    "notes": "Migration: creation - 7 units",
+    "initialQuantity": 7
+  },
+  {
+    "id": "eVGW88s1wJSBLRfEPfPn",
+    "productId": "id9gXjBQFWydpzKnaoN7",
+    "quantity": 3,
+    "costPrice": 4500,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781357,
+      "_nanoseconds": 949000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 3,
+    "status": "active",
+    "notes": "Migration: creation - 3 units",
+    "initialQuantity": 3
+  },
+  {
+    "id": "eXT5XlTVn8oWzTXWheiR",
+    "productId": "nWN8e30rh91oVK6iH322",
+    "quantity": 4,
+    "costPrice": 4501,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781394,
+      "_nanoseconds": 523000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 4,
+    "status": "active",
+    "notes": "Migration: creation - 4 units",
+    "initialQuantity": 4
+  },
+  {
+    "id": "ek6UJaHxe4UPAeq2FmZV",
+    "productId": "Gwikw6UK8Uec4JcdEFFx",
+    "quantity": 24,
+    "costPrice": 840,
+    "createdAt": {
+      "_seconds": 1752685007,
+      "_nanoseconds": 368000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 22,
+    "initialQuantity": 22
+  },
+  {
+    "id": "evumgdFBjFAJGge9emyQ",
+    "productId": "sw3BmxpHqqWin9tffGKu",
+    "quantity": 4,
+    "costPrice": 2000,
+    "createdAt": {
+      "_seconds": 1752944660,
+      "_nanoseconds": 588000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 4,
+    "status": "active",
+    "initialQuantity": 4
+  },
+  {
+    "id": "fGZlcMOmRGiyVWpj7Ncp",
+    "productId": "BipuzISxgMWULacaL5KW",
+    "quantity": 5,
+    "costPrice": 10000,
+    "createdAt": {
+      "_seconds": 1750756318,
+      "_nanoseconds": 670000000
+    },
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "notes": "Migration: creation - 5 units",
+    "initialQuantity": 4,
+    "remainingQuantity": 0,
+    "status": "depleted"
+  },
+  {
+    "id": "fPzTFCBAt6NYwgbFgrhU",
+    "productId": "M6EQ34qcfAudDhrZK1Jf",
+    "quantity": 1,
+    "costPrice": 4500,
+    "createdAt": {
+      "_seconds": 1752820695,
+      "_nanoseconds": 322000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 0,
+    "status": "depleted",
+    "initialQuantity": 0
+  },
+  {
+    "id": "fT39yK3DNgrL16xIYdwM",
+    "productId": "zeOByPUruJCIdKeMJq3T",
+    "quantity": 9,
+    "costPrice": 1200,
+    "supplierId": "rBEu3Wj72x7kYxclBH7k",
+    "isOwnPurchase": false,
+    "isCredit": true,
+    "userId": "oPxXrnQecQUxk00bDAmAZuDxUfD2",
+    "status": "active",
+    "createdAt": {
+      "_seconds": 1755184114,
+      "_nanoseconds": 428000000
+    },
+    "remainingQuantity": 6
+  },
+  {
+    "id": "fcUmI90uCJpq83kHQw6R",
+    "productId": "juRXFlYWKWvk8zYtMZk4",
+    "quantity": 3,
+    "costPrice": 2500,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781366,
+      "_nanoseconds": 581000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 3,
+    "status": "active",
+    "notes": "Migration: creation - 3 units",
+    "initialQuantity": 3
+  },
+  {
+    "id": "fgr1jrhHVq9fnOpjZroB",
+    "productId": "02rMCVD3aVapTsEDxepq",
+    "quantity": 2,
+    "costPrice": 3250,
+    "createdAt": {
+      "_seconds": 1752942615,
+      "_nanoseconds": 666000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 1,
+    "initialQuantity": 1
+  },
+  {
+    "id": "fhUxiYF1Z3Jb1PBXi6uu",
+    "productId": "opUffSBPyoF2PMFlfiZH",
+    "quantity": 4,
+    "costPrice": 2065,
+    "createdAt": {
+      "_seconds": 1752687193,
+      "_nanoseconds": 972000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 3,
+    "initialQuantity": 3
+  },
+  {
+    "id": "ft4SSTZlWo806CGhtvXQ",
+    "isCredit": false,
+    "quantity": 3,
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "remainingQuantity": 3,
+    "productId": "HDhPz1ZoeOmRgSJO99UO",
+    "status": "active",
+    "costPrice": 1397,
+    "isOwnPurchase": true,
+    "createdAt": {
+      "_seconds": 1759300352,
+      "_nanoseconds": 592000000
+    }
+  },
+  {
+    "id": "g6hL0PjlS9vQ2BpDj1np",
+    "productId": "nRlrTnRD9jkhzRcEEeOQ",
+    "quantity": 2,
+    "costPrice": 3750,
+    "createdAt": {
+      "_seconds": 1752943145,
+      "_nanoseconds": 218000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 0,
+    "status": "depleted",
+    "initialQuantity": 0
+  },
+  {
+    "id": "gHcFglyyNvSvvNINa5dm",
+    "productId": "vvnxTWb0XhqQud80lw7I",
+    "quantity": 4,
+    "costPrice": 2415,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781473,
+      "_nanoseconds": 528000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 4,
+    "status": "active",
+    "notes": "Migration: creation - 4 units",
+    "initialQuantity": 4
+  },
+  {
+    "id": "gQ9PKOTwQR8xkwqFdjnO",
+    "productId": "9lsz4L9Ij39HCjreOaoT",
+    "quantity": 4,
+    "costPrice": 4508,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781068,
+      "_nanoseconds": 803000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 4,
+    "status": "active",
+    "notes": "Migration: creation - 4 units",
+    "initialQuantity": 4
+  },
+  {
+    "id": "h1CSyDHzG53fjvAmq6HH",
+    "productId": "IW12E59GKeq5lMj0ZezH",
+    "quantity": 12,
+    "costPrice": 3318,
+    "createdAt": {
+      "_seconds": 1752684804,
+      "_nanoseconds": 824000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 11,
+    "initialQuantity": 11
+  },
+  {
+    "id": "hCk2MSpnb2Vianfbrmm9",
+    "productId": "FKYur5MqHamOflbjGy6m",
+    "quantity": 1,
+    "costPrice": 45000,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "userId": "D9EJnNTbQYTvkD1kAAP6IuQB1003",
+    "remainingQuantity": 1,
+    "status": "active",
+    "createdAt": {
+      "_seconds": 1761125838,
+      "_nanoseconds": 551000000
+    }
+  },
+  {
+    "id": "hFXbhCHaKovZqwZICpp6",
+    "productId": "LXcnG2HpwtP7PjvxkLY0",
+    "quantity": 12,
+    "costPrice": 2828,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781149,
+      "_nanoseconds": 34000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 12,
+    "status": "active",
+    "notes": "Migration: creation - 12 units",
+    "initialQuantity": 12
+  },
+  {
+    "id": "hHqPv4hSzD9CAp5C79AI",
+    "productId": "tqGkTkV58Pgm63SHCG5M",
+    "quantity": 1,
+    "costPrice": 3750,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781469,
+      "_nanoseconds": 299000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 1,
+    "status": "active",
+    "notes": "Migration: creation - 1 units",
+    "initialQuantity": 1
+  },
+  {
+    "id": "hjZ35Br1IcQ3KQ51bd3B",
+    "productId": "exhVbT1dmTfFq8y7IILO",
+    "quantity": 4,
+    "costPrice": 3500,
+    "createdAt": {
+      "_seconds": 1752691547,
+      "_nanoseconds": 406000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 3,
+    "initialQuantity": 3
+  },
+  {
+    "id": "i5ydUzTIKHlORBZM5fZq",
+    "productId": "yPxm5048yANWe03qalH9",
+    "quantity": 10,
+    "costPrice": 1750,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781500,
+      "_nanoseconds": 189000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 10,
+    "status": "active",
+    "notes": "Migration: creation - 10 units",
+    "initialQuantity": 10
+  },
+  {
+    "id": "iEWFxJelMFRZUnrZ7QZu",
+    "productId": "e0M1PMx9XaXgVTaMtOe2",
+    "quantity": 4,
+    "costPrice": 2275,
+    "createdAt": {
+      "_seconds": 1752685546,
+      "_nanoseconds": 592000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 2,
+    "initialQuantity": 2
+  },
+  {
+    "id": "iJ2f81UIwh6MR4T2fXXf",
+    "productId": "wKdWeIdcpJcyHQxEdtEx",
+    "quantity": 3,
+    "costPrice": 1400,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753799013,
+      "_nanoseconds": 647000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "notes": "Migration: creation - 3 units",
+    "remainingQuantity": 2,
+    "initialQuantity": 2
+  },
+  {
+    "id": "iL4xEUIravvt8XBxTPY7",
+    "productId": "ANq4nErHu3WsaFsJitlT",
+    "quantity": 4,
+    "costPrice": 4340,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781072,
+      "_nanoseconds": 954000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 4,
+    "status": "active",
+    "notes": "Migration: creation - 4 units",
+    "initialQuantity": 4
+  },
+  {
+    "id": "iN0ZewX3E2Pif6Iky6o3",
+    "productId": "QlEBNNZOwZQRS8uHAdQc",
+    "quantity": 4,
+    "costPrice": 591.6,
+    "createdAt": {
+      "_seconds": 1752955221,
+      "_nanoseconds": 230000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 4,
+    "status": "active",
+    "initialQuantity": 4
+  },
+  {
+    "id": "iVXAeX5FHcpUfn1dwQZ5",
+    "productId": "apaEBkRAjmY69lVovowC",
+    "quantity": 1,
+    "costPrice": 1750,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781287,
+      "_nanoseconds": 403000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 1,
+    "status": "active",
+    "notes": "Migration: creation - 1 units",
+    "initialQuantity": 1
+  },
+  {
+    "id": "iq0kWaK99Tpsuxzxzk5d",
+    "productId": "UltqsyFKKR0adbF496td",
+    "quantity": 3,
+    "costPrice": 1700,
+    "createdAt": {
+      "_seconds": 1750858408,
+      "_nanoseconds": 217000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 2,
+    "initialQuantity": 2
+  },
+  {
+    "id": "iqj9NGooiFkXPMsUW8s7",
+    "productId": "NddcN7KXRhkxqGKFf7MU",
+    "quantity": 2,
+    "costPrice": 3750,
+    "createdAt": {
+      "_seconds": 1752941625,
+      "_nanoseconds": 948000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 2,
+    "status": "active",
+    "initialQuantity": 2
+  },
+  {
+    "id": "j6jvV9b40B6VGbUgKHMm",
+    "status": "active",
+    "isCredit": false,
+    "isOwnPurchase": true,
+    "productId": "QxP3WXVOe8kjN2BPob6u",
+    "remainingQuantity": 4,
+    "quantity": 4,
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "costPrice": 1319,
+    "createdAt": {
+      "_seconds": 1759300476,
+      "_nanoseconds": 560000000
+    }
+  },
+  {
+    "id": "jCviQYR4rCVLqxvIX9yW",
+    "productId": "7WWZGwKJh8iuMYjzHZ7J",
+    "quantity": 12,
+    "costPrice": 204,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781052,
+      "_nanoseconds": 363000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 12,
+    "status": "active",
+    "notes": "Migration: creation - 12 units",
+    "initialQuantity": 12
+  },
+  {
+    "id": "jEcF14tVLckIj6RDS71Z",
+    "productId": "cjuOdHiyBsUjlM81Qb5R",
+    "quantity": 4,
+    "costPrice": 2784.5,
+    "createdAt": {
+      "_seconds": 1751988900,
+      "_nanoseconds": 734000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 4,
+    "status": "active",
+    "initialQuantity": 4
+  },
+  {
+    "id": "jFO8NNaPQBfIiRt7DV9B",
+    "productId": "nszQEZQIs0TkzU0x2G1n",
+    "quantity": 4,
+    "costPrice": 2275,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781397,
+      "_nanoseconds": 606000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 4,
+    "status": "active",
+    "notes": "Migration: creation - 4 units",
+    "initialQuantity": 4
+  },
+  {
+    "id": "jLTDS1MTGJiWkUAiQGhW",
+    "productId": "s4EWZFxNK947lGnbVOfk",
+    "quantity": 1,
+    "costPrice": 1000,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781450,
+      "_nanoseconds": 188000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 1,
+    "status": "active",
+    "notes": "Migration: creation - 1 units",
+    "initialQuantity": 1
+  },
+  {
+    "id": "jMuUg0EgzWAUMsclAEZ3",
+    "productId": "sduXYb87cN8YsnVFvvfn",
+    "quantity": 12,
+    "costPrice": 3255,
+    "createdAt": {
+      "_seconds": 1752686941,
+      "_nanoseconds": 611000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 11,
+    "initialQuantity": 11
+  },
+  {
+    "id": "jTO3QW8r1PkU0eQOQKZq",
+    "productId": "sw3BmxpHqqWin9tffGKu",
+    "quantity": 3,
+    "costPrice": 2000,
+    "createdAt": {
+      "_seconds": 1752692242,
+      "_nanoseconds": 717000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 2,
+    "initialQuantity": 2
+  },
+  {
+    "id": "jrCTg3meqiT50xdQ6XGK",
+    "productId": "L0fhuJLp8S2q3YbPfGMT",
+    "quantity": 4,
+    "costPrice": 375,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781147,
+      "_nanoseconds": 673000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 4,
+    "status": "active",
+    "notes": "Migration: creation - 4 units",
+    "initialQuantity": 4
+  },
+  {
+    "id": "kB8y1x1iDN7UjTTJUJRQ",
+    "productId": "loTUqyrrU29rPfWOA0ta",
+    "quantity": 6,
+    "costPrice": 14000,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "status": "active",
+    "createdAt": {
+      "_seconds": 1754585304,
+      "_nanoseconds": 402000000
+    },
+    "remainingQuantity": 5
+  },
+  {
+    "id": "kFx9cFmXtNUnocWa7sB0",
+    "productId": "e0HWOms4vXImtKTlNGoZ",
+    "quantity": 6,
+    "costPrice": 2100,
+    "createdAt": {
+      "_seconds": 1752685117,
+      "_nanoseconds": 68000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 5,
+    "initialQuantity": 5
+  },
+  {
+    "id": "kNf0zwrdHCHLGqCW6s4c",
+    "productId": "QNstqzasMVniGg83vxME",
+    "quantity": 1,
+    "costPrice": 3250,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781179,
+      "_nanoseconds": 495000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 1,
+    "status": "active",
+    "notes": "Migration: creation - 1 units",
+    "initialQuantity": 1
+  },
+  {
+    "id": "kaJNvl8Iqjvty5ISb4R9",
+    "productId": "eyreHSISqIwyuAwhQXMp",
+    "quantity": 3,
+    "costPrice": 4750,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781326,
+      "_nanoseconds": 945000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 3,
+    "status": "active",
+    "notes": "Migration: creation - 3 units",
+    "initialQuantity": 3
+  },
+  {
+    "id": "kihqgsCwTxIWKE8YTxSj",
+    "productId": "XXcnCqpb8jRb7FibJRTG",
+    "quantity": 8,
+    "costPrice": 3255,
+    "createdAt": {
+      "_seconds": 1752687937,
+      "_nanoseconds": 323000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 7,
+    "initialQuantity": 7
+  },
+  {
+    "id": "l0VuvhPLftlGAXQVYgTR",
+    "productId": "6K20D12kC5Ob1OzMCd8w",
+    "quantity": 3,
+    "costPrice": 5250,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781048,
+      "_nanoseconds": 338000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 3,
+    "status": "active",
+    "notes": "Migration: creation - 3 units",
+    "initialQuantity": 3
+  },
+  {
+    "id": "l2r0wRMju8PMSZ90Iru2",
+    "productId": "ACj2DO0nFji5uq4xHTZr",
+    "quantity": 6,
+    "costPrice": 714,
+    "createdAt": {
+      "_seconds": 1752690751,
+      "_nanoseconds": 110000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 0,
+    "status": "depleted",
+    "initialQuantity": 0
+  },
+  {
+    "id": "l5XQfM8bGP6fa21mk5kI",
+    "productId": "mz47d9Xi9vcAaWB82GbU",
+    "quantity": 1,
+    "costPrice": 2765,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753822432,
+      "_nanoseconds": 493000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "notes": "Migration: creation - 1 units",
+    "remainingQuantity": 0,
+    "status": "depleted",
+    "initialQuantity": 0
+  },
+  {
+    "id": "l8Iu1i1RMIqoTxdgUZKj",
+    "productId": "VwIU2j7q5j3XFenlBQyV",
+    "quantity": 12,
+    "costPrice": 595,
+    "createdAt": {
+      "_seconds": 1752689889,
+      "_nanoseconds": 490000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 9,
+    "initialQuantity": 9
+  },
+  {
+    "id": "les5dA2eilSKLmU256MN",
+    "productId": "Tyf0YCFgSpbWc5lSJlsK",
+    "quantity": 30,
+    "costPrice": 1000,
+    "createdAt": {
+      "_seconds": 1752946370,
+      "_nanoseconds": 438000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 28,
+    "initialQuantity": 28
+  },
+  {
+    "id": "ljJnkb5es9OJX2ZYPoXJ",
+    "productId": "rtyc0eQ4oajCKavp4sol",
+    "quantity": 3,
+    "costPrice": 4250,
+    "createdAt": {
+      "_seconds": 1752779893,
+      "_nanoseconds": 88000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 3,
+    "status": "active",
+    "initialQuantity": 3
+  },
+  {
+    "id": "lqY8ABh2WAK84zSjO6EJ",
+    "productId": "r2kOpHEDXombatl0Jghv",
+    "quantity": 7,
+    "costPrice": 4500,
+    "createdAt": {
+      "_seconds": 1752780470,
+      "_nanoseconds": 370000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 6,
+    "initialQuantity": 6
+  },
+  {
+    "id": "lx3d4g6HHFqFBUqLJ1JH",
+    "productId": "TpRk6cXUtVktj2k2x6Uh",
+    "quantity": 1,
+    "costPrice": 4500,
+    "createdAt": {
+      "_seconds": 1752957734,
+      "_nanoseconds": 285000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 1,
+    "status": "active",
+    "initialQuantity": 1
+  },
+  {
+    "id": "mCXKLBbS5hR18lHS1i0b",
+    "productId": "Sn7gmPYGXv9fGR60wDBf",
+    "quantity": 2,
+    "costPrice": 3250,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781197,
+      "_nanoseconds": 555000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 2,
+    "status": "active",
+    "notes": "Migration: creation - 2 units",
+    "initialQuantity": 2
+  },
+  {
+    "id": "mJM2VfK8GbSYDs5Dz1F9",
+    "productId": "TuVtQIhTyqw9ZLHJArIb",
+    "quantity": 5,
+    "costPrice": 1400,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781211,
+      "_nanoseconds": 591000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 5,
+    "status": "active",
+    "notes": "Migration: creation - 5 units",
+    "initialQuantity": 5
+  },
+  {
+    "id": "mS8qUqoEEztbhpJmcMp7",
+    "productId": "22AEPqfyE9jVFmmWmwAi",
+    "quantity": 2,
+    "costPrice": 4000,
+    "createdAt": {
+      "_seconds": 1752955567,
+      "_nanoseconds": 310000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 2,
+    "status": "active",
+    "initialQuantity": 2
+  },
+  {
+    "id": "mhSpOCIU1izDvx5ki9P9",
+    "productId": "3mAB8fkrpgiC2x7eieYx",
+    "quantity": 3,
+    "costPrice": 375,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781021,
+      "_nanoseconds": 445000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 3,
+    "status": "active",
+    "notes": "Migration: creation - 3 units",
+    "initialQuantity": 3
+  },
+  {
+    "id": "mwJc7pCU01uFpQRDvbsc",
+    "productId": "7VsnRWHQWLFNVDPxbqbF",
+    "supplierId": "rBEu3Wj72x7kYxclBH7k",
+    "isCredit": true,
+    "userId": "oPxXrnQecQUxk00bDAmAZuDxUfD2",
+    "createdAt": {
+      "_seconds": 1755186596,
+      "_nanoseconds": 328000000
+    },
+    "isOwnPurchase": false,
+    "quantity": 6,
+    "costPrice": 1100,
+    "notes": "Damage via product edit",
+    "updatedAt": {
+      "_seconds": 1755187263,
+      "_nanoseconds": 634000000
+    },
+    "remainingQuantity": 0,
+    "status": "depleted"
+  },
+  {
+    "id": "n1DYyVI0ql3y0F2eGr4U",
+    "productId": "ZqHrH3EXQwhoDrRz41Xw",
+    "quantity": 4,
+    "costPrice": 4165,
+    "createdAt": {
+      "_seconds": 1752687101,
+      "_nanoseconds": 85000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 3,
+    "initialQuantity": 3
+  },
+  {
+    "id": "n5c95PdX2FViJ7IP0qQT",
+    "productId": "9kJljvH0IVCXotU1T3bf",
+    "quantity": 1,
+    "costPrice": 3500,
+    "createdAt": {
+      "_seconds": 1752957297,
+      "_nanoseconds": 859000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 1,
+    "status": "active",
+    "initialQuantity": 1
+  },
+  {
+    "id": "nbt9hiunHKk2bQ7ugOxU",
+    "productId": "ID6R7ClwsYb2Jt1kqecT",
+    "quantity": 1,
+    "costPrice": 3750,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781119,
+      "_nanoseconds": 262000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 1,
+    "status": "active",
+    "notes": "Migration: creation - 1 units",
+    "initialQuantity": 1
+  },
+  {
+    "id": "o3UxNRwCG7i4fvwxeLuH",
+    "productId": "jpwB6NIyc5bxIuvdUtiw",
+    "quantity": 3,
+    "costPrice": 3675,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781365,
+      "_nanoseconds": 245000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 3,
+    "status": "active",
+    "notes": "Migration: creation - 3 units",
+    "initialQuantity": 3
+  },
+  {
+    "id": "oPPFzJVtKOxQ8UCKMiQo",
+    "productId": "VVN2E4cJYZtbyiAtnk2V",
+    "quantity": 4,
+    "costPrice": 2765,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781228,
+      "_nanoseconds": 340000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 4,
+    "status": "active",
+    "notes": "Migration: creation - 4 units",
+    "initialQuantity": 4
+  },
+  {
+    "id": "oS6Zw3ESW9iobaeXUKpZ",
+    "productId": "dA6v0LYnC7YbvxLtkCqQ",
+    "quantity": 1,
+    "costPrice": 2250,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781301,
+      "_nanoseconds": 463000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 1,
+    "status": "active",
+    "notes": "Migration: creation - 1 units",
+    "initialQuantity": 1
+  },
+  {
+    "id": "oVnxO0UrI6KKICVgJUTT",
+    "productId": "qXS6u2LcfG6v64iH0ZOy",
+    "quantity": 3,
+    "costPrice": 4270,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781434,
+      "_nanoseconds": 20000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 3,
+    "status": "active",
+    "notes": "Migration: creation - 3 units",
+    "initialQuantity": 3
+  },
+  {
+    "id": "oXuzKQfFVQsqD3f47bie",
+    "productId": "aVIo0w10BfOmB2djbnJs",
+    "quantity": 2,
+    "costPrice": 3199,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781283,
+      "_nanoseconds": 261000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 2,
+    "status": "active",
+    "notes": "Migration: creation - 2 units",
+    "initialQuantity": 2
+  },
+  {
+    "id": "oemGloiSnFKvV5Iwtxyc",
+    "productId": "sUa1TeIaJjweaLjv5eEN",
+    "quantity": 2,
+    "costPrice": 3500,
+    "createdAt": {
+      "_seconds": 1752956218,
+      "_nanoseconds": 756000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 2,
+    "status": "active",
+    "initialQuantity": 2
+  },
+  {
+    "id": "p3vz6VyOQUySDAmvX9Hf",
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "status": "active",
+    "isCredit": false,
+    "productId": "dDLQvcvscKWR5n0CQHjF",
+    "quantity": 8,
+    "remainingQuantity": 8,
+    "isOwnPurchase": true,
+    "costPrice": 1982,
+    "createdAt": {
+      "_seconds": 1759301071,
+      "_nanoseconds": 458000000
+    }
+  },
+  {
+    "id": "p8uhxB1IRoY8sNoC48Od",
+    "productId": "mvgBeGzO8C3BX5G6Nths",
+    "quantity": 20,
+    "costPrice": 1000,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1754253004,
+      "_nanoseconds": 951000000
+    },
+    "userId": "UJpejkZE3zeaaE3NZ4Tl3G99AX42",
+    "remainingQuantity": 20,
+    "status": "active",
+    "notes": "Migration: creation - 20 units",
+    "initialQuantity": 20
+  },
+  {
+    "id": "pMkvi3B1tRK1f9lAgnHm",
+    "productId": "97wUXZwjYfJ6OVAmQzmj",
+    "quantity": 2,
+    "costPrice": 3128,
+    "createdAt": {
+      "_seconds": 1752822142,
+      "_nanoseconds": 950000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 2,
+    "status": "active",
+    "initialQuantity": 2
+  },
+  {
+    "id": "pc6QJ6McBanMU6nIgyHe",
+    "productId": "ErOwU8z1JRcy6CMOTdNL",
+    "quantity": 4,
+    "costPrice": 2765,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781091,
+      "_nanoseconds": 982000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 4,
+    "status": "active",
+    "notes": "Migration: creation - 4 units",
+    "initialQuantity": 4
+  },
+  {
+    "id": "pdObfCow60986nk1YWqL",
+    "productId": "tSA8ExfFPG2M7rxmN1JP",
+    "quantity": 1,
+    "costPrice": 3750,
+    "createdAt": {
+      "_seconds": 1752780608,
+      "_nanoseconds": 151000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 1,
+    "status": "active",
+    "initialQuantity": 1
+  },
+  {
+    "id": "psG2BXAVXYS2yxIsHbqp",
+    "productId": "0evx1idYjUTBNxg9axYP",
+    "quantity": 63,
+    "costPrice": 1000,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "status": "active",
+    "createdAt": {
+      "_seconds": 1756276393,
+      "_nanoseconds": 79000000
+    },
+    "remainingQuantity": 38
+  },
+  {
+    "id": "puVsZucYeWXWES6sGmhf",
+    "productId": "OyeBRXwqiA6YeCIcpgIc",
+    "quantity": 4,
+    "costPrice": 3626,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781172,
+      "_nanoseconds": 476000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 4,
+    "status": "active",
+    "notes": "Migration: creation - 4 units",
+    "initialQuantity": 4
+  },
+  {
+    "id": "py3x6PlrEwbxp71jWQtK",
+    "quantity": 12,
+    "isCredit": false,
+    "productId": "JNN8nVv5jkGU5kMBLiHp",
+    "isOwnPurchase": true,
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "status": "active",
+    "costPrice": 5500,
+    "createdAt": {
+      "_seconds": 1759304178,
+      "_nanoseconds": 318000000
+    },
+    "remainingQuantity": 10
+  },
+  {
+    "id": "pylk9NufGjFEmsJWgags",
+    "productId": "7U8p91vYAPO4brcmSDws",
+    "quantity": 2,
+    "costPrice": 2750,
+    "createdAt": {
+      "_seconds": 1752821351,
+      "_nanoseconds": 323000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 2,
+    "status": "active",
+    "initialQuantity": 2
+  },
+  {
+    "id": "q0vJXxA4m0lfxUAthbX2",
+    "productId": "5XWMvs6SreSB1x4Ktr2L",
+    "quantity": 40,
+    "costPrice": 0,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753821281,
+      "_nanoseconds": 577000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 40,
+    "status": "active",
+    "initialQuantity": 40
+  },
+  {
+    "id": "qU74GxoJ98ZeS9ARvZnl",
+    "productId": "hx6u50DuHXbAyhjl3jYc",
+    "quantity": 3,
+    "costPrice": 3750,
+    "createdAt": {
+      "_seconds": 1752779737,
+      "_nanoseconds": 976000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 2,
+    "initialQuantity": 2
+  },
+  {
+    "id": "qc1fjUt2HUP7UJA8Wd0f",
+    "productId": "WyJIOz2UsQt1bN9LE91R",
+    "quantity": 2,
+    "costPrice": 4250,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781246,
+      "_nanoseconds": 270000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 2,
+    "status": "active",
+    "notes": "Migration: creation - 2 units",
+    "initialQuantity": 2
+  },
+  {
+    "id": "qeaGzltWXJ1kyTZsErXy",
+    "productId": "eUnSLoWbsxptwHkNqCyt",
+    "quantity": 6,
+    "costPrice": 500,
+    "createdAt": {
+      "_seconds": 1752958160,
+      "_nanoseconds": 751000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 5,
+    "initialQuantity": 5
+  },
+  {
+    "id": "qiadXiZFshO0E0tYOijb",
+    "productId": "973qB6TB4SMMI4sqPBe6",
+    "quantity": 1,
+    "costPrice": 1500,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781058,
+      "_nanoseconds": 108000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 1,
+    "status": "active",
+    "notes": "Migration: creation - 1 units",
+    "initialQuantity": 1
+  },
+  {
+    "id": "qjGExGhEkz5aCPiNUiKx",
+    "productId": "Gcvslq5nzcVNzkR0nGDY",
+    "quantity": 1,
+    "costPrice": 3000,
+    "createdAt": {
+      "_seconds": 1752780711,
+      "_nanoseconds": 653000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 1,
+    "status": "active",
+    "initialQuantity": 1
+  },
+  {
+    "id": "r34SnPnUEARu9DI9XMAb",
+    "productId": "wBAuMkxH6j62nj7Ih1NW",
+    "quantity": 3,
+    "costPrice": 3290,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781479,
+      "_nanoseconds": 49000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 3,
+    "status": "active",
+    "notes": "Migration: creation - 3 units",
+    "initialQuantity": 3
+  },
+  {
+    "id": "r4SWVXjR8rjoXQzDQILG",
+    "productId": "bHDyxvxeXtbjJu95caUy",
+    "quantity": 5,
+    "costPrice": 13500,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "status": "active",
+    "createdAt": {
+      "_seconds": 1754584484,
+      "_nanoseconds": 805000000
+    },
+    "remainingQuantity": 4
+  },
+  {
+    "id": "r9Dv83pfbaKGKNZEaZ4S",
+    "productId": "4Rtg7nXBRVepgcQz1hNN",
+    "quantity": 60,
+    "costPrice": 453.33,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781026,
+      "_nanoseconds": 326000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 60,
+    "status": "active",
+    "notes": "Migration: creation - 60 units",
+    "initialQuantity": 60
+  },
+  {
+    "id": "rLbGuwq0TdX6q6cZyaAH",
+    "productId": "Hva2WtgN8sB6JiglmyA3",
+    "quantity": 3,
+    "costPrice": 2500,
+    "createdAt": {
+      "_seconds": 1752956157,
+      "_nanoseconds": 825000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 3,
+    "status": "active",
+    "initialQuantity": 3
+  },
+  {
+    "id": "rVW1bVsrrTsDHeDfrQDe",
+    "productId": "1eXZF9teHukUlmaxPUoD",
+    "quantity": 2,
+    "costPrice": 4000,
+    "createdAt": {
+      "_seconds": 1752821482,
+      "_nanoseconds": 812000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 2,
+    "status": "active",
+    "initialQuantity": 2
+  },
+  {
+    "id": "s1vAZGMl1oOMrNsSNFrX",
+    "productId": "VwIU2j7q5j3XFenlBQyV",
+    "quantity": 1,
+    "costPrice": 595,
+    "createdAt": {
+      "_seconds": 1752957777,
+      "_nanoseconds": 787000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 1,
+    "status": "active",
+    "initialQuantity": 1
+  },
+  {
+    "id": "s6O8TfwMTplz8MC6w01b",
+    "productId": "JeSkioz6JWSY6100RSnf",
+    "quantity": 8,
+    "costPrice": 2975,
+    "createdAt": {
+      "_seconds": 1752686753,
+      "_nanoseconds": 923000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 7,
+    "initialQuantity": 7
+  },
+  {
+    "id": "sHRtGzXwgIjF8gGRUxHr",
+    "productId": "StmaKXSoSfA0RHFTBHwR",
+    "quantity": 1,
+    "costPrice": 5750,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781198,
+      "_nanoseconds": 937000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 1,
+    "status": "active",
+    "notes": "Migration: creation - 1 units",
+    "initialQuantity": 1
+  },
+  {
+    "id": "sOWviIwZevipTN8rkZt8",
+    "productId": "iQ10Fa2EQi6wyDevTEkR",
+    "quantity": 4,
+    "costPrice": 2555,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781355,
+      "_nanoseconds": 216000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 4,
+    "status": "active",
+    "notes": "Migration: creation - 4 units",
+    "initialQuantity": 4
+  },
+  {
+    "id": "sa2B0h7naSoc3bUCs4rP",
+    "productId": "OQGyL52Ke70q8YBHJzTz",
+    "quantity": 6,
+    "costPrice": 9000,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "remainingQuantity": 6,
+    "status": "active",
+    "createdAt": {
+      "_seconds": 1754584978,
+      "_nanoseconds": 195000000
+    }
+  },
+  {
+    "id": "srazv4Uro1yV3D63fX8V",
+    "productId": "7VsnRWHQWLFNVDPxbqbF",
+    "quantity": 7,
+    "costPrice": 1200,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "userId": "oPxXrnQecQUxk00bDAmAZuDxUfD2",
+    "createdAt": {
+      "_seconds": 1755705604,
+      "_nanoseconds": 946000000
+    },
+    "remainingQuantity": 1,
+    "status": "active"
+  },
+  {
+    "id": "suEMJVtPld4L5aJJzSdE",
+    "productId": "V83wxsEdOjsiP8eyTCzt",
+    "quantity": 1,
+    "costPrice": 3750,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781224,
+      "_nanoseconds": 142000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 1,
+    "status": "active",
+    "notes": "Migration: creation - 1 units",
+    "initialQuantity": 1
+  },
+  {
+    "id": "syonYivZzCDyiHsv8pIv",
+    "productId": "kqWKfkV7m8tyKai4q0eL",
+    "quantity": 1,
+    "costPrice": 2500,
+    "createdAt": {
+      "_seconds": 1752820802,
+      "_nanoseconds": 175000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 1,
+    "status": "active",
+    "initialQuantity": 1
+  },
+  {
+    "id": "t3NZ0w8PH5AGNdFmSOtN",
+    "productId": "IoYiHXVPf9Ok5tEUp7Nv",
+    "quantity": 1,
+    "costPrice": 2750,
+    "createdAt": {
+      "_seconds": 1752779351,
+      "_nanoseconds": 750000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 1,
+    "status": "active",
+    "initialQuantity": 1
+  },
+  {
+    "id": "t9fXl5isrucWPH2qMrFp",
+    "productId": "aShlesxZWL2xgroZtztX",
+    "quantity": 3,
+    "costPrice": 3500,
+    "createdAt": {
+      "_seconds": 1752780524,
+      "_nanoseconds": 701000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 2,
+    "initialQuantity": 2
+  },
+  {
+    "id": "tdquDM6wQmCpCelac941",
+    "productId": "oJB8PzSh2gNEnn2ZQa5K",
+    "quantity": 2,
+    "costPrice": 2750,
+    "createdAt": {
+      "_seconds": 1752941452,
+      "_nanoseconds": 103000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 2,
+    "status": "active",
+    "initialQuantity": 2
+  },
+  {
+    "id": "tmyjnIeZgTVIWHufBvtb",
+    "productId": "94AYEwtaVpgWOfcEI7hn",
+    "quantity": 2,
+    "costPrice": 4250,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781056,
+      "_nanoseconds": 538000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 2,
+    "status": "active",
+    "notes": "Migration: creation - 2 units",
+    "initialQuantity": 2
+  },
+  {
+    "id": "tonRA7idvo1S817VpiD1",
+    "productId": "woDLaIZMSmV16XNPvwVy",
+    "quantity": 1,
+    "costPrice": 3250,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781483,
+      "_nanoseconds": 163000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 1,
+    "status": "active",
+    "notes": "Migration: creation - 1 units",
+    "initialQuantity": 1
+  },
+  {
+    "id": "u1edVfpOngdU3koKmo1Z",
+    "productId": "nBmlH18xq9vuvfh9gmkp",
+    "quantity": 4,
+    "costPrice": 3430,
+    "createdAt": {
+      "_seconds": 1752688096,
+      "_nanoseconds": 281000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 3,
+    "initialQuantity": 3
+  },
+  {
+    "id": "u1zuJfqgQdOg6J7nZdrP",
+    "productId": "yXp2Qfi2lKfdTD8cWOZc",
+    "quantity": 2,
+    "costPrice": 3750,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781501,
+      "_nanoseconds": 483000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 2,
+    "status": "active",
+    "notes": "Migration: creation - 2 units",
+    "initialQuantity": 2
+  },
+  {
+    "id": "uAtreN8L3kxhuxPWxmqz",
+    "productId": "alCjUpI5Za1uKifa1Si1",
+    "quantity": 1,
+    "costPrice": 6000,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781286,
+      "_nanoseconds": 41000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 1,
+    "status": "active",
+    "notes": "Migration: creation - 1 units",
+    "initialQuantity": 1
+  },
+  {
+    "id": "uDyv4lVJwQLhjEMyri4k",
+    "productId": "z61N5EKcE7sRfv2AEHXI",
+    "quantity": 23,
+    "costPrice": 591.6,
+    "createdAt": {
+      "_seconds": 1752945860,
+      "_nanoseconds": 803000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 19,
+    "initialQuantity": 19
+  },
+  {
+    "id": "uGn55TDxfT7S7IPVuIrZ",
+    "productId": "2xCs6hApiK0MKenkpLQ0",
+    "quantity": 4,
+    "costPrice": 3750,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781019,
+      "_nanoseconds": 926000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 4,
+    "status": "active",
+    "notes": "Migration: creation - 4 units",
+    "initialQuantity": 4
+  },
+  {
+    "id": "uRKAXdlhKfPUQCwams0X",
+    "productId": "s0DV7zQKpGKwoexLz5aM",
+    "quantity": 4,
+    "costPrice": 4501,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781448,
+      "_nanoseconds": 864000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 4,
+    "status": "active",
+    "notes": "Migration: creation - 4 units",
+    "initialQuantity": 4
+  },
+  {
+    "id": "uTFJ70dJGkEySLdSopce",
+    "productId": "w3D2KHUIusDOS8wp9Ju4",
+    "quantity": 3,
+    "costPrice": 3750,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781477,
+      "_nanoseconds": 732000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 3,
+    "status": "active",
+    "notes": "Migration: creation - 3 units",
+    "initialQuantity": 3
+  },
+  {
+    "id": "uVX4cOqsu6NMhJN8qdwZ",
+    "productId": "M6uMleTdnTxIWoXRax2u",
+    "quantity": 9,
+    "costPrice": 8000,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "status": "active",
+    "createdAt": {
+      "_seconds": 1756219408,
+      "_nanoseconds": 215000000
+    },
+    "remainingQuantity": 1
+  },
+  {
+    "id": "uiaQZqeHhxjvbZhmd7vT",
+    "productId": "gQejz5zzLOAg17Gta6nn",
+    "quantity": 10,
+    "costPrice": 4375,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781335,
+      "_nanoseconds": 159000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 10,
+    "status": "active",
+    "notes": "Migration: creation - 10 units",
+    "initialQuantity": 10
+  },
+  {
+    "id": "uncs48tfmUZH2uXSHdQt",
+    "productId": "97P81CiiigikyhRa1Ftm",
+    "quantity": 1,
+    "costPrice": 2000,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781059,
+      "_nanoseconds": 574000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 1,
+    "status": "active",
+    "notes": "Migration: creation - 1 units",
+    "initialQuantity": 1
+  },
+  {
+    "id": "up8zwiPT7jscZZ4F3ax9",
+    "productId": "aOEoqRDr5gRj4Ph58Jg4",
+    "quantity": 11,
+    "costPrice": 750,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781280,
+      "_nanoseconds": 363000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 11,
+    "status": "active",
+    "notes": "Migration: creation - 11 units",
+    "initialQuantity": 11
+  },
+  {
+    "id": "v9jtwbMge4Eryt7X0dos",
+    "productId": "hVxW0bxy3m2c5dOeqGp3",
+    "quantity": 3,
+    "costPrice": 1000,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "userId": "D9EJnNTbQYTvkD1kAAP6IuQB1003",
+    "remainingQuantity": 3,
+    "status": "active",
+    "createdAt": {
+      "_seconds": 1760442065,
+      "_nanoseconds": 199000000
+    }
+  },
+  {
+    "id": "vK1JkyPa7yeJTA3ut1SW",
+    "productId": "nuKUNzNfSsa7Mfw0WXs0",
+    "quantity": 32,
+    "costPrice": 13000,
+    "supplierId": "7xl1lEbd7wrldA3v3WzG",
+    "isOwnPurchase": false,
+    "isCredit": false,
+    "userId": "oPxXrnQecQUxk00bDAmAZuDxUfD2",
+    "remainingQuantity": 32,
+    "status": "active",
+    "createdAt": {
+      "_seconds": 1760452241,
+      "_nanoseconds": 850000000
+    }
+  },
+  {
+    "id": "vRQWt9sxJ57c7EBrXJ6Q",
+    "productId": "Yul4ESFDnXnN9TZgQa3L",
+    "quantity": 5,
+    "costPrice": 11000,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "remainingQuantity": 5,
+    "status": "active",
+    "createdAt": {
+      "_seconds": 1754584241,
+      "_nanoseconds": 95000000
+    }
+  },
+  {
+    "id": "vShmuazHrPo5CKAtPsHg",
+    "productId": "olKmyYtDDk4Lqa46J70N",
+    "quantity": 4,
+    "costPrice": 2500,
+    "createdAt": {
+      "_seconds": 1752821286,
+      "_nanoseconds": 660000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 3,
+    "initialQuantity": 3
+  },
+  {
+    "id": "vTpexRyJsSQET607OZQq",
+    "productId": "bxOKxFAQ1OzcKof9pXOe",
+    "quantity": 7,
+    "costPrice": 5500,
+    "createdAt": {
+      "_seconds": 1752075316,
+      "_nanoseconds": 734000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 6,
+    "initialQuantity": 6
+  },
+  {
+    "id": "vUu2LASekWHBmdgzc4bW",
+    "productId": "fmpsCt2rZDq7I6f6hqPq",
+    "quantity": 2,
+    "costPrice": 3000,
+    "createdAt": {
+      "_seconds": 1752955288,
+      "_nanoseconds": 568000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 1,
+    "initialQuantity": 1
+  },
+  {
+    "id": "veA0ta8O1tgGvOLvKOvP",
+    "productId": "0JyogJh5N09WU8YeqkOa",
+    "quantity": 2,
+    "costPrice": 2000,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "remainingQuantity": 2,
+    "status": "active",
+    "createdAt": {
+      "_seconds": 1760181290,
+      "_nanoseconds": 678000000
+    }
+  },
+  {
+    "id": "vi1znyU6kkMsIoMYSu4W",
+    "productId": "yBtm6a1w8eeBVTYyTnsZ",
+    "quantity": 4,
+    "costPrice": 5880,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781498,
+      "_nanoseconds": 864000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 4,
+    "status": "active",
+    "notes": "Migration: creation - 4 units",
+    "initialQuantity": 4
+  },
+  {
+    "id": "wee8LWeglmFnfP7QYNck",
+    "productId": "ULMdtzALKYXlnm3zdQUX",
+    "quantity": 2,
+    "costPrice": 20000,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "userId": "D9EJnNTbQYTvkD1kAAP6IuQB1003",
+    "remainingQuantity": 2,
+    "status": "active",
+    "createdAt": {
+      "_seconds": 1761066095,
+      "_nanoseconds": 403000000
+    }
+  },
+  {
+    "id": "wyJ7MDur5cSGeShU0GKB",
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "isOwnPurchase": true,
+    "productId": "MSwzIFjemVCqSGgm3HC2",
+    "status": "active",
+    "isCredit": false,
+    "costPrice": 2523,
+    "quantity": 3,
+    "createdAt": {
+      "_seconds": 1759303985,
+      "_nanoseconds": 96000000
+    },
+    "remainingQuantity": 2
+  },
+  {
+    "id": "x0cMHZghgFlX518j6h6A",
+    "productId": "XmOcINRBp7imrBGaJwLn",
+    "quantity": 16,
+    "costPrice": 3164,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781258,
+      "_nanoseconds": 430000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 16,
+    "status": "active",
+    "notes": "Migration: creation - 16 units",
+    "initialQuantity": 16
+  },
+  {
+    "id": "xVGfUfan3KERUhNRAzAX",
+    "productId": "GtTEH8yM0oMR8HfFBgYm",
+    "quantity": 3,
+    "costPrice": 4750,
+    "createdAt": {
+      "_seconds": 1752957004,
+      "_nanoseconds": 449000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 3,
+    "status": "active",
+    "initialQuantity": 3
+  },
+  {
+    "id": "xZGTxVqXCZknBJnB425f",
+    "productId": "M17UD8DsKoMJ0u767URD",
+    "quantity": 7,
+    "costPrice": 313,
+    "createdAt": {
+      "_seconds": 1752691247,
+      "_nanoseconds": 788000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "status": "active",
+    "remainingQuantity": 4,
+    "initialQuantity": 4
+  },
+  {
+    "id": "xZzQIw7SlzlDXXnxnl23",
+    "productId": "dAsNFA7Es9zkpJ3f4VPJ",
+    "quantity": 1,
+    "costPrice": 2500,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781302,
+      "_nanoseconds": 824000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 1,
+    "status": "active",
+    "notes": "Migration: creation - 1 units",
+    "initialQuantity": 1
+  },
+  {
+    "id": "xaGUx6P1tk8BBfnv5hDz",
+    "productId": "mVikgnInsEzXFsdmlxKa",
+    "quantity": 2,
+    "costPrice": 1862,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781376,
+      "_nanoseconds": 175000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 2,
+    "status": "active",
+    "notes": "Migration: creation - 2 units",
+    "initialQuantity": 2
+  },
+  {
+    "id": "xlv1an0QM667NnGBWEG4",
+    "productId": "ffAwEmFrmdFj8yq8UrXn",
+    "quantity": 4,
+    "costPrice": 3284,
+    "createdAt": {
+      "_seconds": 1751992518,
+      "_nanoseconds": 752000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 4,
+    "status": "active",
+    "initialQuantity": 4
+  },
+  {
+    "id": "xwHQRiG6KSfpsjmXb3U4",
+    "productId": "Ps93PRLaEFjSnv9Aw5CN",
+    "quantity": 2,
+    "costPrice": 2500,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781176,
+      "_nanoseconds": 605000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 2,
+    "status": "active",
+    "notes": "Migration: creation - 2 units",
+    "initialQuantity": 2
+  },
+  {
+    "id": "y5Zz2LFZWZSfsCtpJ3sX",
+    "isCredit": false,
+    "status": "active",
+    "isOwnPurchase": true,
+    "remainingQuantity": 12,
+    "quantity": 12,
+    "productId": "XosnfRDBQw53FRkRd2Lu",
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "costPrice": 1000,
+    "createdAt": {
+      "_seconds": 1759138820,
+      "_nanoseconds": 988000000
+    }
+  },
+  {
+    "id": "y5sLWo29jQub8jlAO6Rk",
+    "productId": "ViVFkAUsch5UFMQCynHM",
+    "quantity": 4,
+    "costPrice": 4130,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781232,
+      "_nanoseconds": 143000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 4,
+    "status": "active",
+    "notes": "Migration: creation - 4 units",
+    "initialQuantity": 4
+  },
+  {
+    "id": "yS3T6WgW9eGGWX3ty4Z3",
+    "productId": "Wnm43K3f93rwOodoOlvs",
+    "quantity": 2,
+    "costPrice": 750,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781242,
+      "_nanoseconds": 761000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 2,
+    "status": "active",
+    "notes": "Migration: creation - 2 units",
+    "initialQuantity": 2
+  },
+  {
+    "id": "yVSYCCXkybS5cx4PMApu",
+    "productId": "6tnl8ATYXMZK1MDTAnMs",
+    "quantity": 2,
+    "costPrice": 3500,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781049,
+      "_nanoseconds": 663000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 2,
+    "status": "active",
+    "notes": "Migration: creation - 2 units",
+    "initialQuantity": 2
+  },
+  {
+    "id": "ykmTwxrkWDoW3z5xnLdl",
+    "productId": "OBZnMw6Yz9NIpvEArhmD",
+    "quantity": 2,
+    "costPrice": 12000,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "remainingQuantity": 2,
+    "status": "active",
+    "createdAt": {
+      "_seconds": 1755097706,
+      "_nanoseconds": 692000000
+    }
+  },
+  {
+    "id": "z02jmcFInwk0F4b5RlRM",
+    "productId": "yxxt4y66gCtTuLDaTScf",
+    "quantity": 4,
+    "costPrice": 3500,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781504,
+      "_nanoseconds": 115000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 4,
+    "status": "active",
+    "notes": "Migration: creation - 4 units",
+    "initialQuantity": 4
+  },
+  {
+    "id": "zZJedUdxITJRb5eVz33n",
+    "productId": "jEEKe2jstrG76u123x0l",
+    "quantity": 6,
+    "costPrice": 3360,
+    "createdAt": {
+      "_seconds": 1752778092,
+      "_nanoseconds": 941000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 6,
+    "status": "active",
+    "initialQuantity": 6
+  },
+  {
+    "id": "zeCbrmS2wVQ8q2nChjHo",
+    "productId": "YXVwcNcvx9DcaFxTeJTo",
+    "quantity": 5,
+    "costPrice": 500,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781263,
+      "_nanoseconds": 920000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 5,
+    "status": "active",
+    "notes": "Migration: creation - 5 units",
+    "initialQuantity": 5
+  },
+  {
+    "id": "zf60ZSAjV63PDYCHQ6ym",
+    "productId": "pusW7evJUiOt61Ku2d0T",
+    "quantity": 20,
+    "costPrice": 12999,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "userId": "oPxXrnQecQUxk00bDAmAZuDxUfD2",
+    "remainingQuantity": 20,
+    "status": "active",
+    "createdAt": {
+      "_seconds": 1760356762,
+      "_nanoseconds": 432000000
+    }
+  },
+  {
+    "id": "zlKBneiP41NTypym3B7U",
+    "productId": "j3A8EL16DcIvGTXSJJbN",
+    "quantity": 1,
+    "costPrice": 3250,
+    "isOwnPurchase": true,
+    "isCredit": false,
+    "createdAt": {
+      "_seconds": 1753781359,
+      "_nanoseconds": 294000000
+    },
+    "userId": "vfWYjbxyP9TmmsaO3HPUZRr4MPn1",
+    "remainingQuantity": 1,
+    "status": "active",
+    "notes": "Migration: creation - 1 units",
+    "initialQuantity": 1
+  },
+  {
+    "id": "zrnsIiitJstFFI8Hlqdw",
+    "productId": "M6uMleTdnTxIWoXRax2u",
+    "quantity": 8,
+    "costPrice": 8000,
+    "createdAt": {
+      "_seconds": 1750756318,
+      "_nanoseconds": 505000000
+    },
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "notes": "Migration: creation - 8 units",
+    "initialQuantity": 7,
+    "remainingQuantity": 0,
+    "status": "depleted"
+  },
+  {
+    "id": "zxlKR6O39kUFZUunx86S",
+    "productId": "oZs1GgUAguYmp194rPn1",
+    "quantity": 12,
+    "costPrice": 1400,
+    "createdAt": {
+      "_seconds": 1752945122,
+      "_nanoseconds": 998000000
+    },
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "remainingQuantity": 12,
+    "status": "active",
+    "initialQuantity": 12
+  }
+]

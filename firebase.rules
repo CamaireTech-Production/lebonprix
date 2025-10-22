@@ -16,12 +16,35 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'manager';
     }
     
-    // User profiles
+    // Fonctions helper pour le système unifié
+    function isOwnerOfCompany(companyId) {
+      let company = get(/databases/$(database)/documents/companies/$(companyId)).data;
+      return company.companyId == request.auth.uid;
+    }
+    
+    function isMemberOfCompany(companyId) {
+      let user = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      // Vérifier si companyId existe dans user.companies[]
+      return user.companies.hasAny([companyId]);
+    }
+    
+    function isUserInSameCompany(userId) {
+      let user = get(/databases/$(database)/documents/users/$(userId)).data;
+      let currentUser = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      
+      // Vérifier si les utilisateurs partagent au moins une entreprise
+      return user.companies.hasAny(currentUser.companies.map(c => c.companyId));
+    }
+    
+    // User profiles - Nouveau système unifié
     match /users/{userId} {
-      allow read: if isAuthenticated();
+      allow read: if isAuthenticated() && (
+        request.auth.uid == userId || 
+        isUserInSameCompany(userId)
+      );
       allow create: if isAuthenticated() && request.auth.uid == userId;
-      allow update: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
-      allow delete: if isAdmin();
+      allow update: if isAuthenticated() && request.auth.uid == userId;
+      allow delete: if false; // Pas de suppression complète
     }
     
     // Products
@@ -126,12 +149,12 @@ service cloud.firestore {
       allow delete: if false; // No hard delete
     }
     
-    // Companies
+    // Companies - Architecture simplifiée
     match /companies/{companyId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
-      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;
-      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow read: if isAuthenticated() && isMemberOfCompany(companyId);
+      allow create: if isAuthenticated(); // N'importe quel utilisateur connecté peut créer
+      allow update: if isAuthenticated() && isOwnerOfCompany(companyId);
+      allow delete: if isAuthenticated() && isOwnerOfCompany(companyId);
       
       // Employee subcollection
       match /employees/{employeeId} {

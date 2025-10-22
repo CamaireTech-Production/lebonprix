@@ -1,0 +1,880 @@
+[
+  {
+    "id": "0PqVtOd33Y0CEB5bSJbs",
+    "description": "Achat emballage ",
+    "amount": 6000,
+    "category": "other",
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "createdAt": {
+      "_seconds": 1754056915,
+      "_nanoseconds": 190000000
+    },
+    "updatedAt": {
+      "_seconds": 1754056915,
+      "_nanoseconds": 190000000
+    }
+  },
+  {
+    "id": "1XMaX7xp4wY1VeASNJqe",
+    "description": "Test expense",
+    "category": "transportation",
+    "userId": "oPxXrnQecQUxk00bDAmAZuDxUfD2",
+    "isAvailable": true,
+    "createdAt": {
+      "_seconds": 1755738819,
+      "_nanoseconds": 923000000
+    },
+    "amount": 2200,
+    "updatedAt": {
+      "_seconds": 1755739646,
+      "_nanoseconds": 354000000
+    }
+  },
+  {
+    "id": "2yKrSDAmgIWpgRMfVS0f",
+    "description": "New expense",
+    "category": "transportation",
+    "userId": "oPxXrnQecQUxk00bDAmAZuDxUfD2",
+    "createdAt": {
+      "_seconds": 1755092723,
+      "_nanoseconds": 611000000
+    },
+    "amount": 1400,
+    "isAvailable": false,
+    "updatedAt": {
+      "_seconds": 1755092862,
+      "_nanoseconds": 883000000
+    }
+  },
+  {
+    "id": "4z5LOmEcJKuWNFG5lS2H",
+    "amount": 2000,
+    "category": "transportation",
+    "description": "Expedition ",
+    "isAvailable": true,
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "createdAt": {
+      "_seconds": 1758790743,
+      "_nanoseconds": 821000000
+    },
+    "updatedAt": {
+      "_seconds": 1758790743,
+      "_nanoseconds": 821000000
+    }
+  },
+  {
+    "id": "4zmhjt4bKUnuT846pkFt",
+    "description": "Achat trépied ",
+    "amount": 10000,
+    "category": "other",
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "createdAt": {
+      "_seconds": 1754056930,
+      "_nanoseconds": 883000000
+    },
+    "updatedAt": {
+      "_seconds": 1754056930,
+      "_nanoseconds": 883000000
+    }
+  },
+  {
+    "id": "8XBjCCIAIOWmKdIwDnAN",
+    "description": "Facebook Adds",
+    "amount": 4800,
+    "category": "other",
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "createdAt": {
+      "_seconds": 1751274743,
+      "_nanoseconds": 695000000
+    },
+    "updatedAt": {
+      "_seconds": 1751274743,
+      "_nanoseconds": 695000000
+    }
+  },
+  {
+    "id": "AquoqPLofNcxfwNgeiHb",
+    "description": "Facebook ads ",
+    "amount": 7000,
+    "category": "transportation",
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "isAvailable": true,
+    "createdAt": {
+      "_seconds": 1756831822,
+      "_nanoseconds": 347000000
+    },
+    "updatedAt": {
+      "_seconds": 1756831822,
+      "_nanoseconds": 347000000
+    }
+  },
+  {
+    "id": "AyfkXLRQmZeaKcQlp4oP",
+    "description": "TT",
+    "amount": 10,
+    "category": "transportation",
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "createdAt": {
+      "_seconds": 1759702365,
+      "_nanoseconds": 873000000
+    },
+    "isAvailable": false,
+    "updatedAt": {
+      "_seconds": 1759726418,
+      "_nanoseconds": 652000000
+    }
+  },
+  {
+    "id": "CcbyWozXZnDvGwH9aC1X",
+    "description": "Publiciter Facebook",
+    "amount": 10200,
+    "category": "facebook Adds",
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "isAvailable": true,
+    "createdAt": {
+      "_seconds": 1759745574,
+      "_nanoseconds": 7000000
+    },
+    "updatedAt": {
+      "_seconds": 1759745574,
+      "_nanoseconds": 7000000
+    }
+  },
+  {
+    "id": "CvApGiTf6dxczfFN9YLk",
+    "description": "Loisir ",
+    "amount": 3500,
+    "category": "other",
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "isAvailable": true,
+    "createdAt": {
+      "_seconds": 1756068704,
+      "_nanoseconds": 824000000
+    },
+    "updatedAt": {
+      "_seconds": 1756068704,
+      "_nanoseconds": 824000000
+    }
+  },
+  {
+    "id": "DAPWV0nN2AtjmAf8tzXY",
+    "description": "Transport Yango pour le tournage",
+    "amount": 2500,
+    "category": "transportation",
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "isAvailable": true,
+    "createdAt": {
+      "_seconds": 1759745548,
+      "_nanoseconds": 553000000
+    },
+    "updatedAt": {
+      "_seconds": 1759745548,
+      "_nanoseconds": 553000000
+    }
+  },
+  {
+    "id": "DyAk4k77gKC886jfDPYM",
+    "description": "Dépannage Leticia ",
+    "amount": 2000,
+    "category": "transportation",
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "isAvailable": true,
+    "createdAt": {
+      "_seconds": 1759250096,
+      "_nanoseconds": 150000000
+    },
+    "updatedAt": {
+      "_seconds": 1759250096,
+      "_nanoseconds": 150000000
+    }
+  },
+  {
+    "id": "ETQjouG9mlxVOsgAEqZC",
+    "description": "TTT",
+    "amount": 10,
+    "category": "facebook Adds",
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "createdAt": {
+      "_seconds": 1759702656,
+      "_nanoseconds": 121000000
+    },
+    "isAvailable": false,
+    "updatedAt": {
+      "_seconds": 1759725925,
+      "_nanoseconds": 294000000
+    }
+  },
+  {
+    "id": "IrO9KbqaHLpemqLhPcyJ",
+    "description": "Internet Daina ",
+    "amount": 1500,
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "isAvailable": true,
+    "createdAt": {
+      "_seconds": 1760006099,
+      "_nanoseconds": 552000000
+    },
+    "category": "Internet Connexion",
+    "updatedAt": {
+      "_seconds": 1760103394,
+      "_nanoseconds": 793000000
+    }
+  },
+  {
+    "id": "KvfMZwEtar5HSgN9GW6s",
+    "description": "Connection Internet",
+    "amount": 15000,
+    "category": "Internet Connexion",
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "isAvailable": true,
+    "createdAt": {
+      "_seconds": 1760823527,
+      "_nanoseconds": 975000000
+    },
+    "updatedAt": {
+      "_seconds": 1760823527,
+      "_nanoseconds": 975000000
+    }
+  },
+  {
+    "id": "MMSk94gdZNouvGLSQJOc",
+    "description": "Achat marchandises MC ",
+    "amount": 78000,
+    "category": "purchase",
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "createdAt": {
+      "_seconds": 1754056718,
+      "_nanoseconds": 668000000
+    },
+    "updatedAt": {
+      "_seconds": 1754056718,
+      "_nanoseconds": 668000000
+    }
+  },
+  {
+    "id": "MOVSWysTul9V0olaYHzm",
+    "description": "Dépannage téléphone ",
+    "amount": 10000,
+    "category": "other",
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "isAvailable": true,
+    "createdAt": {
+      "_seconds": 1756068541,
+      "_nanoseconds": 951000000
+    },
+    "updatedAt": {
+      "_seconds": 1756068574,
+      "_nanoseconds": 174000000
+    }
+  },
+  {
+    "id": "MWYhAVimrPsvuippxqU3",
+    "description": "Transport Madagascar Viclaire",
+    "amount": 1500,
+    "category": "transportation",
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "createdAt": {
+      "_seconds": 1754128464,
+      "_nanoseconds": 504000000
+    },
+    "updatedAt": {
+      "_seconds": 1754128464,
+      "_nanoseconds": 504000000
+    }
+  },
+  {
+    "id": "NIUW8ei2t14BcdHVpI3z",
+    "description": "Frais de retrait ",
+    "amount": 1000,
+    "category": "other",
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "isAvailable": true,
+    "createdAt": {
+      "_seconds": 1756831852,
+      "_nanoseconds": 899000000
+    },
+    "updatedAt": {
+      "_seconds": 1756831852,
+      "_nanoseconds": 899000000
+    }
+  },
+  {
+    "id": "OyfOVS3BG8tn1UOJsRDI",
+    "description": "Loisir(resto)",
+    "amount": 20500,
+    "category": "other",
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "isAvailable": true,
+    "createdAt": {
+      "_seconds": 1756068861,
+      "_nanoseconds": 128000000
+    },
+    "updatedAt": {
+      "_seconds": 1756068861,
+      "_nanoseconds": 128000000
+    }
+  },
+  {
+    "id": "PBN1Zl1y9vSWHmoE675M",
+    "description": "Appel ",
+    "amount": 1000,
+    "category": "transportation",
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "isAvailable": true,
+    "createdAt": {
+      "_seconds": 1756538411,
+      "_nanoseconds": 89000000
+    },
+    "updatedAt": {
+      "_seconds": 1756538411,
+      "_nanoseconds": 89000000
+    }
+  },
+  {
+    "id": "PhkYYG2mE8iZA0PxgRre",
+    "description": "Transfert crédit vi",
+    "amount": 1000,
+    "category": "transportation",
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "createdAt": {
+      "_seconds": 1752824371,
+      "_nanoseconds": 795000000
+    },
+    "updatedAt": {
+      "_seconds": 1752824371,
+      "_nanoseconds": 795000000
+    }
+  },
+  {
+    "id": "QlfTEQq4hxglKhnAxAby",
+    "description": "Transport Vi pour cree contenu",
+    "amount": 2000,
+    "category": "transportation",
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "createdAt": {
+      "_seconds": 1751489024,
+      "_nanoseconds": 291000000
+    },
+    "updatedAt": {
+      "_seconds": 1751489024,
+      "_nanoseconds": 291000000
+    }
+  },
+  {
+    "id": "QvAOPCVLrzauMd1QNls8",
+    "description": "frais de retrait",
+    "amount": 2000,
+    "category": "other",
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "createdAt": {
+      "_seconds": 1753020979,
+      "_nanoseconds": 528000000
+    },
+    "updatedAt": {
+      "_seconds": 1753020979,
+      "_nanoseconds": 528000000
+    }
+  },
+  {
+    "id": "R7k1YiIz3v1xwIZdmqyS",
+    "description": "Achat marchandises ",
+    "amount": 969000,
+    "category": "purchase",
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "createdAt": {
+      "_seconds": 1754056896,
+      "_nanoseconds": 489000000
+    },
+    "updatedAt": {
+      "_seconds": 1754056896,
+      "_nanoseconds": 489000000
+    }
+  },
+  {
+    "id": "SB2kLHfqh6QOreTZ84Qr",
+    "description": "Expenses 3",
+    "amount": 1200,
+    "category": "transportation",
+    "userId": "VlMpKl6uxtZrGgyiOPSusmh4Nfv1",
+    "createdAt": {
+      "_seconds": 1749488690,
+      "_nanoseconds": 943000000
+    },
+    "updatedAt": {
+      "_seconds": 1749488690,
+      "_nanoseconds": 943000000
+    },
+    "isAvailable": true
+  },
+  {
+    "id": "StHpiKqDojaGwVg5CxrN",
+    "description": "Internet Daina ",
+    "isAvailable": true,
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "amount": 1500,
+    "createdAt": {
+      "_seconds": 1759250154,
+      "_nanoseconds": 672000000
+    },
+    "category": "Internet Connexion",
+    "updatedAt": {
+      "_seconds": 1760103411,
+      "_nanoseconds": 43000000
+    }
+  },
+  {
+    "id": "T13EOM8NV8sXJ8w5RkQS",
+    "description": "Dépannage du roi à sa reine 😍",
+    "amount": 10000,
+    "category": "other",
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "isAvailable": true,
+    "createdAt": {
+      "_seconds": 1759914328,
+      "_nanoseconds": 289000000
+    },
+    "updatedAt": {
+      "_seconds": 1759914328,
+      "_nanoseconds": 289000000
+    }
+  },
+  {
+    "id": "WHQpf0hgiTcI7CXUwiOE",
+    "description": "Facebook Adds",
+    "amount": 3000,
+    "category": "facebook Adds",
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "isAvailable": true,
+    "createdAt": {
+      "_seconds": 1760131815,
+      "_nanoseconds": 707000000
+    },
+    "updatedAt": {
+      "_seconds": 1760131815,
+      "_nanoseconds": 707000000
+    }
+  },
+  {
+    "id": "WnbOlDmyobqpsbB67glZ",
+    "description": "T",
+    "amount": 10,
+    "category": "credit",
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "createdAt": {
+      "_seconds": 1759702562,
+      "_nanoseconds": 834000000
+    },
+    "isAvailable": false,
+    "updatedAt": {
+      "_seconds": 1759726404,
+      "_nanoseconds": 322000000
+    }
+  },
+  {
+    "id": "XpbPoVqU5D7xQ6bzQb0N",
+    "description": "Connection",
+    "amount": 1500,
+    "category": "Internet Connexion",
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "isAvailable": true,
+    "createdAt": {
+      "_seconds": 1759745602,
+      "_nanoseconds": 235000000
+    },
+    "updatedAt": {
+      "_seconds": 1759745602,
+      "_nanoseconds": 235000000
+    }
+  },
+  {
+    "id": "YyerN8WCaX9kybQekySf",
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "amount": 1000,
+    "category": "transportation",
+    "description": "Transfert ",
+    "isAvailable": true,
+    "createdAt": {
+      "_seconds": 1758817204,
+      "_nanoseconds": 669000000
+    },
+    "updatedAt": {
+      "_seconds": 1758817204,
+      "_nanoseconds": 669000000
+    }
+  },
+  {
+    "id": "ZUzXq4PlqxDmaqUTBWYD",
+    "description": "Transport marchandise agence - maison ",
+    "category": "transportation",
+    "amount": 2000,
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "isAvailable": true,
+    "createdAt": {
+      "_seconds": 1759030975,
+      "_nanoseconds": 823000000
+    },
+    "updatedAt": {
+      "_seconds": 1759030975,
+      "_nanoseconds": 823000000
+    }
+  },
+  {
+    "id": "aX1WUybzEbGb050CCTNF",
+    "description": "Test",
+    "amount": 10,
+    "category": "credit",
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "createdAt": {
+      "_seconds": 1759702301,
+      "_nanoseconds": 36000000
+    },
+    "isAvailable": false,
+    "updatedAt": {
+      "_seconds": 1759726425,
+      "_nanoseconds": 707000000
+    }
+  },
+  {
+    "id": "cKvjhkXB4YoPN3M60qLa",
+    "description": "Déplacement/ aménagement ",
+    "amount": 90000,
+    "category": "other",
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "createdAt": {
+      "_seconds": 1754056843,
+      "_nanoseconds": 227000000
+    },
+    "updatedAt": {
+      "_seconds": 1754056843,
+      "_nanoseconds": 227000000
+    }
+  },
+  {
+    "id": "dNIM3IWsKfljOUWlg793",
+    "description": "Transport mokolo ",
+    "amount": 1000,
+    "category": "transportation",
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "createdAt": {
+      "_seconds": 1750265968,
+      "_nanoseconds": 532000000
+    },
+    "updatedAt": {
+      "_seconds": 1750265968,
+      "_nanoseconds": 532000000
+    },
+    "isAvailable": true
+  },
+  {
+    "id": "gCs63a9cKm0C4IIXsiyy",
+    "description": "Loisir",
+    "amount": 14000,
+    "category": "other",
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "createdAt": {
+      "_seconds": 1751747332,
+      "_nanoseconds": 930000000
+    },
+    "updatedAt": {
+      "_seconds": 1751747332,
+      "_nanoseconds": 930000000
+    }
+  },
+  {
+    "id": "guyXE6YjFAn45msXN1cE",
+    "description": "test company",
+    "amount": 1500,
+    "category": "transportation",
+    "userId": "oPxXrnQecQUxk00bDAmAZuDxUfD2",
+    "createdAt": {
+      "_seconds": 1756981296,
+      "_nanoseconds": 617000000
+    },
+    "isAvailable": false,
+    "updatedAt": {
+      "_seconds": 1760634005,
+      "_nanoseconds": 115000000
+    }
+  },
+  {
+    "id": "hJMXdJDkfctx30kRgAP5",
+    "description": "Commande de la marchandise (sacs)",
+    "amount": 0,
+    "category": "purchase",
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "createdAt": {
+      "_seconds": 1751337175,
+      "_nanoseconds": 602000000
+    },
+    "updatedAt": {
+      "_seconds": 1751609019,
+      "_nanoseconds": 292000000
+    }
+  },
+  {
+    "id": "ho2Klg3T5uApwjnBkdlL",
+    "description": "T",
+    "amount": 10,
+    "category": "transportation",
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "createdAt": {
+      "_seconds": 1759702441,
+      "_nanoseconds": 587000000
+    },
+    "isAvailable": false,
+    "updatedAt": {
+      "_seconds": 1759726411,
+      "_nanoseconds": 670000000
+    }
+  },
+  {
+    "id": "igVWzOI0WabPGeHas4my",
+    "description": "2 Faux ongles ",
+    "amount": 2000,
+    "category": "transportation",
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "createdAt": {
+      "_seconds": 1750265948,
+      "_nanoseconds": 930000000
+    },
+    "updatedAt": {
+      "_seconds": 1750265948,
+      "_nanoseconds": 930000000
+    },
+    "isAvailable": true
+  },
+  {
+    "id": "jDsD0H9u94MleR7VQJcN",
+    "description": "R",
+    "amount": 10,
+    "category": "transportation",
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "createdAt": {
+      "_seconds": 1759702836,
+      "_nanoseconds": 607000000
+    },
+    "isAvailable": false,
+    "updatedAt": {
+      "_seconds": 1759725917,
+      "_nanoseconds": 826000000
+    }
+  },
+  {
+    "id": "klkEPS01V3um4dycyeIm",
+    "description": "2 Tapis décoratif ",
+    "amount": 6000,
+    "category": "transportation",
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "createdAt": {
+      "_seconds": 1750265916,
+      "_nanoseconds": 398000000
+    },
+    "updatedAt": {
+      "_seconds": 1750265916,
+      "_nanoseconds": 398000000
+    },
+    "isAvailable": true
+  },
+  {
+    "id": "l8nPKBHdb4IzLh49eGXG",
+    "description": "Achat marchandises MC",
+    "amount": 108000,
+    "category": "purchase",
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "createdAt": {
+      "_seconds": 1754056775,
+      "_nanoseconds": 611000000
+    },
+    "updatedAt": {
+      "_seconds": 1754056775,
+      "_nanoseconds": 611000000
+    }
+  },
+  {
+    "id": "lALOxHuNOe3T1aiGiG8q",
+    "description": "Fournisseur",
+    "amount": 137000,
+    "category": "other",
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "createdAt": {
+      "_seconds": 1752131534,
+      "_nanoseconds": 919000000
+    },
+    "isAvailable": false,
+    "updatedAt": {
+      "_seconds": 1752955112,
+      "_nanoseconds": 223000000
+    }
+  },
+  {
+    "id": "oNfHht4RZMj0ElXx1PX3",
+    "description": "Crédit appel",
+    "amount": 1000,
+    "category": "credit",
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "isAvailable": true,
+    "createdAt": {
+      "_seconds": 1756068767,
+      "_nanoseconds": 847000000
+    },
+    "updatedAt": {
+      "_seconds": 1756068767,
+      "_nanoseconds": 847000000
+    }
+  },
+  {
+    "id": "owjm6vEMHswPWHD4D0wx",
+    "description": "Transport marchandises ",
+    "amount": 220250,
+    "category": "transportation",
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "createdAt": {
+      "_seconds": 1754056744,
+      "_nanoseconds": 355000000
+    },
+    "updatedAt": {
+      "_seconds": 1754056744,
+      "_nanoseconds": 355000000
+    }
+  },
+  {
+    "id": "pKapWCK6TDAslNsOXv31",
+    "description": "Marketing",
+    "amount": 10000,
+    "category": "other",
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "createdAt": {
+      "_seconds": 1751714913,
+      "_nanoseconds": 899000000
+    },
+    "updatedAt": {
+      "_seconds": 1751714913,
+      "_nanoseconds": 899000000
+    }
+  },
+  {
+    "id": "qdIBYJwu7Thx6jyjsJPI",
+    "description": "facebook adds",
+    "amount": 3900,
+    "category": "other",
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "createdAt": {
+      "_seconds": 1754149457,
+      "_nanoseconds": 182000000
+    },
+    "updatedAt": {
+      "_seconds": 1754149457,
+      "_nanoseconds": 182000000
+    }
+  },
+  {
+    "id": "stSntzoH9cC6TDoNj5VG",
+    "description": "Confection des box ",
+    "amount": 13800,
+    "category": "transportation",
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "isAvailable": true,
+    "createdAt": {
+      "_seconds": 1760006086,
+      "_nanoseconds": 192000000
+    },
+    "updatedAt": {
+      "_seconds": 1760006086,
+      "_nanoseconds": 192000000
+    }
+  },
+  {
+    "id": "tdwzDRtdIW0iNDMUH7aB",
+    "description": "Transport Madagascar ",
+    "amount": 1000,
+    "category": "transportation",
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "isAvailable": true,
+    "createdAt": {
+      "_seconds": 1757331571,
+      "_nanoseconds": 24000000
+    },
+    "updatedAt": {
+      "_seconds": 1757331571,
+      "_nanoseconds": 24000000
+    }
+  },
+  {
+    "id": "v9SHFoEtfxtUgmevbGrX",
+    "description": "Internet daina",
+    "amount": 1500,
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "isAvailable": true,
+    "createdAt": {
+      "_seconds": 1759130986,
+      "_nanoseconds": 67000000
+    },
+    "category": "Internet Connexion",
+    "updatedAt": {
+      "_seconds": 1760103419,
+      "_nanoseconds": 832000000
+    }
+  },
+  {
+    "id": "x2FJYQTCODnJozBGNFeL",
+    "description": "Achat modem",
+    "amount": 47000,
+    "category": "other",
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "createdAt": {
+      "_seconds": 1754056861,
+      "_nanoseconds": 972000000
+    },
+    "updatedAt": {
+      "_seconds": 1754056861,
+      "_nanoseconds": 972000000
+    }
+  },
+  {
+    "id": "xWH1FDZx9lkQ5HpcUHoa",
+    "amount": 15000,
+    "description": "Facebook Adds",
+    "category": "other",
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "isAvailable": true,
+    "createdAt": {
+      "_seconds": 1758626936,
+      "_nanoseconds": 353000000
+    },
+    "updatedAt": {
+      "_seconds": 1758626936,
+      "_nanoseconds": 353000000
+    }
+  },
+  {
+    "id": "xfe5cuzOWUOe1fsvOh5l",
+    "description": "TT",
+    "amount": 100,
+    "category": "other",
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "createdAt": {
+      "_seconds": 1759726447,
+      "_nanoseconds": 222000000
+    },
+    "isAvailable": false,
+    "updatedAt": {
+      "_seconds": 1759726452,
+      "_nanoseconds": 366000000
+    }
+  },
+  {
+    "id": "ywr8Bm9Nd2mlrS0k0fEf",
+    "description": "Achat emballage ",
+    "amount": 35000,
+    "category": "other",
+    "userId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+    "createdAt": {
+      "_seconds": 1754056796,
+      "_nanoseconds": 994000000
+    },
+    "updatedAt": {
+      "_seconds": 1754056796,
+      "_nanoseconds": 994000000
+    }
+  }
+]

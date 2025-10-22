@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
+import { Outlet, useLocation, Navigate } from 'react-router-dom';
 import Navbar from './Navbar';
 import Sidebar from './Sidebar';
 import MobileNav from './MobileNav';
 import { FloatingActionButton } from '../common/Button';
 import AddSaleModal from '../sales/AddSaleModal';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface MainLayoutProps {
   isAddSaleModalOpen: boolean;
@@ -15,6 +16,15 @@ const MainLayout = ({ isAddSaleModalOpen, setIsAddSaleModalOpen }: MainLayoutPro
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const location = useLocation();
+  const { selectedCompanyId, company } = useAuth();
+
+  // Vérifier qu'une entreprise est sélectionnée pour les routes /company/:companyId/*
+  const isCompanyRoute = location.pathname.startsWith('/company/');
+  
+  if (isCompanyRoute && (!selectedCompanyId || !company)) {
+    console.log('⚠️ Aucune entreprise sélectionnée, redirection vers /');
+    return <Navigate to="/" replace />;
+  }
 
   // Handle responsive layout
   useEffect(() => {

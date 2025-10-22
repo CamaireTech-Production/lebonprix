@@ -1,5 +1,5 @@
 import { useLocation, Link } from 'react-router-dom';
-import { LayoutDashboard, ShoppingCart, DollarSign, Package2, FileBarChart, Settings, X, Receipt, Users } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, DollarSign, Package2, FileBarChart, Settings, X, Receipt, Users, Building2 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import UserAvatar from '../common/UserAvatar';
 import DownloadAppButton from '../common/DownloadAppButton';
@@ -19,15 +19,22 @@ const Sidebar = ({ onClose }: SidebarProps) => {
     return location.pathname === path;
   };
   
+  // Vérifier si on est dans une route d'entreprise
+  const isCompanyRoute = location.pathname.startsWith('/company/');
+  
   const navigationItems = [
-    { name: t('navigation.dashboard'), path: '/', icon: <LayoutDashboard size={20} />, allowedRoles: ['vendeur', 'gestionnaire', 'magasinier', 'owner'] },
-    { name: t('navigation.sales'), path: '/sales', icon: <ShoppingCart size={20} />, allowedRoles: ['vendeur', 'gestionnaire', 'magasinier', 'owner'] },
-    { name: 'Expenses', path: '/expenses', icon: <Receipt size={20} />, allowedRoles: ['vendeur', 'gestionnaire', 'magasinier', 'owner'] },
-    { name: 'Finance', path: '/finance', icon: <DollarSign size={20} />, allowedRoles: ['gestionnaire', 'magasinier', 'owner'] },
-    { name: t('navigation.products'), path: '/products', icon: <Package2 size={20} />, allowedRoles: ['vendeur', 'gestionnaire', 'magasinier', 'owner'] },
-    { name: t('navigation.suppliers'), path: '/suppliers', icon: <Users size={20} />, allowedRoles: ['vendeur', 'gestionnaire', 'magasinier', 'owner'] },
-    { name: t('navigation.reports'), path: '/reports', icon: <FileBarChart size={20} />, allowedRoles: ['gestionnaire', 'magasinier', 'owner'] },
-    { name: t('navigation.settings'), path: '/settings', icon: <Settings size={20} />, allowedRoles: ['magasinier', 'owner'] },
+    // Bouton retour aux entreprises (seulement dans les routes d'entreprise)
+    ...(isCompanyRoute ? [
+      { name: 'Mes Entreprises', path: '/', icon: <Building2 size={20} />, allowedRoles: ['vendeur', 'gestionnaire', 'magasinier', 'owner'] }
+    ] : []),
+    { name: t('navigation.dashboard'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/dashboard` : '/', icon: <LayoutDashboard size={20} />, allowedRoles: ['vendeur', 'gestionnaire', 'magasinier', 'owner'] },
+    { name: t('navigation.sales'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/sales` : '/sales', icon: <ShoppingCart size={20} />, allowedRoles: ['vendeur', 'gestionnaire', 'magasinier', 'owner'] },
+    { name: 'Expenses', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/expenses` : '/expenses', icon: <Receipt size={20} />, allowedRoles: ['vendeur', 'gestionnaire', 'magasinier', 'owner'] },
+    { name: 'Finance', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/finance` : '/finance', icon: <DollarSign size={20} />, allowedRoles: ['gestionnaire', 'magasinier', 'owner'] },
+    { name: t('navigation.products'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/products` : '/products', icon: <Package2 size={20} />, allowedRoles: ['vendeur', 'gestionnaire', 'magasinier', 'owner'] },
+    { name: t('navigation.suppliers'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/suppliers` : '/suppliers', icon: <Users size={20} />, allowedRoles: ['vendeur', 'gestionnaire', 'magasinier', 'owner'] },
+    { name: t('navigation.reports'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/reports` : '/reports', icon: <FileBarChart size={20} />, allowedRoles: ['gestionnaire', 'magasinier', 'owner'] },
+    { name: t('navigation.settings'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/settings` : '/settings', icon: <Settings size={20} />, allowedRoles: ['magasinier', 'owner'] },
   ];
 
   return (
