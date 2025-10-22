@@ -80,7 +80,7 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
             {selectedCategory && showImages && selectedCategory.image ? (
               <div className="w-6 h-6 rounded overflow-hidden bg-gray-100 flex-shrink-0">
                 <ImageWithSkeleton
-                  src={selectedCategory.image.startsWith('data:') ? selectedCategory.image : `data:image/jpeg;base64,${selectedCategory.image}`}
+                  src={selectedCategory.image}
                   alt={selectedCategory.name}
                   className="w-full h-full object-cover"
                   placeholder=""
@@ -163,7 +163,7 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
                         <div className="w-8 h-8 rounded overflow-hidden bg-gray-100 flex-shrink-0">
                           {category.image ? (
                             <ImageWithSkeleton
-                              src={category.image.startsWith('data:') ? category.image : `data:image/jpeg;base64,${category.image}`}
+                              src={category.image}
                               alt={category.name}
                               className="w-full h-full object-cover"
                               placeholder=""

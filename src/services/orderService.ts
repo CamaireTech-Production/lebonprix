@@ -130,10 +130,16 @@ export const createOrder = async (
     const sanitizedDeliveryInfo: DeliveryInfo = {
       method: orderData.deliveryInfo?.method || 'delivery',
       address: orderData.deliveryInfo?.address || '',
-      scheduledDate: orderData.deliveryInfo?.scheduledDate || undefined,
-      deliveredAt: orderData.deliveryInfo?.deliveredAt || undefined,
       instructions: orderData.deliveryInfo?.instructions || ''
     };
+
+    // Only add optional fields if they have values
+    if (orderData.deliveryInfo?.scheduledDate) {
+      sanitizedDeliveryInfo.scheduledDate = orderData.deliveryInfo.scheduledDate;
+    }
+    if (orderData.deliveryInfo?.deliveredAt) {
+      sanitizedDeliveryInfo.deliveredAt = orderData.deliveryInfo.deliveredAt;
+    }
 
     // Sanitize metadata
     const sanitizedMetadata: OrderMetadata = {

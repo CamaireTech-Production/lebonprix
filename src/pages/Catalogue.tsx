@@ -406,7 +406,7 @@ const Catalogue = () => {
                     {categoryInfo.image && (
                       <div className="w-5 h-5 rounded-full overflow-hidden bg-white bg-opacity-20 flex-shrink-0">
                         <ImageWithSkeleton
-                          src={categoryInfo.image.startsWith('data:') ? categoryInfo.image : `data:image/jpeg;base64,${categoryInfo.image}`}
+                          src={categoryInfo.image}
                           alt={categoryInfo.name}
                           className="w-full h-full object-cover"
                           placeholder=""

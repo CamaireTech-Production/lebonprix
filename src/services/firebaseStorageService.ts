@@ -86,25 +86,64 @@ export class FirebaseStorageService {
     await Promise.all(deletePromises);
   }
 
-  async uploadProductImages(
-    base64Images: string[],
+  async uploadProductImagesFromFiles(
+    files: File[],
     userId: string,
     productId: string
   ): Promise<StorageResult[]> {
-    const uploadPromises = base64Images.map(async (image, index) => {
-      // Convert base64 to blob
-      const base64String = image.replace(/^data:image\/[a-z]+;base64,/, '');
-      const byteCharacters = atob(base64String);
-      const byteNumbers = new Array(byteCharacters.length);
-      for (let i = 0; i < byteCharacters.length; i++) {
-        byteNumbers[i] = byteCharacters.charCodeAt(i);
-      }
-      const byteArray = new Uint8Array(byteNumbers);
-      const blob = new Blob([byteArray], { type: 'image/jpeg' });
-      
-      return this.uploadProductImage(blob, userId, productId, index);
+    const uploadPromises = files.map(async (file, index) => {
+      return this.uploadProductImage(file, userId, productId, index);
     });
     
     return Promise.all(uploadPromises);
+  }
+
+  async uploadCategoryImage(
+    blob: Blob,
+    userId: string,
+    categoryId: string
+  ): Promise<StorageResult> {
+    try {
+      // Generate file path for category - use simpler path structure
+      const timestamp = Date.now();
+      const randomId = Math.random().toString(36).substr(2, 9);
+      const filePath = `categories/${userId}/category_${categoryId}_image_${timestamp}_${randomId}.jpg`;
+      const storageRef = ref(storage, filePath);
+      
+      // Set metadata
+      const metadata = {
+        contentType: blob.type,
+        customMetadata: {
+          userId,
+          categoryId,
+          uploadedAt: new Date().toISOString()
+        }
+      };
+      
+      // Upload with retry logic
+      const snapshot = await this.uploadWithRetry(storageRef, blob, metadata);
+      
+      // Get download URL
+      const downloadURL = await getDownloadURL(snapshot.ref);
+      
+      return {
+        url: downloadURL,
+        path: snapshot.ref.fullPath,
+        size: blob.size
+      };
+    } catch (error) {
+      console.error('Error uploading category image:', error);
+      throw new Error(`Failed to upload category image: ${error.message}`);
+    }
+  }
+
+  async deleteImage(imagePath: string): Promise<void> {
+    try {
+      const imageRef = ref(storage, imagePath);
+      await deleteObject(imageRef);
+    } catch (error) {
+      console.error('Error deleting image:', error);
+      throw new Error(`Failed to delete image: ${error.message}`);
+    }
   }
 }

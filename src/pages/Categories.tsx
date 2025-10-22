@@ -7,6 +7,7 @@ import Badge from '../components/common/Badge';
 import Modal from '../components/common/Modal';
 import Input from '../components/common/Input';
 import { useAuth } from '../contexts/AuthContext';
+import { FirebaseStorageService } from '../services/firebaseStorageService';
 import { ImageWithSkeleton } from '../components/common/ImageWithSkeleton';
 import LoadingScreen from '../components/common/LoadingScreen';
 import SyncIndicator from '../components/common/SyncIndicator';
@@ -46,6 +47,8 @@ const Categories = () => {
     name: '',
     description: '',
     image: '',
+    imagePath: '',
+    compressedImageFile: null as File | null,
   });
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   
@@ -81,6 +84,8 @@ const Categories = () => {
       name: '',
       description: '',
       image: '',
+      imagePath: '',
+      compressedImageFile: null,
     });
     setCurrentCategory(null);
   };
@@ -105,14 +110,13 @@ const Categories = () => {
         useWebWorker: true,
       });
 
-      // Convert to base64
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const result = e.target?.result as string;
-        setFormData(prev => ({ ...prev, image: result }));
-        setIsUploadingImage(false);
-      };
-      reader.readAsDataURL(compressedFile);
+      // Store the compressed file in state (don't upload yet)
+      setFormData(prev => ({ 
+        ...prev, 
+        compressedImageFile: compressedFile,
+        image: URL.createObjectURL(compressedFile) // For preview only
+      }));
+      setIsUploadingImage(false);
     } catch (error) {
       console.error('Error compressing image:', error);
       showErrorToast('Error processing image');
@@ -144,6 +148,8 @@ const Categories = () => {
       name: category.name,
       description: category.description || '',
       image: category.image || '',
+      imagePath: category.imagePath || '',
+      compressedImageFile: null,
     });
     setIsEditModalOpen(true);
   };
@@ -165,10 +171,35 @@ const Categories = () => {
 
     setIsSubmitting(true);
     try {
+      let imageUrl = '';
+      let imagePath = '';
+      
+      // Upload image first if available
+      if (formData.compressedImageFile) {
+        try {
+          const storageService = new FirebaseStorageService();
+          // Generate a temporary ID for the upload
+          const tempId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+          const uploadResult = await storageService.uploadCategoryImage(
+            formData.compressedImageFile,
+            user.uid,
+            tempId
+          );
+          imageUrl = uploadResult.url;
+          imagePath = uploadResult.path;
+        } catch (error) {
+          console.error('Error uploading image:', error);
+          showErrorToast('Image upload failed');
+          return;
+        }
+      }
+
+      // Create category with image URL included
       const categoryData = {
         name: formData.name.trim(),
         description: formData.description.trim() || '',
-        image: formData.image || '',
+        image: imageUrl,
+        imagePath: imagePath,
         userId: user.uid,
       };
 
@@ -196,10 +227,33 @@ const Categories = () => {
 
     setIsSubmitting(true);
     try {
+      // Handle new image upload if one was selected
+      let imageUrl = formData.image;
+      let imagePath = formData.imagePath;
+      
+      if (formData.compressedImageFile) {
+        try {
+          const storageService = new FirebaseStorageService();
+          const uploadResult = await storageService.uploadCategoryImage(
+            formData.compressedImageFile,
+            user.uid,
+            currentCategory.id
+          );
+          imageUrl = uploadResult.url;
+          imagePath = uploadResult.path;
+        } catch (error) {
+          console.error('Error uploading new image:', error);
+          showErrorToast('Category updated but image upload failed');
+          return;
+        }
+      }
+
+      // Update category with all data including new image
       const updateData = {
         name: formData.name.trim(),
         description: formData.description.trim() || '',
-        image: formData.image || '',
+        image: imageUrl,
+        imagePath: imagePath,
       };
 
       await updateCategory(currentCategory.id, updateData, user.uid);
@@ -354,7 +408,7 @@ const Categories = () => {
                   <div className="aspect-square rounded-lg overflow-hidden mb-4 bg-gray-100">
                     {category.image ? (
                       <ImageWithSkeleton
-                        src={category.image.startsWith('data:') ? category.image : `data:image/jpeg;base64,${category.image}`}
+                        src={category.image}
                         alt={category.name}
                         className="w-full h-full object-cover"
                         placeholder="Loading image..."
@@ -408,7 +462,7 @@ const Categories = () => {
                   <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
                     {category.image ? (
                       <ImageWithSkeleton
-                        src={category.image.startsWith('data:') ? category.image : `data:image/jpeg;base64,${category.image}`}
+                        src={category.image}
                         alt={category.name}
                         className="w-full h-full object-cover"
                         placeholder="Loading image..."
@@ -500,7 +554,7 @@ const Categories = () => {
               <div className="space-y-3">
                 <div className="w-32 h-32 rounded-lg overflow-hidden bg-gray-100">
                   <ImageWithSkeleton
-                    src={formData.image.startsWith('data:') ? formData.image : `data:image/jpeg;base64,${formData.image}`}
+                    src={formData.image}
                     alt="Category preview"
                     className="w-full h-full object-cover"
                     placeholder="Loading image..."
@@ -603,7 +657,7 @@ const Categories = () => {
               <div className="space-y-3">
                 <div className="w-32 h-32 rounded-lg overflow-hidden bg-gray-100">
                   <ImageWithSkeleton
-                    src={formData.image.startsWith('data:') ? formData.image : `data:image/jpeg;base64,${formData.image}`}
+                    src={formData.image}
                     alt="Category preview"
                     className="w-full h-full object-cover"
                     placeholder="Loading image..."

@@ -21,15 +21,15 @@ export const ImageWithSkeleton: React.FC<ImageWithSkeletonProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
 
-  // Handle image source - only support proper URLs and data URLs
+  // Handle image source - only support proper URLs and blob URLs
   const getImageSrc = (imageSrc: string) => {
     if (!imageSrc || imageSrc.trim() === '') {
       return placeholder;
     }
     
     // Handle different image source types
-    if (imageSrc.startsWith('data:') || imageSrc.startsWith('http') || imageSrc.startsWith('/')) {
-      return imageSrc; // Already a data URL, HTTP URL, or local path
+    if (imageSrc.startsWith('http') || imageSrc.startsWith('/') || imageSrc.startsWith('blob:')) {
+      return imageSrc; // HTTP URL, local path, or blob URL
     }
     
     // If it's not a proper URL, return placeholder
@@ -48,6 +48,7 @@ export const ImageWithSkeleton: React.FC<ImageWithSkeletonProps> = ({
     setHasError(true);
     onError?.();
   };
+
 
   // Skeleton loader component
   const SkeletonLoader = () => (

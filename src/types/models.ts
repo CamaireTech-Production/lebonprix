@@ -57,7 +57,7 @@ export interface Product extends BaseModel {
   cataloguePrice?: number;
   stock: number;
   category: string;
-  images?: string[]; // Now stores Firebase Storage URLs instead of base64
+  images?: string[]; // Stores Firebase Storage URLs only
   imagePaths?: string[]; // Optional: store storage paths for deletion
   migratedAt?: Date; // Track migration status
   isAvailable: boolean;

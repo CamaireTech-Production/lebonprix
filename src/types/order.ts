@@ -3,12 +3,14 @@ import { BaseModel } from './models';
 // Customer info structure (following documentation)
 export interface CustomerInfo {
   name: string;
+  surname?: string;
   phone: string;
   location: string;
   deliveryInstructions?: string;
   email?: string;
   address?: string;
   city?: string;
+  country?: string;
   zipCode?: string;
 }
 

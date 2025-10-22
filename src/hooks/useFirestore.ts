@@ -114,13 +114,14 @@ export const useProducts = () => {
   ) => {
     if (!user) throw new Error('User not authenticated');
     try {
-      await createProduct(productData, user.uid, supplierInfo);
+      const createdProduct = await createProduct(productData, user.uid, supplierInfo);
       // Invalidate products cache when new product is added
       invalidateSpecificCache(user.uid, 'products');
       // Force sync to update localStorage
       BackgroundSyncService.forceSyncProducts(user.uid, (freshProducts) => {
         setProducts(freshProducts);
       });
+      return createdProduct;
     } catch (err) {
       setError(err as Error);
       throw err;

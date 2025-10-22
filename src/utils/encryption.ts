@@ -38,11 +38,6 @@ export class SecureEncryption {
         throw new Error('Invalid encrypted data');
       }
 
-      // Check if data looks like it's already plain text (not base64 encoded)
-      if (!encryptedData.includes('=') && !encryptedData.includes('/') && !encryptedData.includes('+')) {
-        console.log('Data appears to be plain text, returning as-is');
-        return encryptedData;
-      }
 
       const key = this.generateKey(userId);
       const bytes = CryptoJS.AES.decrypt(encryptedData, key);

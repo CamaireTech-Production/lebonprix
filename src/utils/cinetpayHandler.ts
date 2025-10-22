@@ -111,11 +111,12 @@ export const processCinetPayPayment = async (
     description: string;
     customerInfo: {
       name: string;
+      surname?: string;
       phone: string;
       email: string;
-      address: string;
-      city: string;
-      country: string;
+      address?: string;
+      city?: string;
+      country?: string;
       zipCode?: string;
     };
     returnUrl: string;
@@ -166,13 +167,13 @@ export const processCinetPayPayment = async (
       currency: sanitizedPaymentData.currency,
       channels: enabledChannels.join(','),
       description: sanitizedPaymentData.description,
-      customer_name: sanitizedPaymentData.customerInfo.name.split(' ')[0] || '',
-      customer_surname: sanitizedPaymentData.customerInfo.name.split(' ').slice(1).join(' ') || '',
+      customer_name: sanitizedPaymentData.customerInfo.name,
+      customer_surname: sanitizedPaymentData.customerInfo.surname || 'Customer',
       customer_phone: sanitizedPaymentData.customerInfo.phone,
       customer_email: sanitizedPaymentData.customerInfo.email,
-      customer_address: sanitizedPaymentData.customerInfo.address,
-      customer_city: sanitizedPaymentData.customerInfo.city,
-      customer_country: sanitizedPaymentData.customerInfo.country,
+      customer_address: sanitizedPaymentData.customerInfo.address || sanitizedPaymentData.customerInfo.location || 'Not provided',
+      customer_city: sanitizedPaymentData.customerInfo.city || 'Not provided',
+      customer_country: sanitizedPaymentData.customerInfo.country || 'Cameroon',
       customer_zip_code: sanitizedPaymentData.customerInfo.zipCode || '',
       metadata: {
         testMode: config.testMode,
@@ -211,9 +212,21 @@ export const processCinetPayPayment = async (
           window.CinetPay.onError((error: unknown) => {
           console.error('CinetPay payment error:', error);
           const errorObj = error as Record<string, unknown>;
+          
+          // Check for specific error types
+          let errorCode = (errorObj?.code as string) || 'UNKNOWN_ERROR';
+          let errorMessage = (error as Error)?.message || 'Unknown error occurred';
+          
+          // Handle amount too low error specifically
+          if (errorObj?.message === 'ERROR_AMOUNT_TOO_LOW' || 
+              (errorObj?.details as Record<string, unknown>)?.message === 'ERROR_AMOUNT_TOO_LOW') {
+            errorCode = 'UNKNOWN_ERROR';
+            errorMessage = 'ERROR_AMOUNT_TOO_LOW';
+          }
+          
           const errorResult: CinetPayPaymentResult = {
             success: false,
-            error: (error as Error)?.message || 'Payment failed',
+            error: errorMessage,
             message: 'Payment could not be processed'
           };
           
@@ -221,8 +234,8 @@ export const processCinetPayPayment = async (
           
           if (callbacks.onError) {
             callbacks.onError({
-              code: (errorObj?.code as string) || 'UNKNOWN_ERROR',
-              message: (error as Error)?.message || 'Unknown error occurred',
+              code: errorCode,
+              message: errorMessage,
               details: error as Record<string, unknown>
             });
           }
@@ -375,11 +388,12 @@ export const validatePaymentData = (
     description: string;
     customerInfo: {
       name: string;
+      surname?: string;
       phone: string;
       email: string;
-      address: string;
-      city: string;
-      country: string;
+      address?: string;
+      city?: string;
+      country?: string;
       zipCode?: string;
     };
   }
@@ -414,17 +428,7 @@ export const validatePaymentData = (
     errors.push('Customer email is required');
   }
 
-  if (!paymentData.customerInfo.address) {
-    errors.push('Customer address is required');
-  }
-
-  if (!paymentData.customerInfo.city) {
-    errors.push('Customer city is required');
-  }
-
-  if (!paymentData.customerInfo.country) {
-    errors.push('Customer country is required');
-  }
+  // Address, city, and country are optional as we provide fallback values
 
   return {
     isValid: errors.length === 0,

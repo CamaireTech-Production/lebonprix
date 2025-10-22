@@ -10,8 +10,9 @@ import { useProducts, useStockChanges, useCategories, useSuppliers } from '../ho
 import { useInfiniteProducts } from '../hooks/useInfiniteProducts';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 import { useAllStockBatches } from '../hooks/useStockBatches';
-import { createSupplier } from '../services/firestore';
+import { createSupplier, updateProduct, recalculateCategoryProductCounts } from '../services/firestore';
 import { useAuth } from '../contexts/AuthContext';
+import { FirebaseStorageService } from '../services/firebaseStorageService';
 import { ImageWithSkeleton } from '../components/common/ImageWithSkeleton';
 import LoadingScreen from '../components/common/LoadingScreen';
 import SyncIndicator from '../components/common/SyncIndicator';
@@ -84,7 +85,7 @@ const Products = () => {
     name: '',
     reference: '',
     category: '',
-    images: [] as string[],
+    images: [] as File[],
     tags: [] as ProductTag[],
     isVisible: true, // Default to visible
   });
@@ -269,14 +270,8 @@ const Products = () => {
       console.log('Compressed file:', compressedFile.name, 'Type:', compressedFile.type, 'Size:', compressedFile.size);
       
       return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(compressedFile);
-        reader.onload = () => {
-          const base64 = reader.result as string;
-          // Return the complete data URL for image preview
-          resolve(base64);
-        };
-        reader.onerror = reject;
+        // Return the compressed File object
+        resolve(compressedFile);
       });
     } catch (error) {
       console.error('Error compressing image:', error);
@@ -320,38 +315,50 @@ const Products = () => {
       const stockQuantity = parseInt(step2Data.stock);
       const stockCostPrice = step2Data.stockCostPrice ? parseFloat(step2Data.stockCostPrice) : 0;
       
-      // Create product data
-    const productData = {
+      // Initialize image variables first
+      let imageUrls: string[] = [];
+      let imagePaths: string[] = [];
+      
+      // Upload images to Firebase Storage first if any
+      
+      if (step1Data.images.length > 0) {
+        try {
+          const storageService = new FirebaseStorageService();
+          // Generate a temporary ID for the upload
+          const tempId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+          const uploadResults = await storageService.uploadProductImagesFromFiles(
+            step1Data.images,
+            user.uid,
+            tempId
+          );
+          
+          imageUrls = uploadResults.map(result => result.url);
+          imagePaths = uploadResults.map(result => result.path);
+        } catch (error) {
+          console.error('Error uploading images:', error);
+          showErrorToast('Image upload failed');
+          return;
+        }
+      }
+
+      // Create product data after image upload
+      const productData = {
         name: step1Data.name,
-      reference,
+        reference,
         sellingPrice: parseFloat(step2Data.sellingPrice),
         cataloguePrice: step2Data.cataloguePrice ? parseFloat(step2Data.cataloguePrice) : 0,
         category: step1Data.category,
         stock: stockQuantity,
         costPrice: stockCostPrice,
-        images: (step1Data.images ?? []).length > 0 ? step1Data.images.map(img => {
-          let converted;
-          if (img.startsWith('data:')) {
-            // Extract base64 data from data URL
-            const base64Index = img.indexOf(',');
-            if (base64Index !== -1) {
-              converted = img.substring(base64Index + 1);
-            } else {
-              console.error('Invalid data URL format:', img.substring(0, 100));
-              converted = img; // Fallback to original
-            }
-          } else {
-            converted = img; // Already base64 or URL
-          }
-          return converted;
-        }) : [],
+        images: imageUrls, // Firebase Storage URLs
+        imagePaths: imagePaths, // Firebase Storage paths
         tags: step1Data.tags.length > 0 ? step1Data.tags : [],
-      isAvailable: true,
-      isVisible: step1Data.isVisible !== false, // Default to true, never undefined
-      enableBatchTracking: true, // Explicitly enable batch tracking
-      userId: user.uid,
-      updatedAt: { seconds: 0, nanoseconds: 0 }
-    };
+        isAvailable: true,
+        isVisible: step1Data.isVisible !== false, // Default to true, never undefined
+        enableBatchTracking: true, // Explicitly enable batch tracking
+        userId: user.uid,
+        updatedAt: { seconds: 0, nanoseconds: 0 }
+      };
       
       // Create supplier info for the product creation
       const supplierInfo = step2Data.supplyType === 'fromSupplier' ? {
@@ -364,9 +371,33 @@ const Products = () => {
         isCredit: false,
         costPrice: stockCostPrice
       };
+
+      // Create the product with supplier information and image URLs included
+      let createdProduct;
+      try {
+        createdProduct = await addProduct(productData, supplierInfo);
+        console.log('Created product result:', createdProduct);
+        
+        if (!createdProduct) {
+          throw new Error('addProduct returned undefined');
+        }
+        
+        if (!createdProduct.id) {
+          throw new Error('addProduct returned product without ID');
+        }
+      } catch (error) {
+        console.error('Error in addProduct:', error);
+        showErrorToast('Failed to create product');
+        return;
+      }
       
-      // Create the product with supplier information (debt creation is now handled in createProduct)
-      await addProduct(productData, supplierInfo);
+      // Recalculate category product counts after adding product
+      try {
+        await recalculateCategoryProductCounts(user.uid);
+      } catch (error) {
+        console.error('Error recalculating category counts:', error);
+        // Don't show error to user as product creation was successful
+      }
       
       // Refresh the product list to show the new product
       refresh();
@@ -742,13 +773,7 @@ const Products = () => {
     const updateData: Partial<Product> = {
       name: step1Data.name,
       category: step1Data.category,
-      images: (step1Data.images ?? []).length > 0 ? step1Data.images.map(img => {
-        if (img.startsWith('data:')) {
-          const base64Index = img.indexOf(',');
-          return base64Index !== -1 ? img.substring(base64Index + 1) : img;
-        }
-        return img;
-      }) : [],
+      images: safeProduct.images, // Keep existing images, will be updated separately if needed
       tags: step1Data.tags || [], // Include tags in the update, default to empty array
       isAvailable: safeProduct.isAvailable,
       isVisible: step1Data.isVisible !== false, // Default to true, never undefined
@@ -818,6 +843,31 @@ const Products = () => {
         await updateProductData(currentProduct.id, updateData);
       }
       
+      // Handle base64 to Firebase Storage conversion for images
+      if (step1Data.images.length > 0) {
+        try {
+          const storageService = new FirebaseStorageService();
+          const uploadResults = await storageService.uploadProductImagesFromFiles(
+            step1Data.images,
+            user.uid,
+            currentProduct.id
+          );
+          
+          // Update product with new image URLs and paths
+          const imageUrls = uploadResults.map(result => result.url);
+          const imagePaths = uploadResults.map(result => result.path);
+          
+          // Update the product with new image URLs
+          await updateProduct(currentProduct.id, {
+            images: imageUrls,
+            imagePaths: imagePaths
+          });
+        } catch (error) {
+          console.error('Error uploading images:', error);
+          showErrorToast('Product updated but images failed to upload');
+        }
+      }
+
       // Update latest stock change cost price if changed
       const latestStockChange = stockChanges
         .filter(sc => sc.productId === currentProduct.id)
@@ -830,6 +880,14 @@ const Products = () => {
           isCredit: latestStockChange.isCredit,
           costPrice: parseFloat(editPrices.costPrice)
         });
+      }
+      
+      // Recalculate category product counts after updating product
+      try {
+        await recalculateCategoryProductCounts(user.uid);
+      } catch (error) {
+        console.error('Error recalculating category counts:', error);
+        // Don't show error to user as product update was successful
       }
       
       // Refresh the product list to show the updated product
@@ -943,6 +1001,14 @@ const Products = () => {
         await updateProductData(id, updateData);
       }
       
+      // Recalculate category product counts after bulk deletion
+      try {
+        await recalculateCategoryProductCounts(user.uid);
+      } catch (error) {
+        console.error('Error recalculating category counts:', error);
+        // Don't show error to user as product deletion was successful
+      }
+      
       // Refresh the product list to remove the deleted products
       refresh();
       
@@ -972,6 +1038,14 @@ const Products = () => {
       setIsDeleting(true);
       await updateProductData(productToDelete.id, updateData);
       
+      // Recalculate category product counts after deletion
+      try {
+        await recalculateCategoryProductCounts(user.uid);
+      } catch (error) {
+        console.error('Error recalculating category counts:', error);
+        // Don't show error to user as product deletion was successful
+      }
+      
       // Refresh the product list to remove the deleted product
       refresh();
       
@@ -991,11 +1065,11 @@ const Products = () => {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
     setIsUploadingImages(true);
-    const newImages: string[] = [];
+    const newImages: File[] = [];
     for (const file of files) {
       try {
-        const base64 = await compressImage(file);
-        newImages.push(base64);
+        const compressedFile = await compressImage(file);
+        newImages.push(compressedFile);
       } catch (err) {
         console.error('Error compressing image:', err);
         showErrorToast(t('products.messages.errors.addProduct'));
@@ -1645,11 +1719,17 @@ const Products = () => {
       {/* Add Product Modal */}
       <Modal
         isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
+        onClose={() => {
+          setIsAddModalOpen(false);
+          resetForm();
+        }}
         title={t('products.actions.addProduct')}
         footer={
           <ModalFooter 
-            onCancel={() => setIsAddModalOpen(false)}
+            onCancel={() => {
+              setIsAddModalOpen(false);
+              resetForm();
+            }}
             onConfirm={currentStep === 1 ? nextStep : handleAddProduct}
             confirmText={currentStep === 1 ? t('products.actions.nextStep') : t('products.actions.complete')}
             isLoading={isSubmitting}
@@ -1723,23 +1803,36 @@ const Products = () => {
                 )}
               </label>
               <div className="flex overflow-x-auto custom-scrollbar space-x-2 py-1">
-                    {(step1Data.images ?? []).map((img, idx) => (
-                  <div key={idx} className="relative w-20 h-20 flex-shrink-0 rounded-md overflow-hidden group">
-                    <ImageWithSkeleton
-                      src={img}
-                      alt={`Product ${idx + 1}`}
-                      className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
-                      placeholder="/placeholder.png"
-                    />
-                    <button
-                      type="button"
-                      className="absolute top-1 right-1 bg-white bg-opacity-80 rounded-full p-1 text-red-600 hover:text-red-800 shadow"
-                      onClick={() => handleRemoveImage(idx)}
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                ))}
+                    {(step1Data.images ?? []).map((img, idx) => {
+                      // Handle both File objects and existing URLs
+                      let imageSrc: string;
+                      if (img instanceof File) {
+                        imageSrc = URL.createObjectURL(img);
+                      } else if (typeof img === 'string') {
+                        imageSrc = img;
+                      } else {
+                        console.warn('Invalid image object:', img);
+                        imageSrc = '/placeholder.png';
+                      }
+                      
+                      return (
+                        <div key={idx} className="relative w-20 h-20 flex-shrink-0 rounded-md overflow-hidden group">
+                          <ImageWithSkeleton
+                            src={imageSrc}
+                            alt={`Product ${idx + 1}`}
+                            className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
+                            placeholder="/placeholder.png"
+                          />
+                          <button
+                            type="button"
+                            className="absolute top-1 right-1 bg-white bg-opacity-80 rounded-full p-1 text-red-600 hover:text-red-800 shadow"
+                            onClick={() => handleRemoveImage(idx)}
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      );
+                    })}
               </div>
             </div>
             <p className="mt-1 text-sm text-gray-500">{t('products.form.step1.imageHelp')}</p>
@@ -1986,26 +2079,39 @@ const Products = () => {
                 {/* Current Images Display */}
                 {step1Data.images.length > 0 && (
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                    {step1Data.images.map((image, idx) => (
-                      <div key={idx} className="relative group">
-                        <div className="aspect-square rounded-lg overflow-hidden border border-gray-200">
-                          <ImageWithSkeleton
-                            src={image.startsWith('data:') ? image : `data:image/jpeg;base64,${image}`}
-                            alt={`Product image ${idx + 1}`}
-                            className="w-full h-full object-cover"
-                            placeholder="Loading image..."
-                          />
+                    {step1Data.images.map((image, idx) => {
+                      // Handle both File objects and existing URLs
+                      let imageSrc: string;
+                      if (image instanceof File) {
+                        imageSrc = URL.createObjectURL(image);
+                      } else if (typeof image === 'string') {
+                        imageSrc = image;
+                      } else {
+                        console.warn('Invalid image object:', image);
+                        imageSrc = '/placeholder.png';
+                      }
+                      
+                      return (
+                        <div key={idx} className="relative group">
+                          <div className="aspect-square rounded-lg overflow-hidden border border-gray-200">
+                            <ImageWithSkeleton
+                              src={imageSrc}
+                              alt={`Product image ${idx + 1}`}
+                              className="w-full h-full object-cover"
+                              placeholder="Loading image..."
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveImage(idx)}
+                            className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                            title={t('products.actions.removeImage')}
+                          >
+                            <Trash2 size={12} />
+                          </button>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveImage(idx)}
-                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
-                          title={t('products.actions.removeImage')}
-                        >
-                          <Trash2 size={12} />
-                        </button>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
 
@@ -2834,23 +2940,36 @@ const Products = () => {
                   )}
                 </label>
                 <div className="flex overflow-x-auto custom-scrollbar space-x-2 py-1">
-                  {(step1Data.images ?? []).map((img, idx) => (
-                    <div key={idx} className="relative w-20 h-20 flex-shrink-0 rounded-md overflow-hidden group">
-                      <ImageWithSkeleton
-                        src={img}
-                        alt={`Product ${idx + 1}`}
-                        className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
-                        placeholder="/placeholder.png"
-                      />
-                      <button
-                        type="button"
-                        className="absolute top-1 right-1 bg-white bg-opacity-80 rounded-full p-1 text-red-600 hover:text-red-800 shadow"
-                        onClick={() => handleRemoveImage(idx)}
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  ))}
+                  {(step1Data.images ?? []).map((img, idx) => {
+                    // Handle both File objects and existing URLs
+                    let imageSrc: string;
+                    if (img instanceof File) {
+                      imageSrc = URL.createObjectURL(img);
+                    } else if (typeof img === 'string') {
+                      imageSrc = img;
+                    } else {
+                      console.warn('Invalid image object:', img);
+                      imageSrc = '/placeholder.png';
+                    }
+                    
+                    return (
+                      <div key={idx} className="relative w-20 h-20 flex-shrink-0 rounded-md overflow-hidden group">
+                        <ImageWithSkeleton
+                          src={imageSrc}
+                          alt={`Product ${idx + 1}`}
+                          className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
+                          placeholder="/placeholder.png"
+                        />
+                        <button
+                          type="button"
+                          className="absolute top-1 right-1 bg-white bg-opacity-80 rounded-full p-1 text-red-600 hover:text-red-800 shadow"
+                          onClick={() => handleRemoveImage(idx)}
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
               <p className="mt-1 text-sm text-gray-500">{t('products.form.imageHelp', 'Add clear images to help identify this product. You can upload multiple images.')}</p>

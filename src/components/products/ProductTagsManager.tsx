@@ -232,7 +232,7 @@ const ProductTagsManager: React.FC<ProductTagsManagerProps> = ({ tags = [], onTa
                 <div key={index} className="text-center">
                   <div className="relative w-16 h-16 mx-auto mb-2 rounded-lg overflow-hidden border-2 border-gray-300">
                     <img
-                      src={image.startsWith('data:') ? image : `data:image/jpeg;base64,${image}`}
+                      src={image}
                       alt={`Image ${index + 1}`}
                       className="w-full h-full object-cover"
                     />
@@ -311,7 +311,7 @@ const ProductTagsManager: React.FC<ProductTagsManagerProps> = ({ tags = [], onTa
                           title={`Image ${index + 1} - ${variation.name}`}
                         >
                           <img
-                            src={image.startsWith('data:') ? image : `data:image/jpeg;base64,${image}`}
+                            src={image}
                             alt={`Image ${index + 1}`}
                             className="w-full h-full object-cover"
                           />

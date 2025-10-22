@@ -25,6 +25,7 @@ import {
 import PhoneInput from '../components/common/PhoneInput';
 import { ImageWithSkeleton } from '../components/common/ImageWithSkeleton';
 import SaveStatusIndicator from '../components/checkout/SaveStatusIndicator';
+import AmountTooLowModal from '../components/common/AmountTooLowModal';
 import { toast } from 'react-hot-toast';
 import type { Order, CustomerInfo, PaymentMethodType } from '../types/order';
 import type { CheckoutSettings } from '../types/checkoutSettings';
@@ -122,7 +123,8 @@ const SingleCheckout: React.FC = () => {
     name: '',
     phone: '',
     location: '',
-    deliveryInstructions: ''
+    deliveryInstructions: '',
+    country: 'Cameroon'
   });
   const [email, setEmail] = useState('');
   const [emailNewsletter, setEmailNewsletter] = useState(true);
@@ -145,6 +147,10 @@ const SingleCheckout: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [orderCreated, setOrderCreated] = useState(false);
   const [createdOrder, setCreatedOrder] = useState<Order | null>(null);
+  
+  // Amount too low modal state
+  const [showAmountTooLowModal, setShowAmountTooLowModal] = useState(false);
+  const [minimumAmount, setMinimumAmount] = useState(100); // Default minimum
   const [errors, setErrors] = useState<Partial<CustomerInfo>>({});
 
   // Load companyData and settings data
@@ -346,8 +352,8 @@ const SingleCheckout: React.FC = () => {
       }
       
       // Validate last name field only if it's enabled
-      if (checkoutSettings.showLastName && !customerInfo.name.trim()) {
-        newErrors.name = 'Last name is required';
+      if (checkoutSettings.showLastName && !customerInfo.surname?.trim()) {
+        newErrors.surname = 'Last name is required';
       }
       
       // Validate city field only if it's enabled
@@ -358,10 +364,10 @@ const SingleCheckout: React.FC = () => {
 
     // Validate payment-specific fields only if payment section is enabled
     if (checkoutSettings?.showPaymentSection && selectedPaymentOption) {
-      if (selectedPaymentOption === 'mtn_money' && !paymentFormData.mtnNumber.trim()) {
+      if (selectedPaymentOption === 'mtn_money' && !customerInfo.phone.trim()) {
         newErrors.phone = 'MTN Mobile Money number is required';
       }
-      if (selectedPaymentOption === 'orange_money' && !paymentFormData.orangeNumber.trim()) {
+      if (selectedPaymentOption === 'orange_money' && !customerInfo.phone.trim()) {
         newErrors.phone = 'Orange Mobile Money number is required';
       }
       if (selectedPaymentOption === 'visa_card') {
@@ -426,12 +432,12 @@ const SingleCheckout: React.FC = () => {
 
     // Validate payment form data based on selected method and checkout settings
     if (checkoutSettings?.showPaymentSection) {
-      if (selectedPaymentOption === 'mtn_money' && !paymentFormData.mtnNumber.trim()) {
+      if (selectedPaymentOption === 'mtn_money' && !customerInfo.phone.trim()) {
         toast.error('Please enter your MTN Mobile Money number');
         return;
       }
 
-      if (selectedPaymentOption === 'orange_money' && !paymentFormData.orangeNumber.trim()) {
+      if (selectedPaymentOption === 'orange_money' && !customerInfo.phone.trim()) {
         toast.error('Please enter your Orange Money number');
         return;
       }
@@ -508,7 +514,23 @@ const SingleCheckout: React.FC = () => {
             },
             onError: (error) => {
               console.error('CinetPay payment error:', error);
-              toast.error(`Payment failed: ${error.message}`);
+              
+              // Check if it's an amount too low error
+              if (error.code === 'UNKNOWN_ERROR' && error.message === 'ERROR_AMOUNT_TOO_LOW') {
+                // Try to extract minimum amount from error details
+                if (error.details && typeof error.details === 'object') {
+                  const details = error.details as Record<string, unknown>;
+                  if (details.description && typeof details.description === 'string') {
+                    const match = details.description.match(/(\d+)\s*XAF/);
+                    if (match) {
+                      setMinimumAmount(parseInt(match[1]));
+                    }
+                  }
+                }
+                setShowAmountTooLowModal(true);
+              } else {
+                toast.error(`Payment failed: ${error.message}`);
+              }
             },
             onClose: () => {
               console.log('CinetPay payment popup closed');
@@ -634,6 +656,17 @@ const SingleCheckout: React.FC = () => {
   const subtotal = getCartTotal();
   const deliveryFee = sellerSettings?.deliveryFee || 0;
   const finalTotal = subtotal + deliveryFee;
+
+  // Scroll to cart function
+  const scrollToCart = () => {
+    const cartElement = document.getElementById('cart-section');
+    if (cartElement) {
+      cartElement.scrollIntoView({ behavior: 'smooth' });
+    } else {
+      // If cart section is not visible, redirect to catalogue
+      navigate('/catalogue');
+    }
+  };
 
   // If cart is empty, redirect to catalogue
   if (cart.length === 0) {
@@ -787,12 +820,11 @@ const SingleCheckout: React.FC = () => {
                           </label>
                           <input
                             type="text"
-                            value={customerInfo.name.split(' ')[0] || ''}
+                            value={customerInfo.name}
                             onChange={(e) => {
-                              const lastName = customerInfo.name.split(' ').slice(1).join(' ');
                               setCustomerInfo(prev => ({ 
                                 ...prev, 
-                                name: `${e.target.value} ${lastName}`.trim() 
+                                name: e.target.value 
                               }));
                             }}
                             className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
@@ -809,16 +841,15 @@ const SingleCheckout: React.FC = () => {
                           </label>
                           <input
                             type="text"
-                            value={customerInfo.name.split(' ').slice(1).join(' ') || ''}
+                            value={customerInfo.surname || ''}
                             onChange={(e) => {
-                              const firstName = customerInfo.name.split(' ')[0];
                               setCustomerInfo(prev => ({ 
                                 ...prev, 
-                                name: `${firstName} ${e.target.value}`.trim() 
+                                surname: e.target.value 
                               }));
                             }}
                             className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
-                              errors.name ? 'border-red-500' : 'border-gray-300'
+                              errors.surname ? 'border-red-500' : 'border-gray-300'
                             }`}
                             placeholder="Last name"
                           />
@@ -1262,7 +1293,7 @@ const SingleCheckout: React.FC = () => {
 
           {/* Right Column - Order Summary */}
           {checkoutSettings?.showOrderSummary && (
-            <div className="lg:sticky lg:top-8">
+            <div className="lg:sticky lg:top-8" id="cart-section">
               <div className="bg-white rounded-lg shadow-sm border p-6">
                 <h3 className="text-lg font-semibold mb-6" style={{color: getCompanyColors().primary}}>{t('checkout.orderSummary')}</h3>
               
@@ -1451,6 +1482,16 @@ const SingleCheckout: React.FC = () => {
           )}
         </div>
       </div>
+      
+      {/* Amount Too Low Modal */}
+      <AmountTooLowModal
+        isOpen={showAmountTooLowModal}
+        onClose={() => setShowAmountTooLowModal(false)}
+        currentAmount={getCartTotal()}
+        minimumAmount={minimumAmount}
+        currency="XAF"
+        onAddMoreItems={scrollToCart}
+      />
     </div>
   );
 };
