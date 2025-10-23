@@ -1,5 +1,5 @@
-import { useState, FormEvent } from 'react';
-import { Link, useNavigate, Navigate } from 'react-router-dom';
+import { useState, FormEvent, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
@@ -19,14 +19,18 @@ const Register = () => {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   
-  const { currentUser, loading } = useAuth();
+  const { currentUser, loading, signOut } = useAuth();
   const navigate = useNavigate();
+
+  // Déconnecter automatiquement l'utilisateur s'il est déjà connecté
+  useEffect(() => {
+    if (currentUser && !loading) {
+      signOut();
+    }
+  }, [currentUser, loading, signOut]);
 
   if (loading) {
     return <LoadingScreen />;
-  }
-  if (currentUser) {
-    return <Navigate to="/" replace />;
   }
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {

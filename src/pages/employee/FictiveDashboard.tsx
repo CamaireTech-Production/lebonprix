@@ -3,11 +3,16 @@ import { useNavigate } from 'react-router-dom';
 import { TrendingUp, Users, Package, DollarSign, X, Building2, User } from 'lucide-react';
 import Card from '../../components/common/Card';
 import Button from '../../components/common/Button';
+import CompanySelectionModal from '../../components/employee/CompanySelectionModal';
+import { verifyUserCompany } from '../../services/companyVerificationService';
+import { useAuth } from '../../contexts/AuthContext';
 import FICTIVE_DATA from '../../utils/fictiveData';
 
 export default function FictiveDashboard() {
   const [showBanner, setShowBanner] = useState(true);
+  const [showCompanyModal, setShowCompanyModal] = useState(false);
   const navigate = useNavigate();
+  const { currentUser } = useAuth();
 
   // Vérifier si la bannière a été fermée (localStorage)
   useEffect(() => {
@@ -23,13 +28,29 @@ export default function FictiveDashboard() {
   };
 
   const handleChooseCompany = () => {
-    // TODO: Ouvrir le modal de sélection de company
-    console.log('Ouvrir modal de sélection de company');
+    // Ouvrir le modal de sélection de company
+    setShowCompanyModal(true);
   };
 
-  const handleContinueAsCompany = () => {
-    // TODO: Vérifier si l'utilisateur a une company et rediriger
-    navigate('/company/create');
+  const handleContinueAsCompany = async () => {
+    // Vérifier si l'utilisateur est owner d'une company
+    if (!currentUser) return;
+    
+    try {
+      const result = await verifyUserCompany(currentUser.uid);
+      
+      if (result.hasCompany && result.companyId) {
+        // A une company → Redirection vers dashboard
+        navigate(`/company/${result.companyId}/dashboard`);
+      } else {
+        // N'a pas de company → Redirection vers création
+        navigate('/company/create');
+      }
+    } catch (error) {
+      console.error('Erreur lors de la vérification company:', error);
+      // En cas d'erreur, rediriger vers création
+      navigate('/company/create');
+    }
   };
 
   return (
@@ -280,6 +301,12 @@ export default function FictiveDashboard() {
           </Card>
         </div>
       </div>
+
+      {/* Company Selection Modal */}
+      <CompanySelectionModal
+        isOpen={showCompanyModal}
+        onClose={() => setShowCompanyModal(false)}
+      />
     </div>
   );
 }

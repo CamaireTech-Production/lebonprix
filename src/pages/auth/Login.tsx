@@ -21,9 +21,6 @@ const Login = () => {
   if (loading) {
     return <LoadingScreen />;
   }
-  if (currentUser) {
-    return <Navigate to="/" replace />;
-  }
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();

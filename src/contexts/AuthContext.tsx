@@ -163,13 +163,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         await updateUserLastLogin(userId);
         
         // 2. NE PAS charger automatiquement une entreprise
-        // Laisser l'utilisateur la sélectionner dans CompaniesManagement
+        // Laisser l'utilisateur la sélectionner via ModeSelectionModal
         if (userData.companies && userData.companies.length > 0) {
-          console.log(`📺 Dashboard Netflix: ${userData.companies.length} entreprises disponibles`);
-          // L'utilisateur sera redirigé vers / (CompaniesManagement)
+          console.log(`📺 Dashboard : ${userData.companies.length} entreprises disponibles`);
+          // ✅ NE PAS rediriger automatiquement - laisser le ModeSelectionModal gérer
         } else {
           console.log('📺 Dashboard vide: Aucune entreprise trouvée');
-          // L'utilisateur sera redirigé vers / (CompaniesManagement) avec bouton "Créer entreprise"
+          // ✅ NE PAS rediriger automatiquement - laisser le ModeSelectionModal gérer
         }
       } else {
         console.log('⚠️ Utilisateur non trouvé dans le système unifié');

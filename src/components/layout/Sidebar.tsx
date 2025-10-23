@@ -25,7 +25,7 @@ const Sidebar = ({ onClose }: SidebarProps) => {
   const navigationItems = [
     // Bouton retour aux entreprises (seulement dans les routes d'entreprise)
     ...(isCompanyRoute ? [
-      { name: 'Mes Entreprises', path: '/', icon: <Building2 size={20} />, allowedRoles: ['vendeur', 'gestionnaire', 'magasinier', 'owner'] }
+      { name: 'Mes Entreprises', path: '/employee/dashboard', icon: <Building2 size={20} />, allowedRoles: ['vendeur', 'gestionnaire', 'magasinier', 'owner'] }
     ] : []),
     { name: t('navigation.dashboard'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/dashboard` : '/', icon: <LayoutDashboard size={20} />, allowedRoles: ['vendeur', 'gestionnaire', 'magasinier', 'owner'] },
     { name: t('navigation.sales'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/sales` : '/sales', icon: <ShoppingCart size={20} />, allowedRoles: ['vendeur', 'gestionnaire', 'magasinier', 'owner'] },

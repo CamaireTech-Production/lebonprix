@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building2, User, ArrowRight, Plus } from 'lucide-react';
+import { Building2, ArrowRight, Plus } from 'lucide-react';
 import Button from '../common/Button';
 import { useAuth } from '../../contexts/AuthContext';
+import { NavigationService } from '../../services/navigationService';
 
 interface CompanySelectionModalProps {
   isOpen: boolean;
@@ -21,26 +22,45 @@ interface UserCompany {
 export default function CompanySelectionModal({ isOpen, onClose }: CompanySelectionModalProps) {
   const [companies, setCompanies] = useState<UserCompany[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasOwnerCompany, setHasOwnerCompany] = useState<boolean | null>(null);
+  const [isCheckingOwnerStatus, setIsCheckingOwnerStatus] = useState(false);
   const navigate = useNavigate();
   const { currentUser } = useAuth();
 
   useEffect(() => {
     if (isOpen && currentUser) {
       loadUserCompanies();
+      checkOwnerStatus();
     }
   }, [isOpen, currentUser]);
 
   const loadUserCompanies = async () => {
     setIsLoading(true);
     try {
-      // Simuler le chargement des companies de l'utilisateur
-      // En réalité, cela viendrait de l'AuthContext ou d'un service
-      const userCompanies = currentUser?.companies || [];
+      // Récupérer les companies de l'utilisateur depuis AuthContext
+      const userCompanies = (currentUser as any)?.companies || [];
       setCompanies(userCompanies);
     } catch (error) {
       console.error('Erreur lors du chargement des companies:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const checkOwnerStatus = async () => {
+    if (!currentUser?.uid) return;
+    
+    setIsCheckingOwnerStatus(true);
+    try {
+      const result = await NavigationService.handleCompanyMode(currentUser.uid);
+      // Si la redirection est vers un dashboard (pas /create), l'utilisateur a une company owner
+      const isOwner = result.success && result.redirectPath.includes('/company/') && !result.redirectPath.includes('/create');
+      setHasOwnerCompany(isOwner);
+    } catch (error) {
+      console.error('Erreur lors de la vérification du statut owner:', error);
+      setHasOwnerCompany(false);
+    } finally {
+      setIsCheckingOwnerStatus(false);
     }
   };
 
@@ -50,10 +70,18 @@ export default function CompanySelectionModal({ isOpen, onClose }: CompanySelect
     onClose();
   };
 
-  const handleContinueAsCompany = () => {
-    // Redirection vers la création de company
-    navigate('/company/create');
-    onClose();
+  const handleContinueAsCompany = async () => {
+    // Utiliser NavigationService pour une redirection cohérente
+    try {
+      const result = await NavigationService.handleCompanyMode(currentUser?.uid || '');
+      navigate(result.redirectPath);
+      onClose();
+    } catch (error) {
+      console.error('Erreur lors de la redirection company:', error);
+      // Fallback vers création
+      navigate('/company/create');
+      onClose();
+    }
   };
 
   const getRoleBadgeColor = (role: string) => {
@@ -128,15 +156,11 @@ export default function CompanySelectionModal({ isOpen, onClose }: CompanySelect
                 <Building2 className="h-8 w-8 text-gray-400" />
               </div>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                Aucune entreprise trouvée
+                Vous n'avez pas encore de company
               </h3>
               <p className="text-gray-600 mb-6">
-                Vous n'êtes employé d'aucune entreprise pour le moment.
+                Vous n'êtes employé d'aucune entreprise pour le moment. Créez votre première entreprise pour commencer.
               </p>
-              <Button onClick={handleContinueAsCompany} className="flex items-center mx-auto">
-                <Plus className="h-4 w-4 mr-2" />
-                Continuer en tant que companie
-              </Button>
             </div>
           ) : (
             // Liste des companies
@@ -187,21 +211,34 @@ export default function CompanySelectionModal({ isOpen, onClose }: CompanySelect
                 </div>
               ))}
 
-              {/* Action pour créer une company */}
+              {/* Bouton conditionnel selon le statut owner */}
               <div className="mt-6 pt-6 border-t border-gray-200">
-                <div className="text-center">
-                  <p className="text-gray-600 mb-4">
-                    Vous ne trouvez pas votre entreprise ?
-                  </p>
-                  <Button
-                    variant="outline"
-                    onClick={handleContinueAsCompany}
-                    className="flex items-center mx-auto"
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Créer une nouvelle companie
-                  </Button>
-                </div>
+                {isCheckingOwnerStatus ? (
+                  <div className="text-center py-4">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600 mx-auto mb-2"></div>
+                    <p className="text-sm text-gray-600">Vérification de vos entreprises...</p>
+                  </div>
+                ) : hasOwnerCompany ? (
+                  <div className="text-center">
+                    <Button 
+                      onClick={handleContinueAsCompany} 
+                      className="w-full flex items-center justify-center"
+                    >
+                      <Building2 className="h-4 w-4 mr-2" />
+                      Accéder à mon entreprise
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="text-center">
+                    <Button 
+                      onClick={handleContinueAsCompany} 
+                      className="w-full flex items-center justify-center"
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Créer mon entreprise
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
           )}

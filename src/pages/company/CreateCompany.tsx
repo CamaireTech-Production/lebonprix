@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../../config/firebase';
-import { Company } from '../../types/models';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db, storage } from '../../services/firebase';
 import Card from '../../components/common/Card';
 import Button from '../../components/common/Button';
 import { Building2, Upload, ArrowLeft } from 'lucide-react';
@@ -28,6 +28,9 @@ export default function CreateCompany() {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Partial<CompanyFormData>>({});
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const navigate = useNavigate();
   const { currentUser } = useAuth();
 
@@ -79,14 +82,21 @@ export default function CreateCompany() {
 
     if (!currentUser) {
       console.error('Utilisateur non connecté');
+      setError('Vous devez être connecté pour créer une company');
+      return;
+    }
+
+    if (isUploadingLogo) {
+      setError('Veuillez attendre la fin de l\'upload du logo');
       return;
     }
 
     setIsLoading(true);
+    setError(''); // Clear previous errors
 
     try {
       // 1. Créer la company dans Firestore
-      const companyData: Omit<Company, 'id'> = {
+      const companyData = {
         name: formData.name.trim(),
         description: formData.description.trim(),
         phone: formData.phone.trim(),
@@ -94,36 +104,93 @@ export default function CreateCompany() {
         location: formData.location.trim(),
         logo: formData.logo || '',
         companyId: currentUser.uid, // L'utilisateur devient le owner
-        role: 'Companie',
+        role: 'Companie' as const,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       };
 
+      console.log('Création de la company avec les données:', companyData);
       const companyRef = await addDoc(collection(db, 'companies'), companyData);
       const companyId = companyRef.id;
 
-      // 2. Mettre à jour l'utilisateur avec la nouvelle company
-      // Cette partie sera gérée par le service employeeRefService
-      // Pour l'instant, on redirige vers le dashboard
+      console.log('✅ Company créée avec succès:', companyId);
 
-      console.log('Company créée avec succès:', companyId);
+      // 2. Ajouter le créateur comme employé avec role='owner'
+      const { addUserToCompany } = await import('../../services/userCompanySyncService');
       
-      // 3. Redirection vers le dashboard de la company
-      navigate(`/company/${companyId}/dashboard`);
+      await addUserToCompany(
+        currentUser.uid,
+        companyId,
+        {
+          name: formData.name.trim(),
+          description: formData.description.trim(),
+          logo: formData.logo
+        },
+        {
+          firstname: (currentUser as any).firstname || currentUser.displayName?.split(' ')[0] || 'User',
+          lastname: (currentUser as any).lastname || currentUser.displayName?.split(' ')[1] || '',
+          email: currentUser.email || ''
+        },
+        'owner'
+      );
+
+      console.log('✅ Utilisateur ajouté comme owner');
+      setSuccess(true);
+      
+      // 3. Redirection vers le dashboard de la company après un court délai
+      setTimeout(() => {
+        navigate(`/company/${companyId}/dashboard`);
+      }, 1500);
       
     } catch (error) {
       console.error('Erreur lors de la création de la company:', error);
-      // TODO: Afficher un message d'erreur à l'utilisateur
+      setError('Erreur lors de la création de la company. Veuillez réessayer.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      // TODO: Implémenter l'upload d'image
-      console.log('Logo sélectionné:', file.name);
+    if (!file) return;
+
+    // Vérifier le type de fichier
+    if (!file.type.startsWith('image/')) {
+      setError('Veuillez sélectionner un fichier image valide');
+      return;
+    }
+
+    // Vérifier la taille (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setError('L\'image ne doit pas dépasser 5MB');
+      return;
+    }
+
+    setIsUploadingLogo(true);
+    setError('');
+
+    try {
+      // Créer une référence unique pour l'image
+      const logoRef = ref(storage, `company-logos/${currentUser?.uid}/${Date.now()}-${file.name}`);
+      
+      // Uploader le fichier
+      const snapshot = await uploadBytes(logoRef, file);
+      
+      // Obtenir l'URL de téléchargement
+      const downloadURL = await getDownloadURL(snapshot.ref);
+      
+      // Mettre à jour le formulaire avec l'URL
+      setFormData(prev => ({
+        ...prev,
+        logo: downloadURL
+      }));
+
+      console.log('Logo uploadé avec succès:', downloadURL);
+    } catch (error) {
+      console.error('Erreur lors de l\'upload du logo:', error);
+      setError('Erreur lors de l\'upload de l\'image. Veuillez réessayer.');
+    } finally {
+      setIsUploadingLogo(false);
     }
   };
 
@@ -155,11 +222,48 @@ export default function CreateCompany() {
       {/* Form */}
       <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Card className="p-8">
-          <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Success Message */}
+          {success && (
+            <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <p className="text-sm text-green-800">Company créée avec succès ! Redirection en cours...</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Error Message */}
+          {error && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <p className="text-sm text-red-800">{error}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-6" style={{ opacity: success ? 0.6 : 1 }}>
             {/* Logo Upload */}
             <div className="text-center">
-              <div className="mx-auto w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                {formData.logo ? (
+              <div className="mx-auto w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-4 relative">
+                {isUploadingLogo ? (
+                  <div className="flex flex-col items-center">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600"></div>
+                    <span className="text-xs text-gray-500 mt-1">Upload...</span>
+                  </div>
+                ) : formData.logo ? (
                   <img 
                     src={formData.logo} 
                     alt="Logo" 
@@ -169,18 +273,39 @@ export default function CreateCompany() {
                   <Building2 className="h-8 w-8 text-gray-400" />
                 )}
               </div>
-              <label className="cursor-pointer">
-                <input
+              <input
                   type="file"
                   accept="image/*"
                   onChange={handleLogoUpload}
                   className="hidden"
+                  id="logo-upload"
+                  disabled={isUploadingLogo}
                 />
-                <Button variant="outline" type="button" className="flex items-center mx-auto">
-                  <Upload className="h-4 w-4 mr-2" />
-                  Ajouter un logo
-                </Button>
-              </label>
+                <label 
+                  htmlFor="logo-upload" 
+                  className={`cursor-pointer inline-block ${isUploadingLogo ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  aria-label="Sélectionner un logo"
+                >
+                  <div className={`flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md transition-colors ${
+                    isUploadingLogo 
+                      ? 'opacity-50 cursor-not-allowed bg-gray-100' 
+                      : 'hover:bg-gray-50'
+                  }`}>
+                    <Upload className="h-4 w-4 mr-2" />
+                    {isUploadingLogo ? 'Upload en cours...' : formData.logo ? 'Changer le logo' : 'Ajouter un logo'}
+                  </div>
+                </label>
+
+              {formData.logo && (
+                <button
+                  type="button"
+                  onClick={() => setFormData(prev => ({ ...prev, logo: '' }))}
+                  className="mt-2 text-sm text-red-600 hover:text-red-800"
+                  disabled={isUploadingLogo}
+                >
+                  Supprimer le logo
+                </button>
+              )}
             </div>
 
             {/* Company Name */}
@@ -291,10 +416,10 @@ export default function CreateCompany() {
               </Button>
               <Button
                 type="submit"
-                disabled={isLoading}
+                disabled={isLoading || success || isUploadingLogo}
                 className="min-w-[120px]"
               >
-                {isLoading ? 'Création...' : 'Créer la companie'}
+                {isUploadingLogo ? 'Upload en cours...' : isLoading ? 'Création...' : success ? 'Créée !' : 'Créer la companie'}
               </Button>
             </div>
           </form>

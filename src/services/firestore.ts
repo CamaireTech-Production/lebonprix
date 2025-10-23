@@ -438,12 +438,35 @@ export const createProduct = async (
   try {
     console.log('Creating product with data:', data, 'supplierInfo:', supplierInfo);
     
+    // Nettoyer les données pour supprimer les valeurs undefined
+    const cleanProductData = (productData: any) => {
+      const cleaned = { ...productData };
+      
+      // Supprimer les champs undefined
+      Object.keys(cleaned).forEach(key => {
+        if (cleaned[key] === undefined) {
+          delete cleaned[key];
+        }
+      });
+      
+      // Traitement spécial pour les arrays
+      if (cleaned.tags === undefined) {
+        cleaned.tags = [];
+      }
+      
+      return cleaned;
+    };
+    
+    // Nettoyer les données avant validation
+    const cleanedData = cleanProductData(data);
+    console.log('Cleaned product data:', cleanedData);
+    
   // Validate product data
   if (
-    !data.name ||
-    data.sellingPrice < 0 ||
-    data.stock < 0 ||
-    !data.category
+    !cleanedData.name ||
+    cleanedData.sellingPrice < 0 ||
+    cleanedData.stock < 0 ||
+    !cleanedData.category
   ) {
     throw new Error('Invalid product data');
   }
@@ -452,11 +475,11 @@ export const createProduct = async (
   
   // Set default inventory settings
   const productData = {
-    ...data,
+    ...cleanedData,
     userId,
     isAvailable: true,
-    inventoryMethod: (data as any).inventoryMethod || 'FIFO',
-    enableBatchTracking: (data as any).enableBatchTracking !== false, // Default to true
+    inventoryMethod: (cleanedData as any).inventoryMethod || 'FIFO',
+    enableBatchTracking: (cleanedData as any).enableBatchTracking !== false, // Default to true
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   };
@@ -466,10 +489,10 @@ export const createProduct = async (
   batch.set(productRef, productData);
   
   // Add initial stock change and create stock batch if stock > 0
-  if (data.stock > 0) {
+  if (cleanedData.stock > 0) {
     // Create stock batch if cost price is provided
     console.log('Creating product with supplierInfo:', supplierInfo);
-    console.log('Product data enableBatchTracking:', (data as any).enableBatchTracking);
+    console.log('Product data enableBatchTracking:', (cleanedData as any).enableBatchTracking);
     
     // Always create batch if cost price is provided (enableBatchTracking defaults to true)
     if (supplierInfo?.costPrice) {
@@ -477,14 +500,14 @@ export const createProduct = async (
       const stockBatchData = {
         id: stockBatchRef.id,
         productId: productRef.id,
-        quantity: data.stock,
+        quantity: cleanedData.stock,
         costPrice: supplierInfo.costPrice,
         ...(supplierInfo.supplierId && { supplierId: supplierInfo.supplierId }),
         ...(supplierInfo.isOwnPurchase !== undefined && { isOwnPurchase: supplierInfo.isOwnPurchase }),
         ...(supplierInfo.isCredit !== undefined && { isCredit: supplierInfo.isCredit }),
         createdAt: serverTimestamp(),
         userId,
-        remainingQuantity: data.stock,
+        remainingQuantity: cleanedData.stock,
         status: 'active'
       };
       batch.set(stockBatchRef, stockBatchData);
@@ -493,7 +516,7 @@ export const createProduct = async (
       createStockChange(
         batch,
         productRef.id,
-        data.stock,
+        cleanedData.stock,
         'creation',
         userId,
         supplierInfo.supplierId,

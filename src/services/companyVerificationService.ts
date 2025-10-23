@@ -1,4 +1,4 @@
-import { db } from '../config/firebase';
+import { db } from './firebase';
 import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import { Company } from '../types/models';
 
@@ -14,32 +14,44 @@ export interface CompanyVerificationResult {
  */
 export async function verifyUserCompany(userId: string): Promise<CompanyVerificationResult> {
   try {
+    console.log('🔍 Vérification company pour userId:', userId);
+    
     // 1. Récupérer toutes les companies où l'utilisateur est owner
+    // Le champ 'companyId' dans le document company contient l'ID de l'utilisateur owner
     const companiesRef = collection(db, 'companies');
     const q = query(companiesRef, where('companyId', '==', userId));
+    console.log('📊 Requête Firestore pour userId:', userId);
+    
     const querySnapshot = await getDocs(q);
+    console.log('📋 Nombre de companies trouvées:', querySnapshot.size);
 
     if (querySnapshot.empty) {
+      console.log('❌ Aucune company trouvée pour cet utilisateur');
       return { hasCompany: false };
     }
 
     const companies: Company[] = [];
     querySnapshot.forEach((doc) => {
-      companies.push({
+      const companyData = {
         id: doc.id,
         ...doc.data()
-      } as Company);
+      } as Company;
+      companies.push(companyData);
+      console.log('🏢 Company trouvée:', companyData.name, 'ID:', doc.id);
     });
 
     // Retourner la première company trouvée
-    return {
+    const result = {
       hasCompany: true,
       companyId: companies[0].id,
       company: companies[0],
       companies: companies
     };
+    
+    console.log('✅ Résultat final:', result);
+    return result;
   } catch (error) {
-    console.error('Erreur lors de la vérification des companies:', error);
+    console.error('❌ Erreur lors de la vérification des companies:', error);
     throw new Error('Impossible de vérifier les companies de l\'utilisateur');
   }
 }
@@ -239,8 +251,73 @@ function checkActionPermission(action: string, permissions: any): boolean {
   return false;
 }
 
+/**
+ * Vérifie les companies où l'utilisateur a le rôle "owner" dans employeeRefs
+ * Cette fonction garantit que l'utilisateur a bien le rôle "owner" avant redirection
+ */
+export async function verifyUserOwnerCompanies(userId: string): Promise<CompanyVerificationResult> {
+  try {
+    console.log('🔍 Vérification des companies où l\'utilisateur est owner...');
+    
+    // 1. Récupérer toutes les companies où l'utilisateur est owner (companyId === userId)
+    const companiesRef = collection(db, 'companies');
+    const q = query(companiesRef, where('companyId', '==', userId));
+    const querySnapshot = await getDocs(q);
+    
+    if (querySnapshot.empty) {
+      console.log('❌ Aucune company trouvée pour cet utilisateur');
+      return { hasCompany: false };
+    }
+
+    const companies: Company[] = [];
+    
+    // 2. Vérifier le rôle dans employeeRefs pour chaque company
+    for (const companyDoc of querySnapshot.docs) {
+      const companyId = companyDoc.id;
+      
+      try {
+        const employeeRefDoc = await getDoc(doc(db, 'companies', companyId, 'employeeRefs', userId));
+        
+        if (employeeRefDoc.exists()) {
+          const employeeData = employeeRefDoc.data();
+          
+          // ✅ VÉRIFICATION CRITIQUE : Rôle doit être "owner"
+          if (employeeData.role === 'owner') {
+            const companyData = { id: companyDoc.id, ...companyDoc.data() } as Company;
+            companies.push(companyData);
+            console.log('✅ Company avec rôle owner trouvée:', companyData.name);
+          } else {
+            console.log('⚠️ Company trouvée mais rôle non-owner:', employeeData.role);
+          }
+        } else {
+          console.log('⚠️ EmployeeRef non trouvé pour company:', companyId);
+        }
+      } catch (error) {
+        console.error('❌ Erreur lors de la vérification du rôle pour company:', companyId, error);
+      }
+    }
+
+    if (companies.length === 0) {
+      console.log('❌ Aucune company avec rôle owner trouvée');
+      return { hasCompany: false };
+    }
+
+    console.log(`✅ ${companies.length} company(s) avec rôle owner trouvée(s)`);
+    return {
+      hasCompany: true,
+      companyId: companies[0].id,
+      company: companies[0],
+      companies: companies
+    };
+  } catch (error) {
+    console.error('❌ Erreur lors de la vérification des companies owner:', error);
+    throw new Error('Impossible de vérifier les companies owner de l\'utilisateur');
+  }
+}
+
 export default {
   verifyUserCompany,
+  verifyUserOwnerCompanies,
   verifyUserEmployeeStatus,
   getUserCompanies,
   checkUserPermissions

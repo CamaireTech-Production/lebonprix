@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import Button from '../components/common/Button';
 import { Building2, Users, BarChart3, Shield } from 'lucide-react';
+import NavigationTest from '../components/debug/NavigationTest';
 
 export default function LandingPage() {
   return (
@@ -20,7 +21,7 @@ export default function LandingPage() {
                 Se connecter
               </Button>
             </Link>
-            <Link to="/auth/signup">
+            <Link to="/auth/register">
               <Button size="sm">
                 S'inscrire
               </Button>
@@ -45,7 +46,7 @@ export default function LandingPage() {
             
             {/* CTA Buttons */}
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link to="/auth/signup">
+              <Link to="/auth/register">
                 <Button size="lg" className="w-full sm:w-auto">
                   Commencer gratuitement
                 </Button>
@@ -154,6 +155,9 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
+      
+      {/* Debug component - only in development */}
+      <NavigationTest />
     </div>
   );
 }

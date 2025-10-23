@@ -1,4 +1,4 @@
-import { verifyUserCompany } from './companyVerificationService';
+import { verifyUserCompany, verifyUserOwnerCompanies } from './companyVerificationService';
 
 export type NavigationMode = 'employee' | 'company';
 
@@ -55,9 +55,11 @@ export class NavigationService {
    */
   static async handleCompanyMode(userId: string): Promise<NavigationResult> {
     try {
-      const verification = await verifyUserCompany(userId);
+      // ✅ Utiliser la nouvelle fonction qui vérifie explicitement le rôle "owner"
+      const verification = await verifyUserOwnerCompanies(userId);
 
       if (verification.hasCompany && verification.companyId) {
+        console.log('✅ Company avec rôle owner trouvée, redirection vers dashboard');
         return {
           success: true,
           redirectPath: `/company/${verification.companyId}/dashboard`,
@@ -65,13 +67,14 @@ export class NavigationService {
         };
       }
 
+      console.log('❌ Aucune company avec rôle owner trouvée, redirection vers création');
       return {
         success: true,
         redirectPath: '/company/create',
         mode: 'company'
       };
     } catch (error) {
-      console.error('Erreur lors de la vérification company:', error);
+      console.error('❌ Erreur lors de la vérification company:', error);
       return {
         success: false,
         redirectPath: '/',

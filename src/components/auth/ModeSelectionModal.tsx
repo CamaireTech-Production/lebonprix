@@ -16,23 +16,36 @@ export default function ModeSelectionModal({ isOpen, onClose }: ModeSelectionMod
   const { currentUser } = useAuth();
 
   const handleModeSelect = async (mode: 'employee' | 'company') => {
-    if (!currentUser) return;
-
     setIsLoading(true);
     setSelectedMode(mode);
 
     try {
       if (mode === 'employee') {
-        // Redirection vers le dashboard fictif employé
+        // Fermer le modal immédiatement et rediriger vers dashboard employé
+        onClose();
         navigate('/employee/dashboard');
       } else {
-        // Mode company - vérifier si l'utilisateur a une company
-        // Pour l'instant, redirection vers création (sera amélioré avec le service)
-        navigate('/company/create');
+        // Mode company - utiliser le NavigationService pour éviter les conflits
+        const { NavigationService } = await import('../../services/navigationService');
+        
+        console.log('Navigation via NavigationService pour userId:', currentUser?.uid);
+        
+        const result = await NavigationService.handleCompanyMode(currentUser?.uid || '');
+        console.log('Résultat NavigationService:', result);
+        
+        onClose(); // Fermer le modal
+        
+        if (result.success) {
+          console.log('Redirection vers:', result.redirectPath);
+          navigate(result.redirectPath);
+        } else {
+          console.error('Erreur NavigationService:', result.error);
+          // Fallback vers création
+          navigate('/company/create');
+        }
       }
     } catch (error) {
       console.error('Erreur lors de la sélection du mode:', error);
-    } finally {
       setIsLoading(false);
     }
   };

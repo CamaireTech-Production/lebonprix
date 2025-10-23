@@ -282,6 +282,7 @@ export interface Company extends BaseModel {
   location?: string;
   email: string;
   companyId: string; // ID du propriétaire de l'entreprise
-  employees?: Record<string, CompanyEmployee>; // DEPRECATED - Lecture seule, utiliser employeeRefs
+  employees?: Record<string, CompanyEmployee>; // Mirroir de employeeRefs pour lecture rapide
+  employeeCount?: number; // Nombre total d'employés
   // Nouvelle architecture: employeeRefs via sous-collection companies/{id}/employeeRefs/{firebaseUid}
 }

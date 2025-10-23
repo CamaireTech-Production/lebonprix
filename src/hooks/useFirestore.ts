@@ -113,7 +113,29 @@ export const useProducts = () => {
   ) => {
     if (!user) throw new Error('User not authenticated');
     try {
-      await createProduct(productData, user.uid, supplierInfo);
+      // Nettoyer les données avant envoi pour éviter les erreurs Firestore
+      const cleanProductData = (data: any) => {
+        const cleaned = { ...data };
+        
+        // Supprimer les champs undefined
+        Object.keys(cleaned).forEach(key => {
+          if (cleaned[key] === undefined) {
+            delete cleaned[key];
+          }
+        });
+        
+        // Traitement spécial pour les arrays
+        if (cleaned.tags === undefined) {
+          cleaned.tags = [];
+        }
+        
+        return cleaned;
+      };
+      
+      const cleanedData = cleanProductData(productData);
+      console.log('🧹 Données nettoyées avant sauvegarde:', cleanedData);
+      
+      await createProduct(cleanedData, user.uid, supplierInfo);
       // Invalidate products cache when new product is added
       invalidateSpecificCache(user.uid, 'products');
       // Force sync to update localStorage

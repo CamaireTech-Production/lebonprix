@@ -33,7 +33,7 @@ const Navbar = ({ onMenuClick }: NavbarProps) => {
   const handleSignOut = async () => {
     try {
       await signOut();
-      navigate('/login');
+      navigate('/employee/dashboard');
     } catch (error) {
       console.error('Error signing out:', error);
     }
@@ -105,7 +105,7 @@ const Navbar = ({ onMenuClick }: NavbarProps) => {
               <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50">
                 <div className="py-1" role="menu" aria-orientation="vertical">
                   <Link
-                    to="/profile"
+                    to={`/company/${location.pathname.split('/')[2]}/profile`}
                     className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                     role="menuitem"
                     onClick={() => setIsDropdownOpen(false)}
@@ -114,7 +114,7 @@ const Navbar = ({ onMenuClick }: NavbarProps) => {
                     {t('navigation.profile')}
                   </Link>
                   <Link
-                    to="/settings"
+                    to={`/company/${location.pathname.split('/')[2]}/settings`}
                     className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                     role="menuitem"
                     onClick={() => setIsDropdownOpen(false)}
@@ -123,7 +123,7 @@ const Navbar = ({ onMenuClick }: NavbarProps) => {
                     {t('navigation.settings')}
                   </Link>
                   <Link
-                    to="/settings?tab=employees"
+                    to={`/company/${location.pathname.split('/')[2]}/settings?tab=employees`}
                     className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                     role="menuitem"
                     onClick={() => setIsDropdownOpen(false)}

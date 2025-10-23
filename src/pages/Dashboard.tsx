@@ -231,6 +231,14 @@ const Dashboard = () => {
 
   // Generate the company's catalogue page URL
   const productPageUrl = company ? `${window.location.origin}/catalogue/${encodeURIComponent(company.name.toLowerCase().replace(/\s+/g, '-'))}/${company.id}` : '';
+  
+  // Debug logs pour vérifier la génération du lien
+  if (company) {
+    console.log('🔗 Dashboard - Company ID:', company.id);
+    console.log('🔗 Dashboard - Company Name:', company.name);
+    console.log('🔗 Dashboard - Encoded Name:', encodeURIComponent(company.name.toLowerCase().replace(/\s+/g, '-')));
+    console.log('🔗 Dashboard - Generated URL:', productPageUrl);
+  }
 
   const handleCopyLink = async () => {
     try {

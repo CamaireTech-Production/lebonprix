@@ -15,9 +15,9 @@ const placeholderImg = '/placeholder.png';
 const Catalogue = () => {
   const { companyId } = useParams<{ companyName: string; companyId: string }>();
   const navigate = useNavigate();
-  useAuth();
+  const { company: authCompany } = useAuth();
   const { addToCart } = useCart();
-  const [company, setCompany] = useState<Company | null>(null);
+  const [company, setCompany] = useState<Company | null>(authCompany || null);
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -54,7 +54,7 @@ const Catalogue = () => {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
 
-  // Fetch company data
+  // Fetch company data - utiliser AuthContext si disponible
   useEffect(() => {
     const fetchCompany = async () => {
       if (!companyId) {
@@ -63,21 +63,60 @@ const Catalogue = () => {
         return;
       }
 
-      try {
-        setLoading(true);
-        setError(null);
-        const companyData = await getCompanyByUserId(companyId);
-        setCompany(companyData);
-      } catch (err) {
-        console.error('Error fetching company:', err);
-        setError('Company not found');
-      } finally {
+      console.log('🔍 Catalogue - CompanyId reçu:', companyId);
+      console.log('🔍 Catalogue - AuthCompany disponible:', authCompany?.id);
+
+      // Si on a déjà les données de l'AuthContext, les utiliser
+      if (authCompany && authCompany.id === companyId) {
+        console.log('✅ Utilisation des données AuthContext pour la company:', authCompany.name);
+        setCompany(authCompany);
         setLoading(false);
+        return;
       }
+
+      // Attendre un peu que MainLayout charge la company
+      console.log('⏳ Attente du chargement par MainLayout...');
+      const checkAuthCompany = () => {
+        if (authCompany && authCompany.id === companyId) {
+          console.log('✅ Company chargée par MainLayout:', authCompany.name);
+          setCompany(authCompany);
+          setLoading(false);
+          return true;
+        }
+        return false;
+      };
+
+      // Vérifier immédiatement
+      if (checkAuthCompany()) return;
+
+      // Attendre un peu et vérifier à nouveau
+      const timeout = setTimeout(() => {
+        if (!checkAuthCompany()) {
+          // Si MainLayout n'a pas chargé la company, charger depuis Firestore
+          console.log('🔄 Chargement company depuis Firestore (fallback):', companyId);
+          loadFromFirestore();
+        }
+      }, 1000);
+
+      const loadFromFirestore = async () => {
+        try {
+          setLoading(true);
+          setError(null);
+          const companyData = await getCompanyByUserId(companyId);
+          setCompany(companyData);
+        } catch (err) {
+          console.error('Error fetching company:', err);
+          setError('Company not found');
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      return () => clearTimeout(timeout);
     };
 
     fetchCompany();
-  }, [companyId]);
+  }, [companyId, authCompany]);
 
   // Subscribe to products with caching
   useEffect(() => {

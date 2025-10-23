@@ -10,6 +10,10 @@
  * Usage: node scripts/backup.js
  */
 
+import admin from "firebase-admin";
+
+
+
 const admin = require('firebase-admin');
 const fs = require('fs');
 const path = require('path');
