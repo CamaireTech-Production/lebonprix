@@ -5,6 +5,7 @@ import Sidebar from './Sidebar';
 import MobileNav from './MobileNav';
 import { FloatingActionButton } from '../common/Button';
 import AddSaleModal from '../sales/AddSaleModal';
+import LockedTabModal from '../modals/LockedTabModal';
 import { useAuth } from '../../contexts/AuthContext';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../services/firebase';
@@ -20,40 +21,39 @@ const MainLayout = ({ isAddSaleModalOpen, setIsAddSaleModalOpen }: MainLayoutPro
   const [isMobile, setIsMobile] = useState(false);
   const [isLoadingCompany, setIsLoadingCompany] = useState(false);
   const [companyError, setCompanyError] = useState<string | null>(null);
+  const [showLockedModal, setShowLockedModal] = useState(false);
   const location = useLocation();
   const { selectCompany } = useAuth();
 
   // Vérifier qu'une entreprise est sélectionnée pour les routes /company/:companyId/*
   const isCompanyRoute = location.pathname.startsWith('/company/');
-  const isCatalogueRoute = location.pathname.startsWith('/catalogue/');
   
-  // Extraire l'ID de la company depuis l'URL selon le type de route
+  // Vérifier si on est en mode sélection d'entreprise
+  const isCompanySelectionRoute = location.pathname.startsWith('/companies/me/');
+  
+  // Extraire l'ID de la company depuis l'URL pour les routes company uniquement
   let urlCompanyId: string | null = null;
   const pathSegments = location.pathname.split('/');
   
   console.log('🔍 URL complète:', location.pathname);
   console.log('🔍 Segments URL:', pathSegments);
   console.log('🔍 isCompanyRoute:', isCompanyRoute);
-  console.log('🔍 isCatalogueRoute:', isCatalogueRoute);
+  console.log('🔍 isCompanySelectionRoute:', isCompanySelectionRoute);
   
   if (isCompanyRoute) {
     urlCompanyId = pathSegments[2]; // /company/{id}/...
     console.log('🔍 Company route - ID extrait:', urlCompanyId);
-  } else if (isCatalogueRoute) {
-    urlCompanyId = pathSegments[3]; // /catalogue/{name}/{id}
-    console.log('🔍 Catalogue route - ID extrait:', urlCompanyId);
-    console.log('🔍 Nom de l\'entreprise:', pathSegments[2]);
   }
 
   // ✅ TOUS LES useEffect EN PREMIER
   useEffect(() => {
-    if ((isCompanyRoute || isCatalogueRoute) && urlCompanyId) {
+    if (isCompanyRoute && urlCompanyId) {
       // ✅ TOUJOURS charger les données de l'entreprise, même si selectedCompanyId correspond
       // Cela garantit que les données sont toujours à jour après redirection
       console.log('🔄 Chargement company pour route:', location.pathname, 'ID:', urlCompanyId);
       loadCompanyFromUrl(urlCompanyId);
     }
-  }, [isCompanyRoute, isCatalogueRoute, urlCompanyId]); // Supprimer selectedCompanyId des dépendances
+  }, [isCompanyRoute, urlCompanyId]); // Supprimer selectedCompanyId des dépendances
 
   useEffect(() => {
     const checkMobile = () => {
@@ -108,7 +108,7 @@ const MainLayout = ({ isAddSaleModalOpen, setIsAddSaleModalOpen }: MainLayoutPro
     try {
       console.log('🔍 URL complète:', location.pathname);
       console.log('🔍 CompanyId extrait:', companyId);
-      console.log('🔍 Type de route:', isCompanyRoute ? 'company' : isCatalogueRoute ? 'catalogue' : 'autre');
+      console.log('🔍 Type de route:', isCompanyRoute ? 'company' : 'autre');
       console.log('🔄 Chargement de la company depuis l\'URL:', companyId);
       
       // Vérifier que l'ID n'est pas vide ou undefined
@@ -151,7 +151,7 @@ const MainLayout = ({ isAddSaleModalOpen, setIsAddSaleModalOpen }: MainLayoutPro
   
   // ✅ MAINTENANT LES RETURNS CONDITIONNELS APRÈS TOUS LES HOOKS
   // Afficher un loader pendant le chargement de la company
-  if ((isCompanyRoute || isCatalogueRoute) && isLoadingCompany) {
+  if (isCompanyRoute && isLoadingCompany) {
     return (
       <div className="h-screen flex items-center justify-center">
         <div className="text-center">
@@ -163,7 +163,7 @@ const MainLayout = ({ isAddSaleModalOpen, setIsAddSaleModalOpen }: MainLayoutPro
   }
 
   // Afficher une erreur si la company n'a pas pu être chargée
-  if ((isCompanyRoute || isCatalogueRoute) && companyError) {
+  if (isCompanyRoute && companyError) {
     return (
       <div className="h-screen flex items-center justify-center">
         <div className="text-center max-w-md mx-auto p-6">
@@ -211,7 +211,10 @@ const MainLayout = ({ isAddSaleModalOpen, setIsAddSaleModalOpen }: MainLayoutPro
           `}
         >
           <div className="h-full w-64 bg-white shadow-lg">
-            <Sidebar onClose={() => setSidebarOpen(false)} />
+            <Sidebar 
+              onClose={() => setSidebarOpen(false)} 
+              isSelectionMode={isCompanySelectionRoute}
+            />
           </div>
         </div>
         
@@ -239,6 +242,13 @@ const MainLayout = ({ isAddSaleModalOpen, setIsAddSaleModalOpen }: MainLayoutPro
       
       {/* Add Sale Modal */}
       <AddSaleModal isOpen={isAddSaleModalOpen} onClose={() => setIsAddSaleModalOpen(false)} />
+      
+      {/* Locked Tab Modal */}
+      <LockedTabModal
+        isOpen={showLockedModal}
+        onClose={() => setShowLockedModal(false)}
+        onCreateCompany={() => window.location.href = '/company/create'}
+      />
     </div>
   );
 };

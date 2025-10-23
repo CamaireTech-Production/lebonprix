@@ -348,7 +348,7 @@ const Products = () => {
           console.log('Converting image for database:', img.substring(0, 50) + '... -> ' + converted.substring(0, 50) + '...');
           return converted;
         }) : [],
-        tags: step1Data.tags.length > 0 ? step1Data.tags : [],
+        tags: step1Data.tags.length > 0 ? step1Data.tags : undefined,
       isAvailable: true,
       enableBatchTracking: true, // Explicitly enable batch tracking
       userId: user.uid,

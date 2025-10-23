@@ -19,7 +19,7 @@ const Register = () => {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   
-  const { currentUser, loading, signOut } = useAuth();
+  const { currentUser, loading, signOut, signIn } = useAuth();
   const navigate = useNavigate();
 
   // Déconnecter automatiquement l'utilisateur s'il est déjà connecté
@@ -116,8 +116,12 @@ const Register = () => {
       };
 
       await signUpUser(email, password, userData);
-      // Redirection vers la page de connexion après inscription réussie
-      navigate('/auth/login');
+      
+      // Connexion automatique après inscription
+      await signIn(email, password);
+      
+      // Redirection vers la page de sélection de mode
+      navigate('/mode-selection');
     } catch (err) {
       if (err instanceof FirebaseError) {
         switch (err.code) {

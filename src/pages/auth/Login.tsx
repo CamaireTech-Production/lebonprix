@@ -5,7 +5,6 @@ import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
 import LoadingScreen from '../../components/common/LoadingScreen';
 import { LoginPWAInstallButton } from '../../components/LoginPWAInstallButton';
-import ModeSelectionModal from '../../components/auth/ModeSelectionModal';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -13,7 +12,6 @@ const Login = () => {
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [showModeSelection, setShowModeSelection] = useState(false);
   
   const { currentUser, loading, signIn } = useAuth();
   const navigate = useNavigate();
@@ -34,8 +32,7 @@ const Login = () => {
       setError('');
       setIsLoading(true);
       await signIn(email, password);
-      // Afficher le modal de sélection de mode après connexion réussie
-      setShowModeSelection(true);
+      // La redirection vers /mode-selection est gérée par AuthContext
     } catch (err) {
       setError('Failed to sign in. Please check your credentials.');
       console.error(err);
@@ -121,12 +118,6 @@ const Login = () => {
 
       {/* PWA Install Button */}
       <LoginPWAInstallButton />
-      
-      {/* Mode Selection Modal */}
-      <ModeSelectionModal 
-        isOpen={showModeSelection}
-        onClose={() => setShowModeSelection(false)}
-      />
     </div>
   );
 };

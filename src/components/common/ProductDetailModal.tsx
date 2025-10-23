@@ -49,6 +49,27 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const [selectedVariations, setSelectedVariations] = useState<Record<string, string>>({});
   const [isFavorite, setIsFavorite] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [selectedColor, setSelectedColor] = useState<string>('');
+  const [selectedSize, setSelectedSize] = useState<string>('');
+
+  // Extract available colors from product variations
+  const availableColors = product?.tags?.find(tag => tag.name === 'Color')?.variations?.map(v => v.name) || [];
+  
+  // Extract available sizes from product variations
+  const availableSizes = product?.tags?.find(tag => tag.name === 'Size')?.variations?.map(v => v.name) || [];
+
+  // Update selectedColor and selectedSize when selectedVariations changes
+  useEffect(() => {
+    const colorVariation = selectedVariations['Color'];
+    if (colorVariation) {
+      setSelectedColor(colorVariation);
+    }
+    
+    const sizeVariation = selectedVariations['Size'];
+    if (sizeVariation) {
+      setSelectedSize(sizeVariation);
+    }
+  }, [selectedVariations]);
 
   // Fetch fresh data in background to ensure data freshness
   useEffect(() => {
@@ -293,44 +314,62 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               <h3 className="text-sm font-medium text-gray-900 mb-3">Product Details</h3>
               
               {/* Colors */}
-              <div className="mb-4">
-                <h4 className="text-sm font-medium text-gray-700 mb-2">Color</h4>
-                <div className="flex space-x-2">
-                  {availableColors.map((color) => (
-                    <button
-                      key={color}
-                      onClick={() => setSelectedColor(color)}
-                      className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
-                        selectedColor === color
-                          ? 'bg-theme-orange/20 text-theme-brown border-theme-brown'
-                          : 'bg-gray-100 text-gray-700 border-gray-300'
-                      }`}
-                    >
-                      {color}
-                    </button>
-                  ))}
+              {availableColors.length > 0 && (
+                <div className="mb-4">
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">Color</h4>
+                  <div className="flex space-x-2">
+                    {availableColors.map((color) => (
+                      <button
+                        key={color}
+                        onClick={() => {
+                          setSelectedColor(color);
+                          // Also update the variations system
+                          setSelectedVariations(prev => ({
+                            ...prev,
+                            'Color': color
+                          }));
+                        }}
+                        className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                          selectedColor === color
+                            ? 'bg-theme-orange/20 text-theme-brown border-theme-brown'
+                            : 'bg-gray-100 text-gray-700 border-gray-300'
+                        }`}
+                      >
+                        {color}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Sizes */}
-              <div className="mb-4">
-                <h4 className="text-sm font-medium text-gray-700 mb-2">Size</h4>
-                <div className="flex space-x-2">
-                  {availableSizes.map((size) => (
-                    <button
-                      key={size}
-                      onClick={() => setSelectedSize(size)}
-                      className={`w-10 h-10 rounded-full text-sm font-medium border transition-colors ${
-                        selectedSize === size
-                          ? 'bg-theme-orange/20 text-theme-brown border-theme-brown'
-                          : 'bg-gray-100 text-gray-700 border-gray-300'
-                      }`}
-                    >
-                      {size}
-                    </button>
-                  ))}
+              {availableSizes.length > 0 && (
+                <div className="mb-4">
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">Size</h4>
+                  <div className="flex space-x-2">
+                    {availableSizes.map((size) => (
+                      <button
+                        key={size}
+                        onClick={() => {
+                          setSelectedSize(size);
+                          // Also update the variations system
+                          setSelectedVariations(prev => ({
+                            ...prev,
+                            'Size': size
+                          }));
+                        }}
+                        className={`w-10 h-10 rounded-full text-sm font-medium border transition-colors ${
+                          selectedSize === size
+                            ? 'bg-theme-orange/20 text-theme-brown border-theme-brown'
+                            : 'bg-gray-100 text-gray-700 border-gray-300'
+                        }`}
+                      >
+                        {size}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Description */}
               <div>

@@ -15,9 +15,9 @@ const placeholderImg = '/placeholder.png';
 const Catalogue = () => {
   const { companyId } = useParams<{ companyName: string; companyId: string }>();
   const navigate = useNavigate();
-  const { company: authCompany } = useAuth();
+  useAuth();
   const { addToCart } = useCart();
-  const [company, setCompany] = useState<Company | null>(authCompany || null);
+  const [company, setCompany] = useState<Company | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -54,7 +54,7 @@ const Catalogue = () => {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
 
-  // Fetch company data - utiliser AuthContext si disponible
+  // Fetch company data
   useEffect(() => {
     const fetchCompany = async () => {
       if (!companyId) {
@@ -63,60 +63,23 @@ const Catalogue = () => {
         return;
       }
 
-      console.log('🔍 Catalogue - CompanyId reçu:', companyId);
-      console.log('🔍 Catalogue - AuthCompany disponible:', authCompany?.id);
-
-      // Si on a déjà les données de l'AuthContext, les utiliser
-      if (authCompany && authCompany.id === companyId) {
-        console.log('✅ Utilisation des données AuthContext pour la company:', authCompany.name);
-        setCompany(authCompany);
+      try {
+        setLoading(true);
+        setError(null);
+        console.log('🔍 Fetching company data for ID:', companyId);
+        const companyData = await getCompanyByUserId(companyId);
+        console.log('✅ Company data loaded:', companyData);
+        setCompany(companyData);
+      } catch (err) {
+        console.error('❌ Error fetching company:', err);
+        setError(`Company not found: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      } finally {
         setLoading(false);
-        return;
       }
-
-      // Attendre un peu que MainLayout charge la company
-      console.log('⏳ Attente du chargement par MainLayout...');
-      const checkAuthCompany = () => {
-        if (authCompany && authCompany.id === companyId) {
-          console.log('✅ Company chargée par MainLayout:', authCompany.name);
-          setCompany(authCompany);
-          setLoading(false);
-          return true;
-        }
-        return false;
-      };
-
-      // Vérifier immédiatement
-      if (checkAuthCompany()) return;
-
-      // Attendre un peu et vérifier à nouveau
-      const timeout = setTimeout(() => {
-        if (!checkAuthCompany()) {
-          // Si MainLayout n'a pas chargé la company, charger depuis Firestore
-          console.log('🔄 Chargement company depuis Firestore (fallback):', companyId);
-          loadFromFirestore();
-        }
-      }, 1000);
-
-      const loadFromFirestore = async () => {
-        try {
-          setLoading(true);
-          setError(null);
-          const companyData = await getCompanyByUserId(companyId);
-          setCompany(companyData);
-        } catch (err) {
-          console.error('Error fetching company:', err);
-          setError('Company not found');
-        } finally {
-          setLoading(false);
-        }
-      };
-
-      return () => clearTimeout(timeout);
     };
 
     fetchCompany();
-  }, [companyId, authCompany]);
+  }, [companyId]);
 
   // Subscribe to products with caching
   useEffect(() => {
@@ -209,9 +172,25 @@ const Catalogue = () => {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-4">
         <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
-        <h2 className="text-xl font-semibold text-gray-900 mb-2">Error</h2>
-        <p className="text-gray-600 mb-4">{error}</p>
-        <Button onClick={() => navigate(-1)}>Go Back</Button>
+        <h2 className="text-xl font-semibold text-gray-900 mb-2">Catalogue non trouvé</h2>
+        <p className="text-gray-600 mb-4 text-center max-w-md">
+          {error.includes('Company not found') 
+            ? 'L\'entreprise associée à ce catalogue n\'existe pas ou n\'est plus accessible. Vérifiez que le lien est correct.'
+            : error
+          }
+        </p>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <Button onClick={() => navigate(-1)} variant="outline">
+            Retour
+          </Button>
+          <Button onClick={() => window.location.reload()}>
+            Réessayer
+          </Button>
+        </div>
+        <div className="mt-4 text-sm text-gray-500">
+          <p>Si le problème persiste, contactez l'administrateur.</p>
+          <p className="mt-1">ID de l'entreprise: {companyId}</p>
+        </div>
       </div>
     );
   }
