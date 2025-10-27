@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { auth, db } from '../services/firebase';
 import { 
   User as FirebaseUser, 
@@ -51,6 +52,7 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider = ({ children }: AuthProviderProps) => {
+  const navigate = useNavigate();
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [company, setCompany] = useState<Company | null>(null);
   const [loading, setLoading] = useState(true);
@@ -60,6 +62,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [currentEmployee, setCurrentEmployee] = useState<any | null>(null);
   const [userCompanies, setUserCompanies] = useState<any[]>([]);
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
+  const [isInitialLogin, setIsInitialLogin] = useState(false);
 
   // Mémoriser les informations de la compagnie pour les restaurer lors de la reconnexion
   const memoizedCompany = useMemo(() => {
@@ -162,14 +165,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         // Mettre à jour la dernière connexion
         await updateUserLastLogin(userId);
         
-        // 2. NE PAS charger automatiquement une entreprise
-        // Laisser l'utilisateur la sélectionner via ModeSelectionModal
-        if (userData.companies && userData.companies.length > 0) {
-          console.log(`📺 Dashboard : ${userData.companies.length} entreprises disponibles`);
-          // ✅ NE PAS rediriger automatiquement - laisser le ModeSelectionModal gérer
-        } else {
-          console.log('📺 Dashboard vide: Aucune entreprise trouvée');
-          // ✅ NE PAS rediriger automatiquement - laisser le ModeSelectionModal gérer
+        // 2. Rediriger vers la page de sélection de mode SEULEMENT lors du login initial
+        if (isInitialLogin) {
+          console.log(`📺 Redirection vers la page de sélection de mode`);
+          setTimeout(() => {
+            navigate('/mode-selection');
+            setIsInitialLogin(false); // Reset après redirection
+          }, 100);
         }
       } else {
         console.log('⚠️ Utilisateur non trouvé dans le système unifié');
@@ -180,6 +182,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         if (userData) {
           setUserCompanies(userData.companies || []);
           console.log(`✅ Utilisateur migré avec ${userData.companies?.length || 0} entreprises`);
+          // Rediriger vers la page de sélection de mode après migration SEULEMENT lors du login initial
+          if (isInitialLogin) {
+            setTimeout(() => {
+              navigate('/mode-selection');
+              setIsInitialLogin(false); // Reset après redirection
+            }, 100);
+          }
         }
       }
     } catch (error) {
@@ -375,7 +384,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   };
 
   const signIn = async (email: string, password: string): Promise<FirebaseUser> => {
+    setIsInitialLogin(true); // Marquer comme login initial
     const response = await signInWithEmailAndPassword(auth, email, password);
+    if(isInitialLogin){
+      navigate('/mode-selection');
+      setIsInitialLogin(false); // Reset après redirection
+    }
     return response.user;
   };
 

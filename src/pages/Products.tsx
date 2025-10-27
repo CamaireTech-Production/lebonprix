@@ -10,7 +10,7 @@ import { useProducts, useStockChanges, useCategories, useSuppliers } from '../ho
 import { useInfiniteProducts } from '../hooks/useInfiniteProducts';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 import { useAllStockBatches } from '../hooks/useStockBatches';
-import { createSupplier, updateProduct} from '../services/firestore';
+import { createSupplier, updateProduct, recalculateCategoryProductCounts } from '../services/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import { FirebaseStorageService } from '../services/firebaseStorageService';
 import { ImageWithSkeleton } from '../components/common/ImageWithSkeleton';
@@ -253,19 +253,28 @@ const Products = () => {
   const categories = [t('products.filters.allCategories'), ...new Set(infiniteProducts?.map(p => p.category) || [])];
 
   
-  const compressImage = async (file: File): Promise<File> => {
-      const options = {
-      maxSizeMB: 1,
-      maxWidthOrHeight: 1920,
-        useWebWorker: true,
-      };
+  const compressImage = async (file: File): Promise<string> => {
     try {
+      console.log('Compressing image:', file.name, 'Type:', file.type, 'Size:', file.size);
+      
+      const options = {
+        maxSizeMB: 0.5,
+        maxWidthOrHeight: 600,
+        useWebWorker: true,
+        initialQuality: 0.7,
+        alwaysKeepResolution: false,
+        fileType: 'image/jpeg' // Force JPEG output
+      };
+
       const compressedFile = await imageCompression(file, options);
-      console.log(`Compressed image from ${file.size / 1024 / 1024} MB to ${compressedFile.size / 1024 / 1024} MB`);
+      console.log('Compressed file:', compressedFile.name, 'Type:', compressedFile.type, 'Size:', compressedFile.size);
+      
+      return new Promise((resolve, reject) => {
         // Return the compressed File object
-      return compressedFile;
+        resolve(compressedFile);
+      });
     } catch (error) {
-      console.error('Image compression error:', error);
+      console.error('Error compressing image:', error);
       throw error;
     }
   };
@@ -363,8 +372,35 @@ const Products = () => {
         costPrice: stockCostPrice
       };
 
-      // Create the product with supplier information (debt creation is now handled in createProduct)
-      await addProduct(productData, supplierInfo);
+      // Create the product with supplier information and image URLs included
+      let createdProduct;
+      try {
+        createdProduct = await addProduct(productData, supplierInfo);
+        console.log('Created product result:', createdProduct);
+        
+        if (!createdProduct) {
+          throw new Error('addProduct returned undefined');
+        }
+        
+        if (!createdProduct.id) {
+          throw new Error('addProduct returned product without ID');
+        }
+      } catch (error) {
+        console.error('Error in addProduct:', error);
+        showErrorToast('Failed to create product');
+        return;
+      }
+      
+      // Recalculate category product counts after adding product
+      try {
+        await recalculateCategoryProductCounts(user.uid);
+      } catch (error) {
+        console.error('Error recalculating category counts:', error);
+        // Don't show error to user as product creation was successful
+      }
+      
+      // Refresh the product list to show the new product
+      refresh();
       
       setIsAddModalOpen(false);
       resetForm();
@@ -686,8 +722,8 @@ const Products = () => {
       name: product.name,
       reference: product.reference,
       category: product.category,
-      images: [], // Will be handled separately for editing
-      tags: product.tags || [],
+      images: Array.isArray(product.images) ? product.images : (product.images ? [product.images] : []),
+      tags: product.tags || [], // Load existing tags
       isVisible: product.isVisible !== undefined ? product.isVisible : true, // Load visibility setting
     });
     // Find latest stock change for this product
@@ -807,7 +843,7 @@ const Products = () => {
         await updateProductData(currentProduct.id, updateData);
       }
       
-      // Handle File to Firebase Storage conversion for images
+      // Handle base64 to Firebase Storage conversion for images
       if (step1Data.images.length > 0) {
         try {
           const storageService = new FirebaseStorageService();
@@ -845,6 +881,18 @@ const Products = () => {
           costPrice: parseFloat(editPrices.costPrice)
         });
       }
+      
+      // Recalculate category product counts after updating product
+      try {
+        await recalculateCategoryProductCounts(user.uid);
+      } catch (error) {
+        console.error('Error recalculating category counts:', error);
+        // Don't show error to user as product update was successful
+      }
+      
+      // Refresh the product list to show the updated product
+      refresh();
+      
       setIsEditModalOpen(false);
       resetForm();
       showSuccessToast(t('products.messages.productUpdated'));
@@ -950,8 +998,20 @@ const Products = () => {
           updatedAt: product.updatedAt || { seconds: 0, nanoseconds: 0 },
         };
         const updateData = { isAvailable: false, images: safeProduct.images, userId: safeProduct.userId, updatedAt: { seconds: 0, nanoseconds: 0 } };
-        await updateProduct(id, updateData, user.uid);
+        await updateProductData(id, updateData);
       }
+      
+      // Recalculate category product counts after bulk deletion
+      try {
+        await recalculateCategoryProductCounts(user.uid);
+      } catch (error) {
+        console.error('Error recalculating category counts:', error);
+        // Don't show error to user as product deletion was successful
+      }
+      
+      // Refresh the product list to remove the deleted products
+      refresh();
+      
       showSuccessToast(t('products.messages.bulkDeleteSuccess', { count: selectedProducts.length }));
       setIsBulkDeleteModalOpen(false);
       setSelectedProducts([]);
@@ -976,7 +1036,19 @@ const Products = () => {
     const updateData = { isAvailable: false, images: safeProduct.images, userId: safeProduct.userId, updatedAt: { seconds: 0, nanoseconds: 0 } };
     try {
       setIsDeleting(true);
-      await updateProduct(productToDelete.id, updateData, user.uid);
+      await updateProductData(productToDelete.id, updateData);
+      
+      // Recalculate category product counts after deletion
+      try {
+        await recalculateCategoryProductCounts(user.uid);
+      } catch (error) {
+        console.error('Error recalculating category counts:', error);
+        // Don't show error to user as product deletion was successful
+      }
+      
+      // Refresh the product list to remove the deleted product
+      refresh();
+      
       showSuccessToast(t('products.messages.productDeleted'));
       setIsDeleteModalOpen(false);
       setProductToDelete(null);
@@ -1003,7 +1075,6 @@ const Products = () => {
         showErrorToast(t('products.messages.errors.addProduct'));
       }
     }
-    console.log('Adding new images to step1Data:', newImages.map(img => img.substring(0, 50) + '...'));
     setStep1Data(prev => ({ ...prev, images: [...prev.images, ...newImages] }));
     setIsUploadingImages(false);
   };
@@ -1378,6 +1449,7 @@ const Products = () => {
                     const mainIdx = mainImageIndexes[product.id] ?? 0;
                     const mainImg = images.length > 0 ? images[mainIdx] : '/placeholder.png';
                     
+                    
                     return (
                       <ImageWithSkeleton
                         src={mainImg}
@@ -1708,7 +1780,7 @@ const Products = () => {
               value={step1Data.category}
               onChange={(category) => setStep1Data(prev => ({ ...prev, category }))}
               showImages={true}
-              placeholder={t('products.form.categoryPlaceholder')}
+              placeholder={t('products.form.step1.categoryPlaceholder')}
             />
           </div>
           
@@ -1763,15 +1835,52 @@ const Products = () => {
                     })}
               </div>
             </div>
-            <p className="mt-1 text-sm text-gray-500">{t('products.form.imageHelp')}</p>
+            <p className="mt-1 text-sm text-gray-500">{t('products.form.step1.imageHelp')}</p>
           </div>
 
           {/* Product Tags Manager */}
           <ProductTagsManager
             tags={step1Data.tags}
             onTagsChange={(tags) => setStep1Data(prev => ({ ...prev, tags }))}
-            images={step1Data.images.map(img => img instanceof File ? URL.createObjectURL(img) : img)}
+            images={step1Data.images}
           />
+
+          {/* Visibility Toggle */}
+          <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="flex items-center space-x-2">
+                  {step1Data.isVisible ? (
+                    <Eye className="h-5 w-5 text-green-600" />
+                  ) : (
+                    <EyeOff className="h-5 w-5 text-gray-400" />
+                  )}
+                  <span className="text-sm font-medium text-gray-900">
+                    {t('products.form.step1.visibility')}
+                  </span>
+                </div>
+                <span className="text-xs text-gray-500">
+                  {step1Data.isVisible 
+                    ? t('products.form.step1.visibleInCatalogue') 
+                    : t('products.form.step1.hiddenFromCatalogue')
+                  }
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setStep1Data(prev => ({ ...prev, isVisible: !prev.isVisible }))}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 ${
+                  step1Data.isVisible ? 'bg-emerald-600' : 'bg-gray-200'
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    step1Data.isVisible ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
             </div>
           ) : (
             /* Step 2: Initial Stock and Supply Information */
@@ -1961,50 +2070,6 @@ const Products = () => {
               />
             </div>
 
-            {/* Product Tags Manager */}
-            <ProductTagsManager
-              tags={step1Data.tags}
-              onTagsChange={(tags) => setStep1Data(prev => ({ ...prev, tags }))}
-              images={step1Data.images.map(img => img instanceof File ? URL.createObjectURL(img) : img)}
-            />
-
-            {/* Product Visibility Toggle */}
-            <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <div className="flex items-center space-x-2">
-                    {step1Data.isVisible ? (
-                      <Eye className="h-5 w-5 text-green-600" />
-                    ) : (
-                      <EyeOff className="h-5 w-5 text-gray-400" />
-                    )}
-                    <span className="text-sm font-medium text-gray-900">
-                      {t('products.form.step1.visibility')}
-                    </span>
-                  </div>
-                  <span className="text-xs text-gray-500">
-                    {step1Data.isVisible 
-                      ? t('products.form.step1.visibleInCatalogue') 
-                      : t('products.form.step1.hiddenFromCatalogue')
-                    }
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setStep1Data(prev => ({ ...prev, isVisible: !prev.isVisible }))}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 ${
-                    step1Data.isVisible ? 'bg-emerald-600' : 'bg-gray-200'
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      step1Data.isVisible ? 'translate-x-6' : 'translate-x-1'
-                    }`}
-                  />
-                </button>
-              </div>
-            </div>
-
             {/* Product Images */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -2086,7 +2151,7 @@ const Products = () => {
             <ProductTagsManager
               tags={step1Data.tags}
               onTagsChange={(tags) => setStep1Data(prev => ({ ...prev, tags }))}
-              images={step1Data.images.map(img => img instanceof File ? URL.createObjectURL(img) : img)}
+              images={step1Data.images}
             />
 
             {/* Visibility Toggle */}

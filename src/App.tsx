@@ -18,6 +18,7 @@ import { usePWAUpdate } from './hooks/usePWAUpdate';
 const Login = lazy(() => import('./pages/auth/Login'));
 const Register = lazy(() => import('./pages/auth/Register'));
 const LandingPage = lazy(() => import('./pages/LandingPage'));
+const ModeSelection = lazy(() => import('./pages/ModeSelection'));
 const CompaniesManagement = lazy(() => import('./pages/CompaniesManagement'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Sales = lazy(() => import('./pages/Sales'));
@@ -37,20 +38,20 @@ const FIFODebugger = lazy(() => import('./pages/FIFODebugger'));
 const InviteActivate = lazy(() => import('./pages/InviteActivate'));
 const EmployeeLogin = lazy(() => import('./pages/EmployeeLogin'));
 // New pages for employee/company modes
-const FictiveDashboard = lazy(() => import('./pages/employee/FictiveDashboard'));
 const CreateCompany = lazy(() => import('./pages/company/CreateCompany'));
+const CompanySelection = lazy(() => import('./pages/company/CompanySelection'));
 
 function App() {
   const [isAddSaleModalOpen, setIsAddSaleModalOpen] = useState(false);
-  // BrowserRouter must wrap AppWithFAB for useLocation to work
+  // BrowserRouter must wrap AuthProvider for useNavigate to work
   return (
-    <AuthProvider>
-      <CartProvider>
-        <BrowserRouter>
+    <BrowserRouter>
+      <AuthProvider>
+        <CartProvider>
           <AppWithFAB isAddSaleModalOpen={isAddSaleModalOpen} setIsAddSaleModalOpen={setIsAddSaleModalOpen} />
-        </BrowserRouter>
-      </CartProvider>
-    </AuthProvider>
+        </CartProvider>
+      </AuthProvider>
+    </BrowserRouter>
   );
 }
 
@@ -78,10 +79,13 @@ function AppWithFAB({ isAddSaleModalOpen, setIsAddSaleModalOpen }: { isAddSaleMo
           <Route path="/" element={<LazyPage><LandingPage /></LazyPage>} />
           
           {/* Auth Routes */}
-          <Route element={<AuthLayout />}>
-            <Route path="/auth/login" element={<LazyPage><Login /></LazyPage>} />
-            <Route path="/auth/register" element={<LazyPage><Register /></LazyPage>} />
-          </Route>
+                <Route element={<AuthLayout />}>
+                  <Route path="/auth/login" element={<LazyPage><Login /></LazyPage>} />
+                  <Route path="/auth/register" element={<LazyPage><Register /></LazyPage>} />
+                </Route>
+                
+                {/* Mode Selection Route */}
+                <Route path="/mode-selection" element={<LazyPage><ModeSelection /></LazyPage>} />
           
           {/* Public Routes */}
           <Route path="/track/:id" element={<LazyPage><TimelinePage /></LazyPage>} />
@@ -95,18 +99,26 @@ function AppWithFAB({ isAddSaleModalOpen, setIsAddSaleModalOpen }: { isAddSaleMo
           
           {/* Protected Routes */}
           <Route element={<ProtectedRoute />}>
-            <Route element={<MainLayout isAddSaleModalOpen={isAddSaleModalOpen} setIsAddSaleModalOpen={setIsAddSaleModalOpen} />}>
-              <Route path="/" element={<LazyPage><Dashboard /></LazyPage>} />
-              <Route path="/sales" element={<LazyPage><Sales /></LazyPage>} />
-              <Route path="/expenses" element={<LazyPage><Expenses /></LazyPage>} />
-              <Route path="/finance" element={<Finance />} />
-              <Route path="/products" element={<LazyPage><Products /></LazyPage>} />
-              <Route path="/categories" element={<LazyPage><Categories /></LazyPage>} />
-              <Route path="/orders" element={<LazyPage><Orders /></LazyPage>} />
-              <Route path="/suppliers" element={<LazyPage><Suppliers /></LazyPage>} />
-              <Route path="/reports" element={<LazyPage><Reports /></LazyPage>} />
-              <Route path="/settings" element={<LazyPage><Settings /></LazyPage>} />
-              <Route path="/fifo-debugger" element={<LazyPage><FIFODebugger /></LazyPage>} />
+            {/* Company Selection Route */}
+            <Route path="/companies/me/:userId" element={<LazyPage><CompanySelection /></LazyPage>} />
+            
+            {/* Company Routes */}
+            <Route path="/company/create" element={<LazyPage><CreateCompany /></LazyPage>} />
+            
+            {/* Company Management Routes */}
+            <Route path="/companies" element={<LazyPage><CompaniesManagement /></LazyPage>} />
+            
+            {/* Routes entreprise spécifique */}
+            <Route path="/company/:companyId" element={<MainLayout isAddSaleModalOpen={isAddSaleModalOpen} setIsAddSaleModalOpen={setIsAddSaleModalOpen} />}>
+              <Route path="dashboard" element={<LazyPage><Dashboard /></LazyPage>} />
+              <Route path="sales" element={<LazyPage><Sales /></LazyPage>} />
+              <Route path="expenses" element={<LazyPage><Expenses /></LazyPage>} />
+              <Route path="finance" element={<RoleRoute allowedRoles={['gestionnaire', 'magasinier', 'owner']}><Finance /></RoleRoute>} />
+              <Route path="products" element={<LazyPage><Products /></LazyPage>} />
+              <Route path="suppliers" element={<LazyPage><Suppliers /></LazyPage>} />
+              <Route path="reports" element={<RoleRoute allowedRoles={['gestionnaire', 'magasinier', 'owner']}><LazyPage><Reports /></LazyPage></RoleRoute>} />
+              <Route path="settings" element={<RoleRoute allowedRoles={['magasinier', 'owner']}><LazyPage><Settings /></LazyPage></RoleRoute>} />
+              <Route path="fifo-debugger" element={<LazyPage><FIFODebugger /></LazyPage>} />
             </Route>
           </Route>
           {/* Redirect to login if no route matches */}

@@ -102,9 +102,9 @@ export async function removeUserFromCompany(
     }
 
     const userData = userDoc.data();
-    const companyRef = userData.companies?.find((c: UserCompanyRef) => c.companyId === companyId);
+    const userCompanyRef = userData.companies?.find((c: UserCompanyRef) => c.companyId === companyId);
 
-    if (!companyRef) {
+    if (!userCompanyRef) {
       console.warn('⚠️ Utilisateur non trouvé dans cette company');
       return;
     }
@@ -129,7 +129,7 @@ export async function removeUserFromCompany(
 
     // 4. Retirer de users.companies[]
     await updateDoc(doc(db, 'users', userId), {
-      companies: arrayRemove(companyRef),
+      companies: arrayRemove(userCompanyRef),
       updatedAt: serverTimestamp()
     });
 

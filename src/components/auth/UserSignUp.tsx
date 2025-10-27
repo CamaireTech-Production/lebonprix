@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { signUpUser } from '../../services/authService';
 import { useAuth } from '../../contexts/AuthContext';
-import { UserIcon, EnvelopeIcon, LockClosedIcon, PhoneIcon } from '@heroicons/react/24/outline';
 
 /**
  * Composant d'inscription utilisateur (sans entreprise)
@@ -11,6 +11,7 @@ import { UserIcon, EnvelopeIcon, LockClosedIcon, PhoneIcon } from '@heroicons/re
  */
 export const UserSignUp: React.FC = () => {
   const { signIn } = useAuth();
+  const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -56,6 +57,9 @@ export const UserSignUp: React.FC = () => {
       await signIn(formData.email, formData.password);
       
       console.log('✅ Inscription et connexion réussies');
+      
+      // 3. Rediriger vers la page de sélection de mode
+      navigate('/mode-selection');
       
     } catch (error: any) {
       console.error('❌ Erreur lors de l\'inscription:', error);

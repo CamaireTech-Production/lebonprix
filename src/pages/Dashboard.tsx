@@ -241,8 +241,8 @@ const Dashboard = () => {
   const chartData = processChartData();
 
   // Generate the company's catalogue page URL
-  const productPageUrl = company ? `${window.location.origin}/catalogue/${encodeURIComponent(company.name.toLowerCase().replace(/\s+/g, '-'))}/${company.id}` : '';
-  
+  const productPageUrl = company ? `${window.location.origin}/catalogue/${encodeURIComponent(company.name.toLowerCase().replace(/\s+/g, '-'))}/${company.companyId || company.id}` : '';
+
   // Debug logs pour vérifier la génération du lien
   if (company) {
     console.log('🔗 Dashboard - Company ID:', company.id);

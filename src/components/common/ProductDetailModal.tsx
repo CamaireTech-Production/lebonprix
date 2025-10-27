@@ -49,6 +49,27 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const [selectedVariations, setSelectedVariations] = useState<Record<string, string>>({});
   const [isFavorite, setIsFavorite] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [selectedColor, setSelectedColor] = useState<string>('');
+  const [selectedSize, setSelectedSize] = useState<string>('');
+
+  // Extract available colors from product variations
+  const availableColors = product?.tags?.find(tag => tag.name === 'Color')?.variations?.map(v => v.name) || [];
+  
+  // Extract available sizes from product variations
+  const availableSizes = product?.tags?.find(tag => tag.name === 'Size')?.variations?.map(v => v.name) || [];
+
+  // Update selectedColor and selectedSize when selectedVariations changes
+  useEffect(() => {
+    const colorVariation = selectedVariations['Color'];
+    if (colorVariation) {
+      setSelectedColor(colorVariation);
+    }
+    
+    const sizeVariation = selectedVariations['Size'];
+    if (sizeVariation) {
+      setSelectedSize(sizeVariation);
+    }
+  }, [selectedVariations]);
 
   // Fetch fresh data in background to ensure data freshness
   useEffect(() => {

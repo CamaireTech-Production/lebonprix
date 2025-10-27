@@ -10,9 +10,10 @@ import { useTranslation } from 'react-i18next';
 
 interface NavbarProps {
   onMenuClick: () => void;
+  isSelectionMode?: boolean;
 }
 
-const Navbar = ({ onMenuClick }: NavbarProps) => {
+const Navbar = ({ onMenuClick, isSelectionMode }: NavbarProps) => {
   const { t } = useTranslation();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -107,9 +108,10 @@ const Navbar = ({ onMenuClick }: NavbarProps) => {
               className="flex items-center space-x-3 focus:outline-none"
               aria-label={t('header.profile')}
             >
-              <UserAvatar company={company} size="sm" />
+              {isSelectionMode? null : <div><UserAvatar company={company} size="sm" /></div>}
+              
               <span className="text-sm font-medium text-gray-700 hidden md:block">
-                {company?.name || t('header.welcome')}
+                {isSelectionMode ? "selection entreprise" : company?.name || t('header.welcome')}
               </span>
             </button>
 

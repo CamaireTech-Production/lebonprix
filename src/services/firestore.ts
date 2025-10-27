@@ -650,35 +650,12 @@ export const createProduct = async (
   try {
     console.log('Creating product with data:', data, 'supplierInfo:', supplierInfo);
     
-    // Nettoyer les données pour supprimer les valeurs undefined
-    const cleanProductData = (productData: any) => {
-      const cleaned = { ...productData };
-      
-      // Supprimer les champs undefined
-      Object.keys(cleaned).forEach(key => {
-        if (cleaned[key] === undefined) {
-          delete cleaned[key];
-        }
-      });
-      
-      // Traitement spécial pour les arrays
-      if (cleaned.tags === undefined) {
-        cleaned.tags = [];
-      }
-      
-      return cleaned;
-    };
-    
-    // Nettoyer les données avant validation
-    const cleanedData = cleanProductData(data);
-    console.log('Cleaned product data:', cleanedData);
-    
   // Validate product data
   if (
-    !cleanedData.name ||
-    cleanedData.sellingPrice < 0 ||
-    cleanedData.stock < 0 ||
-    !cleanedData.category
+    !data.name ||
+    data.sellingPrice < 0 ||
+    data.stock < 0 ||
+    !data.category
   ) {
     throw new Error('Invalid product data');
   }
@@ -687,11 +664,11 @@ export const createProduct = async (
   
   // Set default inventory settings
   const productData = {
-    ...cleanedData,
+    ...data,
     userId,
     isAvailable: true,
-    inventoryMethod: (cleanedData as any).inventoryMethod || 'FIFO',
-    enableBatchTracking: (cleanedData as any).enableBatchTracking !== false, // Default to true
+    inventoryMethod: (data as any).inventoryMethod || 'FIFO',
+    enableBatchTracking: (data as any).enableBatchTracking !== false, // Default to true
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   };
@@ -701,10 +678,10 @@ export const createProduct = async (
   batch.set(productRef, productData);
   
   // Add initial stock change and create stock batch if stock > 0
-  if (cleanedData.stock > 0) {
+  if (data.stock > 0) {
     // Create stock batch if cost price is provided
     console.log('Creating product with supplierInfo:', supplierInfo);
-    console.log('Product data enableBatchTracking:', (cleanedData as any).enableBatchTracking);
+    console.log('Product data enableBatchTracking:', (data as any).enableBatchTracking);
     
     // Always create batch if cost price is provided (enableBatchTracking defaults to true)
     if (supplierInfo?.costPrice) {
@@ -712,14 +689,14 @@ export const createProduct = async (
       const stockBatchData = {
         id: stockBatchRef.id,
         productId: productRef.id,
-        quantity: cleanedData.stock,
+        quantity: data.stock,
         costPrice: supplierInfo.costPrice,
         ...(supplierInfo.supplierId && { supplierId: supplierInfo.supplierId }),
         ...(supplierInfo.isOwnPurchase !== undefined && { isOwnPurchase: supplierInfo.isOwnPurchase }),
         ...(supplierInfo.isCredit !== undefined && { isCredit: supplierInfo.isCredit }),
         createdAt: serverTimestamp(),
         userId,
-        remainingQuantity: cleanedData.stock,
+        remainingQuantity: data.stock,
         status: 'active'
       };
       batch.set(stockBatchRef, stockBatchData);
@@ -728,7 +705,7 @@ export const createProduct = async (
       createStockChange(
         batch,
         productRef.id,
-        cleanedData.stock,
+        data.stock,
         'creation',
         userId,
         supplierInfo.supplierId,
@@ -1514,9 +1491,23 @@ export const useSales = () => {
 // Keep all other existing functions...
 // (This is a partial update focusing on the core FIFO/LIFO implementation)
 
-export const getCompanyByUserId = async (userId: string): Promise<Company> => {
+export const getCompanyByUserId = async (companyId: string): Promise<Company> => {
+  // First try to get company by document ID (most common case)
+  try {
+    const companyDoc = await getDoc(doc(db, 'companies', companyId));
+    if (companyDoc.exists()) {
+      return {
+        id: companyDoc.id,
+        ...companyDoc.data()
+      } as Company;
+    }
+  } catch (error) {
+    console.log('Company not found by document ID, trying alternative lookup...');
+  }
+  
+  // Fallback: search by companyId field (for backward compatibility)
   const companiesRef = collection(db, 'companies');
-  const q = query(companiesRef, where('userId', '==', userId));
+  const q = query(companiesRef, where('companyId', '==', companyId));
   const snapshot = await getDocs(q);
   
   if (snapshot.empty) {
