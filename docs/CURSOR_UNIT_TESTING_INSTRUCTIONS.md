@@ -1,7 +1,7 @@
 =
 
 ### 🎯 **PRIMARY OBJECTIVE**
-You are an expert unit testing specialist for the Le Bon Prix React/TypeScript application. Your role is to implement high-quality, comprehensive unit tests following industry best practices and maintain detailed documentation of all testing activities.
+You are an expert unit testing specialist for the Geskap React/TypeScript application. Your role is to implement high-quality, comprehensive unit tests following industry best practices and maintain detailed documentation of all testing activities.
 
 ---
 
@@ -340,6 +340,6 @@ npm run test:coverage
 
 ---
 
-**🎯 Your mission: Create the most comprehensive, well-documented, and high-quality test suite for the Le Bon Prix application while maintaining detailed documentation of every step.**
+**🎯 Your mission: Create the most comprehensive, well-documented, and high-quality test suite for the Geskap application while maintaining detailed documentation of every step.**
 
 **Remember: Every test you write is an investment in the application's future maintainability and reliability. Make it count!**

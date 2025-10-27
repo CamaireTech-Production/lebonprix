@@ -21,55 +21,20 @@ export const ImageWithSkeleton: React.FC<ImageWithSkeletonProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
 
-  // Convert base64 data to data URL if needed
+  // Handle image source - only support proper URLs and blob URLs
   const getImageSrc = (imageSrc: string) => {
     if (!imageSrc || imageSrc.trim() === '') {
-      console.warn('Empty image source provided to ImageWithSkeleton');
       return placeholder;
     }
     
-    if (imageSrc.startsWith('data:')) {
-      return imageSrc; // Already a data URL
-    } else if (imageSrc.startsWith('/') && !imageSrc.startsWith('/9j/') && !imageSrc.startsWith('/9j4')) {
-      return imageSrc; // Regular URL path (not base64)
-    } else if (imageSrc.startsWith('http')) {
-      return imageSrc; // HTTP URL
-    } else {
-      // Assume it's base64 data and convert to data URL
-      console.log('Converting base64 to data URL for image:', {
-        preview: imageSrc.substring(0, 50) + '...',
-        length: imageSrc.length,
-        endsWith: imageSrc.substring(imageSrc.length - 10)
-      });
-      
-      // Try to detect image format from base64 data
-      let mimeType = 'image/jpeg'; // Default
-      if (imageSrc.startsWith('/9j/') || imageSrc.startsWith('/9j4')) {
-        mimeType = 'image/jpeg';
-      } else if (imageSrc.startsWith('iVBORw0KGgo')) {
-        mimeType = 'image/png';
-      } else if (imageSrc.startsWith('R0lGOD')) {
-        mimeType = 'image/gif';
-      } else if (imageSrc.startsWith('UklGR')) {
-        mimeType = 'image/webp';
-      } else {
-        // Try to detect from first few characters
-        const firstChars = imageSrc.substring(0, 10);
-        console.log('Unknown image format, first 10 chars:', firstChars);
-        // Default to JPEG for most cases
-        mimeType = 'image/jpeg';
-      }
-      
-      // Validate base64 data
-      if (imageSrc.length < 100) {
-        console.error('Base64 data too short, might be corrupted:', imageSrc);
-        return placeholder;
-      }
-      
-      const dataUrl = `data:${mimeType};base64,${imageSrc}`;
-      console.log('Generated data URL:', dataUrl.substring(0, 100) + '...');
-      return dataUrl;
+    // Handle different image source types
+    if (imageSrc.startsWith('http') || imageSrc.startsWith('/') || imageSrc.startsWith('blob:')) {
+      return imageSrc; // HTTP URL, local path, or blob URL
     }
+    
+    // If it's not a proper URL, return placeholder
+    console.warn('Invalid image source, using placeholder:', imageSrc);
+    return placeholder;
   };
 
   const handleLoad = () => {
@@ -77,13 +42,13 @@ export const ImageWithSkeleton: React.FC<ImageWithSkeletonProps> = ({
     onLoad?.();
   };
 
-  const handleError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
-    console.error('Image load error:', e);
-    console.error('Failed image src:', getImageSrc(src));
+  const handleError = () => {
+    console.error('Image load error for src:', src);
     setIsLoading(false);
     setHasError(true);
     onError?.();
   };
+
 
   // Skeleton loader component
   const SkeletonLoader = () => (

@@ -12,8 +12,8 @@ export default defineConfig(({ mode }) => {
         registerType: 'prompt',
         includeAssets: ['favicon.ico', 'apple-icon.png', 'android-icon-192x192.png', 'ms-icon-310x310.png'],
         manifest: {
-          name: 'Le Bon Prix',
-          short_name: 'LeBonPrix',
+          name: 'Geskap',
+          short_name: 'Geskap',
           description: 'Diversité en un clic, votre boutique, votre choix',
           theme_color: '#10b981',
           background_color: '#ffffff',

@@ -191,7 +191,7 @@ export const LoginPWAInstallButton: React.FC = () => {
 
               <div className="space-y-4">
                 <p className="text-gray-600 text-sm text-center">
-                  🎉 <strong>Votre app Le Bon Prix est prête !</strong>
+                  🎉 <strong>Votre app Geskap est prête !</strong>
                 </p>
 
                 {/* Primary Method - Address Bar */}
@@ -216,7 +216,7 @@ export const LoginPWAInstallButton: React.FC = () => {
                 <div className="bg-gray-50 p-3 rounded-lg">
                   <h3 className="font-medium text-gray-800 mb-2 text-sm">Autres méthodes :</h3>
                   <div className="text-gray-600 text-xs space-y-1">
-                    <p>• <strong>Chrome/Edge:</strong> Menu (⋮) → "Installer Le Bon Prix"</p>
+                    <p>• <strong>Chrome/Edge:</strong> Menu (⋮) → "Installer Geskap"</p>
                     <p>• <strong>Firefox:</strong> Menu (⋮) → "Installer"</p>
                     <p>• <strong>Safari:</strong> Partager → "Ajouter à l'écran d'accueil"</p>
                   </div>

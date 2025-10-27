@@ -184,7 +184,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             <button
               onClick={() => setIsFavorite(!isFavorite)}
               className={`p-2 rounded-full transition-colors ${
-                isFavorite ? 'bg-theme-orange/20 text-theme-orange' : 'bg-gray-100 text-gray-400'
+                isFavorite ? 'bg-gray-100' : 'bg-gray-100 text-gray-400'
               }`}
               style={isFavorite ? {backgroundColor: 'rgba(226, 176, 105, 0.1)', color: '#e2b069'} : {}}
             >
@@ -246,7 +246,10 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             <div className="bg-white rounded-lg border border-gray-200 p-2 shadow-lg">
               <button
                 onClick={() => updateQuantity(quantity - 1)}
-                className="w-8 h-8 flex items-center justify-center text-theme-brown hover:bg-theme-brown/20 rounded transition-colors"
+                className="w-8 h-8 flex items-center justify-center rounded transition-colors"
+                style={{color: '#e2b069'}}
+                onMouseEnter={(e) => (e.target as HTMLButtonElement).style.backgroundColor = 'rgba(226, 176, 105, 0.1)'}
+                onMouseLeave={(e) => (e.target as HTMLButtonElement).style.backgroundColor = 'transparent'}
               >
                 <Minus className="h-4 w-4" />
               </button>
@@ -255,7 +258,10 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               </div>
               <button
                 onClick={() => updateQuantity(quantity + 1)}
-                className="w-8 h-8 flex items-center justify-center text-theme-brown hover:bg-theme-brown/20 rounded transition-colors"
+                className="w-8 h-8 flex items-center justify-center rounded transition-colors"
+                style={{color: '#e2b069'}}
+                onMouseEnter={(e) => (e.target as HTMLButtonElement).style.backgroundColor = 'rgba(226, 176, 105, 0.1)'}
+                onMouseLeave={(e) => (e.target as HTMLButtonElement).style.backgroundColor = 'transparent'}
               >
                 <Plus className="h-4 w-4" />
               </button>
@@ -292,45 +298,34 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             <div className="mb-6">
               <h3 className="text-sm font-medium text-gray-900 mb-3">Product Details</h3>
               
-              {/* Colors */}
-              <div className="mb-4">
-                <h4 className="text-sm font-medium text-gray-700 mb-2">Color</h4>
-                <div className="flex space-x-2">
-                  {availableColors.map((color) => (
-                    <button
-                      key={color}
-                      onClick={() => setSelectedColor(color)}
-                      className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
-                        selectedColor === color
-                          ? 'bg-theme-orange/20 text-theme-brown border-theme-brown'
-                          : 'bg-gray-100 text-gray-700 border-gray-300'
-                      }`}
-                    >
-                      {color}
-                    </button>
-                  ))}
+              {/* Dynamic Tags */}
+              {availableTags.length > 0 ? (
+                availableTags.map((tag) => (
+                  <div key={tag.id} className="mb-4">
+                    <h4 className="text-sm font-medium text-gray-700 mb-2">{tag.name}</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {tag.variations.map((variation) => (
+                        <button
+                          key={variation.id}
+                          onClick={() => handleVariationChange(tag.id, variation.id)}
+                          className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                            selectedVariations[tag.id] === variation.id
+                              ? 'text-gray-700 border-gray-300'
+                              : 'bg-gray-100 text-gray-700 border-gray-300'
+                          }`}
+                          style={selectedVariations[tag.id] === variation.id ? {backgroundColor: 'rgba(226, 176, 105, 0.1)', color: '#183524', borderColor: '#e2b069'} : {}}
+                        >
+                          {variation.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-sm text-gray-500 italic">
+                  No variations available for this product
                 </div>
-              </div>
-
-              {/* Sizes */}
-              <div className="mb-4">
-                <h4 className="text-sm font-medium text-gray-700 mb-2">Size</h4>
-                <div className="flex space-x-2">
-                  {availableSizes.map((size) => (
-                    <button
-                      key={size}
-                      onClick={() => setSelectedSize(size)}
-                      className={`w-10 h-10 rounded-full text-sm font-medium border transition-colors ${
-                        selectedSize === size
-                          ? 'bg-theme-orange/20 text-theme-brown border-theme-brown'
-                          : 'bg-gray-100 text-gray-700 border-gray-300'
-                      }`}
-                    >
-                      {size}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              )}
 
               {/* Description */}
               <div>
@@ -348,7 +343,10 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-6 py-4 z-20 pb-safe">
         <button
           onClick={handleAddToCart}
-          className="w-full bg-gradient-to-br from-theme-olive to-theme-forest text-white py-4 rounded-xl font-semibold text-lg  transition-colors shadow-lg"
+          className="w-full text-white py-4 rounded-xl font-semibold text-lg transition-colors shadow-lg" 
+          style={{backgroundColor: '#e2b069'}} 
+          onMouseEnter={(e) => (e.target as HTMLButtonElement).style.backgroundColor = '#d4a05a'} 
+          onMouseLeave={(e) => (e.target as HTMLButtonElement).style.backgroundColor = '#e2b069'}
         >
           Add to Cart - {((product.cataloguePrice ?? 0) * quantity).toLocaleString('fr-FR', {
             style: 'currency',

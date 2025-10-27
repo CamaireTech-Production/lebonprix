@@ -10,11 +10,43 @@ export interface BaseModel {
   userId: string; // Reference to the user who owns this record
 }
 
+export interface Company extends BaseModel {
+  name: string;
+  logo?: string; // Base64 string for logo
+  description?: string;
+  phone: string;
+  location?: string;
+  email: string;
+  
+  // Color customization for catalogue
+  catalogueColors?: {
+    primary?: string; // Primary brand color (default: #183524)
+    secondary?: string; // Secondary brand color (default: #e2b069)
+    tertiary?: string; // Tertiary/accent color (default: #2a4a3a)
+  };
+  
+  // Color customization for dashboard
+  dashboardColors?: {
+    primary?: string; // Primary brand color (default: #183524)
+    secondary?: string; // Secondary brand color (default: #e2b069)
+    tertiary?: string; // Tertiary/accent color (default: #2a4a3a)
+    headerText?: string; // Header text color (default: #ffffff)
+  };
+  
+  // Legacy color fields (for backward compatibility)
+  primaryColor?: string; // Primary brand color (default: #183524)
+  secondaryColor?: string; // Secondary brand color (default: #e2b069)
+  tertiaryColor?: string; // Tertiary/accent color (default: #2a4a3a)
+}
 
 export interface Category extends BaseModel {
   name: string;
   description?: string;
+  image?: string; // Firebase Storage URL or base64
+  imagePath?: string; // Storage path for deletion
   productCount?: number;
+  isActive?: boolean; // For soft delete capability
+  userId: string; // Owner of the category
 }
 
 export interface Product extends BaseModel {
@@ -25,11 +57,12 @@ export interface Product extends BaseModel {
   cataloguePrice?: number;
   stock: number;
   category: string;
-  images?: string[]; // Now stores Firebase Storage URLs instead of base64
+  images?: string[]; // Stores Firebase Storage URLs only
   imagePaths?: string[]; // Optional: store storage paths for deletion
   migratedAt?: Date; // Track migration status
   isAvailable: boolean;
   isDeleted?: boolean;
+  isVisible?: boolean; // Controls visibility in catalogue (default: true)
   inventoryMethod?: 'FIFO' | 'LIFO';
   enableBatchTracking?: boolean;
   tags?: ProductTag[]; // Dynamic product tags for variations

@@ -1,6 +1,7 @@
 import { ButtonHTMLAttributes, ReactNode } from 'react';
 import { Loader2, Plus } from 'lucide-react';
 import React from 'react';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'danger' | 'outline';
@@ -20,13 +21,26 @@ const Button = ({
   disabled,
   ...props
 }: ButtonProps) => {
+  const { company } = useAuth();
+
+  // Get company colors with fallbacks - prioritize dashboard colors
+  const getCompanyColors = () => {
+    const colors = {
+      primary: company?.dashboardColors?.primary || company?.primaryColor || '#183524',
+      secondary: company?.dashboardColors?.secondary || company?.secondaryColor || '#e2b069',
+      tertiary: company?.dashboardColors?.tertiary || company?.tertiaryColor || '#2a4a3a'
+    };
+    return colors;
+  };
   const baseClasses = 'inline-flex items-center justify-center rounded-md font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2';
   
+  const colors = getCompanyColors();
+  
   const variantClasses = {
-    primary: 'bg-emerald-500 text-white hover:bg-emerald-600 focus:ring-emerald-500',
-    secondary: 'bg-gray-700 text-white hover:bg-gray-800 focus:ring-gray-700',
+    primary: 'text-white',
+    secondary: 'text-white',
     danger: 'bg-red-500 text-white hover:bg-red-600 focus:ring-red-500',
-    outline: 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 focus:ring-indigo-500'
+    outline: 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
   };
   
   const sizeClasses = {
@@ -43,9 +57,28 @@ const Button = ({
     className
   ].join(' ');
 
+  // Get button style based on variant
+  const getButtonStyle = () => {
+    switch (variant) {
+      case 'primary':
+        return {
+          backgroundColor: colors.primary,
+          '--tw-ring-color': colors.primary
+        } as React.CSSProperties;
+      case 'secondary':
+        return {
+          backgroundColor: colors.secondary,
+          '--tw-ring-color': colors.secondary
+        } as React.CSSProperties;
+      default:
+        return {};
+    }
+  };
+
   return (
     <button
       className={classes}
+      style={getButtonStyle()}
       disabled={disabled || isLoading}
       {...props}
     >
@@ -66,6 +99,20 @@ const Button = ({
 
 export const FloatingActionButton: React.FC<{ onClick: () => void; label?: string }> = ({ onClick, label }) => {
   const [hovered, setHovered] = React.useState(false);
+  const { company } = useAuth();
+  
+  // Get dashboard colors
+  const getDashboardColors = () => {
+    const colors = {
+      primary: company?.dashboardColors?.primary || company?.primaryColor || '#183524',
+      secondary: company?.dashboardColors?.secondary || company?.secondaryColor || '#e2b069',
+      tertiary: company?.dashboardColors?.tertiary || company?.tertiaryColor || '#2a4a3a'
+    };
+    return colors;
+  };
+  
+  const colors = getDashboardColors();
+  
   return (
     <div className="fixed bottom-20 right-6 z-50 flex flex-col items-end">
       {hovered && label && (
@@ -75,9 +122,19 @@ export const FloatingActionButton: React.FC<{ onClick: () => void; label?: strin
       )}
       <button
         onClick={onClick}
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
-        className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-full shadow-lg w-16 h-16 flex items-center justify-center transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+        onMouseEnter={(e) => {
+          setHovered(true);
+          (e.target as HTMLButtonElement).style.backgroundColor = colors.secondary;
+        }}
+        onMouseLeave={(e) => {
+          setHovered(false);
+          (e.target as HTMLButtonElement).style.backgroundColor = colors.primary;
+        }}
+        className="text-white rounded-full shadow-lg w-16 h-16 flex items-center justify-center transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2"
+        style={{
+          backgroundColor: colors.primary,
+          '--tw-ring-color': colors.primary
+        } as React.CSSProperties}
         aria-label={label || 'Add'}
         title={label || 'Add'}
       >

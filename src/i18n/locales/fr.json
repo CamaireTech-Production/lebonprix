@@ -1,6 +1,6 @@
 {
   "common": {
-    "appName": "Le Bon Prix",
+    "appName": "Geskap",
     "loading": "Chargement...",
     "error": "Erreur",
     "success": "Succès",
@@ -29,6 +29,8 @@
     "first": "Premier",
     "last": "Dernier",
     "select": "Sélectionner",
+    "used": "Utilisé",
+    "copy": "Copier",
     "showing": "Affichage de {{from}} à {{to}} sur {{total}}",
     "rowsPerPage": "Lignes par page :",
     "ascArrow": "▲",
@@ -43,7 +45,8 @@
     "signIn": "Se connecter",
     "signUp": "S'inscrire",
     "dontHaveAccount": "Vous n'avez pas de compte ?",
-    "alreadyHaveAccount": "Vous avez déjà un compte ?"
+    "alreadyHaveAccount": "Vous avez déjà un compte ?",
+    "internalSystem": "Système de gestion interne"
   },
   "navigation": {
     "home": "Accueil",
@@ -76,6 +79,7 @@
     "welcome": "Bienvenue ! Voici ce qui se passe dans votre entreprise aujourd'hui.",
     "howCalculated": "Comment sont calculées ces valeurs ?",
     "stats": {
+      "title": "Statistiques",
       "grossProfit": "Bénéfice brut",
       "netProfit": "Bénéfice net",
       "totalExpenses": "Dépenses totales",
@@ -105,6 +109,12 @@
       "totalCostPrice": "Le montant total des prix d'achat pour tous les produits vendus",
       "totalPurchasePrice": "Le montant total des prix d'achat pour tous les produits vendus",
       "totalProductsSold": "Le nombre total de produits vendus (somme de toutes les quantités de produits dans toutes les ventes)."
+    },
+    "salesChart": {
+      "title": "Graphique des ventes et dépenses"
+    },
+    "recentActivity": {
+      "title": "Activité récente"
     },
     "bestSellingProducts": {
       "title": "Meilleurs produits",
@@ -480,6 +490,10 @@
       "allCategories": "Toutes les catégories",
       "search": "Rechercher par nom ou référence..."
     },
+    "tags": {
+      "noSavedTags": "Aucun tag sauvegardé pour le moment"
+    },
+    "noActiveBatches": "Aucun lot actif",
     "actions": {
       "addProduct": "Ajouter un produit",
       "editProduct": "Modifier le produit",
@@ -513,7 +527,10 @@
       "addSupplier": "Ajouter un fournisseur",
       "note": "Note",
       "stockAdjustmentNote": "Pour mettre à jour uniquement le prix d'achat sans changer le stock, entrez la valeur du stock actuel dans le champ quantité. Le prix d'achat et les informations du fournisseur seront mis à jour pour la dernière entrée de stock.",
-      "viewAllHistory": "Voir tout l'historique"
+      "viewAllHistory": "Voir tout l'historique",
+      "clickToUpload": "Cliquez pour télécharger",
+      "orDragAndDrop": "ou glisser-déposer",
+      "hideFromCatalogue": "Masquer du catalogue"
     },
     "stockBatch": {
       "title": "Gestion des Lots de Stock",
@@ -561,6 +578,13 @@
       }
     },
     "form": {
+      "name": "Nom du produit",
+      "reference": "Référence",
+      "referenceHelp": "Généré automatiquement à partir du nom, mais vous pouvez le modifier.",
+      "category": "Catégorie",
+      "categoryPlaceholder": "Sélectionner ou créer une catégorie",
+      "image": "Images",
+      "latestCostPrice": "Dernier Prix d'Achat",
       "step1": {
         "title": "Informations de base",
         "name": "Nom du produit",
@@ -568,9 +592,13 @@
         "category": "Catégorie",
         "categoryPlaceholder": "Sélectionner ou créer une catégorie",
         "image": "Image",
+        "images": "Images",
         "imageHelp": "Ajoutez des images claires pour aider à identifier ce produit. Vous pouvez télécharger plusieurs images.",
         "referenceHelp": "Généré automatiquement à partir du nom, mais vous pouvez le modifier.",
         "latestCostPrice": "Dernier Prix d'Achat",
+        "visibility": "Visibilité",
+        "visibleInCatalogue": "Visible dans le catalogue",
+        "imageFormats": "Formats supportés : JPG, PNG, GIF, WebP (max 5MB chacun)",
         "profitPerUnit": "Profit par unité",
         "stockChangeType": "Type de Changement de Stock",
         "restockHelp": "Cette valeur sera ajoutée à votre stock actuel.",
@@ -707,8 +735,11 @@
     "title": "Paramètres",
     "subtitle": "Gérez les paramètres et préférences de votre compte",
     "tabs": {
+      "colors": "🎨 Couleurs",
       "account": "Paramètres du compte",
-      "activity": "Journaux d'activité"
+      "activity": "Journaux d'activité",
+      "ordering": "Paramètres de commande",
+      "catalogue": "Liens du catalogue"
     },
     "account": {
       "companyLogo": "Logo de l'entreprise",
@@ -747,6 +778,20 @@
       "title": "Journaux d'activité",
       "noActivities": "Aucune activité récente"
     },
+    "firebaseIntegration": {
+      "title": "Intégration Firebase",
+      "description": "Utilisez cet ID d'entreprise pour intégrer vos catégories avec des pages d'atterrissage externes ou des applications.",
+      "companyId": "ID d'entreprise (ID utilisateur)",
+      "copyId": "Copier l'ID",
+      "copySuccess": "ID d'entreprise copié dans le presse-papiers !",
+      "helpText": "Partagez cet ID avec les développeurs pour intégrer vos catégories dans des applications externes."
+    },
+    "ordering": {
+      "saveSettings": "Enregistrer les paramètres de commande"
+    },
+    "catalogue": {
+      "title": "Liens du catalogue"
+    },
     "mockActivities": {
       "newSaleCreated": "Nouvelle vente créée",
       "newSaleDescription": "Créé une nouvelle vente pour John Doe",
@@ -760,19 +805,22 @@
     "en": "Anglais",
     "fr": "Français"
   },
-  "employees": {
-    "title": "Employés",
-    "copyLink": "Copier le lien",
-    "open": "Ouvrir",
-    "saved": "Employés enregistrés",
-    "noLink": "Pas de lien d'invitation"
-  },
-  "employeeLogin": {
-    "title": "Connexion Employé",
-    "passwordRequired": "Veuillez saisir votre mot de passe",
-    "invalid": "Lien invalide",
-    "error": "Informations de connexion incorrectes",
-    "success": "Connexion réussie"
+  "catalogue": {
+    "title": "Catalogue",
+    "search": "Rechercher des produits...",
+    "categories": "Catégories",
+    "allCategories": "Toutes les catégories",
+    "addToCart": "Ajouter au panier",
+    "viewDetails": "Voir les détails",
+    "noProducts": "Aucun produit trouvé",
+    "loading": "Chargement des produits...",
+    "error": "Erreur lors du chargement des produits",
+    "retry": "Réessayer",
+    "sortBy": "Trier par",
+    "price": "Prix",
+    "name": "Nom",
+    "newest": "Plus récent",
+    "oldest": "Plus ancien"
   },
   "expenses": {
     "title": "Dépenses",
@@ -1022,6 +1070,65 @@
       "refundExceeds": "Le montant du remboursement dépasse la dette restante !",
       "success": "Remboursement ajouté avec succès",
       "error": "Échec de l'ajout du remboursement"
+    }
+  },
+  "checkout": {
+    "title": "Commande",
+    "contact": "Informations de Contact",
+    "delivery": "Informations de Livraison",
+    "payment": "Méthode de Paiement",
+    "orderSummary": "Résumé de la Commande",
+    "completeOrder": "Finaliser la Commande",
+    "returnToCatalogue": "Retour au Catalogue",
+    "saveDraft": "Sauvegarder Brouillon",
+    "fields": {
+      "name": "Nom Complet",
+      "firstName": "Prénom",
+      "lastName": "Nom de Famille",
+      "phone": "Numéro de Téléphone",
+      "email": "Adresse Email",
+      "address": "Adresse",
+      "city": "Ville",
+      "country": "Pays",
+      "postalCode": "Code Postal",
+      "notes": "Notes de Livraison"
+    },
+    "paymentMethods": {
+      "mtnMoney": "MTN Money",
+      "orangeMoney": "Orange Money",
+      "visaCard": "Carte Visa",
+      "payOnsite": "Payer sur Place",
+      "cinetpayMobileMoney": "Mobile Money",
+      "cinetpayCreditCard": "Carte de Crédit",
+      "cinetpayWallet": "Portefeuille"
+    },
+    "orderSummaryDetails": {
+      "subtotal": "Sous-total",
+      "deliveryFee": "Frais de Livraison",
+      "total": "Total",
+      "items": "Articles",
+      "quantity": "Quantité",
+      "price": "Prix"
+    },
+    "validation": {
+      "nameRequired": "Le nom est requis",
+      "phoneRequired": "Le numéro de téléphone est requis",
+      "phoneInvalid": "Veuillez entrer un numéro de téléphone valide",
+      "emailRequired": "L'email est requis",
+      "emailInvalid": "Veuillez entrer une adresse email valide",
+      "addressRequired": "L'adresse est requise",
+      "cityRequired": "La ville est requise",
+      "countryRequired": "Le pays est requis",
+      "postalCodeRequired": "Le code postal est requis pour les paiements par carte de crédit"
+    },
+    "messages": {
+      "orderCreated": "Commande créée avec succès !",
+      "orderFailed": "Échec de la création de la commande. Veuillez réessayer.",
+      "paymentProcessing": "Traitement du paiement...",
+      "paymentSuccess": "Paiement réussi !",
+      "paymentFailed": "Échec du paiement. Veuillez réessayer.",
+      "draftSaved": "Brouillon sauvegardé",
+      "draftSaveFailed": "Échec de la sauvegarde du brouillon"
     }
   }
 } 

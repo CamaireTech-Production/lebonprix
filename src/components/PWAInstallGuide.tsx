@@ -55,10 +55,10 @@ export const PWAInstallGuide: React.FC<PWAInstallGuideProps> = ({ isOpen, onClos
               </h3>
               <div className="text-green-700 text-xs space-y-1">
                 {isChrome && (
-                  <p>• <strong>Chrome:</strong> Menu (⋮) → "Installer Le Bon Prix"</p>
+                  <p>• <strong>Chrome:</strong> Menu (⋮) → "Installer Geskap"</p>
                 )}
                 {isEdge && (
-                  <p>• <strong>Edge:</strong> Menu (⋮) → "Installer Le Bon Prix"</p>
+                  <p>• <strong>Edge:</strong> Menu (⋮) → "Installer Geskap"</p>
                 )}
                 {isFirefox && (
                   <p>• <strong>Firefox:</strong> Menu (⋮) → "Installer"</p>

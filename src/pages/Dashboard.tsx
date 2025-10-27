@@ -71,6 +71,17 @@ const Dashboard = () => {
   });
   const [showObjectivesModal, setShowObjectivesModal] = useState(false);
   const [applyDateFilter, setApplyDateFilter] = useState(true);
+
+  // Get company colors with fallbacks - prioritize dashboard colors
+  const getCompanyColors = () => {
+    const colors = {
+      primary: company?.dashboardColors?.primary || company?.primaryColor || '#183524',
+      secondary: company?.dashboardColors?.secondary || company?.secondaryColor || '#e2b069',
+      tertiary: company?.dashboardColors?.tertiary || company?.tertiaryColor || '#2a4a3a',
+      headerText: company?.dashboardColors?.headerText || '#ffffff'
+    };
+    return colors;
+  };
   const metricsOptions = [
     { value: 'profit', label: t('dashboard.stats.profit') },
     { value: 'totalExpenses', label: t('dashboard.stats.totalExpenses') },
@@ -347,8 +358,8 @@ const Dashboard = () => {
         <div className="bg-white rounded-lg shadow-sm p-6 mt-6">
           <div className="flex flex-col gap-4">
             <div>
-              <h2 className="text-lg  font-semibold text-gray-900 mb-1">
-                {t('dashboard.publicProducts.title')} 
+              <h2 className="text-lg font-semibold mb-1" style={{color: getCompanyColors().primary}}>
+                {t('dashboard.publicProducts.title')}
               </h2>
               <p className="text-sm text-gray-600">
                 {t('dashboard.publicProducts.description')}
@@ -362,7 +373,8 @@ const Dashboard = () => {
                       type="text"
                       value={productPageUrl}
                       readOnly
-                      className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 bg-gray-50 text-sm"
+                      className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:border-gray-300 bg-gray-50 text-sm"
+                      style={{'--tw-ring-color': getCompanyColors().primary} as React.CSSProperties}
                     />
                     <button
                       onClick={handleCopyLink}
@@ -370,7 +382,7 @@ const Dashboard = () => {
                       title={t('dashboard.publicProducts.copyLink')}
                     >
                       {copied ? (
-                        <Check className="h-5 w-5 text-emerald-500" />
+                        <Check className="h-5 w-5" style={{color: getCompanyColors().primary}} />
                       ) : (
                         <Copy className="h-5 w-5" />
                       )}
@@ -382,14 +394,16 @@ const Dashboard = () => {
                     href={productPageUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
+                    className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2"
+                    style={{'--tw-ring-color': getCompanyColors().primary} as React.CSSProperties}
                   >
                     <ExternalLink className="h-4 w-4" />
                     {t('dashboard.publicProducts.open')}
                   </a>
                   <button
                     onClick={handleShareLink}
-                    className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
+                    className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2"
+                    style={{'--tw-ring-color': getCompanyColors().primary} as React.CSSProperties}
                   >
                     <ExternalLink className="h-4 w-4" />
                     {t('dashboard.publicProducts.share')}
@@ -400,19 +414,28 @@ const Dashboard = () => {
           </div>
         </div>
       )}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0 mb-6 mt-6">
-        <div>
-          <h1 className="text-2xl font-semibold text-gray-900">{t('dashboard.title')}</h1>
-          <p className="text-gray-600">{t('dashboard.welcome')}</p>
-        </div>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            icon={<Info size={16} />}
-            onClick={() => setShowCalculationsModal(true)}
-          >
-            {t('dashboard.howCalculated')}
-          </Button>
+      {/* Dashboard Header with Company Colors */}
+      <div className="mb-6 mt-6 rounded-lg overflow-hidden" style={{
+        background: `linear-gradient(135deg, ${getCompanyColors().primary} 0%, ${getCompanyColors().secondary} 50%, ${getCompanyColors().tertiary} 100%)`,
+        color: getCompanyColors().headerText
+      }}>
+        <div className="px-6 py-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0">
+            <div>
+              <h1 className="text-3xl font-bold" style={{color: getCompanyColors().headerText}}>{t('dashboard.title')}</h1>
+              <p className="text-lg mt-1" style={{color: `${getCompanyColors().headerText}CC`}}>{t('dashboard.welcome')}</p>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                icon={<Info size={16} />}
+                onClick={() => setShowCalculationsModal(true)}
+                className="bg-white/20 border-white/30 text-white hover:bg-white/30 backdrop-blur-sm"
+              >
+                {t('dashboard.howCalculated')}
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
       <div className="mb-6 flex">
@@ -453,37 +476,44 @@ const Dashboard = () => {
         />
       )}
       {/* Stats section */}
-      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        {statCards.map((card, index) => (
-          card.loading ? (
-            <SkeletonStatCard key={`skeleton-${index}`} />
-          ) : (
-            <StatCard
-              key={index}
-              title={card.title}
-              value={card.value}
-              icon={card.icon}
-              type={card.type}
-            />
-          )
-        ))}
+      <div className="mb-6">
+        <div className="mb-4">
+          <h3 className="text-lg font-semibold" style={{color: getCompanyColors().primary}}>
+            {t('dashboard.stats.title')}
+          </h3>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {statCards.map((card, index) => (
+            card.loading ? (
+              <SkeletonStatCard key={`skeleton-${index}`} />
+            ) : (
+              <StatCard
+                key={index}
+                title={card.title}
+                value={card.value}
+                icon={card.icon}
+                type={card.type}
+              />
+            )
+          ))}
+        </div>
       </div>
       
       {/* Data Loading Status */}
       {loadingAllSales && (
-        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+        <div className="mb-4 p-4 rounded-lg border-2" style={{backgroundColor: `${getCompanyColors().primary}20`, borderColor: `${getCompanyColors().primary}40`}}>
           <div className="flex items-center">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500 mr-2"></div>
-            <span className="text-sm text-blue-700">Loading complete sales history for accurate calculations...</span>
+            <div className="animate-spin rounded-full h-5 w-5 border-b-2 mr-3" style={{borderColor: getCompanyColors().primary}}></div>
+            <span className="text-sm font-medium" style={{color: getCompanyColors().primary}}>Loading complete sales history for accurate calculations...</span>
           </div>
         </div>
       )}
       
       {allSales.length > 0 && !loadingAllSales && allSales.length > sales.length && (
-        <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+        <div className="mb-4 p-4 rounded-lg border-2" style={{backgroundColor: `${getCompanyColors().secondary}20`, borderColor: `${getCompanyColors().secondary}40`}}>
           <div className="flex items-center">
-            <div className="h-4 w-4 bg-green-500 rounded-full mr-2"></div>
-            <span className="text-sm text-green-700">
+            <div className="h-5 w-5 rounded-full mr-3" style={{backgroundColor: getCompanyColors().secondary}}></div>
+            <span className="text-sm font-medium" style={{color: getCompanyColors().secondary}}>
               Complete data loaded: {allSales.length} total sales (showing calculations for all data)
             </span>
           </div>
@@ -491,6 +521,11 @@ const Dashboard = () => {
       )}
       {/* Chart section */}
       <div className="mb-6">
+        <div className="mb-4">
+          <h3 className="text-lg font-semibold" style={{color: getCompanyColors().primary}}>
+            {t('dashboard.salesChart.title')}
+          </h3>
+        </div>
         {expensesLoading ? (
           <SkeletonChart />
         ) : (
@@ -507,6 +542,11 @@ const Dashboard = () => {
           <SkeletonTable rows={5} />
         ) : (
           <Card title={t('dashboard.bestSellingProducts.title')}>
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold" style={{color: getCompanyColors().primary}}>
+                {t('dashboard.bestSellingProducts.title')}
+              </h3>
+            </div>
             <Table
               data={bestSellingProducts}
               columns={bestProductColumns}
@@ -518,6 +558,11 @@ const Dashboard = () => {
       </div>
       {/* Activity section */}
       <div>
+        <div className="mb-4">
+          <h3 className="text-lg font-semibold" style={{color: getCompanyColors().primary}}>
+            {t('dashboard.recentActivity.title')}
+          </h3>
+        </div>
         {(expensesLoading || auditLogsLoading) ? (
           <SkeletonActivityList />
         ) : (

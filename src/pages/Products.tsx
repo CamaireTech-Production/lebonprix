@@ -1,25 +1,25 @@
 import { useState, useEffect } from 'react';
-import { Grid, List, Plus, Search, Edit2, Upload, Trash2, CheckSquare, Square, Info } from 'lucide-react';
+import { Grid, List, Plus, Search, Edit2, Upload, Trash2, CheckSquare, Square, Info, Eye, EyeOff } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Badge from '../components/common/Badge';
 import Modal, { ModalFooter } from '../components/common/Modal';
 import Input from '../components/common/Input';
-import CreatableSelect from '../components/common/CreatableSelect';
 import { useProducts, useStockChanges, useCategories, useSuppliers } from '../hooks/useFirestore';
 import { useInfiniteProducts } from '../hooks/useInfiniteProducts';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 import { useAllStockBatches } from '../hooks/useStockBatches';
-import { createSupplier } from '../services/firestore';
+import { createSupplier, updateProduct} from '../services/firestore';
 import { useAuth } from '../contexts/AuthContext';
+import { FirebaseStorageService } from '../services/firebaseStorageService';
 import { ImageWithSkeleton } from '../components/common/ImageWithSkeleton';
 import LoadingScreen from '../components/common/LoadingScreen';
 import SyncIndicator from '../components/common/SyncIndicator';
 import { showSuccessToast, showErrorToast, showWarningToast } from '../utils/toast';
 import imageCompression from 'browser-image-compression';
 import * as Papa from 'papaparse';
-import type { Product, ProductTag, TagVariation } from '../types/models';
+import type { Product, ProductTag} from '../types/models';
 import type { ParseResult } from 'papaparse';
 import { getLatestCostPrice} from '../utils/productUtils';
 import { 
@@ -29,6 +29,7 @@ import {
 import type { StockBatch } from '../types/models';
 import CostPriceCarousel from '../components/products/CostPriceCarousel';
 import ProductTagsManager from '../components/products/ProductTagsManager';
+import CategorySelector from '../components/products/CategorySelector';
 
 interface CsvRow {
   [key: string]: string;
@@ -49,7 +50,7 @@ const Products = () => {
   } = useInfiniteProducts();
   
   // Keep original hook for adding/updating products
-  const { addProduct, updateProduct } = useProducts();
+  const { addProduct, updateProductData } = useProducts();
   const { stockChanges } = useStockChanges();
   useCategories();
   const { suppliers } = useSuppliers();
@@ -73,6 +74,9 @@ const Products = () => {
   const [currentProduct, setCurrentProduct] = useState<Product | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
+  // Local state to track visibility changes for immediate UI updates
+  const [visibilityOverrides, setVisibilityOverrides] = useState<Record<string, boolean>>({});
+  
   // Two-step form state
   const [currentStep, setCurrentStep] = useState<1 | 2>(1);
   
@@ -81,8 +85,9 @@ const Products = () => {
     name: '',
     reference: '',
     category: '',
-    images: [] as string[],
+    images: [] as File[],
     tags: [] as ProductTag[],
+    isVisible: true, // Default to visible
   });
   
   // Step 2: Initial stock and supply info
@@ -230,6 +235,7 @@ const Products = () => {
       category: '',
       images: [],
       tags: [],
+      isVisible: true,
     });
     setStep2Data({
       stock: '',
@@ -246,42 +252,20 @@ const Products = () => {
   // Get unique categories from products
   const categories = [t('products.filters.allCategories'), ...new Set(infiniteProducts?.map(p => p.category) || [])];
 
-  const handleCategoryChange = (option: { label: string; value: string } | null) => {
-    setStep1Data(prev => ({
-      ...prev,
-      category: option?.label ?? ''
-    }));
-  };
   
-  const compressImage = async (file: File): Promise<string> => {
-    try {
-      console.log('Compressing image:', file.name, 'Type:', file.type, 'Size:', file.size);
-      
+  const compressImage = async (file: File): Promise<File> => {
       const options = {
-        maxSizeMB: 0.5,
-        maxWidthOrHeight: 600,
+      maxSizeMB: 1,
+      maxWidthOrHeight: 1920,
         useWebWorker: true,
-        initialQuality: 0.7,
-        alwaysKeepResolution: false,
-        fileType: 'image/jpeg' // Force JPEG output
       };
-
+    try {
       const compressedFile = await imageCompression(file, options);
-      console.log('Compressed file:', compressedFile.name, 'Type:', compressedFile.type, 'Size:', compressedFile.size);
-      
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(compressedFile);
-        reader.onload = () => {
-          const base64 = reader.result as string;
-          console.log('Generated data URL:', base64.substring(0, 100) + '...');
-          // Return the complete data URL for image preview
-          resolve(base64);
-        };
-        reader.onerror = reject;
-      });
+      console.log(`Compressed image from ${file.size / 1024 / 1024} MB to ${compressedFile.size / 1024 / 1024} MB`);
+        // Return the compressed File object
+      return compressedFile;
     } catch (error) {
-      console.error('Error compressing image:', error);
+      console.error('Image compression error:', error);
       throw error;
     }
   };
@@ -322,38 +306,50 @@ const Products = () => {
       const stockQuantity = parseInt(step2Data.stock);
       const stockCostPrice = step2Data.stockCostPrice ? parseFloat(step2Data.stockCostPrice) : 0;
       
-      // Create product data
-    const productData = {
+      // Initialize image variables first
+      let imageUrls: string[] = [];
+      let imagePaths: string[] = [];
+      
+      // Upload images to Firebase Storage first if any
+      
+      if (step1Data.images.length > 0) {
+        try {
+          const storageService = new FirebaseStorageService();
+          // Generate a temporary ID for the upload
+          const tempId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+          const uploadResults = await storageService.uploadProductImagesFromFiles(
+            step1Data.images,
+            user.uid,
+            tempId
+          );
+          
+          imageUrls = uploadResults.map(result => result.url);
+          imagePaths = uploadResults.map(result => result.path);
+        } catch (error) {
+          console.error('Error uploading images:', error);
+          showErrorToast('Image upload failed');
+          return;
+        }
+      }
+
+      // Create product data after image upload
+      const productData = {
         name: step1Data.name,
-      reference,
+        reference,
         sellingPrice: parseFloat(step2Data.sellingPrice),
-        cataloguePrice: step2Data.cataloguePrice ? parseFloat(step2Data.cataloguePrice) : undefined,
+        cataloguePrice: step2Data.cataloguePrice ? parseFloat(step2Data.cataloguePrice) : 0,
         category: step1Data.category,
         stock: stockQuantity,
         costPrice: stockCostPrice,
-        images: (step1Data.images ?? []).length > 0 ? step1Data.images.map(img => {
-          let converted;
-          if (img.startsWith('data:')) {
-            // Extract base64 data from data URL
-            const base64Index = img.indexOf(',');
-            if (base64Index !== -1) {
-              converted = img.substring(base64Index + 1);
-            } else {
-              console.error('Invalid data URL format:', img.substring(0, 100));
-              converted = img; // Fallback to original
-            }
-          } else {
-            converted = img; // Already base64 or URL
-          }
-          console.log('Converting image for database:', img.substring(0, 50) + '... -> ' + converted.substring(0, 50) + '...');
-          return converted;
-        }) : [],
+        images: imageUrls, // Firebase Storage URLs
+        imagePaths: imagePaths, // Firebase Storage paths
         tags: step1Data.tags.length > 0 ? step1Data.tags : [],
-      isAvailable: true,
-      enableBatchTracking: true, // Explicitly enable batch tracking
-      userId: user.uid,
-      updatedAt: { seconds: 0, nanoseconds: 0 }
-    };
+        isAvailable: true,
+        isVisible: step1Data.isVisible !== false, // Default to true, never undefined
+        enableBatchTracking: true, // Explicitly enable batch tracking
+        userId: user.uid,
+        updatedAt: { seconds: 0, nanoseconds: 0 }
+      };
       
       // Create supplier info for the product creation
       const supplierInfo = step2Data.supplyType === 'fromSupplier' ? {
@@ -366,12 +362,9 @@ const Products = () => {
         isCredit: false,
         costPrice: stockCostPrice
       };
-      
+
       // Create the product with supplier information (debt creation is now handled in createProduct)
       await addProduct(productData, supplierInfo);
-      
-      // Refresh the product list to show the new product
-      refresh();
       
       setIsAddModalOpen(false);
       resetForm();
@@ -419,7 +412,7 @@ const Products = () => {
         contact: quickSupplierData.contact,
         location: quickSupplierData.location || undefined,
         userId: user.uid
-      }, user.uid);
+      });
 
       // Set the new supplier as selected
       setStep2Data(prev => ({
@@ -656,7 +649,7 @@ const Products = () => {
         contact: quickSupplierData.contact,
         location: quickSupplierData.location || undefined,
         userId: user.uid
-      }, user.uid);
+      });
 
       // Set the new supplier as selected for stock adjustment
       setStockAdjustmentSupplier(prev => ({
@@ -693,8 +686,9 @@ const Products = () => {
       name: product.name,
       reference: product.reference,
       category: product.category,
-      images: Array.isArray(product.images) ? product.images : (product.images ? [product.images] : []),
-      tags: product.tags || [], // Load existing tags
+      images: [], // Will be handled separately for editing
+      tags: product.tags || [],
+      isVisible: product.isVisible !== undefined ? product.isVisible : true, // Load visibility setting
     });
     // Find latest stock change for this product
     const latestStockChange = stockChanges
@@ -743,15 +737,10 @@ const Products = () => {
     const updateData: Partial<Product> = {
       name: step1Data.name,
       category: step1Data.category,
-      images: (step1Data.images ?? []).length > 0 ? step1Data.images.map(img => {
-        if (img.startsWith('data:')) {
-          const base64Index = img.indexOf(',');
-          return base64Index !== -1 ? img.substring(base64Index + 1) : img;
-        }
-        return img;
-      }) : [],
-      tags: step1Data.tags, // Include tags in the update
+      images: safeProduct.images, // Keep existing images, will be updated separately if needed
+      tags: step1Data.tags || [], // Include tags in the update, default to empty array
       isAvailable: safeProduct.isAvailable,
+      isVisible: step1Data.isVisible !== false, // Default to true, never undefined
       userId: safeProduct.userId,
       updatedAt: { seconds: 0, nanoseconds: 0 },
       sellingPrice: editPrices.sellingPrice ? parseFloat(editPrices.sellingPrice) : safeProduct.sellingPrice,
@@ -765,7 +754,7 @@ const Products = () => {
       // Handle enhanced manual adjustment and damage scenarios with batch edits
       if ((stockReason === 'adjustment' || stockReason === 'damage') && tempBatchEdits.length > 0) {
         // First update product info
-        await updateProduct(currentProduct.id, updateData, user.uid);
+        await updateProductData(currentProduct.id, updateData);
         
         // Then apply all batch adjustments with enhanced debt management
         const adjustments = tempBatchEdits.map(edit => ({
@@ -779,7 +768,7 @@ const Products = () => {
           notes: `${edit.scenario === 'damage' ? 'Damage' : 'Manual adjustment'} via product edit`
         }));
         
-        await adjustBatchWithDebtManagement(currentProduct.id, adjustments, user.uid);
+        await adjustBatchWithDebtManagement(currentProduct.id, adjustments);
         showSuccessToast(`Applied ${tempBatchEdits.length} ${stockReason === 'damage' ? 'damage records' : 'batch adjustments'}!`);
       }
       // Handle traditional stock adjustment if provided (restock or simple adjustment)
@@ -793,7 +782,7 @@ const Products = () => {
           updateData.stock = newStock;
           
           // Create stock change with supplier info
-          await updateProduct(currentProduct.id, updateData, user.uid, stockReasonType, stockChange, {
+          await updateProductData(currentProduct.id, updateData, stockReasonType, stockChange, {
             supplierId: stockAdjustmentSupplier.supplierId || undefined,
             isOwnPurchase: stockAdjustmentSupplier.supplyType === 'ownPurchase',
             isCredit: stockAdjustmentSupplier.paymentType === 'credit',
@@ -805,42 +794,63 @@ const Products = () => {
             const debtAmount = parseFloat(stockAdjustmentSupplier.costPrice) * stockChange;
             const description = `Restock purchase for ${currentProduct.name} (${stockChange} units)`;
             
-            // Note: Debt creation with batchId is now handled in updateProduct function
+            // Note: Debt creation with batchId is now handled in updateProductData function
             // The batchId will be included automatically
           }
         } else {
           // For simple adjustment, set to new value
           updateData.stock = stockChange;
-          await updateProduct(currentProduct.id, updateData, user.uid, stockReasonType, stockChange - (currentProduct.stock || 0));
+          await updateProductData(currentProduct.id, updateData, stockReasonType, stockChange - (currentProduct.stock || 0));
         }
       } else {
         // No stock adjustment, just update product info
-        await updateProduct(currentProduct.id, updateData, user.uid);
+        await updateProductData(currentProduct.id, updateData);
       }
       
+      // Handle File to Firebase Storage conversion for images
+      if (step1Data.images.length > 0) {
+        try {
+          const storageService = new FirebaseStorageService();
+          const uploadResults = await storageService.uploadProductImagesFromFiles(
+            step1Data.images,
+            user.uid,
+            currentProduct.id
+          );
+          
+          // Update product with new image URLs and paths
+          const imageUrls = uploadResults.map(result => result.url);
+          const imagePaths = uploadResults.map(result => result.path);
+          
+          // Update the product with new image URLs
+          await updateProduct(currentProduct.id, {
+            images: imageUrls,
+            imagePaths: imagePaths
+          });
+        } catch (error) {
+          console.error('Error uploading images:', error);
+          showErrorToast('Product updated but images failed to upload');
+        }
+      }
+
       // Update latest stock change cost price if changed
       const latestStockChange = stockChanges
         .filter(sc => sc.productId === currentProduct.id)
         .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))[0];
       if (latestStockChange && editPrices.costPrice && parseFloat(editPrices.costPrice) !== latestStockChange.costPrice) {
-        // Use updateProduct with stockReason 'adjustment' and stockChange 0 to update cost price only
-        await updateProduct(currentProduct.id, {}, user.uid, 'adjustment', 0, {
+        // Use updateProductData with stockReason 'adjustment' and stockChange 0 to update cost price only
+        await updateProductData(currentProduct.id, {}, 'adjustment', 0, {
           supplierId: latestStockChange.supplierId,
           isOwnPurchase: latestStockChange.isOwnPurchase,
           isCredit: latestStockChange.isCredit,
           costPrice: parseFloat(editPrices.costPrice)
         });
       }
-      
-      // Refresh the product list to show the updated product
-      refresh();
-      
       setIsEditModalOpen(false);
       resetForm();
       showSuccessToast(t('products.messages.productUpdated'));
     } catch (err) {
       console.error('Error updating product:', err);
-      showErrorToast(t('products.messages.errors.updateProduct'));
+      showErrorToast(t('products.messages.errors.updateProductData'));
       setIsEditModalOpen(true);
     } finally {
       setIsSubmitting(false);
@@ -862,15 +872,42 @@ const Products = () => {
       if (product.stock > 0 && !hasStockChange) {
         // Create an initial adjustment with 'creation' reason
         try {
-          await updateProduct(product.id, { stock: product.stock }, user.uid, 'creation', product.stock);
+          await updateProductData(product.id, { stock: product.stock }, 'creation', product.stock);
         } catch (e) { console.error(`Failed to create initial stock for ${product.id}:`, e) }
       }
     });
-  }, [infiniteProducts, stockChanges, user, updateProduct]);
+  }, [infiniteProducts, stockChanges, user, updateProductData]);
 
   useEffect(() => {
     setSelectedCategory(t('products.filters.allCategories'));
   }, [i18n.language, t]);
+
+  // Clean up visibility overrides when server data matches our override
+  useEffect(() => {
+    if (infiniteProducts.length > 0) {
+      setVisibilityOverrides(prev => {
+        const newOverrides = { ...prev };
+        let hasChanges = false;
+        
+        // Only remove overrides when the server data actually matches our override
+        Object.keys(newOverrides).forEach(productId => {
+          const product = infiniteProducts.find(p => p.id === productId);
+          if (product && product.isVisible === newOverrides[productId]) {
+            // Server data now matches our override, so we can remove it
+            console.log('Cleaning up override for product:', productId, 'server data matches override');
+            delete newOverrides[productId];
+            hasChanges = true;
+          }
+        });
+        
+        if (hasChanges) {
+          console.log('Updated overrides:', newOverrides);
+        }
+        
+        return hasChanges ? newOverrides : prev;
+      });
+    }
+  }, [infiniteProducts]);
 
   // Load batches when stock reason changes to adjustment or damage
   useEffect(() => {
@@ -915,10 +952,6 @@ const Products = () => {
         const updateData = { isAvailable: false, images: safeProduct.images, userId: safeProduct.userId, updatedAt: { seconds: 0, nanoseconds: 0 } };
         await updateProduct(id, updateData, user.uid);
       }
-      
-      // Refresh the product list to remove the deleted products
-      refresh();
-      
       showSuccessToast(t('products.messages.bulkDeleteSuccess', { count: selectedProducts.length }));
       setIsBulkDeleteModalOpen(false);
       setSelectedProducts([]);
@@ -944,10 +977,6 @@ const Products = () => {
     try {
       setIsDeleting(true);
       await updateProduct(productToDelete.id, updateData, user.uid);
-      
-      // Refresh the product list to remove the deleted product
-      refresh();
-      
       showSuccessToast(t('products.messages.productDeleted'));
       setIsDeleteModalOpen(false);
       setProductToDelete(null);
@@ -964,11 +993,11 @@ const Products = () => {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
     setIsUploadingImages(true);
-    const newImages: string[] = [];
+    const newImages: File[] = [];
     for (const file of files) {
       try {
-        const base64 = await compressImage(file);
-        newImages.push(base64);
+        const compressedFile = await compressImage(file);
+        newImages.push(compressedFile);
       } catch (err) {
         console.error('Error compressing image:', err);
         showErrorToast(t('products.messages.errors.addProduct'));
@@ -983,9 +1012,59 @@ const Products = () => {
     setStep1Data(prev => ({ ...prev, images: prev.images.filter((_, i) => i !== idx) }));
   };
 
+  // Toggle product visibility
+  const handleToggleVisibility = async (product: Product) => {
+    if (!user?.uid) return;
+    
+    try {
+      const currentEffectiveVisibility = getEffectiveVisibility(product);
+      const newVisibility = !currentEffectiveVisibility;
+      
+      console.log('Toggle visibility:', {
+        productId: product.id,
+        originalVisibility: product.isVisible,
+        currentEffectiveVisibility,
+        newVisibility,
+        currentOverrides: visibilityOverrides
+      });
+      
+      // Optimistic update - immediately update the local state for instant UI feedback
+      setVisibilityOverrides(prev => ({
+        ...prev,
+        [product.id]: newVisibility
+      }));
+      
+      await updateProductData(product.id, { isVisible: newVisibility });
+      
+      showSuccessToast(
+        newVisibility 
+          ? t('products.messages.productShown') 
+          : t('products.messages.productHidden')
+      );
+      
+    } catch (error) {
+      console.error('Error toggling product visibility:', error);
+      showErrorToast(t('products.messages.errors.toggleVisibility'));
+      
+      // Revert the optimistic update on error
+      setVisibilityOverrides(prev => {
+        const newOverrides = { ...prev };
+        delete newOverrides[product.id];
+        return newOverrides;
+      });
+    }
+  };
+
   // Helper function to get batches for a specific product
   const getProductBatches = (productId: string): StockBatch[] => {
     return allStockBatches.filter(batch => batch.productId === productId);
+  };
+
+  // Helper function to get the effective visibility state (considering optimistic updates)
+  const getEffectiveVisibility = (product: Product): boolean => {
+    return visibilityOverrides[product.id] !== undefined 
+      ? visibilityOverrides[product.id] 
+      : product.isVisible !== false;
   };
 
   // Place filteredProducts and resetImportState above their first usage
@@ -1084,7 +1163,7 @@ const Products = () => {
               name: supplierName,
               contact: 'Imported',
               userId: user.uid
-            }, user.uid);
+            });
           }
           finalSupplierId = supplier.id;
         } else if (finalSupplierId) {
@@ -1094,7 +1173,7 @@ const Products = () => {
               name: finalSupplierId,
               contact: 'Imported',
               userId: user.uid
-            }, user.uid);
+            });
             finalSupplierId = supplier.id;
           }
         } else {
@@ -1299,17 +1378,6 @@ const Products = () => {
                     const mainIdx = mainImageIndexes[product.id] ?? 0;
                     const mainImg = images.length > 0 ? images[mainIdx] : '/placeholder.png';
                     
-                    // Debug logging for image data
-                    if (images.length > 0) {
-                      console.log(`Product ${product.name} image data:`, {
-                        totalImages: images.length,
-                        mainIndex: mainIdx,
-                        mainImagePreview: mainImg.substring(0, 100) + '...',
-                        isDataURL: mainImg.startsWith('data:'),
-                        isBase64: !mainImg.startsWith('data:') && !mainImg.startsWith('/') && !mainImg.startsWith('http')
-                      });
-                    }
-                    
                     return (
                       <ImageWithSkeleton
                         src={mainImg}
@@ -1373,6 +1441,17 @@ const Products = () => {
                     title={t('products.actions.viewDetails', 'View Details')}
                   >
                     <Info size={16} />
+                  </button>
+                  <button
+                    onClick={() => handleToggleVisibility(product)}
+                    className={`px-2 py-1 text-xs rounded-full border transition-colors ${
+                      getEffectiveVisibility(product)
+                        ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100' 
+                        : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
+                    }`}
+                    title={getEffectiveVisibility(product) ? t('products.actions.hideFromCatalogue') : t('products.actions.showInCatalogue')}
+                  >
+                    {getEffectiveVisibility(product) ? 'Visible on catalogue' : 'Hidden from catalogue'}
                   </button>
                   <button
                     onClick={() => openEditModal(product)}
@@ -1516,6 +1595,17 @@ const Products = () => {
                           <Info size={16} />
                         </button>
                         <button
+                          onClick={() => handleToggleVisibility(product)}
+                          className={`px-2 py-1 text-xs rounded-full border transition-colors ${
+                            getEffectiveVisibility(product)
+                              ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100' 
+                              : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
+                          }`}
+                          title={getEffectiveVisibility(product) ? t('products.actions.hideFromCatalogue') : t('products.actions.showInCatalogue')}
+                        >
+                          {getEffectiveVisibility(product) ? 'Visible on catalogue' : 'Hidden from catalogue'}
+                        </button>
+                        <button
                           onClick={() => openEditModal(product)}
                           className="text-indigo-600 hover:text-indigo-900"
                           title={t('products.actions.editProduct')}
@@ -1557,11 +1647,17 @@ const Products = () => {
       {/* Add Product Modal */}
       <Modal
         isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
+        onClose={() => {
+          setIsAddModalOpen(false);
+          resetForm();
+        }}
         title={t('products.actions.addProduct')}
         footer={
           <ModalFooter 
-            onCancel={() => setIsAddModalOpen(false)}
+            onCancel={() => {
+              setIsAddModalOpen(false);
+              resetForm();
+            }}
             onConfirm={currentStep === 1 ? nextStep : handleAddProduct}
             confirmText={currentStep === 1 ? t('products.actions.nextStep') : t('products.actions.complete')}
             isLoading={isSubmitting}
@@ -1608,11 +1704,11 @@ const Products = () => {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               {t('products.form.step1.category')}
             </label>
-            <CreatableSelect
-                  value={step1Data.category ? { label: step1Data.category, value: step1Data.category } : null}
-              onChange={handleCategoryChange}
-              placeholder={t('products.form.step1.categoryPlaceholder')}
-              className="custom-select"
+            <CategorySelector
+              value={step1Data.category}
+              onChange={(category) => setStep1Data(prev => ({ ...prev, category }))}
+              showImages={true}
+              placeholder={t('products.form.categoryPlaceholder')}
             />
           </div>
           
@@ -1635,33 +1731,46 @@ const Products = () => {
                 )}
               </label>
               <div className="flex overflow-x-auto custom-scrollbar space-x-2 py-1">
-                    {(step1Data.images ?? []).map((img, idx) => (
-                  <div key={idx} className="relative w-20 h-20 flex-shrink-0 rounded-md overflow-hidden group">
-                    <ImageWithSkeleton
-                      src={img}
-                      alt={`Product ${idx + 1}`}
-                      className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
-                      placeholder="/placeholder.png"
-                    />
-                    <button
-                      type="button"
-                      className="absolute top-1 right-1 bg-white bg-opacity-80 rounded-full p-1 text-red-600 hover:text-red-800 shadow"
-                      onClick={() => handleRemoveImage(idx)}
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                ))}
+                    {(step1Data.images ?? []).map((img, idx) => {
+                      // Handle both File objects and existing URLs
+                      let imageSrc: string;
+                      if (img instanceof File) {
+                        imageSrc = URL.createObjectURL(img);
+                      } else if (typeof img === 'string') {
+                        imageSrc = img;
+                      } else {
+                        console.warn('Invalid image object:', img);
+                        imageSrc = '/placeholder.png';
+                      }
+                      
+                      return (
+                        <div key={idx} className="relative w-20 h-20 flex-shrink-0 rounded-md overflow-hidden group">
+                          <ImageWithSkeleton
+                            src={imageSrc}
+                            alt={`Product ${idx + 1}`}
+                            className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
+                            placeholder="/placeholder.png"
+                          />
+                          <button
+                            type="button"
+                            className="absolute top-1 right-1 bg-white bg-opacity-80 rounded-full p-1 text-red-600 hover:text-red-800 shadow"
+                            onClick={() => handleRemoveImage(idx)}
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      );
+                    })}
               </div>
             </div>
-            <p className="mt-1 text-sm text-gray-500">{t('products.form.step1.imageHelp')}</p>
+            <p className="mt-1 text-sm text-gray-500">{t('products.form.imageHelp')}</p>
           </div>
 
           {/* Product Tags Manager */}
           <ProductTagsManager
             tags={step1Data.tags}
             onTagsChange={(tags) => setStep1Data(prev => ({ ...prev, tags }))}
-            images={step1Data.images}
+            images={step1Data.images.map(img => img instanceof File ? URL.createObjectURL(img) : img)}
           />
             </div>
           ) : (
@@ -1844,12 +1953,177 @@ const Products = () => {
             {/* Category */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">{t('products.form.category')}</label>
-              <CreatableSelect
-                value={step1Data.category ? { label: step1Data.category, value: step1Data.category } : null}
-                onChange={handleCategoryChange}
+              <CategorySelector
+                value={step1Data.category}
+                onChange={(category) => setStep1Data(prev => ({ ...prev, category }))}
+                showImages={true}
                 placeholder={t('products.form.categoryPlaceholder')}
-                className="custom-select"
               />
+            </div>
+
+            {/* Product Tags Manager */}
+            <ProductTagsManager
+              tags={step1Data.tags}
+              onTagsChange={(tags) => setStep1Data(prev => ({ ...prev, tags }))}
+              images={step1Data.images.map(img => img instanceof File ? URL.createObjectURL(img) : img)}
+            />
+
+            {/* Product Visibility Toggle */}
+            <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="flex items-center space-x-2">
+                    {step1Data.isVisible ? (
+                      <Eye className="h-5 w-5 text-green-600" />
+                    ) : (
+                      <EyeOff className="h-5 w-5 text-gray-400" />
+                    )}
+                    <span className="text-sm font-medium text-gray-900">
+                      {t('products.form.step1.visibility')}
+                    </span>
+                  </div>
+                  <span className="text-xs text-gray-500">
+                    {step1Data.isVisible 
+                      ? t('products.form.step1.visibleInCatalogue') 
+                      : t('products.form.step1.hiddenFromCatalogue')
+                    }
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setStep1Data(prev => ({ ...prev, isVisible: !prev.isVisible }))}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 ${
+                    step1Data.isVisible ? 'bg-emerald-600' : 'bg-gray-200'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      step1Data.isVisible ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              </div>
+            </div>
+
+            {/* Product Images */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                {t('products.form.step1.images')}
+              </label>
+              <div className="space-y-4">
+                {/* Current Images Display */}
+                {step1Data.images.length > 0 && (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                    {step1Data.images.map((image, idx) => {
+                      // Handle both File objects and existing URLs
+                      let imageSrc: string;
+                      if (image instanceof File) {
+                        imageSrc = URL.createObjectURL(image);
+                      } else if (typeof image === 'string') {
+                        imageSrc = image;
+                      } else {
+                        console.warn('Invalid image object:', image);
+                        imageSrc = '/placeholder.png';
+                      }
+                      
+                      return (
+                        <div key={idx} className="relative group">
+                          <div className="aspect-square rounded-lg overflow-hidden border border-gray-200">
+                            <ImageWithSkeleton
+                              src={imageSrc}
+                              alt={`Product image ${idx + 1}`}
+                              className="w-full h-full object-cover"
+                              placeholder="Loading image..."
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveImage(idx)}
+                            className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                            title={t('products.actions.removeImage')}
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Add Image Button */}
+                <div className="flex items-center justify-center w-full">
+                  <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors">
+                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                      <Upload className="w-8 h-8 mb-2 text-gray-400" />
+                      <p className="mb-2 text-sm text-gray-500">
+                        <span className="font-semibold">{t('products.actions.clickToUpload')}</span> {t('products.actions.orDragAndDrop')}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {t('products.form.step1.imageFormats')}
+                      </p>
+                    </div>
+                    <input
+                      type="file"
+                      multiple
+                      accept="image/*"
+                      onChange={handleImagesUpload}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+
+                {/* Image Upload Progress */}
+                {isUploadingImages && (
+                  <div className="flex items-center space-x-2 text-sm text-gray-600">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-emerald-500"></div>
+                    <span>{t('products.actions.uploadingImages')}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Product Tags Manager */}
+            <ProductTagsManager
+              tags={step1Data.tags}
+              onTagsChange={(tags) => setStep1Data(prev => ({ ...prev, tags }))}
+              images={step1Data.images.map(img => img instanceof File ? URL.createObjectURL(img) : img)}
+            />
+
+            {/* Visibility Toggle */}
+            <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="flex items-center space-x-2">
+                    {step1Data.isVisible ? (
+                      <Eye className="h-5 w-5 text-green-600" />
+                    ) : (
+                      <EyeOff className="h-5 w-5 text-gray-400" />
+                    )}
+                    <span className="text-sm font-medium text-gray-900">
+                      {t('products.form.step1.visibility')}
+                    </span>
+                  </div>
+                  <span className="text-xs text-gray-500">
+                    {step1Data.isVisible 
+                      ? t('products.form.step1.visibleInCatalogue') 
+                      : t('products.form.step1.hiddenFromCatalogue')
+                    }
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setStep1Data(prev => ({ ...prev, isVisible: !prev.isVisible }))}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 ${
+                    step1Data.isVisible ? 'bg-emerald-600' : 'bg-gray-200'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      step1Data.isVisible ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -2601,23 +2875,36 @@ const Products = () => {
                   )}
                 </label>
                 <div className="flex overflow-x-auto custom-scrollbar space-x-2 py-1">
-                  {(step1Data.images ?? []).map((img, idx) => (
-                    <div key={idx} className="relative w-20 h-20 flex-shrink-0 rounded-md overflow-hidden group">
-                      <ImageWithSkeleton
-                        src={img}
-                        alt={`Product ${idx + 1}`}
-                        className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
-                        placeholder="/placeholder.png"
-                      />
-                      <button
-                        type="button"
-                        className="absolute top-1 right-1 bg-white bg-opacity-80 rounded-full p-1 text-red-600 hover:text-red-800 shadow"
-                        onClick={() => handleRemoveImage(idx)}
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  ))}
+                  {(step1Data.images ?? []).map((img, idx) => {
+                    // Handle both File objects and existing URLs
+                    let imageSrc: string;
+                    if (img instanceof File) {
+                      imageSrc = URL.createObjectURL(img);
+                    } else if (typeof img === 'string') {
+                      imageSrc = img;
+                    } else {
+                      console.warn('Invalid image object:', img);
+                      imageSrc = '/placeholder.png';
+                    }
+                    
+                    return (
+                      <div key={idx} className="relative w-20 h-20 flex-shrink-0 rounded-md overflow-hidden group">
+                        <ImageWithSkeleton
+                          src={imageSrc}
+                          alt={`Product ${idx + 1}`}
+                          className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
+                          placeholder="/placeholder.png"
+                        />
+                        <button
+                          type="button"
+                          className="absolute top-1 right-1 bg-white bg-opacity-80 rounded-full p-1 text-red-600 hover:text-red-800 shadow"
+                          onClick={() => handleRemoveImage(idx)}
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
               <p className="mt-1 text-sm text-gray-500">{t('products.form.imageHelp', 'Add clear images to help identify this product. You can upload multiple images.')}</p>

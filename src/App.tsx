@@ -9,10 +9,7 @@ import RoleRoute from './components/auth/RoleRoute';
 import LoadingScreen from './components/common/LoadingScreen';
 import LazyPage from './components/common/LazyPage';
 import { Toaster } from 'react-hot-toast';
-import { FloatingActionButton } from './components/common/Button';
-import AddSaleModal from './components/sales/AddSaleModal';
 import Finance from './pages/Finance';
-import { EnhancedPWAInstallPrompt } from './components/EnhancedPWAInstallPrompt';
 import { PWAErrorHandler } from './components/PWAErrorHandler';
 import { PWAUpdateNotification } from './components/PWAUpdateNotification';
 import { usePWAUpdate } from './hooks/usePWAUpdate';
@@ -26,11 +23,14 @@ const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Sales = lazy(() => import('./pages/Sales'));
 const Expenses = lazy(() => import('./pages/Expenses'));
 const Products = lazy(() => import('./pages/Products'));
+const Categories = lazy(() => import('./pages/Categories'));
+const Orders = lazy(() => import('./pages/Orders'));
 const Suppliers = lazy(() => import('./pages/Suppliers'));
 const Reports = lazy(() => import('./pages/Reports'));
 const Settings = lazy(() => import('./pages/Settings'));
 const TimelinePage = lazy(() => import('./pages/TimelinePage'));
 const Catalogue = lazy(() => import('./pages/Catalogue'));
+const SingleCheckout = lazy(() => import('./pages/SingleCheckout'));
 // ProductDetail removed - now using modal instead
 const FIFODebugger = lazy(() => import('./pages/FIFODebugger'));
 // Public invite/employee login pages
@@ -57,18 +57,16 @@ function App() {
 function AppWithFAB({ isAddSaleModalOpen, setIsAddSaleModalOpen }: { isAddSaleModalOpen: boolean, setIsAddSaleModalOpen: (open: boolean) => void }) {
   const location = useLocation();
   const { isUpdateAvailable, applyUpdate, dismissUpdate } = usePWAUpdate();
-  const isAuthPage = location.pathname.startsWith('/auth/login') || location.pathname.startsWith('/auth/register');
   const isCataloguePage = /^\/catalogue\/[^/]+\/[^/]+$/.test(location.pathname);
-  // ProductDetail page removed - now using modal
-  const isTrackSalesPage = location.pathname.startsWith('/track/');
+  const isCheckoutPage = location.pathname === '/checkout';
   
   return (
     <PWAErrorHandler>
       <Suspense fallback={<LoadingScreen />}>
         <Toaster />
         
-        {/* PWA Update Notification */}
-        {isUpdateAvailable && (
+        {/* PWA Update Notification - Don't show on catalogue or checkout pages */}
+        {isUpdateAvailable && !isCataloguePage && !isCheckoutPage && (
           <PWAUpdateNotification
             onUpdate={applyUpdate}
             onDismiss={dismissUpdate}
@@ -88,6 +86,7 @@ function AppWithFAB({ isAddSaleModalOpen, setIsAddSaleModalOpen }: { isAddSaleMo
           {/* Public Routes */}
           <Route path="/track/:id" element={<LazyPage><TimelinePage /></LazyPage>} />
           <Route path="/catalogue/:companyName/:companyId" element={<LazyPage><Catalogue /></LazyPage>} />
+          <Route path="/checkout" element={<LazyPage><SingleCheckout /></LazyPage>} />
           {/* ProductDetail route removed - now using modal */}
           {/* Public Invite Activation Route */}
           <Route path="/invite/:inviteId" element={<LazyPage><InviteActivate /></LazyPage>} />
@@ -96,26 +95,18 @@ function AppWithFAB({ isAddSaleModalOpen, setIsAddSaleModalOpen }: { isAddSaleMo
           
           {/* Protected Routes */}
           <Route element={<ProtectedRoute />}>
-            {/* Employee Routes */}
-            <Route path="/employee/dashboard" element={<LazyPage><FictiveDashboard /></LazyPage>} />
-            
-            {/* Company Routes */}
-            <Route path="/company/create" element={<LazyPage><CreateCompany /></LazyPage>} />
-            
-            {/* Company Management Routes */}
-            <Route path="/companies" element={<LazyPage><CompaniesManagement /></LazyPage>} />
-            
-            {/* Routes entreprise spécifique */}
-            <Route path="/company/:companyId" element={<MainLayout isAddSaleModalOpen={isAddSaleModalOpen} setIsAddSaleModalOpen={setIsAddSaleModalOpen} />}>
-              <Route path="dashboard" element={<LazyPage><Dashboard /></LazyPage>} />
-              <Route path="sales" element={<LazyPage><Sales /></LazyPage>} />
-              <Route path="expenses" element={<LazyPage><Expenses /></LazyPage>} />
-              <Route path="finance" element={<RoleRoute allowedRoles={['gestionnaire', 'magasinier', 'owner']}><Finance /></RoleRoute>} />
-              <Route path="products" element={<LazyPage><Products /></LazyPage>} />
-              <Route path="suppliers" element={<LazyPage><Suppliers /></LazyPage>} />
-              <Route path="reports" element={<RoleRoute allowedRoles={['gestionnaire', 'magasinier', 'owner']}><LazyPage><Reports /></LazyPage></RoleRoute>} />
-              <Route path="settings" element={<RoleRoute allowedRoles={['magasinier', 'owner']}><LazyPage><Settings /></LazyPage></RoleRoute>} />
-              <Route path="fifo-debugger" element={<LazyPage><FIFODebugger /></LazyPage>} />
+            <Route element={<MainLayout isAddSaleModalOpen={isAddSaleModalOpen} setIsAddSaleModalOpen={setIsAddSaleModalOpen} />}>
+              <Route path="/" element={<LazyPage><Dashboard /></LazyPage>} />
+              <Route path="/sales" element={<LazyPage><Sales /></LazyPage>} />
+              <Route path="/expenses" element={<LazyPage><Expenses /></LazyPage>} />
+              <Route path="/finance" element={<Finance />} />
+              <Route path="/products" element={<LazyPage><Products /></LazyPage>} />
+              <Route path="/categories" element={<LazyPage><Categories /></LazyPage>} />
+              <Route path="/orders" element={<LazyPage><Orders /></LazyPage>} />
+              <Route path="/suppliers" element={<LazyPage><Suppliers /></LazyPage>} />
+              <Route path="/reports" element={<LazyPage><Reports /></LazyPage>} />
+              <Route path="/settings" element={<LazyPage><Settings /></LazyPage>} />
+              <Route path="/fifo-debugger" element={<LazyPage><FIFODebugger /></LazyPage>} />
             </Route>
           </Route>
           {/* Redirect to login if no route matches */}

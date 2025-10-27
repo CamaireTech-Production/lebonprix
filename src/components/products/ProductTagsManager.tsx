@@ -3,6 +3,7 @@ import { Plus, Trash2, X, Check, Copy, Bookmark } from 'lucide-react';
 import type { ProductTag, TagVariation } from '../../types/models';
 import { subscribeToUserTags, createUserTag } from '../../services/firestore';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTranslation } from 'react-i18next';
 
 interface ProductTagsManagerProps {
   tags?: ProductTag[];
@@ -12,6 +13,7 @@ interface ProductTagsManagerProps {
 
 const ProductTagsManager: React.FC<ProductTagsManagerProps> = ({ tags = [], onTagsChange, images = [] }) => {
   const { user } = useAuth();
+  const { t } = useTranslation();
   const [editingTag, setEditingTag] = useState<string | null>(null);
   const [newTagName, setNewTagName] = useState('');
   const [newVariationName, setNewVariationName] = useState('');
@@ -83,14 +85,14 @@ const ProductTagsManager: React.FC<ProductTagsManagerProps> = ({ tags = [], onTa
     onTagsChange(updatedTags);
   };
 
-  const updateVariationImage = (tagId: string, variationId: string, imageIndex: number) => {
+  const updateVariationImage = (tagId: string, variationId: string, imageIndex: number | undefined) => {
     const updatedTags = tags.map(tag => 
       tag.id === tagId 
         ? { 
             ...tag, 
             variations: tag.variations.map(v => 
               v.id === variationId 
-                ? { ...v, imageIndex: imageIndex >= 0 ? imageIndex : undefined }
+                ? { ...v, imageIndex: imageIndex !== undefined && imageIndex >= 0 ? imageIndex : undefined }
                 : v
             )
           }
@@ -169,14 +171,14 @@ const ProductTagsManager: React.FC<ProductTagsManagerProps> = ({ tags = [], onTa
                     }`}
                   >
                     <Copy className="h-3 w-3" />
-                    <span>{isTagAlreadyUsed(userTag) ? 'Used' : 'Copy'}</span>
+                    <span>{isTagAlreadyUsed(userTag) ? t('common.used') : t('common.copy')}</span>
                   </button>
                 </div>
               ))}
             </div>
           ) : (
             <div className="text-center py-4 text-blue-600">
-              <p className="text-sm">No saved tags yet</p>
+              <p className="text-sm">{t('products.tags.noSavedTags')}</p>
               <p className="text-xs mt-1">Create tags and they'll be saved here for future use</p>
             </div>
           )}
@@ -216,6 +218,48 @@ const ProductTagsManager: React.FC<ProductTagsManagerProps> = ({ tags = [], onTa
         </div>
       )}
 
+      {/* Image-Variation Mapping Summary */}
+      {images.length > 0 && tags.some(tag => tag.variations.some(v => v.imageIndex !== undefined)) && (
+        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <h4 className="text-sm font-medium text-blue-900 mb-3">Image Assignments</h4>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+            {images.map((image, index) => {
+              const assignedVariations = tags
+                .flatMap(tag => tag.variations)
+                .filter(variation => variation.imageIndex === index);
+              
+              return (
+                <div key={index} className="text-center">
+                  <div className="relative w-16 h-16 mx-auto mb-2 rounded-lg overflow-hidden border-2 border-gray-300">
+                    <img
+                      src={image}
+                      alt={`Image ${index + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute top-0 right-0 bg-blue-600 text-white text-xs px-1 rounded-bl">
+                      {index + 1}
+                    </div>
+                  </div>
+                  <div className="text-xs text-gray-600">
+                    {assignedVariations.length > 0 ? (
+                      <div>
+                        <div className="font-medium text-blue-800">Assigned to:</div>
+                        {assignedVariations.map((variation, idx) => (
+                          <div key={idx} className="text-blue-700">
+                            {variation.name}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-gray-400">Not assigned</div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
       {/* Existing tags */}
       {tags.map((tag) => (
         <div key={tag.id} className="border border-gray-200 rounded-lg p-4">
@@ -236,20 +280,49 @@ const ProductTagsManager: React.FC<ProductTagsManagerProps> = ({ tags = [], onTa
               <div key={variation.id} className="flex items-center space-x-2 p-2 bg-white rounded border">
                 <span className="flex-1 text-sm">{variation.name}</span>
                 
-                {/* Image selector */}
+                {/* Image selector with thumbnails */}
                 {images.length > 0 && (
-                  <select
-                    value={variation.imageIndex ?? ''}
-                    onChange={(e) => updateVariationImage(tag.id, variation.id, parseInt(e.target.value))}
-                    className="text-xs border border-gray-300 rounded px-2 py-1"
-                  >
-                    <option value="">No image</option>
-                    {images.map((_, index) => (
-                      <option key={index} value={index}>
-                        Image {index + 1}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-xs text-gray-500">Image:</span>
+                    <div className="flex space-x-1">
+                      <button
+                        type="button"
+                        onClick={() => updateVariationImage(tag.id, variation.id, undefined)}
+                        className={`px-2 py-1 text-xs rounded border ${
+                          variation.imageIndex === undefined 
+                            ? 'bg-gray-100 border-gray-400 text-gray-700' 
+                            : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                        }`}
+                        title="No image"
+                      >
+                        None
+                      </button>
+                      {images.map((image, index) => (
+                        <button
+                          key={index}
+                          type="button"
+                          onClick={() => updateVariationImage(tag.id, variation.id, index)}
+                          className={`relative w-8 h-8 rounded border-2 overflow-hidden ${
+                            variation.imageIndex === index 
+                              ? 'border-emerald-500 ring-2 ring-emerald-200' 
+                              : 'border-gray-300 hover:border-gray-400'
+                          }`}
+                          title={`Image ${index + 1} - ${variation.name}`}
+                        >
+                          <img
+                            src={image}
+                            alt={`Image ${index + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                          {variation.imageIndex === index && (
+                            <div className="absolute inset-0 bg-emerald-500 bg-opacity-20 flex items-center justify-center">
+                              <div className="w-2 h-2 bg-emerald-600 rounded-full"></div>
+                            </div>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 )}
                 
                 <button

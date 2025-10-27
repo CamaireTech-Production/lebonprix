@@ -1,5 +1,5 @@
 {
-  "name": "le-bon-prix",
+  "name": "geskap",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -18,10 +18,11 @@
   },
   "dependencies": {
     "@capacitor/share": "^7.0.1",
+    "@types/crypto-js": "^4.2.2",
     "@types/papaparse": "^5.3.16",
     "browser-image-compression": "^2.0.2",
     "chart.js": "^4.4.1",
-    "daisyui": "^5.3.7",
+    "crypto-js": "^4.2.0",
     "date-fns": "^3.6.0",
     "firebase": "^10.8.0",
     "firebase-admin": "^13.4.0",

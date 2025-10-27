@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useCart } from '../../contexts/CartContext';
 import { getCompanyByUserId, getSellerSettings } from '../../services/firestore';
+import { createOrder } from '../../services/orderService';
 import type { Company } from '../../types/models';
-import type { CustomerInfo, OrderData, SellerSettings } from '../../types/order';
-import { X, ArrowLeft, ArrowRight, ShoppingBag, User, MapPin, Phone, MessageSquare, CreditCard, Truck, Check } from 'lucide-react';
+import type { CustomerInfo, OrderData, SellerSettings, OrderPaymentMethod, OrderPricing, DeliveryInfo, Order } from '../../types/order';
+import { X, ArrowLeft, ArrowRight, ShoppingBag, User, MapPin, Phone, MessageSquare, CreditCard, Truck, CheckCircle, Clock } from 'lucide-react';
 import PhoneInput from '../common/PhoneInput';
+import toast from 'react-hot-toast';
 
 interface CheckoutModalProps {
   isOpen: boolean;
@@ -30,6 +32,12 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, companyI
   // Form validation state
   const [errors, setErrors] = useState<Partial<CustomerInfo>>({});
 
+  // Payment method selection state
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<OrderPaymentMethod | null>(null);
+  const [showPaymentSelection, setShowPaymentSelection] = useState(false);
+  const [orderCreated, setOrderCreated] = useState(false);
+  const [createdOrder, setCreatedOrder] = useState<Order | null>(null);
+
   // Fetch company data and seller settings
   useEffect(() => {
     const fetchData = async () => {
@@ -53,7 +61,9 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, companyI
 
   // Reset modal state when opening
   useEffect(() => {
+    console.log('Modal useEffect triggered, isOpen:', isOpen);
     if (isOpen) {
+      console.log('Resetting form data');
       setCurrentStep(1);
       setCustomerInfo({
         name: '',
@@ -67,24 +77,32 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, companyI
 
   // Form validation
   const validateForm = (): boolean => {
+    console.log('validateForm called with customerInfo:', customerInfo);
     const newErrors: Partial<CustomerInfo> = {};
 
     if (!customerInfo.name.trim()) {
+      console.log('Name validation failed');
       newErrors.name = 'Name is required';
     }
 
     if (!customerInfo.phone.trim()) {
+      console.log('Phone validation failed - empty');
       newErrors.phone = 'Phone number is required';
     } else if (!isValidPhoneNumber(customerInfo.phone)) {
+      console.log('Phone validation failed - invalid format');
       newErrors.phone = 'Please enter a valid phone number';
     }
 
     if (!customerInfo.location.trim()) {
+      console.log('Location validation failed');
       newErrors.location = 'Location is required';
     }
 
+    console.log('Validation errors:', newErrors);
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    const isValid = Object.keys(newErrors).length === 0;
+    console.log('Form is valid:', isValid);
+    return isValid;
   };
 
   // Phone number validation (supports multiple countries)
@@ -128,18 +146,17 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, companyI
 
   // Handle form input changes
   const handleInputChange = (field: keyof CustomerInfo, value: string) => {
-    setCustomerInfo(prev => ({ ...prev, [field]: value }));
+    console.log('handleInputChange called:', { field, value, currentCustomerInfo: customerInfo });
+    setCustomerInfo(prev => {
+      const newInfo = { ...prev, [field]: value };
+      console.log('Updated customerInfo:', newInfo);
+      return newInfo;
+    });
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: undefined }));
     }
   };
 
-  // Generate order ID
-  const generateOrderId = (): string => {
-    const timestamp = Date.now().toString(36);
-    const random = Math.random().toString(36).substr(2, 5);
-    return `ORD-${timestamp}-${random}`.toUpperCase();
-  };
 
   // Calculate totals
   const subtotal = getCartTotal();
@@ -148,11 +165,22 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, companyI
 
   // Handle step navigation
   const handleNextStep = () => {
+    console.log('handleNextStep called, currentStep:', currentStep);
     if (currentStep === 1) {
+      // Step 1: Review Order -> Move to Customer Info (no validation needed)
+      console.log('Moving from Review Order to Customer Info');
       setCurrentStep(2);
     } else if (currentStep === 2) {
-      if (validateForm()) {
-        handleSubmitOrder();
+      // Step 2: Customer Info -> Validate and move to Payment Selection
+      console.log('Validating customer info form...');
+      const isValid = validateForm();
+      console.log('Form validation result:', isValid);
+      if (isValid) {
+        console.log('Moving to payment selection');
+        setCurrentStep(3);
+        setShowPaymentSelection(true);
+      } else {
+        console.log('Form validation failed, errors:', errors);
       }
     }
   };
@@ -163,45 +191,102 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, companyI
     }
   };
 
-  // Handle order submission
-  const handleSubmitOrder = async () => {
+
+  // Handle payment method selection
+  const handlePaymentMethodSelect = (method: OrderPaymentMethod) => {
+    setSelectedPaymentMethod(method);
+    handleCreateOrder(method);
+  };
+
+  // Create order based on selected payment method
+  const handleCreateOrder = async (paymentMethod: OrderPaymentMethod) => {
+    if (!companyId) {
+      toast.error('Company ID not found');
+      return;
+    }
+
     setSubmitting(true);
 
     try {
-      const orderData: OrderData = {
-        customerInfo: {
+      // Create pricing object
+      const pricing: OrderPricing = {
+        subtotal,
+        deliveryFee: sellerSettings?.deliveryFee || 0,
+        total: finalTotal
+      };
+
+      // Create delivery info
+      const deliveryInfo: DeliveryInfo = {
+        method: 'pickup',
+        instructions: customerInfo.deliveryInstructions
+      };
+
+      // Create order in database
+      const order = await createOrder(
+        cart,
+        {
           ...customerInfo,
           phone: formatPhoneNumber(customerInfo.phone)
         },
-        cartItems: cart,
-        totalAmount: subtotal,
-        deliveryFee,
-        finalTotal,
-        orderId: generateOrderId(),
-        timestamp: new Date()
-      };
+        pricing,
+        paymentMethod,
+        'online', // orderType
+        companyId, // userId for order creation
+        companyId, // companyId
+        deliveryInfo
+      );
 
-      const message = generateOrderMessage(orderData, company, sellerSettings);
-      const whatsappUrl = createWhatsAppUrl(company?.phone || sellerSettings?.whatsappNumber || '', message);
-      
-      clearCart();
-      window.open(whatsappUrl, '_blank');
-      onClose();
-      
+      setCreatedOrder(order);
+      setOrderCreated(true);
+
+      // Handle based on payment method
+      if (paymentMethod === 'onsite') {
+        // Send WhatsApp confirmation for onsite payment
+        const orderData: OrderData = {
+          customerInfo: {
+            ...customerInfo,
+            phone: formatPhoneNumber(customerInfo.phone)
+          },
+          cartItems: cart,
+          totalAmount: subtotal,
+          deliveryFee: sellerSettings?.deliveryFee || 0,
+          finalTotal,
+          orderId: order.orderId,
+          timestamp: new Date()
+        };
+
+        const message = generateOrderMessage(orderData, company, sellerSettings, order.orderNumber);
+        const whatsappUrl = createWhatsAppUrl(company?.phone || sellerSettings?.whatsappNumber || '', message);
+        
+        // Clear cart
+        clearCart();
+        
+        // Open WhatsApp
+        window.open(whatsappUrl, '_blank');
+        
+        toast.success('Order created! WhatsApp confirmation sent.');
+      } else if (paymentMethod === 'online') {
+        // Show "payment pending" message for online payment
+        toast.success('Order created! Online payment integration coming soon.');
+      }
+
     } catch (error) {
-      console.error('Error submitting order:', error);
+      console.error('Error creating order:', error);
+      toast.error('Failed to create order. Please try again.');
     } finally {
       setSubmitting(false);
     }
   };
 
+
   // Generate order message
-  const generateOrderMessage = (orderData: OrderData, company: Company | null, settings: SellerSettings | null): string => {
+  const generateOrderMessage = (orderData: OrderData, company: Company | null, settings: SellerSettings | null, orderNumber?: string): string => {
     const { customerInfo, cartItems, totalAmount, deliveryFee, finalTotal, orderId } = orderData;
     const businessName = company?.name || settings?.businessName || 'Your Business';
+    const orderRef = orderNumber || orderId;
     const currency = settings?.currency || 'XAF';
     
-    let message = `🛒 Commande ${businessName} #${orderId}\n\n`;
+    let message = `🛒 Commande ${businessName} #${orderRef}\n\n`;
     
     message += `📋 Détails:\n`;
     cartItems.forEach(item => {
@@ -217,8 +302,8 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, companyI
       currency: currency
     })}\n`;
     
-    if (deliveryFee > 0) {
-      message += `🚚 Frais de livraison: ${deliveryFee.toLocaleString('fr-FR', {
+    if ((deliveryFee || 0) > 0) {
+      message += `🚚 Frais de livraison: ${(deliveryFee || 0).toLocaleString('fr-FR', {
         style: 'currency',
         currency: currency
       })}\n`;
@@ -294,10 +379,10 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, companyI
             )}
             <div>
               <h2 className="text-lg font-semibold text-gray-900">
-                {currentStep === 1 ? 'Review Your Order' : 'Delivery Information'}
+                {currentStep === 1 ? 'Review Your Order' : currentStep === 2 ? 'Delivery Information' : 'Choose Payment Method'}
               </h2>
               <p className="text-sm text-gray-500">
-                Step {currentStep} of 2
+                Step {currentStep} of 3
               </p>
             </div>
           </div>
@@ -390,7 +475,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, companyI
                 </div>
               </div>
             </div>
-          ) : (
+          ) : currentStep === 2 ? (
             // Step 2: Customer Information
             <div className="space-y-4">
               <div className="flex items-center space-x-2 text-theme-brown">
@@ -464,46 +549,125 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, companyI
                   />
                 </div>
               </div>
-
-              {/* Payment Info */}
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-2">
-                <div className="flex items-center space-x-2 text-blue-800">
-                  <CreditCard className="h-4 w-4" />
-                  <span className="text-sm font-medium">Payment Information</span>
-                </div>
-                <p className="text-xs text-blue-600 mt-1">
-                  Payment will be confirmed via WhatsApp
-                </p>
+            </div>
+          ) : (
+            // Step 3: Payment Method Selection
+            <div className="space-y-4">
+              <div className="flex items-center space-x-2 text-emerald-600">
+                <CreditCard className="h-5 w-5" />
+                <span className="font-medium">Choose Payment Method</span>
               </div>
+              
+              <div className="bg-white rounded-lg p-4 shadow-sm border">
+                
+                <div className="space-y-3">
+                  {/* Onsite Payment Option */}
+                  <button
+                    onClick={() => handlePaymentMethodSelect('onsite')}
+                    disabled={submitting}
+                    className="w-full p-4 border-2 border-gray-200 rounded-lg hover:border-emerald-500 hover:bg-emerald-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <div className="p-2 bg-emerald-100 rounded-full">
+                        <Truck className="h-5 w-5 text-emerald-600" />
+                      </div>
+                      <div className="text-left">
+                        <h3 className="font-semibold text-gray-900">Pay at Pickup</h3>
+                        <p className="text-sm text-gray-600">Pay when you collect your order</p>
+                      </div>
+                      <CheckCircle className="h-5 w-5 text-emerald-600 ml-auto" />
+                    </div>
+                  </button>
+
+                  {/* Online Payment Option */}
+                  <button
+                    onClick={() => handlePaymentMethodSelect('online')}
+                    disabled={submitting}
+                    className="w-full p-4 border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <div className="p-2 bg-blue-100 rounded-full">
+                        <CreditCard className="h-5 w-5 text-blue-600" />
+                      </div>
+                      <div className="text-left">
+                        <h3 className="font-semibold text-gray-900">Pay Online</h3>
+                        <p className="text-sm text-gray-600">Secure online payment (Coming Soon)</p>
+                      </div>
+                      <Clock className="h-5 w-5 text-blue-600 ml-auto" />
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Order Success */}
+              {orderCreated && createdOrder && (
+                <div className="bg-white rounded-lg p-4 shadow-sm border">
+                  <div className="text-center">
+                    <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-emerald-100 mb-4">
+                      <CheckCircle className="h-6 w-6 text-emerald-600" />
+                    </div>
+                    <h2 className="text-lg font-semibold text-gray-900 mb-2">Order Created Successfully!</h2>
+                    <p className="text-sm text-gray-600 mb-4">
+                      Order Number: <span className="font-mono font-semibold">{createdOrder.orderNumber}</span>
+                    </p>
+                    
+                    {selectedPaymentMethod === 'onsite' && (
+                      <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 mb-4">
+                        <p className="text-sm text-emerald-800">
+                          <strong>WhatsApp confirmation sent!</strong>
+                        </p>
+                        <p className="text-xs text-emerald-600 mt-1">
+                          Please check your WhatsApp for pickup instructions and payment details.
+                        </p>
+                      </div>
+                    )}
+                    
+                    {selectedPaymentMethod === 'online' && (
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                        <p className="text-sm text-blue-800">
+                          <strong>Online payment integration coming soon!</strong>
+                        </p>
+                        <p className="text-xs text-blue-600 mt-1">
+                          Your order is saved and will be processed when online payment is available.
+                        </p>
+                      </div>
+                    )}
+                    
+                    <button
+                      onClick={onClose}
+                      className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded-lg font-semibold"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
 
-        {/* Footer */}
-        <div className="border-t border-gray-200 p-4 flex-shrink-0">
-          <button
-            onClick={handleNextStep}
-            disabled={submitting}
-            className="w-full bg-gradient-to-br from-theme-olive to-theme-forest text-white py-3 rounded-lg font-semibold hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-          >
+        {/* Footer - Show in steps 1 and 2, hide in step 3 and when order is created */}
+        {(currentStep === 1 || currentStep === 2) && !orderCreated && (
+          <div className="border-t border-gray-200 p-4 flex-shrink-0">
+            <button
+              onClick={handleNextStep}
+              disabled={submitting}
+              className="w-full bg-emerald-600 text-white py-3 rounded-lg font-semibold hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+            >
             {submitting ? (
               <>
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                 Processing...
               </>
-            ) : currentStep === 1 ? (
-              <>
-                <ArrowRight className="h-4 w-4 mr-2" />
-                Proceed to Order
-              </>
             ) : (
               <>
-                <Truck className="h-4 w-4 mr-2" />
-                Send Order via WhatsApp
+                <ArrowRight className="h-4 w-4 mr-2" />
+                {currentStep === 1 ? 'Proceed to Order' : 'Continue to Payment'}
               </>
             )}
           </button>
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );

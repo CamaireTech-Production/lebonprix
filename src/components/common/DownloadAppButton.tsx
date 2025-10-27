@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Download, Smartphone, Monitor, ExternalLink } from 'lucide-react';
-import { getDeviceInfo, getDownloadLinks } from '../../utils/deviceDetection';
+import { Download, ExternalLink } from 'lucide-react';
 import { usePWA } from '../../hooks/usePWA';
+import { useAuth } from '../../contexts/AuthContext';
 import { PWAInstallModal } from '../PWAInstallModal';
 
 interface BeforeInstallPromptEvent extends Event {
@@ -24,10 +24,22 @@ export const DownloadAppButton: React.FC<DownloadAppButtonProps> = ({
   showText = true,
   className = ''
 }) => {
-  const [deviceInfo, setDeviceInfo] = useState(getDeviceInfo());
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [showInstallModal, setShowInstallModal] = useState(false);
-  const { isInstalled, isInstallable } = usePWA();
+  const { isInstalled } = usePWA();
+  const { company } = useAuth();
+  
+  // Get dashboard colors
+  const getDashboardColors = () => {
+    const colors = {
+      primary: company?.dashboardColors?.primary || company?.primaryColor || '#183524',
+      secondary: company?.dashboardColors?.secondary || company?.secondaryColor || '#e2b069',
+      tertiary: company?.dashboardColors?.tertiary || company?.tertiaryColor || '#2a4a3a'
+    };
+    return colors;
+  };
+  
+  const colors = getDashboardColors();
 
   useEffect(() => {
     // Listen for the beforeinstallprompt event to get the deferred prompt
@@ -84,9 +96,9 @@ export const DownloadAppButton: React.FC<DownloadAppButtonProps> = ({
     if (variant === 'header') {
       return (
         <div className="flex items-center space-x-2">
-          <Download className={`h-${iconSize/4} w-${iconSize/4} text-emerald-600`} />
+          <Download className={`h-${iconSize/4} w-${iconSize/4}`} style={{color: colors.primary}} />
           {showText && (
-            <span className="text-sm font-medium text-emerald-600 hidden lg:block">
+            <span className="text-sm font-medium hidden lg:block" style={{color: colors.primary}}>
               {deferredPrompt ? 'Installer Maintenant' : 'Installer App'}
             </span>
           )}
@@ -97,8 +109,8 @@ export const DownloadAppButton: React.FC<DownloadAppButtonProps> = ({
     if (variant === 'sidebar') {
       return (
         <div className="flex items-center space-x-3">
-          <div className="p-2 bg-emerald-100 rounded-lg">
-            <Download className={`h-${iconSize/4} w-${iconSize/4} text-emerald-600`} />
+          <div className="p-2 rounded-lg" style={{backgroundColor: `${colors.primary}20`}}>
+            <Download className={`h-${iconSize/4} w-${iconSize/4}`} style={{color: colors.primary}} />
           </div>
           <div className="flex-1">
             <p className="text-sm font-medium text-gray-700">
@@ -130,7 +142,7 @@ export const DownloadAppButton: React.FC<DownloadAppButtonProps> = ({
     
     switch (variant) {
       case 'header':
-        return `${baseClasses} p-2 rounded-lg text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 focus:ring-emerald-500 ${className}`;
+        return `${baseClasses} p-2 rounded-lg hover:bg-gray-50 focus:ring-offset-2 ${className}`;
       case 'sidebar':
         return `${baseClasses} w-full px-3 py-2 text-left rounded-md hover:bg-gray-50 ${className}`;
       case 'compact':
@@ -145,6 +157,10 @@ export const DownloadAppButton: React.FC<DownloadAppButtonProps> = ({
       <button
         onClick={handleDownload}
         className={getButtonClasses()}
+        style={variant === 'header' ? {
+          color: colors.primary,
+          '--tw-ring-color': colors.primary
+        } as React.CSSProperties : {}}
         title={deferredPrompt ? 'Installer l\'application maintenant' : 'Installer l\'application'}
       >
         {getButtonContent()}

@@ -1,14 +1,31 @@
 import { Outlet } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
+import { useTranslation } from 'react-i18next';
 
 const AuthLayout = () => {
+  const { company } = useAuth();
+  const { t } = useTranslation();
+
+  // Get dashboard colors
+  const getDashboardColors = () => {
+    const colors = {
+      primary: company?.dashboardColors?.primary || company?.primaryColor || '#183524',
+      secondary: company?.dashboardColors?.secondary || company?.secondaryColor || '#e2b069',
+      tertiary: company?.dashboardColors?.tertiary || company?.tertiaryColor || '#2a4a3a'
+    };
+    return colors;
+  };
+  
+  const colors = getDashboardColors();
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-          <span className="text-emerald-600">Le Bon Prix</span>
+          <span style={{color: colors.primary}}>Geskap</span>
         </h2>
         <p className="mt-2 text-center text-sm text-gray-600">
-          Internal Management System
+          {t('auth.internalSystem')}
         </p>
       </div>
 

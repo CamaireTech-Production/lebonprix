@@ -7,7 +7,11 @@ const languages = [
   { code: 'fr', name: 'Français', flag: '🇫🇷' }
 ];
 
-const LanguageSwitcher = () => {
+interface LanguageSwitcherProps {
+  variant?: 'light' | 'dark';
+}
+
+const LanguageSwitcher = ({ variant = 'light' }: LanguageSwitcherProps) => {
   const { i18n } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -29,7 +33,11 @@ const LanguageSwitcher = () => {
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
+        className={`flex items-center gap-2 px-3 py-2 text-sm rounded-md transition-colors ${
+          variant === 'dark' 
+            ? 'text-white hover:text-white hover:bg-white hover:bg-opacity-20 border border-white border-opacity-30' 
+            : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100'
+        }`}
         title={i18n.language === 'en' ? 'Switch to French' : 'Passer en Anglais'}
       >
         <Globe className="h-4 w-4" />
@@ -51,10 +59,10 @@ const LanguageSwitcher = () => {
                   setIsOpen(false);
                 }}
                 className={`
-                  flex items-center w-full px-4 py-2 text-sm
+                  flex items-center w-full px-4 py-2 text-sm text-black
                   ${i18n.language === lang.code 
-                    ? 'bg-gray-100 text-gray-900' 
-                    : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'}
+                    ? 'bg-gray-100 text-black' 
+                    : 'text-black hover:bg-gray-50 hover:text-black'}
                 `}
                 role="menuitem"
               >

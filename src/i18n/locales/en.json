@@ -1,6 +1,6 @@
 {
   "common": {
-    "appName": "Le Bon Prix",
+    "appName": "Geskap",
     "loading": "Loading...",
     "error": "Error",
     "success": "Success",
@@ -28,7 +28,9 @@
     "prev": "Prev",
     "next": "Next",
     "last": "Last",
-    "select": "Select"
+    "select": "Select",
+    "used": "Used",
+    "copy": "Copy"
   },
   "auth": {
     "login": "Login",
@@ -39,7 +41,8 @@
     "signIn": "Sign In",
     "signUp": "Sign Up",
     "dontHaveAccount": "Don't have an account?",
-    "alreadyHaveAccount": "Already have an account?"
+    "alreadyHaveAccount": "Already have an account?",
+    "internalSystem": "Internal Management System"
   },
   "navigation": {
     "home": "Home",
@@ -72,6 +75,7 @@
     "welcome": "Welcome back! Here's what's happening with your business today.",
     "howCalculated": "How are these calculated?",
     "stats": {
+      "title": "Statistics",
       "grossProfit": "Gross Profit",
       "netProfit": "Net Profit",
       "totalExpenses": "Total Expenses",
@@ -102,6 +106,12 @@
       "totalPurchasePrice": "The total amount of purchase prices for all products sold",
       "deliveryFee": "The sum of all delivery fees collected from sales.",
       "totalProductsSold": "The total number of products sold (sum of all product quantities in all sales)."
+    },
+    "salesChart": {
+      "title": "Sales & Expenses Chart"
+    },
+    "recentActivity": {
+      "title": "Recent Activity"
     },
     "bestSellingProducts": {
       "title": "Best Selling Products",
@@ -512,6 +522,10 @@
       "allCategories": "All Categories",
       "search": "Search by name or reference..."
     },
+    "tags": {
+      "noSavedTags": "No saved tags yet"
+    },
+    "noActiveBatches": "No active batches",
     "actions": {
       "addProduct": "Add Product",
       "editProduct": "Edit Product",
@@ -548,9 +562,19 @@
       "note": "Note",
       "stockAdjustmentNote": "To update only the cost price without changing stock, enter the current stock value in the quantity field. The cost price and supplier information will be updated for the latest stock entry.",
       "viewDetails": "View Details",
-      "viewAllHistory": "View All History"
+      "viewAllHistory": "View All History",
+      "clickToUpload": "Click to upload",
+      "orDragAndDrop": "or drag and drop",
+      "hideFromCatalogue": "Hide from Catalogue"
     },
     "form": {
+      "name": "Product Name",
+      "reference": "Reference",
+      "referenceHelp": "Auto-generated from name, but you can edit it.",
+      "category": "Category",
+      "categoryPlaceholder": "Select or create a category",
+      "image": "Images",
+      "latestCostPrice": "Latest Cost Price",
       "step1": {
         "title": "Basic Information",
         "name": "Product Name",
@@ -558,6 +582,7 @@
         "category": "Category",
         "categoryPlaceholder": "Select or create a category",
         "image": "Image",
+        "images": "Images",
         "imageHelp": "Add clear images to help identify this product. You can upload multiple images.",
         "referenceHelp": "Auto-generated from name, but you can edit it.",
         "latestCostPrice": "Latest Cost Price",
@@ -568,7 +593,10 @@
         "costPrice": "Cost Price",
         "sellingPrice": "Selling Price",
         "cataloguePrice": "Catalogue Price",
-        "cataloguePriceHelp": "Optional: Used for reference or promotions."
+        "cataloguePriceHelp": "Optional: Used for reference or promotions.",
+        "visibility": "Visibility",
+        "visibleInCatalogue": "Visible in Catalogue",
+        "imageFormats": "Supported formats: JPG, PNG, GIF, WebP (max 5MB each)"
       },
       "step2": {
         "title": "Initial Stock & Supply",
@@ -831,8 +859,11 @@
     "title": "Settings",
     "subtitle": "Manage your account settings and preferences",
     "tabs": {
+      "colors": "🎨 Colors",
       "account": "Account Settings",
-      "activity": "Activity Logs"
+      "activity": "Activity Logs",
+      "ordering": "Ordering Settings",
+      "catalogue": "Catalogue Links"
     },
     "account": {
       "companyLogo": "Company Logo",
@@ -871,6 +902,20 @@
       "title": "Activity Logs",
       "noActivities": "No recent activities"
     },
+    "firebaseIntegration": {
+      "title": "Firebase Integration",
+      "description": "Use this Company ID to integrate your categories with external landing pages or applications.",
+      "companyId": "Company ID (User ID)",
+      "copyId": "Copy ID",
+      "copySuccess": "Company ID copied to clipboard!",
+      "helpText": "Share this ID with developers to integrate your categories into external applications."
+    },
+    "ordering": {
+      "saveSettings": "Save Ordering Settings"
+    },
+    "catalogue": {
+      "title": "Catalogue Links"
+    },
     "mockActivities": {
       "newSaleCreated": "New Sale Created",
       "newSaleDescription": "Created a new sale for John Doe",
@@ -883,6 +928,23 @@
   "languages": {
     "en": "English",
     "fr": "French"
+  },
+  "catalogue": {
+    "title": "Catalogue",
+    "search": "Search products...",
+    "categories": "Categories",
+    "allCategories": "All Categories",
+    "addToCart": "Add to Cart",
+    "viewDetails": "View Details",
+    "noProducts": "No products found",
+    "loading": "Loading products...",
+    "error": "Error loading products",
+    "retry": "Retry",
+    "sortBy": "Sort by",
+    "price": "Price",
+    "name": "Name",
+    "newest": "Newest",
+    "oldest": "Oldest"
   },
   "finance": {
     "historyTitle": "Financial Entries History",
@@ -1007,18 +1069,63 @@
       "error": "Failed to add refund"
     }
   },
-  "employees": {
-    "title": "Employees",
-    "copyLink": "Copy link",
-    "open": "Open",
-    "saved": "Employees saved",
-    "noLink": "No invite link"
-  },
-  "employeeLogin": {
-    "title": "Employee Login",
-    "passwordRequired": "Please enter your password",
-    "invalid": "Invalid link",
-    "error": "Incorrect login information",
-    "success": "Login successful"
+  "checkout": {
+    "title": "Checkout",
+    "contact": "Contact Information",
+    "delivery": "Delivery Information",
+    "payment": "Payment Method",
+    "orderSummary": "Order Summary",
+    "completeOrder": "Complete Order",
+    "returnToCatalogue": "Return to Catalogue",
+    "saveDraft": "Save Draft",
+    "fields": {
+      "name": "Full Name",
+      "firstName": "First Name",
+      "lastName": "Last Name",
+      "phone": "Phone Number",
+      "email": "Email Address",
+      "address": "Address",
+      "city": "City",
+      "country": "Country",
+      "postalCode": "Postal Code",
+      "notes": "Delivery Notes"
+    },
+    "paymentMethods": {
+      "mtnMoney": "MTN Money",
+      "orangeMoney": "Orange Money",
+      "visaCard": "Visa Card",
+      "payOnsite": "Pay Onsite",
+      "cinetpayMobileMoney": "Mobile Money",
+      "cinetpayCreditCard": "Credit Card",
+      "cinetpayWallet": "Wallet"
+    },
+    "orderSummaryDetails": {
+      "subtotal": "Subtotal",
+      "deliveryFee": "Delivery Fee",
+      "total": "Total",
+      "items": "Items",
+      "quantity": "Quantity",
+      "price": "Price"
+    },
+    "validation": {
+      "nameRequired": "Name is required",
+      "phoneRequired": "Phone number is required",
+      "phoneInvalid": "Please enter a valid phone number",
+      "emailRequired": "Email is required",
+      "emailInvalid": "Please enter a valid email address",
+      "addressRequired": "Address is required",
+      "cityRequired": "City is required",
+      "countryRequired": "Country is required",
+      "postalCodeRequired": "Postal code is required for credit card payments"
+    },
+    "messages": {
+      "orderCreated": "Order created successfully!",
+      "orderFailed": "Failed to create order. Please try again.",
+      "paymentProcessing": "Processing payment...",
+      "paymentSuccess": "Payment successful!",
+      "paymentFailed": "Payment failed. Please try again.",
+      "draftSaved": "Draft saved",
+      "draftSaveFailed": "Failed to save draft"
+    }
   }
 } 
