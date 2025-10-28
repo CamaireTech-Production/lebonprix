@@ -13,6 +13,18 @@ export interface RolePermissions {
   canAccessHR: boolean;
 }
 
+// Company-specific reusable permission templates
+export interface PermissionTemplate {
+  id: string;
+  companyId: string;
+  name: string;
+  description?: string;
+  permissions: RolePermissions;
+  createdBy: string; // owner uid
+  createdAt: import('./models').Timestamp; // Firestore Timestamp
+  updatedAt?: import('./models').Timestamp; // Firestore Timestamp
+}
+
 export const ROLE_HIERARCHY: SystemRole[] = ['owner', 'admin', 'manager', 'staff'];
 
 export const ROLE_MAPPING: Record<SystemRole, UIRole> = {
@@ -69,6 +81,77 @@ export function mapUIRoleToSystemRole(uiRole: UIRole): SystemRole {
     case 'vendeur': return 'staff';
     default: return 'staff';
   }
+}
+
+// Predefined templates that companies can adopt
+export function getDefaultPermissionTemplates(): Array<Pick<PermissionTemplate, 'name' | 'description' | 'permissions'>> {
+  return [
+    {
+      name: 'Finance Manager',
+      description: 'Access to finance and reports with editing capabilities',
+      permissions: {
+        canView: ['dashboard', 'sales', 'finance', 'reports', 'orders'],
+        canEdit: ['finance', 'reports'],
+        canDelete: ['finance'],
+        canManageEmployees: [],
+        canAccessSettings: false,
+        canAccessFinance: true,
+        canAccessHR: false
+      }
+    },
+    {
+      name: 'Sales Manager',
+      description: 'Manage sales, products and customers, view reports',
+      permissions: {
+        canView: ['dashboard', 'sales', 'products', 'customers', 'reports', 'orders'],
+        canEdit: ['sales', 'products', 'customers', 'orders'],
+        canDelete: ['sales', 'products', 'customers'],
+        canManageEmployees: [],
+        canAccessSettings: false,
+        canAccessFinance: false,
+        canAccessHR: false
+      }
+    },
+    {
+      name: 'Inventory Clerk',
+      description: 'Manage products and inventory only',
+      permissions: {
+        canView: ['products', 'categories'],
+        canEdit: ['products', 'categories'],
+        canDelete: ['products'],
+        canManageEmployees: [],
+        canAccessSettings: false,
+        canAccessFinance: false,
+        canAccessHR: false
+      }
+    },
+    {
+      name: 'Cashier',
+      description: 'Sales and customers operations',
+      permissions: {
+        canView: ['dashboard', 'sales', 'customers', 'orders'],
+        canEdit: ['sales', 'customers', 'orders'],
+        canDelete: ['sales'],
+        canManageEmployees: [],
+        canAccessSettings: false,
+        canAccessFinance: false,
+        canAccessHR: false
+      }
+    },
+    {
+      name: 'Store Manager',
+      description: 'Full store operations without settings and HR',
+      permissions: {
+        canView: ['all'],
+        canEdit: ['sales', 'products', 'customers', 'orders', 'expenses'],
+        canDelete: ['sales', 'products', 'customers', 'expenses'],
+        canManageEmployees: [],
+        canAccessSettings: false,
+        canAccessFinance: true,
+        canAccessHR: false
+      }
+    }
+  ];
 }
 
 

@@ -37,7 +37,7 @@ export const getUserByEmail = async (email: string) => {
     }
     
     const userDoc = querySnapshot.docs[0];
-    const userData = { id: userDoc.id, ...userDoc.data() } as any;
+    const userData = { id: userDoc.id, ...userDoc.data() } as import('../types/models').User;
     
     console.log('✅ User found:', userData.firstname, userData.lastname);
     return userData;
@@ -64,6 +64,7 @@ export const createInvitation = async (
     lastname: string;
     phone?: string;
     role: 'staff' | 'manager' | 'admin';
+    permissionTemplateId?: string;
   }
 ): Promise<Invitation> => {
   try {
@@ -89,7 +90,8 @@ export const createInvitation = async (
       role: employeeData.role,
       status: 'pending',
       createdAt: Timestamp.now(),
-      expiresAt: Timestamp.fromDate(expiresAt)
+      expiresAt: Timestamp.fromDate(expiresAt),
+      permissionTemplateId: employeeData.permissionTemplateId
     };
     
     // Save invitation to Firestore
@@ -184,8 +186,8 @@ export const acceptInvitation = async (inviteId: string, userId: string): Promis
     
     // Check if invitation is expired
     const now = new Date();
-    const expiresAt = (invitation.expiresAt as any).toDate();
-    if (now > expiresAt) {
+    const expiresAt = (invitation.expiresAt as import('../types/models').Timestamp).seconds * 1000;
+    if (now.getTime() > expiresAt) {
       throw new Error('Invitation has expired');
     }
     
@@ -194,7 +196,8 @@ export const acceptInvitation = async (inviteId: string, userId: string): Promis
       companyId: invitation.companyId,
       name: invitation.companyName,
       role: invitation.role,
-      joinedAt: Timestamp.now()
+      joinedAt: Timestamp.now(),
+      permissionTemplateId: invitation.permissionTemplateId
     };
     
     await addCompanyToUser(userId, companyRef);
@@ -210,9 +213,10 @@ export const acceptInvitation = async (inviteId: string, userId: string): Promis
     showSuccessToast('Welcome to the team! You now have access to the company.');
     
     return true;
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('❌ Error accepting invitation:', error);
-    showErrorToast(error.message || 'Failed to accept invitation');
+    const errorMessage = error instanceof Error ? error.message : 'Failed to accept invitation';
+    showErrorToast(errorMessage);
     throw error;
   }
 };
@@ -313,8 +317,9 @@ export const handleExistingUserInvitation = async (
     lastname: string;
     phone?: string;
     role: 'staff' | 'manager' | 'admin';
+    permissionTemplateId?: string;
   },
-  existingUser: any
+  existingUser: import('../types/models').User
 ): Promise<boolean> => {
   try {
     console.log('👤 Handling invitation for existing user:', existingUser.email);
@@ -332,7 +337,8 @@ export const handleExistingUserInvitation = async (
       companyId,
       name: companyName,
       role: employeeData.role,
-      joinedAt: Timestamp.now()
+      joinedAt: Timestamp.now(),
+      permissionTemplateId: employeeData.permissionTemplateId
     };
     
     await addCompanyToUser(existingUser.id, companyRef);
@@ -354,9 +360,10 @@ export const handleExistingUserInvitation = async (
     showSuccessToast('User has been added to the company and notified via email');
     
     return true;
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('❌ Error handling existing user invitation:', error);
-    showErrorToast(error.message || 'Failed to add user to company');
+    const errorMessage = error instanceof Error ? error.message : 'Failed to add user to company';
+    showErrorToast(errorMessage);
     throw error;
   }
 };

@@ -292,6 +292,7 @@ const Register = () => {
           type="submit"
           className="w-full"
           isLoading={isLoading}
+          loadingText="Creating account..."
         >
           Créer mon compte
         </Button>

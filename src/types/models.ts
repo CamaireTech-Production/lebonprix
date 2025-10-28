@@ -8,6 +8,7 @@ export interface BaseModel {
   createdAt: Timestamp;
   updatedAt: Timestamp;
   userId: string; // Reference to the user who owns this record
+  companyId: string; // Reference to the company this record belongs to
 }
 
 export interface Company extends BaseModel {
@@ -161,8 +162,8 @@ export interface Objective extends BaseModel {
   targetAmount: number;
   periodType: 'predefined' | 'custom';
   predefined?: string; // this_month, this_year, etc.
-  startAt?: any; // Firebase Timestamp
-  endAt?: any;
+  startAt?: Timestamp; // Firebase Timestamp
+  endAt?: Timestamp;
   userId: string;
   isAvailable?: boolean;
 }
@@ -266,6 +267,7 @@ export interface Invitation {
   createdAt: Timestamp;
   expiresAt: Timestamp;
   acceptedAt?: Timestamp;
+  permissionTemplateId?: string; // Optional template assignment
 }
 
 // Employee management types
@@ -303,6 +305,8 @@ export interface UserCompanyRef {
   logo?: string;
   role: 'owner' | 'admin' | 'manager' | 'staff';
   joinedAt: Timestamp;
+  // Optional: assigned permission template for this company
+  permissionTemplateId?: string;
 }
 
 // ❌ SUPPRIMÉ - Plus utilisé dans l'architecture simplifiée
@@ -321,6 +325,8 @@ export interface User {
   companies: UserCompanyRef[];
   status: 'active' | 'suspended' | 'invited';
   lastLogin?: Timestamp;
+  // Optional: last selected permission template per company (future use)
+  // selectedTemplates?: Record<string /*companyId*/, string /*templateId*/>;
 }
 
 // Update Company interface to include employees

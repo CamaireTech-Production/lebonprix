@@ -32,7 +32,7 @@ const Dashboard = () => {
   // 🔄 BACKGROUND LOADING: Load all sales in background after initial render
   const [allSales, setAllSales] = useState<any[]>([]);
   const [loadingAllSales, setLoadingAllSales] = useState(false);
-  const { user } = useAuth();
+  const { user, company } = useAuth();
   
   // 🔄 BACKGROUND LOADING: Load secondary data in background (don't block UI)
   const { expenses, loading: expensesLoading } = useExpenses();
@@ -45,12 +45,12 @@ const Dashboard = () => {
 
   // 🔄 LOAD ALL SALES IN BACKGROUND: After initial UI renders
   useEffect(() => {
-    if (!user || essentialDataLoading) return;
+    if (!user || !company || essentialDataLoading) return;
     
     console.log('🔄 Loading all sales in background...');
     setLoadingAllSales(true);
     
-    const unsubscribe = subscribeToAllSales(user.uid, (allSalesData) => {
+    const unsubscribe = subscribeToAllSales(company.id, (allSalesData) => {
       setAllSales(allSalesData);
       setLoadingAllSales(false);
       console.log(`✅ All sales loaded: ${allSalesData.length} total sales`);
@@ -60,9 +60,8 @@ const Dashboard = () => {
     return () => {
       unsubscribe();
     };
-  }, [user, essentialDataLoading]);
+  }, [user, company, essentialDataLoading]);
   const [showCalculationsModal, setShowCalculationsModal] = useState(false);
-  const { company } = useAuth();
   const [] = useState<Partial<DashboardStats>>({});
   const [copied, setCopied] = useState(false);
   const [dateRange, setDateRange] = useState({

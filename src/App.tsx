@@ -40,6 +40,7 @@ const EmployeeLogin = lazy(() => import('./pages/EmployeeLogin'));
 const CreateCompany = lazy(() => import('./pages/company/CreateCompany'));
 const CompanySelection = lazy(() => import('./pages/company/CompanySelection'));
 const HRManagement = lazy(() => import('./pages/HRManagement'));
+const EmployeeDashboard = lazy(() => import('./pages/EmployeeDashboard'));
 
 function App() {
   const [isAddSaleModalOpen, setIsAddSaleModalOpen] = useState(false);
@@ -99,6 +100,9 @@ function AppWithFAB({ isAddSaleModalOpen, setIsAddSaleModalOpen }: { isAddSaleMo
           
           {/* Protected Routes */}
           <Route element={<ProtectedRoute />}>
+            {/* Employee Dashboard Route */}
+            <Route path="/employee/dashboard" element={<LazyPage><EmployeeDashboard /></LazyPage>} />
+            
             {/* Company Selection Route */}
             <Route path="/companies/me/:userId" element={<LazyPage><CompanySelection /></LazyPage>} />
             

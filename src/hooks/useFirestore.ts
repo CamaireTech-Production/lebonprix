@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import type { Category } from '../types/models';
 import { 
   createSale, 
   updateSaleStatus, 
@@ -64,13 +63,13 @@ export const useProducts = () => {
   const [loading, setLoading] = useState(false); // Start as false - no loading spinner by default
   const [syncing, setSyncing] = useState(false); // New state for background sync indicator
   const [error, setError] = useState<Error | null>(null);
-  const { user } = useAuth();
+  const { user, company } = useAuth();
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !company) return;
     
     // 1. Check localStorage FIRST - instant display if data exists
-    const localProducts = ProductsManager.load(user.uid);
+    const localProducts = ProductsManager.load(company.id);
     if (localProducts && localProducts.length > 0) {
       setProducts(localProducts);
       setLoading(false); // No loading spinner - data is available
@@ -82,7 +81,7 @@ export const useProducts = () => {
     }
     
     // 2. Start background sync with Firebase
-    BackgroundSyncService.syncProducts(user.uid, (freshProducts) => {
+    BackgroundSyncService.syncProducts(company.id, (freshProducts) => {
       setProducts(freshProducts);
       setSyncing(false); // Hide background sync indicator
       setLoading(false); // Ensure loading is false
@@ -90,18 +89,18 @@ export const useProducts = () => {
     });
 
     // 3. Also maintain real-time subscription for immediate updates
-    const unsubscribe = subscribeToProducts(user.uid, (data) => {
+    const unsubscribe = subscribeToProducts(company.id, (data) => {
       setProducts(data);
       setLoading(false);
       setSyncing(false);
       
       // Save to localStorage for future instant loads
-      ProductsManager.save(user.uid, data);
+      ProductsManager.save(company.id, data);
       console.log('💾 Products saved to localStorage');
     });
 
     return () => unsubscribe();
-  }, [user]);
+  }, [user, company]);
 
   const addProduct = async (
     productData: Omit<Product, 'id' | 'createdAt'>,
@@ -189,12 +188,12 @@ export const useCategories = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-  const { user } = useAuth();
+  const { user, company } = useAuth();
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !company) return;
     
-    const cacheKey = cacheKeys.categories(user.uid);
+    const cacheKey = cacheKeys.categories(company.id);
     
     // Check cache first
     const cachedCategories = dataCache.get<Category[]>(cacheKey);
@@ -204,7 +203,7 @@ export const useCategories = () => {
       console.log('🚀 Categories loaded from cache');
     }
     
-    const unsubscribe = subscribeToCategories(user.uid, (data) => {
+    const unsubscribe = subscribeToCategories(company.id, (data) => {
       setCategories(data);
       setLoading(false);
       
@@ -214,12 +213,12 @@ export const useCategories = () => {
     });
 
     return () => unsubscribe();
-  }, [user]);
+  }, [user, company]);
 
   const addCategory = async (name: string) => {
-    if (!user) throw new Error('User not authenticated');
+    if (!user || !company) throw new Error('User not authenticated');
     try {
-      const category = await createCategory({ name, userId: user.uid }, user.uid);
+      const category = await createCategory({ name, userId: user.uid, companyId: company.id }, company.id);
       return category;
     } catch (err) {
       setError(err as Error);
@@ -232,7 +231,7 @@ export const useCategories = () => {
 
 // Sales Hook with localStorage + Background Sync
 export const useSales = () => {
-  const { user } = useAuth();
+  const { user, company } = useAuth();
   const [sales, setSales] = useState<Sale[]>([]);
   const [loading, setLoading] = useState(false); // Start as false - no loading spinner by default
   const [syncing, setSyncing] = useState(false); // New state for background sync indicator
@@ -248,10 +247,10 @@ export const useSales = () => {
   };
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !company) return;
     
     // 1. Check localStorage FIRST - instant display if data exists
-    const localSales = SalesManager.load(user.uid);
+    const localSales = SalesManager.load(company.id);
     if (localSales && localSales.length > 0) {
       setSales(localSales);
       setLoading(false); // No loading spinner - data is available
@@ -263,7 +262,7 @@ export const useSales = () => {
     }
     
     // 2. Start background sync with Firebase
-    BackgroundSyncService.syncSales(user.uid, (freshSales) => {
+    BackgroundSyncService.syncSales(company.id, (freshSales) => {
       setSales(freshSales);
       setSyncing(false); // Hide background sync indicator
       setLoading(false); // Ensure loading is false
@@ -271,30 +270,30 @@ export const useSales = () => {
     });
 
     // 3. Also maintain real-time subscription for immediate updates
-    const unsubscribe = subscribeToSales(user.uid, (data) => {
+    const unsubscribe = subscribeToSales(company.id, (data) => {
       setSales(data);
       setLoading(false);
       setSyncing(false);
       
       // Save to localStorage for future instant loads
-      SalesManager.save(user.uid, data);
+      SalesManager.save(company.id, data);
       console.log('💾 Sales saved to localStorage');
     });
 
     return () => unsubscribe();
-  }, [user]);
+  }, [user, company]);
 
   const addSale = async (data: Omit<Sale, 'id' | 'createdAt' | 'updatedAt'>): Promise<Sale> => {
-    if (!user) {
+    if (!user || !company) {
       throw new Error('User not authenticated');
     }
     try {
-      const newSale = await createSale({ ...data, userId: user.uid }, user.uid);
+      const newSale = await createSale({ ...data, userId: user.uid, companyId: company.id }, company.id);
       await syncFinanceEntryWithSale(newSale);
       // Invalidate sales cache when new sale is added
-      invalidateSpecificCache(user.uid, 'sales');
+      invalidateSpecificCache(company.id, 'sales');
       // Force sync to update localStorage
-      BackgroundSyncService.forceSyncSales(user.uid, (freshSales) => {
+      BackgroundSyncService.forceSyncSales(company.id, (freshSales) => {
         setSales(freshSales);
       });
       return newSale;
@@ -305,7 +304,7 @@ export const useSales = () => {
   };
 
   const updateSale = async (saleId: string, data: Partial<Sale>): Promise<void> => {
-    if (!user) {
+    if (!user || !company) {
       throw new Error('User must be authenticated to update a sale');
     }
 
@@ -318,7 +317,7 @@ export const useSales = () => {
       }
 
       const saleData = saleDoc.data() as Sale;
-      if (saleData.userId !== user.uid) {
+      if (saleData.companyId !== company.id) {
         throw new Error('You do not have permission to update this sale');
       }
 
@@ -332,7 +331,7 @@ export const useSales = () => {
       const cleanedSale = removeUndefined(updatedSale);
 
       // Update in Firestore
-      await updateSaleDocument(saleId, cleanedSale as Partial<Sale>, user.uid);
+      await updateSaleDocument(saleId, cleanedSale as Partial<Sale>, company.id);
       
       // Create a complete sale object with ID for finance sync
       const saleForSync = {
@@ -345,9 +344,9 @@ export const useSales = () => {
       updateLocalSale(saleForSync);
       
       // Invalidate sales cache when sale is updated
-      invalidateSpecificCache(user.uid, 'sales');
+      invalidateSpecificCache(company.id, 'sales');
       // Force sync to update localStorage
-      BackgroundSyncService.forceSyncSales(user.uid, (freshSales) => {
+      BackgroundSyncService.forceSyncSales(company.id, (freshSales) => {
         setSales(freshSales);
       });
     } catch (err) {
@@ -503,13 +502,13 @@ export const useExpenses = () => {
 
 // Dashboard Stats Hook
 export const useDashboardStats = () => {
-  const { user } = useAuth();
+  const { user, company } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error] = useState<Error | null>(null);
 
   useEffect(() => {
-    if (!user) {
+    if (!user || !company) {
       setLoading(false);
       return;
     }
@@ -529,6 +528,7 @@ export const useDashboardStats = () => {
         id: 'dashboard-stats',
         ...userStats,
         userId: user.uid,
+        companyId: company.id,
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now()
       };
@@ -537,7 +537,7 @@ export const useDashboardStats = () => {
     });
 
     return () => unsubscribe();
-  }, [user]);
+  }, [user, company]);
 
   return { stats, loading, error };
 };
@@ -577,19 +577,19 @@ export const useStockChanges = () => {
 
 // Customers Hook
 export const useCustomers = () => {
-  const { user } = useAuth();
+  const { user, company } = useAuth();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    if (!user) return;
-    const unsubscribe = subscribeToCustomers(user.uid, (data: Customer[]) => {
+    if (!user || !company) return;
+    const unsubscribe = subscribeToCustomers(company.id, (data: Customer[]) => {
       setCustomers(data);
       setLoading(false);
     });
     return () => unsubscribe();
-  }, [user]);
+  }, [user, company]);
 
   const addCustomerToStore = async (customerData: Omit<Customer, 'id'>) => {
     if (!user) throw new Error('User not authenticated');

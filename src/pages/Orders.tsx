@@ -35,7 +35,7 @@ import SyncIndicator from '../components/common/SyncIndicator';
 import { toast } from 'react-hot-toast';
 
 const Orders: React.FC = () => {
-  const { user } = useAuth();
+  const { user, company } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
   const [stats, setStats] = useState<OrderStats | null>(null);
@@ -59,10 +59,10 @@ const Orders: React.FC = () => {
 
   // Load orders and stats
   useEffect(() => {
-    if (!user) return;
+    if (!user || !company) return;
 
     const unsubscribeOrders = subscribeToOrders(
-      user.uid,
+      company.id,
       (ordersData) => {
         setOrders(ordersData);
         setFilteredOrders(ordersData);
@@ -74,7 +74,7 @@ const Orders: React.FC = () => {
 
     const loadStats = async () => {
       try {
-        const statsData = await getOrderStats(user.uid);
+        const statsData = await getOrderStats(company.id);
         setStats(statsData);
       } catch (error) {
         console.error('Error loading order stats:', error);
@@ -87,7 +87,7 @@ const Orders: React.FC = () => {
     return () => {
       unsubscribeOrders();
     };
-  }, [user, filters]);
+  }, [user, company, filters]);
 
   // Filter orders based on search term
   useEffect(() => {

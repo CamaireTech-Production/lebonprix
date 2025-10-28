@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import Card from '../common/Card';
 import Button from '../common/Button';
-import { Users, UserPlus, RefreshCw } from 'lucide-react';
+import { Users, UserPlus, RefreshCw, Settings } from 'lucide-react';
 import type { UserCompanyRef } from '../../types/models';
+import TemplateAssignment from './TemplateAssignment';
 
 interface TeamOverviewProps {
   teamMembers: UserCompanyRef[];
@@ -16,13 +17,16 @@ interface TeamMember {
   email: string;
   phone?: string;
   role: string;
-  joinedAt: any;
-  lastLogin?: any;
+  joinedAt: import('../../types/models').Timestamp;
+  lastLogin?: import('../../types/models').Timestamp;
+  permissionTemplateId?: string;
 }
 
 const TeamOverview = ({ teamMembers, onRefresh }: TeamOverviewProps) => {
   const [allTeamMembers, setAllTeamMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
+  const [showTemplateAssignment, setShowTemplateAssignment] = useState(false);
 
   const loadTeamMembers = useCallback(async () => {
     try {
@@ -38,7 +42,8 @@ const TeamOverview = ({ teamMembers, onRefresh }: TeamOverviewProps) => {
         lastname: member.name.split(' ').slice(1).join(' ') || '',
         email: '', // Would need to fetch from user data
         role: member.role,
-        joinedAt: member.joinedAt
+        joinedAt: member.joinedAt,
+        permissionTemplateId: member.permissionTemplateId
       }));
       
       setAllTeamMembers(members);
@@ -61,6 +66,17 @@ const TeamOverview = ({ teamMembers, onRefresh }: TeamOverviewProps) => {
       case 'staff': return 'Staff (Vendeur)';
       default: return role;
     }
+  };
+
+  const handleTemplateAssignment = (member: TeamMember) => {
+    setSelectedMember(member);
+    setShowTemplateAssignment(true);
+  };
+
+  const handleTemplateAssigned = () => {
+    setShowTemplateAssignment(false);
+    setSelectedMember(null);
+    onRefresh();
   };
 
   const getRoleColor = (role: string) => {
@@ -173,14 +189,41 @@ const TeamOverview = ({ teamMembers, onRefresh }: TeamOverviewProps) => {
                     {getRoleDisplayName(member.role)}
                   </span>
                   
+                  <span className="text-xs text-gray-500">
+                    {member.permissionTemplateId ? 'Custom Template' : 'Base Role Only'}
+                  </span>
+                  
                   {member.lastLogin && (
                     <span className="text-xs text-gray-500">
-                      Last active: {member.lastLogin.toDate().toLocaleDateString()}
+                      Last active: {new Date(member.lastLogin.seconds * 1000).toLocaleDateString()}
                     </span>
                   )}
+                  
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleTemplateAssignment(member)}
+                    icon={<Settings size={14} />}
+                  >
+                    Permissions
+                  </Button>
                 </div>
               </div>
             ))}
+          </div>
+        )}
+        
+        {/* Template Assignment Modal */}
+        {showTemplateAssignment && selectedMember && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+              <TemplateAssignment
+                userId={selectedMember.id}
+                currentTemplateId={selectedMember.permissionTemplateId}
+                onTemplateAssigned={handleTemplateAssigned}
+                onClose={() => setShowTemplateAssignment(false)}
+              />
+            </div>
           </div>
         )}
       </div>

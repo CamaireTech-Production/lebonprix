@@ -5,12 +5,13 @@ import LoadingScreen from '../components/common/LoadingScreen';
 import InviteEmployeeForm from '../components/hr/InviteEmployeeForm';
 import PendingInvitationsList from '../components/hr/PendingInvitationsList';
 import TeamOverview from '../components/hr/TeamOverview';
+import PermissionTemplateManager from '../components/hr/PermissionTemplateManager';
 import { getPendingInvitations } from '../services/invitationService';
 import type { Invitation, UserCompanyRef } from '../types/models';
 
 const HRManagement = () => {
   const { company, user, effectiveRole, isOwner } = useAuth();
-  const [activeTab, setActiveTab] = useState<'team' | 'invitations' | 'invite'>('team');
+  const [activeTab, setActiveTab] = useState<'team' | 'invitations' | 'invite' | 'templates'>('team');
   const [pendingInvitations, setPendingInvitations] = useState<Invitation[]>([]);
   const [teamMembers, setTeamMembers] = useState<UserCompanyRef[]>([]);
   const [loading, setLoading] = useState(true);
@@ -110,6 +111,16 @@ const HRManagement = () => {
           >
             Invite Employee
           </button>
+          <button
+            onClick={() => setActiveTab('templates')}
+            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'templates'
+                ? 'border-emerald-500 text-emerald-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            Permission Templates
+          </button>
         </nav>
       </div>
 
@@ -138,6 +149,12 @@ const HRManagement = () => {
               id: user?.uid || '',
               name: user?.displayName || 'Company Owner'
             }}
+          />
+        )}
+        
+        {activeTab === 'templates' && (
+          <PermissionTemplateManager 
+            onTemplateChange={loadData}
           />
         )}
       </div>

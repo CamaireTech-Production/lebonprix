@@ -7,6 +7,7 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'danger' | 'outline';
   size?: 'sm' | 'md' | 'lg';
   isLoading?: boolean;
+  loadingText?: string;
   icon?: ReactNode;
   children: ReactNode;
 }
@@ -15,6 +16,7 @@ const Button = ({
   variant = 'primary',
   size = 'md',
   isLoading = false,
+  loadingText,
   icon,
   children,
   className = '',
@@ -85,7 +87,7 @@ const Button = ({
       {isLoading ? (
         <>
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          <span>{children}</span>
+          <span>{loadingText || children}</span>
         </>
       ) : (
         <>

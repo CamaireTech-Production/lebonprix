@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Card from '../common/Card';
 import Button from '../common/Button';
 import Input from '../common/Input';
 import { getUserByEmail, createInvitation, sendInvitationEmailToUser, handleExistingUserInvitation } from '../../services/invitationService';
+import { getCompanyTemplates } from '../../services/permissionTemplateService';
+import { PermissionTemplate } from '../../types/permissions';
 import { showErrorToast } from '../../utils/toast';
 
 interface InviteEmployeeFormProps {
@@ -21,10 +23,30 @@ const InviteEmployeeForm = ({ onInvitationCreated, companyId, companyName, invit
   const [lastname, setLastname] = useState('');
   const [phone, setPhone] = useState('');
   const [role, setRole] = useState<'staff' | 'manager' | 'admin'>('staff');
+  const [permissionTemplateId, setPermissionTemplateId] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [isCheckingUser, setIsCheckingUser] = useState(false);
-  const [existingUser, setExistingUser] = useState<any>(null);
+  const [existingUser, setExistingUser] = useState<import('../../types/models').User | null>(null);
   const [userChecked, setUserChecked] = useState(false);
+  const [templates, setTemplates] = useState<PermissionTemplate[]>([]);
+  const [templatesLoading, setTemplatesLoading] = useState(true);
+
+  // Load company templates
+  useEffect(() => {
+    const loadTemplates = async () => {
+      try {
+        setTemplatesLoading(true);
+        const companyTemplates = await getCompanyTemplates(companyId);
+        setTemplates(companyTemplates);
+      } catch (error) {
+        console.error('Error loading templates:', error);
+      } finally {
+        setTemplatesLoading(false);
+      }
+    };
+
+    loadTemplates();
+  }, [companyId]);
 
   const handleEmailBlur = async () => {
     if (!email.trim()) return;
@@ -65,7 +87,7 @@ const InviteEmployeeForm = ({ onInvitationCreated, companyId, companyName, invit
           companyId,
           companyName,
           inviterData,
-          { email, firstname, lastname, phone, role },
+          { email, firstname, lastname, phone, role, permissionTemplateId },
           existingUser
         );
       } else {
@@ -74,7 +96,7 @@ const InviteEmployeeForm = ({ onInvitationCreated, companyId, companyName, invit
           companyId,
           companyName,
           inviterData,
-          { email, firstname, lastname, phone, role }
+          { email, firstname, lastname, phone, role, permissionTemplateId }
         );
         
         // Send invitation email
@@ -87,13 +109,15 @@ const InviteEmployeeForm = ({ onInvitationCreated, companyId, companyName, invit
       setLastname('');
       setPhone('');
       setRole('staff');
+      setPermissionTemplateId('');
       setExistingUser(null);
       setUserChecked(false);
       
       onInvitationCreated();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error creating invitation:', error);
-      showErrorToast(error.message || 'Failed to create invitation');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create invitation';
+      showErrorToast(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -193,12 +217,43 @@ const InviteEmployeeForm = ({ onInvitationCreated, companyId, companyName, invit
             </p>
           </div>
 
+          {/* Permission Template Selection */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Permission Template (Optional)
+            </label>
+            {templatesLoading ? (
+              <div className="w-full rounded-md border border-gray-300 shadow-sm py-2 px-3 bg-gray-50">
+                <span className="text-sm text-gray-500">Loading templates...</span>
+              </div>
+            ) : (
+              <select
+                className="w-full rounded-md border border-gray-300 shadow-sm py-2 px-3 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
+                value={permissionTemplateId}
+                onChange={(e) => setPermissionTemplateId(e.target.value)}
+                disabled={isLoading}
+              >
+                <option value="">Base Role Only</option>
+                {templates.map((template) => (
+                  <option key={template.id} value={template.id}>
+                    {template.name} - {template.description}
+                  </option>
+                ))}
+              </select>
+            )}
+            <p className="text-xs text-gray-500 mt-1">
+              Select a permission template to override the base role permissions.
+              If no template is selected, the user will get standard permissions for their role.
+            </p>
+          </div>
+
           {/* Submit Button */}
           <div className="flex justify-end">
             <Button
               type="submit"
               isLoading={isLoading}
               disabled={isLoading || isCheckingUser}
+              loadingText={existingUser ? 'Adding to company...' : 'Sending invitation...'}
             >
               {existingUser ? 'Add to Company' : 'Send Invitation'}
             </Button>

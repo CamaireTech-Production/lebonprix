@@ -1,5 +1,5 @@
 import { useState, FormEvent } from 'react';
-import { Link, useNavigate, Navigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
@@ -13,8 +13,7 @@ const Login = () => {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   
-  const { currentUser, loading, signIn } = useAuth();
-  const navigate = useNavigate();
+  const { loading, signIn } = useAuth();
 
   if (loading) {
     return <LoadingScreen />;
@@ -101,6 +100,7 @@ const Login = () => {
             type="submit"
             className="w-full"
             isLoading={isLoading}
+            loadingText="Signing in..."
           >
             Sign in
           </Button>

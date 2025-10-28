@@ -7,7 +7,7 @@ const ModeSelection: React.FC = () => {
   const [selectedMode, setSelectedMode] = useState<'employee' | 'company' | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-  const { currentUser, userCompanies } = useAuth();
+  const { userCompanies } = useAuth();
 
   const handleModeSelect = async (mode: 'employee' | 'company') => {
     setIsLoading(true);
@@ -21,8 +21,8 @@ const ModeSelection: React.FC = () => {
         // Utiliser la logique de vérification des entreprises
         logCompanie();
       } else {
-        // Mode employé - rediriger vers la page de sélection d'entreprise
-        navigate(`/companies/me/${currentUser?.uid}`);
+        // Mode employé - rediriger vers le dashboard employé
+        navigate('/employee/dashboard');
       }
     } catch (error) {
       console.error('Erreur lors de la sélection du mode:', error);
@@ -38,7 +38,7 @@ const ModeSelection: React.FC = () => {
     }
 
     // Chercher une entreprise où l'utilisateur est owner ou admin
-    const ownerOrAdminCompany = userCompanies.find((company: any) => 
+    const ownerOrAdminCompany = userCompanies.find((company: import('../types/models').UserCompanyRef) => 
       company.role === 'owner' || company.role === 'admin'
     );
 
