@@ -1,9 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, storage } from '../../services/firebase';
+import { storage } from '../../services/firebase';
 import Card from '../../components/common/Card';
 import Button from '../../components/common/Button';
 import { Building2, Upload, ArrowLeft } from 'lucide-react';
@@ -95,51 +94,25 @@ export default function CreateCompany() {
     setError(''); // Clear previous errors
 
     try {
-      // 1. Créer la company dans Firestore
-      const companyData = {
+      // Import the correct createCompany function
+      const { createCompany } = await import('../../services/companyService');
+      
+      // Create company using the standardized function
+      const company = await createCompany(currentUser.uid, {
         name: formData.name.trim(),
         description: formData.description.trim(),
         phone: formData.phone.trim(),
         email: formData.email.trim(),
         location: formData.location.trim(),
-        logo: formData.logo || '',
-        companyId: currentUser.uid, // L'utilisateur devient le owner
-        role: 'Companie' as const,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      };
+        logo: formData.logo || undefined
+      });
 
-      console.log('Création de la company avec les données:', companyData);
-      const companyRef = await addDoc(collection(db, 'companies'), companyData);
-      const companyId = companyRef.id;
-
-      console.log('✅ Company créée avec succès:', companyId);
-
-      // 2. Ajouter le créateur comme employé avec role='owner'
-      const { addUserToCompany } = await import('../../services/userCompanySyncService');
-      
-      await addUserToCompany(
-        currentUser.uid,
-        companyId,
-        {
-          name: formData.name.trim(),
-          description: formData.description.trim(),
-          logo: formData.logo
-        },
-        {
-          firstname: (currentUser as any).firstname || currentUser.displayName?.split(' ')[0] || 'User',
-          lastname: (currentUser as any).lastname || currentUser.displayName?.split(' ')[1] || '',
-          email: currentUser.email || ''
-        },
-        'owner'
-      );
-
-      console.log('✅ Utilisateur ajouté comme owner');
+      console.log('✅ Company créée avec succès:', company.id);
       setSuccess(true);
       
       // 3. Redirection vers le dashboard de la company après un court délai
       setTimeout(() => {
-        navigate(`/company/${companyId}/dashboard`);
+        navigate(`/company/${company.id}/dashboard`);
       }, 1500);
       
     } catch (error) {

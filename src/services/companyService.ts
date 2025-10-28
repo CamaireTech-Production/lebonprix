@@ -62,7 +62,9 @@ export const createCompany = async (
 
     // 5. Créer l'objet compagnie complet
     const company: Company = { 
-      id: companyId, 
+      id: companyId,
+      userId: userId, // Owner reference
+      role: 'Companie' as const,
       ...companyDoc 
     };
 
@@ -72,7 +74,7 @@ export const createCompany = async (
     console.log(`✅ Entreprise ${companyData.name} créée avec succès`);
     return company;
     
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('❌ Erreur lors de la création de l\'entreprise:', error);
     throw error;
   }
@@ -120,24 +122,9 @@ export const deleteCompany = async (
     
     console.log(`✅ Entreprise ${companyId} supprimée avec succès`);
     
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('❌ Erreur lors de la suppression de l\'entreprise:', error);
     throw error;
   }
 };
 
-/**
- * @deprecated Utiliser createCompany() à la place
- * Fonction de compatibilité pour l'ancien système
- */
-export const saveCompany = async (
-  email: string,
-  password: string,
-  companyData: CompanyData
-): Promise<Company> => {
-  console.warn('⚠️ saveCompany() est déprécié. Utilisez createCompany() avec un utilisateur connecté.');
-  
-  // Pour la compatibilité, on peut garder l'ancienne logique
-  // mais il est recommandé d'utiliser le nouveau flux
-  throw new Error('Utilisez le nouveau flux : inscription utilisateur puis createCompany()');
-};

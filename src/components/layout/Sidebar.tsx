@@ -1,7 +1,8 @@
 import React from 'react';
 import { useLocation, Link } from 'react-router-dom';
-import { LayoutDashboard, ShoppingCart, DollarSign, Package2, FileBarChart, Settings, X, Receipt, Users, Building2, Plus, Grid3X3, ShoppingBag} from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, DollarSign, Package2, FileBarChart, Settings, X, Receipt, Users, Building2, Plus, Grid3X3, ShoppingBag, UserCheck} from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useRolePermissions } from '../../hooks/useRolePermissions';
 import UserAvatar from '../common/UserAvatar';
 import DownloadAppButton from '../common/DownloadAppButton';
 import { useTranslation } from 'react-i18next';
@@ -16,7 +17,8 @@ interface SidebarProps {
 const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
   const { t } = useTranslation();
   const location = useLocation();
-  const { company, effectiveRole, isOwner, currentEmployee } = useAuth();
+  const { company, currentEmployee } = useAuth();
+  const { canAccess } = useRolePermissions();
   const [showCreateCompanyModal, setShowCreateCompanyModal] = React.useState(false);
 
   
@@ -74,18 +76,19 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
   const normalNavigationItems = [
     // Bouton retour aux entreprises (seulement dans les routes d'entreprise)
     ...(isCompanyRoute ? [
-      { name: 'Mes Entreprises', path: '/employee/dashboard', icon: <Building2 size={20} />, allowedRoles: ['vendeur', 'gestionnaire', 'magasinier', 'owner'] }
+      { name: 'Mes Entreprises', path: '/companies', icon: <Building2 size={20} />, allowedRoles: ['vendeur', 'gestionnaire', 'magasinier', 'owner'] }
     ] : []),
-    { name: t('navigation.dashboard'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/dashboard` : '/', icon: <LayoutDashboard size={20} />, allowedRoles: ['vendeur', 'gestionnaire', 'magasinier', 'owner'] },
-    { name: t('navigation.sales'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/sales` : '/sales', icon: <ShoppingCart size={20} />, allowedRoles: ['vendeur', 'gestionnaire', 'magasinier', 'owner'] },
-    { name: 'Orders', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/orders` : '/orders', icon: <ShoppingBag size={20} />, allowedRoles: ['vendeur', 'gestionnaire', 'magasinier', 'owner'] },
-    { name: 'Expenses', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/expenses` : '/expenses', icon: <Receipt size={20} />, allowedRoles: ['vendeur', 'gestionnaire', 'magasinier', 'owner'] },
-    { name: 'Finance', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/finance` : '/finance', icon: <DollarSign size={20} />, allowedRoles: ['gestionnaire', 'magasinier', 'owner'] },
-    { name: t('navigation.products'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/products` : '/products', icon: <Package2 size={20} />, allowedRoles: ['vendeur', 'gestionnaire', 'magasinier', 'owner'] },
-    { name: 'Categories', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/categories` : '/categories', icon: <Grid3X3 size={20} />, allowedRoles: ['vendeur', 'gestionnaire', 'magasinier', 'owner'] },
-    { name: t('navigation.suppliers'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/suppliers` : '/suppliers', icon: <Users size={20} />, allowedRoles: ['vendeur', 'gestionnaire', 'magasinier', 'owner'] },
-    { name: t('navigation.reports'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/reports` : '/reports', icon: <FileBarChart size={20} />, allowedRoles: ['gestionnaire', 'magasinier', 'owner'] },
-    { name: t('navigation.settings'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/settings` : '/settings', icon: <Settings size={20} />, allowedRoles: ['magasinier', 'owner'] },
+    { name: t('navigation.dashboard'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/dashboard` : '/', icon: <LayoutDashboard size={20} />, resource: 'dashboard' },
+    { name: t('navigation.sales'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/sales` : '/sales', icon: <ShoppingCart size={20} />, resource: 'sales' },
+    { name: 'Orders', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/orders` : '/orders', icon: <ShoppingBag size={20} />, resource: 'orders' },
+    { name: 'Expenses', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/expenses` : '/expenses', icon: <Receipt size={20} />, resource: 'expenses' },
+    { name: 'Finance', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/finance` : '/finance', icon: <DollarSign size={20} />, resource: 'finance' },
+    { name: t('navigation.products'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/products` : '/products', icon: <Package2 size={20} />, resource: 'products' },
+    { name: 'Categories', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/categories` : '/categories', icon: <Grid3X3 size={20} />, resource: 'categories' },
+    { name: t('navigation.suppliers'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/suppliers` : '/suppliers', icon: <Users size={20} />, resource: 'suppliers' },
+    { name: 'HR Management', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/hr` : '/hr', icon: <UserCheck size={20} />, resource: 'hr' },
+    { name: t('navigation.reports'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/reports` : '/reports', icon: <FileBarChart size={20} />, resource: 'reports' },
+    { name: t('navigation.settings'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/settings` : '/settings', icon: <Settings size={20} />, resource: 'settings' },
   ];
 
   const navigationItems = isCompanySelectionRoute ? selectionModeItems : normalNavigationItems;
@@ -148,8 +151,8 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
               );
             }
 
-            // Mode normal - vérifier les permissions
-            const hasAccess = isOwner || (effectiveRole && (item as any).allowedRoles?.includes(effectiveRole));
+            // Mode normal - vérifier les permissions via centralized permissions
+            const hasAccess = (item as any).resource ? canAccess((item as any).resource) : true;
             
             if (!hasAccess) return null;
             

@@ -250,6 +250,24 @@ export interface ExpenseType {
   createdAt: Timestamp;
 }
 
+// Employee invitation system types
+export interface Invitation {
+  id: string;
+  companyId: string;
+  companyName: string;
+  invitedBy: string;
+  invitedByName: string;
+  email: string;
+  firstname: string;
+  lastname: string;
+  phone?: string;
+  role: 'staff' | 'manager' | 'admin';
+  status: 'pending' | 'accepted' | 'rejected' | 'expired';
+  createdAt: Timestamp;
+  expiresAt: Timestamp;
+  acceptedAt?: Timestamp;
+}
+
 // Employee management types
 export type UserRole = 'admin' | 'manager' | 'staff';
 

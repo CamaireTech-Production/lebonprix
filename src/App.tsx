@@ -17,15 +17,14 @@ import { usePWAUpdate } from './hooks/usePWAUpdate';
 // Lazy load pages
 const Login = lazy(() => import('./pages/auth/Login'));
 const Register = lazy(() => import('./pages/auth/Register'));
-const LandingPage = lazy(() => import('./pages/LandingPage'));
 const ModeSelection = lazy(() => import('./pages/ModeSelection'));
 const CompaniesManagement = lazy(() => import('./pages/CompaniesManagement'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Sales = lazy(() => import('./pages/Sales'));
+const Orders = lazy(() => import('./pages/Orders'));
 const Expenses = lazy(() => import('./pages/Expenses'));
 const Products = lazy(() => import('./pages/Products'));
 const Categories = lazy(() => import('./pages/Categories'));
-const Orders = lazy(() => import('./pages/Orders'));
 const Suppliers = lazy(() => import('./pages/Suppliers'));
 const Reports = lazy(() => import('./pages/Reports'));
 const Settings = lazy(() => import('./pages/Settings'));
@@ -40,6 +39,7 @@ const EmployeeLogin = lazy(() => import('./pages/EmployeeLogin'));
 // New pages for employee/company modes
 const CreateCompany = lazy(() => import('./pages/company/CreateCompany'));
 const CompanySelection = lazy(() => import('./pages/company/CompanySelection'));
+const HRManagement = lazy(() => import('./pages/HRManagement'));
 
 function App() {
   const [isAddSaleModalOpen, setIsAddSaleModalOpen] = useState(false);
@@ -75,8 +75,8 @@ function AppWithFAB({ isAddSaleModalOpen, setIsAddSaleModalOpen }: { isAddSaleMo
         )}
         
         <Routes>
-          {/* Landing Page - Public */}
-          <Route path="/" element={<LazyPage><LandingPage /></LazyPage>} />
+          {/* Root redirect to login */}
+          <Route path="/" element={<Navigate to="/auth/login" replace />} />
           
           {/* Auth Routes */}
                 <Route element={<AuthLayout />}>
@@ -112,10 +112,13 @@ function AppWithFAB({ isAddSaleModalOpen, setIsAddSaleModalOpen }: { isAddSaleMo
             <Route path="/company/:companyId" element={<MainLayout isAddSaleModalOpen={isAddSaleModalOpen} setIsAddSaleModalOpen={setIsAddSaleModalOpen} />}>
               <Route path="dashboard" element={<LazyPage><Dashboard /></LazyPage>} />
               <Route path="sales" element={<LazyPage><Sales /></LazyPage>} />
+              <Route path="orders" element={<LazyPage><Orders /></LazyPage>} />
               <Route path="expenses" element={<LazyPage><Expenses /></LazyPage>} />
               <Route path="finance" element={<RoleRoute allowedRoles={['gestionnaire', 'magasinier', 'owner']}><Finance /></RoleRoute>} />
               <Route path="products" element={<LazyPage><Products /></LazyPage>} />
+              <Route path="categories" element={<LazyPage><Categories /></LazyPage>} />
               <Route path="suppliers" element={<LazyPage><Suppliers /></LazyPage>} />
+              <Route path="hr" element={<RoleRoute allowedRoles={['magasinier', 'owner']}><LazyPage><HRManagement /></LazyPage></RoleRoute>} />
               <Route path="reports" element={<RoleRoute allowedRoles={['gestionnaire', 'magasinier', 'owner']}><LazyPage><Reports /></LazyPage></RoleRoute>} />
               <Route path="settings" element={<RoleRoute allowedRoles={['magasinier', 'owner']}><LazyPage><Settings /></LazyPage></RoleRoute>} />
               <Route path="fifo-debugger" element={<LazyPage><FIFODebugger /></LazyPage>} />

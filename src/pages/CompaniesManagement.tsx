@@ -41,16 +41,21 @@ export const CompaniesManagement: React.FC = () => {
   const [companyToDelete, setCompanyToDelete] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // État pour la sélection d'entreprise
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
+
   /**
    * Gérer la sélection d'une entreprise
    */
   const handleCompanySelect = async (companyId: string) => {
     try {
+      setSelectedCompanyId(companyId); // Set loading state
       await selectCompany(companyId);
       navigate(`/company/${companyId}/dashboard`);
     } catch (error) {
       console.error('❌ Erreur lors de la sélection de l\'entreprise:', error);
       showErrorToast('Erreur lors de la sélection de l\'entreprise');
+      setSelectedCompanyId(null); // Reset loading state on error
     }
   };
 
@@ -287,8 +292,21 @@ export const CompaniesManagement: React.FC = () => {
             <div 
               key={company.companyId}
               onClick={() => handleCompanySelect(company.companyId)}
+              className={`relative cursor-pointer transition-all duration-200 hover:scale-105 ${
+                selectedCompanyId === company.companyId ? 'opacity-50 pointer-events-none' : ''
+              }`}
             >
               <CompanyCard company={company} />
+              
+              {/* Loading overlay */}
+              {selectedCompanyId === company.companyId && (
+                <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center rounded-lg">
+                  <div className="flex flex-col items-center space-y-2">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
+                    <span className="text-sm text-gray-600 font-medium">Chargement...</span>
+                  </div>
+                </div>
+              )}
             </div>
           ))}
           

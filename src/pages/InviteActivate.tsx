@@ -1,75 +1,258 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
-import Input from '../components/common/Input';
+import LoadingScreen from '../components/common/LoadingScreen';
 import { useAuth } from '../contexts/AuthContext';
+import { getInvitation, acceptInvitation, rejectInvitation } from '../services/invitationService';
+import { showErrorToast } from '../utils/toast';
+import { formatDistanceToNow } from 'date-fns';
+import { CheckCircle, XCircle, Clock, Building2, User } from 'lucide-react';
+import type { Invitation } from '../types/models';
 
-// Skeleton page to handle invite activation. In Option A, we search employee by loginLink in company.employees.
 export default function InviteActivate() {
   const { inviteId } = useParams();
   const navigate = useNavigate();
-  const { company, signUp } = useAuth();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const { user } = useAuth();
+  const [invitation, setInvitation] = useState<Invitation | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [processing, setProcessing] = useState(false);
   const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+
+  const loadInvitation = useCallback(async () => {
+    try {
+      setLoading(true);
+      const invite = await getInvitation(inviteId!);
+      
+      if (!invite) {
+        setError('Invitation not found or has expired');
+        return;
+      }
+      
+      // Check if invitation is expired
+      const now = new Date();
+      const expiresAt = (invite.expiresAt as any).toDate();
+      if (now > expiresAt) {
+        setError('This invitation has expired');
+        return;
+      }
+      
+      // Check if invitation is already processed
+      if (invite.status !== 'pending') {
+        setError(`This invitation has already been ${invite.status}`);
+        return;
+      }
+      
+      setInvitation(invite);
+    } catch (error: any) {
+      console.error('Error loading invitation:', error);
+      setError(error.message || 'Failed to load invitation');
+    } finally {
+      setLoading(false);
+    }
+  }, [inviteId]);
 
   useEffect(() => {
-    if (!inviteId || !company?.employees) return;
-    // Rechercher l'employé par loginLink dans le mappage des employés
-    const emp = Object.values(company.employees).find(e => e.loginLink === inviteId);
-    if (emp?.email) {
-      setEmail(emp.email);
+    if (!inviteId) {
+      setError('Invalid invitation link');
+      setLoading(false);
+      return;
     }
-  }, [inviteId, company?.employees]);
+    
+    loadInvitation();
+  }, [inviteId, loadInvitation]);
 
-  const handleActivate = async () => {
-    if (!inviteId) return;
-    if (!email || !password || !confirmPassword) {
-      setError('All fields are required');
+  const handleAcceptInvitation = async () => {
+    if (!user) {
+      // Redirect to login with invitation context
+      navigate(`/auth/login?invite=${inviteId}`);
       return;
     }
-    if (password !== confirmPassword) {
-      setError('Passwords do not match');
-      return;
-    }
+    
+    if (!invitation) return;
+    
+    setProcessing(true);
     try {
-      setError('');
-      setIsLoading(true);
-      // Minimal skeleton: create Auth account. In a complete flow, we might verify invite, then create or link account.
-      await signUp(email, password, {
-        name: company?.name || '',
-        email: company?.email || email,
-        phone: company?.phone || '+237',
-        description: company?.description,
-        location: company?.location,
-        logo: company?.logo
-      });
-      navigate('/');
-    } catch (e: any) {
-      console.error(e);
-      setError(e.message || 'Activation failed');
+      await acceptInvitation(invitation.id, user.uid);
+      
+      // Redirect to company dashboard
+      navigate(`/company/${invitation.companyId}/dashboard`);
+    } catch (error: any) {
+      console.error('Error accepting invitation:', error);
+      showErrorToast(error.message || 'Failed to accept invitation');
     } finally {
-      setIsLoading(false);
+      setProcessing(false);
     }
   };
+
+  const handleRejectInvitation = async () => {
+    if (!invitation) return;
+    
+    if (!confirm('Are you sure you want to reject this invitation?')) return;
+    
+    setProcessing(true);
+    try {
+      await rejectInvitation(invitation.id);
+      navigate('/auth/login');
+    } catch (error: any) {
+      console.error('Error rejecting invitation:', error);
+      showErrorToast('Failed to reject invitation');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const getRoleDisplayName = (role: string) => {
+    switch (role) {
+      case 'staff': return 'Staff (Vendeur)';
+      case 'manager': return 'Manager (Gestionnaire)';
+      case 'admin': return 'Admin (Magasinier)';
+      default: return role;
+    }
+  };
+
+  if (loading) {
+    return <LoadingScreen />;
+  }
+
+  if (error) {
+    return (
+      <div className="max-w-md mx-auto py-12">
+        <Card>
+          <div className="text-center">
+            <XCircle className="mx-auto h-12 w-12 text-red-400" />
+            <h1 className="text-xl font-semibold text-gray-900 mt-4">Invalid Invitation</h1>
+            <p className="text-gray-600 mt-2">{error}</p>
+            <Button
+              className="mt-4"
+              onClick={() => navigate('/auth/login')}
+            >
+              Go to Login
+            </Button>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!invitation) {
+    return (
+      <div className="max-w-md mx-auto py-12">
+        <Card>
+          <div className="text-center">
+            <XCircle className="mx-auto h-12 w-12 text-red-400" />
+            <h1 className="text-xl font-semibold text-gray-900 mt-4">Invitation Not Found</h1>
+            <p className="text-gray-600 mt-2">This invitation link is invalid or has expired.</p>
+            <Button
+              className="mt-4"
+              onClick={() => navigate('/auth/login')}
+            >
+              Go to Login
+            </Button>
+          </div>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-md mx-auto py-12">
       <Card>
-        <h1 className="text-xl font-semibold text-gray-900 mb-4">Activate your account</h1>
-        {error && (
-          <div className="mb-4 bg-red-50 text-red-800 p-3 rounded-md text-sm">{error}</div>
-        )}
-        <div className="space-y-3">
-          <Input label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-          <Input label="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
-          <Input label="Confirm Password" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
-          <div className="flex justify-end">
-            <Button type="button" isLoading={isLoading} onClick={handleActivate}>Activate</Button>
+        <div className="text-center mb-6">
+          <Building2 className="mx-auto h-12 w-12 text-emerald-500" />
+          <h1 className="text-xl font-semibold text-gray-900 mt-4">You're Invited!</h1>
+          <p className="text-gray-600 mt-2">
+            {invitation.invitedByName} has invited you to join their team.
+          </p>
+        </div>
+
+        {/* Invitation Details */}
+        <div className="bg-gray-50 rounded-lg p-4 mb-6">
+          <div className="space-y-3">
+            <div className="flex items-center">
+              <Building2 className="h-5 w-5 text-gray-400 mr-3" />
+              <div>
+                <p className="text-sm font-medium text-gray-900">{invitation.companyName}</p>
+                <p className="text-xs text-gray-500">Company</p>
+              </div>
+            </div>
+            
+            <div className="flex items-center">
+              <User className="h-5 w-5 text-gray-400 mr-3" />
+              <div>
+                <p className="text-sm font-medium text-gray-900">{getRoleDisplayName(invitation.role)}</p>
+                <p className="text-xs text-gray-500">Your Role</p>
+              </div>
+            </div>
+            
+            <div className="flex items-center">
+              <Clock className="h-5 w-5 text-gray-400 mr-3" />
+              <div>
+                <p className="text-sm font-medium text-gray-900">
+                  Expires {formatDistanceToNow((invitation.expiresAt as any).toDate(), { addSuffix: true })}
+                </p>
+                <p className="text-xs text-gray-500">Invitation Valid Until</p>
+              </div>
+            </div>
           </div>
+        </div>
+
+        {/* User Status */}
+        {!user ? (
+          <div className="mb-6">
+            <p className="text-sm text-gray-600 text-center mb-4">
+              You need to log in to accept this invitation.
+            </p>
+            <div className="space-y-3">
+              <Button
+                className="w-full"
+                onClick={() => navigate(`/auth/login?invite=${inviteId}`)}
+              >
+                Log In to Accept
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => navigate('/auth/register')}
+              >
+                Create Account
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="mb-6">
+            <p className="text-sm text-gray-600 text-center mb-4">
+              Welcome back, {user.displayName || user.email}! Ready to join the team?
+            </p>
+            <div className="space-y-3">
+              <Button
+                className="w-full"
+                onClick={handleAcceptInvitation}
+                isLoading={processing}
+                disabled={processing}
+              >
+                <CheckCircle className="h-4 w-4 mr-2" />
+                Accept Invitation
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={handleRejectInvitation}
+                isLoading={processing}
+                disabled={processing}
+              >
+                <XCircle className="h-4 w-4 mr-2" />
+                Decline Invitation
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Footer */}
+        <div className="text-center">
+          <p className="text-xs text-gray-500">
+            By accepting this invitation, you agree to join {invitation.companyName} as a {getRoleDisplayName(invitation.role).toLowerCase()}.
+          </p>
         </div>
       </Card>
     </div>

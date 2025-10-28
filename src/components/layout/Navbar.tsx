@@ -46,7 +46,7 @@ const Navbar = ({ onMenuClick, isSelectionMode }: NavbarProps) => {
   const handleSignOut = async () => {
     try {
       await signOut();
-      navigate('/employee/dashboard');
+      // The AuthContext will handle redirecting to login via onAuthStateChanged
     } catch (error) {
       console.error('Error signing out:', error);
     }
