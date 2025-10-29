@@ -395,6 +395,7 @@
         "actions": {
           "copyTrackingLink": "Copier le Lien de Suivi",
           "editSale": "Modifier la Vente",
+          "printInvoice": "Imprimer la Facture",
           "downloadPDF": "Télécharger PDF",
           "shareInvoice": "Partager la Facture"
         }

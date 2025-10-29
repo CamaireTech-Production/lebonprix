@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useCart } from '../../contexts/CartContext';
 import { getCompanyByUserId, subscribeToProducts } from '../../services/firestore';
 import type { Company, Product } from '../../types/models';
-import { ArrowLeft, Plus, Minus, MessageCircle, ShoppingCart } from 'lucide-react';
+import { ArrowLeft, Plus, Minus, MessageCircle, ShoppingCart, ChevronLeft, ChevronRight } from 'lucide-react';
 import { ImageWithSkeleton } from './ImageWithSkeleton';
 
 const placeholderImg = '/placeholder.png';
@@ -79,6 +79,18 @@ const DesktopProductDetail: React.FC<DesktopProductDetailProps> = ({
     }
   }, [isOpen, initialProduct, initialCompany]);
 
+  // Preload all product images when modal opens or product changes
+  useEffect(() => {
+    if (isOpen && product?.images && product.images.length > 0) {
+      product.images.forEach((imageUrl) => {
+        if (imageUrl && typeof imageUrl === 'string') {
+          const img = new Image();
+          img.src = imageUrl;
+        }
+      });
+    }
+  }, [isOpen, product?.images]);
+
   // Cart management functions
   const handleAddToCart = () => {
     if (!product) return;
@@ -130,6 +142,21 @@ Please confirm availability and provide delivery details.`;
     }
   };
 
+  // Handle image navigation
+  const handlePreviousImage = () => {
+    if (!product?.images || product.images.length <= 1) return;
+    setCurrentImageIndex((prev) => 
+      prev === 0 ? product.images!.length - 1 : prev - 1
+    );
+  };
+
+  const handleNextImage = () => {
+    if (!product?.images || product.images.length <= 1) return;
+    setCurrentImageIndex((prev) => 
+      prev === product.images!.length - 1 ? 0 : prev + 1
+    );
+  };
+
   // Handle variation selection
   const handleVariationChange = (tagId: string, variationId: string) => {
     setSelectedVariations(prev => ({
@@ -172,12 +199,34 @@ Please confirm availability and provide delivery details.`;
         {/* Left Side - Product Image */}
         <div className="w-3/5 bg-[#f5f5f0] flex items-center justify-center p-8">
           <div className="relative w-full max-w-lg">
-            <div className="aspect-[3/4] rounded-2xl overflow-hidden bg-white shadow-lg">
+            <div className="relative aspect-[3/4] rounded-2xl overflow-hidden bg-white shadow-lg group">
               <ImageWithSkeleton
                 src={currentImage}
                 alt={product.name}
                 className="w-full h-full object-cover"
               />
+              
+              {/* Previous Image Button */}
+              {images.length > 1 && (
+                <button
+                  onClick={handlePreviousImage}
+                  className="absolute left-4 top-1/2 -translate-y-1/2 bg-white bg-opacity-90 hover:bg-opacity-100 text-gray-700 hover:text-[#e2b069] rounded-full p-2 shadow-lg transition-all duration-200 hover:scale-110 opacity-0 group-hover:opacity-100 z-10"
+                  aria-label="Previous image"
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </button>
+              )}
+              
+              {/* Next Image Button */}
+              {images.length > 1 && (
+                <button
+                  onClick={handleNextImage}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 bg-white bg-opacity-90 hover:bg-opacity-100 text-gray-700 hover:text-[#e2b069] rounded-full p-2 shadow-lg transition-all duration-200 hover:scale-110 opacity-0 group-hover:opacity-100 z-10"
+                  aria-label="Next image"
+                >
+                  <ChevronRight className="h-5 w-5" />
+                </button>
+              )}
             </div>
             
             {/* Image Navigation Dots */}
@@ -187,9 +236,12 @@ Please confirm availability and provide delivery details.`;
                   <button
                     key={index}
                     onClick={() => setCurrentImageIndex(index)}
-                    className={`w-2 h-2 rounded-full transition-colors ${
-                      index === currentImageIndex ? 'bg-[#e2b069]' : 'bg-gray-300'
+                    className={`w-3 h-3 rounded-full transition-all duration-200 hover:scale-110 ${
+                      index === currentImageIndex 
+                        ? 'bg-[#e2b069] ring-2 ring-[#e2b069] ring-offset-2 ring-offset-[#f5f5f0]' 
+                        : 'bg-gray-300 hover:bg-gray-400'
                     }`}
+                    aria-label={`Go to image ${index + 1}`}
                   />
                 ))}
               </div>

@@ -4,11 +4,12 @@ import Card from '../common/Card';
 import Badge from '../common/Badge';
 import Button from '../common/Button';
 import type { Sale, Product } from '../../types/models';
-import { Download, Share } from 'lucide-react';
+import { Download, Share, Printer } from 'lucide-react';
 import { generatePDF, generatePDFBlob } from '../../utils/pdf';
 import { useTranslation } from 'react-i18next';
 import { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { showErrorToast } from '../../utils/toast';
 
 interface SaleDetailsModalProps {
   isOpen: boolean;
@@ -46,11 +47,150 @@ const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({ isOpen, onClose, sa
       } else {
         alert('Sharing is not supported on this device/browser. Please download the PDF and share it manually.');
       }
-    } catch (e) {
+    } catch (error) {
+      console.error('Failed to share PDF:', error);
       alert('Failed to share PDF.');
     } finally {
       setIsSharing(false);
     }
+  };
+
+  const handlePrint = () => {
+    // Get the invoice content element (the Invoice component's root div)
+    const invoiceElement = document.querySelector('#invoice-wrapper #invoice-content') as HTMLElement;
+    if (!invoiceElement) {
+      showErrorToast(t('sales.messages.errors.invoiceNotFound') || 'Invoice content not found');
+      return;
+    }
+
+    // Create a new window for printing
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      showErrorToast(t('sales.messages.errors.popupBlocked') || 'Please allow pop-ups to print the invoice');
+      return;
+    }
+
+    // Get the HTML content of the invoice
+    const invoiceHTML = invoiceElement.innerHTML;
+
+    // Create print-friendly HTML with styles
+    const printHTML = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Invoice - ${sale.id}</title>
+          <style>
+            * {
+              margin: 0;
+              padding: 0;
+              box-sizing: border-box;
+            }
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+              font-size: 12px;
+              line-height: 1.5;
+              color: #000;
+              padding: 20px;
+              background: white;
+            }
+            @media print {
+              body {
+                padding: 0;
+              }
+              @page {
+                margin: 1cm;
+              }
+              .no-print {
+                display: none !important;
+              }
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+            }
+            th, td {
+              padding: 8px;
+              text-align: left;
+              border-bottom: 1px solid #e5e7eb;
+            }
+            th {
+              font-weight: 600;
+              background-color: #f9fafb;
+            }
+            .text-right {
+              text-align: right;
+            }
+            .font-bold {
+              font-weight: 700;
+            }
+            .font-semibold {
+              font-weight: 600;
+            }
+            .text-sm {
+              font-size: 12px;
+            }
+            .text-base {
+              font-size: 14px;
+            }
+            .mb-2 {
+              margin-bottom: 8px;
+            }
+            .mb-4 {
+              margin-bottom: 16px;
+            }
+            .mb-8 {
+              margin-bottom: 32px;
+            }
+            .mt-8 {
+              margin-top: 32px;
+            }
+            .p-3 {
+              padding: 12px;
+            }
+            .p-4 {
+              padding: 16px;
+            }
+            .bg-gray-50 {
+              background-color: #f9fafb;
+            }
+            .border-t {
+              border-top: 1px solid #e5e7eb;
+            }
+            .rounded-lg {
+              border-radius: 8px;
+            }
+            .text-center {
+              text-align: center;
+            }
+            .text-gray-900 {
+              color: #111827;
+            }
+            .text-gray-600 {
+              color: #4b5563;
+            }
+            .text-gray-500 {
+              color: #6b7280;
+            }
+          </style>
+        </head>
+        <body>
+          ${invoiceHTML}
+        </body>
+      </html>
+    `;
+
+    // Write the HTML to the new window
+    printWindow.document.write(printHTML);
+    printWindow.document.close();
+
+    // Wait for images to load, then print
+    printWindow.onload = () => {
+      setTimeout(() => {
+        printWindow.print();
+        // Close the window after printing (optional - user may want to keep it open)
+        // printWindow.close();
+      }, 250);
+    };
   };
 
   return (
@@ -73,6 +213,13 @@ const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({ isOpen, onClose, sa
         <div className="flex justify-end space-x-2 mb-4 sticky top-0 bg-white z-10 py-2">
           <Button
             variant="outline"
+            icon={<Printer size={16} />}
+            onClick={handlePrint}
+          >
+            {t('sales.modals.view.actions.printInvoice')}
+          </Button>
+          <Button
+            variant="outline"
             icon={<Download size={16} />}
             onClick={handleDownloadPDF}
           >
@@ -89,7 +236,7 @@ const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({ isOpen, onClose, sa
         </div>
         {/* Invoice Preview */}
         <div className="border rounded-lg overflow-hidden">
-          <div className="max-h-[calc(100vh-200px)] overflow-y-auto" id="invoice-content">
+          <div className="max-h-[calc(100vh-200px)] overflow-y-auto" id="invoice-wrapper">
             <Invoice sale={sale} products={products || []} />
           </div>
         </div>

@@ -1,5 +1,8 @@
 // src/components/common/ImageWithSkeleton.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+
+// Global cache to track loaded images
+const loadedImagesCache = new Set<string>();
 
 interface ImageWithSkeletonProps {
   src: string;
@@ -21,23 +24,57 @@ export const ImageWithSkeleton: React.FC<ImageWithSkeletonProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
 
-  // Handle image source - only support proper URLs and blob URLs
-  const getImageSrc = (imageSrc: string) => {
-    if (!imageSrc || imageSrc.trim() === '') {
+  // Check if image is already cached/loaded when src changes
+  useEffect(() => {
+    // Handle image source - only support proper URLs and blob URLs
+    const getImageSrc = (imageSrc: string) => {
+      if (!imageSrc || imageSrc.trim() === '') {
+        return placeholder;
+      }
+      
+      // Handle different image source types
+      if (imageSrc.startsWith('http') || imageSrc.startsWith('/') || imageSrc.startsWith('blob:')) {
+        return imageSrc; // HTTP URL, local path, or blob URL
+      }
+      
+      // If it's not a proper URL, return placeholder
+      console.warn('Invalid image source, using placeholder:', imageSrc);
       return placeholder;
+    };
+
+    const imageSrc = getImageSrc(src);
+    if (imageSrc === placeholder || !src) {
+      setIsLoading(false);
+      return;
     }
-    
-    // Handle different image source types
-    if (imageSrc.startsWith('http') || imageSrc.startsWith('/') || imageSrc.startsWith('blob:')) {
-      return imageSrc; // HTTP URL, local path, or blob URL
+
+    // If image is already in cache (was loaded before), skip loading state
+    if (loadedImagesCache.has(src)) {
+      setIsLoading(false);
+      setHasError(false);
+      return;
     }
-    
-    // If it's not a proper URL, return placeholder
-    console.warn('Invalid image source, using placeholder:', imageSrc);
-    return placeholder;
-  };
+
+    // Check if the image is already loaded in the browser cache
+    const img = new Image();
+    img.onload = () => {
+      loadedImagesCache.add(src);
+      setIsLoading(false);
+      setHasError(false);
+    };
+    img.onerror = () => {
+      setIsLoading(false);
+      setHasError(true);
+    };
+    img.src = src;
+
+    // Reset loading state for new src
+    setIsLoading(true);
+    setHasError(false);
+  }, [src, placeholder]);
 
   const handleLoad = () => {
+    loadedImagesCache.add(src);
     setIsLoading(false);
     onLoad?.();
   };
@@ -73,9 +110,9 @@ export const ImageWithSkeleton: React.FC<ImageWithSkeletonProps> = ({
     <div className="relative w-full h-full">
       {isLoading && <SkeletonLoader />}
       <img
-        src={getImageSrc(src)}
+        src={src && (src.startsWith('http') || src.startsWith('/') || src.startsWith('blob:')) ? src : placeholder}
         alt={alt}
-        className={`${className} ${isLoading ? 'opacity-0' : 'opacity-100'}`}
+        className={`${className} ${isLoading ? 'opacity-0' : 'opacity-100'} transition-opacity duration-200`}
         onLoad={handleLoad}
         onError={handleError}
       />
