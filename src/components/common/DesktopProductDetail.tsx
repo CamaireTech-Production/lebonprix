@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useCart } from '../../contexts/CartContext';
 import { getCompanyByUserId, subscribeToProducts } from '../../services/firestore';
 import type { Company, Product } from '../../types/models';
-import { ArrowLeft, Heart, Plus, Minus, MessageCircle, ShoppingCart } from 'lucide-react';
+import { ArrowLeft, Plus, Minus, MessageCircle, ShoppingCart } from 'lucide-react';
 import { ImageWithSkeleton } from './ImageWithSkeleton';
 
 const placeholderImg = '/placeholder.png';
@@ -228,9 +228,11 @@ Please confirm availability and provide delivery details.`;
             </p>
 
             {/* Description */}
-            <p className="text-gray-700 leading-relaxed">
-              {product.description || "Pure sophistication meets cultural pride. This piece is for the woman who knows her worth."}
-            </p>
+            {product.description && (
+              <p className="text-gray-700 leading-relaxed">
+                {product.description}
+              </p>
+            )}
 
             {/* Product Tags/Variations */}
             {availableTags.length > 0 && (
@@ -259,16 +261,6 @@ Please confirm availability and provide delivery details.`;
               </div>
             )}
 
-            {/* Product Features */}
-            <div className="space-y-2">
-              <h3 className="text-lg font-medium text-[#183524]">Features</h3>
-              <ul className="space-y-1 text-sm text-gray-700">
-                <li>• Refined silhouette</li>
-                <li>• Premium construction</li>
-                <li>• Exclusive design</li>
-                <li>• Limited availability</li>
-              </ul>
-            </div>
           </div>
 
           {/* Bottom Section */}
@@ -312,10 +304,6 @@ Please confirm availability and provide delivery details.`;
               </button>
             </div>
 
-            {/* Shipping Info */}
-            <p className="text-xs text-gray-500 text-center">
-              Worldwide shipping available • No refunds
-            </p>
           </div>
         </div>
       </div>

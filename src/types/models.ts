@@ -66,6 +66,7 @@ export interface Product extends BaseModel {
   inventoryMethod?: 'FIFO' | 'LIFO';
   enableBatchTracking?: boolean;
   tags?: ProductTag[]; // Dynamic product tags for variations
+  description?: string; // Product description for catalogue
 }
 
 export interface ProductTag {
