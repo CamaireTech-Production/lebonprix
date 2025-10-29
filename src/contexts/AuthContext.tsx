@@ -479,9 +479,22 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       console.log('✅ signInWithEmailAndPassword succeeded, user:', response.user.uid);
       console.log('✅ User email:', response.user.email);
       
-      // The onAuthStateChanged listener will handle the routing
-      // Let the background loading handle routing based on user's companies
-      console.log('🔄 Waiting for onAuthStateChanged to trigger routing...');
+      // Check if user is already authenticated (auth state won't change)
+      const currentUser = auth.currentUser;
+      if (currentUser && currentUser.uid === response.user.uid) {
+        console.log('🔄 User already authenticated - onAuthStateChanged may not fire');
+        console.log('🔄 Manually triggering background loading and routing...');
+        
+        // Manually trigger the same logic that onAuthStateChanged would handle
+        try {
+          await loadUserAndCompanyDataInBackground(currentUser.uid);
+        } catch (error) {
+          console.error('❌ Error in manual background loading:', error);
+        }
+      } else {
+        console.log('🔄 Waiting for onAuthStateChanged to trigger routing...');
+      }
+      
       return response.user;
     } catch (error) {
       console.error('❌ signIn error:', error);

@@ -22,6 +22,12 @@ const Login = () => {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     
+    // Prevent duplicate submissions
+    if (isLoading) {
+      console.log('⚠️ Login already in progress, ignoring duplicate submission');
+      return;
+    }
+    
     if (!email || !password) {
       setError('Please enter both email and password');
       return;
