@@ -396,6 +396,7 @@
         "actions": {
           "copyTrackingLink": "Copy Tracking Link",
           "editSale": "Edit Sale",
+          "printInvoice": "Print Invoice",
           "downloadPDF": "Download PDF",
           "shareInvoice": "Share Invoice"
         }
