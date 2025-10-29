@@ -171,6 +171,67 @@ const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({ isOpen, onClose, sa
             .text-gray-500 {
               color: #6b7280;
             }
+            /* Flexbox utilities to match Invoice layout */
+            .flex {
+              display: flex;
+            }
+            .flex-col {
+              flex-direction: column;
+            }
+            .items-start {
+              align-items: flex-start;
+            }
+            .space-x-4 > * + * {
+              margin-left: 1rem;
+            }
+            .mb-4 {
+              margin-bottom: 1rem;
+            }
+            .mb-0 {
+              margin-bottom: 0;
+            }
+            /* Image and logo constraints */
+            img {
+              max-width: 100%;
+              height: auto;
+              display: block;
+            }
+            /* Logo specific sizing - maintain original size from Invoice component (w-16 h-16 = 64px) */
+            /* Target logo by alt attribute and also by position in header */
+            img[alt*="logo"],
+            img[alt*="Logo"],
+            div.flex img,
+            div.flex.items-start img {
+              width: 64px !important;
+              height: 64px !important;
+              max-width: 64px !important;
+              max-height: 64px !important;
+              min-width: 64px;
+              min-height: 64px;
+              object-fit: contain !important;
+              flex-shrink: 0;
+            }
+            /* Ensure all images don't exceed container width */
+            @media print {
+              img {
+                max-width: 100%;
+                height: auto;
+                page-break-inside: avoid;
+              }
+              /* Force logo to stay at 64px during print */
+              img[alt*="logo"],
+              img[alt*="Logo"],
+              div.flex img,
+              div.flex.items-start img {
+                width: 64px !important;
+                height: 64px !important;
+                max-width: 64px !important;
+                max-height: 64px !important;
+                min-width: 64px !important;
+                min-height: 64px !important;
+                object-fit: contain !important;
+              }
+            }
           </style>
         </head>
         <body>
@@ -185,7 +246,29 @@ const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({ isOpen, onClose, sa
 
     // Wait for images to load, then print
     printWindow.onload = () => {
+      // Additional JavaScript to ensure logo size is maintained
+      const setLogoSize = () => {
+        const images = printWindow.document.querySelectorAll('img');
+        images.forEach((img: HTMLImageElement) => {
+          const alt = img.getAttribute('alt') || '';
+          // If it's a logo image, force the size
+          if (alt.toLowerCase().includes('logo')) {
+            img.style.width = '64px';
+            img.style.height = '64px';
+            img.style.maxWidth = '64px';
+            img.style.maxHeight = '64px';
+            img.style.objectFit = 'contain';
+            img.style.flexShrink = '0';
+          }
+        });
+      };
+
+      // Set logo size immediately
+      setLogoSize();
+
+      // Wait for images to fully load
       setTimeout(() => {
+        setLogoSize(); // Set again after images load
         printWindow.print();
         // Close the window after printing (optional - user may want to keep it open)
         // printWindow.close();
