@@ -20,6 +20,13 @@ import i18n from '../i18n/config';
 import { combineActivities } from '../utils/activityUtils';
 import { Plus, Copy, Check, ExternalLink, CreditCard, Truck, ShoppingBag, Save, RotateCcw, Eye, Trash2 } from 'lucide-react';
 
+function normalizeWebsite(raw: string): string | undefined {
+  const url = (raw || '').trim();
+  if (!url) return undefined;
+  if (/^https?:\/\//i.test(url)) return url;
+  return `https://${url.replace(/^\/+/, '')}`;
+}
+
 const Settings = () => {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('colors');
@@ -261,6 +268,8 @@ const Settings = () => {
     }
   };
   
+  
+  
   const handleLogoChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -270,6 +279,15 @@ const Settings = () => {
       };
       reader.readAsDataURL(file);
     }
+  };
+  
+  const handleWebsiteChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value || '';
+    const domain = raw.replace(/^\s+/, '').replace(/^https?:\/\//i, '').replace(/^\/+/, '');
+    setFormData(prev => ({
+      ...prev,
+      website: domain ? `https://${domain}` : ''
+    }));
   };
   
   const validatePasswordChange = () => {
@@ -301,6 +319,16 @@ const Settings = () => {
     setIsLoading(true);
     
     try {
+      const normalizedWebsite = normalizeWebsite(formData.website);
+      if (normalizedWebsite) {
+        try {
+          new URL(normalizedWebsite);
+        } catch {
+          showErrorToast('URL de site web invalide (doit être http/https)');
+          setIsLoading(false);
+          return;
+        }
+      }
       // Update company information
       const companyData = {
         name: formData.name,
@@ -309,6 +337,7 @@ const Settings = () => {
         location: formData.location || undefined,
         logo: formData.logo || undefined,
         email: formData.email,
+        website: normalizedWebsite,
         // New color schemes
         catalogueColors: {
           primary: formData.cataloguePrimaryColor,
@@ -1032,6 +1061,26 @@ const Settings = () => {
                       onChange={handleInputChange}
                       required
                     />
+<<<<<<< HEAD
+=======
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Site web</label>
+                      <div className="flex rounded-md shadow-sm">
+                        <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 sm:text-sm">
+                          https://
+                        </span>
+                        <input
+                          type="text"
+                          name="website"
+                          value={(formData.website || '').replace(/^https?:\/\//i, '')}
+                          onChange={handleWebsiteChange}
+                          placeholder="mon-entreprise.com"
+                          className="flex-1 rounded-l-none border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        />
+                      </div>
+                      <p className="mt-1 text-sm text-gray-500">URL publique de votre entreprise (facultatif)</p>
+                    </div>
+>>>>>>> 2648347 (site employé)
                   </div>
                 </div>
                 
