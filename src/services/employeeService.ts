@@ -29,7 +29,7 @@ export const saveEmployee = async (
     const employeeId = generateEmployeeId();
     
     // 2. Créer le mot de passe par défaut
-    const defaultPassword = makeDefaultEmployeePassword(employeeData.firstname, employeeData.lastname);
+    const defaultPassword = '1234Az'
     
     // 3. Créer l'utilisateur Firebase Auth (utilise createFirebaseUser)
     const firebaseUid = await createFirebaseUser({

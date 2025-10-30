@@ -1,5 +1,5 @@
 import { db } from './firebase';
-import { doc, setDoc, updateDoc, getDoc, arrayUnion, arrayRemove, serverTimestamp, increment, deleteField } from 'firebase/firestore';
+import { doc, setDoc, updateDoc, getDoc, arrayUnion, arrayRemove, serverTimestamp, increment, deleteField, writeBatch } from 'firebase/firestore';
 import { UserCompanyRef } from '../types/models';
 
 /**
@@ -36,6 +36,7 @@ export async function addUserToCompany(
       lastname: userData.lastname,
       email: userData.email, // Email de l'utilisateur
       role: role,
+      deleted: false,
       addedAt: serverTimestamp()
     };
 
@@ -94,90 +95,45 @@ export async function removeUserFromCompany(
   try {
     console.log('➖ Suppression utilisateur de company:', { userId, companyId });
 
-    // 1. Récupérer les infos de l'utilisateur dans la company
-    const userDoc = await getDoc(doc(db, 'users', userId));
-    
-    if (!userDoc.exists()) {
+    const userRef = doc(db, 'users', userId);
+    const companyRef = doc(db, 'companies', companyId);
+    const employeeRef = doc(db, 'companies', companyId, 'employeeRefs', userId);
+
+    // 1) Lire l'utilisateur pour récupérer l'objet EXACT à retirer
+    const userSnap = await getDoc(userRef);
+    if (!userSnap.exists()) {
       throw new Error('Utilisateur non trouvé');
     }
+    const userData = userSnap.data();
+    const userCompanyRef = userData?.companies?.find((c: UserCompanyRef) => c.companyId === companyId);
 
-    const userData = userDoc.data();
-    console.log('🔍 UserData:', userData);
-    
-    const userCompanyRef = userData?.companies?.find((c: UserCompanyRef) => {console.log('🔍 c:', c); return c.companyId=== companyId});
-
-    if (!userCompanyRef) {
-      console.warn('⚠️ Utilisateur non trouvé dans users.companies[], suppression de employeeRef uniquement');
-      // Supprimer quand même l'employeeRef si l'utilisateur existe dans employeeRefs
-      // mais pas dans users.companies[] (cas d'incohérence de données)
-      try {
-        await setDoc(doc(db, 'companies', companyId, 'employeeRefs', userId), {
-          deleted: true,
-          deletedAt: serverTimestamp()
-        }, { merge: true });
-        
-        const companyRef = doc(db, 'companies', companyId);
-        await updateDoc(companyRef, {
-          [`employees.${userId}`]: deleteField(),
-          employeeCount: increment(-1),
-          updatedAt: serverTimestamp()
-        });
-        
-        console.log('✅ EmployeeRef supprimé (incohérence de données corrigée)');
-      } catch (err) {
-        console.error('❌ Erreur lors de la suppression de l\'employeeRef:', err);
-      }
-      return;
-    }
-
-    // 2. Supprimer l'employeeRef (utiliser deleteDoc séparément si nécessaire)
-    await setDoc(doc(db, 'companies', companyId, 'employeeRefs', userId), {
-      deleted: true,
-      deletedAt: serverTimestamp()
-    }, { merge: true });
-
-    console.log('✅ EmployeeRef marqué comme supprimé');
-
-    // 3. Retirer de company.employees{} et décrémenter employeeCount
-    const companyRef = doc(db, 'companies', companyId);
-    await updateDoc(companyRef, {
+    // 2) Batch atomique
+    const batch = writeBatch(db);
+    // a) HARD delete de l'employeeRef
+    batch.delete(employeeRef);
+    // b) Nettoyer company.employees et décrémenter
+    batch.update(companyRef, {
       [`employees.${userId}`]: deleteField(),
       employeeCount: increment(-1),
       updatedAt: serverTimestamp()
     });
+    // c) Retirer l'entrée côté user si présente
+    if (userCompanyRef) {
+      const cleanCompanyRef: any = {};
+      Object.keys(userCompanyRef).forEach((key) => {
+        const value = (userCompanyRef as any)[key];
+        if (value !== undefined && value !== null) {
+          cleanCompanyRef[key] = value;
+        }
+      });
+      batch.update(userRef, {
+        companies: arrayRemove(cleanCompanyRef),
+        updatedAt: serverTimestamp()
+      });
+    }
 
-    console.log('✅ Company.employees{} mis à jour');
-
-    // 4. Créer un objet propre en copiant exactement l'objet stocké dans Firestore
-    // mais en retirant uniquement les valeurs undefined/null (pas les chaînes vides)
-    // Firestore arrayRemove() nécessite une correspondance exacte avec l'objet stocké
-    console.log('🔍 UserCompanyRef original:', JSON.stringify(userCompanyRef, null, 2));
-    
-    const cleanCompanyRef: any = {};
-    
-    // Copier dynamiquement tous les champs de l'objet trouvé dans Firestore
-    // Utiliser Object.keys() pour garantir qu'on copie TOUS les champs, même ceux qu'on n'a pas prévus
-    // Cela garantit une correspondance exacte avec l'objet stocké dans Firestore
-    // IMPORTANT: Garder les chaînes vides ('') car elles font partie de l'objet original stocké
-    // dans addUserToCompany (ligne 68-69: description: companyData.description || '')
-    Object.keys(userCompanyRef).forEach(key => {
-      const value = (userCompanyRef as any)[key];
-      // Inclure toutes les valeurs sauf undefined et null
-      // Cela conserve les chaînes vides, les nombres, les booléens, les objets, les Timestamps, etc.
-      if (value !== undefined && value !== null) {
-        cleanCompanyRef[key] = value;
-      }
-    });
-
-    console.log('🔍 CleanCompanyRef pour arrayRemove:', JSON.stringify(cleanCompanyRef, null, 2));
-
-    // 5. Retirer de users.companies[] avec l'objet nettoyé
-    await updateDoc(doc(db, 'users', userId), {
-      companies: arrayRemove(cleanCompanyRef),
-      updatedAt: serverTimestamp()
-    });
-
-    console.log('✅ User.companies[] mis à jour');
+    await batch.commit();
+    console.log('✅ Suppression terminée (hard delete atomique)');
   } catch (error) {
     console.error('❌ Erreur lors de la suppression de l\'utilisateur de la company:', error);
     throw error;
