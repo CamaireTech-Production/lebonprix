@@ -470,35 +470,61 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const signIn = async (email: string, password: string): Promise<FirebaseUser> => {
     console.log('🔐 signIn called with email:', email);
+    
+    // Marquer AVANT le try pour garantir son exécution même en cas d'erreur précoce
+    isInitialLoginRef.current = true;
+    
     try {
-      console.log('🔐 Setting isInitialLoginRef.current = true');
-      isInitialLoginRef.current = true; // Marquer comme login initial
-      console.log('✅ isInitialLoginRef.current = true called');
+      // Validation de l'instance auth avant utilisation
+      if (!auth) {
+        throw new Error('Firebase Auth instance not initialized');
+      }
       
-      const response = await signInWithEmailAndPassword(auth, email, password);
+      // Créer une promesse avec timeout optionnel en mode dev pour éviter les blocages
+      const signInPromise = signInWithEmailAndPassword(auth, email, password);
+      
+      let response;
+      if (import.meta.env.DEV) {
+        // En mode dev, ajouter un timeout pour détecter les blocages
+        const timeoutPromise = new Promise<never>((_, reject) => 
+          setTimeout(() => reject(new Error('Sign in timeout: opération prend plus de 30 secondes')), 30000)
+        );
+        
+        response = await Promise.race([signInPromise, timeoutPromise]);
+      } else {
+        response = await signInPromise;
+      }
+      
       console.log('✅ signInWithEmailAndPassword succeeded, user:', response.user.uid);
       console.log('✅ User email:', response.user.email);
       
-      // Check if user is already authenticated (auth state won't change)
-      const currentUser = auth.currentUser;
-      if (currentUser && currentUser.uid === response.user.uid) {
-        console.log('🔄 User already authenticated - onAuthStateChanged may not fire');
-        console.log('🔄 Manually triggering background loading and routing...');
-        
-        // Manually trigger the same logic that onAuthStateChanged would handle
-        try {
-          await loadUserAndCompanyDataInBackground(currentUser.uid);
-        } catch (error) {
-          console.error('❌ Error in manual background loading:', error);
-        }
-      } else {
-        console.log('🔄 Waiting for onAuthStateChanged to trigger routing...');
-      }
-      
+      // The onAuthStateChanged listener will handle the routing
+      // Let the background loading handle routing based on user's companies
+      console.log('🔄 Waiting for onAuthStateChanged to trigger routing...');
       return response.user;
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ signIn error:', error);
       isInitialLoginRef.current = false; // Reset on error
+      
+      // Gestion d'erreurs améliorée avec messages explicites
+      if (error.code) {
+        // Erreur Firebase Auth
+        const errorMessages: Record<string, string> = {
+          'auth/user-not-found': 'Utilisateur non trouvé',
+          'auth/wrong-password': 'Mot de passe incorrect',
+          'auth/invalid-email': 'Email invalide',
+          'auth/user-disabled': 'Compte utilisateur désactivé',
+          'auth/network-request-failed': 'Erreur réseau. Vérifiez votre connexion.',
+          'auth/too-many-requests': 'Trop de tentatives. Réessayez plus tard.',
+        };
+        
+        const userMessage = errorMessages[error.code] || `Erreur d'authentification: ${error.code}`;
+        const enhancedError = new Error(userMessage);
+        (enhancedError as any).code = error.code;
+        throw enhancedError;
+      }
+      
+      // Erreur générique
       throw error;
     }
   };

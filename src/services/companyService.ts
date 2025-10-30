@@ -2,7 +2,8 @@ import { doc, setDoc, deleteDoc, Timestamp } from 'firebase/firestore';
 import { db } from './firebase';
 import { Company } from '../types/models';
 import CompanyManager from './storage/CompanyManager';
-import { addCompanyToUser, getUserById, removeCompanyFromUser } from './userService';
+import { getUserById, removeCompanyFromUser } from './userService';
+import { addUserToCompany } from './userCompanySyncService';
 
 export interface CompanyData {
   name: string;
@@ -50,17 +51,31 @@ export const createCompany = async (
     // 3. Sauvegarder en base de données
     await setDoc(doc(db, 'companies', companyId), companyDoc);
 
-    // 4. Ajouter la référence dans users/{userId}.companies[]
-    await addCompanyToUser(userId, {
-      companyId: companyId,
-      name: companyData.name,
-      description: companyData.description || '',
-      logo: companyData.logo || '',
-      role: 'owner',
-      joinedAt: now
-    });
+    // 4. Récupérer les données utilisateur
+    const user = await getUserById(userId);
+    if (!user) {
+      throw new Error('Utilisateur non trouvé');
+    }
 
-    // 5. Créer l'objet compagnie complet
+    // 5. Ajouter le propriétaire à la company en utilisant addUserToCompany
+    // (crée l'employeeRef, met à jour company.employees{}, employeeCount, et users.companies[])
+    await addUserToCompany(
+      userId,
+      companyId,
+      {
+        name: companyData.name,
+        description: companyData.description || '',
+        logo: companyData.logo || ''
+      },
+      {
+        firstname: user.firstname,
+        lastname: user.lastname,
+        email: user.email
+      },
+      'owner'
+    );
+
+    // 6. Créer l'objet compagnie complet
     const company: Company = { 
       id: companyId,
       userId: userId, // Owner reference

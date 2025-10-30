@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import Card from '../common/Card';
 import Button from '../common/Button';
-import { cancelInvitation, sendInvitationEmailToUser } from '../../services/invitationService';
+import { cancelInvitation, sendInvitationEmailToUser, getInvitationLink } from '../../services/invitationService';
 import { formatDistanceToNow } from 'date-fns';
-import { Mail, Clock, User, Trash2, RefreshCw } from 'lucide-react';
+import { Mail, Clock, User, Trash2, RefreshCw, Copy } from 'lucide-react';
 import type { Invitation } from '../../types/models';
+import { showSuccessToast, showErrorToast } from '../../utils/toast';
 
 interface PendingInvitationsListProps {
   invitations: Invitation[];
@@ -14,6 +15,7 @@ interface PendingInvitationsListProps {
 const PendingInvitationsList = ({ invitations, onInvitationCancelled }: PendingInvitationsListProps) => {
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [resendingId, setResendingId] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const handleCancelInvitation = async (invitationId: string) => {
     if (!confirm('Are you sure you want to cancel this invitation?')) return;
@@ -37,6 +39,23 @@ const PendingInvitationsList = ({ invitations, onInvitationCancelled }: PendingI
       console.error('Error resending invitation:', error);
     } finally {
       setResendingId(null);
+    }
+  };
+
+  const handleCopyLink = async (invitationId: string) => {
+    try {
+      const link = getInvitationLink(invitationId);
+      await navigator.clipboard.writeText(link);
+      setCopiedId(invitationId);
+      showSuccessToast('Invitation link copied to clipboard');
+      
+      // Reset copied state after 2 seconds
+      setTimeout(() => {
+        setCopiedId(null);
+      }, 2000);
+    } catch (error) {
+      console.error('Error copying link:', error);
+      showErrorToast('Failed to copy link');
     }
   };
 
@@ -121,6 +140,29 @@ const PendingInvitationsList = ({ invitations, onInvitationCancelled }: PendingI
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(status)}`}>
                         {status.charAt(0).toUpperCase() + status.slice(1)}
                       </span>
+                    </div>
+                    
+                    <div className="mt-3">
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Invitation Link:
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          readOnly
+                          value={getInvitationLink(invitation.id)}
+                          className="flex-1 bg-gray-50 border border-gray-200 rounded-md px-3 py-2 text-sm font-mono text-gray-800 focus:outline-none focus:ring-0"
+                        />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleCopyLink(invitation.id)}
+                          className="shrink-0"
+                        >
+                          <Copy className="h-4 w-4 mr-1" />
+                          {copiedId === invitation.id ? 'Copié !' : 'Copier'}
+                        </Button>
+                      </div>
                     </div>
                   </div>
                   

@@ -8,7 +8,8 @@ import {
   updateDoc
 } from 'firebase/firestore';
 import { db } from './firebase';
-import { EmployeeRef, CompanyEmployee, Company } from '../types/models';
+import { EmployeeRef, CompanyEmployee, Company, UserCompanyRef } from '../types/models';
+import { getUserById } from './userService';
 
 /**
  * Service pour lire et gérer l'affichage des employés
@@ -294,6 +295,80 @@ export const getEmployeeRole = async (
   }
 };
 
+/**
+ * Convertit un EmployeeRef en UserCompanyRef pour l'affichage dans HR
+ * @param employeeRef - Référence d'employé depuis employeeRefs
+ * @param companyId - ID de l'entreprise
+ * @param companyData - Données de l'entreprise (nom, description, logo)
+ * @returns UserCompanyRef pour l'affichage
+ */
+export const convertEmployeeRefToUserCompanyRef = (
+  employeeRef: EmployeeRef,
+  companyId: string,
+  companyData: { name: string; description?: string; logo?: string }
+): UserCompanyRef => {
+  return {
+    companyId,
+    userId: employeeRef.id,
+    name: `${employeeRef.firstname} ${employeeRef.lastname}`,
+    description: companyData.description,
+    logo: companyData.logo,
+    role: employeeRef.role as 'owner' | 'admin' | 'manager' | 'staff',
+    joinedAt: employeeRef.addedAt,
+    permissionTemplateId: undefined
+  };
+};
+
+/**
+ * Récupère les informations du propriétaire de l'entreprise et crée un UserCompanyRef
+ * @param ownerId - ID du propriétaire (company.companyId)
+ * @param companyId - ID de l'entreprise
+ * @param companyData - Données de l'entreprise (nom, description, logo)
+ * @returns UserCompanyRef pour le propriétaire ou null si non trouvé
+ */
+export const getOwnerUserCompanyRef = async (
+  ownerId: string,
+  companyId: string,
+  companyData: { name: string; description?: string; logo?: string }
+): Promise<UserCompanyRef | null> => {
+  try {
+    console.log(`👤 Récupération des infos du propriétaire ${ownerId} pour l'entreprise ${companyId}`);
+    
+    const ownerUser = await getUserById(ownerId);
+    
+    if (!ownerUser) {
+      console.warn(`⚠️ Propriétaire ${ownerId} non trouvé dans la collection users`);
+      return null;
+    }
+
+    // Vérifier si le propriétaire a déjà un employeeRef pour cette entreprise
+    const employeeRefDoc = await getDoc(doc(db, 'companies', companyId, 'employeeRefs', ownerId));
+    
+    if (employeeRefDoc.exists()) {
+      // Le propriétaire existe déjà dans employeeRefs, utiliser ces données
+      const employeeRefData = employeeRefDoc.data() as EmployeeRef;
+      console.log(`✅ Propriétaire trouvé dans employeeRefs avec rôle: ${employeeRefData.role}`);
+      return convertEmployeeRefToUserCompanyRef(employeeRefData, companyId, companyData);
+    }
+
+    // Le propriétaire n'est pas dans employeeRefs, créer un UserCompanyRef avec rôle owner
+    console.log(`✅ Propriétaire créé avec rôle owner (non présent dans employeeRefs)`);
+    return {
+      companyId,
+      userId: ownerId,
+      name: `${ownerUser.firstname} ${ownerUser.lastname}`,
+      description: companyData.description,
+      logo: companyData.logo,
+      role: 'owner',
+      joinedAt: ownerUser.createdAt,
+      permissionTemplateId: undefined
+    };
+  } catch (error: any) {
+    console.error('❌ Erreur lors de la récupération du propriétaire:', error);
+    return null;
+  }
+};
+
 export default {
   getEmployeesFromCompanyDoc,
   getEmployeesFromSubcollection,
@@ -301,5 +376,7 @@ export default {
   repairEmployeeSync,
   getEmployeeCount,
   isUserEmployeeOfCompany,
-  getEmployeeRole
+  getEmployeeRole,
+  convertEmployeeRefToUserCompanyRef,
+  getOwnerUserCompanyRef
 };

@@ -6,7 +6,7 @@ import { PermissionTemplate, RolePermissions } from '../../types/permissions';
 
 interface PermissionTemplateFormProps {
   template?: PermissionTemplate | null;
-  onSave: (templateData: Omit<PermissionTemplate, 'id' | 'companyId' | 'createdAt' | 'updatedAt' | 'createdBy'>) => void;
+  onSave: (templateData: Omit<PermissionTemplate, 'id' | 'companyId' | 'createdAt' | 'updatedAt' | 'createdBy'>) => Promise<void> | void;
   onCancel: () => void;
 }
 
@@ -22,6 +22,7 @@ const PermissionTemplateForm = ({ template, onSave, onCancel }: PermissionTempla
     canAccessFinance: false,
     canAccessHR: false
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (template) {
@@ -68,7 +69,7 @@ const PermissionTemplateForm = ({ template, onSave, onCancel }: PermissionTempla
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!name.trim()) {
@@ -76,11 +77,18 @@ const PermissionTemplateForm = ({ template, onSave, onCancel }: PermissionTempla
       return;
     }
 
-    onSave({
-      name: name.trim(),
-      description: description.trim(),
-      permissions
-    });
+    setIsSubmitting(true);
+    try {
+      await onSave({
+        name: name.trim(),
+        description: description.trim(),
+        permissions
+      });
+    } catch (error) {
+      console.error('Error in form submission:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const isEditing = !!template;

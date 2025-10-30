@@ -65,8 +65,8 @@ export async function addUserToCompany(
     const userCompanyRef: UserCompanyRef = {
       companyId: companyId, // ID de la company (pas l'ID utilisateur)
       name: companyData.name,
-      description: companyData.description,
-      logo: companyData.logo,
+      description: companyData.description || '',
+      logo: companyData.logo || '',
       role: role,
       joinedAt: new Date() as any
     };
@@ -102,10 +102,31 @@ export async function removeUserFromCompany(
     }
 
     const userData = userDoc.data();
-    const userCompanyRef = userData.companies?.find((c: UserCompanyRef) => c.companyId === companyId);
+    console.log('🔍 UserData:', userData);
+    
+    const userCompanyRef = userData?.companies?.find((c: UserCompanyRef) => {console.log('🔍 c:', c); return c.companyId=== companyId});
 
     if (!userCompanyRef) {
-      console.warn('⚠️ Utilisateur non trouvé dans cette company');
+      console.warn('⚠️ Utilisateur non trouvé dans users.companies[], suppression de employeeRef uniquement');
+      // Supprimer quand même l'employeeRef si l'utilisateur existe dans employeeRefs
+      // mais pas dans users.companies[] (cas d'incohérence de données)
+      try {
+        await setDoc(doc(db, 'companies', companyId, 'employeeRefs', userId), {
+          deleted: true,
+          deletedAt: serverTimestamp()
+        }, { merge: true });
+        
+        const companyRef = doc(db, 'companies', companyId);
+        await updateDoc(companyRef, {
+          [`employees.${userId}`]: deleteField(),
+          employeeCount: increment(-1),
+          updatedAt: serverTimestamp()
+        });
+        
+        console.log('✅ EmployeeRef supprimé (incohérence de données corrigée)');
+      } catch (err) {
+        console.error('❌ Erreur lors de la suppression de l\'employeeRef:', err);
+      }
       return;
     }
 
@@ -127,9 +148,32 @@ export async function removeUserFromCompany(
 
     console.log('✅ Company.employees{} mis à jour');
 
-    // 4. Retirer de users.companies[]
+    // 4. Créer un objet propre en copiant exactement l'objet stocké dans Firestore
+    // mais en retirant uniquement les valeurs undefined/null (pas les chaînes vides)
+    // Firestore arrayRemove() nécessite une correspondance exacte avec l'objet stocké
+    console.log('🔍 UserCompanyRef original:', JSON.stringify(userCompanyRef, null, 2));
+    
+    const cleanCompanyRef: any = {};
+    
+    // Copier dynamiquement tous les champs de l'objet trouvé dans Firestore
+    // Utiliser Object.keys() pour garantir qu'on copie TOUS les champs, même ceux qu'on n'a pas prévus
+    // Cela garantit une correspondance exacte avec l'objet stocké dans Firestore
+    // IMPORTANT: Garder les chaînes vides ('') car elles font partie de l'objet original stocké
+    // dans addUserToCompany (ligne 68-69: description: companyData.description || '')
+    Object.keys(userCompanyRef).forEach(key => {
+      const value = (userCompanyRef as any)[key];
+      // Inclure toutes les valeurs sauf undefined et null
+      // Cela conserve les chaînes vides, les nombres, les booléens, les objets, les Timestamps, etc.
+      if (value !== undefined && value !== null) {
+        cleanCompanyRef[key] = value;
+      }
+    });
+
+    console.log('🔍 CleanCompanyRef pour arrayRemove:', JSON.stringify(cleanCompanyRef, null, 2));
+
+    // 5. Retirer de users.companies[] avec l'objet nettoyé
     await updateDoc(doc(db, 'users', userId), {
-      companies: arrayRemove(userCompanyRef),
+      companies: arrayRemove(cleanCompanyRef),
       updatedAt: serverTimestamp()
     });
 
@@ -179,7 +223,7 @@ export async function updateUserRole(
     }
 
     const userData = userDoc.data();
-    const oldCompanyRef = userData.companies?.find((c: UserCompanyRef) => c.companyId === companyId);
+    const oldCompanyRef = userData?.companies?.find((c: UserCompanyRef) => c.companyId === companyId);
 
     if (!oldCompanyRef) {
       throw new Error('Company non trouvée dans user.companies[]');
@@ -188,7 +232,9 @@ export async function updateUserRole(
     // Créer la nouvelle référence avec le nouveau rôle
     const newCompanyRef: UserCompanyRef = {
       ...oldCompanyRef,
-      role: newRole
+      role: newRole,
+      description: oldCompanyRef.description || '',
+      logo: oldCompanyRef.logo || ''
     };
 
     // Retirer l'ancienne et ajouter la nouvelle
@@ -245,14 +291,14 @@ export async function syncEmployeeRefToUser(
     }
 
     const userData = userDoc.data();
-    const oldCompanyRef = userData.companies?.find((c: UserCompanyRef) => c.companyId === companyId);
+    const oldCompanyRef = userData?.companies?.find((c: UserCompanyRef) => c.companyId === companyId);
 
     // 4. Créer la nouvelle référence synchronisée
     const newCompanyRef: UserCompanyRef = {
       companyId: companyId,
       name: companyData.name,
-      description: companyData.description,
-      logo: companyData.logo,
+      description: companyData.description || '',
+      logo: companyData.logo || '',
       role: employeeRefData.role,
       joinedAt: employeeRefData.addedAt || new Date() as any
     };

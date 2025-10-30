@@ -1127,5 +1127,15 @@
       "draftSaved": "Draft saved",
       "draftSaveFailed": "Failed to save draft"
     }
+  },
+  "invitations": {
+    "checkingUser": "Checking if user exists...",
+    "userNotFound": "User not found. An invitation will be sent to create an account.",
+    "userFound": "User found: {{name}}",
+    "userFoundDescription": "This user will be added to the company immediately and notified via email.",
+    "alreadyMember": "This user is already a member of this company.",
+    "hasPendingInvitation": "This user already has a pending invitation for this company.",
+    "checkFailed": "Failed to check if user exists",
+    "requiredFields": "Please fill in all required fields"
   }
 } 

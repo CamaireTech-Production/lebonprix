@@ -13,34 +13,131 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { Invitation, UserCompanyRef } from '../types/models';
-import { addCompanyToUser } from './userService';
+import { getUserById } from './userService';
+import { addUserToCompany } from './userCompanySyncService';
 import { sendInvitationEmail, sendCompanyAccessNotification } from './emailService';
 import { showSuccessToast, showErrorToast } from '../utils/toast';
 
 /**
- * Check if a user exists in the system by email
- * @param email - Email to search for
- * @returns User data if found, null otherwise
+ * Normalize and validate email address
+ * @param email - Email to normalize and validate
+ * @returns Normalized email (lowercase, trimmed)
+ * @throws Error if email is invalid
  */
-export const getUserByEmail = async (email: string) => {
+const normalizeEmail = (email: string | undefined | null): string => {
+  if (!email || typeof email !== 'string') {
+    throw new Error('Email is required');
+  }
+  
+  const trimmedEmail = email.trim().toLowerCase();
+  
+  if (!trimmedEmail) {
+    throw new Error('Email cannot be empty');
+  }
+  
+  // Validation basique du format
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(trimmedEmail)) {
+    throw new Error('Invalid email format');
+  }
+  
+  return trimmedEmail;
+};
+
+/**
+ * Format full name from firstname and lastname, handling undefined/null/empty values
+ * @param firstname - First name (can be undefined, null, or empty)
+ * @param lastname - Last name (can be undefined, null, or empty)
+ * @returns Formatted full name, or "Utilisateur" if both are empty
+ */
+const formatFullName = (firstname?: string | null, lastname?: string | null): string => {
+  const parts: string[] = [];
+  
+  // Add firstname if it's valid
+  if (firstname && firstname.trim()) {
+    parts.push(firstname.trim());
+  }
+  
+  // Add lastname if it's valid
+  if (lastname && lastname.trim()) {
+    parts.push(lastname.trim());
+  }
+  
+  // Join parts and normalize spaces
+  const fullName = parts.join(' ').trim();
+  
+  // Return default if no valid name parts
+  return fullName || 'Utilisateur';
+};
+
+/**
+ * Result type for user email check
+ * Discriminated union to handle all possible states
+ */
+export type UserCheckResult =
+  | { type: 'not_found' }
+  | { type: 'found'; user: import('../types/models').User }
+  | { type: 'already_member'; user: import('../types/models').User }
+  | { type: 'has_pending_invitation'; user: import('../types/models').User; invitation: Invitation };
+
+/**
+ * Check if a user exists in the system by email
+ * Also checks if user is already a member or has pending invitation
+ * @param email - Email to search for
+ * @param companyId - Optional company ID to check membership and pending invitations
+ * @returns UserCheckResult with discriminated union type
+ */
+export const getUserByEmail = async (email: string, companyId?: string): Promise<UserCheckResult> => {
   try {
     console.log('🔍 Searching for user with email:', email);
     
     // Query users collection by email
     const usersRef = collection(db, 'users');
-    const q = query(usersRef, where('email', '==', email.toLowerCase().trim()));
+    const normalizedEmail = email.toLowerCase().trim();
+    const q = query(usersRef, where('email', '==', normalizedEmail));
     const querySnapshot = await getDocs(q);
     
     if (querySnapshot.empty) {
       console.log('❌ No user found with email:', email);
-      return null;
+      return { type: 'not_found' };
     }
     
     const userDoc = querySnapshot.docs[0];
     const userData = { id: userDoc.id, ...userDoc.data() } as import('../types/models').User;
     
+    // If companyId not provided, just return found user
+    if (!companyId) {
+      console.log('✅ User found:', userData.firstname, userData.lastname);
+      return { type: 'found', user: userData };
+    }
+    
+    // Check if user is already a member of the company
+    const isAlreadyMember = userData.companies?.some((c: UserCompanyRef) => c.companyId === companyId);
+    
+    if (isAlreadyMember) {
+      console.log('⚠️ User already member of company:', companyId);
+      return { type: 'already_member', user: userData };
+    }
+    
+    // Check if user has a pending invitation for this company
+    const invitationsRef = collection(db, 'invitations');
+    const invitationQuery = query(
+      invitationsRef,
+      where('email', '==', normalizedEmail),
+      where('companyId', '==', companyId),
+      where('status', '==', 'pending')
+    );
+    const invitationSnapshot = await getDocs(invitationQuery);
+    
+    if (!invitationSnapshot.empty) {
+      const invitationDoc = invitationSnapshot.docs[0];
+      const invitationData = { id: invitationDoc.id, ...invitationDoc.data() } as Invitation;
+      console.log('⚠️ User has pending invitation:', invitationData.id);
+      return { type: 'has_pending_invitation', user: userData, invitation: invitationData };
+    }
+    
     console.log('✅ User found:', userData.firstname, userData.lastname);
-    return userData;
+    return { type: 'found', user: userData };
   } catch (error) {
     console.error('❌ Error searching for user by email:', error);
     throw error;
@@ -68,7 +165,10 @@ export const createInvitation = async (
   }
 ): Promise<Invitation> => {
   try {
-    console.log('📝 Creating invitation for:', employeeData.email);
+    // Normalize and validate email
+    const normalizedEmail = normalizeEmail(employeeData.email);
+    
+    console.log('📝 Creating invitation for:', normalizedEmail);
     
     // Generate unique invitation ID
     const invitationId = `inv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -83,7 +183,7 @@ export const createInvitation = async (
       companyName,
       invitedBy: inviterData.id,
       invitedByName: inviterData.name,
-      email: employeeData.email.toLowerCase().trim(),
+      email: normalizedEmail,
       firstname: employeeData.firstname,
       lastname: employeeData.lastname,
       phone: employeeData.phone,
@@ -107,17 +207,31 @@ export const createInvitation = async (
 };
 
 /**
+ * Generate invitation link URL
+ * @param invitationId - Invitation ID
+ * @returns Full invitation link URL
+ */
+export const getInvitationLink = (invitationId: string): string => {
+  return `${window.location.origin}/invite/${invitationId}`;
+};
+
+/**
  * Send invitation email
  * @param invitation - Invitation data
  * @returns Email result
  */
 export const sendInvitationEmailToUser = async (invitation: Invitation) => {
   try {
-    const inviteLink = `${window.location.origin}/invite/${invitation.id}`;
+    // Validate invitation email before constructing email data
+    if (!invitation.email || !invitation.email.trim()) {
+      throw new Error('Invitation email is empty or invalid');
+    }
+    
+    const inviteLink = getInvitationLink(invitation.id);
     
     const emailData = {
       to_email: invitation.email,
-      to_name: `${invitation.firstname} ${invitation.lastname}`,
+      to_name: formatFullName(invitation.firstname, invitation.lastname),
       company_name: invitation.companyName,
       inviter_name: invitation.invitedByName,
       role: invitation.role,
@@ -191,16 +305,35 @@ export const acceptInvitation = async (inviteId: string, userId: string): Promis
       throw new Error('Invitation has expired');
     }
     
-    // Add company to user's companies array
-    const companyRef: UserCompanyRef = {
-      companyId: invitation.companyId,
-      name: invitation.companyName,
-      role: invitation.role,
-      joinedAt: Timestamp.now(),
-      permissionTemplateId: invitation.permissionTemplateId
-    };
+    // Get user data
+    const user = await getUserById(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
     
-    await addCompanyToUser(userId, companyRef);
+    // Get company data
+    const companyDoc = await getDoc(doc(db, 'companies', invitation.companyId));
+    if (!companyDoc.exists()) {
+      throw new Error('Company not found');
+    }
+    const companyData = companyDoc.data();
+    
+    // Add user to company using addUserToCompany (creates employeeRef, updates company.employees{}, employeeCount, and users.companies[])
+    await addUserToCompany(
+      userId,
+      invitation.companyId,
+      {
+        name: companyData.name,
+        description: companyData.description,
+        logo: companyData.logo
+      },
+      {
+        firstname: user.firstname,
+        lastname: user.lastname,
+        email: user.email
+      },
+      invitation.role
+    );
     
     // Update invitation status
     const invitationRef = doc(db, 'invitations', inviteId);
@@ -322,6 +455,11 @@ export const handleExistingUserInvitation = async (
   existingUser: import('../types/models').User
 ): Promise<boolean> => {
   try {
+    // Validate existing user email before proceeding
+    if (!existingUser.email || !existingUser.email.trim()) {
+      throw new Error('User email is empty or invalid');
+    }
+    
     console.log('👤 Handling invitation for existing user:', existingUser.email);
     
     // Check if user already has access to this company
@@ -332,21 +470,34 @@ export const handleExistingUserInvitation = async (
       return false;
     }
     
-    // Add company to user's companies array
-    const companyRef: UserCompanyRef = {
-      companyId,
-      name: companyName,
-      role: employeeData.role,
-      joinedAt: Timestamp.now(),
-      permissionTemplateId: employeeData.permissionTemplateId
-    };
+    // Get company data
+    const companyDoc = await getDoc(doc(db, 'companies', companyId));
+    if (!companyDoc.exists()) {
+      throw new Error('Company not found');
+    }
+    const companyData = companyDoc.data();
     
-    await addCompanyToUser(existingUser.id, companyRef);
+    // Add user to company using addUserToCompany (creates employeeRef, updates company.employees{}, employeeCount, and users.companies[])
+    await addUserToCompany(
+      existingUser.id,
+      companyId,
+      {
+        name: companyName,
+        description: companyData.description,
+        logo: companyData.logo
+      },
+      {
+        firstname: existingUser.firstname,
+        lastname: existingUser.lastname,
+        email: existingUser.email
+      },
+      employeeData.role
+    );
     
     // Send notification email
     const emailData = {
       to_email: existingUser.email,
-      to_name: `${existingUser.firstname} ${existingUser.lastname}`,
+      to_name: formatFullName(existingUser.firstname, existingUser.lastname),
       company_name: companyName,
       inviter_name: inviterData.name,
       role: employeeData.role,

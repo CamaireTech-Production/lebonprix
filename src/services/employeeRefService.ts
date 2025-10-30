@@ -15,6 +15,7 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { EmployeeRef, User, UserRole, UserCompanyRef } from '../types/models';
+import { addUserToCompany } from './userCompanySyncService';
 
 /**
  * Service pour gérer les références d'employés (employeeRefs)
@@ -92,38 +93,23 @@ export const addEmployeeToCompany = async (
       throw new Error('Cet utilisateur est déjà employé dans cette entreprise');
     }
 
-    // 3. Créer la référence employé dans la sous-collection
-    const now = Timestamp.now();
-    const employeeRefData: EmployeeRef = {
-      id: userId,
-      firstname: userData.firstname,
-      lastname: userData.lastname,
-      email: userData.email,
-      role,
-      addedAt: now
-    };
-
-    await setDoc(employeeRef, employeeRefData);
-    console.log(`✅ Référence employé créée dans employeeRefs`);
-
-    // 4. Mettre à jour la liste des entreprises de l'utilisateur
-    const userCompanyRef: UserCompanyRef = {
+    // 3. Utiliser addUserToCompany qui fait tout :
+    // - Crée l'employeeRef
+    // - Met à jour company.employees{}
+    // - Met à jour employeeCount
+    // - Met à jour users.companies[]
+    await addUserToCompany(
+      userId,
       companyId,
-      name: companyInfo.name,
-      description: companyInfo.description || '',
-      logo: companyInfo.logo || '',
-      role,
-      joinedAt: now
-    };
+      companyInfo,
+      {
+        firstname: userData.firstname,
+        lastname: userData.lastname,
+        email: userData.email
+      },
+      role
+    );
 
-    // Ajouter la référence à la liste des entreprises de l'utilisateur
-    const updatedCompanies = [...(userData.companies || []), userCompanyRef];
-    
-    await updateDoc(userRef, {
-      companies: updatedCompanies
-    });
-
-    console.log(`✅ Utilisateur mis à jour avec la référence d'entreprise`);
     console.log(`🎉 Employé ajouté avec succès à l'entreprise ${companyInfo.name}`);
 
   } catch (error: any) {

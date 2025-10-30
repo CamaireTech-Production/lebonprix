@@ -1130,5 +1130,15 @@
       "draftSaved": "Brouillon sauvegardé",
       "draftSaveFailed": "Échec de la sauvegarde du brouillon"
     }
+  },
+  "invitations": {
+    "checkingUser": "Vérification de l'existence de l'utilisateur...",
+    "userNotFound": "Utilisateur non trouvé. Une invitation sera envoyée pour créer un compte.",
+    "userFound": "Utilisateur trouvé : {{name}}",
+    "userFoundDescription": "Cet utilisateur sera ajouté à l'entreprise immédiatement et notifié par email.",
+    "alreadyMember": "Cet utilisateur est déjà membre de cette entreprise.",
+    "hasPendingInvitation": "Cet utilisateur a déjà une invitation en attente pour cette entreprise.",
+    "checkFailed": "Échec de la vérification de l'existence de l'utilisateur",
+    "requiredFields": "Veuillez remplir tous les champs obligatoires"
   }
 } 

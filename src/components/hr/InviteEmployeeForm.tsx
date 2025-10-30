@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import Card from '../common/Card';
 import Button from '../common/Button';
 import Input from '../common/Input';
-import { getUserByEmail, createInvitation, sendInvitationEmailToUser, handleExistingUserInvitation } from '../../services/invitationService';
+import { getUserByEmail, createInvitation, sendInvitationEmailToUser, handleExistingUserInvitation, getInvitationLink } from '../../services/invitationService';
 import { getCompanyTemplates } from '../../services/permissionTemplateService';
 import { PermissionTemplate } from '../../types/permissions';
-import { showErrorToast } from '../../utils/toast';
+import { showErrorToast, showSuccessToast } from '../../utils/toast';
+import { Copy, X } from 'lucide-react';
+import type { Invitation } from '../../types/models';
 
 interface InviteEmployeeFormProps {
   onInvitationCreated: () => void;
@@ -18,6 +21,7 @@ interface InviteEmployeeFormProps {
 }
 
 const InviteEmployeeForm = ({ onInvitationCreated, companyId, companyName, inviterData }: InviteEmployeeFormProps) => {
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [firstname, setFirstname] = useState('');
   const [lastname, setLastname] = useState('');
@@ -28,8 +32,11 @@ const InviteEmployeeForm = ({ onInvitationCreated, companyId, companyName, invit
   const [isCheckingUser, setIsCheckingUser] = useState(false);
   const [existingUser, setExistingUser] = useState<import('../../types/models').User | null>(null);
   const [userChecked, setUserChecked] = useState(false);
+  const [isAlreadyMember, setIsAlreadyMember] = useState(false);
   const [templates, setTemplates] = useState<PermissionTemplate[]>([]);
   const [templatesLoading, setTemplatesLoading] = useState(true);
+  const [lastCreatedInvitation, setLastCreatedInvitation] = useState<Invitation | null>(null);
+  const [copiedInvitationId, setCopiedInvitationId] = useState<string | null>(null);
 
   // Load company templates
   useEffect(() => {
@@ -53,19 +60,39 @@ const InviteEmployeeForm = ({ onInvitationCreated, companyId, companyName, invit
     
     setIsCheckingUser(true);
     try {
-      const user = await getUserByEmail(email);
-      setExistingUser(user);
+      const result = await getUserByEmail(email, companyId);
       setUserChecked(true);
       
-      if (user) {
-        // Pre-fill form with existing user data
-        setFirstname(user.firstname || '');
-        setLastname(user.lastname || '');
-        setPhone(user.phone || '');
+      switch (result.type) {
+        case 'not_found':
+          setExistingUser(null);
+          setIsAlreadyMember(false);
+          break;
+          
+        case 'found':
+          setExistingUser(result.user);
+          setIsAlreadyMember(false);
+          // Pre-fill form with existing user data
+          setFirstname(result.user.firstname || '');
+          setLastname(result.user.lastname || '');
+          setPhone(result.user.phone || '');
+          break;
+          
+        case 'already_member':
+          setExistingUser(null);
+          setIsAlreadyMember(true);
+          showErrorToast(t('invitations.alreadyMember'));
+          break;
+          
+        case 'has_pending_invitation':
+          setExistingUser(null);
+          setIsAlreadyMember(true);
+          showErrorToast(t('invitations.hasPendingInvitation'));
+          break;
       }
     } catch (error) {
       console.error('Error checking user:', error);
-      showErrorToast('Failed to check if user exists');
+      showErrorToast(t('invitations.checkFailed'));
     } finally {
       setIsCheckingUser(false);
     }
@@ -74,14 +101,29 @@ const InviteEmployeeForm = ({ onInvitationCreated, companyId, companyName, invit
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Validate required fields
     if (!email || !firstname || !lastname) {
-      showErrorToast('Please fill in all required fields');
+      showErrorToast(t('invitations.requiredFields'));
+      return;
+    }
+    
+    // Validate email format
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
+      showErrorToast('Email is required');
+      return;
+    }
+    
+    // Email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmedEmail)) {
+      showErrorToast('Please enter a valid email address');
       return;
     }
 
     setIsLoading(true);
     try {
-      if (existingUser) {
+      if (existingUser && !isAlreadyMember) {
         // User exists - add to company immediately
         await handleExistingUserInvitation(
           companyId,
@@ -90,7 +132,7 @@ const InviteEmployeeForm = ({ onInvitationCreated, companyId, companyName, invit
           { email, firstname, lastname, phone, role, permissionTemplateId },
           existingUser
         );
-      } else {
+      } else if (!isAlreadyMember) {
         // User doesn't exist - create invitation
         const invitation = await createInvitation(
           companyId,
@@ -101,6 +143,9 @@ const InviteEmployeeForm = ({ onInvitationCreated, companyId, companyName, invit
         
         // Send invitation email
         await sendInvitationEmailToUser(invitation);
+        
+        // Store invitation for display
+        setLastCreatedInvitation(invitation);
       }
       
       // Reset form
@@ -112,6 +157,7 @@ const InviteEmployeeForm = ({ onInvitationCreated, companyId, companyName, invit
       setPermissionTemplateId('');
       setExistingUser(null);
       setUserChecked(false);
+      setIsAlreadyMember(false);
       
       onInvitationCreated();
     } catch (error: unknown) {
@@ -120,6 +166,23 @@ const InviteEmployeeForm = ({ onInvitationCreated, companyId, companyName, invit
       showErrorToast(errorMessage);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleCopyLink = async (invitationId: string) => {
+    try {
+      const link = getInvitationLink(invitationId);
+      await navigator.clipboard.writeText(link);
+      setCopiedInvitationId(invitationId);
+      showSuccessToast('Invitation link copied to clipboard');
+      
+      // Reset copied state after 2 seconds
+      setTimeout(() => {
+        setCopiedInvitationId(null);
+      }, 2000);
+    } catch (error) {
+      console.error('Error copying link:', error);
+      showErrorToast('Failed to copy link');
     }
   };
 
@@ -139,28 +202,36 @@ const InviteEmployeeForm = ({ onInvitationCreated, companyId, companyName, invit
                 setEmail(e.target.value);
                 setUserChecked(false);
                 setExistingUser(null);
+                setIsAlreadyMember(false);
               }}
               onBlur={handleEmailBlur}
               required
               disabled={isLoading}
             />
             {isCheckingUser && (
-              <p className="text-sm text-gray-500 mt-1">Checking if user exists...</p>
+              <p className="text-sm text-gray-500 mt-1">{t('invitations.checkingUser')}</p>
             )}
-            {userChecked && existingUser && (
+            {userChecked && existingUser && !isAlreadyMember && (
               <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
                 <p className="text-sm text-blue-800">
-                  ✅ User found: {existingUser.firstname} {existingUser.lastname}
+                  ✅ {t('invitations.userFound', { name: `${existingUser.firstname} ${existingUser.lastname}` })}
                 </p>
                 <p className="text-xs text-blue-600 mt-1">
-                  This user will be added to the company immediately and notified via email.
+                  {t('invitations.userFoundDescription')}
                 </p>
               </div>
             )}
-            {userChecked && !existingUser && (
+            {userChecked && !existingUser && !isAlreadyMember && (
               <div className="mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
                 <p className="text-sm text-yellow-800">
-                  ℹ️ User not found. An invitation will be sent to create an account.
+                  ℹ️ {t('invitations.userNotFound')}
+                </p>
+              </div>
+            )}
+            {userChecked && isAlreadyMember && (
+              <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-md">
+                <p className="text-sm text-red-800">
+                  ⚠️ {t('invitations.alreadyMember')}
                 </p>
               </div>
             )}
@@ -252,13 +323,66 @@ const InviteEmployeeForm = ({ onInvitationCreated, companyId, companyName, invit
             <Button
               type="submit"
               isLoading={isLoading}
-              disabled={isLoading || isCheckingUser}
+              disabled={isLoading || isCheckingUser || isAlreadyMember}
               loadingText={existingUser ? 'Adding to company...' : 'Sending invitation...'}
             >
               {existingUser ? 'Add to Company' : 'Send Invitation'}
             </Button>
           </div>
         </form>
+        
+        {/* Success message with invitation link */}
+        {lastCreatedInvitation && (
+          <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+            <div className="flex items-start justify-between mb-3">
+              <div>
+                <h4 className="text-sm font-medium text-green-800">
+                  Invitation sent successfully!
+                </h4>
+                <p className="text-sm text-green-700 mt-1">
+                  An invitation email has been sent to{' '}
+                  <span className="font-medium">
+                    {lastCreatedInvitation.firstname} {lastCreatedInvitation.lastname}
+                  </span>{' '}
+                  ({lastCreatedInvitation.email})
+                </p>
+              </div>
+              <button
+                onClick={() => setLastCreatedInvitation(null)}
+                className="text-green-600 hover:text-green-800 transition-colors"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Invitation Link:
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  readOnly
+                  value={getInvitationLink(lastCreatedInvitation.id)}
+                  className="flex-1 bg-white border border-green-200 rounded-md px-3 py-2 text-sm font-mono text-gray-800 focus:outline-none focus:ring-0"
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleCopyLink(lastCreatedInvitation.id)}
+                  className="shrink-0"
+                >
+                  <Copy className="h-4 w-4 mr-1" />
+                  {copiedInvitationId === lastCreatedInvitation.id ? 'Copié !' : 'Copier'}
+                </Button>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                You can copy this link to share it manually if needed.
+              </p>
+            </div>
+          </div>
+        )}
       </div>
     </Card>
   );

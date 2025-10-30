@@ -1,13 +1,16 @@
 import { useState, useEffect, useCallback } from 'react';
 import Card from '../common/Card';
 import Button from '../common/Button';
-import { Users, UserPlus, RefreshCw, Settings } from 'lucide-react';
+import Modal, { ModalFooter } from '../common/Modal';
+import { Users, UserPlus, RefreshCw, Settings, Trash2 } from 'lucide-react';
 import type { UserCompanyRef } from '../../types/models';
 import TemplateAssignment from './TemplateAssignment';
+import { removeUserFromCompany } from '../../services/userCompanySyncService';
 
 interface TeamOverviewProps {
   teamMembers: UserCompanyRef[];
   onRefresh: () => void;
+  companyId: string;
 }
 
 interface TeamMember {
@@ -20,13 +23,17 @@ interface TeamMember {
   joinedAt: import('../../types/models').Timestamp;
   lastLogin?: import('../../types/models').Timestamp;
   permissionTemplateId?: string;
+  userId?: string;
 }
 
-const TeamOverview = ({ teamMembers, onRefresh }: TeamOverviewProps) => {
+const TeamOverview = ({ teamMembers, onRefresh, companyId }: TeamOverviewProps) => {
   const [allTeamMembers, setAllTeamMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
   const [showTemplateAssignment, setShowTemplateAssignment] = useState(false);
+  const [memberToDelete, setMemberToDelete] = useState<TeamMember | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const loadTeamMembers = useCallback(async () => {
     try {
@@ -37,13 +44,14 @@ const TeamOverview = ({ teamMembers, onRefresh }: TeamOverviewProps) => {
       // For now, we'll show the team members from the props
       
       const members: TeamMember[] = teamMembers.map(member => ({
-        id: member.companyId,
+        id: member.userId || member.companyId, // Use userId if available, fallback to companyId
         firstname: member.name.split(' ')[0] || '',
         lastname: member.name.split(' ').slice(1).join(' ') || '',
         email: '', // Would need to fetch from user data
         role: member.role,
         joinedAt: member.joinedAt,
-        permissionTemplateId: member.permissionTemplateId
+        permissionTemplateId: member.permissionTemplateId,
+        userId: member.userId // Store userId separately for deletion
       }));
       
       setAllTeamMembers(members);
@@ -77,6 +85,38 @@ const TeamOverview = ({ teamMembers, onRefresh }: TeamOverviewProps) => {
     setShowTemplateAssignment(false);
     setSelectedMember(null);
     onRefresh();
+  };
+
+  const handleDeleteClick = (member: TeamMember) => {
+    setMemberToDelete(member);
+    setShowDeleteModal(true);
+  };
+
+  const handleDeleteCancel = () => {
+    setShowDeleteModal(false);
+    setMemberToDelete(null);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!memberToDelete || !memberToDelete.userId || !companyId) {
+      console.error('Missing userId or companyId for deletion');
+      return;
+    }
+
+    try {
+      setDeleting(true);
+      await removeUserFromCompany(memberToDelete.userId, companyId);
+      console.log('✅ Employé supprimé avec succès');
+      
+      setShowDeleteModal(false);
+      setMemberToDelete(null);
+      onRefresh(); // Refresh the team list
+    } catch (error: any) {
+      console.error('❌ Erreur lors de la suppression de l\'employé:', error);
+      alert(`Erreur lors de la suppression: ${error.message || 'Une erreur est survenue'}`);
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const getRoleColor = (role: string) => {
@@ -207,11 +247,48 @@ const TeamOverview = ({ teamMembers, onRefresh }: TeamOverviewProps) => {
                   >
                     Permissions
                   </Button>
+                  
+                  {member.role !== 'owner' && member.userId && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleDeleteClick(member)}
+                      icon={<Trash2 size={14} />}
+                      className="text-red-600 hover:text-red-700 hover:border-red-300"
+                    >
+                      Supprimer
+                    </Button>
+                  )}
                 </div>
               </div>
             ))}
           </div>
         )}
+        
+        {/* Delete Confirmation Modal */}
+        <Modal
+          isOpen={showDeleteModal}
+          onClose={handleDeleteCancel}
+          title="Supprimer l'employé"
+          footer={
+            <ModalFooter
+              onCancel={handleDeleteCancel}
+              onConfirm={handleDeleteConfirm}
+              confirmText="Supprimer"
+              isDanger
+              isLoading={deleting}
+            />
+          }
+        >
+          <div className="text-center">
+            <p className="text-gray-600 mb-4">
+              Êtes-vous sûr de vouloir supprimer {memberToDelete ? `${memberToDelete.firstname} ${memberToDelete.lastname}` : 'cet employé'} de l'entreprise ?
+            </p>
+            <p className="text-sm text-red-600">
+              Cette action est irréversible.
+            </p>
+          </div>
+        </Modal>
         
         {/* Template Assignment Modal */}
         {showTemplateAssignment && selectedMember && (

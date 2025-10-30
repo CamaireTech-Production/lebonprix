@@ -307,6 +307,8 @@ export interface UserCompanyRef {
   joinedAt: Timestamp;
   // Optional: assigned permission template for this company
   permissionTemplateId?: string;
+  // Optional: userId (firebaseUid) - needed for operations like deletion
+  userId?: string;
 }
 
 // ❌ SUPPRIMÉ - Plus utilisé dans l'architecture simplifiée

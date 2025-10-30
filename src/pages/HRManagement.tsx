@@ -7,6 +7,8 @@ import PendingInvitationsList from '../components/hr/PendingInvitationsList';
 import TeamOverview from '../components/hr/TeamOverview';
 import PermissionTemplateManager from '../components/hr/PermissionTemplateManager';
 import { getPendingInvitations } from '../services/invitationService';
+import { getCompanyEmployees } from '../services/employeeRefService';
+import { convertEmployeeRefToUserCompanyRef, getOwnerUserCompanyRef } from '../services/employeeDisplayService';
 import type { Invitation, UserCompanyRef } from '../types/models';
 
 const HRManagement = () => {
@@ -26,17 +28,56 @@ const HRManagement = () => {
       const invitations = await getPendingInvitations(company.id);
       setPendingInvitations(invitations);
       
-      // Load team members (users with access to this company)
-      // This would need to be implemented in userService
-      // For now, we'll use an empty array
-      setTeamMembers([]);
+      // Load team members from employeeRefs subcollection
+      console.log(`📋 Chargement des employés pour l'entreprise ${company.id}`);
+      
+      const employees = await getCompanyEmployees(company.id);
+      console.log(`✅ ${employees.length} employés récupérés depuis employeeRefs`);
+      
+      // Convertir les EmployeeRef en UserCompanyRef
+      const companyData = {
+        name: company.name || '',
+        description: company.description,
+        logo: company.logo
+      };
+      
+      const teamMembersList: UserCompanyRef[] = employees.map(emp => 
+        convertEmployeeRefToUserCompanyRef(emp, company.id, companyData)
+      );
+      
+      // Ajouter le propriétaire s'il n'est pas déjà dans la liste des employeeRefs
+      if (company.companyId) {
+        // Vérifier si le propriétaire existe déjà dans la liste des employés
+        const ownerExistsInEmployees = employees.some(emp => emp.id === company.companyId);
+        
+        if (!ownerExistsInEmployees) {
+          // Le propriétaire n'est pas dans employeeRefs, l'ajouter manuellement
+          const ownerUserCompanyRef = await getOwnerUserCompanyRef(
+            company.companyId,
+            company.id,
+            companyData
+          );
+          
+          if (ownerUserCompanyRef) {
+            console.log('✅ Propriétaire ajouté à la liste des membres');
+            teamMembersList.unshift(ownerUserCompanyRef); // Ajouter en premier
+          }
+        } else {
+          console.log('ℹ️ Propriétaire déjà présent dans employeeRefs');
+        }
+      }
+      
+      console.log(`✅ ${teamMembersList.length} membres de l'équipe chargés`);
+      setTeamMembers(teamMembersList);
       
     } catch (error) {
-      console.error('Error loading HR data:', error);
+      console.error('❌ Erreur lors du chargement des données HR:', error);
+      // En cas d'erreur, initialiser avec un tableau vide
+      setTeamMembers([]);
     } finally {
       setLoading(false);
     }
-  }, [company?.id]);
+  }, [company?.id, company?.companyId, company?.name, company?.description, company?.logo]);
 
   useEffect(() => {
     loadData();
@@ -52,7 +93,7 @@ const HRManagement = () => {
   };
 
   // Check if user has permission to access HR management
-  const hasPermission = isOwner || effectiveRole === 'magasinier';
+  const hasPermission = isOwner || effectiveRole === 'magasinier' || effectiveRole== 'owner' ;
   
   if (!hasPermission) {
     return (
@@ -130,6 +171,7 @@ const HRManagement = () => {
           <TeamOverview 
             teamMembers={teamMembers}
             onRefresh={loadData}
+            companyId={company?.id || ''}
           />
         )}
         

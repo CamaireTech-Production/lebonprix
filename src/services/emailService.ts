@@ -25,12 +25,46 @@ export interface EmailResult {
 }
 
 /**
+ * Validate email address
+ * @param email - Email to validate
+ * @returns Validation result with isValid flag and optional error message
+ */
+const validateEmail = (email: string | undefined | null): { isValid: boolean; error?: string } => {
+  if (!email || typeof email !== 'string') {
+    return { isValid: false, error: 'Email is required' };
+  }
+  
+  const trimmedEmail = email.trim();
+  if (!trimmedEmail) {
+    return { isValid: false, error: 'Email cannot be empty' };
+  }
+  
+  // Regex simple mais efficace pour validation email
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(trimmedEmail)) {
+    return { isValid: false, error: 'Invalid email format' };
+  }
+  
+  return { isValid: true };
+};
+
+/**
  * Send invitation email using EmailJS
  * @param emailData - Email template data
  * @returns Promise with email result
  */
 export const sendInvitationEmail = async (emailData: InvitationEmailData): Promise<EmailResult> => {
   try {
+    // Validate email before sending
+    const emailValidation = validateEmail(emailData.to_email);
+    if (!emailValidation.isValid) {
+      console.error('❌ Invalid email address:', emailValidation.error);
+      return {
+        success: false,
+        error: emailValidation.error || 'Invalid email address'
+      };
+    }
+    
     console.log('📧 Sending invitation email to:', emailData.to_email);
     
     const templateParams = {
@@ -73,6 +107,16 @@ export const sendInvitationEmail = async (emailData: InvitationEmailData): Promi
  */
 export const sendCompanyAccessNotification = async (emailData: InvitationEmailData): Promise<EmailResult> => {
   try {
+    // Validate email before sending
+    const emailValidation = validateEmail(emailData.to_email);
+    if (!emailValidation.isValid) {
+      console.error('❌ Invalid email address:', emailValidation.error);
+      return {
+        success: false,
+        error: emailValidation.error || 'Invalid email address'
+      };
+    }
+    
     console.log('📧 Sending company access notification to:', emailData.to_email);
     
     const templateParams = {
