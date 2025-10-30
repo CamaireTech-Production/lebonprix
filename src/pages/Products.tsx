@@ -10,7 +10,7 @@ import { useProducts, useStockChanges, useCategories, useSuppliers } from '../ho
 import { useInfiniteProducts } from '../hooks/useInfiniteProducts';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 import { useAllStockBatches } from '../hooks/useStockBatches';
-import { createSupplier, updateProduct, recalculateCategoryProductCounts } from '../services/firestore';
+import { createSupplier, recalculateCategoryProductCounts } from '../services/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import { FirebaseStorageService } from '../services/firebaseStorageService';
 import { ImageWithSkeleton } from '../components/common/ImageWithSkeleton';
@@ -81,12 +81,20 @@ const Products = () => {
   const [currentStep, setCurrentStep] = useState<1 | 2>(1);
   
   // Step 1: Basic product info
-  const [step1Data, setStep1Data] = useState({
+  // Images can be File objects (new uploads) or string URLs (existing images)
+  const [step1Data, setStep1Data] = useState<{
+    name: string;
+    reference: string;
+    category: string;
+    images: (File | string)[];
+    tags: ProductTag[];
+    isVisible: boolean;
+  }>({
     name: '',
     reference: '',
     category: '',
-    images: [] as File[],
-    tags: [] as ProductTag[],
+    images: [],
+    tags: [],
     isVisible: true, // Default to visible
   });
   
@@ -253,7 +261,7 @@ const Products = () => {
   const categories = [t('products.filters.allCategories'), ...new Set(infiniteProducts?.map(p => p.category) || [])];
 
   
-  const compressImage = async (file: File): Promise<string> => {
+  const compressImage = async (file: File): Promise<File> => {
     try {
       console.log('Compressing image:', file.name, 'Type:', file.type, 'Size:', file.size);
       
@@ -269,10 +277,14 @@ const Products = () => {
       const compressedFile = await imageCompression(file, options);
       console.log('Compressed file:', compressedFile.name, 'Type:', compressedFile.type, 'Size:', compressedFile.size);
       
-      return new Promise((resolve, reject) => {
-        // Return the compressed File object
-        resolve(compressedFile);
-      });
+      // Ensure we return a File object (imageCompression should return File, but ensure it)
+      if (compressedFile instanceof File) {
+        return compressedFile;
+      } else {
+        // If it's a Blob, convert to File
+        const blobType = (compressedFile as Blob).type || 'image/jpeg';
+        return new File([compressedFile], file.name, { type: blobType });
+      }
     } catch (error) {
       console.error('Error compressing image:', error);
       throw error;
@@ -320,14 +332,16 @@ const Products = () => {
       let imagePaths: string[] = [];
       
       // Upload images to Firebase Storage first if any
+      // Filter only File objects (new uploads), exclude existing URLs
+      const imageFiles = step1Data.images.filter((img): img is File => img instanceof File);
       
-      if (step1Data.images.length > 0) {
+      if (imageFiles.length > 0) {
         try {
           const storageService = new FirebaseStorageService();
           // Generate a temporary ID for the upload
           const tempId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
           const uploadResults = await storageService.uploadProductImagesFromFiles(
-            step1Data.images,
+            imageFiles,
             user.uid,
             tempId
           );
@@ -844,28 +858,101 @@ const Products = () => {
       }
       
       // Handle base64 to Firebase Storage conversion for images
-      if (step1Data.images.length > 0) {
+      // Separate existing URLs from new File objects
+      const existingImages: string[] = [];
+      const newImageFiles: File[] = [];
+      
+      step1Data.images.forEach(img => {
+        if (img instanceof File) {
+          // New file to upload
+          newImageFiles.push(img);
+        } else if (typeof img === 'string') {
+          // Existing URL - preserve it
+          const trimmedUrl = img.trim();
+          if (trimmedUrl !== '') {
+            existingImages.push(trimmedUrl);
+          }
+        } else if (img && typeof img === 'object' && 'type' in img) {
+          // Blob that's not a File - convert to File
+          const blob = img as Blob;
+          const file = new File([blob], `image_${Date.now()}.jpg`, { type: blob.type || 'image/jpeg' });
+          newImageFiles.push(file);
+        }
+      });
+      
+      if (newImageFiles.length > 0) {
         try {
           const storageService = new FirebaseStorageService();
           const uploadResults = await storageService.uploadProductImagesFromFiles(
-            step1Data.images,
+            newImageFiles,
             user.uid,
             currentProduct.id
           );
           
-          // Update product with new image URLs and paths
-          const imageUrls = uploadResults.map(result => result.url);
-          const imagePaths = uploadResults.map(result => result.path);
+          // Merge new image URLs with existing ones
+          const newImageUrls = uploadResults.map(result => result.url);
+          const newImagePaths = uploadResults.map(result => result.path);
+          const allImageUrls = [...existingImages, ...newImageUrls];
           
-          // Update the product with new image URLs
-          await updateProduct(currentProduct.id, {
-            images: imageUrls,
-            imagePaths: imagePaths
+          // Get existing imagePaths and merge with new ones
+          const existingImagePaths = currentProduct.imagePaths || [];
+          const allImagePaths = [...existingImagePaths, ...newImagePaths];
+          
+          // Debug: Check userId before updating
+          console.log('Updating product images:', {
+            productId: currentProduct.id,
+            productUserId: currentProduct.userId,
+            currentUserId: user.uid,
+            imagesCount: allImageUrls.length
           });
+          
+          // Verify userId matches before updating
+          // If product has a userId set, it must match the current user
+          if (currentProduct.userId && currentProduct.userId !== user.uid) {
+            console.error('Product userId mismatch detected!', {
+              productUserId: currentProduct.userId,
+              currentUserId: user.uid,
+              productId: currentProduct.id
+            });
+            showErrorToast('Cannot update: Product ownership mismatch. Please refresh the product list.');
+            return;
+          }
+          
+          // Ensure userId is set when updating (for legacy products without userId)
+          const imageUpdateData: Partial<Product> = {
+            images: allImageUrls,
+            imagePaths: allImagePaths
+          };
+          
+          // If product doesn't have userId, set it to current user (for legacy compatibility)
+          if (!currentProduct.userId) {
+            imageUpdateData.userId = user.uid;
+            console.log('Setting userId for legacy product:', currentProduct.id);
+          }
+          
+          // Update the product with merged image URLs and paths
+          await updateProductData(currentProduct.id, imageUpdateData);
         } catch (error) {
           console.error('Error uploading images:', error);
           showErrorToast('Product updated but images failed to upload');
         }
+      } else if (existingImages.length !== currentProduct.images?.length || 
+                 JSON.stringify(existingImages.sort()) !== JSON.stringify((currentProduct.images || []).sort())) {
+        // Images were reordered or some were removed, update with current selection
+        // Extract existing imagePaths for remaining images
+        const remainingImagePaths: string[] = [];
+        existingImages.forEach(url => {
+          // Try to find matching path from current product
+          const currentIndex = currentProduct.images?.indexOf(url);
+          if (currentIndex !== undefined && currentIndex >= 0 && currentProduct.imagePaths?.[currentIndex]) {
+            remainingImagePaths.push(currentProduct.imagePaths[currentIndex]);
+          }
+        });
+        
+        await updateProductData(currentProduct.id, {
+          images: existingImages,
+          imagePaths: remainingImagePaths
+        });
       }
 
       // Update latest stock change cost price if changed
@@ -1810,6 +1897,9 @@ const Products = () => {
                         imageSrc = URL.createObjectURL(img);
                       } else if (typeof img === 'string') {
                         imageSrc = img;
+                      } else if (img && typeof img === 'object' && 'type' in img) {
+                        // Handle Blob objects (convert to object URL)
+                        imageSrc = URL.createObjectURL(img as Blob);
                       } else {
                         console.warn('Invalid image object:', img);
                         imageSrc = '/placeholder.png';
@@ -1842,7 +1932,10 @@ const Products = () => {
           <ProductTagsManager
             tags={step1Data.tags}
             onTagsChange={(tags) => setStep1Data(prev => ({ ...prev, tags }))}
-            images={step1Data.images}
+            images={step1Data.images
+              .map(img => typeof img === 'string' ? img : URL.createObjectURL(img))
+              .filter((url): url is string => typeof url === 'string')
+            }
           />
 
           {/* Visibility Toggle */}
@@ -2086,6 +2179,9 @@ const Products = () => {
                         imageSrc = URL.createObjectURL(image);
                       } else if (typeof image === 'string') {
                         imageSrc = image;
+                      } else if (image && typeof image === 'object' && 'type' in image) {
+                        // Handle Blob objects (convert to object URL)
+                        imageSrc = URL.createObjectURL(image as Blob);
                       } else {
                         console.warn('Invalid image object:', image);
                         imageSrc = '/placeholder.png';
@@ -2151,7 +2247,10 @@ const Products = () => {
             <ProductTagsManager
               tags={step1Data.tags}
               onTagsChange={(tags) => setStep1Data(prev => ({ ...prev, tags }))}
-              images={step1Data.images}
+              images={step1Data.images
+                .map(img => typeof img === 'string' ? img : URL.createObjectURL(img))
+                .filter((url): url is string => typeof url === 'string')
+              }
             />
 
             {/* Visibility Toggle */}

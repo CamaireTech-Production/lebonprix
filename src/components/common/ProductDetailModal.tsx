@@ -349,12 +349,14 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               )}
 
               {/* Description */}
-              <div>
-                <h4 className="text-sm font-medium text-gray-700 mb-2">Description</h4>
-                <p className="text-sm text-gray-600 leading-relaxed">
-                  {product.name}
-                </p>
-              </div>
+              {product.description && (
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">Description</h4>
+                  <p className="text-sm text-gray-600 leading-relaxed">
+                    {product.description}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         </div>
