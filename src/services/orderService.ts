@@ -6,6 +6,7 @@ import {
   getDoc, 
   getDocs, 
   updateDoc, 
+  deleteDoc,
   query, 
   where, 
   orderBy, 
@@ -427,6 +428,52 @@ export const getOrderStats = async (userId: string): Promise<OrderStats> => {
     };
   } catch (error) {
     console.error('Error getting order stats:', error);
+    throw error;
+  }
+};
+
+// Delete order
+export const deleteOrder = async (
+  orderId: string,
+  userId: string
+): Promise<void> => {
+  try {
+    const orderRef = doc(db, COLLECTION_NAME, orderId);
+    const orderDoc = await getDoc(orderRef);
+    
+    if (!orderDoc.exists()) {
+      throw new Error('Order not found');
+    }
+    
+    const orderData = orderDoc.data() as Order;
+    
+    // Verify ownership
+    if (orderData.userId !== userId) {
+      throw new Error('Unauthorized to delete this order');
+    }
+    
+    // Create deletion event for timeline
+    const deleteEvent: OrderEvent = {
+      id: `event-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      type: 'deleted',
+      status: 'cancelled',
+      timestamp: new Date(),
+      userId,
+      metadata: { note: 'Order deleted by user' }
+    };
+    
+    // Option 1: Soft delete - mark as deleted (recommended for data retention)
+    // await updateDoc(orderRef, {
+    //   status: 'cancelled',
+    //   deletedAt: serverTimestamp(),
+    //   updatedAt: serverTimestamp(),
+    //   timeline: [deleteEvent]
+    // });
+    
+    // Option 2: Hard delete - actually remove from database
+    await deleteDoc(orderRef);
+  } catch (error) {
+    console.error('Error deleting order:', error);
     throw error;
   }
 };

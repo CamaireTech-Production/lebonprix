@@ -418,6 +418,65 @@ const SingleCheckout: React.FC = () => {
     setPaymentFormData(prev => ({ ...prev, [field]: value }));
   };
 
+  // Generate order message for WhatsApp
+  const generateOrderMessage = (order: Order, orderNumber: string): string => {
+    const businessName = company?.name || 'Your Business';
+    
+    let message = `🛒 Commande ${businessName} #${orderNumber}\n\n`;
+    
+    // Order details
+    message += `📋 Détails:\n`;
+    order.items.forEach(item => {
+      const itemTotal = item.price * item.quantity;
+      message += `- ${item.name} x ${item.quantity} = ${itemTotal.toLocaleString('fr-FR', {
+        style: 'currency',
+        currency: 'XAF'
+      })}\n`;
+    });
+    
+    message += `\n💰 Total: ${order.pricing.subtotal.toLocaleString('fr-FR', {
+      style: 'currency',
+      currency: 'XAF'
+    })}\n`;
+    
+    if (order.pricing.deliveryFee > 0) {
+      message += `🚚 Frais de livraison: ${order.pricing.deliveryFee.toLocaleString('fr-FR', {
+        style: 'currency',
+        currency: 'XAF'
+      })}\n`;
+    }
+    
+    message += `💳 Total final: ${order.pricing.total.toLocaleString('fr-FR', {
+      style: 'currency',
+      currency: 'XAF'
+    })}\n\n`;
+    
+    // Customer information
+    message += `👤 Client: ${order.customerInfo.name}\n`;
+    message += `📞 Téléphone: ${order.customerInfo.phone}\n`;
+    message += `📍 Adresse: ${order.customerInfo.location}\n`;
+    
+    if (order.customerInfo.deliveryInstructions) {
+      message += `📝 Instructions de livraison: ${order.customerInfo.deliveryInstructions}\n`;
+    }
+    
+    message += `\n💳 Paiement:\n`;
+    message += `Veuillez confirmer le mode de paiement souhaité.\n\n`;
+    message += `📝 Instructions:\n`;
+    message += `1. Confirmez votre commande\n`;
+    message += `2. Indiquez votre mode de paiement préféré\n`;
+    message += `3. Précisez l'heure de livraison souhaitée\n`;
+    
+    return message;
+  };
+
+  // Create WhatsApp URL
+  const createWhatsAppUrl = (phone: string, message: string): string => {
+    const formattedPhone = phone.replace(/[^\d]/g, '');
+    const encodedMessage = encodeURIComponent(message);
+    return `https://wa.me/${formattedPhone}?text=${encodedMessage}`;
+  };
+
   // Handle order creation
   const handleCreateOrder = async () => {
     if (!selectedPaymentMethod) {
@@ -627,10 +686,26 @@ const SingleCheckout: React.FC = () => {
         clearCart();
         clearCheckoutData();
         
-        // Show success message
-        if (selectedPaymentOption === 'pay_onsite') {
-          toast.success('Order created successfully! WhatsApp confirmation sent.');
+        // Handle WhatsApp redirect for pay_onsite orders
+        if (selectedPaymentOption === 'pay_onsite' && company) {
+          try {
+            const message = generateOrderMessage(order, order.orderNumber);
+            const companyPhone = company.phone || company.whatsapp || '';
+            
+            if (companyPhone) {
+              const whatsappUrl = createWhatsAppUrl(companyPhone, message);
+              // Open WhatsApp in new tab
+              window.open(whatsappUrl, '_blank');
+              toast.success('Order created successfully! WhatsApp confirmation sent.');
+            } else {
+              toast.success('Order created successfully! (WhatsApp number not configured)');
+            }
+          } catch (error) {
+            console.error('Error generating WhatsApp message:', error);
+            toast.success('Order created successfully! (WhatsApp message failed)');
+          }
         } else {
+          // Show success message for other payment methods
           toast.success('Order created successfully! Payment integration coming soon.');
         }
         

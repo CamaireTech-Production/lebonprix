@@ -4,7 +4,8 @@ import {
   subscribeToOrders, 
   getOrderStats, 
   updateOrderStatus, 
-  addOrderNote 
+  addOrderNote,
+  deleteOrder 
 } from '../services/orderService';
 import { Order, OrderFilters, OrderStats } from '../types/order';
 import { 
@@ -24,7 +25,8 @@ import {
   MapPin,
   User,
   Edit,
-  RefreshCw
+  RefreshCw,
+  Trash2
 } from 'lucide-react';
 import Button from '../components/common/Button';
 import Input from '../components/common/Input';
@@ -54,6 +56,7 @@ const Orders: React.FC = () => {
   // Order actions
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [showNoteModal, setShowNoteModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [newStatus, setNewStatus] = useState<Order['status']>('pending');
   const [newNote, setNewNote] = useState('');
 
@@ -137,6 +140,29 @@ const Orders: React.FC = () => {
     } catch (error) {
       console.error('Error adding note:', error);
       toast.error('Failed to add note');
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  // Handle order deletion
+  const handleDeleteOrder = async () => {
+    if (!selectedOrder) return;
+
+    try {
+      setSyncing(true);
+      await deleteOrder(selectedOrder.id, user!.uid);
+      toast.success('Order deleted successfully');
+      setShowDeleteModal(false);
+      setSelectedOrder(null);
+      
+      // Remove from local state
+      setOrders(prevOrders => prevOrders.filter(o => o.id !== selectedOrder.id));
+      setFilteredOrders(prevFiltered => prevFiltered.filter(o => o.id !== selectedOrder.id));
+    } catch (error) {
+      console.error('Error deleting order:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to delete order';
+      toast.error(errorMessage);
     } finally {
       setSyncing(false);
     }
@@ -391,6 +417,18 @@ const Orders: React.FC = () => {
                   >
                     <MessageSquare className="w-4 h-4" />
                   </Button>
+                  
+                  <Button
+                    onClick={() => {
+                      setSelectedOrder(order);
+                      setShowDeleteModal(true);
+                    }}
+                    variant="outline"
+                    size="sm"
+                    className="text-red-600 hover:text-red-700 hover:border-red-300"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
                 </div>
               </div>
             </Card>
@@ -622,6 +660,41 @@ const Orders: React.FC = () => {
               disabled={syncing || !newNote.trim()}
             >
               {syncing ? 'Adding...' : 'Add Note'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={showDeleteModal}
+        onClose={() => {
+          setShowDeleteModal(false);
+          setSelectedOrder(null);
+        }}
+        title="Delete Order"
+      >
+        <div className="space-y-4">
+          <p className="text-gray-700">
+            Are you sure you want to delete order <strong>{selectedOrder?.orderNumber}</strong>?
+          </p>
+          <p className="text-sm text-gray-500">
+            This action cannot be undone. The order will be permanently deleted.
+          </p>
+          
+          <div className="flex justify-end gap-2">
+            <Button
+              onClick={() => setShowDeleteModal(false)}
+              variant="outline"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDeleteOrder}
+              disabled={syncing}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {syncing ? 'Deleting...' : 'Delete Order'}
             </Button>
           </div>
         </div>
