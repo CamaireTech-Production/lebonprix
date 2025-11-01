@@ -55,7 +55,7 @@ const Products = () => {
   useCategories();
   const { suppliers } = useSuppliers();
   const { batches: allStockBatches } = useAllStockBatches();
-  const { user } = useAuth();
+  const { user, company } = useAuth();
   
   // Set up infinite scroll
   useInfiniteScroll({
@@ -461,8 +461,9 @@ const Products = () => {
         name: quickSupplierData.name,
         contact: quickSupplierData.contact,
         location: quickSupplierData.location || undefined,
-        userId: user.uid
-      });
+        userId: user.uid,
+        companyId: company.id
+      }, company.id);
 
       // Set the new supplier as selected
       setStep2Data(prev => ({
@@ -698,8 +699,9 @@ const Products = () => {
         name: quickSupplierData.name,
         contact: quickSupplierData.contact,
         location: quickSupplierData.location || undefined,
-        userId: user.uid
-      });
+        userId: user.uid,
+        companyId: company.id
+      }, company.id);
 
       // Set the new supplier as selected for stock adjustment
       setStockAdjustmentSupplier(prev => ({
@@ -1320,8 +1322,9 @@ const Products = () => {
             supplier = await createSupplier({
               name: supplierName,
               contact: 'Imported',
-              userId: user.uid
-            });
+              userId: user.uid,
+              companyId: company.id
+            }, company.id);
           }
           finalSupplierId = supplier.id;
         } else if (finalSupplierId) {

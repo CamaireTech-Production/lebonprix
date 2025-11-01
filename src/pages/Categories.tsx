@@ -24,7 +24,7 @@ import {
 
 const Categories = () => {
   // const { t } = useTranslation();
-  const { user } = useAuth();
+  const { user, company } = useAuth();
   
   // State management
   const [categories, setCategories] = useState<Category[]>([]);
@@ -54,7 +54,7 @@ const Categories = () => {
   
   // Subscribe to categories
   useEffect(() => {
-    if (!user?.uid) {
+    if (!user || !company) {
       setLoading(false);
       return;
     }
@@ -62,7 +62,7 @@ const Categories = () => {
     setLoading(true);
     setSyncing(true);
     
-    const unsubscribe = subscribeToCategories(user.uid, (categoriesData) => {
+    const unsubscribe = subscribeToCategories(company.id, (categoriesData) => {
       setCategories(categoriesData);
       setLoading(false);
       setSyncing(false);
@@ -70,7 +70,7 @@ const Categories = () => {
     });
 
     return () => unsubscribe();
-  }, [user?.uid]);
+  }, [user, company]);
 
   // Filter categories based on search
   const filteredCategories = categories.filter(category =>
@@ -162,7 +162,7 @@ const Categories = () => {
 
   // Handle add category
   const handleAddCategory = async () => {
-    if (!user?.uid) return;
+    if (!user || !company) return;
     
     if (!formData.name.trim()) {
       showWarningToast('Category name is required');
@@ -182,7 +182,7 @@ const Categories = () => {
           const tempId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
           const uploadResult = await storageService.uploadCategoryImage(
             formData.compressedImageFile,
-            user.uid,
+            company.id,
             tempId
           );
           imageUrl = uploadResult.url;
@@ -201,9 +201,10 @@ const Categories = () => {
         image: imageUrl,
         imagePath: imagePath,
         userId: user.uid,
+        companyId: company.id,
       };
 
-      await createCategory(categoryData, user.uid);
+      await createCategory(categoryData, company.id);
       
       setIsAddModalOpen(false);
       resetForm();
@@ -218,7 +219,7 @@ const Categories = () => {
 
   // Handle edit category
   const handleEditCategory = async () => {
-    if (!user?.uid || !currentCategory) return;
+    if (!user || !company || !currentCategory) return;
     
     if (!formData.name.trim()) {
       showWarningToast('Category name is required');
@@ -236,7 +237,7 @@ const Categories = () => {
           const storageService = new FirebaseStorageService();
           const uploadResult = await storageService.uploadCategoryImage(
             formData.compressedImageFile,
-            user.uid,
+            company.id,
             currentCategory.id
           );
           imageUrl = uploadResult.url;
@@ -256,7 +257,7 @@ const Categories = () => {
         imagePath: imagePath,
       };
 
-      await updateCategory(currentCategory.id, updateData, user.uid);
+      await updateCategory(currentCategory.id, updateData, company.id);
       
       setIsEditModalOpen(false);
       resetForm();
@@ -271,11 +272,11 @@ const Categories = () => {
 
   // Handle delete category
   const handleDeleteCategory = async () => {
-    if (!user?.uid || !currentCategory) return;
+    if (!user || !company || !currentCategory) return;
 
     setIsDeleting(true);
     try {
-      await deleteCategory(currentCategory.id, user.uid);
+      await deleteCategory(currentCategory.id, company.id);
       
       setIsDeleteModalOpen(false);
       setCurrentCategory(null);
@@ -294,11 +295,11 @@ const Categories = () => {
 
   // Handle recalculate category counts
   const handleRecalculateCounts = async () => {
-    if (!user?.uid) return;
+    if (!user || !company) return;
     
     setSyncing(true);
     try {
-      await recalculateCategoryProductCounts(user.uid);
+      await recalculateCategoryProductCounts(company.id);
       showSuccessToast('Category product counts recalculated successfully');
     } catch (error) {
       console.error('Error recalculating category counts:', error);

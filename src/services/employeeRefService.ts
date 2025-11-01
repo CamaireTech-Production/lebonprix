@@ -221,7 +221,7 @@ export const getCompanyEmployees = async (companyId: string): Promise<EmployeeRe
 
     const employees: EmployeeRef[] = [];
     snapshot.forEach((doc) => {
-      employees.push(doc.data() as EmployeeRef);
+      employees.push({ id: doc.id, ...doc.data() } as EmployeeRef);
     });
 
     console.log(`✅ ${employees.length} employés récupérés`);

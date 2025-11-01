@@ -19,13 +19,29 @@ export const restockProduct = async (
   productId: string,
   quantity: number,
   costPrice: number,
-  userId: string,
+  companyId: string,
   supplierId?: string,
   isOwnPurchase?: boolean,
   isCredit?: boolean,
   notes?: string
 ): Promise<void> => {
   const batch = writeBatch(db);
+  
+  // Get product to verify companyId and get userId
+  const productRef = doc(db, 'products', productId);
+  const productSnap = await getDoc(productRef);
+  if (!productSnap.exists()) {
+    throw new Error('Product not found');
+  }
+  
+  const currentProduct = productSnap.data() as Product;
+  // Verify product belongs to company
+  if (currentProduct.companyId !== companyId) {
+    throw new Error('Unauthorized to update this product');
+  }
+  
+  // Get userId from product for audit
+  const userId = currentProduct.userId || companyId;
   
   // Create new stock batch
   const stockBatchRef = doc(collection(db, 'stockBatches'));
@@ -39,23 +55,12 @@ export const restockProduct = async (
     ...(isCredit !== undefined && { isCredit }),
     createdAt: serverTimestamp(),
     userId,
+    companyId, // Ensure companyId is set
     remainingQuantity: quantity,
     status: 'active',
     ...(notes && { notes })
   };
   batch.set(stockBatchRef, stockBatchData);
-  
-  // Update product stock
-  const productRef = doc(db, 'products', productId);
-  const productSnap = await getDoc(productRef);
-  if (!productSnap.exists()) {
-    throw new Error('Product not found');
-  }
-  
-  const currentProduct = productSnap.data() as Product;
-  if (currentProduct.userId !== userId) {
-    throw new Error('Unauthorized to update this product');
-  }
   
   batch.update(productRef, {
     stock: currentProduct.stock + quantity,
@@ -75,7 +80,8 @@ export const restockProduct = async (
     costPrice,
     batchId: stockBatchRef.id,
     createdAt: serverTimestamp(),
-    userId
+    userId,
+    companyId // Ensure companyId is set
   };
   batch.set(stockChangeRef, stockChangeData);
   
@@ -86,6 +92,7 @@ export const restockProduct = async (
     const debtData = {
       id: debtRef.id,
       userId,
+      companyId, // Ensure companyId is set
       sourceType: 'supplier',
       sourceId: supplierId,
       type: 'supplier_debt',
@@ -95,7 +102,8 @@ export const restockProduct = async (
       isDeleted: false,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
-      supplierId
+      supplierId,
+      batchId: stockBatchRef.id
     };
     batch.set(debtRef, debtData);
   }
@@ -110,8 +118,8 @@ export const adjustStockManually = async (
   productId: string,
   batchId: string,
   quantityChange: number,
-  newCostPrice?: number,
-  userId: string,
+  newCostPrice: number | undefined,
+  companyId: string,
   notes?: string
 ): Promise<void> => {
   const batch = writeBatch(db);
@@ -124,9 +132,13 @@ export const adjustStockManually = async (
   }
   
   const batchData = batchSnap.data() as StockBatch;
-  if (batchData.userId !== userId) {
-    throw new Error('Unauthorized to update this batch');
+  // Verify batch belongs to company
+  if (batchData.companyId !== companyId) {
+    throw new Error('Unauthorized: Batch belongs to different company');
   }
+  
+  // Get userId from batch for audit
+  const userId = batchData.userId || companyId;
   
   // Update batch
   const newRemainingQuantity = batchData.remainingQuantity + quantityChange;
@@ -158,8 +170,9 @@ export const adjustStockManually = async (
   }
   
   const currentProduct = productSnap.data() as Product;
-  if (currentProduct.userId !== userId) {
-    throw new Error('Unauthorized to update this product');
+  // Verify product belongs to company
+  if (currentProduct.companyId !== companyId) {
+    throw new Error('Unauthorized: Product belongs to different company');
   }
   
   batch.update(productRef, {
@@ -180,7 +193,8 @@ export const adjustStockManually = async (
     costPrice: newCostPrice || batchData.costPrice,
     batchId,
     createdAt: serverTimestamp(),
-    userId
+    userId,
+    companyId // Ensure companyId is set
   };
   batch.set(stockChangeRef, stockChangeData);
   
@@ -193,6 +207,7 @@ export const adjustStockManually = async (
       const debtData = {
         id: debtRef.id,
         userId,
+        companyId, // Ensure companyId is set
         sourceType: 'supplier',
         sourceId: batchData.supplierId,
         type: debtChange > 0 ? 'supplier_debt' : 'supplier_refund',
@@ -202,7 +217,8 @@ export const adjustStockManually = async (
         isDeleted: false,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
-        supplierId: batchData.supplierId
+        supplierId: batchData.supplierId,
+        batchId
       };
       batch.set(debtRef, debtData);
     }
@@ -218,7 +234,7 @@ export const adjustStockForDamage = async (
   productId: string,
   batchId: string,
   damagedQuantity: number,
-  userId: string,
+  companyId: string,
   notes?: string
 ): Promise<void> => {
   const batch = writeBatch(db);
@@ -231,9 +247,13 @@ export const adjustStockForDamage = async (
   }
   
   const batchData = batchSnap.data() as StockBatch;
-  if (batchData.userId !== userId) {
-    throw new Error('Unauthorized to update this batch');
+  // Verify batch belongs to company
+  if (batchData.companyId !== companyId) {
+    throw new Error('Unauthorized: Batch belongs to different company');
   }
+  
+  // Get userId from batch for audit
+  const userId = batchData.userId || companyId;
   
   // Update batch
   const newRemainingQuantity = batchData.remainingQuantity - damagedQuantity;
@@ -260,8 +280,9 @@ export const adjustStockForDamage = async (
   }
   
   const currentProduct = productSnap.data() as Product;
-  if (currentProduct.userId !== userId) {
-    throw new Error('Unauthorized to update this product');
+  // Verify product belongs to company
+  if (currentProduct.companyId !== companyId) {
+    throw new Error('Unauthorized: Product belongs to different company');
   }
   
   batch.update(productRef, {
@@ -282,7 +303,8 @@ export const adjustStockForDamage = async (
     costPrice: batchData.costPrice,
     batchId,
     createdAt: serverTimestamp(),
-    userId
+    userId,
+    companyId // Ensure companyId is set
   };
   batch.set(stockChangeRef, stockChangeData);
   
@@ -321,7 +343,7 @@ export const adjustMultipleBatchesManually = async (
     newCostPrice?: number;
     notes?: string;
   }>,
-  userId: string
+  companyId: string
 ): Promise<void> => {
   const batch = writeBatch(db);
   
@@ -333,9 +355,13 @@ export const adjustMultipleBatchesManually = async (
   }
   
   const currentProduct = productSnap.data() as Product;
-  if (currentProduct.userId !== userId) {
-    throw new Error('Unauthorized to update this product');
+  // Verify product belongs to company
+  if (currentProduct.companyId !== companyId) {
+    throw new Error('Unauthorized: Product belongs to different company');
   }
+  
+  // Get userId from product for audit
+  const userId = currentProduct.userId || companyId;
   
   let totalStockChange = 0;
   const batchUpdates: Array<{ ref: any; updates: any }> = [];
@@ -352,8 +378,9 @@ export const adjustMultipleBatchesManually = async (
     }
     
     const batchData = batchSnap.data() as StockBatch;
-    if (batchData.userId !== userId) {
-      throw new Error('Unauthorized to update this batch');
+    // Verify batch belongs to company
+    if (batchData.companyId !== companyId) {
+      throw new Error(`Unauthorized: Batch ${adjustment.batchId} belongs to different company`);
     }
     
     // Update batch
@@ -461,7 +488,7 @@ export const adjustBatchWithDebtManagement = async (
     scenario: 'adjustment' | 'damage';
     notes?: string;
   }>,
-  userId: string
+  companyId: string
 ): Promise<void> => {
   const batch = writeBatch(db);
   
@@ -473,9 +500,13 @@ export const adjustBatchWithDebtManagement = async (
   }
   
   const currentProduct = productSnap.data() as Product;
-  if (currentProduct.userId !== userId) {
-    throw new Error('Unauthorized to update this product');
+  // Verify product belongs to company
+  if (currentProduct.companyId !== companyId) {
+    throw new Error('Unauthorized: Product belongs to different company');
   }
+  
+  // Get userId from product for audit
+  const userId = currentProduct.userId || companyId;
   
   let totalStockChange = 0;
   const batchUpdates: Array<{ ref: any; updates: any }> = [];
@@ -492,8 +523,9 @@ export const adjustBatchWithDebtManagement = async (
     }
     
     const batchData = batchSnap.data() as StockBatch;
-    if (batchData.userId !== userId) {
-      throw new Error('Unauthorized to update this batch');
+    // Verify batch belongs to company
+    if (batchData.companyId !== companyId) {
+      throw new Error(`Unauthorized: Batch ${adjustment.batchId} belongs to different company`);
     }
     
     // Calculate new values based on scenario
@@ -570,7 +602,7 @@ export const adjustBatchWithDebtManagement = async (
         newRemainingQuantity,
         finalCostPrice,
         currentProduct,
-        userId
+        companyId
       );
     }
     // For damage scenario: debts remain unchanged as specified
@@ -624,8 +656,11 @@ const handleBatchDebtManagement = async (
   newRemainingQuantity: number,
   finalCostPrice: number,
   currentProduct: Product,
-  userId: string
+  companyId: string
 ): Promise<void> => {
+  
+  // Get userId for audit
+  const userId = batchData.userId || companyId;
   
   // Determine the old and new supplier IDs
   const oldSupplierId = batchData.supplierId;
@@ -638,7 +673,7 @@ const handleBatchDebtManagement = async (
   // Get debts/refunds for this specific batch
   const batchDebtQuery = query(
     collection(db, 'finances'),
-    where('userId', '==', userId),
+    where('companyId', '==', companyId),
     where('sourceType', '==', 'supplier'),
     where('batchId', '==', adjustment.batchId),
     where('type', '==', 'supplier_debt'),
@@ -647,7 +682,7 @@ const handleBatchDebtManagement = async (
   
   const batchRefundQuery = query(
     collection(db, 'finances'),
-    where('userId', '==', userId),
+    where('companyId', '==', companyId),
     where('sourceType', '==', 'supplier'),
     where('batchId', '==', adjustment.batchId),
     where('type', '==', 'supplier_refund'),

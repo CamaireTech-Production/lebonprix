@@ -107,11 +107,11 @@ const Orders: React.FC = () => {
 
   // Handle status update
   const handleStatusUpdate = async () => {
-    if (!selectedOrder) return;
+    if (!selectedOrder || !company) return;
 
     try {
       setSyncing(true);
-      await updateOrderStatus(selectedOrder.id, newStatus, user!.uid);
+      await updateOrderStatus(selectedOrder.id, newStatus, company.id, newNote);
       toast.success('Order status updated successfully');
       setShowStatusModal(false);
       setSelectedOrder(null);
@@ -125,11 +125,11 @@ const Orders: React.FC = () => {
 
   // Handle note addition
   const handleAddNote = async () => {
-    if (!selectedOrder || !newNote.trim()) return;
+    if (!selectedOrder || !newNote.trim() || !company) return;
 
     try {
       setSyncing(true);
-      await addOrderNote(selectedOrder.id, newNote.trim(), user!.uid);
+      await addOrderNote(selectedOrder.id, newNote.trim(), company.id);
       toast.success('Note added successfully');
       setShowNoteModal(false);
       setNewNote('');

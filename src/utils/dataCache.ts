@@ -107,46 +107,49 @@ setInterval(() => {
   dataCache.cleanExpired();
 }, 2 * 60 * 1000);
 
-// Cache key generators
+// Cache key generators (using companyId for data isolation)
 export const cacheKeys = {
-  products: (userId: string) => `products_${userId}`,
-  sales: (userId: string) => `sales_${userId}`,
-  expenses: (userId: string) => `expenses_${userId}`,
-  stockChanges: (userId: string) => `stockChanges_${userId}`,
-  suppliers: (userId: string) => `suppliers_${userId}`,
-  categories: (userId: string) => `categories_${userId}`,
-  company: (userId: string) => `company_${userId}`,
-  dashboard: (userId: string) => `dashboard_${userId}`,
-  searchProducts: (userId: string, query: string, category: string) => 
-    `search_products_${userId}_${query}_${category}`,
-  salesAnalytics: (userId: string, dateRange: string) => 
-    `sales_analytics_${userId}_${dateRange}`
+  products: (companyId: string) => `products_${companyId}`,
+  sales: (companyId: string) => `sales_${companyId}`,
+  expenses: (companyId: string) => `expenses_${companyId}`,
+  stockChanges: (companyId: string) => `stockChanges_${companyId}`,
+  suppliers: (companyId: string) => `suppliers_${companyId}`,
+  categories: (companyId: string) => `categories_${companyId}`,
+  company: (companyId: string) => `company_${companyId}`,
+  dashboard: (companyId: string) => `dashboard_${companyId}`,
+  searchProducts: (companyId: string, query: string, category: string) => 
+    `search_products_${companyId}_${query}_${category}`,
+  salesAnalytics: (companyId: string, dateRange: string) => 
+    `sales_analytics_${companyId}_${dateRange}`
 };
 
-// Cache invalidation utilities
-export const invalidateUserCache = (userId: string) => {
+// Cache invalidation utilities (using companyId)
+export const invalidateCompanyCache = (companyId: string) => {
   const keysToInvalidate = [
-    cacheKeys.products(userId),
-    cacheKeys.sales(userId),
-    cacheKeys.expenses(userId),
-    cacheKeys.stockChanges(userId),
-    cacheKeys.suppliers(userId),
-    cacheKeys.categories(userId),
-    cacheKeys.company(userId),
-    cacheKeys.dashboard(userId)
+    cacheKeys.products(companyId),
+    cacheKeys.sales(companyId),
+    cacheKeys.expenses(companyId),
+    cacheKeys.stockChanges(companyId),
+    cacheKeys.suppliers(companyId),
+    cacheKeys.categories(companyId),
+    cacheKeys.company(companyId),
+    cacheKeys.dashboard(companyId)
   ];
   
   keysToInvalidate.forEach(key => {
     dataCache.delete(key);
   });
   
-  console.log(`🗑️ Invalidated all cache for user: ${userId}`);
+  console.log(`🗑️ Invalidated all cache for company: ${companyId}`);
 };
 
-export const invalidateSpecificCache = (userId: string, dataType: 'products' | 'sales' | 'expenses' | 'stockChanges' | 'suppliers' | 'categories' | 'company' | 'dashboard') => {
-  const key = cacheKeys[dataType](userId);
+// Keep invalidateUserCache for backward compatibility (deprecated)
+export const invalidateUserCache = (companyId: string) => invalidateCompanyCache(companyId);
+
+export const invalidateSpecificCache = (companyId: string, dataType: 'products' | 'sales' | 'expenses' | 'stockChanges' | 'suppliers' | 'categories' | 'company' | 'dashboard') => {
+  const key = cacheKeys[dataType](companyId);
   dataCache.delete(key);
-  console.log(`🗑️ Invalidated ${dataType} cache for user: ${userId}`);
+  console.log(`🗑️ Invalidated ${dataType} cache for company: ${companyId}`);
 };
 
 export default dataCache;

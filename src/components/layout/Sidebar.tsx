@@ -1,5 +1,5 @@
 import React from 'react';
-import { useLocation, Link } from 'react-router-dom';
+import { useLocation, Link, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, ShoppingCart, DollarSign, Package2, FileBarChart, Settings, X, Receipt, Users, Building2, Plus, Grid3X3, ShoppingBag, UserCheck} from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useRolePermissions } from '../../hooks/useRolePermissions';
@@ -7,6 +7,7 @@ import UserAvatar from '../common/UserAvatar';
 import DownloadAppButton from '../common/DownloadAppButton';
 import { useTranslation } from 'react-i18next';
 import CreateCompanyModal from '../modals/CreateCompanyModal';
+import Modal, { ModalFooter } from '../common/Modal';
 
 interface SidebarProps {
   onClose: () => void;
@@ -17,9 +18,11 @@ interface SidebarProps {
 const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
   const { t } = useTranslation();
   const location = useLocation();
+  const navigate = useNavigate();
   const { company, currentEmployee } = useAuth();
   const { canAccess } = useRolePermissions();
   const [showCreateCompanyModal, setShowCreateCompanyModal] = React.useState(false);
+  const [showCompanyNavigationConfirm, setShowCompanyNavigationConfirm] = React.useState(false);
 
   
   // Get dashboard colors
@@ -156,28 +159,49 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
             
             if (!hasAccess) return null;
             
+            // Check if this is the "Mes Entreprises" link that needs confirmation
+            const isCompaniesManagementLink = item.path === '/companies' && isCompanyRoute;
+            
             return (
               <li key={item.path}>
-                <Link
-                  to={item.path}
-                  onClick={(e) => {
-                    if (isSelectionMode) {
+                {isCompaniesManagementLink ? (
+                  <button
+                    onClick={(e) => {
                       e.preventDefault();
-                      handleNavigationClick(e);
-                    } else {
-                      onClose();
-                    }
-                  }}
-                  className={`
-                    flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors
-                    ${isActive(item.path)
-                      ? 'bg-emerald-50 text-emerald-600'
-                      : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'}
-                  `}
-                >
-                  <span className="mr-3">{item.icon}</span>
-                  {item.name}
-                </Link>
+                      setShowCompanyNavigationConfirm(true);
+                    }}
+                    className={`
+                      w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors
+                      ${isActive(item.path)
+                        ? 'bg-emerald-50 text-emerald-600'
+                        : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'}
+                    `}
+                  >
+                    <span className="mr-3">{item.icon}</span>
+                    {item.name}
+                  </button>
+                ) : (
+                  <Link
+                    to={item.path}
+                    onClick={(e) => {
+                      if (isSelectionMode) {
+                        e.preventDefault();
+                        handleNavigationClick(e);
+                      } else {
+                        onClose();
+                      }
+                    }}
+                    className={`
+                      flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors
+                      ${isActive(item.path)
+                        ? 'bg-emerald-50 text-emerald-600'
+                        : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'}
+                    `}
+                  >
+                    <span className="mr-3">{item.icon}</span>
+                    {item.name}
+                  </Link>
+                )}
               </li>
             );
           })}
@@ -232,6 +256,40 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
         onClose={() => setShowCreateCompanyModal(false)}
         onCreateCompany={handleCreateCompany}
       />
+      
+      {/* Confirmation modal for navigating to companies management */}
+      <Modal
+        isOpen={showCompanyNavigationConfirm}
+        onClose={() => setShowCompanyNavigationConfirm(false)}
+        title={t('navigation.confirmCompanyExit') || 'Leave Current Company?'}
+        footer={
+          <ModalFooter
+            onCancel={() => setShowCompanyNavigationConfirm(false)}
+            onConfirm={() => {
+              setShowCompanyNavigationConfirm(false);
+              onClose();
+              navigate('/companies');
+            }}
+            confirmText={t('common.confirm') || 'Confirm'}
+            cancelText={t('common.cancel') || 'Cancel'}
+          />
+        }
+      >
+        <div className="text-center py-4">
+          <p className="text-gray-600 mb-4">
+            {t('navigation.confirmCompanyExitMessage') || 
+              'You are about to leave the current company context to manage your companies.'}
+          </p>
+          {company && (
+            <p className="text-sm text-gray-500 mb-2">
+              <strong>{t('navigation.currentCompany') || 'Current Company'}:</strong> {company.name}
+            </p>
+          )}
+          <p className="text-sm text-gray-500">
+            {t('navigation.confirmCompanyExitQuestion') || 'Are you sure you want to continue?'}
+          </p>
+        </div>
+      </Modal>
     </div>
   );
 };

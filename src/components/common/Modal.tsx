@@ -1,4 +1,5 @@
 import { Fragment, ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import Button from './Button';
 import { useTranslation } from 'react-i18next';
@@ -23,16 +24,16 @@ const Modal = ({ isOpen, onClose, title, children, footer, size = 'md', closeBut
     xl: 'max-w-4xl mx-4'
   };
 
-  return (
+  const modalContent = (
     <Fragment>
       {/* Backdrop */}
       <div 
-        className="fixed inset-0 bg-black bg-opacity-50 z-40 transition-opacity"
+        className="fixed inset-0 bg-black bg-opacity-50 z-[9998] transition-opacity"
         onClick={onClose}
       />
       
       {/* Modal */}
-      <div className="fixed inset-0 z-[60] overflow-y-auto">
+      <div className="fixed inset-0 z-[9999] overflow-y-auto">
         <div className="flex min-h-full items-center justify-center p-2 sm:p-4">
           <div 
             className={`relative bg-white rounded-lg shadow-xl w-full ${sizeClasses[size]} transform transition-all max-h-[90vh] overflow-visible`}
@@ -64,6 +65,11 @@ const Modal = ({ isOpen, onClose, title, children, footer, size = 'md', closeBut
       </div>
     </Fragment>
   );
+
+  // Render modal as a portal to document.body to ensure it's full screen
+  return typeof document !== 'undefined' 
+    ? createPortal(modalContent, document.body)
+    : modalContent;
 };
 
 export const ModalFooter = ({ 

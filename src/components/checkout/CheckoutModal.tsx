@@ -223,17 +223,25 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, companyI
 
       // Create order in database
       const order = await createOrder(
-        cart,
+        companyId,
         {
-          ...customerInfo,
-          phone: formatPhoneNumber(customerInfo.phone)
-        },
-        pricing,
-        paymentMethod,
-        'online', // orderType
-        companyId, // userId for order creation
-        companyId, // companyId
-        deliveryInfo
+          customerInfo: {
+            ...customerInfo,
+            phone: formatPhoneNumber(customerInfo.phone)
+          },
+          cartItems: cart,
+          pricing,
+          paymentMethod,
+          deliveryInfo,
+          metadata: {
+            source: 'checkout_modal',
+            deviceInfo: {
+              type: 'web',
+              os: navigator.platform,
+              browser: navigator.userAgent
+            }
+          }
+        }
       );
 
       setCreatedOrder(order);

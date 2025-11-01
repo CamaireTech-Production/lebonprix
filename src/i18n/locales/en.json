@@ -30,7 +30,8 @@
     "last": "Last",
     "select": "Select",
     "used": "Used",
-    "copy": "Copy"
+    "copy": "Copy",
+    "confirm": "Confirm"
   },
   "auth": {
     "login": "Login",
@@ -58,7 +59,11 @@
     "logout": "Logout",
     "menu": "Menu",
     "close": "Close",
-    "finance": "Finance"
+    "finance": "Finance",
+    "confirmCompanyExit": "Leave Current Company?",
+    "confirmCompanyExitMessage": "You are about to leave the current company context to manage your companies.",
+    "confirmCompanyExitQuestion": "Are you sure you want to continue?",
+    "currentCompany": "Current Company"
   },
   "header": {
     "welcome": "Welcome",

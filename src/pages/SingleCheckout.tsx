@@ -159,9 +159,14 @@ const SingleCheckout: React.FC = () => {
       if (!user?.uid) return;
       
       try {
+        if (!company) {
+          toast.error('Company not found');
+          return;
+        }
+        
         const [companyDataResult, settingsData] = await Promise.all([
-          getCompanyByUserId(user.uid),
-          getSellerSettings(user.uid)
+          getCompanyByUserId(company.id),
+          getSellerSettings(company.id)
         ]);
         
         if (companyDataResult) {
@@ -538,10 +543,10 @@ const SingleCheckout: React.FC = () => {
           }
         );
 
-        if (paymentResult.success) {
+        if (paymentResult.success && company) {
           // Create order with CinetPay payment details
           const order = await createOrder(
-            user!.uid,
+            company.id,
             {
               customerInfo: sanitizedCustomerInfo,
               cartItems: cart,
@@ -560,6 +565,7 @@ const SingleCheckout: React.FC = () => {
               },
               metadata: {
                 source: 'catalogue',
+                userId: user?.uid, // Include userId in metadata for audit
                 deviceInfo: {
                   type: 'desktop',
                   os: navigator.platform,
@@ -589,10 +595,10 @@ const SingleCheckout: React.FC = () => {
         } else {
           toast.error(paymentResult.error || 'Payment failed');
         }
-      } else {
+      } else if (company) {
         // Handle regular payment methods (existing logic)
         const order = await createOrder(
-          user!.uid,
+          company.id,
           {
             customerInfo: sanitizedCustomerInfo,
             cartItems: cart,
@@ -611,6 +617,7 @@ const SingleCheckout: React.FC = () => {
             },
             metadata: {
               source: 'catalogue',
+              userId: user?.uid, // Include userId in metadata for audit
               deviceInfo: {
                 type: 'desktop',
                 os: navigator.platform,

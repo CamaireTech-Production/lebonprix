@@ -16,6 +16,7 @@ import FinanceTypesManager from '../services/storage/FinanceTypesManager';
 import BackgroundSyncService from '../services/backgroundSync';
 import { saveCompanyToCache, getCompanyFromCache, clearCompanyCache } from '../utils/companyCache';
 import { getUserById, updateUserLastLogin, createUser } from '../services/userService';
+import { saveUserSession, getUserSession, clearUserSession, updateUserSessionCompanies } from '../utils/userSession';
 
 interface AuthContextType {
   user: FirebaseUser | null;
@@ -62,6 +63,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [userCompanies, setUserCompanies] = useState<UserCompanyRef[]>([]);
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
   const isInitialLoginRef = useRef(false);
+  const isSigningInRef = useRef(false); // Track if signIn is in progress to prevent duplicate clicks
 
   // Mémoriser les informations de la compagnie pour les restaurer lors de la reconnexion
   const memoizedCompany = useMemo(() => {
@@ -80,11 +82,34 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     return null;
   }, [company]);
 
+  // Check localStorage session on mount and validate against Firebase
+  useEffect(() => {
+    const session = getUserSession();
+    if (session) {
+      console.log('🔍 Found active session in localStorage, checking Firebase auth state...');
+      
+      // Check if Firebase auth state matches localStorage session
+      const currentUser = auth.currentUser;
+      if (!currentUser || currentUser.uid !== session.userId) {
+        console.log('⚠️ Session mismatch: Firebase auth state does not match localStorage session');
+        console.log('🧹 Clearing invalid session from localStorage');
+        clearUserSession();
+      } else {
+        console.log('✅ Session validated: Firebase auth matches localStorage session');
+      }
+    }
+    // Let onAuthStateChanged handle the actual auth check and routing
+  }, []);
+
   // NOTE: placed after function declarations to avoid "cannot access before initialization"
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       console.log('🔥 Auth state changed:', user ? `User logged in: ${user.uid}` : 'User logged out');
       console.log('🔥 isInitialLoginRef.current:', isInitialLoginRef.current);
+      
+      // Reset signing in flag when auth state changes
+      isSigningInRef.current = false;
+      
       setUser(user);
       
       if (user) {
@@ -125,6 +150,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         setLoading(false);
         // Nettoyer le cache lors de la déconnexion
         clearCompanyCache();
+        clearUserSession();
       }
     });
 
@@ -176,6 +202,20 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         setUserCompanies(userData.companies || []);
         console.log(`✅ Utilisateur chargé avec ${userData.companies?.length || 0} entreprises`);
         
+        // 💾 Save user session to localStorage
+        const currentUser = auth.currentUser;
+        if (currentUser) {
+          saveUserSession(
+            userId,
+            currentUser.email || userData.email,
+            userData.companies?.map(c => ({
+              companyId: c.companyId,
+              name: c.name,
+              role: c.role
+            }))
+          );
+        }
+        
         // Mettre à jour la dernière connexion
         await updateUserLastLogin(userId);
         
@@ -219,6 +259,20 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           isInitialLoginRef.current = false; // Reset après redirection
         } else {
           console.log(`📺 Not initial login, skipping routing`);
+          
+          // Still save session even if not initial login (for page refresh scenarios)
+          const currentUser = auth.currentUser;
+          if (currentUser) {
+            saveUserSession(
+              userId,
+              currentUser.email || userData.email,
+              userData.companies?.map(c => ({
+                companyId: c.companyId,
+                name: c.name,
+                role: c.role
+              }))
+            );
+          }
         }
       } else {
         console.log('⚠️ Utilisateur non trouvé dans le système unifié');
@@ -471,8 +525,15 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const signIn = async (email: string, password: string): Promise<FirebaseUser> => {
     console.log('🔐 signIn called with email:', email);
     
+    // Prevent duplicate login attempts
+    if (isSigningInRef.current) {
+      console.log('⚠️ Sign in already in progress, ignoring duplicate request');
+      throw new Error('Une tentative de connexion est déjà en cours. Veuillez patienter...');
+    }
+    
     // Marquer AVANT le try pour garantir son exécution même en cas d'erreur précoce
     isInitialLoginRef.current = true;
+    isSigningInRef.current = true;
     
     try {
       // Validation de l'instance auth avant utilisation
@@ -498,13 +559,18 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       console.log('✅ signInWithEmailAndPassword succeeded, user:', response.user.uid);
       console.log('✅ User email:', response.user.email);
       
-      // The onAuthStateChanged listener will handle the routing
+      // The onAuthStateChanged listener will handle the routing and reset isSigningInRef
       // Let the background loading handle routing based on user's companies
       console.log('🔄 Waiting for onAuthStateChanged to trigger routing...');
+      
+      // Note: isSigningInRef will be reset in onAuthStateChanged to prevent duplicate clicks
+      // The loading state will be maintained until onAuthStateChanged completes
+      
       return response.user;
     } catch (error: any) {
       console.error('❌ signIn error:', error);
       isInitialLoginRef.current = false; // Reset on error
+      isSigningInRef.current = false; // Reset on error
       
       // Gestion d'erreurs améliorée avec messages explicites
       if (error.code) {
@@ -532,6 +598,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const signOut = (): Promise<void> => {
     // Nettoyer le cache lors de la déconnexion
     clearCompanyCache();
+    clearUserSession(); // Clear user session from localStorage
     setCompany(null);
     setEffectiveRole(null);
     setIsOwner(false);

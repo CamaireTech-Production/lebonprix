@@ -27,7 +27,7 @@ const DamageAdjustmentModal: React.FC<DamageAdjustmentModalProps> = ({
   onSuccess
 }) => {
   const { t } = useTranslation();
-  const { user } = useAuth();
+  const { user, company } = useAuth();
   
   const [batches, setBatches] = useState<StockBatch[]>([]);
   const [loading, setLoading] = useState(false);
@@ -42,10 +42,10 @@ const DamageAdjustmentModal: React.FC<DamageAdjustmentModalProps> = ({
 
   // Load available batches when modal opens
   useEffect(() => {
-    if (isOpen && product && user?.uid) {
+    if (isOpen && product && company) {
       loadBatches();
     }
-  }, [isOpen, product, user?.uid]);
+  }, [isOpen, product, company]);
 
   // Reset form when modal opens/closes
   useEffect(() => {
@@ -114,7 +114,7 @@ const DamageAdjustmentModal: React.FC<DamageAdjustmentModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!product || !user?.uid || !selectedBatch) return;
+    if (!product || !company || !selectedBatch) return;
 
     const errors = validateForm();
     if (errors.length > 0) {
@@ -131,7 +131,7 @@ const DamageAdjustmentModal: React.FC<DamageAdjustmentModalProps> = ({
         product.id,
         selectedBatch.id,
         damagedQuantity,
-        user.uid,
+        company.id,
         formData.notes || undefined
       );
 

@@ -113,11 +113,11 @@ export const useProducts = () => {
   ) => {
     if (!user) throw new Error('User not authenticated');
     try {
-      const createdProduct = await createProduct(productData, user.uid, supplierInfo);
+      const createdProduct = await createProduct(productData, company.id, supplierInfo);
       // Invalidate products cache when new product is added
-      invalidateSpecificCache(user.uid, 'products');
+      invalidateSpecificCache(company.id, 'products');
       // Force sync to update localStorage
-      BackgroundSyncService.forceSyncProducts(user.uid, (freshProducts) => {
+      BackgroundSyncService.forceSyncProducts(company.id, (freshProducts) => {
         setProducts(freshProducts);
       });
       return createdProduct;
@@ -141,11 +141,11 @@ export const useProducts = () => {
   ) => {
     if (!user) throw new Error('User not authenticated');
     try {
-      await updateProduct(productId, data, user.uid, stockReason, stockChange, supplierInfo);
+      await updateProduct(productId, data, company.id, stockReason, stockChange, supplierInfo);
       // Invalidate products cache when product is updated
-      invalidateSpecificCache(user.uid, 'products');
+      invalidateSpecificCache(company.id, 'products');
       // Force sync to update localStorage
-      BackgroundSyncService.forceSyncProducts(user.uid, (freshProducts) => {
+      BackgroundSyncService.forceSyncProducts(company.id, (freshProducts) => {
         setProducts(freshProducts);
       });
     } catch (err) {
@@ -161,9 +161,9 @@ export const useProducts = () => {
       await deleteDoc(doc(db, 'products', productId));
       setProducts(prev => prev.filter(p => p.id !== productId));
       // Invalidate products cache when product is deleted
-      invalidateSpecificCache(user.uid, 'products');
+      invalidateSpecificCache(company.id, 'products');
       // Force sync to update localStorage
-      BackgroundSyncService.forceSyncProducts(user.uid, (freshProducts) => {
+      BackgroundSyncService.forceSyncProducts(company.id, (freshProducts) => {
         setProducts(freshProducts);
       });
     } catch (err) {
@@ -360,7 +360,7 @@ export const useSales = () => {
     
     try {
       const salesRef = collection(db, 'sales');
-      const q = query(salesRef, where('userId', '==', user.uid), orderBy('createdAt', 'desc'));
+      const q = query(salesRef, where('companyId', '==', company.id), orderBy('createdAt', 'desc'));
       const querySnapshot = await getDocs(q);
       const salesData = querySnapshot.docs.map(doc => ({
         id: doc.id,
@@ -404,7 +404,7 @@ export const useSales = () => {
   const updateStatus = async (id: string, status: OrderStatus, paymentStatus: PaymentStatus) => {
     if (!user) throw new Error('User not authenticated');
     try {
-      await updateSaleStatus(id, status, paymentStatus, user.uid);
+      await updateSaleStatus(id, status, paymentStatus, company.id);
       
       // Update local state
       setSales(currentSales => 
@@ -429,13 +429,13 @@ export const useExpenses = () => {
   const [loading, setLoading] = useState(false); // Start as false - no loading spinner by default
   const [syncing, setSyncing] = useState(false); // New state for background sync indicator
   const [error, setError] = useState<Error | null>(null);
-  const { user } = useAuth();
+  const { user, company } = useAuth();
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !company) return;
     
     // 1. Check localStorage FIRST - instant display if data exists
-    const localExpenses = ExpensesManager.load(user.uid);
+    const localExpenses = ExpensesManager.load(company.id);
     if (localExpenses && localExpenses.length > 0) {
       setExpenses(localExpenses);
       setLoading(false); // No loading spinner - data is available
@@ -447,7 +447,7 @@ export const useExpenses = () => {
     }
     
     // 2. Start background sync with Firebase
-    BackgroundSyncService.syncExpenses(user.uid, (freshExpenses) => {
+    BackgroundSyncService.syncExpenses(company.id, (freshExpenses) => {
       setExpenses(freshExpenses);
       setSyncing(false); // Hide background sync indicator
       setLoading(false); // Ensure loading is false
@@ -455,26 +455,26 @@ export const useExpenses = () => {
     });
 
     // 3. Also maintain real-time subscription for immediate updates
-    const unsubscribe = subscribeToExpenses(user.uid, (data) => {
+    const unsubscribe = subscribeToExpenses(company.id, (data) => {
       setExpenses(data);
       setLoading(false);
       setSyncing(false);
       
       // Save to localStorage for future instant loads
-      ExpensesManager.save(user.uid, data);
+      ExpensesManager.save(company.id, data);
       console.log('💾 Expenses saved to localStorage');
     });
 
     return () => unsubscribe();
-  }, [user]);
+  }, [user, company]);
 
   const addExpense = async (data: Omit<Expense, 'id' | 'createdAt' | 'updatedAt'>) => {
     if (!user) throw new Error('User not authenticated');
     try {
-      const newExpense = await createExpense({ ...data, userId: user.uid }, user.uid);
+      const newExpense = await createExpense({ ...data, userId: user.uid, companyId: company.id }, company.id);
       await syncFinanceEntryWithExpense(newExpense);
       // Force sync to update localStorage
-      BackgroundSyncService.forceSyncExpenses(user.uid, (freshExpenses) => {
+      BackgroundSyncService.forceSyncExpenses(company.id, (freshExpenses) => {
         setExpenses(freshExpenses);
       });
     } catch (err) {
@@ -486,9 +486,9 @@ export const useExpenses = () => {
   const updateExpenseData = async (id: string, data: Partial<Expense>) => {
     if (!user) throw new Error('User not authenticated');
     try {
-      await updateExpense(id, { ...data, userId: user.uid }, user.uid);
+      await updateExpense(id, { ...data, userId: user.uid, companyId: company.id }, company.id);
       // Force sync to update localStorage
-      BackgroundSyncService.forceSyncExpenses(user.uid, (freshExpenses) => {
+      BackgroundSyncService.forceSyncExpenses(company.id, (freshExpenses) => {
         setExpenses(freshExpenses);
       });
     } catch (err) {
@@ -544,14 +544,14 @@ export const useDashboardStats = () => {
 
 // Stock Changes Hook with Caching
 export const useStockChanges = () => {
-  const { user } = useAuth();
+  const { user, company } = useAuth();
   const [stockChanges, setStockChanges] = useState<unknown[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !company) return;
     
-    const cacheKey = cacheKeys.stockChanges(user.uid);
+    const cacheKey = cacheKeys.stockChanges(company.id);
     
     // Check cache first
     const cachedStockChanges = dataCache.get<unknown[]>(cacheKey);
@@ -561,7 +561,7 @@ export const useStockChanges = () => {
       console.log('🚀 Stock changes loaded from cache');
     }
     
-    const unsubscribe = subscribeToStockChanges(user.uid, (data) => {
+    const unsubscribe = subscribeToStockChanges(company.id, (data) => {
       setStockChanges(data);
       setLoading(false);
       
@@ -570,7 +570,7 @@ export const useStockChanges = () => {
       console.log('📦 Stock changes cached for faster loading');
     });
     return () => unsubscribe();
-  }, [user]);
+  }, [user, company]);
 
   return { stockChanges, loading };
 };
@@ -605,15 +605,15 @@ export const useCustomers = () => {
 };
 
 export const useFinanceEntries = () => {
-  const { user } = useAuth();
+  const { user, company } = useAuth();
   const [entries, setEntries] = useState<FinanceEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !company) return;
     const q = query(
       collection(db, 'finances'),
-      where('userId', '==', user.uid),
+      where('companyId', '==', company.id),
       where('isDeleted', '==', false),
       orderBy('createdAt', 'desc')
     );
@@ -622,7 +622,7 @@ export const useFinanceEntries = () => {
       setLoading(false);
     });
     return () => unsub();
-  }, [user]);
+  }, [user, company]);
 
   return { entries, loading };
 };
@@ -632,12 +632,12 @@ export const useSuppliers = () => {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-  const { user } = useAuth();
+  const { user, company } = useAuth();
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !company) return;
     
-    const cacheKey = cacheKeys.suppliers(user.uid);
+    const cacheKey = cacheKeys.suppliers(company.id);
     
     // Check cache first
     const cachedSuppliers = dataCache.get<Supplier[]>(cacheKey);
@@ -647,7 +647,7 @@ export const useSuppliers = () => {
       console.log('🚀 Suppliers loaded from cache');
     }
     
-    const unsubscribe = subscribeToSuppliers(user.uid, (data) => {
+    const unsubscribe = subscribeToSuppliers(company.id, (data) => {
       // Filter out soft-deleted suppliers (user filtering already done by Firebase)
       const activeSuppliers = data.filter(supplier => !supplier.isDeleted);
       setSuppliers(activeSuppliers);
@@ -659,12 +659,12 @@ export const useSuppliers = () => {
     });
 
     return () => unsubscribe();
-  }, [user]);
+  }, [user, company]);
 
   const addSupplier = async (supplierData: Omit<Supplier, 'id' | 'createdAt' | 'updatedAt'>) => {
     if (!user) throw new Error('User not authenticated');
     try {
-      await createSupplier(supplierData, user.uid);
+      await createSupplier(supplierData, company.id);
     } catch (err) {
       setError(err as Error);
       throw err;
@@ -674,7 +674,7 @@ export const useSuppliers = () => {
   const updateSupplierData = async (supplierId: string, data: Partial<Supplier>) => {
     if (!user) throw new Error('User not authenticated');
     try {
-      await updateSupplier(supplierId, data, user.uid);
+      await updateSupplier(supplierId, data, company.id);
     } catch (err) {
       setError(err as Error);
       throw err;
@@ -684,7 +684,7 @@ export const useSuppliers = () => {
   const deleteSupplier = async (supplierId: string) => {
     if (!user?.uid) throw new Error('User not authenticated');
     try {
-      await softDeleteSupplier(supplierId, user.uid);
+      await softDeleteSupplier(supplierId, company.id);
     } catch (err) {
       setError(err as Error);
       throw err;

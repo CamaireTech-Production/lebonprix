@@ -226,6 +226,7 @@ export const createStockChange = (
   change: number,
   reason: StockChange['reason'],
   userId: string,
+  companyId: string,
   supplierId?: string,
   isOwnPurchase?: boolean,
   isCredit?: boolean,
@@ -245,6 +246,7 @@ export const createStockChange = (
     change,
     reason,
     userId,
+    companyId, // Ensure companyId is set
     createdAt: serverTimestamp(),
   };
   
@@ -265,10 +267,10 @@ export const createStockChange = (
 // ============================================================================
 
 // Categories
-export const subscribeToCategories = (userId: string, callback: (categories: Category[]) => void): (() => void) => {
+export const subscribeToCategories = (companyId: string, callback: (categories: Category[]) => void): (() => void) => {
   const q = query(
     collection(db, 'categories'),
-    where('userId', '==', userId),
+    where('companyId', '==', companyId),
     where('isActive', '==', true), // Only get active categories
     orderBy('name', 'asc'),
     limit(100) // Increased limit for categories
@@ -284,22 +286,22 @@ export const subscribeToCategories = (userId: string, callback: (categories: Cat
 };
 
 // Utility function to update category product count
-export const updateCategoryProductCount = async (categoryName: string, userId: string, increment: boolean = true): Promise<void> => {
-  if (!categoryName || !userId) return;
+export const updateCategoryProductCount = async (categoryName: string, companyId: string, increment: boolean = true): Promise<void> => {
+  if (!categoryName || !companyId) return;
 
   try {
-    // Find the category by name and userId
+    // Find the category by name and companyId
     const q = query(
       collection(db, 'categories'),
       where('name', '==', categoryName),
-      where('userId', '==', userId),
+      where('companyId', '==', companyId),
       where('isActive', '==', true)
     );
 
     const snapshot = await getDocs(q);
     
     if (snapshot.empty) {
-      console.warn(`Category "${categoryName}" not found for user ${userId}`);
+      console.warn(`Category "${categoryName}" not found for company ${companyId}`);
       return;
     }
 
@@ -319,12 +321,12 @@ export const updateCategoryProductCount = async (categoryName: string, userId: s
 };
 
 // Utility function to recalculate all category product counts
-export const recalculateCategoryProductCounts = async (userId: string): Promise<void> => {
+export const recalculateCategoryProductCounts = async (companyId: string): Promise<void> => {
   try {
-    // Get all categories for the user
+    // Get all categories for the company
     const categoriesQuery = query(
       collection(db, 'categories'),
-      where('userId', '==', userId),
+      where('companyId', '==', companyId),
       where('isActive', '==', true)
     );
 
@@ -334,10 +336,10 @@ export const recalculateCategoryProductCounts = async (userId: string): Promise<
       ...doc.data()
     })) as Category[];
 
-    // Get all products for the user
+    // Get all products for the company
     const productsQuery = query(
       collection(db, 'products'),
-      where('userId', '==', userId),
+      where('companyId', '==', companyId),
       where('isDeleted', '==', false),
       where('isVisible', '!=', false) // Include products where isVisible is true or undefined
     );
@@ -377,10 +379,10 @@ export const recalculateCategoryProductCounts = async (userId: string): Promise<
 };
 
 // Products - OPTIMIZED for faster initial load
-export const subscribeToProducts = (userId: string, callback: (products: Product[]) => void): (() => void) => {
+export const subscribeToProducts = (companyId: string, callback: (products: Product[]) => void): (() => void) => {
   const q = query(
     collection(db, 'products'),
-    where('userId', '==', userId), // Filter by user first
+    where('companyId', '==', companyId), // Filter by company
     orderBy('createdAt', 'desc')
     // 🔄 NO LIMIT: Products page now uses infinite scroll for better UX
   );
@@ -395,17 +397,17 @@ export const subscribeToProducts = (userId: string, callback: (products: Product
 };
 
 // Sales - PROGRESSIVE LOADING: Load recent first, then all
-export const subscribeToSales = (userId: string, callback: (sales: Sale[]) => void, limitCount?: number): (() => void) => {
+export const subscribeToSales = (companyId: string, callback: (sales: Sale[]) => void, limitCount?: number): (() => void) => {
   const q = limitCount 
     ? query(
         collection(db, 'sales'),
-        where('userId', '==', userId), // Filter by user first
+        where('companyId', '==', companyId), // Filter by company
         orderBy('createdAt', 'desc'),
         limit(limitCount) // 🚀 CONFIGURABLE: Allow different limits
       )
     : query(
         collection(db, 'sales'),
-        where('userId', '==', userId), // Filter by user first
+        where('companyId', '==', companyId), // Filter by company
         orderBy('createdAt', 'desc')
         // 🔄 NO LIMIT: Load all sales when needed
       );
@@ -421,15 +423,15 @@ export const subscribeToSales = (userId: string, callback: (sales: Sale[]) => vo
 };
 
 // Sales - Load ALL sales (for reports, analytics, etc.)
-export const subscribeToAllSales = (userId: string, callback: (sales: Sale[]) => void): (() => void) => {
-  return subscribeToSales(userId, callback); // No limit
+export const subscribeToAllSales = (companyId: string, callback: (sales: Sale[]) => void): (() => void) => {
+  return subscribeToSales(companyId, callback); // No limit
 };
 
 // Expenses
-export const subscribeToExpenses = (userId: string, callback: (expenses: Expense[]) => void): (() => void) => {
+export const subscribeToExpenses = (companyId: string, callback: (expenses: Expense[]) => void): (() => void) => {
   const q = query(
     collection(db, 'expenses'),
-    where('userId', '==', userId), // Filter by user first
+    where('companyId', '==', companyId), // Filter by company
     orderBy('createdAt', 'desc'),
     limit(100) // Add pagination
   );
@@ -461,7 +463,7 @@ export const subscribeToDashboardStats = (callback: (stats: Partial<DashboardSta
 
 export const createCategory = async (
   data: Omit<Category, 'id' | 'createdAt' | 'updatedAt'>,
-  userId: string
+  companyId: string
 ): Promise<Category> => {
   const batch = writeBatch(db);
   
@@ -472,7 +474,7 @@ export const createCategory = async (
   
   const categoryData = {
     ...data,
-    userId,
+    companyId, // Ensure companyId is set
     isActive: data.isActive !== false, // Default to true
     productCount: 0, // Initialize with 0 products
     createdAt: serverTimestamp(),
@@ -482,8 +484,9 @@ export const createCategory = async (
   const categoryRef = doc(collection(db, 'categories'));
   batch.set(categoryRef, categoryData);
   
-  // Create audit log
-  createAuditLog(batch, 'create', 'category', categoryRef.id, categoryData, userId);
+  // Create audit log (use userId from data if available, otherwise use companyId for audit)
+  const auditUserId = data.userId || companyId;
+  createAuditLog(batch, 'create', 'category', categoryRef.id, categoryData, auditUserId);
   
   await batch.commit();
 
@@ -498,7 +501,7 @@ export const createCategory = async (
 export const updateCategory = async (
   id: string,
   data: Partial<Category>,
-  userId: string
+  companyId: string
 ): Promise<void> => {
   const batch = writeBatch(db);
   const categoryRef = doc(db, 'categories', id);
@@ -509,10 +512,14 @@ export const updateCategory = async (
     throw new Error('Category not found');
   }
   
-  const currentCategory = categorySnap.data() as Category;
-  if (currentCategory.userId !== userId) {
-    throw new Error('Unauthorized to update this category');
+  // Verify companyId matches
+  const currentData = categorySnap.data() as Category;
+  if (currentData.companyId !== companyId) {
+    throw new Error('Unauthorized: Category belongs to different company');
   }
+  
+  // Get userId from category for audit
+  const userId = currentData.userId || companyId;
   
   // Update category data
   const updateData = {
@@ -530,7 +537,7 @@ export const updateCategory = async (
 
 export const deleteCategory = async (
   id: string,
-  userId: string
+  companyId: string
 ): Promise<void> => {
   const batch = writeBatch(db);
   const categoryRef = doc(db, 'categories', id);
@@ -542,9 +549,13 @@ export const deleteCategory = async (
   }
   
   const currentCategory = categorySnap.data() as Category;
-  if (currentCategory.userId !== userId) {
-    throw new Error('Unauthorized to delete this category');
+  // Verify companyId matches
+  if (currentCategory.companyId !== companyId) {
+    throw new Error('Unauthorized: Category belongs to different company');
   }
+  
+  // Get userId from category for audit
+  const userId = currentCategory.userId || companyId;
   
   // Check if category has products
   if (currentCategory.productCount && currentCategory.productCount > 0) {
@@ -563,7 +574,7 @@ export const deleteCategory = async (
   await batch.commit();
 };
 
-export const getCategory = async (id: string, userId: string): Promise<Category | null> => {
+export const getCategory = async (id: string, companyId: string): Promise<Category | null> => {
   const categoryRef = doc(db, 'categories', id);
   const categorySnap = await getDoc(categoryRef);
   
@@ -571,10 +582,13 @@ export const getCategory = async (id: string, userId: string): Promise<Category 
     return null;
   }
   
-  const category = categorySnap.data() as Category;
-  if (category.userId !== userId) {
-    throw new Error('Unauthorized to access this category');
+  // Verify companyId matches
+  const categoryData = categorySnap.data() as Category;
+  if (categoryData.companyId !== companyId) {
+    return null; // Category belongs to different company
   }
+  
+  const category = categorySnap.data() as Category;
   
   return {
     id: categorySnap.id,
@@ -582,10 +596,10 @@ export const getCategory = async (id: string, userId: string): Promise<Category 
   };
 };
 
-export const getUserCategories = async (userId: string): Promise<Category[]> => {
+export const getCompanyCategories = async (companyId: string): Promise<Category[]> => {
   const q = query(
     collection(db, 'categories'),
-    where('userId', '==', userId),
+    where('companyId', '==', companyId),
     where('isActive', '==', true),
     orderBy('name', 'asc')
   );
@@ -639,7 +653,7 @@ const createAuditLog = async (
 
 export const createProduct = async (
   data: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>,
-  userId: string,
+  companyId: string,
   supplierInfo?: {
     supplierId?: string;
     isOwnPurchase?: boolean;
@@ -665,13 +679,16 @@ export const createProduct = async (
   // Set default inventory settings
   const productData = {
     ...data,
-    userId,
+    companyId, // Ensure companyId is set
     isAvailable: true,
     inventoryMethod: (data as any).inventoryMethod || 'FIFO',
     enableBatchTracking: (data as any).enableBatchTracking !== false, // Default to true
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   };
+  
+  // Get userId from data if available, otherwise use companyId for audit
+  const userId = data.userId || companyId;
   
   // Create product
   const productRef = doc(collection(db, 'products'));
@@ -696,6 +713,7 @@ export const createProduct = async (
         ...(supplierInfo.isCredit !== undefined && { isCredit: supplierInfo.isCredit }),
         createdAt: serverTimestamp(),
         userId,
+        companyId, // Ensure companyId is set
         remainingQuantity: data.stock,
         status: 'active'
       };
@@ -708,6 +726,7 @@ export const createProduct = async (
         data.stock,
         'creation',
         userId,
+        companyId,
         supplierInfo.supplierId,
         supplierInfo.isOwnPurchase,
         supplierInfo.isCredit,
@@ -727,6 +746,7 @@ export const createProduct = async (
         const debtData = {
           id: debtRef.id,
           userId,
+          companyId, // Ensure companyId is set
           sourceType: 'supplier',
           sourceId: supplierInfo.supplierId,
           type: 'supplier_debt',
@@ -757,6 +777,7 @@ export const createProduct = async (
       data.stock, 
       'creation', 
       userId,
+      companyId,
       supplierInfo?.supplierId,
       supplierInfo?.isOwnPurchase,
       supplierInfo?.isCredit,
@@ -782,7 +803,7 @@ export const createProduct = async (
   // Update category product count after successful product creation
   if (data.category) {
     try {
-      await updateCategoryProductCount(data.category, userId, true);
+      await updateCategoryProductCount(data.category, companyId, true);
     } catch (error) {
       console.error('Error updating category product count:', error);
       // Don't throw here as the product was created successfully
@@ -804,7 +825,7 @@ export const createProduct = async (
 export const updateProduct = async (
   id: string,
   data: Partial<Product>,
-  userId: string,
+  companyId: string,
   stockReason?: 'sale' | 'restock' | 'adjustment' | 'creation' | 'cost_correction',
   stockChange?: number,
   supplierInfo?: {
@@ -826,9 +847,13 @@ export const updateProduct = async (
   }
   
   const currentProduct = productSnap.data() as Product;
-  if (currentProduct.userId !== userId) {
-    throw new Error('Unauthorized to update this product');
+  // Verify product belongs to company
+  if (currentProduct.companyId !== companyId) {
+    throw new Error('Unauthorized: Product belongs to different company');
   }
+  
+  // Get userId from product for audit
+  const userId = currentProduct.userId || companyId;
   
   // Handle stock changes
   if (stockChange !== undefined && stockReason) {
@@ -857,6 +882,7 @@ export const updateProduct = async (
         ...(supplierInfo.isCredit !== undefined && { isCredit: supplierInfo.isCredit }),
         createdAt: serverTimestamp(),
         userId,
+        companyId, // Ensure companyId is set
         remainingQuantity: stockChange,
         status: 'active'
       };
@@ -869,6 +895,7 @@ export const updateProduct = async (
         stockChange,
         stockReason,
         userId,
+        companyId,
         supplierInfo.supplierId,
         supplierInfo.isOwnPurchase,
         supplierInfo.isCredit,
@@ -883,6 +910,7 @@ export const updateProduct = async (
         const debtData = {
           id: debtRef.id,
           userId,
+          companyId, // Ensure companyId is set
           sourceType: 'supplier',
           sourceId: supplierInfo.supplierId,
           type: 'supplier_debt',
@@ -905,6 +933,7 @@ export const updateProduct = async (
       stockChange,
       stockReason,
       userId,
+      companyId,
       supplierInfo?.supplierId,
       supplierInfo?.isOwnPurchase,
       supplierInfo?.isCredit,
@@ -931,10 +960,12 @@ export const updateProduct = async (
       try {
         // Decrement old category count
         if (currentProduct.category) {
-          await updateCategoryProductCount(currentProduct.category, userId, false);
+          await updateCategoryProductCount(currentProduct.category, companyId, false);
         }
         // Increment new category count
-        await updateCategoryProductCount(data.category, userId, true);
+        if (data.category) {
+          await updateCategoryProductCount(data.category, companyId, true);
+        }
       } catch (error) {
         console.error('Error updating category product counts:', error);
         // Don't throw here as the product was updated successfully
@@ -949,7 +980,7 @@ export const updateProduct = async (
           // If product became invisible, decrement count
           // If product became visible, increment count
           const shouldIncrement = data.isVisible !== false;
-          await updateCategoryProductCount(categoryName, userId, shouldIncrement);
+          await updateCategoryProductCount(categoryName, companyId, shouldIncrement);
         }
       } catch (error) {
         console.error('Error updating category product count for visibility change:', error);
@@ -993,7 +1024,7 @@ export const softDeleteProduct = async (id: string, userId: string): Promise<voi
     // Update category product count
     if (currentProduct.category) {
       try {
-        await updateCategoryProductCount(currentProduct.category, userId, false);
+        await updateCategoryProductCount(currentProduct.category, companyId, false);
       } catch (error) {
         console.error('Error updating category product count after deletion:', error);
         // Don't throw here as the product was deleted successfully
@@ -1011,7 +1042,7 @@ export const softDeleteProduct = async (id: string, userId: string): Promise<voi
 
 export const createSale = async (
   data: Omit<Sale, 'id' | 'createdAt' | 'updatedAt'>,
-  userId: string
+  companyId: string
 ): Promise<Sale> => {
   try {
     console.log('Creating sale with data:', data);
@@ -1025,6 +1056,9 @@ export const createSale = async (
   let totalCost = 0;
   let totalProfit = 0;
   
+  // Get userId from data if available
+  const userId = data.userId || companyId;
+  
   // Validate product stock and calculate cost prices for all products
   for (const product of data.products) {
     const productRef = doc(db, 'products', product.productId);
@@ -1035,8 +1069,8 @@ export const createSale = async (
     }
     
     const productData = productSnap.data() as Product;
-    // Verify product ownership
-    if (productData.userId !== userId) {
+    // Verify product ownership by companyId
+    if (productData.companyId !== companyId) {
       throw new Error(`Unauthorized to sell product ${productData.name}`);
     }
     if (productData.stock < product.quantity) {
@@ -1104,6 +1138,7 @@ export const createSale = async (
       -product.quantity, 
       'sale', 
       userId,
+      companyId, // Ensure companyId is set
       undefined, // No supplier info for sales
       undefined,
       undefined,
@@ -1124,7 +1159,7 @@ export const createSale = async (
     totalCost,
     totalProfit,
     averageProfitMargin,
-    userId,
+    companyId, // Ensure companyId is set
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   };
@@ -1190,11 +1225,14 @@ export const updateSaleStatus = async (
 
 export const createExpense = async (
   data: Omit<Expense, 'id' | 'createdAt' | 'updatedAt'>,
-  userId: string
+  companyId: string
 ): Promise<Expense> => {
+  // Get userId from data if available
+  const userId = data.userId || companyId;
+  
   const expenseRef = await addDoc(collection(db, 'expenses'), {
     ...data,
-    userId,
+    companyId, // Ensure companyId is set
     isAvailable: true,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()
@@ -1203,7 +1241,7 @@ export const createExpense = async (
   return {
     id: expenseRef.id,
     ...data,
-    userId,
+    companyId,
     isAvailable: true,
     createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 },
     updatedAt: { seconds: Date.now() / 1000, nanoseconds: 0 }
@@ -1213,7 +1251,7 @@ export const createExpense = async (
 export const updateExpense = async (
   id: string,
   data: Partial<Expense>,
-  userId: string
+  companyId: string
 ): Promise<void> => {
   const expenseRef = doc(db, 'expenses', id);
   const expenseSnap = await getDoc(expenseRef);
@@ -1223,16 +1261,54 @@ export const updateExpense = async (
   }
 
   const expense = expenseSnap.data() as Expense;
-  if (expense.userId !== userId) {
-    throw new Error('Unauthorized to update this expense');
+  
+  // Verify authorization: Check companyId match, with fallback for legacy expenses
+  const expenseCompanyId = expense.companyId;
+  
+  // Get userId for authorization check (from auth context, not from data)
+  // Note: We need to verify the user has permission, which could be through userId or companyId
+  const expenseUserId = expense.userId;
+  
+  // Authorization logic:
+  // 1. If companyId matches, allow update
+  // 2. If companyId doesn't match but userId matches (legacy expense or company switch), 
+  //    allow update and update companyId to current company
+  // 3. Otherwise, reject
+  
+  if (expenseCompanyId && expenseCompanyId !== companyId) {
+    // CompanyId mismatch - check if this is a legacy expense that needs migration
+    // If the expense belongs to the same user but different company (legacy case),
+    // we allow the update and migrate it to the current company
+    if (data.userId && expenseUserId && data.userId === expenseUserId) {
+      // Same user, different company - this is likely a legacy expense being migrated
+      // Allow update and migrate companyId
+      console.log(`⚠️ Migrating expense ${id} from company ${expenseCompanyId} to ${companyId}`);
+    } else {
+      // Different user - unauthorized
+      throw new Error('Unauthorized: Expense belongs to different company');
+    }
   }
+  
+  // If expense doesn't have companyId (legacy), we allow update if userId matches
+  // and will update the expense with the current companyId
+  if (!expenseCompanyId && data.userId && expenseUserId && data.userId !== expenseUserId) {
+    throw new Error('Unauthorized: Cannot change expense owner');
+  }
+  
+  // Get userId for audit log
+  const userId = expense.userId || data.userId || companyId;
+  
+  // Ensure companyId is set in update (for legacy expenses or company migration)
+  // Always use the current companyId to ensure consistency
+  const updateData = {
+    ...data,
+    companyId: companyId, // Always use current companyId for consistency
+    updatedAt: serverTimestamp()
+  };
   
   const batch = writeBatch(db);
   
-  batch.update(expenseRef, {
-    ...data,
-    updatedAt: serverTimestamp()
-  });
+  batch.update(expenseRef, updateData);
   
   // Create audit log
   createAuditLog(batch, 'update', 'expense', id, data, userId);
@@ -1254,13 +1330,14 @@ export const createExpenseType = async (type: Omit<ExpenseType, 'id' | 'createdA
   return { id: ref.id, ...snap.data() } as ExpenseType;
 };
 
-export const getExpenseTypes = async (userId: string): Promise<ExpenseType[]> => {
+export const getExpenseTypes = async (companyId: string): Promise<ExpenseType[]> => {
   // Ensure default expense types exist first
   await ensureDefaultExpenseTypes();
   
   const defaultSnap = await getDocs(query(collection(db, 'expenseTypes'), where('isDefault', '==', true)));
-  const userSnap = await getDocs(query(collection(db, 'expenseTypes'), where('userId', '==', userId)));
-  const allDocs = [...defaultSnap.docs, ...userSnap.docs];
+  // Query for company-specific types (using companyId field if it exists, otherwise fallback to userId for legacy)
+  const companySnap = await getDocs(query(collection(db, 'expenseTypes'), where('companyId', '==', companyId)));
+  const allDocs = [...defaultSnap.docs, ...companySnap.docs];
   const seen = new Set<string>();
   const types: ExpenseType[] = [];
   for (const docSnap of allDocs) {
@@ -1270,6 +1347,69 @@ export const getExpenseTypes = async (userId: string): Promise<ExpenseType[]> =>
     }
   }
   return types;
+};
+
+// Update expense type
+export const updateExpenseType = async (typeId: string, updates: Partial<ExpenseType>): Promise<ExpenseType> => {
+  const typeRef = doc(db, 'expenseTypes', typeId);
+  const updateData = {
+    ...updates,
+    updatedAt: serverTimestamp()
+  };
+  await updateDoc(typeRef, updateData);
+  const snap = await getDoc(typeRef);
+  return { id: snap.id, ...snap.data() } as ExpenseType;
+};
+
+// Delete expense type (only if not default and not in use)
+export const deleteExpenseType = async (typeId: string, companyId: string): Promise<void> => {
+  const typeRef = doc(db, 'expenseTypes', typeId);
+  const typeSnap = await getDoc(typeRef);
+  
+  if (!typeSnap.exists()) {
+    throw new Error('Expense type not found');
+  }
+  
+  const typeData = typeSnap.data() as ExpenseType;
+  
+  // Cannot delete default types
+  if (typeData.isDefault) {
+    throw new Error('Cannot delete default expense types');
+  }
+  
+  // Check if type is in use by this company
+  const expensesQuery = query(
+    collection(db, 'expenses'),
+    where('companyId', '==', companyId),
+    where('category', '==', typeData.name),
+    where('isAvailable', '!=', false)
+  );
+  const expensesSnap = await getDocs(expensesQuery);
+  
+  if (!expensesSnap.empty) {
+    throw new Error(`Cannot delete expense type: ${expensesSnap.size} expense(s) are using this category`);
+  }
+  
+  await deleteDoc(typeRef);
+};
+
+// Get expense count by category for a company
+export const getExpenseCountByCategory = async (companyId: string): Promise<Record<string, number>> => {
+  const expensesQuery = query(
+    collection(db, 'expenses'),
+    where('companyId', '==', companyId),
+    where('isAvailable', '!=', false)
+  );
+  const expensesSnap = await getDocs(expensesQuery);
+  
+  const counts: Record<string, number> = {};
+  expensesSnap.forEach((doc) => {
+    const expense = doc.data() as Expense;
+    const category = expense.category || 'other';
+    counts[category] = (counts[category] || 0) + 1;
+  });
+  
+  return counts;
 };
 
 // Ensure default expense types exist
@@ -1329,16 +1469,16 @@ export const ensureDefaultExpenseTypes = async (): Promise<void> => {
 // DASHBOARD AND STATISTICS
 // ============================================================================
 
-export const updateDashboardStats = async (userId: string): Promise<void> => {
+export const updateDashboardStats = async (companyId: string): Promise<void> => {
   // This function would calculate and update dashboard statistics
   // Implementation depends on your specific requirements
-  console.log('Dashboard stats update requested for user:', userId);
+  console.log('Dashboard stats update requested for company:', companyId);
 };
 
-export const getLowStockProducts = async (userId: string, threshold?: number): Promise<Product[]> => {
+export const getLowStockProducts = async (companyId: string, threshold?: number): Promise<Product[]> => {
   const q = query(
     collection(db, 'products'),
-    where('userId', '==', userId),
+    where('companyId', '==', companyId),
     where('isAvailable', '==', true)
   );
 
@@ -1348,7 +1488,7 @@ export const getLowStockProducts = async (userId: string, threshold?: number): P
   return products.filter(product => product.stock <= (threshold || 10));
 };
 
-export const getProductPerformance = async (userId: string, productId: string): Promise<{
+export const getProductPerformance = async (companyId: string, productId: string): Promise<{
   totalSales: number;
   totalRevenue: number;
   totalProfit: number;
@@ -1356,7 +1496,7 @@ export const getProductPerformance = async (userId: string, productId: string): 
 }> => {
   const q = query(
     collection(db, 'sales'),
-    where('userId', '==', userId),
+    where('companyId', '==', companyId),
     where('isAvailable', '!=', false)
   );
 
@@ -1567,10 +1707,10 @@ export const subscribeToCompanies = (callback: (companies: Company[]) => void): 
   });
 };
 
-export const subscribeToStockChanges = (userId: string, callback: (stockChanges: StockChange[]) => void): (() => void) => {
+export const subscribeToStockChanges = (companyId: string, callback: (stockChanges: StockChange[]) => void): (() => void) => {
   const q = query(
     collection(db, 'stockChanges'),
-    where('userId', '==', userId), // Filter by user first
+    where('companyId', '==', companyId), // Filter by company
     orderBy('createdAt', 'desc'),
     limit(200) // Stock changes can be numerous but are small
   );
@@ -1686,10 +1826,10 @@ export const addCustomer = async (customerData: Omit<Customer, 'id'>): Promise<C
   }
 };
 
-export const subscribeToCustomers = (userId: string, callback: (customers: Customer[]) => void) => {
+export const subscribeToCustomers = (companyId: string, callback: (customers: Customer[]) => void) => {
   const q = query(
     collection(db, 'customers'),
-    where('userId', '==', userId),
+    where('companyId', '==', companyId),
     orderBy('createdAt', 'desc')
   );
   return onSnapshot(q, (snapshot) => {
@@ -1702,10 +1842,10 @@ export const subscribeToCustomers = (userId: string, callback: (customers: Custo
 };
 
 // Objectives
-export const subscribeToObjectives = (userId: string, callback: (objectives: Objective[]) => void): (() => void) => {
+export const subscribeToObjectives = (companyId: string, callback: (objectives: Objective[]) => void): (() => void) => {
   const q = query(
     collection(db, 'objectives'),
-    where('userId', '==', userId),
+    where('companyId', '==', companyId),
     orderBy('createdAt', 'desc')
   );
   return onSnapshot(q, (snapshot) => {
@@ -1720,12 +1860,15 @@ export const subscribeToObjectives = (userId: string, callback: (objectives: Obj
 
 export const createObjective = async (
   data: Omit<Objective, 'id' | 'createdAt' | 'updatedAt'>,
-  userId: string
+  companyId: string
 ): Promise<Objective> => {
   // Validate objective data
   if (!data.title || !data.targetAmount || !data.metric) {
     throw new Error('Invalid objective data');
   }
+  
+  // Get userId from data if available
+  const userId = data.userId || companyId;
 
   const batch = writeBatch(db);
   
@@ -1734,6 +1877,7 @@ export const createObjective = async (
   const objectiveData = {
     ...data,
     userId,
+    companyId, // Ensure companyId is set
     isAvailable: true,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()
@@ -1756,7 +1900,7 @@ export const createObjective = async (
 export const updateObjective = async (
   id: string,
   data: Partial<Objective>,
-  userId: string
+  companyId: string
 ): Promise<void> => {
   const batch = writeBatch(db);
   const objectiveRef = doc(db, 'objectives', id);
@@ -1767,11 +1911,14 @@ export const updateObjective = async (
     throw new Error('Objective not found');
   }
   
-  // Verify ownership
+  // Verify companyId matches
   const objective = objectiveSnap.data() as Objective;
-  if (objective.userId !== userId) {
-    throw new Error('Unauthorized to update this objective');
+  if (objective.companyId !== companyId) {
+    throw new Error('Unauthorized: Objective belongs to different company');
   }
+  
+  // Get userId from objective for audit
+  const userId = objective.userId || companyId;
   
   // Update objective
   const updateData = {
@@ -1790,7 +1937,7 @@ export const updateObjective = async (
   await batch.commit();
 };
 
-export const deleteObjective = async (objectiveId: string, userId: string): Promise<void> => {
+export const deleteObjective = async (objectiveId: string, companyId: string): Promise<void> => {
   const batch = writeBatch(db);
   const objectiveRef = doc(db, 'objectives', objectiveId);
   // Get current objective data for audit log
@@ -1798,11 +1945,15 @@ export const deleteObjective = async (objectiveId: string, userId: string): Prom
   if (!objectiveSnap.exists()) {
     throw new Error('Objective not found');
   }
-  // Verify ownership
+  // Verify companyId matches
   const objective = objectiveSnap.data() as Objective;
-  if (objective.userId !== userId) {
-    throw new Error('Unauthorized to delete this objective');
+  if (objective.companyId !== companyId) {
+    throw new Error('Unauthorized: Objective belongs to different company');
   }
+  
+  // Get userId from objective for audit
+  const userId = objective.userId || companyId;
+  
   // Soft delete the objective (set isAvailable: false)
   batch.update(objectiveRef, {
     isAvailable: false,
@@ -1922,7 +2073,7 @@ export const softDeleteExpense = async (expenseId: string, userId: string): Prom
 
 export const syncFinanceEntryWithSale = async (sale: Sale) => {
   // Add explicit checks for required fields before querying
-  if (!sale || !sale.id || !sale.userId) {
+  if (!sale || !sale.id || !sale.userId || !sale.companyId) {
     console.error('syncFinanceEntryWithSale: Invalid sale object received, skipping sync.', sale);
     return; // Exit early if data is invalid
   }
@@ -1932,6 +2083,7 @@ export const syncFinanceEntryWithSale = async (sale: Sale) => {
   const snap = await getDocs(q);
   const entry: Omit<FinanceEntry, 'id' | 'createdAt' | 'updatedAt'> = {
     userId: sale.userId,
+    companyId: sale.companyId, // Ensure companyId is set
     sourceType: 'sale',
     sourceId: sale.id,
     type: 'sale',
@@ -1950,7 +2102,7 @@ export const syncFinanceEntryWithSale = async (sale: Sale) => {
 
 export const syncFinanceEntryWithExpense = async (expense: Expense) => {
   // Add explicit checks for required fields before querying
-  if (!expense || !expense.id || !expense.userId) {
+  if (!expense || !expense.id || !expense.userId || !expense.companyId) {
     console.error('syncFinanceEntryWithExpense: Invalid expense object received, skipping sync.', expense);
     return; // Exit early if data is invalid
   }
@@ -1958,6 +2110,7 @@ export const syncFinanceEntryWithExpense = async (expense: Expense) => {
   const q = query(collection(db, 'finances'), where('sourceType', '==', 'expense'), where('sourceId', '==', expense.id));
   const entry: Omit<FinanceEntry, 'id' | 'createdAt' | 'updatedAt'> = {
     userId: expense.userId,
+    companyId: expense.companyId, // Ensure companyId is set
     sourceType: 'expense',
     sourceId: expense.id,
     type: 'expense',
@@ -2064,10 +2217,10 @@ export const ensureDefaultFinanceEntryTypes = async (): Promise<void> => {
 
 // --- Suppliers ---
 
-export const subscribeToSuppliers = (userId: string, callback: (suppliers: Supplier[]) => void): (() => void) => {
+export const subscribeToSuppliers = (companyId: string, callback: (suppliers: Supplier[]) => void): (() => void) => {
   const q = query(
     collection(db, 'suppliers'),
-    where('userId', '==', userId), // Filter by user first
+    where('companyId', '==', companyId), // Filter by company
     orderBy('createdAt', 'desc'),
     limit(50) // Add pagination
   );
@@ -2083,12 +2236,15 @@ export const subscribeToSuppliers = (userId: string, callback: (suppliers: Suppl
 
 export const createSupplier = async (
   data: Omit<Supplier, 'id' | 'createdAt' | 'updatedAt'>,
-  userId: string
+  companyId: string
 ): Promise<Supplier> => {
   // Validate supplier data
   if (!data.name || !data.contact) {
     throw new Error('Invalid supplier data');
   }
+
+  // Get userId from data if available
+  const userId = data.userId || companyId;
 
   const batch = writeBatch(db);
   
@@ -2097,6 +2253,7 @@ export const createSupplier = async (
   const supplierData = {
     ...data,
     userId,
+    companyId, // Ensure companyId is set
     isDeleted: false,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()
@@ -2119,7 +2276,7 @@ export const createSupplier = async (
 export const updateSupplier = async (
   id: string,
   data: Partial<Supplier>,
-  userId: string
+  companyId: string
 ): Promise<void> => {
   const batch = writeBatch(db);
   const supplierRef = doc(db, 'suppliers', id);
@@ -2131,9 +2288,13 @@ export const updateSupplier = async (
   }
   
   const supplier = supplierSnap.data() as Supplier;
-  if (supplier.userId !== userId) {
-    throw new Error('Unauthorized to update this supplier');
+  // Verify supplier belongs to company
+  if (supplier.companyId !== companyId) {
+    throw new Error('Unauthorized: Supplier belongs to different company');
   }
+  
+  // Get userId from supplier for audit
+  const userId = supplier.userId || companyId;
   
   const updateData = {
     ...data,
@@ -2149,7 +2310,7 @@ export const updateSupplier = async (
 
 export const softDeleteSupplier = async (
   id: string,
-  userId: string
+  companyId: string
 ): Promise<void> => {
   const batch = writeBatch(db);
   const supplierRef = doc(db, 'suppliers', id);
@@ -2161,13 +2322,18 @@ export const softDeleteSupplier = async (
   }
   
   const supplier = supplierSnap.data() as Supplier;
-  if (supplier.userId !== userId) {
-    throw new Error('Unauthorized to delete this supplier');
+  // Verify supplier belongs to company
+  if (supplier.companyId !== companyId) {
+    throw new Error('Unauthorized: Supplier belongs to different company');
   }
+  
+  // Get userId from supplier for audit
+  const userId = supplier.userId || companyId;
   
   // Check if supplier has outstanding debts
   const q = query(
     collection(db, 'finances'),
+    where('companyId', '==', companyId),
     where('type', '==', 'supplier_debt'),
     where('supplierId', '==', id),
     where('isDeleted', '==', false)
@@ -2195,11 +2361,15 @@ export const createSupplierDebt = async (
   supplierId: string,
   amount: number,
   description: string,
-  userId: string,
+  companyId: string,
   batchId?: string
 ): Promise<FinanceEntry> => {
+  // Get userId from supplier or use companyId for audit
+  const userId = companyId; // For legacy compatibility, will be updated later
+  
   const entry: Omit<FinanceEntry, 'id' | 'createdAt' | 'updatedAt'> = {
     userId,
+    companyId, // Ensure companyId is set
     sourceType: 'supplier',
     sourceId: supplierId,
     type: 'supplier_debt',
@@ -2220,10 +2390,14 @@ export const createSupplierRefund = async (
   amount: number,
   description: string,
   refundedDebtId: string,
-  userId: string
+  companyId: string
 ): Promise<FinanceEntry> => {
+  // Get userId from supplier or use companyId for audit
+  const userId = companyId; // For legacy compatibility, will be updated later
+  
   const entry: Omit<FinanceEntry, 'id' | 'createdAt' | 'updatedAt'> = {
     userId,
+    companyId, // Ensure companyId is set
     sourceType: 'supplier',
     sourceId: supplierId,
     type: 'supplier_refund',

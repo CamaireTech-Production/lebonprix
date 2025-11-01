@@ -1,10 +1,11 @@
-import { useState, FormEvent } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, FormEvent, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
 import LoadingScreen from '../../components/common/LoadingScreen';
 import { LoginPWAInstallButton } from '../../components/LoginPWAInstallButton';
+import { getUserSession, hasActiveSession } from '../../utils/userSession';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -12,8 +13,52 @@ const Login = () => {
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const navigate = useNavigate();
   
-  const { loading, signIn } = useAuth();
+  const { loading, signIn, user } = useAuth();
+
+  // Check localStorage session on mount and redirect if already logged in
+  useEffect(() => {
+    if (!loading && hasActiveSession()) {
+      const session = getUserSession();
+      if (session) {
+        console.log('🔍 Found active session in localStorage, checking user authentication...');
+        
+        // If user is already authenticated, redirect based on companies
+        if (session.companies && session.companies.length > 0) {
+          // Find first company where user is owner or admin
+          const ownerOrAdminCompany = session.companies.find(
+            (c) => c.role === 'owner' || c.role === 'admin'
+          );
+          
+          if (ownerOrAdminCompany) {
+            console.log('🚀 Redirecting to dashboard:', ownerOrAdminCompany.companyId);
+            navigate(`/company/${ownerOrAdminCompany.companyId}/dashboard`);
+            return;
+          } else {
+            // User is only employee - show company selection
+            console.log('🚀 Redirecting to company selection:', session.userId);
+            navigate(`/companies/me/${session.userId}`);
+            return;
+          }
+        } else {
+          // User has no companies - show mode selection
+          console.log('🚀 Redirecting to mode selection');
+          navigate('/mode-selection');
+          return;
+        }
+      }
+    }
+  }, [loading, navigate]);
+
+  // Watch for user authentication state and stop loading when authenticated
+  useEffect(() => {
+    if (user && isLoading) {
+      console.log('✅ User authenticated, stopping loading state');
+      setIsLoading(false);
+      // Navigation will be handled by AuthContext
+    }
+  }, [user, isLoading]);
 
   if (loading) {
     return <LoadingScreen />;
@@ -37,12 +82,29 @@ const Login = () => {
       setError('');
       setIsLoading(true);
       await signIn(email, password);
-      // La redirection vers /mode-selection est gérée par AuthContext
-    } catch (err) {
-      setError('Failed to sign in. Please check your credentials.');
-      console.error(err);
-    } finally {
-      setIsLoading(false);
+      // Don't set isLoading to false here - wait for user state to change
+      // The useEffect above will handle stopping the loading state when user is authenticated
+      // This prevents the button from stopping loading before auth completes
+    } catch (err: any) {
+      console.error('Login error:', err);
+      setIsLoading(false); // Only stop loading on error
+      
+      // Show user-friendly error messages
+      if (err.message && err.message.includes('déjà en cours')) {
+        setError(err.message);
+      } else if (err.code) {
+        const errorMessages: Record<string, string> = {
+          'auth/user-not-found': 'Utilisateur non trouvé',
+          'auth/wrong-password': 'Mot de passe incorrect',
+          'auth/invalid-email': 'Email invalide',
+          'auth/user-disabled': 'Compte utilisateur désactivé',
+          'auth/network-request-failed': 'Erreur réseau. Vérifiez votre connexion.',
+          'auth/too-many-requests': 'Trop de tentatives. Réessayez plus tard.',
+        };
+        setError(errorMessages[err.code] || 'Erreur lors de la connexion. Veuillez réessayer.');
+      } else {
+        setError(err.message || 'Failed to sign in. Please check your credentials.');
+      }
     }
   };
 

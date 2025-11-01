@@ -7,8 +7,8 @@ export interface BaseModel {
   id: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
-  userId: string; // Reference to the user who owns this record
-  companyId: string; // Reference to the company this record belongs to
+  userId: string; // Legacy field - kept for audit trail, user who created the record
+  companyId: string; // Reference to the company this record belongs to (primary field for data isolation)
 }
 
 export interface Company extends BaseModel {
@@ -18,6 +18,7 @@ export interface Company extends BaseModel {
   phone: string;
   location?: string;
   email: string;
+  website?: string; // Company website URL
   
   // Color customization for catalogue
   catalogueColors?: {
@@ -153,6 +154,7 @@ export interface Customer {
   name?: string;
   quarter?: string;
   userId: string;
+  companyId: string; // Reference to the company this customer belongs to
   createdAt: Date;
 }
 
@@ -182,7 +184,8 @@ export interface StockChange {
   batchId?: string; // Reference to stock batch (legacy, kept for backward compatibility)
   saleId?: string; // Reference to sale if applicable
   createdAt: Timestamp;
-  userId: string;
+  userId: string; // Legacy field - kept for audit trail
+  companyId: string; // Reference to the company this stock change belongs to
   // NEW: Detailed batch consumption tracking
   batchConsumptions?: Array<{
     batchId: string;
@@ -203,7 +206,8 @@ export interface StockBatch {
   isCredit?: boolean; // true if on credit, false if paid
   createdAt: Timestamp;
   updatedAt?: Timestamp; // Last update timestamp
-  userId: string;
+  userId: string; // Legacy field - kept for audit trail
+  companyId: string; // Reference to the company this stock batch belongs to
   remainingQuantity: number; // How many units left from this batch
   damagedQuantity?: number; // How many units damaged from this batch
   status: 'active' | 'depleted' | 'corrected'; // Batch status
@@ -221,7 +225,8 @@ export interface Supplier extends BaseModel {
 
 export interface FinanceEntry {
   id: string;
-  userId: string;
+  userId: string; // Legacy field - kept for audit trail
+  companyId: string; // Reference to the company this finance entry belongs to
   sourceType: 'sale' | 'expense' | 'manual' | 'supplier';
   sourceId?: string; // saleId, expenseId, or supplierId if applicable
   type: string; // e.g., "sale", "expense", "loan", "deposit", "supplier_debt", "supplier_refund", etc.

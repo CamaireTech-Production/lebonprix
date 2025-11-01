@@ -34,7 +34,8 @@
     "showing": "Affichage de {{from}} à {{to}} sur {{total}}",
     "rowsPerPage": "Lignes par page :",
     "ascArrow": "▲",
-    "descArrow": "▼"
+    "descArrow": "▼",
+    "confirm": "Confirmer"
   },
   "auth": {
     "login": "Connexion",
@@ -62,7 +63,11 @@
     "menu": "Menu",
     "close": "Fermer",
     "reports": "Rapports",
-    "finance": "Finance"
+    "finance": "Finance",
+    "confirmCompanyExit": "Quitter l'entreprise actuelle ?",
+    "confirmCompanyExitMessage": "Vous êtes sur le point de quitter le contexte de l'entreprise actuelle pour gérer vos entreprises.",
+    "confirmCompanyExitQuestion": "Êtes-vous sûr de vouloir continuer ?",
+    "currentCompany": "Entreprise actuelle"
   },
   "header": {
     "welcome": "Bienvenue",
