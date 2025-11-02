@@ -16,7 +16,6 @@ export const saveCompanyToCache = (company: Company): void => {
     };
     localStorage.setItem(CACHE_KEY, JSON.stringify(cacheData));
     localStorage.setItem(CACHE_EXPIRY_KEY, Date.now().toString());
-    console.log('💾 Company saved to cache:', company.name);
   } catch (error) {
     console.error('❌ Error saving company to cache:', error);
   }
@@ -39,13 +38,11 @@ export const getCompanyFromCache = (): Company | null => {
     const now = Date.now();
     const cacheTime = parseInt(expiry);
     if (now - cacheTime > CACHE_DURATION) {
-      console.log('⏰ Company cache expired, clearing...');
       clearCompanyCache();
       return null;
     }
     
     const cacheData = JSON.parse(cached);
-    console.log('🔄 Company restored from cache:', cacheData.company.name);
     return cacheData.company;
   } catch (error) {
     console.error('❌ Error parsing company cache:', error);
@@ -61,7 +58,6 @@ export const clearCompanyCache = (): void => {
   try {
     localStorage.removeItem(CACHE_KEY);
     localStorage.removeItem(CACHE_EXPIRY_KEY);
-    console.log('🗑️ Company cache cleared');
   } catch (error) {
     console.error('❌ Error clearing company cache:', error);
   }

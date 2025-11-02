@@ -14,11 +14,18 @@ interface UserSessionData {
   }>;
 }
 
-const SESSION_KEY = 'lebonprix_user_session';
+const SESSION_KEY_PREFIX = 'lebonprix_user_session_';
 const SESSION_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 /**
- * Save user session to localStorage
+ * Get the localStorage key for a specific user's session
+ */
+const getSessionKey = (userId: string): string => {
+  return `${SESSION_KEY_PREFIX}${userId}`;
+};
+
+/**
+ * Save user session to localStorage with userId-specific key
  */
 export const saveUserSession = (userId: string, email: string, companies?: Array<{ companyId: string; name: string; role: string }>): void => {
   try {
@@ -29,38 +36,70 @@ export const saveUserSession = (userId: string, email: string, companies?: Array
       companies
     };
     
-    localStorage.setItem(SESSION_KEY, JSON.stringify(sessionData));
-    console.log('💾 User session saved to localStorage:', { userId, email });
+    const sessionKey = getSessionKey(userId);
+    localStorage.setItem(sessionKey, JSON.stringify(sessionData));
   } catch (error) {
     console.error('❌ Failed to save user session:', error);
   }
 };
 
 /**
- * Get user session from localStorage
+ * Get user session from localStorage for a specific user
  * Returns null if session doesn't exist or is expired
  */
-export const getUserSession = (): UserSessionData | null => {
+export const getUserSession = (userId?: string): UserSessionData | null => {
   try {
-    const stored = localStorage.getItem(SESSION_KEY);
-    if (!stored) {
-      return null;
+    // If userId is provided, get that specific user's session
+    if (userId) {
+      const sessionKey = getSessionKey(userId);
+      const stored = localStorage.getItem(sessionKey);
+      if (!stored) {
+        return null;
+      }
+      
+      const sessionData: UserSessionData = JSON.parse(stored);
+      
+      // Check if session is expired
+      const now = Date.now();
+      const isExpired = now - sessionData.timestamp > SESSION_TTL;
+      
+      if (isExpired) {
+        clearUserSession(userId);
+        return null;
+      }
+      
+      return sessionData;
     }
     
-    const sessionData: UserSessionData = JSON.parse(stored);
-    
-    // Check if session is expired
-    const now = Date.now();
-    const isExpired = now - sessionData.timestamp > SESSION_TTL;
-    
-    if (isExpired) {
-      console.log('⏰ User session expired, removing from localStorage');
-      clearUserSession();
-      return null;
+    // If no userId provided, try to find any active session by checking all keys
+    // This is for backward compatibility and auto-detection
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith(SESSION_KEY_PREFIX)) {
+        const stored = localStorage.getItem(key);
+        if (stored) {
+          try {
+            const sessionData: UserSessionData = JSON.parse(stored);
+            
+            // Check if session is expired
+            const now = Date.now();
+            const isExpired = now - sessionData.timestamp > SESSION_TTL;
+            
+            if (isExpired) {
+              clearUserSession(sessionData.userId);
+              continue;
+            }
+            
+            return sessionData;
+          } catch {
+            // Invalid data, skip
+            continue;
+          }
+        }
+      }
     }
     
-    console.log('✅ User session retrieved from localStorage:', { userId: sessionData.userId, email: sessionData.email });
-    return sessionData;
+    return null;
   } catch (error) {
     console.error('❌ Failed to retrieve user session:', error);
     return null;
@@ -68,31 +107,47 @@ export const getUserSession = (): UserSessionData | null => {
 };
 
 /**
- * Check if user has an active session
+ * Check if a specific user has an active session
  */
-export const hasActiveSession = (): boolean => {
-  return getUserSession() !== null;
+export const hasActiveSession = (userId?: string): boolean => {
+  return getUserSession(userId) !== null;
 };
 
 /**
- * Clear user session from localStorage
+ * Clear user session from localStorage for a specific user
+ * If no userId provided, clears all user sessions (for logout scenarios)
  */
-export const clearUserSession = (): void => {
+export const clearUserSession = (userId?: string): void => {
   try {
-    localStorage.removeItem(SESSION_KEY);
-    console.log('🧹 User session cleared from localStorage');
+    if (userId) {
+      // Clear specific user's session
+      const sessionKey = getSessionKey(userId);
+      localStorage.removeItem(sessionKey);
+    } else {
+      // Clear all user sessions (for cleanup or logout scenarios)
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith(SESSION_KEY_PREFIX)) {
+          keysToRemove.push(key);
+        }
+      }
+      
+      keysToRemove.forEach(key => localStorage.removeItem(key));
+    }
   } catch (error) {
     console.error('❌ Failed to clear user session:', error);
   }
 };
 
 /**
- * Update user session companies list
+ * Update user session companies list for a specific user
  */
-export const updateUserSessionCompanies = (companies: Array<{ companyId: string; name: string; role: string }>): void => {
-  const session = getUserSession();
+export const updateUserSessionCompanies = (userId: string, companies: Array<{ companyId: string; name: string; role: string }>): void => {
+  const session = getUserSession(userId);
   if (session) {
     saveUserSession(session.userId, session.email, companies);
   }
 };
+
 

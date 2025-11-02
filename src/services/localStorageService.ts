@@ -40,19 +40,16 @@ class LocalStorageService {
 
     try {
       localStorage.setItem(key, dataString);
-      console.log(`💾 Stored data in localStorage: ${key} (${(dataSize / 1024).toFixed(2)}KB)`);
     } catch (error) {
       console.error(`❌ Failed to store data in localStorage: ${key}`, error);
       
       // If quota exceeded, try to clean up old data
       if (error instanceof Error && error.name === 'QuotaExceededError') {
-        console.log('🧹 localStorage quota exceeded, attempting cleanup...');
         this.cleanupOldData();
         
         // Try again after cleanup
         try {
           localStorage.setItem(key, JSON.stringify(entry));
-          console.log(`💾 Successfully stored data after cleanup: ${key}`);
         } catch (retryError) {
           console.error(`❌ Still failed to store data after cleanup: ${key}`, retryError);
         }
@@ -76,11 +73,9 @@ class LocalStorageService {
       
       if (isExpired) {
         this.remove(key);
-        console.log(`⏰ Data expired in localStorage: ${key}`);
         return null;
       }
 
-      console.log(`✅ Retrieved data from localStorage: ${key}`);
       return entry.data;
     } catch (error) {
       console.error(`❌ Failed to retrieve data from localStorage: ${key}`, error);
@@ -101,7 +96,6 @@ class LocalStorageService {
   static remove(key: string): void {
     try {
       localStorage.removeItem(key);
-      console.log(`🗑️ Removed data from localStorage: ${key}`);
     } catch (error) {
       console.error(`❌ Failed to remove data from localStorage: ${key}`, error);
     }
@@ -128,7 +122,6 @@ class LocalStorageService {
       this.remove(key);
     });
 
-    console.log(`🧹 Cleaned up ${keysToRemove.length} old data entries`);
   }
 
   /**
@@ -179,7 +172,6 @@ class LocalStorageService {
       const entry: StorageEntry<any> = JSON.parse(stored);
       entry.metadata.timestamp = Date.now();
       localStorage.setItem(key, JSON.stringify(entry));
-      console.log(`🔄 Updated sync timestamp: ${key}`);
     } catch (error) {
       console.error(`❌ Failed to update sync timestamp: ${key}`, error);
     }
@@ -239,7 +231,6 @@ class LocalStorageService {
     );
     
     keys.forEach(key => this.remove(key));
-    console.log(`🧹 Cleared all application data from localStorage`);
   }
 }
 

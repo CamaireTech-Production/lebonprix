@@ -22,8 +22,6 @@ const Login = () => {
     if (!loading && hasActiveSession()) {
       const session = getUserSession();
       if (session) {
-        console.log('🔍 Found active session in localStorage, checking user authentication...');
-        
         // If user is already authenticated, redirect based on companies
         if (session.companies && session.companies.length > 0) {
           // Find first company where user is owner or admin
@@ -32,18 +30,15 @@ const Login = () => {
           );
           
           if (ownerOrAdminCompany) {
-            console.log('🚀 Redirecting to dashboard:', ownerOrAdminCompany.companyId);
             navigate(`/company/${ownerOrAdminCompany.companyId}/dashboard`);
             return;
           } else {
             // User is only employee - show company selection
-            console.log('🚀 Redirecting to company selection:', session.userId);
             navigate(`/companies/me/${session.userId}`);
             return;
           }
         } else {
           // User has no companies - show mode selection
-          console.log('🚀 Redirecting to mode selection');
           navigate('/mode-selection');
           return;
         }
@@ -54,8 +49,11 @@ const Login = () => {
   // Watch for user authentication state and stop loading when authenticated
   useEffect(() => {
     if (user && isLoading) {
-      console.log('✅ User authenticated, stopping loading state');
-      setIsLoading(false);
+      // Keep loading until navigation completes or after a short delay
+      // This ensures the button shows loading during the entire auth process
+      setTimeout(() => {
+        setIsLoading(false);
+      }, 1000); // Delay to ensure navigation is initiated and user sees the loading state
       // Navigation will be handled by AuthContext
     }
   }, [user, isLoading]);
@@ -69,7 +67,6 @@ const Login = () => {
     
     // Prevent duplicate submissions
     if (isLoading) {
-      console.log('⚠️ Login already in progress, ignoring duplicate submission');
       return;
     }
     
@@ -81,7 +78,12 @@ const Login = () => {
     try {
       setError('');
       setIsLoading(true);
+      
       await signIn(email, password);
+      
+      // signIn completed successfully, but user state might not be updated yet
+      // Keep loading state true until user is set (handled by useEffect above)
+      
       // Don't set isLoading to false here - wait for user state to change
       // The useEffect above will handle stopping the loading state when user is authenticated
       // This prevents the button from stopping loading before auth completes
@@ -168,7 +170,8 @@ const Login = () => {
             type="submit"
             className="w-full"
             isLoading={isLoading}
-            loadingText="Signing in..."
+            loadingText="Connexion en cours..."
+            disabled={isLoading}
           >
             Sign in
           </Button>

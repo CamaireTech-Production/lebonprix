@@ -35,14 +35,8 @@ const MainLayout = ({ isAddSaleModalOpen, setIsAddSaleModalOpen }: MainLayoutPro
   let urlCompanyId: string | null = null;
   const pathSegments = location.pathname.split('/');
   
-  console.log('🔍 URL complète:', location.pathname);
-  console.log('🔍 Segments URL:', pathSegments);
-  console.log('🔍 isCompanyRoute:', isCompanyRoute);
-  console.log('🔍 isCompanySelectionRoute:', isCompanySelectionRoute);
-  
   if (isCompanyRoute) {
     urlCompanyId = pathSegments[2]; // /company/{id}/...
-    console.log('🔍 Company route - ID extrait:', urlCompanyId);
   }
 
   // ✅ TOUS LES useEffect EN PREMIER
@@ -50,7 +44,6 @@ const MainLayout = ({ isAddSaleModalOpen, setIsAddSaleModalOpen }: MainLayoutPro
     if (isCompanyRoute && urlCompanyId) {
       // ✅ TOUJOURS charger les données de l'entreprise, même si selectedCompanyId correspond
       // Cela garantit que les données sont toujours à jour après redirection
-      console.log('🔄 Chargement company pour route:', location.pathname, 'ID:', urlCompanyId);
       loadCompanyFromUrl(urlCompanyId);
     }
   }, [isCompanyRoute, urlCompanyId]); // Supprimer selectedCompanyId des dépendances
@@ -99,50 +92,32 @@ const MainLayout = ({ isAddSaleModalOpen, setIsAddSaleModalOpen }: MainLayoutPro
   const loadCompanyFromUrl = async (companyId: string) => {
     // ✅ Optimisation : éviter les chargements inutiles si déjà en cours
     if (isLoadingCompany) {
-      console.log('⏳ Chargement déjà en cours, ignoré');
       return;
     }
 
     setIsLoadingCompany(true);
     setCompanyError(null); // Reset error state
     try {
-      console.log('🔍 URL complète:', location.pathname);
-      console.log('🔍 CompanyId extrait:', companyId);
-      console.log('🔍 Type de route:', isCompanyRoute ? 'company' : 'autre');
-      console.log('🔄 Chargement de la company depuis l\'URL:', companyId);
-      
       // Vérifier que l'ID n'est pas vide ou undefined
       if (!companyId || companyId.trim() === '') {
         throw new Error('ID de company vide ou invalide');
       }
       
-      console.log('🔍 Tentative de récupération du document Firestore...');
       const companyDoc = await getDoc(doc(db, 'companies', companyId));
-      
-      console.log('🔍 Document existe:', companyDoc.exists());
-      console.log('🔍 Document ID:', companyDoc.id);
       
       if (companyDoc.exists()) {
         const companyData = { id: companyDoc.id, ...companyDoc.data() } as any;
-        console.log('✅ Company chargée:', companyData.name);
-        console.log('✅ Données company:', companyData);
         
         // ✅ Toujours sélectionner la company pour synchroniser les données
-        console.log('🔄 Sélection de la company...');
         await selectCompany(companyId);
         setCompanyError(null); // Clear any previous errors
-        
-        console.log('✅ Company sélectionnée et données synchronisées');
       } else {
         console.error('❌ Company non trouvée dans Firestore:', companyId);
-        console.error('❌ Vérifiez que l\'ID de la company est correct dans l\'URL');
-        console.error('❌ Vérifiez que l\'entreprise existe dans la base de données');
         setCompanyError(`L'entreprise avec l'ID "${companyId}" n'a pas été trouvée. Vérifiez que le lien est correct.`);
       }
     } catch (error) {
       console.error('❌ Erreur lors du chargement de la company:', error);
       const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
-      console.error('❌ Détails de l\'erreur:', errorMessage);
       setCompanyError(`Erreur lors du chargement de l'entreprise: ${errorMessage}`);
     } finally {
       setIsLoadingCompany(false);

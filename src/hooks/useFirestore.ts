@@ -74,10 +74,8 @@ export const useProducts = () => {
       setProducts(localProducts);
       setLoading(false); // No loading spinner - data is available
       setSyncing(true); // Show background sync indicator
-      console.log('🚀 Products loaded instantly from localStorage');
     } else {
       setLoading(true); // Only show loading spinner if no cached data
-      console.log('📡 No cached products, loading from Firebase...');
     }
     
     // 2. Start background sync with Firebase
@@ -85,7 +83,6 @@ export const useProducts = () => {
       setProducts(freshProducts);
       setSyncing(false); // Hide background sync indicator
       setLoading(false); // Ensure loading is false
-      console.log('🔄 Products updated from background sync');
     });
 
     // 3. Also maintain real-time subscription for immediate updates
@@ -96,7 +93,6 @@ export const useProducts = () => {
       
       // Save to localStorage for future instant loads
       ProductsManager.save(company.id, data);
-      console.log('💾 Products saved to localStorage');
     });
 
     return () => unsubscribe();
@@ -200,7 +196,6 @@ export const useCategories = () => {
     if (cachedCategories) {
       setCategories(cachedCategories);
       setLoading(false);
-      console.log('🚀 Categories loaded from cache');
     }
     
     const unsubscribe = subscribeToCategories(company.id, (data) => {
@@ -209,7 +204,6 @@ export const useCategories = () => {
       
       // Cache the data for 10 minutes (categories change rarely)
       dataCache.set(cacheKey, data, 10 * 60 * 1000);
-      console.log('📦 Categories cached for faster loading');
     });
 
     return () => unsubscribe();
@@ -255,10 +249,8 @@ export const useSales = () => {
       setSales(localSales);
       setLoading(false); // No loading spinner - data is available
       setSyncing(true); // Show background sync indicator
-      console.log('🚀 Sales loaded instantly from localStorage');
     } else {
       setLoading(true); // Only show loading spinner if no cached data
-      console.log('📡 No cached sales, loading from Firebase...');
     }
     
     // 2. Start background sync with Firebase
@@ -266,7 +258,6 @@ export const useSales = () => {
       setSales(freshSales);
       setSyncing(false); // Hide background sync indicator
       setLoading(false); // Ensure loading is false
-      console.log('🔄 Sales updated from background sync');
     });
 
     // 3. Also maintain real-time subscription for immediate updates
@@ -277,7 +268,6 @@ export const useSales = () => {
       
       // Save to localStorage for future instant loads
       SalesManager.save(company.id, data);
-      console.log('💾 Sales saved to localStorage');
     });
 
     return () => unsubscribe();
@@ -440,10 +430,8 @@ export const useExpenses = () => {
       setExpenses(localExpenses);
       setLoading(false); // No loading spinner - data is available
       setSyncing(true); // Show background sync indicator
-      console.log('🚀 Expenses loaded instantly from localStorage');
     } else {
       setLoading(true); // Only show loading spinner if no cached data
-      console.log('📡 No cached expenses, loading from Firebase...');
     }
     
     // 2. Start background sync with Firebase
@@ -451,7 +439,6 @@ export const useExpenses = () => {
       setExpenses(freshExpenses);
       setSyncing(false); // Hide background sync indicator
       setLoading(false); // Ensure loading is false
-      console.log('🔄 Expenses updated from background sync');
     });
 
     // 3. Also maintain real-time subscription for immediate updates
@@ -462,7 +449,6 @@ export const useExpenses = () => {
       
       // Save to localStorage for future instant loads
       ExpensesManager.save(company.id, data);
-      console.log('💾 Expenses saved to localStorage');
     });
 
     return () => unsubscribe();
@@ -558,7 +544,6 @@ export const useStockChanges = () => {
     if (cachedStockChanges) {
       setStockChanges(cachedStockChanges);
       setLoading(false);
-      console.log('🚀 Stock changes loaded from cache');
     }
     
     const unsubscribe = subscribeToStockChanges(company.id, (data) => {
@@ -567,7 +552,6 @@ export const useStockChanges = () => {
       
       // Cache the data for 3 minutes (stock changes frequently)
       dataCache.set(cacheKey, data, 3 * 60 * 1000);
-      console.log('📦 Stock changes cached for faster loading');
     });
     return () => unsubscribe();
   }, [user, company]);
@@ -644,7 +628,6 @@ export const useSuppliers = () => {
     if (cachedSuppliers) {
       setSuppliers(cachedSuppliers);
       setLoading(false);
-      console.log('🚀 Suppliers loaded from cache');
     }
     
     const unsubscribe = subscribeToSuppliers(company.id, (data) => {
@@ -655,7 +638,6 @@ export const useSuppliers = () => {
       
       // Cache the data for 5 minutes
       dataCache.set(cacheKey, activeSuppliers, 5 * 60 * 1000);
-      console.log('📦 Suppliers cached for faster loading');
     });
 
     return () => unsubscribe();

@@ -47,13 +47,11 @@ const Dashboard = () => {
   useEffect(() => {
     if (!user || !company || essentialDataLoading) return;
     
-    console.log('🔄 Loading all sales in background...');
     setLoadingAllSales(true);
     
     const unsubscribe = subscribeToAllSales(company.id, (allSalesData) => {
       setAllSales(allSalesData);
       setLoadingAllSales(false);
-      console.log(`✅ All sales loaded: ${allSalesData.length} total sales`);
     });
     
     // Cleanup function
@@ -243,13 +241,6 @@ const Dashboard = () => {
   // Generate the company's catalogue page URL
   const productPageUrl = company ? `${window.location.origin}/catalogue/${encodeURIComponent(company.name.toLowerCase().replace(/\s+/g, '-'))}/${company.companyId || company.id}` : '';
   const sitePage  = company ? company.website : false;
-  // Debug logs pour vérifier la génération du lien
-  if (company) {
-    console.log('🔗 Dashboard - Company ID:', company.id);
-    console.log('🔗 Dashboard - Company Name:', company.name);
-    console.log('🔗 Dashboard - Encoded Name:', encodeURIComponent(company.name.toLowerCase().replace(/\s+/g, '-')));
-    console.log('🔗 Dashboard - Generated URL:', productPageUrl);
-  }
 
   const handleCopyLink = async () => {
     try {
