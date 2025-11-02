@@ -265,7 +265,7 @@ const Finance: React.FC = () => {
 
   // Reset page when filters change
   React.useEffect(() => { setCurrentPage(1); }, [filterType, filterSource, filterSearch, dateRange, itemsPerPage]);
-  
+
   // Debug: Log when entries change and reset to page 1 when new entries are added
   useEffect(() => {
     const prevLength = prevEntriesLengthRef.current;
@@ -291,7 +291,7 @@ const Finance: React.FC = () => {
     // Reset to page 1 when new entries are added
     if (currentLength > prevLength && currentPage !== 1) {
       console.log(`[Finance] 🔄 Resetting to page 1 because new entries were added`);
-      setCurrentPage(1);
+        setCurrentPage(1);
     }
     
     prevEntriesLengthRef.current = currentLength;
@@ -443,13 +443,13 @@ const Finance: React.FC = () => {
         }
         
         // Editing existing entry (non-sortie)
-        setForm({
-          id: editEntry.id,
-          type: { label: editEntry.type, value: editEntry.type },
-          amount: editEntry.amount.toString(),
-          description: editEntry.description || '',
-          date: editEntry.date?.seconds ? format(new Date(editEntry.date.seconds * 1000), 'yyyy-MM-dd') : '',
-          isEdit: true,
+      setForm({
+        id: editEntry.id,
+        type: { label: editEntry.type, value: editEntry.type },
+        amount: editEntry.amount.toString(),
+        description: editEntry.description || '',
+        date: editEntry.date?.seconds ? format(new Date(editEntry.date.seconds * 1000), 'yyyy-MM-dd') : '',
+        isEdit: true,
           refundedDebtId: editEntry.refundedDebtId || '',
         });
       } else {
@@ -976,16 +976,16 @@ const Finance: React.FC = () => {
                           {entry.amount.toLocaleString()} XAF
                         </div>
                         <div className="flex gap-2 mt-2">
-                        {entry.sourceType === 'manual' && (
-                          <button
+                          {entry.sourceType === 'manual' && (
+                            <button
                             onClick={() => entry.type === 'sortie' ? handleOpenRemoveMoneyModal(entry) : handleOpenModal(entry)}
-                            className="text-indigo-600 hover:text-indigo-900 p-1"
-                            title={t('common.edit')}
-                            aria-label={t('common.edit')}
-                          >
-                            <Edit2 size={16} />
-                          </button>
-                        )}
+                              className="text-indigo-600 hover:text-indigo-900 p-1"
+                              title={t('common.edit')}
+                              aria-label={t('common.edit')}
+                            >
+                              <Edit2 size={16} />
+                            </button>
+                          )}
                           <button
                             onClick={() => handleDeleteClick(entry)}
                             className="text-red-600 hover:text-red-900 p-1"
@@ -1176,9 +1176,9 @@ const Finance: React.FC = () => {
                 className="w-full border rounded px-3 py-2"
                 placeholder={t('common.description')}
                 rows={2}
-                disabled={form.type?.value === 'refund' && userDebt.debtEntries.length === 0}
+              disabled={form.type?.value === 'refund' && userDebt.debtEntries.length === 0}
               />
-            </div>
+                </div>
           </form>
       </Modal>
       
@@ -1203,7 +1203,7 @@ const Finance: React.FC = () => {
             <p className="text-sm text-red-800">
               {t('finance.youAreAboutToRemoveMoney', 'You are about to remove money from your balance.')}
             </p>
-          </div>
+            </div>
           
           <div>
             <label className="block text-sm font-medium mb-1">{t('common.type')}</label>
@@ -1262,7 +1262,7 @@ const Finance: React.FC = () => {
               />
             </div>
           )}
-        </form>
+          </form>
       </Modal>
       <Modal isOpen={!!deleteConfirm?.open} onClose={handleDeleteCancel} title={t('common.delete')} size="sm"
         footer={<ModalFooter onCancel={handleDeleteCancel} onConfirm={handleDeleteConfirm} confirmText={t('common.delete')} isDanger isLoading={deleteLoading} />}
