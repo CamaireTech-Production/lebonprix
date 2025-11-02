@@ -20,7 +20,7 @@ const Suppliers = () => {
   const { t } = useTranslation();
   const { suppliers, loading, error, addSupplier, updateSupplier, deleteSupplier } = useSuppliers();
   const { entries } = useFinanceEntries();
-  const { user } = useAuth();
+  const { user, company } = useAuth();
 
   // Modal states
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -249,7 +249,7 @@ const Suppliers = () => {
         refundAmount,
         refundData.description,
         debtToRefund.id,
-        user.uid
+        company.id
       );
       setIsRefundModalOpen(false);
       resetRefundForm();

@@ -7,36 +7,36 @@ class ProductsManager {
   private static readonly TTL = 5 * 60 * 1000; // 5 minutes
 
   /**
-   * Generate storage key for user's products
+   * Generate storage key for company's products
    */
-  static getKey(userId: string): string {
-    return `${this.STORAGE_KEY_PREFIX}${userId}`;
+  static getKey(companyId: string): string {
+    return `${this.STORAGE_KEY_PREFIX}${companyId}`;
   }
 
   /**
    * Load products from localStorage
    */
-  static load(userId: string): Product[] | null {
-    const key = this.getKey(userId);
+  static load(companyId: string): Product[] | null {
+    const key = this.getKey(companyId);
     return LocalStorageService.get<Product[]>(key);
   }
 
   /**
    * Save products to localStorage (including images for better UX)
    */
-  static save(userId: string, products: Product[]): void {
-    const key = this.getKey(userId);
+  static save(companyId: string, products: Product[]): void {
+    const key = this.getKey(companyId);
     
     // Save products with images for immediate display
     // Modern browsers can handle larger localStorage quotas
-    LocalStorageService.set(key, products, this.TTL, userId);
+    LocalStorageService.set(key, products, this.TTL, companyId);
   }
 
   /**
    * Check if products need sync
    */
-  static needsSync(userId: string): boolean {
-    const key = this.getKey(userId);
+  static needsSync(companyId: string): boolean {
+    const key = this.getKey(companyId);
     return LocalStorageService.needsSync(key);
   }
 
@@ -51,45 +51,45 @@ class ProductsManager {
   /**
    * Update last sync timestamp
    */
-  static updateLastSync(userId: string): void {
-    const key = this.getKey(userId);
+  static updateLastSync(companyId: string): void {
+    const key = this.getKey(companyId);
     LocalStorageService.updateLastSync(key);
   }
 
   /**
    * Get last sync timestamp
    */
-  static getLastSync(userId: string): number | null {
-    const key = this.getKey(userId);
+  static getLastSync(companyId: string): number | null {
+    const key = this.getKey(companyId);
     return LocalStorageService.getLastSync(key);
   }
 
   /**
    * Remove products from localStorage
    */
-  static remove(userId: string): void {
-    const key = this.getKey(userId);
+  static remove(companyId: string): void {
+    const key = this.getKey(companyId);
     LocalStorageService.remove(key);
   }
 
   /**
    * Check if products exist in localStorage
    */
-  static exists(userId: string): boolean {
-    const key = this.getKey(userId);
+  static exists(companyId: string): boolean {
+    const key = this.getKey(companyId);
     return LocalStorageService.has(key);
   }
 
   /**
    * Get products storage info
    */
-  static getStorageInfo(userId: string): {
+  static getStorageInfo(companyId: string): {
     exists: boolean;
     lastSync: number | null;
     needsSync: boolean;
     key: string;
   } {
-    const key = this.getKey(userId);
+    const key = this.getKey(companyId);
     return {
       exists: LocalStorageService.has(key),
       lastSync: LocalStorageService.getLastSync(key),

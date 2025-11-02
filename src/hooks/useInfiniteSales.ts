@@ -21,7 +21,7 @@ interface UseInfiniteSalesReturn {
 const SALES_PER_PAGE = 20;
 
 export const useInfiniteSales = (): UseInfiniteSalesReturn => {
-  const { user } = useAuth();
+  const { user, company } = useAuth();
   const [sales, setSales] = useState<Sale[]>([]);
   const [loading, setLoading] = useState(false); // Start as false
   const [loadingMore, setLoadingMore] = useState(false);
@@ -32,13 +32,13 @@ export const useInfiniteSales = (): UseInfiniteSalesReturn => {
 
   // Load initial sales
   const loadInitialSales = useCallback(async () => {
-    if (!user?.uid) {
+    if (!user?.uid || !company?.id) {
       setLoading(false);
       return;
     }
 
     // 1. Check localStorage FIRST - instant display if data exists
-    const localSales = SalesManager.load(user.uid);
+    const localSales = SalesManager.load(company.id);
     if (localSales && localSales.length > 0) {
       setSales(localSales);
       setLoading(false); // No loading spinner - data is available
@@ -46,7 +46,7 @@ export const useInfiniteSales = (): UseInfiniteSalesReturn => {
       console.log('🚀 Sales loaded instantly from localStorage');
       
       // Start background sync
-      BackgroundSyncService.syncSales(user.uid, (freshSales) => {
+      BackgroundSyncService.syncSales(company.id, (freshSales) => {
         setSales(freshSales);
         setSyncing(false); // Hide background sync indicator
         console.log('🔄 Sales updated from background sync');
@@ -61,7 +61,7 @@ export const useInfiniteSales = (): UseInfiniteSalesReturn => {
 
       const q = query(
         collection(db, 'sales'),
-        where('userId', '==', user.uid),
+        where('companyId', '==', company.id),
         orderBy('createdAt', 'desc'),
         limit(SALES_PER_PAGE)
       );
@@ -77,7 +77,7 @@ export const useInfiniteSales = (): UseInfiniteSalesReturn => {
       setHasMore(snapshot.docs.length === SALES_PER_PAGE);
       
       // Save to localStorage for future instant loads
-      SalesManager.save(user.uid, salesData);
+      SalesManager.save(company.id, salesData);
       console.log(`✅ Initial sales loaded and cached: ${salesData.length} items`);
     } catch (err) {
       console.error('❌ Error loading initial sales:', err);
@@ -85,11 +85,11 @@ export const useInfiniteSales = (): UseInfiniteSalesReturn => {
     } finally {
       setLoading(false);
     }
-  }, [user?.uid]);
+  }, [user?.uid, company?.id]);
 
   // Load more sales (infinite scroll)
   const loadMore = useCallback(async () => {
-    if (!user?.uid || !lastDoc || loadingMore || !hasMore) return;
+    if (!user?.uid || !company?.id || !lastDoc || loadingMore || !hasMore) return;
 
     try {
       setLoadingMore(true);
@@ -97,7 +97,7 @@ export const useInfiniteSales = (): UseInfiniteSalesReturn => {
 
       const q = query(
         collection(db, 'sales'),
-        where('userId', '==', user.uid),
+        where('companyId', '==', company.id),
         orderBy('createdAt', 'desc'),
         startAfter(lastDoc),
         limit(SALES_PER_PAGE)
@@ -113,7 +113,7 @@ export const useInfiniteSales = (): UseInfiniteSalesReturn => {
         setSales(prev => {
           const updatedSales = [...prev, ...newSales];
           // Update localStorage with all sales
-          SalesManager.save(user.uid, updatedSales);
+          SalesManager.save(company.id, updatedSales);
           console.log(`✅ More sales loaded: ${newSales.length} items (total: ${updatedSales.length})`);
           return updatedSales;
         });
@@ -129,7 +129,7 @@ export const useInfiniteSales = (): UseInfiniteSalesReturn => {
     } finally {
       setLoadingMore(false);
     }
-  }, [user?.uid, lastDoc, loadingMore, hasMore]);
+  }, [user?.uid, company?.id, lastDoc, loadingMore, hasMore]);
 
   const refresh = useCallback(() => {
     setSales([]);
@@ -139,7 +139,7 @@ export const useInfiniteSales = (): UseInfiniteSalesReturn => {
   }, [loadInitialSales]);
 
   useEffect(() => {
-    if (user?.uid) {
+    if (user?.uid && company?.id) {
       loadInitialSales();
     } else {
       setSales([]);
@@ -148,7 +148,7 @@ export const useInfiniteSales = (): UseInfiniteSalesReturn => {
       setLoading(false);
       setError(null);
     }
-  }, [user?.uid, loadInitialSales]);
+  }, [user?.uid, company?.id, loadInitialSales]);
 
   return {
     sales,

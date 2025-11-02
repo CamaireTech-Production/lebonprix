@@ -1,7 +1,7 @@
-# Geskap Order Management & CinetPay Integration Rules
+# Lebonprix Chat Agent Rules
 
 ## Project Context
-This is a React/TypeScript e-commerce management system built with Firebase, implementing a comprehensive order management system with CinetPay mobile money integration for the Cameroon market.
+This is a React/TypeScript e-commerce management system built with Firebase, implementing a comprehensive order management system with CinetPay mobile money integration for the Cameroon market. The system has evolved from a company-centric architecture to a user-centric one, with legacy companies grandfathered using Firebase Auth UIDs as company IDs.
 
 ## Core Technologies
 - **Frontend**: React 18, TypeScript, Vite, Tailwind CSS
@@ -12,9 +12,15 @@ This is a React/TypeScript e-commerce management system built with Firebase, imp
 
 ## Architecture Principles
 
+### User-Centric Model (Current)
+- **Users First**: Create user accounts, then link to companies
+- **Legacy Support**: Existing companies use Firebase Auth UID as company ID
+- **New Companies**: Use generated IDs with proper user-company linking
+- **Data Consistency**: All documents have `id` field matching document ID
+
 ### Order Management System
-- **Order Persistence**: All orders must be stored in Firestore with complete traceability
-- **Status Tracking**: Every order status change must be logged with timestamp and user
+- **Order Persistence**: All orders stored in Firestore with complete traceability
+- **Status Tracking**: Every order status change logged with timestamp and user
 - **User Isolation**: Each company/user can only access their own orders
 - **Audit Trail**: Complete timeline of all order events and changes
 
@@ -25,7 +31,7 @@ This is a React/TypeScript e-commerce management system built with Firebase, imp
 - **Payment Methods**: Mobile Money (MTN, Orange), Bank Cards, Bank Transfers
 - **Security**: Encrypt API keys, validate webhooks, verify transactions
 
-### Data Models
+## Data Models
 ```typescript
 // Core order structure
 interface Order extends BaseModel {
@@ -44,173 +50,214 @@ interface Order extends BaseModel {
   metadata: OrderMetadata;
 }
 
-// CinetPay configuration per user
-interface CinetPayConfig extends BaseModel {
-  siteId: string;
-  apiKey: string; // encrypted
-  currency: 'XAF';
-  isActive: boolean;
-  supportedMethods: string[];
-  minAmount: number;
-  maxAmount: number;
+// User-centric company structure
+interface User {
+  id: string; // Firebase Auth UID
+  firstname: string;
+  lastname: string;
+  email: string;
+  phone?: string;
+  companies: UserCompanyRef[]; // Array of company references
+  status: 'active' | 'suspended' | 'invited';
+}
+
+interface Company extends BaseModel {
+  id: string; // Document ID (Firebase Auth UID for legacy, generated for new)
+  userId: string; // Owner reference
+  name: string;
+  email: string;
+  phone: string;
+  // ... other company fields
 }
 ```
 
-## Development Guidelines
+## Chat Agent Behavior Rules
+
+### Ask Mode Behavior
+- **NO CODE OUTPUT**: Never provide code blocks unless explicitly requested
+- **BRIEF & CLEAR**: Keep responses concise and focused
+- **CRITICAL THINKING**: Always question and analyze user propositions
+- **ALTERNATIVE REASONING**: Suggest alternative approaches and considerations
+- **COMPREHENSIVE ANALYSIS**: Consider all aspects of the codebase when making suggestions
+
+### Agent Mode Behavior
+- **IMPLEMENTATION READY**: Provide complete, working code solutions
+- **CONTEXT AWARENESS**: Always consider the full system architecture
+- **BEST PRACTICES**: Follow established patterns and conventions
+- **ERROR HANDLING**: Include proper error handling and validation
+- **DOCUMENTATION**: Add meaningful comments and explanations
+
+### Response Guidelines
+
+#### When User Proposes Changes:
+1. **Analyze Impact**: Consider how changes affect the entire system
+2. **Question Assumptions**: Challenge the reasoning behind proposals
+3. **Suggest Alternatives**: Offer different approaches or solutions
+4. **Highlight Risks**: Point out potential issues or breaking changes
+5. **Consider Dependencies**: Think about how changes affect other components
+
+#### When Providing Suggestions:
+1. **System-Wide View**: Consider frontend, backend, database, and integration impacts
+2. **Legacy Compatibility**: Ensure suggestions work with existing grandfathered companies
+3. **Performance Implications**: Consider scalability and performance effects
+4. **Security Considerations**: Evaluate security implications of any changes
+5. **User Experience**: Think about how changes affect end-user experience
+
+### Code Quality Standards
+
+#### TypeScript
+- **Strict Mode**: Use strict TypeScript configuration
+- **Type Safety**: Ensure all data is properly typed
+- **Interface Definitions**: Define clear interfaces for all data structures
+- **Error Types**: Define specific error types for better error handling
+
+#### React Best Practices
+- **Functional Components**: Use functional components with hooks
+- **Custom Hooks**: Extract reusable logic into custom hooks
+- **Context Usage**: Use React Context appropriately for global state
+- **Performance**: Optimize re-renders and component updates
+
+#### Firebase Integration
+- **Security Rules**: Always implement proper Firestore security rules
+- **Batch Operations**: Use Firestore batch writes for atomic operations
+- **Real-time Updates**: Use Firestore listeners for real-time data
+- **Error Handling**: Comprehensive error handling for all Firebase operations
+
+### Migration & Legacy Support
+
+#### Legacy Company Handling
+- **Grandfather Clause**: Existing companies keep Firebase Auth UID as company ID
+- **Data Consistency**: All legacy companies have proper `id` fields
+- **Backward Compatibility**: Ensure new code works with legacy data
+- **Gradual Migration**: Support both old and new patterns during transition
+
+#### New Company Creation
+- **Generated IDs**: Use Firestore document ID generation for new companies
+- **User Linking**: Properly link users to companies via `users[].companies[]`
+- **Data Integrity**: Ensure all new companies follow consistent structure
+
+### Security Requirements
+
+#### Data Protection
+- **Encryption**: Encrypt sensitive data (API keys, payment details)
+- **Access Control**: Implement role-based access control
+- **Input Validation**: Validate all user inputs and API data
+- **Audit Logging**: Log all critical operations for compliance
+
+#### Payment Security
+- **API Key Protection**: Never expose CinetPay API keys in frontend
+- **Webhook Verification**: Verify CinetPay webhook authenticity
+- **Transaction Validation**: Verify payment amounts and details
+- **PCI Compliance**: Follow PCI DSS guidelines for payment processing
+
+### Performance Considerations
+
+#### Database Optimization
+- **Indexing**: Create proper Firestore indexes for queries
+- **Pagination**: Implement pagination for large order lists
+- **Caching**: Use appropriate caching strategies
+- **Batch Operations**: Use batch writes for multiple operations
+
+#### Frontend Optimization
+- **Lazy Loading**: Load order data on demand
+- **Memoization**: Use React.memo and useMemo appropriately
+- **Bundle Size**: Keep bundle size optimized
+- **Mobile Performance**: Ensure smooth mobile experience
+
+### Error Handling Standards
+
+#### Order System Errors
+- **Order Creation Failures**: Graceful handling with user feedback
+- **Status Update Errors**: Retry logic and error reporting
+- **Payment Failures**: Clear error messages and retry options
+- **Data Validation**: Comprehensive validation with helpful messages
+
+#### CinetPay Errors
+- **Payment Failures**: Handle all CinetPay error codes
+- **Network Issues**: Implement retry logic and fallbacks
+- **API Errors**: Proper error handling and user communication
+- **Webhook Failures**: Handle webhook processing errors
+
+### Testing Requirements
+
+#### Unit Testing
+- **Service Functions**: Test all order and payment service functions
+- **Component Logic**: Test component business logic
+- **Data Validation**: Test all data validation functions
+- **Error Scenarios**: Test all error handling paths
+
+#### Integration Testing
+- **Order Flow**: Test complete order creation and processing
+- **Payment Flow**: Test CinetPay integration end-to-end
+- **Admin Interface**: Test all admin order management features
+- **Mobile Testing**: Test on various mobile devices and browsers
+
+### Deployment Considerations
+
+#### Environment Configuration
+- **Development**: Use CinetPay sandbox environment
+- **Staging**: Test with real CinetPay test environment
+- **Production**: Use CinetPay production environment
+- **Environment Variables**: Secure configuration management
+
+#### Monitoring
+- **Order Metrics**: Track order processing and success rates
+- **Payment Metrics**: Monitor payment success and failure rates
+- **Performance Metrics**: Monitor system performance and response times
+- **Error Tracking**: Comprehensive error logging and monitoring
 
 ### Code Organization
+
+#### File Structure
 - **Services**: All business logic in `/src/services/`
 - **Types**: All TypeScript interfaces in `/src/types/`
 - **Components**: Reusable components in `/src/components/`
 - **Pages**: Main application pages in `/src/pages/`
 - **Hooks**: Custom hooks in `/src/hooks/`
 
-### Firebase Integration
-- **Security Rules**: Always implement proper Firestore security rules
-- **Batch Operations**: Use Firestore batch writes for atomic operations
-- **Real-time Updates**: Use Firestore listeners for real-time data
-- **Error Handling**: Comprehensive error handling for all Firebase operations
+#### Naming Conventions
+- **Files**: Use PascalCase for components, camelCase for utilities
+- **Functions**: Use descriptive names with clear intent
+- **Variables**: Use meaningful names that explain purpose
+- **Constants**: Use UPPER_SNAKE_CASE for constants
 
-### CinetPay Integration
-- **SDK Loading**: Load CinetPay SDK in index.html
-- **Configuration**: Store CinetPay config per user in Firestore
-- **Payment Flow**: Initialize → Process → Verify → Update Order
-- **Error Handling**: Handle all CinetPay error scenarios gracefully
-- **iOS Safari**: Implement fallback for iOS Safari popup issues
+### Documentation Standards
 
-### Order Management
-- **Order Creation**: Convert cart to persistent order with complete data
-- **Status Updates**: Always log status changes with full context
-- **Payment Processing**: Integrate CinetPay with order status updates
-- **Admin Interface**: Provide comprehensive order management dashboard
-
-## Security Requirements
-
-### Data Protection
-- **Encryption**: Encrypt sensitive data (API keys, payment details)
-- **Access Control**: Implement role-based access control
-- **Input Validation**: Validate all user inputs and API data
-- **Audit Logging**: Log all critical operations for compliance
-
-### Payment Security
-- **API Key Protection**: Never expose CinetPay API keys in frontend
-- **Webhook Verification**: Verify CinetPay webhook authenticity
-- **Transaction Validation**: Verify payment amounts and details
-- **PCI Compliance**: Follow PCI DSS guidelines for payment processing
-
-## Performance Considerations
-
-### Database Optimization
-- **Indexing**: Create proper Firestore indexes for queries
-- **Pagination**: Implement pagination for large order lists
-- **Caching**: Use appropriate caching strategies
-- **Batch Operations**: Use batch writes for multiple operations
-
-### Frontend Optimization
-- **Lazy Loading**: Load order data on demand
-- **Memoization**: Use React.memo and useMemo appropriately
-- **Bundle Size**: Keep bundle size optimized
-- **Mobile Performance**: Ensure smooth mobile experience
-
-## Error Handling
-
-### Order System Errors
-- **Order Creation Failures**: Graceful handling with user feedback
-- **Status Update Errors**: Retry logic and error reporting
-- **Payment Failures**: Clear error messages and retry options
-- **Data Validation**: Comprehensive validation with helpful messages
-
-### CinetPay Errors
-- **Payment Failures**: Handle all CinetPay error codes
-- **Network Issues**: Implement retry logic and fallbacks
-- **API Errors**: Proper error handling and user communication
-- **Webhook Failures**: Handle webhook processing errors
-
-## Testing Requirements
-
-### Unit Testing
-- **Service Functions**: Test all order and payment service functions
-- **Component Logic**: Test component business logic
-- **Data Validation**: Test all data validation functions
-- **Error Scenarios**: Test all error handling paths
-
-### Integration Testing
-- **Order Flow**: Test complete order creation and processing
-- **Payment Flow**: Test CinetPay integration end-to-end
-- **Admin Interface**: Test all admin order management features
-- **Mobile Testing**: Test on various mobile devices and browsers
-
-## Deployment Considerations
-
-### Environment Configuration
-- **Development**: Use CinetPay sandbox environment
-- **Staging**: Test with real CinetPay test environment
-- **Production**: Use CinetPay production environment
-- **Environment Variables**: Secure configuration management
-
-### Monitoring
-- **Order Metrics**: Track order processing and success rates
-- **Payment Metrics**: Monitor payment success and failure rates
-- **Performance Metrics**: Monitor system performance and response times
-- **Error Tracking**: Comprehensive error logging and monitoring
-
-## Code Quality Standards
-
-### TypeScript
-- **Strict Mode**: Use strict TypeScript configuration
-- **Type Safety**: Ensure all data is properly typed
-- **Interface Definitions**: Define clear interfaces for all data structures
-- **Error Types**: Define specific error types for better error handling
-
-### React Best Practices
-- **Functional Components**: Use functional components with hooks
-- **Custom Hooks**: Extract reusable logic into custom hooks
-- **Context Usage**: Use React Context appropriately for global state
-- **Performance**: Optimize re-renders and component updates
-
-### Code Organization
-- **File Naming**: Use consistent file naming conventions
-- **Folder Structure**: Maintain clear folder structure
-- **Import Organization**: Organize imports logically
-- **Comment Standards**: Add meaningful comments for complex logic
-
-## Documentation Requirements
-
-### Code Documentation
+#### Code Documentation
 - **Function Comments**: Document all public functions
 - **Interface Documentation**: Document all TypeScript interfaces
 - **API Documentation**: Document all service APIs
 - **Integration Guides**: Document CinetPay integration process
 
-### User Documentation
+#### User Documentation
 - **Admin Guide**: Document admin order management features
 - **Customer Guide**: Document customer ordering process
 - **Troubleshooting**: Document common issues and solutions
 - **Configuration**: Document CinetPay configuration process
 
-## Future Considerations
+### Future Considerations
 
-### Scalability
+#### Scalability
 - **Microservices**: Consider microservices architecture for future scaling
 - **Caching**: Implement advanced caching strategies
 - **CDN**: Use CDN for global performance
 - **Database Optimization**: Advanced database optimization techniques
 
-### Feature Enhancements
+#### Feature Enhancements
 - **AI Analytics**: Machine learning for order predictions
 - **Advanced Reporting**: More sophisticated reporting capabilities
 - **Mobile App**: Native mobile application development
 - **Multi-language**: Expand language support beyond French/English
 
-## Compliance Requirements
+### Compliance Requirements
 
-### Data Protection
+#### Data Protection
 - **GDPR Compliance**: Follow GDPR guidelines for data protection
 - **Data Retention**: Implement proper data retention policies
 - **User Consent**: Obtain proper consent for data processing
 - **Data Portability**: Allow users to export their data
 
-### Payment Compliance
+#### Payment Compliance
 - **PCI DSS**: Follow PCI DSS guidelines for payment processing
 - **Financial Regulations**: Comply with local financial regulations
 - **Audit Requirements**: Maintain audit trails for compliance
@@ -239,4 +286,10 @@ interface CinetPayConfig extends BaseModel {
 - **Webhook**: Handle at `/api/cinetpay/webhook`
 - **Currency**: Use `XAF` for Cameroon market
 
-Remember: Always prioritize security, user experience, and data integrity in all implementations.
+### Migration Status
+- **Users Created**: 3 user documents created for existing companies
+- **Companies Fixed**: All companies have proper `id` fields
+- **Legacy Support**: Existing companies use Firebase Auth UID as company ID
+- **New Architecture**: Future companies will use generated IDs
+
+Remember: Always prioritize security, user experience, and data integrity in all implementations. When in Ask Mode, be critical and analytical. When in Agent Mode, be implementation-ready and comprehensive.

@@ -1,10 +1,11 @@
-import { useState, FormEvent } from 'react';
-import { Link, useNavigate, Navigate } from 'react-router-dom';
+import { useState, FormEvent, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
 import LoadingScreen from '../../components/common/LoadingScreen';
 import { LoginPWAInstallButton } from '../../components/LoginPWAInstallButton';
+import { getUserSession, hasActiveSession } from '../../utils/userSession';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -12,19 +13,62 @@ const Login = () => {
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  
-  const { currentUser, loading, signIn } = useAuth();
   const navigate = useNavigate();
+  
+  const { loading, signIn, user } = useAuth();
+
+  // Check localStorage session on mount and redirect if already logged in
+  useEffect(() => {
+    if (!loading && hasActiveSession()) {
+      const session = getUserSession();
+      if (session) {
+        // If user is already authenticated, redirect based on companies
+        if (session.companies && session.companies.length > 0) {
+          // Find first company where user is owner or admin
+          const ownerOrAdminCompany = session.companies.find(
+            (c) => c.role === 'owner' || c.role === 'admin'
+          );
+          
+          if (ownerOrAdminCompany) {
+            navigate(`/company/${ownerOrAdminCompany.companyId}/dashboard`);
+            return;
+          } else {
+            // User is only employee - show company selection
+            navigate(`/companies/me/${session.userId}`);
+            return;
+          }
+        } else {
+          // User has no companies - show mode selection
+          navigate('/mode-selection');
+          return;
+        }
+      }
+    }
+  }, [loading, navigate]);
+
+  // Watch for user authentication state and stop loading when authenticated
+  useEffect(() => {
+    if (user && isLoading) {
+      // Keep loading until navigation completes or after a short delay
+      // This ensures the button shows loading during the entire auth process
+      setTimeout(() => {
+        setIsLoading(false);
+      }, 1000); // Delay to ensure navigation is initiated and user sees the loading state
+      // Navigation will be handled by AuthContext
+    }
+  }, [user, isLoading]);
 
   if (loading) {
     return <LoadingScreen />;
   }
-  if (currentUser) {
-    return <Navigate to="/" replace />;
-  }
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    
+    // Prevent duplicate submissions
+    if (isLoading) {
+      return;
+    }
     
     if (!email || !password) {
       setError('Please enter both email and password');
@@ -34,13 +78,35 @@ const Login = () => {
     try {
       setError('');
       setIsLoading(true);
+      
       await signIn(email, password);
-      navigate('/');
-    } catch (err) {
-      setError('Failed to sign in. Please check your credentials.');
-      console.error(err);
-    } finally {
-      setIsLoading(false);
+      
+      // signIn completed successfully, but user state might not be updated yet
+      // Keep loading state true until user is set (handled by useEffect above)
+      
+      // Don't set isLoading to false here - wait for user state to change
+      // The useEffect above will handle stopping the loading state when user is authenticated
+      // This prevents the button from stopping loading before auth completes
+    } catch (err: any) {
+      console.error('Login error:', err);
+      setIsLoading(false); // Only stop loading on error
+      
+      // Show user-friendly error messages
+      if (err.message && err.message.includes('déjà en cours')) {
+        setError(err.message);
+      } else if (err.code) {
+        const errorMessages: Record<string, string> = {
+          'auth/user-not-found': 'Utilisateur non trouvé',
+          'auth/wrong-password': 'Mot de passe incorrect',
+          'auth/invalid-email': 'Email invalide',
+          'auth/user-disabled': 'Compte utilisateur désactivé',
+          'auth/network-request-failed': 'Erreur réseau. Vérifiez votre connexion.',
+          'auth/too-many-requests': 'Trop de tentatives. Réessayez plus tard.',
+        };
+        setError(errorMessages[err.code] || 'Erreur lors de la connexion. Veuillez réessayer.');
+      } else {
+        setError(err.message || 'Failed to sign in. Please check your credentials.');
+      }
     }
   };
 
@@ -104,6 +170,8 @@ const Login = () => {
             type="submit"
             className="w-full"
             isLoading={isLoading}
+            loadingText="Connexion en cours..."
+            disabled={isLoading}
           >
             Sign in
           </Button>

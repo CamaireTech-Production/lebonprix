@@ -7,7 +7,8 @@ export interface BaseModel {
   id: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
-  userId: string; // Reference to the user who owns this record
+  userId: string; // Legacy field - kept for audit trail, user who created the record
+  companyId: string; // Reference to the company this record belongs to (primary field for data isolation)
 }
 
 export interface Company extends BaseModel {
@@ -17,6 +18,7 @@ export interface Company extends BaseModel {
   phone: string;
   location?: string;
   email: string;
+  website?: string; // Company website URL
   
   // Color customization for catalogue
   catalogueColors?: {
@@ -152,6 +154,7 @@ export interface Customer {
   name?: string;
   quarter?: string;
   userId: string;
+  companyId: string; // Reference to the company this customer belongs to
   createdAt: Date;
 }
 
@@ -162,8 +165,8 @@ export interface Objective extends BaseModel {
   targetAmount: number;
   periodType: 'predefined' | 'custom';
   predefined?: string; // this_month, this_year, etc.
-  startAt?: any; // Firebase Timestamp
-  endAt?: any;
+  startAt?: Timestamp; // Firebase Timestamp
+  endAt?: Timestamp;
   userId: string;
   isAvailable?: boolean;
 }
@@ -181,7 +184,8 @@ export interface StockChange {
   batchId?: string; // Reference to stock batch (legacy, kept for backward compatibility)
   saleId?: string; // Reference to sale if applicable
   createdAt: Timestamp;
-  userId: string;
+  userId: string; // Legacy field - kept for audit trail
+  companyId: string; // Reference to the company this stock change belongs to
   // NEW: Detailed batch consumption tracking
   batchConsumptions?: Array<{
     batchId: string;
@@ -202,7 +206,8 @@ export interface StockBatch {
   isCredit?: boolean; // true if on credit, false if paid
   createdAt: Timestamp;
   updatedAt?: Timestamp; // Last update timestamp
-  userId: string;
+  userId: string; // Legacy field - kept for audit trail
+  companyId: string; // Reference to the company this stock batch belongs to
   remainingQuantity: number; // How many units left from this batch
   damagedQuantity?: number; // How many units damaged from this batch
   status: 'active' | 'depleted' | 'corrected'; // Batch status
@@ -220,7 +225,8 @@ export interface Supplier extends BaseModel {
 
 export interface FinanceEntry {
   id: string;
-  userId: string;
+  userId: string; // Legacy field - kept for audit trail
+  companyId: string; // Reference to the company this finance entry belongs to
   sourceType: 'sale' | 'expense' | 'manual' | 'supplier';
   sourceId?: string; // saleId, expenseId, or supplierId if applicable
   type: string; // e.g., "sale", "expense", "loan", "deposit", "supplier_debt", "supplier_refund", etc.
@@ -251,4 +257,97 @@ export interface ExpenseType {
   createdAt: Timestamp;
 }
 
-// Rest of the existing interfaces...
+// Employee invitation system types
+export interface Invitation {
+  id: string;
+  companyId: string;
+  companyName: string;
+  invitedBy: string;
+  invitedByName: string;
+  email: string;
+  firstname: string;
+  lastname: string;
+  phone?: string;
+  role: 'staff' | 'manager' | 'admin';
+  status: 'pending' | 'accepted' | 'rejected' | 'expired';
+  createdAt: Timestamp;
+  expiresAt: Timestamp;
+  acceptedAt?: Timestamp;
+  permissionTemplateId?: string; // Optional template assignment
+}
+
+// Employee management types
+export type UserRole = 'admin' | 'manager' | 'staff';
+
+export interface CompanyEmployee {
+  id: string; // ID unique généré automatiquement
+  firstname: string;
+  lastname: string;
+  email: string;
+  phone?: string;
+  role: UserRole;
+  birthday?: string; // ISO date (YYYY-MM-DD)
+  loginLink?: string; // lien d'invitation / connexion
+  firebaseUid?: string; // UID Firebase Auth (optionnel, pour liaison)
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+// Nouvelle interface pour les références d'employés
+export interface EmployeeRef {
+  id: string;              // firebaseUid du user
+  firstname: string;       // Dupliqué depuis users
+  lastname: string;        // Dupliqué depuis users
+  email: string;          // Dupliqué depuis users
+  role: 'admin' | 'manager' | 'staff';  // Rôle dans cette companie
+  addedAt: Timestamp;     // Date d'ajout comme employé
+}
+
+// Référence d'une entreprise pour un utilisateur
+export interface UserCompanyRef {
+  companyId: string;
+  name: string;
+  description?: string;
+  logo?: string;
+  role: 'owner' | 'admin' | 'manager' | 'staff';
+  joinedAt: Timestamp;
+  // Optional: assigned permission template for this company
+  permissionTemplateId?: string;
+  // Optional: userId (firebaseUid) - needed for operations like deletion
+  userId?: string;
+}
+
+// ❌ SUPPRIMÉ - Plus utilisé dans l'architecture simplifiée
+// Les références sont maintenant uniquement dans users[].companies[]
+
+// Nouveau modèle User unifié
+export interface User {
+  id: string;
+  firstname: string;
+  lastname: string;
+  email: string;
+  phone?: string;
+  photoURL?: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+  companies: UserCompanyRef[];
+  status: 'active' | 'suspended' | 'invited';
+  lastLogin?: Timestamp;
+  // Optional: last selected permission template per company (future use)
+  // selectedTemplates?: Record<string /*companyId*/, string /*templateId*/>;
+}
+
+// Update Company interface to include employees
+export interface Company extends BaseModel {
+  name: string;
+  logo?: string; // Base64 string for logo
+  description?: string;
+  phone: string;
+  role : "Companie"
+  location?: string;
+  email: string;
+  companyId: string; // ID du propriétaire de l'entreprise
+  employees?: Record<string, CompanyEmployee>; // Mirroir de employeeRefs pour lecture rapide
+  employeeCount?: number; // Nombre total d'employés
+  // Nouvelle architecture: employeeRefs via sous-collection companies/{id}/employeeRefs/{firebaseUid}
+}

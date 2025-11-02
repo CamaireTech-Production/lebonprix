@@ -22,7 +22,6 @@ class BackgroundSyncService {
     
     // Prevent duplicate syncs
     if (this.syncInProgress.has(key)) {
-      console.log(`🔄 Products sync already in progress for user: ${userId}`);
       return;
     }
 
@@ -33,11 +32,9 @@ class BackgroundSyncService {
     }
 
     try {
-      console.log(`🔄 Starting background sync for products: ${userId}`);
       
       // Check if sync is needed
       if (!ProductsManager.needsSync(userId)) {
-        console.log(`✅ Products data is fresh, skipping sync: ${userId}`);
         
         // Still notify callback that sync is complete (data is fresh)
         const callback = this.syncCallbacks.get(key);
@@ -56,14 +53,12 @@ class BackgroundSyncService {
 
       // Subscribe to Firebase for fresh data
       const unsubscribe = subscribeToProducts(userId, (freshProducts) => {
-        console.log(`📡 Received fresh products from Firebase: ${freshProducts.length} items`);
         
         // Get current local data
         const localProducts = ProductsManager.load(userId);
         
         // Check if data has actually changed
         if (localProducts && !ProductsManager.hasChanged(localProducts, freshProducts)) {
-          console.log(`✅ Products data unchanged, updating sync timestamp only`);
           ProductsManager.updateLastSync(userId);
           
           // Still notify callback that sync is complete (even if no data change)
@@ -80,7 +75,6 @@ class BackgroundSyncService {
         }
 
         // Data has changed, update localStorage
-        console.log(`🔄 Products data changed, updating localStorage`);
         ProductsManager.save(userId, freshProducts);
         
         // Notify callback if provided
@@ -116,7 +110,6 @@ class BackgroundSyncService {
    * Force immediate sync for products
    */
   static async forceSyncProducts(userId: string, onUpdate?: (products: Product[]) => void): Promise<void> {
-    console.log(`🚀 Force syncing products for user: ${userId}`);
     
     // Remove from localStorage to force fresh fetch
     ProductsManager.remove(userId);
@@ -140,7 +133,6 @@ class BackgroundSyncService {
     
     // Prevent duplicate syncs
     if (this.syncInProgress.has(key)) {
-      console.log(`🔄 Sales sync already in progress for user: ${userId}`);
       return;
     }
 
@@ -151,11 +143,9 @@ class BackgroundSyncService {
     }
 
     try {
-      console.log(`🔄 Starting background sync for sales: ${userId}`);
       
       // Check if sync is needed
       if (!SalesManager.needsSync(userId)) {
-        console.log(`✅ Sales data is fresh, skipping sync: ${userId}`);
         
         // Still notify callback that sync is complete (data is fresh)
         const callback = this.syncCallbacks.get(key);
@@ -174,14 +164,12 @@ class BackgroundSyncService {
 
       // Subscribe to Firebase for fresh data
       const unsubscribe = subscribeToSales(userId, (freshSales) => {
-        console.log(`📡 Received fresh sales from Firebase: ${freshSales.length} items`);
         
         // Get current local data
         const localSales = SalesManager.load(userId);
         
         // Check if data has actually changed
         if (localSales && !SalesManager.hasChanged(localSales, freshSales)) {
-          console.log(`✅ Sales data unchanged, updating sync timestamp only`);
           SalesManager.updateLastSync(userId);
           
           // Still notify callback that sync is complete (even if no data change)
@@ -198,7 +186,6 @@ class BackgroundSyncService {
         }
 
         // Data has changed, update localStorage
-        console.log(`🔄 Sales data changed, updating localStorage`);
         SalesManager.save(userId, freshSales);
         
         // Notify callback if provided
@@ -234,7 +221,6 @@ class BackgroundSyncService {
    * Force immediate sync for sales
    */
   static async forceSyncSales(userId: string, onUpdate?: (sales: Sale[]) => void): Promise<void> {
-    console.log(`🚀 Force syncing sales for user: ${userId}`);
     
     // Remove from localStorage to force fresh fetch
     SalesManager.remove(userId);
@@ -258,7 +244,6 @@ class BackgroundSyncService {
     
     // Prevent duplicate syncs
     if (this.syncInProgress.has(key)) {
-      console.log(`🔄 Expenses sync already in progress for user: ${userId}`);
       return;
     }
 
@@ -269,11 +254,9 @@ class BackgroundSyncService {
     }
 
     try {
-      console.log(`🔄 Starting background sync for expenses: ${userId}`);
       
       // Check if sync is needed
       if (!ExpensesManager.needsSync(userId)) {
-        console.log(`✅ Expenses data is fresh, skipping sync: ${userId}`);
         
         // Still notify callback that sync is complete (data is fresh)
         const callback = this.syncCallbacks.get(key);
@@ -292,14 +275,12 @@ class BackgroundSyncService {
 
       // Subscribe to Firebase for fresh data
       const unsubscribe = subscribeToExpenses(userId, (freshExpenses) => {
-        console.log(`📡 Received fresh expenses from Firebase: ${freshExpenses.length} items`);
         
         // Get current local data
         const localExpenses = ExpensesManager.load(userId);
         
         // Check if data has actually changed
         if (localExpenses && !ExpensesManager.hasChanged(localExpenses, freshExpenses)) {
-          console.log(`✅ Expenses data unchanged, updating sync timestamp only`);
           ExpensesManager.updateLastSync(userId);
           
           // Still notify callback that sync is complete (even if no data change)
@@ -316,7 +297,6 @@ class BackgroundSyncService {
         }
 
         // Data has changed, update localStorage
-        console.log(`🔄 Expenses data changed, updating localStorage`);
         ExpensesManager.save(userId, freshExpenses);
         
         // Notify callback if provided
@@ -352,7 +332,6 @@ class BackgroundSyncService {
    * Force immediate sync for expenses
    */
   static async forceSyncExpenses(userId: string, onUpdate?: (expenses: Expense[]) => void): Promise<void> {
-    console.log(`🚀 Force syncing expenses for user: ${userId}`);
     
     // Remove from localStorage to force fresh fetch
     ExpensesManager.remove(userId);
@@ -376,7 +355,6 @@ class BackgroundSyncService {
     
     // Prevent duplicate syncs
     if (this.syncInProgress.has(key)) {
-      console.log(`🔄 Finance entry types sync already in progress for user: ${userId}`);
       return;
     }
 
@@ -387,30 +365,25 @@ class BackgroundSyncService {
     }
 
     try {
-      console.log(`🔄 Starting background sync for finance entry types: ${userId}`);
       
       // Check if sync is needed
       if (!FinanceEntryTypesManager.needsSync(userId)) {
-        console.log(`✅ Finance entry types data is fresh, skipping sync: ${userId}`);
         return;
       }
 
       // Fetch fresh data from Firebase
       const freshEntryTypes = await getFinanceEntryTypes(userId);
-      console.log(`📡 Received fresh finance entry types from Firebase: ${freshEntryTypes.length} items`);
       
       // Get current local data
       const localEntryTypes = FinanceEntryTypesManager.load(userId);
       
       // Check if data has actually changed
       if (localEntryTypes && !FinanceEntryTypesManager.hasChanged(localEntryTypes, freshEntryTypes)) {
-        console.log(`✅ Finance entry types data unchanged, updating sync timestamp only`);
         FinanceEntryTypesManager.updateLastSync(userId);
         return;
       }
 
       // Data has changed, update localStorage
-      console.log(`🔄 Finance entry types data changed, updating localStorage`);
       FinanceEntryTypesManager.save(userId, freshEntryTypes);
       
       // Notify callback if provided
@@ -431,7 +404,6 @@ class BackgroundSyncService {
    * Force immediate sync for finance entry types
    */
   static async forceSyncFinanceEntryTypes(userId: string, onUpdate?: (entryTypes: FinanceEntryType[]) => void): Promise<void> {
-    console.log(`🚀 Force syncing finance entry types for user: ${userId}`);
     
     // Remove from localStorage to force fresh fetch
     FinanceEntryTypesManager.remove(userId);
@@ -455,7 +427,6 @@ class BackgroundSyncService {
     
     // Prevent duplicate syncs
     if (this.syncInProgress.has(key)) {
-      console.log(`🔄 Financial categories sync already in progress for user: ${userId}`);
       return;
     }
 
@@ -466,30 +437,25 @@ class BackgroundSyncService {
     }
 
     try {
-      console.log(`🔄 Starting background sync for financial categories: ${userId}`);
       
       // Check if sync is needed
       if (!FinancialCategoriesManager.needsSync(userId)) {
-        console.log(`✅ Financial categories data is fresh, skipping sync: ${userId}`);
         return;
       }
 
       // For now, use default categories (these are static)
       const defaultCategories = FinancialCategoriesManager.getDefaultCategories();
-      console.log(`📡 Using default financial categories: ${defaultCategories.length} items`);
       
       // Get current local data
       const localCategories = FinancialCategoriesManager.load(userId);
       
       // Check if data has actually changed
       if (localCategories && !FinancialCategoriesManager.hasChanged(localCategories, defaultCategories)) {
-        console.log(`✅ Financial categories data unchanged, updating sync timestamp only`);
         FinancialCategoriesManager.updateLastSync(userId);
         return;
       }
 
       // Data has changed, update localStorage
-      console.log(`🔄 Financial categories data changed, updating localStorage`);
       FinancialCategoriesManager.save(userId, defaultCategories);
       
       // Notify callback if provided
@@ -510,7 +476,6 @@ class BackgroundSyncService {
    * Force immediate sync for financial categories
    */
   static async forceSyncFinancialCategories(userId: string, onUpdate?: (categories: any[]) => void): Promise<void> {
-    console.log(`🚀 Force syncing financial categories for user: ${userId}`);
     
     // Remove from localStorage to force fresh fetch
     FinancialCategoriesManager.remove(userId);
@@ -534,7 +499,6 @@ class BackgroundSyncService {
     
     // Prevent duplicate syncs
     if (this.syncInProgress.has(key)) {
-      console.log(`🔄 Company sync already in progress for user: ${userId}`);
       return;
     }
 
@@ -545,11 +509,9 @@ class BackgroundSyncService {
     }
 
     try {
-      console.log(`🔄 Starting background sync for company: ${userId}`);
       
       // Check if sync is needed
       if (!CompanyManager.needsSync(userId)) {
-        console.log(`✅ Company data is fresh, skipping sync: ${userId}`);
         
         // Still notify callback that sync is complete (data is fresh)
         const callback = this.syncCallbacks.get(key);
@@ -568,7 +530,6 @@ class BackgroundSyncService {
 
       // Fetch fresh data from Firebase
       const companyDoc = await getDoc(doc(db, 'companies', userId));
-      console.log(`📡 Received fresh company data from Firebase`);
       
       if (companyDoc.exists()) {
         const freshCompany = { id: companyDoc.id, ...companyDoc.data() } as Company;
@@ -578,7 +539,6 @@ class BackgroundSyncService {
         
         // Check if data has actually changed
         if (localCompany && !CompanyManager.hasChanged(localCompany, freshCompany)) {
-          console.log(`✅ Company data unchanged, updating sync timestamp only`);
           CompanyManager.updateLastSync(userId);
           
           // Still notify callback that sync is complete (even if no data change)
@@ -594,7 +554,6 @@ class BackgroundSyncService {
         }
 
         // Data has changed, update localStorage
-        console.log(`🔄 Company data changed, updating localStorage`);
         CompanyManager.save(userId, freshCompany);
         
         // Notify callback if provided
@@ -603,7 +562,6 @@ class BackgroundSyncService {
           callback(freshCompany);
         }
       } else {
-        console.log(`⚠️ No company document found for user: ${userId}`);
       }
       
     } catch (error) {

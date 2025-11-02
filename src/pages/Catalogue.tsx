@@ -120,11 +120,13 @@ const Catalogue = () => {
       try {
         setLoading(true);
         setError(null);
+        console.log('🔍 Fetching company data for ID:', companyId);
         const companyData = await getCompanyByUserId(companyId);
+        console.log('✅ Company data loaded:', companyData);
         setCompany(companyData);
       } catch (err) {
-        console.error('Error fetching company:', err);
-        setError('Company not found');
+        console.error('❌ Error fetching company:', err);
+        setError(`Company not found: ${err instanceof Error ? err.message : 'Unknown error'}`);
       } finally {
         setLoading(false);
       }
@@ -296,9 +298,25 @@ const Catalogue = () => {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-4">
         <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
-        <h2 className="text-xl font-semibold text-gray-900 mb-2">Error</h2>
-        <p className="text-gray-600 mb-4">{error}</p>
-        <Button onClick={() => navigate(-1)}>Go Back</Button>
+        <h2 className="text-xl font-semibold text-gray-900 mb-2">Catalogue non trouvé</h2>
+        <p className="text-gray-600 mb-4 text-center max-w-md">
+          {error.includes('Company not found') 
+            ? 'L\'entreprise associée à ce catalogue n\'existe pas ou n\'est plus accessible. Vérifiez que le lien est correct.'
+            : error
+          }
+        </p>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <Button onClick={() => navigate(-1)} variant="outline">
+            Retour
+          </Button>
+          <Button onClick={() => window.location.reload()}>
+            Réessayer
+          </Button>
+        </div>
+        <div className="mt-4 text-sm text-gray-500">
+          <p>Si le problème persiste, contactez l'administrateur.</p>
+          <p className="mt-1">ID de l'entreprise: {companyId}</p>
+        </div>
       </div>
     );
   }
@@ -332,7 +350,7 @@ const Catalogue = () => {
             
             {/* Shop Info */}
             <div className="flex-1 min-w-0">
-              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white mb-2">
+              <h1 className="text-2xl font-allura sm:text-3xl lg:text-4xl font-bold text-white mb-2">
                 {company?.name || 'Best Products in your home'}
               </h1>
               <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-6 text-sm sm:text-base" style={{color: 'rgba(255, 255, 255, 0.8)'}}>
@@ -354,7 +372,7 @@ const Catalogue = () => {
           
           {/* Search Bar */}
           <div className="relative max-w-2xl">
-            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-theme-brown" />
             <input
                 type="text"
               placeholder="Search products..."
@@ -446,7 +464,7 @@ const Catalogue = () => {
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-6">
             {filteredProducts.map((product) => {
-                    const images = product.images ?? [];
+                    const images = product.images! ;
               const mainImg = images.length > 0 ? images[0] : placeholderImg;
               
                     return (
@@ -463,7 +481,7 @@ const Catalogue = () => {
                         placeholder={placeholderImg}
                       />
                     <button className="absolute top-2 right-2 sm:top-3 sm:right-3 p-1.5 sm:p-2 bg-white rounded-full shadow-md hover:shadow-lg transition-shadow">
-                      <Heart className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400 hover:text-red-500 transition-colors" />
+                      <Heart className="h-3 w-3 sm:h-4 sm:w-4 border-theme-brown text-gray-400 hover:text-red-500 transition-colors" />
                     </button>
                 </div>
                   

@@ -1,4 +1,4 @@
-import React, { useState} from 'react';
+import React, { useState } from 'react';
 import { Download, RefreshCw, X, CheckCircle, AlertCircle } from 'lucide-react';
 import { PWAUpdateStorage } from '../utils/pwaUpdateStorage';
 
@@ -12,8 +12,48 @@ export const PWAUpdateNotification: React.FC<PWAUpdateNotificationProps> = ({ on
   const [updateProgress, setUpdateProgress] = useState(0);
   const [isUpdateReady, setIsUpdateReady] = useState(false);
 
+  const handleConfirmUpdate = async () => {
+    // Mark update as confirmed in localStorage BEFORE clearing caches
+    PWAUpdateStorage.markUpdateAsConfirmed();
+    
+    // Clear all caches first
+    if ('caches' in window) {
+      try {
+        const cacheNames = await caches.keys();
+        await Promise.all(
+          cacheNames.map(cacheName => caches.delete(cacheName))
+        );
+        console.log('All caches cleared');
+      } catch (error) {
+        console.error('Error clearing caches:', error);
+      }
+    }
+
+    // Trigger the actual update
+    onUpdate();
+    
+    // Force a hard reload after a short delay to ensure service worker update
+    setTimeout(() => {
+      // Multiple methods to ensure hard reload
+      try {
+        // Method 1: Force navigation to same URL
+        window.location.href = window.location.href;
+      } catch (error) {
+        console.error('Error with location.href reload:', error);
+        // Method 2: Standard reload
+        window.location.reload();
+      }
+      
+      // Method 3: Fallback with replace
+      setTimeout(() => {
+        window.location.replace(window.location.href);
+      }, 200);
+    }, 500);
+  };
+
   const handleUpdate = async () => {
     setIsUpdating(true);
+    setUpdateProgress(0);
     
     // Simulate update progress
     for (let i = 0; i <= 100; i += 10) {
@@ -21,14 +61,12 @@ export const PWAUpdateNotification: React.FC<PWAUpdateNotificationProps> = ({ on
       await new Promise(resolve => setTimeout(resolve, 100));
     }
     
-    // Mark update as ready for confirmation
-    setIsUpdateReady(true);
-    setIsUpdating(false);
-  };
-
-  const handleConfirmUpdate = async () => {
+    // After the loop, progress is 100% - auto-confirm the update
+    console.log('✅ Update progress reached 100%, auto-confirming update...');
     // Mark update as confirmed in localStorage BEFORE clearing caches
     PWAUpdateStorage.markUpdateAsConfirmed();
+    setIsUpdateReady(true);
+    setIsUpdating(false);
     
     // Clear all caches first
     if ('caches' in window) {
@@ -153,41 +191,14 @@ export const PWAUpdateNotification: React.FC<PWAUpdateNotificationProps> = ({ on
 
           {/* Action Buttons */}
           <div className="flex space-x-3">
-            {!isUpdateReady ? (
+            {!isUpdating && !isUpdateReady ? (
               <>
                 <button
                   onClick={handleUpdate}
-                  disabled={isUpdating}
-                  className="flex-1 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white py-3 px-4 rounded-xl font-semibold transition-colors flex items-center justify-center space-x-2"
-                >
-                  {isUpdating ? (
-                    <>
-                      <RefreshCw className="h-4 w-4 animate-spin" />
-                      <span>Mise à jour...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Download className="h-4 w-4" />
-                      <span>Mettre à jour maintenant</span>
-                    </>
-                  )}
-                </button>
-                <button
-                  onClick={onDismiss}
-                  disabled={isUpdating}
-                  className="px-4 py-3 border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl font-semibold transition-colors"
-                >
-                  Plus tard
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  onClick={handleConfirmUpdate}
                   className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-3 px-4 rounded-xl font-semibold transition-colors flex items-center justify-center space-x-2"
                 >
-                  <CheckCircle className="h-4 w-4" />
-                  <span>Confirmer la mise à jour</span>
+                  <Download className="h-4 w-4" />
+                  <span>Mettre à jour maintenant</span>
                 </button>
                 <button
                   onClick={onDismiss}
@@ -196,6 +207,15 @@ export const PWAUpdateNotification: React.FC<PWAUpdateNotificationProps> = ({ on
                   Plus tard
                 </button>
               </>
+            ) : (
+              <div className="w-full">
+                <div className="flex items-center justify-center space-x-2 text-emerald-600">
+                  <RefreshCw className="h-5 w-5 animate-spin" />
+                  <span className="text-sm font-semibold">
+                    {isUpdateReady ? 'Mise à jour confirmée, redémarrage en cours...' : 'Mise à jour en cours...'}
+                  </span>
+                </div>
+              </div>
             )}
           </div>
 
@@ -204,7 +224,7 @@ export const PWAUpdateNotification: React.FC<PWAUpdateNotificationProps> = ({ on
             <div className="flex items-start space-x-2">
               <AlertCircle className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
               <p className="text-xs text-blue-800">
-                La mise à jour sera appliquée automatiquement. L'application se rechargera pour appliquer les changements.
+                La mise à jour sera appliquée automatiquement lorsque le téléchargement atteint 100%. L'application se rechargera automatiquement pour appliquer les changements.
               </p>
             </div>
           </div>

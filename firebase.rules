@@ -16,19 +16,57 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'manager';
     }
     
-    // User profiles
-    match /users/{userId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && request.auth.uid == userId;
-      allow update: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
-      allow delete: if isAdmin();
+    // Helper function to check if user belongs to a company
+    function isMemberOfCompany(companyId) {
+      if (!isAuthenticated()) return false;
+      let user = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      if (!user.companies || !user.companies.hasAny([companyId])) {
+        // Legacy: check if companyId matches userId (for grandfathered companies)
+        return companyId == request.auth.uid;
+      }
+      return user.companies.hasAny([companyId]);
     }
     
-    // Products
+    // Helper function to check if user owns a company
+    function isOwnerOfCompany(companyId) {
+      if (!isAuthenticated()) return false;
+      let company = get(/databases/$(database)/documents/companies/$(companyId)).data;
+      // Legacy: check if companyId is userId (grandfathered companies)
+      if (companyId == request.auth.uid) return true;
+      // New: check userId field in company
+      return company.userId == request.auth.uid;
+    }
+    
+    function isUserInSameCompany(userId) {
+      let user = get(/databases/$(database)/documents/users/$(userId)).data;
+      let currentUser = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      
+      // Vérifier si les utilisateurs partagent au moins une entreprise
+      return user.companies.hasAny(currentUser.companies.map(c => c.companyId));
+    }
+    
+    // Helper function to check companyId access for documents
+    function hasCompanyAccess(companyId) {
+      return isMemberOfCompany(companyId);
+    }
+    
+    // User profiles - Nouveau système unifié
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (
+        request.auth.uid == userId || 
+        isUserInSameCompany(userId)
+      );
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      allow update: if isAuthenticated() && request.auth.uid == userId;
+      allow delete: if false; // Pas de suppression complète
+    }
+    
+    // Products - Company-scoped access
     match /products/{productId} {
-      allow read: if isAuthenticated();
-      allow create, update: if isAuthenticated() && (isAdmin() || isManager());
-      allow delete: if isAdmin();
+      allow read: if isAuthenticated() && hasCompanyAccess(resource.data.companyId);
+      allow create: if isAuthenticated() && hasCompanyAccess(request.resource.data.companyId);
+      allow update: if isAuthenticated() && hasCompanyAccess(resource.data.companyId) && hasCompanyAccess(request.resource.data.companyId);
+      allow delete: if isAuthenticated() && hasCompanyAccess(resource.data.companyId);
       
       // Validate product data
       function isValidProduct() {
@@ -38,24 +76,21 @@ service cloud.firestore {
                data.sellingPrice is number && data.sellingPrice >= data.costPrice &&
                data.stock is number && data.stock >= 0 &&
                data.category is string &&
+               data.companyId is string &&
                (!('imageUrl' in data) || data.imageUrl is string) &&
                data.isAvailable is bool;
       }
       
-      allow create: if isValidProduct();
-      allow update: if isValidProduct();
+      allow create: if isValidProduct() && hasCompanyAccess(request.resource.data.companyId);
+      allow update: if isValidProduct() && hasCompanyAccess(request.resource.data.companyId);
     }
     
-    // Sales
+    // Sales - Company-scoped access
     match /sales/{saleId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
-      allow update: if isAuthenticated() && (
-        isAdmin() || 
-        isManager() || 
-        resource.data.createdBy == request.auth.uid
-      );
-      allow delete: if isAdmin();
+      allow read: if isAuthenticated() && hasCompanyAccess(resource.data.companyId);
+      allow create: if isAuthenticated() && hasCompanyAccess(request.resource.data.companyId);
+      allow update: if isAuthenticated() && hasCompanyAccess(resource.data.companyId) && hasCompanyAccess(request.resource.data.companyId);
+      allow delete: if isAuthenticated() && hasCompanyAccess(resource.data.companyId);
       
       // Validate sale data
       function isValidSale() {
@@ -66,66 +101,112 @@ service cloud.firestore {
                data.negotiatedPrice is number && data.negotiatedPrice >= 0 &&
                data.totalAmount is number && data.totalAmount >= 0 &&
                data.profit is number &&
+               data.companyId is string &&
                data.status in ['commande', 'under_delivery', 'paid'] &&
                data.paymentStatus in ['pending', 'paid', 'cancelled'] &&
                data.customerInfo.name is string && data.customerInfo.name.size() > 0 &&
                data.customerInfo.phone is string;
       }
       
-      allow create: if isValidSale();
-      allow update: if isValidSale();
+      allow create: if isValidSale() && hasCompanyAccess(request.resource.data.companyId);
+      allow update: if isValidSale() && hasCompanyAccess(request.resource.data.companyId);
     }
     
-    // Expenses
+    // Expenses - Company-scoped access
     match /expenses/{expenseId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && (isAdmin() || isManager());
-      allow update: if isAuthenticated() && (
-        isAdmin() || 
-        isManager() || 
-        resource.data.createdBy == request.auth.uid
-      );
-      allow delete: if isAdmin();
+      allow read: if isAuthenticated() && hasCompanyAccess(resource.data.companyId);
+      allow create: if isAuthenticated() && hasCompanyAccess(request.resource.data.companyId);
+      allow update: if isAuthenticated() && hasCompanyAccess(resource.data.companyId) && hasCompanyAccess(request.resource.data.companyId);
+      allow delete: if isAuthenticated() && hasCompanyAccess(resource.data.companyId);
       
       // Validate expense data
       function isValidExpense() {
         let data = request.resource.data;
         return data.description is string && data.description.size() > 0 &&
                data.amount is number && data.amount > 0 &&
-               data.category in ['delivery', 'purchase', 'other'] &&
+               data.companyId is string &&
                data.date is timestamp &&
                (!('attachments' in data) || (data.attachments is list && data.attachments.size() <= 5));
       }
       
-      allow create: if isValidExpense();
-      allow update: if isValidExpense();
+      allow create: if isValidExpense() && hasCompanyAccess(request.resource.data.companyId);
+      allow update: if isValidExpense() && hasCompanyAccess(request.resource.data.companyId);
     }
     
-    // Dashboard stats
-    match /dashboardStats/{document=**} {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin();
+    // Dashboard stats - Company-scoped access
+    match /dashboardStats/{statsId} {
+      allow read: if isAuthenticated() && hasCompanyAccess(resource.data.companyId);
+      allow write: if isAuthenticated() && hasCompanyAccess(request.resource.data.companyId);
     }
     
-    // Finances
+    // Finances - Company-scoped access
     match /finances/{financeId} {
-      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
-      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
-      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow read: if isAuthenticated() && hasCompanyAccess(resource.data.companyId);
+      allow create: if isAuthenticated() && hasCompanyAccess(request.resource.data.companyId);
+      allow update: if isAuthenticated() && hasCompanyAccess(resource.data.companyId) && hasCompanyAccess(request.resource.data.companyId);
       allow delete: if false; // Only soft deletion allowed
     }
 
-
-
-    // Finance Entry Types
+    // Finance Entry Types - Company-scoped for user-specific, public for default
     match /financeEntryTypes/{typeId} {
       // Default types (isDefault == true) are readable by all, not writable
       allow read: if true;
-      allow create: if isAuthenticated() && (!('isDefault' in request.resource.data) || request.resource.data.isDefault == false) && request.resource.data.userId == request.auth.uid;
-      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid && (!('isDefault' in resource.data) || resource.data.isDefault == false);
+      allow create: if isAuthenticated() && 
+        (!('isDefault' in request.resource.data) || request.resource.data.isDefault == false) && 
+        hasCompanyAccess(request.resource.data.companyId);
+      allow update: if isAuthenticated() && 
+        (!('isDefault' in resource.data) || resource.data.isDefault == false) &&
+        hasCompanyAccess(resource.data.companyId);
       allow delete: if false; // No hard delete
     }
     
+    // Expense Types - Company-scoped for user-specific, public for default
+    match /expenseTypes/{typeId} {
+      allow read: if true; // Public read (default types available to all)
+      allow create: if isAuthenticated() && 
+        (!('isDefault' in request.resource.data) || request.resource.data.isDefault == false) &&
+        hasCompanyAccess(request.resource.data.companyId);
+      allow update: if isAuthenticated() && 
+        (!('isDefault' in resource.data) || resource.data.isDefault == false) &&
+        hasCompanyAccess(resource.data.companyId);
+      allow delete: if false;
+    }
+    
+    // Companies - Architecture simplifiée
+    match /companies/{companyId} {
+      allow read: if true; // Public read for landing pages
+      allow create: if isAuthenticated(); // N'importe quel utilisateur connecté peut créer
+      allow update: if isAuthenticated() && isOwnerOfCompany(companyId);
+      allow delete: if isAuthenticated() && isOwnerOfCompany(companyId);
+      
+      // Employee subcollection
+      match /employees/{employeeId} {
+        allow read: if isAuthenticated() && isMemberOfCompany(companyId);
+        allow create: if isAuthenticated() && isOwnerOfCompany(companyId);
+        allow update: if isAuthenticated() && isOwnerOfCompany(companyId);
+        allow delete: if isAuthenticated() && isOwnerOfCompany(companyId);
+        
+        // Validate employee data
+        function isValidEmployee() {
+          let data = request.resource.data;
+          return data.id is string && data.id.size() > 0 &&
+                 data.firstname is string && data.firstname.size() > 0 &&
+                 data.lastname is string && data.lastname.size() > 0 &&
+                 data.email is string && data.email.matches('.*@.*\\..*') &&
+                 data.role in ['admin', 'manager', 'staff'] &&
+                 data.createdAt is timestamp &&
+                 data.updatedAt is timestamp &&
+                 (!('phone' in data) || data.phone is string) &&
+                 (!('birthday' in data) || data.birthday is string) &&
+                 (!('loginLink' in data) || data.loginLink is string) &&
+                 (!('firebaseUid' in data) || data.firebaseUid is string);
+        }
+        
+        allow create: if isValidEmployee();
+        allow update: if isValidEmployee();
+      }
+    }
+
     // Audit Logs
     match /auditLogs/{logId} {
       allow read: if isAuthenticated() && resource.data.performedBy == request.auth.uid;
@@ -134,23 +215,59 @@ service cloud.firestore {
       allow delete: if false; // Audit logs should not be deleted
     }
     
-    // Categories - Allow public read access for client landing pages
+    // Categories - Company-scoped access
     match /categories/{categoryId} {
       allow read: if true; // Public read for landing pages
-      allow write: if isAuthenticated(); // Only authenticated users can write
+      allow create: if isAuthenticated() && hasCompanyAccess(request.resource.data.companyId);
+      allow update: if isAuthenticated() && hasCompanyAccess(resource.data.companyId) && hasCompanyAccess(request.resource.data.companyId);
+      allow delete: if isAuthenticated() && hasCompanyAccess(resource.data.companyId);
     }
     
-    // Companies - Allow public read access for client landing pages
-    match /companies/{companyId} {
-      allow read: if true; // Public read for landing pages
-      allow write: if isAuthenticated(); // Only authenticated users can write
+    // Suppliers - Company-scoped access
+    match /suppliers/{supplierId} {
+      allow read: if isAuthenticated() && hasCompanyAccess(resource.data.companyId);
+      allow create: if isAuthenticated() && hasCompanyAccess(request.resource.data.companyId);
+      allow update: if isAuthenticated() && hasCompanyAccess(resource.data.companyId) && hasCompanyAccess(request.resource.data.companyId);
+      allow delete: if isAuthenticated() && hasCompanyAccess(resource.data.companyId);
     }
     
-    // Orders - User-specific order management
+    // Objectives - Company-scoped access
+    match /objectives/{objectiveId} {
+      allow read: if isAuthenticated() && hasCompanyAccess(resource.data.companyId);
+      allow create: if isAuthenticated() && hasCompanyAccess(request.resource.data.companyId);
+      allow update: if isAuthenticated() && hasCompanyAccess(resource.data.companyId) && hasCompanyAccess(request.resource.data.companyId);
+      allow delete: if isAuthenticated() && hasCompanyAccess(resource.data.companyId);
+    }
+    
+    // Stock Batches - Company-scoped access
+    match /stockBatches/{batchId} {
+      allow read: if isAuthenticated() && hasCompanyAccess(resource.data.companyId);
+      allow create: if isAuthenticated() && hasCompanyAccess(request.resource.data.companyId);
+      allow update: if isAuthenticated() && hasCompanyAccess(resource.data.companyId) && hasCompanyAccess(request.resource.data.companyId);
+      allow delete: if false; // Stock batches should not be deleted directly
+    }
+    
+    // Stock Changes - Company-scoped access
+    match /stockChanges/{changeId} {
+      allow read: if isAuthenticated() && hasCompanyAccess(resource.data.companyId);
+      allow create: if isAuthenticated() && hasCompanyAccess(request.resource.data.companyId);
+      allow update: if false; // Stock changes are immutable
+      allow delete: if false; // Stock changes should not be deleted
+    }
+    
+    // Customers - Company-scoped access
+    match /customers/{customerId} {
+      allow read: if isAuthenticated() && hasCompanyAccess(resource.data.companyId);
+      allow create: if isAuthenticated() && hasCompanyAccess(request.resource.data.companyId);
+      allow update: if isAuthenticated() && hasCompanyAccess(resource.data.companyId) && hasCompanyAccess(request.resource.data.companyId);
+      allow delete: if false; // Soft delete only
+    }
+    
+    // Orders - Company-scoped access
     match /orders/{orderId} {
-      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
-      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
-      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow read: if isAuthenticated() && hasCompanyAccess(resource.data.companyId);
+      allow create: if isAuthenticated() && hasCompanyAccess(request.resource.data.companyId);
+      allow update: if isAuthenticated() && hasCompanyAccess(resource.data.companyId) && hasCompanyAccess(request.resource.data.companyId);
       allow delete: if false; // Only soft deletion allowed
       
       // Validate order data
@@ -158,6 +275,7 @@ service cloud.firestore {
         let data = request.resource.data;
         return data.orderId is string && data.orderId.size() > 0 &&
                data.orderNumber is string && data.orderNumber.size() > 0 &&
+               data.companyId is string &&
                data.customerInfo.name is string && data.customerInfo.name.size() > 0 &&
                data.customerInfo.phone is string && data.customerInfo.phone.size() > 0 &&
                data.customerInfo.location is string && data.customerInfo.location.size() > 0 &&
@@ -171,20 +289,19 @@ service cloud.firestore {
                data.paymentMethod in ['onsite', 'online', 'whatsapp'] &&
                data.deliveryInfo.method in ['pickup', 'delivery'] &&
                data.timeline is list &&
-               data.metadata.source in ['catalogue', 'admin'] &&
-               data.userId == request.auth.uid;
+               data.metadata.source in ['catalogue', 'admin', 'checkout', 'checkout_modal'];
       }
       
-      allow create: if isValidOrder();
-      allow update: if isValidOrder();
+      allow create: if isValidOrder() && hasCompanyAccess(request.resource.data.companyId);
+      allow update: if isValidOrder() && hasCompanyAccess(request.resource.data.companyId);
     }
     
     // Order Events - Subcollection for order timeline
     match /orders/{orderId}/events/{eventId} {
       allow read: if isAuthenticated() && 
-        get(/databases/$(database)/documents/orders/$(orderId)).data.userId == request.auth.uid;
+        hasCompanyAccess(get(/databases/$(database)/documents/orders/$(orderId)).data.companyId);
       allow create: if isAuthenticated() && 
-        get(/databases/$(database)/documents/orders/$(orderId)).data.userId == request.auth.uid;
+        hasCompanyAccess(get(/databases/$(database)/documents/orders/$(orderId)).data.companyId);
       allow update: if false; // Events should not be updated
       allow delete: if false; // Events should not be deleted
     }
@@ -192,36 +309,36 @@ service cloud.firestore {
     // Order Payments - Subcollection for payment history
     match /orders/{orderId}/payments/{paymentId} {
       allow read: if isAuthenticated() && 
-        get(/databases/$(database)/documents/orders/$(orderId)).data.userId == request.auth.uid;
+        hasCompanyAccess(get(/databases/$(database)/documents/orders/$(orderId)).data.companyId);
       allow create: if isAuthenticated() && 
-        get(/databases/$(database)/documents/orders/$(orderId)).data.userId == request.auth.uid;
+        hasCompanyAccess(get(/databases/$(database)/documents/orders/$(orderId)).data.companyId);
       allow update: if isAuthenticated() && 
-        get(/databases/$(database)/documents/orders/$(orderId)).data.userId == request.auth.uid;
+        hasCompanyAccess(get(/databases/$(database)/documents/orders/$(orderId)).data.companyId);
       allow delete: if false; // Payments should not be deleted
     }
     
     // Order Notes - Subcollection for order notes
     match /orders/{orderId}/notes/{noteId} {
       allow read: if isAuthenticated() && 
-        get(/databases/$(database)/documents/orders/$(orderId)).data.userId == request.auth.uid;
+        hasCompanyAccess(get(/databases/$(database)/documents/orders/$(orderId)).data.companyId);
       allow create: if isAuthenticated() && 
-        get(/databases/$(database)/documents/orders/$(orderId)).data.userId == request.auth.uid;
+        hasCompanyAccess(get(/databases/$(database)/documents/orders/$(orderId)).data.companyId);
       allow update: if isAuthenticated() && 
-        get(/databases/$(database)/documents/orders/$(orderId)).data.userId == request.auth.uid;
+        hasCompanyAccess(get(/databases/$(database)/documents/orders/$(orderId)).data.companyId);
       allow delete: if false; // Notes should not be deleted
     }
     
-    // CinetPay Configurations - User-specific payment settings
-    match /cinetpay_configs/{userId} {
-      allow read: if isAuthenticated() && request.auth.uid == userId;
-      allow create: if isAuthenticated() && request.auth.uid == userId;
-      allow update: if isAuthenticated() && request.auth.uid == userId;
+    // CinetPay Configurations - Company-scoped access
+    match /cinetpay_configs/{configId} {
+      allow read: if isAuthenticated() && hasCompanyAccess(resource.data.companyId);
+      allow create: if isAuthenticated() && hasCompanyAccess(request.resource.data.companyId);
+      allow update: if isAuthenticated() && hasCompanyAccess(resource.data.companyId) && hasCompanyAccess(request.resource.data.companyId);
       allow delete: if false; // Configurations should not be deleted
       
       // Validate CinetPay configuration data
       function isValidCinetPayConfig() {
         let data = request.resource.data;
-        return data.userId == request.auth.uid &&
+        return data.companyId is string &&
                data.siteId is string &&
                data.apiKey is string &&
                data.isActive is bool &&
@@ -232,15 +349,15 @@ service cloud.firestore {
                data.currency == 'XAF';
       }
       
-      allow create: if isValidCinetPayConfig();
-      allow update: if isValidCinetPayConfig();
+      allow create: if isValidCinetPayConfig() && hasCompanyAccess(request.resource.data.companyId);
+      allow update: if isValidCinetPayConfig() && hasCompanyAccess(request.resource.data.companyId);
     }
     
-    // CinetPay Transactions - Payment transaction records
+    // CinetPay Transactions - Company-scoped access
     match /cinetpay_transactions/{transactionId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
-      allow update: if isAuthenticated();
+      allow read: if isAuthenticated() && hasCompanyAccess(resource.data.companyId);
+      allow create: if isAuthenticated() && hasCompanyAccess(request.resource.data.companyId);
+      allow update: if isAuthenticated() && hasCompanyAccess(resource.data.companyId);
       allow delete: if false; // Transactions should not be deleted
     }
     

@@ -15,9 +15,17 @@ import type { SellerSettings, PaymentMethod } from '../types/order';
 import type { CheckoutSettings, CheckoutSettingsUpdate } from '../types/checkoutSettings';
 import type { CinetPayConfig, CinetPayConfigUpdate } from '../types/cinetpay';
 import PaymentMethodModal from '../components/settings/PaymentMethodModal';
+import EmployeesTab from '../components/settings/EmployeesTab';
 import i18n from '../i18n/config';
 import { combineActivities } from '../utils/activityUtils';
 import { Plus, Copy, Check, ExternalLink, CreditCard, Truck, ShoppingBag, Save, RotateCcw, Eye, Trash2 } from 'lucide-react';
+
+function normalizeWebsite(raw: string): string | undefined {
+  const url = (raw || '').trim();
+  if (!url) return undefined;
+  if (/^https?:\/\//i.test(url)) return url;
+  return `https://${url.replace(/^\/+/, '')}`;
+}
 
 const Settings = () => {
   const { t } = useTranslation();
@@ -52,6 +60,7 @@ const Settings = () => {
     location: '',
     email: '',
     logo: '',
+    website: '',
     // Catalogue colors
     cataloguePrimaryColor: '#183524',
     catalogueSecondaryColor: '#e2b069',
@@ -81,6 +90,7 @@ const Settings = () => {
         location: company.location || '',
         email: company.email || '',
         logo: company.logo || '',
+        website: company.website || '',
         // Catalogue colors
         cataloguePrimaryColor: company.catalogueColors?.primary || company.primaryColor || '#183524',
         catalogueSecondaryColor: company.catalogueColors?.secondary || company.secondaryColor || '#e2b069',
@@ -120,17 +130,17 @@ const Settings = () => {
 
   // Real-time CinetPay settings subscription
   useEffect(() => {
-    if (!user?.uid) return;
+    if (!company?.id) return;
 
     setCinetpayLoading(true);
 
-    const unsubscribe = subscribeToCinetPayConfig(user.uid, (config) => {
+    const unsubscribe = subscribeToCinetPayConfig(company.id, (config) => {
       if (config) {
         setCinetpayConfig(config);
         setCinetpayLoading(false);
       } else {
         // If no config exists, initialize with defaults
-        initializeCinetPayConfig(user.uid).then(config => {
+        initializeCinetPayConfig(company.id, user?.uid).then(config => {
           setCinetpayConfig(config);
           setCinetpayLoading(false);
         }).catch(error => {
@@ -141,7 +151,7 @@ const Settings = () => {
     });
 
     return () => unsubscribe();
-  }, [user?.uid]);
+  }, [company?.id, user?.uid]);
   
   const [isLoading, setIsLoading] = useState(false);
   const [passwordError, setPasswordError] = useState('');
@@ -260,6 +270,8 @@ const Settings = () => {
     }
   };
   
+  
+  
   const handleLogoChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -269,6 +281,15 @@ const Settings = () => {
       };
       reader.readAsDataURL(file);
     }
+  };
+  
+  const handleWebsiteChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value || '';
+    const domain = raw.replace(/^\s+/, '').replace(/^https?:\/\//i, '').replace(/^\/+/, '');
+    setFormData(prev => ({
+      ...prev,
+      website: domain ? `https://${domain}` : ''
+    }));
   };
   
   const validatePasswordChange = () => {
@@ -300,6 +321,16 @@ const Settings = () => {
     setIsLoading(true);
     
     try {
+      const normalizedWebsite = normalizeWebsite(formData.website);
+      if (normalizedWebsite) {
+        try {
+          new URL(normalizedWebsite);
+        } catch {
+          showErrorToast('URL de site web invalide (doit être http/https)');
+          setIsLoading(false);
+          return;
+        }
+      }
       // Update company information
       const companyData = {
         name: formData.name,
@@ -308,6 +339,7 @@ const Settings = () => {
         location: formData.location || undefined,
         logo: formData.logo || undefined,
         email: formData.email,
+        website: normalizedWebsite,
         // New color schemes
         catalogueColors: {
           primary: formData.cataloguePrimaryColor,
@@ -420,14 +452,14 @@ const Settings = () => {
   };
 
   const handleSaveCinetpayConfig = async () => {
-    if (!user?.uid || !cinetpayConfig) return;
+    if (!company?.id || !cinetpayConfig) return;
     
     try {
       setCinetpaySaving(true);
-      await saveCinetPayConfig(user.uid, cinetpayConfig);
+      await saveCinetPayConfig(company.id, cinetpayConfig, user?.uid);
       
       // Log configuration change
-      await AuditLogger.logConfigChange(user.uid, 'cinetpay_config_saved', {
+      await AuditLogger.logConfigChange(user?.uid || company.id, 'cinetpay_config_saved', {
         configType: 'cinetpay',
         changes: {
           isActive: cinetpayConfig.isActive,
@@ -469,7 +501,7 @@ const Settings = () => {
   };
 
   const handleClearCinetpayCredentials = async () => {
-    if (!user?.uid || !cinetpayConfig) return;
+    if (!company?.id || !cinetpayConfig) return;
 
     // Show confirmation dialog
     const confirmed = window.confirm(
@@ -484,16 +516,16 @@ const Settings = () => {
       setCinetpaySaving(true);
       
       // Clear credentials by setting them to empty strings
-      await saveCinetPayConfig(user.uid, {
+      await saveCinetPayConfig(company.id, {
         siteId: '',
         apiKey: '',
         isActive: false, // Also disable the integration
         testMode: cinetpayConfig.testMode,
         enabledChannels: cinetpayConfig.enabledChannels
-      });
+      }, user?.uid);
 
       // Log the action
-      await AuditLogger.logConfigChange(user.uid, 'cinetpay_credentials_cleared', {
+      await AuditLogger.logConfigChange(user?.uid || company.id, 'cinetpay_credentials_cleared', {
         configType: 'cinetpay',
         changes: {
           credentialsCleared: true,
@@ -605,6 +637,17 @@ const Settings = () => {
             `}
           >
             Payment Integration
+          </button>
+          <button
+            onClick={() => setActiveTab('employees')}
+            className={`
+              whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm
+              ${activeTab === 'employees'
+                ? 'border-emerald-500 text-emerald-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
+            `}
+          >
+            Employees
           </button>
         </nav>
       </div>
@@ -1020,6 +1063,23 @@ const Settings = () => {
                       onChange={handleInputChange}
                       required
                     />
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Site web</label>
+                      <div className="flex rounded-md shadow-sm">
+                        <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 sm:text-sm">
+                          https://
+                        </span>
+                        <input
+                          type="text"
+                          name="website"
+                          value={(formData.website || '').replace(/^https?:\/\//i, '')}
+                          onChange={handleWebsiteChange}
+                          placeholder="mon-entreprise.com"
+                          className="flex-1 rounded-l-none border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        />
+                      </div>
+                      <p className="mt-1 text-sm text-gray-500">URL publique de votre entreprise (facultatif)</p>
+                    </div>
                   </div>
                 </div>
                 
@@ -1299,6 +1359,10 @@ const Settings = () => {
             </div>
           </div>
         </Card>
+      )}
+      {/* Employees Tab */}
+      {activeTab === 'employees' && (
+        <EmployeesTab />
       )}
       {/* Activity Logs Tab */}
       {activeTab === 'activity' && (

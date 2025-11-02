@@ -1,0 +1,221 @@
+{
+  "timestamp": "2025-11-01T11:20:43.486Z",
+  "summary": {
+    "totalExpenseTypes": 24,
+    "uniqueTypes": 3,
+    "duplicateGroups": 3,
+    "totalDuplicates": 18,
+    "duplicatesToClean": 18
+  },
+  "duplicates": [
+    {
+      "name": "other",
+      "isDefault": true,
+      "groupCount": 7,
+      "keep": {
+        "id": "LwyT5rYQXRepzmKoEzwf",
+        "createdAt": "2025-08-11T12:43:26.765Z",
+        "userId": null,
+        "companyId": null
+      },
+      "remove": [
+        {
+          "id": "LooShu09TpXfyd9NfMD9",
+          "name": "other",
+          "createdAt": "2025-10-14T15:29:35.391Z",
+          "userId": null,
+          "companyId": null,
+          "reason": "Duplicate of older entry"
+        },
+        {
+          "id": "0r8aL0881ObBHX88Nqz3",
+          "name": "other",
+          "createdAt": "2025-10-23T01:11:04.690Z",
+          "userId": null,
+          "companyId": null,
+          "reason": "Duplicate of older entry"
+        },
+        {
+          "id": "jiMhZEwYJHVfkgtvyj6O",
+          "name": "other",
+          "createdAt": "2025-10-29T13:38:34.941Z",
+          "userId": null,
+          "companyId": null,
+          "reason": "Duplicate of older entry"
+        },
+        {
+          "id": "Wdl92BUmVBFidQl4zUTu",
+          "name": "other",
+          "createdAt": "2025-10-29T13:38:34.987Z",
+          "userId": null,
+          "companyId": null,
+          "reason": "Duplicate of older entry"
+        },
+        {
+          "id": "Z4jFZEupOlEHA6952x3Z",
+          "name": "other",
+          "createdAt": "2025-10-31T11:59:20.679Z",
+          "userId": null,
+          "companyId": null,
+          "reason": "Duplicate of older entry"
+        },
+        {
+          "id": "dDohpzqPWU44cuj3o7ww",
+          "name": "other",
+          "createdAt": "2025-10-31T11:59:20.728Z",
+          "userId": null,
+          "companyId": null,
+          "reason": "Duplicate of older entry"
+        }
+      ]
+    },
+    {
+      "name": "purchase",
+      "isDefault": true,
+      "groupCount": 7,
+      "keep": {
+        "id": "kRElGtushnsNrETgL2wH",
+        "createdAt": "2025-08-11T12:43:25.812Z",
+        "userId": null,
+        "companyId": null
+      },
+      "remove": [
+        {
+          "id": "BHZaTUFU0MqlLb5YH9ns",
+          "name": "purchase",
+          "createdAt": "2025-10-14T15:29:35.391Z",
+          "userId": null,
+          "companyId": null,
+          "reason": "Duplicate of older entry"
+        },
+        {
+          "id": "p1VU82WEBeCrpjUsw9Vg",
+          "name": "purchase",
+          "createdAt": "2025-10-23T01:11:04.690Z",
+          "userId": null,
+          "companyId": null,
+          "reason": "Duplicate of older entry"
+        },
+        {
+          "id": "65Cdz5sfB2bBiN65OyKM",
+          "name": "purchase",
+          "createdAt": "2025-10-29T13:38:34.941Z",
+          "userId": null,
+          "companyId": null,
+          "reason": "Duplicate of older entry"
+        },
+        {
+          "id": "EzFY98uka2GTidHS9IpI",
+          "name": "purchase",
+          "createdAt": "2025-10-29T13:38:34.987Z",
+          "userId": null,
+          "companyId": null,
+          "reason": "Duplicate of older entry"
+        },
+        {
+          "id": "JLQcb6Yz6loEHWNT3Xp5",
+          "name": "purchase",
+          "createdAt": "2025-10-31T11:59:20.679Z",
+          "userId": null,
+          "companyId": null,
+          "reason": "Duplicate of older entry"
+        },
+        {
+          "id": "HsAEAebEyOwnA8h4z2ti",
+          "name": "purchase",
+          "createdAt": "2025-10-31T11:59:20.728Z",
+          "userId": null,
+          "companyId": null,
+          "reason": "Duplicate of older entry"
+        }
+      ]
+    },
+    {
+      "name": "transportation",
+      "isDefault": true,
+      "groupCount": 7,
+      "keep": {
+        "id": "K0jwbawQIVHHy4bxIeyI",
+        "createdAt": "2025-08-11T12:43:24.924Z",
+        "userId": null,
+        "companyId": null
+      },
+      "remove": [
+        {
+          "id": "jQ7DOtQTeASI5BBye07z",
+          "name": "transportation",
+          "createdAt": "2025-10-14T15:29:35.391Z",
+          "userId": null,
+          "companyId": null,
+          "reason": "Duplicate of older entry"
+        },
+        {
+          "id": "AGSEDuVZ8KNbU8C0ipDi",
+          "name": "transportation",
+          "createdAt": "2025-10-23T01:11:04.690Z",
+          "userId": null,
+          "companyId": null,
+          "reason": "Duplicate of older entry"
+        },
+        {
+          "id": "7BDA32MIYlWCC4glPgu9",
+          "name": "transportation",
+          "createdAt": "2025-10-29T13:38:34.941Z",
+          "userId": null,
+          "companyId": null,
+          "reason": "Duplicate of older entry"
+        },
+        {
+          "id": "gErMfHvo09TMSVT2BSRI",
+          "name": "transportation",
+          "createdAt": "2025-10-29T13:38:34.987Z",
+          "userId": null,
+          "companyId": null,
+          "reason": "Duplicate of older entry"
+        },
+        {
+          "id": "n81Ri5hdIMFFazziSQef",
+          "name": "transportation",
+          "createdAt": "2025-10-31T11:59:20.679Z",
+          "userId": null,
+          "companyId": null,
+          "reason": "Duplicate of older entry"
+        },
+        {
+          "id": "atSQL9ihTz1M4LIxkmkG",
+          "name": "transportation",
+          "createdAt": "2025-10-31T11:59:20.728Z",
+          "userId": null,
+          "companyId": null,
+          "reason": "Duplicate of older entry"
+        }
+      ]
+    }
+  ],
+  "uniqueTypes": [
+    {
+      "id": "7w6WDucuVw1lZPDDe2Vz",
+      "name": "facebook Adds",
+      "isDefault": false,
+      "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+      "companyId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+      "createdAt": "2025-10-05T17:26:29.238Z"
+    },
+    {
+      "id": "JanmWBSnltNh0zU7TeJ7",
+      "name": "credit",
+      "isDefault": false,
+      "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+      "companyId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+      "createdAt": "2025-08-24T20:52:44.473Z"
+    },
+    {
+      "id": "bsx9nyGApyGW6ib2LeKU",
+      "name": "Internet Connexion",
+      "isDefault": false,
+      "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+      "companyId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+      "createdAt": "2025-10-06T10:13:19.580Z"
+    }
+  ]
+}

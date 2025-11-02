@@ -14,10 +14,16 @@
     "migration:analyze": "node scripts/analyzeImages.js",
     "migration:dry-run": "node scripts/migrateImages.js --dry-run",
     "migration:run": "node scripts/migrateImages.js",
-    "migration:verify": "node scripts/verifyMigration.js"
+    "migration:verify": "node scripts/verifyMigration.js",
+    "migrate-company:audit": "node scripts/auditUserIdToCompanyId.js",
+    "migrate-company:dry-run": "node scripts/migrateUserIdToCompanyId.js --dry-run",
+    "migrate-company:run": "node scripts/migrateUserIdToCompanyId.js",
+    "migrate-cinetpay:dry-run": "node scripts/migrateCinetPayConfigs.js --dry-run",
+    "migrate-cinetpay:run": "node scripts/migrateCinetPayConfigs.js"
   },
   "dependencies": {
     "@capacitor/share": "^7.0.1",
+    "@emailjs/browser": "^4.4.1",
     "@types/crypto-js": "^4.2.2",
     "@types/papaparse": "^5.3.16",
     "browser-image-compression": "^2.0.2",

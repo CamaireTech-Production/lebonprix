@@ -1,0 +1,121 @@
+{
+  "startTime": "2025-10-31T05:37:41.046Z",
+  "dryRun": true,
+  "collections": {
+    "products": {
+      "totalRecords": 420,
+      "migrated": 0,
+      "skipped": 88,
+      "errors": 0,
+      "orphaned": 332,
+      "assignments": {}
+    },
+    "categories": {
+      "totalRecords": 46,
+      "migrated": 0,
+      "skipped": 21,
+      "errors": 0,
+      "orphaned": 25,
+      "assignments": {}
+    },
+    "suppliers": {
+      "totalRecords": 4,
+      "migrated": 0,
+      "skipped": 3,
+      "errors": 0,
+      "orphaned": 1,
+      "assignments": {}
+    },
+    "expenses": {
+      "totalRecords": 63,
+      "migrated": 0,
+      "skipped": 53,
+      "errors": 0,
+      "orphaned": 10,
+      "assignments": {}
+    },
+    "objectives": {
+      "totalRecords": 12,
+      "migrated": 0,
+      "skipped": 9,
+      "errors": 0,
+      "orphaned": 3,
+      "assignments": {}
+    },
+    "orders": {
+      "totalRecords": 7,
+      "migrated": 0,
+      "skipped": 7,
+      "errors": 0,
+      "orphaned": 0,
+      "assignments": {}
+    },
+    "financeEntryTypes": {
+      "totalRecords": 29,
+      "migrated": 0,
+      "skipped": 28,
+      "errors": 0,
+      "orphaned": 1,
+      "assignments": {}
+    },
+    "expenseTypes": {
+      "totalRecords": 18,
+      "migrated": 0,
+      "skipped": 18,
+      "errors": 0,
+      "orphaned": 0,
+      "assignments": {}
+    },
+    "stockBatches": {
+      "totalRecords": 429,
+      "migrated": 0,
+      "skipped": 92,
+      "errors": 0,
+      "orphaned": 337,
+      "assignments": {}
+    },
+    "stockChanges": {
+      "totalRecords": 1226,
+      "migrated": 0,
+      "skipped": 289,
+      "errors": 0,
+      "orphaned": 937,
+      "assignments": {}
+    },
+    "sales": {
+      "totalRecords": 176,
+      "migrated": 0,
+      "skipped": 135,
+      "errors": 0,
+      "orphaned": 41,
+      "assignments": {}
+    },
+    "customers": {
+      "totalRecords": 114,
+      "migrated": 0,
+      "skipped": 112,
+      "errors": 0,
+      "orphaned": 2,
+      "assignments": {}
+    },
+    "financeEntries": {
+      "totalRecords": 11,
+      "migrated": 0,
+      "skipped": 11,
+      "errors": 0,
+      "orphaned": 0,
+      "assignments": {}
+    }
+  },
+  "summary": {
+    "totalProcessed": 2555,
+    "totalMigrated": 0,
+    "totalSkipped": 866,
+    "totalErrors": 0,
+    "smartAssignments": 0,
+    "orphanedRecords": 1689
+  },
+  "errors": [],
+  "endTime": "2025-10-31T05:38:57.805Z",
+  "duration": 76759
+}

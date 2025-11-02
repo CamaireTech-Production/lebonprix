@@ -1,0 +1,126 @@
+{
+  "timestamp": "2025-10-22T14:15:14.880Z",
+  "options": {
+    "dryRun": true,
+    "companyId": null,
+    "skipUsersUpdate": false
+  },
+  "summary": {
+    "totalCompanies": 12,
+    "totalEmployeesFound": 8,
+    "totalEmployeesWithUid": 8,
+    "totalEmployeeRefsCreated": 0,
+    "totalUsersUpdated": 0,
+    "totalErrors": 0
+  },
+  "companies": [
+    {
+      "companyId": "3tjHxiuPtGO8ESOPkCnbbxRdBRr2",
+      "companyName": "Zara Palmeur",
+      "employeesFound": 0,
+      "employeesWithFirebaseUid": 0,
+      "employeeRefsCreated": 0,
+      "usersUpdated": 0,
+      "errors": []
+    },
+    {
+      "companyId": "6Yt10kHzQZZrP5ee5TlODYU2J8h1",
+      "companyName": "green Flow Consultin",
+      "employeesFound": 0,
+      "employeesWithFirebaseUid": 0,
+      "employeeRefsCreated": 0,
+      "usersUpdated": 0,
+      "errors": []
+    },
+    {
+      "companyId": "D9EJnNTbQYTvkD1kAAP6IuQB1003",
+      "companyName": "Mansa'a Africa",
+      "employeesFound": 0,
+      "employeesWithFirebaseUid": 0,
+      "employeeRefsCreated": 0,
+      "usersUpdated": 0,
+      "errors": []
+    },
+    {
+      "companyId": "KNRE4z96iyaHAARXXsmfhcGdIo23",
+      "companyName": "white Chapel",
+      "employeesFound": 1,
+      "employeesWithFirebaseUid": 1,
+      "employeeRefsCreated": 0,
+      "usersUpdated": 0,
+      "errors": []
+    },
+    {
+      "companyId": "VlMpKl6uxtZrGgyiOPSusmh4Nfv1",
+      "companyName": "Company 3",
+      "employeesFound": 0,
+      "employeesWithFirebaseUid": 0,
+      "employeeRefsCreated": 0,
+      "usersUpdated": 0,
+      "errors": []
+    },
+    {
+      "companyId": "bkPrYXSYz2h9xrLwIs8Tmd2KaxA2",
+      "companyName": "LYKIDS",
+      "employeesFound": 0,
+      "employeesWithFirebaseUid": 0,
+      "employeeRefsCreated": 0,
+      "usersUpdated": 0,
+      "errors": []
+    },
+    {
+      "companyId": "company_1761045818198_6zdaboon9",
+      "companyName": "white chapel",
+      "employeesFound": 0,
+      "employeesWithFirebaseUid": 0,
+      "employeeRefsCreated": 0,
+      "usersUpdated": 0,
+      "errors": []
+    },
+    {
+      "companyId": "company_1761046021784_ha7c8hkdk",
+      "companyName": "white chapel",
+      "employeesFound": 0,
+      "employeesWithFirebaseUid": 0,
+      "employeeRefsCreated": 0,
+      "usersUpdated": 0,
+      "errors": []
+    },
+    {
+      "companyId": "company_1761046693930_cby04975e",
+      "companyName": "white chapel",
+      "employeesFound": 0,
+      "employeesWithFirebaseUid": 0,
+      "employeeRefsCreated": 0,
+      "usersUpdated": 0,
+      "errors": []
+    },
+    {
+      "companyId": "company_1761122505220_0a7uxi7a4",
+      "companyName": "pop",
+      "employeesFound": 0,
+      "employeesWithFirebaseUid": 0,
+      "employeeRefsCreated": 0,
+      "usersUpdated": 0,
+      "errors": []
+    },
+    {
+      "companyId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+      "companyName": "Le Bon Prix",
+      "employeesFound": 0,
+      "employeesWithFirebaseUid": 0,
+      "employeeRefsCreated": 0,
+      "usersUpdated": 0,
+      "errors": []
+    },
+    {
+      "companyId": "oPxXrnQecQUxk00bDAmAZuDxUfD2",
+      "companyName": "MediaLift",
+      "employeesFound": 7,
+      "employeesWithFirebaseUid": 7,
+      "employeeRefsCreated": 0,
+      "usersUpdated": 0,
+      "errors": []
+    }
+  ]
+}

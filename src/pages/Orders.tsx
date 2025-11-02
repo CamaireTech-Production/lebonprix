@@ -37,7 +37,7 @@ import SyncIndicator from '../components/common/SyncIndicator';
 import { toast } from 'react-hot-toast';
 
 const Orders: React.FC = () => {
-  const { user } = useAuth();
+  const { user, company } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
   const [stats, setStats] = useState<OrderStats | null>(null);
@@ -62,10 +62,10 @@ const Orders: React.FC = () => {
 
   // Load orders and stats
   useEffect(() => {
-    if (!user) return;
+    if (!user || !company) return;
 
     const unsubscribeOrders = subscribeToOrders(
-      user.uid,
+      company.id,
       (ordersData) => {
         setOrders(ordersData);
         setFilteredOrders(ordersData);
@@ -77,7 +77,7 @@ const Orders: React.FC = () => {
 
     const loadStats = async () => {
       try {
-        const statsData = await getOrderStats(user.uid);
+        const statsData = await getOrderStats(company.id);
         setStats(statsData);
       } catch (error) {
         console.error('Error loading order stats:', error);
@@ -90,7 +90,7 @@ const Orders: React.FC = () => {
     return () => {
       unsubscribeOrders();
     };
-  }, [user, filters]);
+  }, [user, company, filters]);
 
   // Filter orders based on search term
   useEffect(() => {
@@ -110,11 +110,11 @@ const Orders: React.FC = () => {
 
   // Handle status update
   const handleStatusUpdate = async () => {
-    if (!selectedOrder) return;
+    if (!selectedOrder || !company) return;
 
     try {
       setSyncing(true);
-      await updateOrderStatus(selectedOrder.id, newStatus, user!.uid);
+      await updateOrderStatus(selectedOrder.id, newStatus, company.id, newNote);
       toast.success('Order status updated successfully');
       setShowStatusModal(false);
       setSelectedOrder(null);
@@ -128,11 +128,11 @@ const Orders: React.FC = () => {
 
   // Handle note addition
   const handleAddNote = async () => {
-    if (!selectedOrder || !newNote.trim()) return;
+    if (!selectedOrder || !newNote.trim() || !company) return;
 
     try {
       setSyncing(true);
-      await addOrderNote(selectedOrder.id, newNote.trim(), user!.uid);
+      await addOrderNote(selectedOrder.id, newNote.trim(), company.id);
       toast.success('Note added successfully');
       setShowNoteModal(false);
       setNewNote('');

@@ -45,7 +45,7 @@ const FloatingCartButton: React.FC<FloatingCartButtonProps> = ({ className = '' 
         >
           <ShoppingBag className="h-6 w-6" />
           {getCartItemCount() > 0 && (
-            <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-semibold">
+            <div className="absolute -top-2 -right-2 bg-theme-brown text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-semibold">
               {getCartItemCount()}
             </div>
           )}

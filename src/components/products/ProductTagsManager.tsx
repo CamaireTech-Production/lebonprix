@@ -260,7 +260,6 @@ const ProductTagsManager: React.FC<ProductTagsManagerProps> = ({ tags = [], onTa
           </div>
         </div>
       )}
-
       {/* Existing tags */}
       {tags.map((tag) => (
         <div key={tag.id} className="border border-gray-200 rounded-lg p-4">

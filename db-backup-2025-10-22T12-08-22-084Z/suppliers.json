@@ -1,0 +1,50 @@
+[
+  {
+    "id": "7xl1lEbd7wrldA3v3WzG",
+    "name": "alibaba",
+    "contact": "653144233",
+    "location": "marché central",
+    "userId": "oPxXrnQecQUxk00bDAmAZuDxUfD2",
+    "isDeleted": false,
+    "createdAt": {
+      "_seconds": 1760450715,
+      "_nanoseconds": 844000000
+    },
+    "updatedAt": {
+      "_seconds": 1760450732,
+      "_nanoseconds": 377000000
+    }
+  },
+  {
+    "id": "aSSzqEF1UnGYqwM4bevg",
+    "name": "Konno Meli",
+    "contact": "690160047",
+    "location": "cite verte",
+    "userId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+    "isDeleted": false,
+    "createdAt": {
+      "_seconds": 1760824323,
+      "_nanoseconds": 447000000
+    },
+    "updatedAt": {
+      "_seconds": 1760824323,
+      "_nanoseconds": 447000000
+    }
+  },
+  {
+    "id": "rBEu3Wj72x7kYxclBH7k",
+    "name": "supplier123",
+    "contact": "658923245",
+    "location": "Douala",
+    "userId": "oPxXrnQecQUxk00bDAmAZuDxUfD2",
+    "isDeleted": false,
+    "createdAt": {
+      "_seconds": 1755181267,
+      "_nanoseconds": 999000000
+    },
+    "updatedAt": {
+      "_seconds": 1755181267,
+      "_nanoseconds": 999000000
+    }
+  }
+]

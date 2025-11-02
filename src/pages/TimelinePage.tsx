@@ -44,9 +44,9 @@ const TimelinePage = () => {
         };
         setSaleDetails(transformedDetails);
 
-        // Fetch company details using the sale's userId
-        if (details.userId) {
-          const companyData = await getCompanyByUserId(details.userId);
+        // Fetch company details using the sale's companyId
+        if (details.companyId) {
+          const companyData = await getCompanyByUserId(details.companyId);
           setCompany(companyData);
         }
       } catch (error) {

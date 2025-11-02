@@ -112,7 +112,7 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
           <button
             type="button"
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-            className={`flex items-center space-x-2 px-3 py-2 border-r-0 border rounded-l-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
+            className={`flex items-center space-x-2 px-3 py-2 border-r-0 border rounded-l-lg focus:ring-2 focus:ring-theme-brown focus:border-theme-brown ${
               error ? 'border-red-500' : 'border-gray-300'
             } bg-gray-50 hover:bg-gray-100 transition-colors`}
           >
@@ -143,7 +143,7 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
                     type="button"
                     onClick={() => handleCountrySelect(country)}
                     className={`w-full flex items-center space-x-3 px-3 py-2 text-left hover:bg-gray-50 transition-colors ${
-                      selectedCountry.code === country.code ? 'bg-emerald-50 text-emerald-700' : ''
+                      selectedCountry.code === country.code ? 'bg-emerald-50 text-theme-olive' : ''
                     }`}
                   >
                     <span className="text-lg">{country.flag}</span>
@@ -152,7 +152,7 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
                       <div className="text-xs text-gray-500">{country.dialCode}</div>
                     </div>
                     {selectedCountry.code === country.code && (
-                      <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
+                      <div className="w-2 h-2 bg-theme-olive rounded-full"></div>
                     )}
                   </button>
                 ))}
@@ -176,7 +176,7 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
           onChange={handlePhoneChange}
           onFocus={handleInputFocus}
           placeholder={placeholder}
-          className={`flex-1 px-3 py-2 border rounded-r-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
+          className={`flex-1 px-3 py-2 border rounded-r-lg focus:ring-2 focus:ring-theme-brown focus:border-theme-brown ${
             error ? 'border-red-500' : 'border-gray-300'
           }`}
         />

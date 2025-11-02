@@ -80,7 +80,7 @@ const createInitialOrderEvent = (userId: string): OrderEvent => {
 
 // Create order in Firestore
 export const createOrder = async (
-  userId: string,
+  companyId: string,
   orderData: {
     customerInfo: CustomerInfo;
     cartItems: CartItem[];
@@ -124,6 +124,9 @@ export const createOrder = async (
     const initialStatus: OrderStatus = 'pending';
     const initialPaymentStatus: PaymentStatus = orderData.paymentMethod === 'pay_onsite' ? 'pending' : 'awaiting_payment';
 
+    // Get userId from orderData metadata if available, otherwise use companyId
+    const userId = orderData.metadata?.userId || companyId;
+    
     // Create initial order event
     const initialEvent = createInitialOrderEvent(userId);
 
@@ -170,6 +173,7 @@ export const createOrder = async (
       timeline: [initialEvent],
       metadata: sanitizedMetadata,
       userId: userId || '',
+      companyId: companyId, // Ensure companyId is set
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     };
@@ -211,15 +215,15 @@ export const getOrderById = async (orderId: string): Promise<Order | null> => {
   }
 };
 
-// Subscribe to orders for a user
+// Subscribe to orders for a company
 export const subscribeToOrders = (
-  userId: string, 
+  companyId: string, 
   callback: (orders: Order[]) => void,
   filters?: OrderFilters
 ): Unsubscribe => {
   let q = query(
     collection(db, COLLECTION_NAME),
-    where('userId', '==', userId),
+    where('companyId', '==', companyId),
     orderBy('createdAt', 'desc')
   );
 
@@ -266,11 +270,25 @@ export const subscribeToOrders = (
 export const updateOrderStatus = async (
   orderId: string, 
   status: OrderStatus,
-  userId: string,
+  companyId: string,
   note?: string
 ): Promise<void> => {
   try {
     const orderRef = doc(db, COLLECTION_NAME, orderId);
+    const orderSnap = await getDoc(orderRef);
+    
+    if (!orderSnap.exists()) {
+      throw new Error('Order not found');
+    }
+    
+    const order = orderSnap.data() as Order;
+    // Verify companyId matches
+    if (order.companyId !== companyId) {
+      throw new Error('Unauthorized: Order belongs to different company');
+    }
+    
+    // Get userId from order for audit
+    const userId = order.userId || companyId;
     
     // Create status change event
     const statusEvent: OrderEvent = {
@@ -298,12 +316,26 @@ export const updateOrderStatus = async (
 export const updateOrderPaymentStatus = async (
   orderId: string,
   paymentStatus: PaymentStatus,
-  userId: string,
+  companyId: string,
   cinetpayTransactionId?: string,
   cinetpayStatus?: string
 ): Promise<void> => {
   try {
     const orderRef = doc(db, COLLECTION_NAME, orderId);
+    const orderSnap = await getDoc(orderRef);
+    
+    if (!orderSnap.exists()) {
+      throw new Error('Order not found');
+    }
+    
+    const order = orderSnap.data() as Order;
+    // Verify companyId matches
+    if (order.companyId !== companyId) {
+      throw new Error('Unauthorized: Order belongs to different company');
+    }
+    
+    // Get userId from order for audit
+    const userId = order.userId || companyId;
     
     // Create payment update event
     const paymentEvent: OrderEvent = {
@@ -342,10 +374,24 @@ export const updateOrderPaymentStatus = async (
 export const addOrderNote = async (
   orderId: string,
   note: string,
-  userId: string
+  companyId: string
 ): Promise<void> => {
   try {
     const orderRef = doc(db, COLLECTION_NAME, orderId);
+    const orderSnap = await getDoc(orderRef);
+    
+    if (!orderSnap.exists()) {
+      throw new Error('Order not found');
+    }
+    
+    const order = orderSnap.data() as Order;
+    // Verify companyId matches
+    if (order.companyId !== companyId) {
+      throw new Error('Unauthorized: Order belongs to different company');
+    }
+    
+    // Get userId from order for audit
+    const userId = order.userId || companyId;
     
     // Create note event
     const noteEvent: OrderEvent = {
@@ -368,11 +414,11 @@ export const addOrderNote = async (
 };
 
 // Get order statistics
-export const getOrderStats = async (userId: string): Promise<OrderStats> => {
+export const getOrderStats = async (companyId: string): Promise<OrderStats> => {
   try {
     const q = query(
       collection(db, COLLECTION_NAME),
-      where('userId', '==', userId)
+      where('companyId', '==', companyId)
     );
     
     const snapshot = await getDocs(q);

@@ -123,16 +123,21 @@ const CreatableSelect = ({
         }
       }}
       placeholder={placeholder}
-      className={className}
+      className={className }
       isClearable
       isLoading={isCreating}
       isDisabled={isCreating}
       menuIsOpen={isCreating ? false : undefined}
-      menuPlacement="top"
+      menuPlacement='auto'
+      menuPortalTarget={typeof document !== 'undefined' ? document.body : undefined}
       styles={{
         menu: (base) => ({
           ...base,
-          zIndex: 9999 // Ensure menu is above other elements
+          zIndex: 99999 // Ensure menu is above modal and other elements
+        }),
+        menuPortal: (base) => ({
+          ...base,
+          zIndex: 99999
         })
       }}
     />

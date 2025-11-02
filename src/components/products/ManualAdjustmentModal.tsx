@@ -39,7 +39,7 @@ const ManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
   onSuccess
 }) => {
   const { t } = useTranslation();
-  const { user } = useAuth();
+  const { user, company } = useAuth();
   
   const [batches, setBatches] = useState<StockBatch[]>([]);
   const [loading, setLoading] = useState(false);
@@ -60,10 +60,10 @@ const ManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
 
   // Load available batches when modal opens
   useEffect(() => {
-    if (isOpen && product && user?.uid) {
+    if (isOpen && product && company) {
       loadBatches();
     }
-  }, [isOpen, product, user?.uid]);
+  }, [isOpen, product, company]);
 
   // Reset form when modal opens/closes
   useEffect(() => {
@@ -233,7 +233,7 @@ const ManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
       }));
 
       // Execute bulk adjustment in a single transaction
-      await adjustMultipleBatchesManually(product.id, adjustments, user.uid);
+      await adjustMultipleBatchesManually(product.id, adjustments, company.id);
 
       showSuccessToast(`Successfully applied ${tempEdits.length} batch adjustments!`);
       onSuccess?.();
@@ -276,8 +276,8 @@ const ManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
         product.id,
         selectedBatch.id,
         quantityChange,
-        user.uid,
         newCostPrice,
+        company.id,
         formData.notes || undefined
       );
 

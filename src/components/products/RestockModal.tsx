@@ -24,7 +24,7 @@ const RestockModal: React.FC<RestockModalProps> = ({
   onSuccess
 }) => {
   const { t } = useTranslation();
-  const { user } = useAuth();
+  const { user, company } = useAuth();
   
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(false);
@@ -40,11 +40,11 @@ const RestockModal: React.FC<RestockModalProps> = ({
 
   // Load suppliers
   useEffect(() => {
-    if (isOpen && user?.uid) {
-      const unsubscribe = subscribeToSuppliers(setSuppliers);
+    if (isOpen && company) {
+      const unsubscribe = subscribeToSuppliers(company.id, setSuppliers);
       return unsubscribe;
     }
-  }, [isOpen, user?.uid]);
+  }, [isOpen, company]);
 
   // Reset form when modal opens/closes
   useEffect(() => {
@@ -108,7 +108,7 @@ const RestockModal: React.FC<RestockModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!product || !user?.uid) return;
+    if (!product || !company) return;
 
     // Validate form
     const errors = validateForm();
@@ -128,7 +128,7 @@ const RestockModal: React.FC<RestockModalProps> = ({
         product.id,
         quantity,
         costPrice,
-        user.uid,
+        company.id,
         formData.supplierId || undefined,
         formData.isOwnPurchase,
         isCredit,

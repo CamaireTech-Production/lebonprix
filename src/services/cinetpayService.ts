@@ -17,20 +17,20 @@ import { SecureEncryption } from '../utils/encryption';
 
 const COLLECTION_NAME = 'cinetpay_configs';
 
-// Get CinetPay configuration for a user
-export const getCinetPayConfig = async (userId: string): Promise<CinetPayConfig | null> => {
+// Get CinetPay configuration for a company
+export const getCinetPayConfig = async (companyId: string): Promise<CinetPayConfig | null> => {
   try {
-    const docRef = doc(db, COLLECTION_NAME, userId);
+    const docRef = doc(db, COLLECTION_NAME, companyId);
     const docSnap = await getDoc(docRef);
     
     if (docSnap.exists()) {
       const data = docSnap.data();
       
-      // Decrypt API key if it exists
+      // Decrypt API key if it exists (use companyId for encryption key)
       let decryptedApiKey = data.apiKey;
       if (data.apiKey && !data.apiKey.includes('***REDACTED***')) {
         try {
-          decryptedApiKey = SecureEncryption.decrypt(data.apiKey, userId);
+          decryptedApiKey = SecureEncryption.decrypt(data.apiKey, companyId);
           console.log('API key decrypted successfully');
         } catch (error) {
           console.error('Failed to decrypt API key:', error);
@@ -42,7 +42,8 @@ export const getCinetPayConfig = async (userId: string): Promise<CinetPayConfig 
       
       return {
         id: docSnap.id,
-        userId,
+        userId: data.userId || companyId, // Keep userId for backward compatibility
+        companyId: data.companyId || companyId,
         ...data,
         apiKey: decryptedApiKey,
         createdAt: data.createdAt?.toDate() || new Date(),
@@ -59,24 +60,26 @@ export const getCinetPayConfig = async (userId: string): Promise<CinetPayConfig 
 
 // Save CinetPay configuration
 export const saveCinetPayConfig = async (
-  userId: string, 
-  config: CinetPayConfigUpdate
+  companyId: string,
+  config: CinetPayConfigUpdate,
+  userId?: string // Optional userId for audit trail
 ): Promise<void> => {
   try {
-    const docRef = doc(db, COLLECTION_NAME, userId);
+    const docRef = doc(db, COLLECTION_NAME, companyId); // Use companyId as document ID
     const now = serverTimestamp();
 
-    // Encrypt API key before saving
+    // Encrypt API key before saving (use companyId for encryption key)
     const dataToSave: any = {
       ...config,
-      userId,
+      companyId, // Ensure companyId is set
+      userId: userId || companyId, // Keep userId for audit trail
       updatedAt: now
     };
 
     // Encrypt API key if provided
     if (config.apiKey) {
       try {
-        dataToSave.apiKey = SecureEncryption.encrypt(config.apiKey, userId);
+        dataToSave.apiKey = SecureEncryption.encrypt(config.apiKey, companyId);
       } catch (error) {
         console.error('Failed to encrypt API key:', error);
         throw new Error('Failed to encrypt API key');
@@ -100,20 +103,20 @@ export const saveCinetPayConfig = async (
 
 // Subscribe to CinetPay configuration changes
 export const subscribeToCinetPayConfig = (
-  userId: string, 
+  companyId: string, 
   callback: (config: CinetPayConfig | null) => void
 ): Unsubscribe => {
-  const docRef = doc(db, COLLECTION_NAME, userId);
+  const docRef = doc(db, COLLECTION_NAME, companyId); // Use companyId as document ID
   
   return onSnapshot(docRef, (docSnap) => {
     if (docSnap.exists()) {
       const data = docSnap.data();
       
-      // Decrypt API key if it exists
+      // Decrypt API key if it exists (use companyId for encryption key)
       let decryptedApiKey = data.apiKey;
       if (data.apiKey && !data.apiKey.includes('***REDACTED***')) {
         try {
-          decryptedApiKey = SecureEncryption.decrypt(data.apiKey, userId);
+          decryptedApiKey = SecureEncryption.decrypt(data.apiKey, companyId);
           console.log('API key decrypted successfully');
         } catch (error) {
           console.error('Failed to decrypt API key:', error);
@@ -125,7 +128,8 @@ export const subscribeToCinetPayConfig = (
       
       callback({
         id: docSnap.id,
-        userId,
+        userId: data.userId || companyId, // Keep userId for backward compatibility
+        companyId: data.companyId || companyId,
         ...data,
         apiKey: decryptedApiKey,
         createdAt: data.createdAt?.toDate() || new Date(),
@@ -141,21 +145,21 @@ export const subscribeToCinetPayConfig = (
 };
 
 // Initialize CinetPay configuration with defaults
-export const initializeCinetPayConfig = async (userId: string): Promise<CinetPayConfig> => {
+export const initializeCinetPayConfig = async (companyId: string, userId?: string): Promise<CinetPayConfig> => {
   try {
-    const existingConfig = await getCinetPayConfig(userId);
+    const existingConfig = await getCinetPayConfig(companyId);
     if (existingConfig) {
       // Check if API key needs migration (is plain text)
       if (existingConfig.apiKey && !existingConfig.apiKey.includes('=') && !existingConfig.apiKey.includes('/')) {
         console.log('Migrating plain text API key to encrypted format');
         try {
           // Re-save the config to encrypt the API key
-          await saveCinetPayConfig(userId, {
+          await saveCinetPayConfig(companyId, {
             apiKey: existingConfig.apiKey,
             isActive: existingConfig.isActive,
             testMode: existingConfig.testMode,
             enabledChannels: existingConfig.enabledChannels
-          });
+          }, userId);
           console.log('API key migration completed');
         } catch (error) {
           console.error('Failed to migrate API key:', error);
@@ -166,13 +170,14 @@ export const initializeCinetPayConfig = async (userId: string): Promise<CinetPay
 
     const newConfig: Omit<CinetPayConfig, 'id'> = {
       ...DEFAULT_CINETPAY_CONFIG,
-      userId,
+      userId: userId || companyId, // Keep userId for audit trail
+      companyId,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     };
 
-    await saveCinetPayConfig(userId, newConfig);
-    return { id: userId, ...newConfig } as CinetPayConfig;
+    await saveCinetPayConfig(companyId, newConfig, userId);
+    return { id: companyId, ...newConfig } as CinetPayConfig;
   } catch (error) {
     console.error('Error initializing CinetPay config:', error);
     throw error;
@@ -237,15 +242,16 @@ export const validateCinetPayCredentials = async (
 };
 
 // Get CinetPay configuration with defaults
-export const getCinetPayConfigWithDefaults = async (userId: string): Promise<CinetPayConfig> => {
-  const config = await getCinetPayConfig(userId);
+export const getCinetPayConfigWithDefaults = async (companyId: string, userId?: string): Promise<CinetPayConfig> => {
+  const config = await getCinetPayConfig(companyId);
   if (config) {
     return config;
   }
   
   return {
-    id: userId,
-    userId,
+    id: companyId,
+    userId: userId || companyId,
+    companyId,
     ...DEFAULT_CINETPAY_CONFIG,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()
@@ -253,14 +259,15 @@ export const getCinetPayConfigWithDefaults = async (userId: string): Promise<Cin
 };
 
 // Reset CinetPay configuration to defaults
-export const resetCinetPayConfig = async (userId: string): Promise<void> => {
+export const resetCinetPayConfig = async (companyId: string, userId?: string): Promise<void> => {
   try {
-    const docRef = doc(db, COLLECTION_NAME, userId);
+    const docRef = doc(db, COLLECTION_NAME, companyId); // Use companyId as document ID
     const now = serverTimestamp();
     
     await setDoc(docRef, {
       ...DEFAULT_CINETPAY_CONFIG,
-      userId,
+      userId: userId || companyId, // Keep userId for audit trail
+      companyId, // Ensure companyId is set
       createdAt: now,
       updatedAt: now
     });

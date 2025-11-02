@@ -1,31 +1,41 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode, useMemo, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { auth, db } from '../services/firebase';
 import { 
-  User, 
-  createUserWithEmailAndPassword, 
+  User as FirebaseUser, 
   signInWithEmailAndPassword, 
   signOut as firebaseSignOut, 
   onAuthStateChanged,
   updatePassword
 } from 'firebase/auth';
-import { doc, setDoc, getDoc, updateDoc, Timestamp } from 'firebase/firestore';
-import type { Company } from '../types/models';
+import { doc, getDoc, updateDoc, Timestamp } from 'firebase/firestore';
+import type { Company, UserRole, UserCompanyRef, CompanyEmployee } from '../types/models';
 import { ensureDefaultFinanceEntryTypes } from '../services/firestore';
 import CompanyManager from '../services/storage/CompanyManager';
 import FinanceTypesManager from '../services/storage/FinanceTypesManager';
 import BackgroundSyncService from '../services/backgroundSync';
+import { saveCompanyToCache, getCompanyFromCache, clearCompanyCache } from '../utils/companyCache';
+import { getUserById, updateUserLastLogin, createUser } from '../services/userService';
+import { saveUserSession, getUserSession, clearUserSession, updateUserSessionCompanies } from '../utils/userSession';
+import { clearUserDataOnLogout } from '../utils/logoutCleanup';
 
 interface AuthContextType {
-  user: User | null;
-  currentUser: User | null; // For backward compatibility
+  user: FirebaseUser | null;
+  currentUser: FirebaseUser | null; // For backward compatibility
   company: Company | null;
   loading: boolean;
   companyLoading: boolean; // New: indicates if company data is still loading in background
-  signUp: (email: string, password: string, companyData: Omit<Company, 'id' | 'createdAt' | 'updatedAt' | 'userId'>) => Promise<User>;
-  signIn: (email: string, password: string) => Promise<User>;
+  effectiveRole: UserRole | 'owner' | 'vendeur' | 'gestionnaire' | 'magasinier' | null; // Role effectif de l'utilisateur
+  isOwner: boolean; // Si l'utilisateur est propriétaire de l'entreprise
+  currentEmployee: CompanyEmployee | null; // Informations de l'employé connecté
+  userCompanies: UserCompanyRef[]; // Liste des entreprises de l'utilisateur
+  selectedCompanyId: string | null; // Entreprise actuellement sélectionnée
+  signUp: (email: string, password: string, companyData: Omit<Company, 'id' | 'createdAt' | 'updatedAt' | 'companyId'>) => Promise<FirebaseUser>;
+  signIn: (email: string, password: string) => Promise<FirebaseUser>;
   signOut: () => Promise<void>;
-  updateCompany: (data: Partial<Omit<Company, 'id' | 'createdAt' | 'updatedAt' | 'userId'>>) => Promise<void>;
+  updateCompany: (data: Partial<Omit<Company, 'id' | 'createdAt' | 'updatedAt' | 'companyId'>>) => Promise<void>;
   updateUserPassword: (currentPassword: string, newPassword: string) => Promise<void>;
+  selectCompany: (companyId: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -43,42 +53,252 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider = ({ children }: AuthProviderProps) => {
-  const [user, setUser] = useState<User | null>(null);
+  const navigate = useNavigate();
+  const [user, setUser] = useState<FirebaseUser | null>(null);
   const [company, setCompany] = useState<Company | null>(null);
   const [loading, setLoading] = useState(true);
   const [companyLoading, setCompanyLoading] = useState(false);
+  const [effectiveRole, setEffectiveRole] = useState<UserRole | 'owner' | 'vendeur' | 'gestionnaire' | 'magasinier' | null>(null);
+  const [isOwner, setIsOwner] = useState(false);
+  const [currentEmployee, setCurrentEmployee] = useState<CompanyEmployee | null>(null);
+  const [userCompanies, setUserCompanies] = useState<UserCompanyRef[]>([]);
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
+  const isInitialLoginRef = useRef(false);
+  const isSigningInRef = useRef(false); // Track if signIn is in progress to prevent duplicate clicks
 
+  // Mémoriser les informations de la compagnie pour les restaurer lors de la reconnexion
+  const memoizedCompany = useMemo(() => {
+    if (company) {
+      // Sauvegarder les informations de la compagnie dans le cache
+      saveCompanyToCache(company);
+      return company;
+    }
+    
+    // Essayer de restaurer depuis le cache si pas de compagnie en mémoire
+    const cachedCompany = getCompanyFromCache();
+    if (cachedCompany) {
+      return cachedCompany;
+    }
+    
+    return null;
+  }, [company]);
+
+  // Check localStorage session on mount and wait for Firebase auth to restore
+  useEffect(() => {
+    const session = getUserSession();
+    if (session) {
+      // Wait for Firebase auth persistence to restore before validating
+      // Give it a few seconds as Firebase auth persistence is async
+      const checkInterval = setInterval(() => {
+        const currentUser = auth.currentUser;
+        if (currentUser) {
+          // Firebase auth restored - validate match
+          if (currentUser.uid !== session.userId) {
+            console.log('⚠️ Session mismatch: Firebase auth does not match localStorage session');
+            clearUserSession(session.userId);
+          } else {
+            console.log('✅ Session validated: Firebase auth matches localStorage session');
+          }
+          clearInterval(checkInterval);
+        }
+      }, 100);
+      
+      // Stop checking after 3 seconds (Firebase auth should restore by then)
+      const timeout = setTimeout(() => {
+        clearInterval(checkInterval);
+        const currentUser = auth.currentUser;
+        // If still no Firebase auth after timeout, keep session (will validate in onAuthStateChanged)
+        if (!currentUser) {
+          console.log('⏳ Firebase auth not restored yet, session validation will happen in onAuthStateChanged');
+        }
+      }, 3000);
+      
+      return () => {
+        clearInterval(checkInterval);
+        clearTimeout(timeout);
+      };
+    }
+    // Let onAuthStateChanged handle the actual auth check and routing
+  }, []);
+
+  // NOTE: placed after function declarations to avoid "cannot access before initialization"
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      console.log('🔥 Auth state changed:', user ? 'User logged in' : 'User logged out');
+      // Reset signing in flag when auth state changes
+      isSigningInRef.current = false;
+      
       setUser(user);
       
       if (user) {
         // 🚀 IMMEDIATE UI RENDER: Set loading to false right away
-        console.log('✅ User authenticated - rendering UI immediately');
         setLoading(false);
         
-        // 🔄 BACKGROUND LOADING: Start company data fetch in background
-        console.log('🔄 Starting background company data loading...');
-        loadCompanyDataInBackground(user.uid);
+        // 🚀 RESTORE COMPANY FROM CACHE: Try to restore company data immediately
+        const cachedCompany = getCompanyFromCache();
+        if (cachedCompany) {
+          setCompany(cachedCompany);
+          
+          // Déterminer le rôle immédiatement si on a les données
+          determineUserRole(cachedCompany, user.uid);
+        }
+        
+        // 🔄 BACKGROUND LOADING: Start user and company data fetch in background
+        // Ensure the background loading happens
+        try {
+          await loadUserAndCompanyDataInBackground(user.uid);
+        } catch (error) {
+          console.error('❌ Error in background loading:', error);
+        }
         
         // 🔄 BACKGROUND LOADING: Start finance types in background
-        console.log('🔄 Starting background finance types loading...');
         loadFinanceTypesInBackground();
         
       } else {
         setCompany(null);
+        setEffectiveRole(null);
+        setIsOwner(false);
+        setCurrentEmployee(null);
         setLoading(false);
+        // Nettoyer le cache lors de la déconnexion
+        clearCompanyCache();
+        // Clear user session (no userId means clear all - but we know user is null)
+        clearUserSession();
       }
     });
 
     return unsubscribe;
   }, []);
 
-  // 🚀 INSTANT company data loading from localStorage with background sync
-  const loadCompanyDataInBackground = async (userId: string) => {
+  // 🔄 Migration automatique d'un utilisateur vers le nouveau système
+  const migrateUserToNewSystem = async (userId: string) => {
+    try {
+      // Récupérer les données Firebase Auth
+      const firebaseUser = auth.currentUser;
+      if (!firebaseUser) {
+        throw new Error('Utilisateur Firebase non trouvé');
+      }
+      
+      // Créer l'utilisateur dans le nouveau système
+      await createUser(userId, {
+        firstname: firebaseUser.displayName?.split(' ')[0] || 'Utilisateur',
+        lastname: firebaseUser.displayName?.split(' ').slice(1).join(' ') || 'Anonyme',
+        email: firebaseUser.email || '',
+        phone: firebaseUser.phoneNumber || undefined,
+        photoURL: firebaseUser.photoURL || undefined
+      });
+      
+    } catch (error) {
+      console.error('❌ Erreur lors de la migration de l\'utilisateur:', error);
+      throw error;
+    }
+  };
+
+  // 🚀 INSTANT user and company data loading from localStorage with background sync
+  const loadUserAndCompanyDataInBackground = async (userId: string) => {
     setCompanyLoading(true);
     
+    try {
+      // 1. Charger les données utilisateur depuis le système unifié
+      const userData = await getUserById(userId);
+      
+      if (userData) {
+        setUserCompanies(userData.companies || []);
+        
+        // 💾 Save user session to localStorage
+        const currentUser = auth.currentUser;
+        if (currentUser) {
+          saveUserSession(
+            userId,
+            currentUser.email || userData.email,
+            userData.companies?.map(c => ({
+              companyId: c.companyId,
+              name: c.name,
+              role: c.role
+            }))
+          );
+        }
+        
+        // Mettre à jour la dernière connexion
+        await updateUserLastLogin(userId);
+        
+        // 2. Handle routing based on user's companies
+        if (isInitialLoginRef.current) {
+          if (userData.companies && userData.companies.length > 0) {
+            // User has companies - auto-select and go to dashboard
+            // Find first company where user is owner or admin
+            const ownerOrAdminCompany = userData.companies.find((company: UserCompanyRef) => 
+              company.role === 'owner' || company.role === 'admin'
+            );
+            
+            if (ownerOrAdminCompany) {
+              navigate(`/company/${ownerOrAdminCompany.companyId}/dashboard`);
+            } else {
+              // User is only employee - show company selection
+              navigate(`/companies/me/${userId}`);
+            }
+          } else {
+            // User has no companies - show mode selection
+            navigate('/mode-selection');
+          }
+          
+          isInitialLoginRef.current = false; // Reset après redirection
+        } else {
+          // Still save session even if not initial login (for page refresh scenarios)
+          const currentUser = auth.currentUser;
+          if (currentUser) {
+            saveUserSession(
+              userId,
+              currentUser.email || userData.email,
+              userData.companies?.map(c => ({
+                companyId: c.companyId,
+                name: c.name,
+                role: c.role
+              }))
+            );
+          }
+        }
+      } else {
+        // Créer l'utilisateur dans le nouveau système s'il n'existe pas
+        await migrateUserToNewSystem(userId);
+        // Puis recharger les données
+        const userData = await getUserById(userId);
+        if (userData) {
+          setUserCompanies(userData.companies || []);
+          // Handle routing after migration
+          if (isInitialLoginRef.current) {
+            if (userData.companies && userData.companies.length > 0) {
+              // User has companies - auto-select and go to dashboard
+              // Find first company where user is owner or admin
+              const ownerOrAdminCompany = userData.companies.find((company: UserCompanyRef) => 
+                company.role === 'owner' || company.role === 'admin'
+              );
+              
+              if (ownerOrAdminCompany) {
+                navigate(`/company/${ownerOrAdminCompany.companyId}/dashboard`);
+              } else {
+                // User is only employee - show company selection
+                navigate(`/companies/me/${userId}`);
+              }
+            } else {
+              // User has no companies - show mode selection
+              navigate('/mode-selection');
+            }
+            
+            isInitialLoginRef.current = false; // Reset après redirection
+          }
+        }
+      }
+    } catch (error) {
+      console.error('❌ Erreur lors du chargement des données utilisateur:', error);
+      // Fallback vers l'ancien système
+      await loadCompanyDataLegacy(userId);
+    } finally {
+      setCompanyLoading(false);
+    }
+  };
+
+  // Fallback vers l'ancien système
+  const loadCompanyDataLegacy = async (userId: string) => {
     // 1. INSTANT LOAD: Check localStorage first
     const localCompany = CompanyManager.load(userId);
     if (localCompany) {
@@ -88,18 +308,15 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
                             localCompany.tertiaryColor !== undefined;
       
       if (!hasColorFields) {
-        console.log('🔄 Color fields missing from cache, forcing refresh...');
         // Force a fresh fetch from Firebase
         CompanyManager.remove(userId);
       } else {
         setCompany(localCompany);
         setCompanyLoading(false);
-        console.log('🚀 Company data loaded instantly from localStorage');
         
         // 2. BACKGROUND SYNC: Update localStorage if needed
         BackgroundSyncService.syncCompany(userId, (freshCompany) => {
           setCompany(freshCompany);
-          console.log('🔄 Company data updated from background sync');
         });
         return;
       }
@@ -107,24 +324,120 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     
     // 3. FALLBACK: No localStorage data, fetch from Firebase
     try {
-      console.log('📡 No cached company data, fetching from Firebase...');
-      
       const companyDoc = await getDoc(doc(db, 'companies', userId));
       
       if (companyDoc.exists()) {
         const companyData = { id: companyDoc.id, ...companyDoc.data() } as Company;
         setCompany(companyData);
         
+        // Déterminer le rôle effectif et ownership
+        determineUserRole(companyData, userId);
+        
         // Save to localStorage for future instant loads
         CompanyManager.save(userId, companyData);
-        console.log('✅ Company data loaded from Firebase and cached to localStorage');
-      } else {
-        console.log('⚠️ No company document found for user');
+        
+        // Mettre à jour le cache global
+        saveCompanyToCache(companyData);
       }
     } catch (error) {
       console.error('❌ Company loading failed:', error);
     } finally {
       setCompanyLoading(false);
+    }
+  };
+
+  // Charger les données d'une entreprise spécifique
+  const loadCompanyData = async (companyId: string, userId: string) => {
+    try {
+      const companyDoc = await getDoc(doc(db, 'companies', companyId));
+      
+      if (companyDoc.exists()) {
+        const companyData = { id: companyDoc.id, ...companyDoc.data() } as Company;
+        setCompany(companyData);
+        
+        // Déterminer le rôle effectif et ownership
+        determineUserRole(companyData, userId);
+        
+        // Save to localStorage for future instant loads
+        CompanyManager.save(userId, companyData);
+        
+        // Mettre à jour le cache global
+        saveCompanyToCache(companyData);
+      }
+    } catch (error) {
+      console.error(`❌ Erreur lors du chargement de l'entreprise ${companyId}:`, error);
+    }
+  };
+
+  // Déterminer le rôle effectif de l'utilisateur
+  const determineUserRole = async (companyData: Company, userId: string) => {
+    try {
+      // 1. Vérifier si l'utilisateur est propriétaire de l'entreprise (nouveau système)
+      // CORRECTED: Check userId field (owner reference) instead of companyId
+      const isCompanyOwner = companyData.userId === userId;
+      setIsOwner(isCompanyOwner);
+      
+      if (isCompanyOwner) {
+        setEffectiveRole('owner');
+        return;
+      }
+      
+      // 2. Check users[].companies[] for employee roles (new system)
+      const userDocForRole = await getDoc(doc(db, 'users', userId));
+      if (userDocForRole.exists()) {
+        const userData = userDocForRole.data();
+        const userCompanyRef = userData.companies?.find((c: UserCompanyRef) => c.companyId === companyData.id);
+        
+        if (userCompanyRef) {
+          // Map the role from users[].companies[] to UI role
+          const roleMapping: Record<string, string> = {
+            'staff': 'vendeur',
+            'manager': 'gestionnaire',
+            'admin': 'magasinier',
+            'owner': 'owner'
+          };
+          
+          const uiRole = roleMapping[userCompanyRef.role] || userCompanyRef.role;
+          setEffectiveRole(uiRole as UserRole | 'owner' | 'vendeur' | 'gestionnaire' | 'magasinier');
+          return;
+        }
+      }
+      
+      // 3. Fallback vers l'ancien système - vérifier si c'est un employé
+      const employee = companyData.employees ? 
+        Object.values(companyData.employees).find(emp => emp.firebaseUid === userId) : null;
+      
+      if (employee) {
+        // Mapper le rôle employé vers le rôle UI
+        const roleMapping: Record<string, string> = {
+          'staff': 'vendeur',
+          'manager': 'gestionnaire', 
+          'admin': 'magasinier',
+          'owner': 'owner'
+        };
+        setEffectiveRole(roleMapping[employee.role] as UserRole | 'owner' | 'vendeur' | 'gestionnaire' | 'magasinier');
+        setCurrentEmployee(employee);
+        return;
+      }
+      
+      // 4. Si pas d'employé, chercher dans users/{uid} pour le rôle
+      const userDocForFallback = await getDoc(doc(db, 'users', userId));
+      if (userDocForFallback.exists()) {
+        const userData = userDocForFallback.data();
+        const role = userData.role as UserRole;
+        const roleMapping: Record<string, string> = {
+          'staff': 'vendeur',
+          'manager': 'gestionnaire',
+          'admin': 'magasinier',
+          'owner': 'owner'
+        };
+        setEffectiveRole(roleMapping[role] as UserRole | 'owner' | 'vendeur' | 'gestionnaire' | 'magasinier');
+      } else {
+        setEffectiveRole(null);
+      }
+    } catch (error) {
+      console.error('❌ Error determining user role:', error);
+      setEffectiveRole(null);
     }
   };
 
@@ -134,19 +447,15 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     
     // 1. INSTANT CHECK: Check localStorage flag first
     if (!FinanceTypesManager.needsSetup(user.uid)) {
-      console.log('🚀 Finance types already setup - skipping');
       return;
     }
     
     // 2. SETUP NEEDED: Ensure finance types and mark as setup
     try {
-      console.log('📡 Setting up finance types...');
-      
       await ensureDefaultFinanceEntryTypes();
       
       // Mark as setup in localStorage to skip future checks
       FinanceTypesManager.markAsSetup(user.uid);
-      console.log('✅ Finance types setup completed and marked in localStorage');
     } catch (error) {
       console.error('❌ Finance types setup failed:', error);
       // App continues to work without finance types setup
@@ -156,44 +465,118 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const signUp = async (
     email: string, 
     password: string, 
-    companyData: Omit<Company, 'id' | 'createdAt' | 'updatedAt' | 'userId'>
-  ): Promise<User> => {
-    const response = await createUserWithEmailAndPassword(auth, email, password);
-    const user = response.user;
-
-    // Create company document
-    const companyDoc = {
-      ...companyData,
-      userId: user.uid,
-      createdAt: Timestamp.now(),
-      updatedAt: Timestamp.now()
-    };
-
-    await setDoc(doc(db, 'companies', user.uid), companyDoc);
-
-    // Set company in state and localStorage
-    const company = { id: user.uid, ...companyDoc } as Company;
-    setCompany(company);
-    CompanyManager.save(user.uid, company);
-
-    return user;
+    companyData: Omit<Company, 'id' | 'createdAt' | 'updatedAt' | 'companyId'>
+  ): Promise<FirebaseUser> => {
+    // This signUp function is deprecated - users should be created first, then companies
+    // For now, we'll throw an error to force migration to the new pattern
+    console.warn('SignUp with company creation is deprecated. Please use: 1) Create user account first, 2) Then create company separately');
+    console.warn('Parameters received:', { email, password, companyData });
+    throw new Error('SignUp with company creation is deprecated. Please use: 1) Create user account first, 2) Then create company separately');
   };
 
-  const signIn = async (email: string, password: string): Promise<User> => {
-    const response = await signInWithEmailAndPassword(auth, email, password);
-    return response.user;
+  const signIn = async (email: string, password: string): Promise<FirebaseUser> => {
+    // Prevent duplicate login attempts
+    if (isSigningInRef.current) {
+      throw new Error('Une tentative de connexion est déjà en cours. Veuillez patienter...');
+    }
+    
+    // Marquer AVANT le try pour garantir son exécution même en cas d'erreur précoce
+    isInitialLoginRef.current = true;
+    isSigningInRef.current = true;
+    
+    try {
+      // Validation de l'instance auth avant utilisation
+      if (!auth) {
+        throw new Error('Firebase Auth instance not initialized');
+      }
+      
+      // Créer une promesse avec timeout optionnel en mode dev pour éviter les blocages
+      const signInPromise = signInWithEmailAndPassword(auth, email, password);
+      
+      let response;
+      if (import.meta.env.DEV) {
+        // En mode dev, ajouter un timeout pour détecter les blocages
+        const timeoutPromise = new Promise<never>((_, reject) => 
+          setTimeout(() => reject(new Error('Sign in timeout: opération prend plus de 30 secondes')), 30000)
+        );
+        
+        response = await Promise.race([signInPromise, timeoutPromise]);
+      } else {
+        response = await signInPromise;
+      }
+      
+      console.log('✅ Successful login:', response.user.email);
+      
+      // The onAuthStateChanged listener will handle the routing and reset isSigningInRef
+      // Let the background loading handle routing based on user's companies
+      
+      // Note: isSigningInRef will be reset in onAuthStateChanged to prevent duplicate clicks
+      // The loading state will be maintained until onAuthStateChanged completes
+      
+      return response.user;
+    } catch (error: any) {
+      console.error('❌ signIn error:', error);
+      isInitialLoginRef.current = false; // Reset on error
+      isSigningInRef.current = false; // Reset on error
+      
+      // Gestion d'erreurs améliorée avec messages explicites
+      if (error.code) {
+        // Erreur Firebase Auth
+        const errorMessages: Record<string, string> = {
+          'auth/user-not-found': 'Utilisateur non trouvé',
+          'auth/wrong-password': 'Mot de passe incorrect',
+          'auth/invalid-email': 'Email invalide',
+          'auth/user-disabled': 'Compte utilisateur désactivé',
+          'auth/network-request-failed': 'Erreur réseau. Vérifiez votre connexion.',
+          'auth/too-many-requests': 'Trop de tentatives. Réessayez plus tard.',
+        };
+        
+        const userMessage = errorMessages[error.code] || `Erreur d'authentification: ${error.code}`;
+        const enhancedError = new Error(userMessage);
+        (enhancedError as any).code = error.code;
+        throw enhancedError;
+      }
+      
+      // Erreur générique
+      throw error;
+    }
   };
 
   const signOut = (): Promise<void> => {
+    // Get userId before clearing state
+    const currentUserId = user?.uid;
+    
+    // Comprehensive logout cleanup - clears all user-specific data
+    // Preserves: PWA update data and checkout data
+    clearUserDataOnLogout(currentUserId);
+    
+    // Also clear company cache (for backward compatibility)
+    clearCompanyCache();
+    
+    // Clear user session (included in clearUserDataOnLogout but keeping for clarity)
+    if (currentUserId) {
+      clearUserSession(currentUserId);
+    } else {
+      clearUserSession();
+    }
+    
+    // Clear React state
+    setCompany(null);
+    setEffectiveRole(null);
+    setIsOwner(false);
+    setCurrentEmployee(null);
+    setUserCompanies([]);
+    setSelectedCompanyId(null);
+    
     return firebaseSignOut(auth);
   };
 
-  const updateCompany = async (data: Partial<Omit<Company, 'id' | 'createdAt' | 'updatedAt' | 'userId'>>) => {
+  const updateCompany = async (data: Partial<Omit<Company, 'id' | 'createdAt' | 'updatedAt' | 'companyId'>>) => {
     if (!user) {
       throw new Error('No user logged in');
     }
 
-    const companyRef = doc(db, 'companies', user.uid);
+    const companyRef = doc(db, 'companies', selectedCompanyId || user.uid);
     const updateData = {
       ...data,
       updatedAt: Timestamp.now()
@@ -207,7 +590,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     
     if (updatedCompany) {
       CompanyManager.save(user.uid, updatedCompany);
-      console.log('✅ Company data updated and cached with new color fields');
     }
   };
 
@@ -221,17 +603,33 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     await updatePassword(credential.user, newPassword);
   };
 
+  // Sélectionner une entreprise
+  const selectCompany = async (companyId: string) => {
+    if (!user) {
+      throw new Error('No user logged in');
+    }
+    
+    setSelectedCompanyId(companyId);
+    await loadCompanyData(companyId, user.uid);
+  };
+
   const value = {
     user,
     currentUser: user, // For backward compatibility
-    company,
+    company: memoizedCompany, // Utiliser la compagnie mémorisée
     loading,
     companyLoading,
+    effectiveRole,
+    isOwner,
+    currentEmployee,
+    userCompanies,
+    selectedCompanyId,
     signUp,
     signIn,
     signOut,
     updateCompany,
-    updateUserPassword
+    updateUserPassword,
+    selectCompany
   };
 
   return (

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Menu, Bell, Search, User, Settings, LogOut } from 'lucide-react';
+import { Menu, Bell, Search, User, Settings, LogOut, Users } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import UserAvatar from '../common/UserAvatar';
 import LanguageSwitcher from '../common/LanguageSwitcher';
@@ -10,9 +10,10 @@ import { useTranslation } from 'react-i18next';
 
 interface NavbarProps {
   onMenuClick: () => void;
+  isSelectionMode?: boolean;
 }
 
-const Navbar = ({ onMenuClick }: NavbarProps) => {
+const Navbar = ({ onMenuClick, isSelectionMode }: NavbarProps) => {
   const { t } = useTranslation();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -45,7 +46,7 @@ const Navbar = ({ onMenuClick }: NavbarProps) => {
   const handleSignOut = async () => {
     try {
       await signOut();
-      navigate('/login');
+      // The AuthContext will handle redirecting to login via onAuthStateChanged
     } catch (error) {
       console.error('Error signing out:', error);
     }
@@ -107,9 +108,10 @@ const Navbar = ({ onMenuClick }: NavbarProps) => {
               className="flex items-center space-x-3 focus:outline-none"
               aria-label={t('header.profile')}
             >
-              <UserAvatar company={company} size="sm" />
+              {isSelectionMode? null : <div><UserAvatar company={company} size="sm" /></div>}
+              
               <span className="text-sm font-medium text-gray-700 hidden md:block">
-                {company?.name || t('header.welcome')}
+                {isSelectionMode ? "selection entreprise" : company?.name || t('header.welcome')}
               </span>
             </button>
 
@@ -117,7 +119,7 @@ const Navbar = ({ onMenuClick }: NavbarProps) => {
               <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50">
                 <div className="py-1" role="menu" aria-orientation="vertical">
                   <Link
-                    to="/profile"
+                    to={`/company/${location.pathname.split('/')[2]}/profile`}
                     className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                     role="menuitem"
                     onClick={() => setIsDropdownOpen(false)}
@@ -126,13 +128,22 @@ const Navbar = ({ onMenuClick }: NavbarProps) => {
                     {t('navigation.profile')}
                   </Link>
                   <Link
-                    to="/settings"
+                    to={`/company/${location.pathname.split('/')[2]}/settings`}
                     className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                     role="menuitem"
                     onClick={() => setIsDropdownOpen(false)}
                   >
                     <Settings size={16} className="mr-3" />
                     {t('navigation.settings')}
+                  </Link>
+                  <Link
+                    to={`/company/${location.pathname.split('/')[2]}/settings?tab=employees`}
+                    className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    role="menuitem"
+                    onClick={() => setIsDropdownOpen(false)}
+                  >
+                    <Users size={16} className="mr-3" />
+                    Employees
                   </Link>
                   <button
                     onClick={handleSignOut}

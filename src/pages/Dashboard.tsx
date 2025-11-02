@@ -32,7 +32,7 @@ const Dashboard = () => {
   // 🔄 BACKGROUND LOADING: Load all sales in background after initial render
   const [allSales, setAllSales] = useState<any[]>([]);
   const [loadingAllSales, setLoadingAllSales] = useState(false);
-  const { user } = useAuth();
+  const { user, company } = useAuth();
   
   // 🔄 BACKGROUND LOADING: Load secondary data in background (don't block UI)
   const { expenses, loading: expensesLoading } = useExpenses();
@@ -45,26 +45,24 @@ const Dashboard = () => {
 
   // 🔄 LOAD ALL SALES IN BACKGROUND: After initial UI renders
   useEffect(() => {
-    if (!user || essentialDataLoading) return;
+    if (!user || !company || essentialDataLoading) return;
     
-    console.log('🔄 Loading all sales in background...');
     setLoadingAllSales(true);
     
-    const unsubscribe = subscribeToAllSales(user.uid, (allSalesData) => {
+    const unsubscribe = subscribeToAllSales(company.id, (allSalesData) => {
       setAllSales(allSalesData);
       setLoadingAllSales(false);
-      console.log(`✅ All sales loaded: ${allSalesData.length} total sales`);
     });
     
     // Cleanup function
     return () => {
       unsubscribe();
     };
-  }, [user, essentialDataLoading]);
+  }, [user, company, essentialDataLoading]);
   const [showCalculationsModal, setShowCalculationsModal] = useState(false);
-  const { company } = useAuth();
   const [] = useState<Partial<DashboardStats>>({});
   const [copied, setCopied] = useState(false);
+  const [copied2, setCopied2] = useState(false);
   const [dateRange, setDateRange] = useState({
     from: new Date(2025, 0, 1), // January 1st, 2025
     to: new Date(), // Current date
@@ -241,7 +239,8 @@ const Dashboard = () => {
   const chartData = processChartData();
 
   // Generate the company's catalogue page URL
-  const productPageUrl = company ? `${window.location.origin}/catalogue/${encodeURIComponent(company.name.toLowerCase().replace(/\s+/g, '-'))}/${company.id}` : '';
+  const productPageUrl = company ? `${window.location.origin}/catalogue/${encodeURIComponent(company.name.toLowerCase().replace(/\s+/g, '-'))}/${company.companyId || company.id}` : '';
+  const sitePage  = company ? company.website : false;
 
   const handleCopyLink = async () => {
     try {
@@ -254,6 +253,35 @@ const Dashboard = () => {
     }
   };
 
+  const handleCopyLink2 = async () => {
+    try {
+      await navigator.clipboard.writeText(sitePage || '');
+      setCopied2(true);
+      showSuccessToast('Lien copié avec succès!');
+      setTimeout(() => setCopied2(false), 2000);
+    } catch (err) {
+      showErrorToast('Erreur lors de la copie du lien');
+    }
+  };
+
+  const handleShareLink2 = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `Site web de ${company?.name}`,
+          text: `Découvrez le site web de ${company?.name}`,
+          url: sitePage || ''
+        });
+      } catch (err) {
+        if ((err as Error).name !== 'AbortError') {
+          showErrorToast('Erreur lors du partage');
+        }
+      }
+    } else {
+      // Fallback to copy if Web Share API is not available
+      handleCopyLink2();
+    }
+  };
   const handleShareLink = async () => {
     if (navigator.share) {
       try {
@@ -403,6 +431,57 @@ const Dashboard = () => {
                 </div>
               </div>
             </div>
+            {sitePage && 
+            
+
+            <div className="flex flex-col gap-4">
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex-grow">
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={sitePage}
+                    readOnly
+                    className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:border-gray-300 bg-gray-50 text-sm"
+                    style={{'--tw-ring-color': getCompanyColors().primary} as React.CSSProperties}
+                  />
+                  <button
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                    onClick={handleCopyLink2}
+                    title={t('dashboard.publicProducts.copyLink')}
+                  >
+                    {copied2 ? (
+                      <Check className="h-5 w-5" style={{color: getCompanyColors().primary}} />
+                    ) : (
+                      <Copy className="h-5 w-5" />
+                    )}
+                  </button>
+                </div>
+              </div>
+              <div className="flex gap-2 sm:w-auto">
+                <a
+                  href={sitePage}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2"
+                  style={{'--tw-ring-color': getCompanyColors().primary} as React.CSSProperties}
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  {t('dashboard.publicProducts.open')}
+                </a>
+                <button
+                  onClick={handleShareLink2}
+                  className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2"
+                  style={{'--tw-ring-color': getCompanyColors().primary} as React.CSSProperties}
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  {t('dashboard.publicProducts.share')}
+                </button>
+              </div>
+            </div>
+          </div>
+
+            }
           </div>
         </div>
       )}
