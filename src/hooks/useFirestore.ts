@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { 
   createSale, 
   updateSaleStatus, 
@@ -593,22 +593,188 @@ export const useFinanceEntries = () => {
   const [entries, setEntries] = useState<FinanceEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  // Simple refresh function - manually reload data from Firestore
+  const refresh = useCallback(async () => {
     if (!user || !company) return;
+    
+    setLoading(true);
     const q = query(
       collection(db, 'finances'),
       where('companyId', '==', company.id),
-      where('isDeleted', '==', false),
       orderBy('createdAt', 'desc')
     );
-    const unsub = onSnapshot(q, snap => {
-      setEntries(snap.docs.map(d => ({ id: d.id, ...d.data() } as FinanceEntry)));
+    
+    try {
+      const snapshot = await getDocs(q);
+      const financeEntries = snapshot.docs
+        .map(d => ({ id: d.id, ...d.data() } as FinanceEntry))
+        .filter(entry => entry.isDeleted !== true)
+        .sort((a, b) => {
+          const aTime = a.createdAt?.seconds || 0;
+          const bTime = b.createdAt?.seconds || 0;
+          return bTime - aTime;
+        });
+      
+      setEntries([...financeEntries]);
       setLoading(false);
-    });
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[useFinanceEntries] 🔄 Manual refresh: ${financeEntries.length} entries`);
+      }
+    } catch (error) {
+      console.error('[useFinanceEntries] ❌ Error refreshing entries:', error);
+      setLoading(false);
+    }
+  }, [user, company]);
+
+  useEffect(() => {
+    if (!user || !company) {
+      setEntries([]);
+      setLoading(false);
+      return;
+    }
+
+    // Real-time listener for finance entries
+    // FIXED: Simplified query to avoid composite index issues
+    // Query by companyId only, filter isDeleted in client-side for better real-time performance
+    const q = query(
+      collection(db, 'finances'),
+      where('companyId', '==', company.id),
+      orderBy('createdAt', 'desc')
+    );
+
+    // Set up real-time listener with proper error handling
+    // FIXED: Include metadata changes to catch local writes immediately
+    // This ensures onSnapshot fires even for pending writes (like batch commits)
+    const unsub = onSnapshot(
+      q,
+      { includeMetadataChanges: true }, // CRITICAL: This catches local writes immediately
+      (snapshot) => {
+        // Process ALL updates (including pending writes) for immediate UI feedback
+        // includeMetadataChanges: true gives us:
+        // 1. Immediate update when write is added to local cache (pending)
+        // 2. Confirmation update when write is committed to server
+        // We process both for the best user experience
+        
+        // Success callback - filter isDeleted on client-side for better real-time performance
+        const financeEntries = snapshot.docs
+          .map(d => ({ id: d.id, ...d.data() } as FinanceEntry))
+          .filter(entry => entry.isDeleted !== true); // Filter soft-deleted entries client-side
+        
+        // Sort by createdAt (descending) - already sorted by Firestore, but ensure consistency
+        financeEntries.sort((a, b) => {
+          const aTime = a.createdAt?.seconds || 0;
+          const bTime = b.createdAt?.seconds || 0;
+          return bTime - aTime;
+        });
+        
+        // Always update state - Firestore guarantees consistency
+        // CRITICAL: Create new array reference to ensure React detects the change
+        setEntries([...financeEntries]);
+        setLoading(false);
+        
+        // Debug log for development
+        if (process.env.NODE_ENV === 'development') {
+          const pendingWrites = snapshot.metadata.hasPendingWrites;
+          const fromCache = snapshot.metadata.fromCache;
+          
+          console.log(`[useFinanceEntries] ✅ Real-time update: ${financeEntries.length} entries (from ${snapshot.docs.length} total)`, {
+            hasPendingWrites: pendingWrites,
+            fromCache: fromCache,
+            timestamp: new Date().toISOString(),
+            isFresh: !fromCache && !pendingWrites,
+            newEntryIds: snapshot.docChanges().filter(change => change.type === 'added').map(c => c.doc.id)
+          });
+          
+          // Log document changes to track what's new
+          const changes = snapshot.docChanges();
+          if (changes.length > 0) {
+            changes.forEach(change => {
+              const entryData = change.doc.data();
+              if (change.type === 'added') {
+                console.log(`[useFinanceEntries] ➕ New entry added: ${change.doc.id}`, {
+                  ...entryData,
+                  isInFiltered: financeEntries.some(e => e.id === change.doc.id)
+                });
+              } else if (change.type === 'modified') {
+                const isInFiltered = financeEntries.some(e => e.id === change.doc.id);
+                console.log(`[useFinanceEntries] ✏️ Entry modified: ${change.doc.id}`, {
+                  isInFiltered,
+                  isDeleted: entryData.isDeleted,
+                  companyId: entryData.companyId,
+                  hasCreatedAt: !!entryData.createdAt
+                });
+              } else if (change.type === 'removed') {
+                console.log(`[useFinanceEntries] ➖ Entry removed: ${change.doc.id}`);
+              }
+            });
+          }
+          
+          // CRITICAL: Log if the new entry ID is in the filtered results
+          const addedChanges = changes.filter(c => c.type === 'added' || c.type === 'modified');
+          if (addedChanges.length > 0) {
+            addedChanges.forEach(change => {
+              const isInResults = financeEntries.some(e => e.id === change.doc.id);
+              if (!isInResults) {
+                console.error(`[useFinanceEntries] ⚠️ Entry ${change.doc.id} NOT in filtered results!`, {
+                  entryData: change.doc.data(),
+                  totalDocs: snapshot.docs.length,
+                  filteredCount: financeEntries.length
+                });
+              }
+            });
+          }
+        }
+      },
+      (error) => {
+        // Error callback - log error and provide helpful information
+        console.error('[useFinanceEntries] ❌ Error listening to finance entries:', error);
+        
+        // If it's a missing index error, log it clearly with instructions
+        if (error.code === 'failed-precondition') {
+          console.error(
+            '[useFinanceEntries] ⚠️ Missing Firestore index!',
+            '\nCreate composite index for: finances collection',
+            '\nFields: companyId (Ascending), createdAt (Descending)',
+            '\nCheck Firebase Console -> Firestore -> Indexes for the link to create it',
+            '\nOr check the browser console for the automatic index creation link'
+          );
+          // Try to get the index URL from the error if available
+          if (error.message) {
+            const indexMatch = error.message.match(/https:\/\/console\.firebase\.google\.com[^\s]+/);
+            if (indexMatch) {
+              console.error('[useFinanceEntries] 📌 Index creation link:', indexMatch[0]);
+            }
+          }
+        }
+        
+        setLoading(false);
+        // Fallback: Try to get data without orderBy (simpler query)
+        const fallbackQuery = query(
+          collection(db, 'finances'),
+          where('companyId', '==', company.id)
+        );
+        getDocs(fallbackQuery).then((snap) => {
+          const fallbackEntries = snap.docs
+            .map(d => ({ id: d.id, ...d.data() } as FinanceEntry))
+            .filter(entry => entry.isDeleted !== true)
+            .sort((a, b) => {
+              const aTime = a.createdAt?.seconds || 0;
+              const bTime = b.createdAt?.seconds || 0;
+              return bTime - aTime;
+            });
+          setEntries(fallbackEntries);
+          console.log(`[useFinanceEntries] ✅ Fallback: Loaded ${fallbackEntries.length} entries (no real-time updates)`);
+        }).catch((err) => {
+          console.error('[useFinanceEntries] ❌ Fallback query also failed:', err);
+        });
+      }
+    );
+
     return () => unsub();
   }, [user, company]);
 
-  return { entries, loading };
+  return { entries, loading, refresh };
 };
 
 // Suppliers Hook with Caching

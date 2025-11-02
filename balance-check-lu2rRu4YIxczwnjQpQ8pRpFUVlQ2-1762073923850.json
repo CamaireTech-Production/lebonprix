@@ -1,0 +1,55 @@
+{
+  "companyId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+  "timestamp": "2025-11-02T08:58:43.848Z",
+  "expectedBalanceOldSystem": 280900,
+  "currentBalance": 297900,
+  "expectedBalanceFromData": 297900,
+  "differences": {
+    "currentVsOldSystem": 17000,
+    "adjustedVsOldSystem": 17000
+  },
+  "breakdown": {
+    "sales": {
+      "count": 128,
+      "amount": 1475700
+    },
+    "expenses": {
+      "count": 39,
+      "amount": -209200
+    },
+    "manual": {
+      "count": 24,
+      "amount": -978600
+    },
+    "supplier": {
+      "count": 0,
+      "amount": 0
+    },
+    "other": {
+      "count": 0,
+      "amount": 0
+    }
+  },
+  "missingFinanceEntries": {
+    "sales": {
+      "count": 0,
+      "amount": 0,
+      "list": []
+    },
+    "expenses": {
+      "count": 0,
+      "amount": 0,
+      "list": []
+    }
+  },
+  "orphanedFinanceEntries": {
+    "sales": [],
+    "expenses": []
+  },
+  "totals": {
+    "salesFromSalesCollection": 1474700,
+    "salesFromFinanceEntries": 1475700,
+    "expensesFromExpensesCollection": -199200,
+    "expensesFromFinanceEntries": -209200
+  }
+}

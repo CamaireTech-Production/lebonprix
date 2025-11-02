@@ -1,0 +1,36 @@
+{
+  "companyId": "lu2rRu4YIxczwnjQpQ8pRpFUVlQ2",
+  "timestamp": "2025-11-02T08:58:31.249Z",
+  "dryRun": false,
+  "missingExpenses": 0,
+  "missingSales": 3,
+  "createdFinanceEntries": [
+    {
+      "type": "sale",
+      "saleId": "1gsuGYWZDBMZIK1pIufx",
+      "amount": 8000,
+      "description": "Sale to Divers",
+      "action": "created"
+    },
+    {
+      "type": "sale",
+      "saleId": "3YCiB73kwmuIW1jDs8WX",
+      "amount": 5000,
+      "description": "Sale to Divers",
+      "action": "created"
+    },
+    {
+      "type": "sale",
+      "saleId": "HgMEjWmEoAUbpd7Tc7IP",
+      "amount": 4000,
+      "description": "Sale to Divers",
+      "action": "created"
+    }
+  ],
+  "errors": [],
+  "impact": {
+    "expenses": 0,
+    "sales": 17000,
+    "total": 17000
+  }
+}

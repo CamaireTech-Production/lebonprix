@@ -29,7 +29,10 @@ type CustomerDebt = {
 
 const Finance: React.FC = () => {
   const { t } = useTranslation();
-  const { entries, loading } = useFinanceEntries();
+  const { entries, loading, refresh } = useFinanceEntries();
+  
+  // Debug: Log when entries change to verify real-time updates
+  const prevEntriesLengthRef = React.useRef(entries.length);
   const { sales, loading: salesLoading } = useSales();
   const { expenses, loading: expensesLoading } = useExpenses();
   const { products, loading: productsLoading } = useProducts();
@@ -45,11 +48,13 @@ const Finance: React.FC = () => {
   // 🚀 REVERTED: Back to direct calculations without localStorage
 
   useCustomers(); // Only call the hook for side effects if needed, but don't destructure unused values
-  const { user } = useAuth();
+  const { user, company } = useAuth();
   useObjectives();
+  
+  // Add Entry Form (for deposits, loans, refunds, etc.)
   const [modalOpen, setModalOpen] = useState(false);
   const [modalLoading, setModalLoading] = useState(false);
-  const [entryTypes, setEntryTypes] = useState<{ label: string; value: string }[]>([]);
+  const [entryTypes, setEntryTypes] = useState<{ label: string; value: string; id?: string }[]>([]);
   const [form, setForm] = useState({
     id: '',
     type: null as { label: string; value: string } | null,
@@ -57,7 +62,20 @@ const Finance: React.FC = () => {
     description: '',
     date: '',
     isEdit: false,
-    refundedDebtId: '', // NEW
+    refundedDebtId: '',
+  });
+  
+  // Remove Money Form (dedicated form for withdrawals)
+  const [removeMoneyModalOpen, setRemoveMoneyModalOpen] = useState(false);
+  const [removeMoneyModalLoading, setRemoveMoneyModalLoading] = useState(false);
+  const [removeMoneyEntryTypes, setRemoveMoneyEntryTypes] = useState<{ label: string; value: string; id?: string }[]>([]);
+  const [removeMoneyForm, setRemoveMoneyForm] = useState({
+    id: '',
+    type: null as { label: string; value: string } | null,
+    amount: '',
+    description: '',
+    date: '',
+    isEdit: false,
   });
   const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; entryId: string | null; entryType?: string; sourceType?: string } | null>({ open: false, entryId: null });
   // Other filters
@@ -72,9 +90,6 @@ const Finance: React.FC = () => {
   // Add openDebtId state at the top of the component
   const [openDebtId, setOpenDebtId] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [forceUpdate, setForceUpdate] = useState(0);
-  const [localEntries, setLocalEntries] = useState<FinanceEntry[]>([]);
 
   // Pagination, sorting, and filtering state
   const [currentPage, setCurrentPage] = useState(1);
@@ -109,14 +124,60 @@ const Finance: React.FC = () => {
     return true;
   }), [entries, filterType, filterSearch, dateRange]);
 
-  // Use local entries if available, otherwise use database entries
-  const effectiveEntries = localEntries.length > 0 ? localEntries : entries;
+  // Use Firestore entries directly - real-time updates via onSnapshot
+  const effectiveEntries = entries;
 
   // Filter finance entries by date range and not soft deleted (including supplier entries)
-  const filteredFinanceEntries = useMemo(() => 
-    effectiveEntries.filter(entry => !entry.isDeleted && entry.createdAt?.seconds && new Date(entry.createdAt.seconds * 1000) >= dateRange.from && new Date(entry.createdAt.seconds * 1000) <= dateRange.to),
-    [effectiveEntries, dateRange, forceUpdate]
-  );
+  const filteredFinanceEntries = useMemo(() => {
+    const filtered = effectiveEntries.filter(entry => {
+      // Skip deleted entries
+      if (entry.isDeleted === true) return false;
+      
+      // Handle createdAt timestamp - support multiple formats
+      let entryDate: Date | null = null;
+      if (entry.createdAt) {
+        if (entry.createdAt.seconds) {
+          // Firestore Timestamp with seconds property
+          entryDate = new Date(entry.createdAt.seconds * 1000);
+        } else if (typeof entry.createdAt === 'object' && 'seconds' in entry.createdAt) {
+          // Firestore Timestamp object
+          entryDate = new Date((entry.createdAt as any).seconds * 1000);
+        } else if (typeof entry.createdAt === 'number') {
+          // Unix timestamp in seconds
+          entryDate = new Date(entry.createdAt * 1000);
+        } else if (entry.createdAt instanceof Date) {
+          // Already a Date object
+          entryDate = entry.createdAt;
+        }
+      }
+      
+      // If no date found, include entry anyway (don't filter out entries without dates)
+      if (!entryDate) {
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`[Finance] ⚠️ Entry ${entry.id} has no date, including anyway`);
+        }
+        return true;
+      }
+      
+      // Check date range
+      const inRange = entryDate >= dateRange.from && entryDate <= dateRange.to;
+      if (!inRange && process.env.NODE_ENV === 'development') {
+        console.log(`[Finance] ⚠️ Entry ${entry.id} filtered out by date range:`, {
+          entryDate: entryDate.toISOString(),
+          from: dateRange.from.toISOString(),
+          to: dateRange.to.toISOString(),
+          inRange
+        });
+      }
+      return inRange;
+    });
+    
+    if (process.env.NODE_ENV === 'development' && filtered.length !== effectiveEntries.length) {
+      console.log(`[Finance] 📊 Filtered entries: ${filtered.length} of ${effectiveEntries.length} entries`);
+    }
+    
+    return filtered;
+  }, [effectiveEntries, dateRange]);
 
   // Group all debt and refund entries (including supplier debts) for the current user.
   const userDebt = useMemo<{
@@ -204,23 +265,38 @@ const Finance: React.FC = () => {
 
   // Reset page when filters change
   React.useEffect(() => { setCurrentPage(1); }, [filterType, filterSource, filterSearch, dateRange, itemsPerPage]);
-
-  // Initialize local entries with database entries
+  
+  // Debug: Log when entries change and reset to page 1 when new entries are added
   useEffect(() => {
-    setLocalEntries(entries);
-  }, [entries]);
-
-  // Force refresh when refreshTrigger changes
-  useEffect(() => {
-    if (refreshTrigger > 0) {
-      // Add a small delay to ensure the database has been updated
-      const timer = setTimeout(() => {
-        setCurrentPage(1);
-        setForceUpdate(prev => prev + 1); // Force re-render
-      }, 500); // Increased delay to ensure database update
-      return () => clearTimeout(timer);
+    const prevLength = prevEntriesLengthRef.current;
+    const currentLength = entries.length;
+    
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[Finance] 🔄 Entries changed: ${currentLength} total entries (was ${prevLength})`);
+      if (currentLength > prevLength) {
+        console.log(`[Finance] ➕ ${currentLength - prevLength} new entry/entries added!`);
+      }
+      if (entries.length > 0) {
+        const latestEntry = entries[0]; // Should be most recent
+        console.log(`[Finance] 📊 Latest entry:`, {
+          id: latestEntry.id,
+          type: latestEntry.type,
+          amount: latestEntry.amount,
+          createdAt: latestEntry.createdAt,
+          hasCreatedAt: !!latestEntry.createdAt
+        });
+      }
     }
-  }, [refreshTrigger]);
+    
+    // Reset to page 1 when new entries are added
+    if (currentLength > prevLength && currentPage !== 1) {
+      console.log(`[Finance] 🔄 Resetting to page 1 because new entries were added`);
+      setCurrentPage(1);
+    }
+    
+    prevEntriesLengthRef.current = currentLength;
+  }, [entries, currentPage]);
+
 
   // 🚀 REVERTED: Direct financial calculations (as they were working before) - MOVED BEFORE EARLY RETURN
   const profit = useMemo<number>(() => {
@@ -340,24 +416,47 @@ const Finance: React.FC = () => {
     // 🚀 REVERTED: Back to direct fetch of entry types
     const types = await getFinanceEntryTypes(user.uid);
     
-    setEntryTypes(types.map(typeObj => ({ label: t(`finance.types.${typeObj.name}`, typeObj.name), value: typeObj.name })));
+    // Deduplicate entry types by name to avoid duplicate keys in React
+    const uniqueTypesMap = new Map<string, { label: string; value: string; id?: string }>();
+    types.forEach(typeObj => {
+      const value = typeObj.name;
+      if (!uniqueTypesMap.has(value)) {
+        uniqueTypesMap.set(value, {
+          label: t(`finance.types.${typeObj.name}`, typeObj.name),
+          value: value,
+          id: typeObj.id
+        });
+      }
+    });
+    
+    // Convert map to array and filter out 'sortie' (handled by separate Remove Money form)
+    const uniqueEntryTypes = Array.from(uniqueTypesMap.values()).filter(opt => opt.value !== 'sortie');
+    setEntryTypes(uniqueEntryTypes);
     if (editEntry) {
       if (editEntry.id) {
-        // Editing existing entry
-      setForm({
-        id: editEntry.id,
-        type: { label: editEntry.type, value: editEntry.type },
-        amount: editEntry.amount.toString(),
-        description: editEntry.description || '',
-        date: editEntry.date?.seconds ? format(new Date(editEntry.date.seconds * 1000), 'yyyy-MM-dd') : '',
-        isEdit: true,
+        // Editing existing entry - redirect sortie to Remove Money form
+        if (editEntry.type === 'sortie') {
+          setModalOpen(false);
+          setModalLoading(false);
+          handleOpenRemoveMoneyModal(editEntry);
+          return;
+        }
+        
+        // Editing existing entry (non-sortie)
+        setForm({
+          id: editEntry.id,
+          type: { label: editEntry.type, value: editEntry.type },
+          amount: editEntry.amount.toString(),
+          description: editEntry.description || '',
+          date: editEntry.date?.seconds ? format(new Date(editEntry.date.seconds * 1000), 'yyyy-MM-dd') : '',
+          isEdit: true,
           refundedDebtId: editEntry.refundedDebtId || '',
         });
       } else {
-        // New entry with pre-selected type (e.g., "Remove Money" button)
+        // New entry with pre-selected type (removed sortie - use Remove Money form instead)
         setForm({
           id: '',
-          type: editEntry.type ? { label: t(`finance.types.${editEntry.type}`, editEntry.type), value: editEntry.type } : null,
+          type: editEntry.type && editEntry.type !== 'sortie' ? { label: t(`finance.types.${editEntry.type}`, editEntry.type), value: editEntry.type } : null,
           amount: '',
           description: '',
           date: '',
@@ -376,6 +475,64 @@ const Finance: React.FC = () => {
     setForm({ id: '', type: null, amount: '', description: '', date: '', isEdit: false, refundedDebtId: '' });
   };
 
+  // Remove Money Handlers (separate form)
+  const handleOpenRemoveMoneyModal = async (editEntry?: any) => {
+    if (!user) return;
+    setRemoveMoneyModalOpen(true);
+    setRemoveMoneyModalLoading(true);
+    
+    // Load entry types for the dropdown
+    const types = await getFinanceEntryTypes(user.uid);
+    const uniqueTypesMap = new Map<string, { label: string; value: string; id?: string }>();
+    types.forEach(typeObj => {
+      const value = typeObj.name;
+      if (!uniqueTypesMap.has(value)) {
+        uniqueTypesMap.set(value, {
+          label: t(`finance.types.${typeObj.name}`, typeObj.name),
+          value: value,
+          id: typeObj.id
+        });
+      }
+    });
+    
+    // Set all entry types for Remove Money form (user can choose any type)
+    const allEntryTypes = Array.from(uniqueTypesMap.values());
+    setRemoveMoneyEntryTypes(allEntryTypes);
+    
+    // Default to sortie type for Remove Money form
+    const sortieType = allEntryTypes.find(opt => opt.value === 'sortie') || { label: t(`finance.types.sortie`, 'sortie'), value: 'sortie' };
+    
+    if (editEntry?.id) {
+      // Editing existing sortie entry
+      const entryType = allEntryTypes.find(opt => opt.value === editEntry.type) || { label: editEntry.type, value: editEntry.type };
+      setRemoveMoneyForm({
+        id: editEntry.id,
+        type: entryType,
+        amount: Math.abs(editEntry.amount).toString(), // Display positive value
+        description: editEntry.description || '',
+        date: editEntry.date?.seconds ? format(new Date(editEntry.date.seconds * 1000), 'yyyy-MM-dd') : '',
+        isEdit: true,
+      });
+    } else {
+      // New remove money entry - default to sortie type
+      setRemoveMoneyForm({
+        id: '',
+        type: sortieType,
+        amount: '',
+        description: '',
+        date: '',
+        isEdit: false,
+      });
+    }
+    setRemoveMoneyModalLoading(false);
+  };
+
+  const handleCloseRemoveMoneyModal = () => {
+    setRemoveMoneyModalOpen(false);
+    setRemoveMoneyForm({ id: '', type: null, amount: '', description: '', date: '', isEdit: false });
+    setRemoveMoneyEntryTypes([]);
+  };
+
   const handleTypeCreate = async (name: string) => {
     if (!user) return;
     const newType = await createFinanceEntryType({ name, isDefault: false, userId: user.uid });
@@ -392,23 +549,72 @@ const Finance: React.FC = () => {
     setForm(f => ({ ...f, type: option }));
   };
 
-  const handleSubmit = async () => {
-    if (!user || !form.type || !form.amount) return;
-    if (form.type.value === 'refund' && (!form.refundedDebtId || userDebt.debtEntries.length === 0)) return;
-    if (form.type.value === 'sortie' && !form.description.trim()) return;
-    setModalLoading(true);
-    const rawAmount = parseFloat(form.amount);
-    const normalizedAmount = form.type.value === 'sortie' ? -Math.abs(rawAmount) : rawAmount;
+  // Remove Money Submit Handler (dedicated for withdrawals)
+  const handleSubmitRemoveMoney = async () => {
+    if (!user || !company || !removeMoneyForm.type || !removeMoneyForm.amount || !removeMoneyForm.description.trim()) return;
+    setRemoveMoneyModalLoading(true);
+    
+    const rawAmount = parseFloat(removeMoneyForm.amount);
+    
+    // ALWAYS store as negative value in Firebase
+    // If user enters 1000, it MUST be saved as -1000
+    const normalizedAmount = -Math.abs(rawAmount);
+    
     const entryData = {
       userId: user.uid,
+      companyId: company.id,
       sourceType: 'manual' as const,
-      type: form.type.value, // FIXED: use value, not label
+      type: removeMoneyForm.type?.value || 'sortie', // Use selected type or default to sortie
+      amount: normalizedAmount, // Always negative
+      description: removeMoneyForm.description,
+      date: removeMoneyForm.date ? Timestamp.fromDate(new Date(removeMoneyForm.date)) : Timestamp.now(),
+      isDeleted: false, // Explicitly set to false - this ensures query matches
+      // createdAt will be set by createFinanceEntry using serverTimestamp
+      // updatedAt will be set by createFinanceEntry using serverTimestamp
+    };
+    
+    try {
+      if (removeMoneyForm.isEdit && removeMoneyForm.id) {
+        await updateFinanceEntry(removeMoneyForm.id, entryData);
+        showSuccessToast(t('finance.messages.updateSuccess'));
+      } else {
+        // Create the entry in database
+        await createFinanceEntry(entryData);
+        
+        // Simple solution: Manually refresh the table data after create
+        setTimeout(() => {
+          refresh();
+        }, 500); // Small delay to ensure Firestore has processed the write
+        
+        showSuccessToast(t('finance.messages.addSuccess'));
+      }
+      handleCloseRemoveMoneyModal();
+    } catch (err) {
+      showErrorToast(t('finance.messages.operationError'));
+    } finally {
+      setRemoveMoneyModalLoading(false);
+    }
+  };
+
+  // Add Entry Submit Handler (for deposits, loans, refunds, etc.)
+  const handleSubmit = async () => {
+    if (!user || !company || !form.type || !form.amount) return;
+    if (form.type.value === 'refund' && (!form.refundedDebtId || userDebt.debtEntries.length === 0)) return;
+    setModalLoading(true);
+    const rawAmount = parseFloat(form.amount);
+    const normalizedAmount = rawAmount; // No negative conversion for add entry
+    
+    const entryData = {
+      userId: user.uid,
+      companyId: company.id, // Ensure companyId is set so entry is visible in query
+      sourceType: 'manual' as const,
+      type: form.type.value,
       amount: normalizedAmount,
       description: form.description,
       date: Timestamp.now(),
-      isDeleted: false,
-      createdAt: Timestamp.now(),
-      updatedAt: Timestamp.now(),
+      isDeleted: false, // Explicitly set to false - this ensures query matches
+      // createdAt will be set by createFinanceEntry using serverTimestamp
+      // updatedAt will be set by createFinanceEntry using serverTimestamp
       ...(form.type.value === 'refund' && form.refundedDebtId ? { refundedDebtId: form.refundedDebtId } : {}),
     };
     try {
@@ -417,15 +623,16 @@ const Finance: React.FC = () => {
         showSuccessToast(t('finance.messages.updateSuccess'));
       } else {
         // Create the entry in database
-        const createdEntry = await createFinanceEntry(entryData);
+        await createFinanceEntry(entryData);
         
-        // Add to local state immediately for instant UI update
-        setLocalEntries(prev => [createdEntry, ...prev]);
+        // Simple solution: Manually refresh the table data after create
+        setTimeout(() => {
+          refresh();
+        }, 500); // Small delay to ensure Firestore has processed the write
+        
         showSuccessToast(t('finance.messages.addSuccess'));
       }
       handleCloseModal();
-      // Trigger refresh to refetch data
-      setRefreshTrigger(prev => prev + 1);
     } catch (err) {
       showErrorToast(t('finance.messages.operationError'));
     } finally {
@@ -451,9 +658,7 @@ const Finance: React.FC = () => {
     if (!deleteConfirm?.entryId) return;
     setDeleteLoading(true);
     try {
-      // Remove from local state immediately
-      setLocalEntries(prev => prev.filter(entry => entry.id !== deleteConfirm.entryId));
-      
+      // Firestore onSnapshot will automatically update when entry is deleted
       if (deleteConfirm.sourceType === 'manual') {
         await softDeleteFinanceEntry(deleteConfirm.entryId);
       } else if (deleteConfirm.sourceType === 'sale' || deleteConfirm.sourceType === 'expense') {
@@ -462,8 +667,6 @@ const Finance: React.FC = () => {
         await softDeleteFinanceEntry(deleteConfirm.entryId);
       }
       showSuccessToast(t('finance.messages.deleteSuccess'));
-      // Trigger refresh to refetch data
-      setRefreshTrigger(prev => prev + 1);
     } catch (err) {
       showErrorToast(t('finance.messages.operationError'));
     }
@@ -621,8 +824,8 @@ const Finance: React.FC = () => {
                 className="border rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200 transition"
             >
               <option value="">{t('common.allTypes')}</option>
-              {entryTypes.map(opt => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              {entryTypes.map((opt, index) => (
+                <option key={opt.id || `${opt.value}-${index}`} value={opt.value}>{opt.label}</option>
               ))}
             </select>
             <select
@@ -656,7 +859,7 @@ const Finance: React.FC = () => {
             <div className="flex gap-2 w-full sm:w-auto">
               <Button
                 variant="outline"
-                onClick={() => handleOpenModal({ type: 'sortie' })}
+                onClick={() => handleOpenRemoveMoneyModal()}
                 className="flex-1 sm:flex-none text-red-600 border-red-300 hover:bg-red-50"
               >
                 {t('finance.removeMoney', 'Remove Money')}
@@ -703,8 +906,8 @@ const Finance: React.FC = () => {
                         <td className="py-3 px-4">{entry.createdAt?.seconds ? format(new Date(entry.createdAt.seconds * 1000), 'dd/MM/yyyy') : ''}</td>
                         <td className="py-3 px-4 capitalize">{t(`finance.types.${entry.type}`, entry.type)}</td>
                         <td className="py-3 px-4">{entry.description || '-'}</td>
-                        <td className={`py-3 px-4 font-semibold ${ (entry.amount < 0 || (entry.sourceType === 'manual' && (entry.type === 'refund' || entry.type === 'sortie'))) ? 'text-red-500' : 'text-green-600' }`}>
-                      {((entry.sourceType === 'manual' && entry.type === 'refund' && entry.amount > 0) ? -entry.amount : entry.amount).toLocaleString()}
+                        <td className={`py-3 px-4 font-semibold ${ entry.amount < 0 ? 'text-red-500' : 'text-green-600' }`}>
+                      {entry.amount.toLocaleString()} XAF
                     </td>
                         <td className="py-3 px-4 capitalize">{t(`finance.sourceType.${entry.sourceType}`)}</td>
                         <td className="py-3 px-4">
@@ -713,7 +916,7 @@ const Finance: React.FC = () => {
                         <td className="py-3 px-4 flex gap-2">
                       {entry.sourceType === 'manual' && (
                         <button
-                          onClick={() => handleOpenModal(entry)}
+                          onClick={() => entry.type === 'sortie' ? handleOpenRemoveMoneyModal(entry) : handleOpenModal(entry)}
                           className="text-indigo-600 hover:text-indigo-900"
                           title={t('common.edit')}
                           aria-label={t('common.edit')}
@@ -769,20 +972,20 @@ const Finance: React.FC = () => {
                         )}
                       </div>
                       <div className="text-right ml-4">
-                        <div className={`text-lg font-bold ${ (entry.amount < 0 || (entry.sourceType === 'manual' && (entry.type === 'refund' || entry.type === 'sortie'))) ? 'text-red-500' : 'text-green-600' }`}>
-                          {((entry.sourceType === 'manual' && entry.type === 'refund' && entry.amount > 0) ? -entry.amount : entry.amount).toLocaleString()} XAF
+                        <div className={`text-lg font-bold ${ entry.amount < 0 ? 'text-red-500' : 'text-green-600' }`}>
+                          {entry.amount.toLocaleString()} XAF
                         </div>
                         <div className="flex gap-2 mt-2">
-                          {entry.sourceType === 'manual' && (
-                            <button
-                              onClick={() => handleOpenModal(entry)}
-                              className="text-indigo-600 hover:text-indigo-900 p-1"
-                              title={t('common.edit')}
-                              aria-label={t('common.edit')}
-                            >
-                              <Edit2 size={16} />
-                            </button>
-                          )}
+                        {entry.sourceType === 'manual' && (
+                          <button
+                            onClick={() => entry.type === 'sortie' ? handleOpenRemoveMoneyModal(entry) : handleOpenModal(entry)}
+                            className="text-indigo-600 hover:text-indigo-900 p-1"
+                            title={t('common.edit')}
+                            aria-label={t('common.edit')}
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                        )}
                           <button
                             onClick={() => handleDeleteClick(entry)}
                             className="text-red-600 hover:text-red-900 p-1"
@@ -903,7 +1106,7 @@ const Finance: React.FC = () => {
       <div className="h-20 md:hidden"></div>
       {/* Add/Edit Finance Entry Modal, Delete Confirmation Modal, Calculations Modal (unchanged) */}
       <Modal isOpen={modalOpen} onClose={handleCloseModal} title={form.isEdit ? t('finance.editEntry') : t('finance.addEntry')} size="md"
-        footer={<ModalFooter onCancel={handleCloseModal} onConfirm={handleSubmit} isLoading={modalLoading} confirmText={t('common.save')} disabled={!!refundExceeds || (form.type?.value === 'sortie' && !form.description.trim())} />}
+        footer={<ModalFooter onCancel={handleCloseModal} onConfirm={handleSubmit} isLoading={modalLoading} confirmText={t('common.save')} disabled={!!refundExceeds} />}
       >
           <form className="space-y-4 pt-12" onSubmit={e => { e.preventDefault(); handleSubmit(); }}>
             <div>
@@ -973,16 +1176,93 @@ const Finance: React.FC = () => {
                 className="w-full border rounded px-3 py-2"
                 placeholder={t('common.description')}
                 rows={2}
-              required={form.type?.value === 'sortie'}
-              disabled={form.type?.value === 'refund' && userDebt.debtEntries.length === 0}
+                disabled={form.type?.value === 'refund' && userDebt.debtEntries.length === 0}
               />
-              {form.type?.value === 'sortie' && (
-                <div className="text-xs text-yellow-700 mt-1">
-                  {t('finance.descriptionRequiredForSortie')}
-                </div>
-              )}
             </div>
           </form>
+      </Modal>
+      
+      {/* Remove Money Modal (dedicated form for withdrawals) */}
+      <Modal 
+        isOpen={removeMoneyModalOpen} 
+        onClose={handleCloseRemoveMoneyModal} 
+        title={removeMoneyForm.isEdit ? t('finance.editEntry') : t('finance.removeMoney', 'Remove Money')} 
+        size="md"
+        footer={
+          <ModalFooter 
+            onCancel={handleCloseRemoveMoneyModal} 
+            onConfirm={handleSubmitRemoveMoney} 
+            isLoading={removeMoneyModalLoading} 
+            confirmText={t('common.save')} 
+            disabled={!removeMoneyForm.amount || !removeMoneyForm.description.trim()} 
+          />
+        }
+      >
+        <form className="space-y-4 pt-12" onSubmit={e => { e.preventDefault(); handleSubmitRemoveMoney(); }}>
+          <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+            <p className="text-sm text-red-800">
+              {t('finance.youAreAboutToRemoveMoney', 'You are about to remove money from your balance.')}
+            </p>
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium mb-1">{t('common.type')}</label>
+            <CreatableSelect
+              value={removeMoneyForm.type}
+              onChange={(option) => setRemoveMoneyForm(f => ({ ...f, type: option }))}
+              options={removeMoneyEntryTypes}
+              onCreate={handleTypeCreate}
+              placeholder={t('common.type')}
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium mb-1">{t('common.amount')} <span className="text-gray-500">({t('finance.enterPositive', 'Enter positive amount')})</span></label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              name="amount"
+              value={removeMoneyForm.amount}
+              onChange={(e) => setRemoveMoneyForm(f => ({ ...f, amount: e.target.value }))}
+              className="w-full border rounded px-3 py-2"
+              placeholder="0"
+              required
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              {t('finance.willBeStoredAsNegative', 'This will be stored as a negative amount automatically')}
+            </p>
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium mb-1">{t('common.description')} <span className="text-red-500">*</span></label>
+            <textarea
+              name="description"
+              value={removeMoneyForm.description}
+              onChange={(e) => setRemoveMoneyForm(f => ({ ...f, description: e.target.value }))}
+              className="w-full border rounded px-3 py-2"
+              placeholder={t('finance.removeMoneyDescriptionPlaceholder', 'Describe why this money is being removed (required)')}
+              rows={3}
+              required
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              {t('finance.descriptionRequiredForSortie', 'Description is required for remove money entries')}
+            </p>
+          </div>
+          
+          {removeMoneyForm.isEdit && (
+            <div>
+              <label className="block text-sm font-medium mb-1">{t('common.date')}</label>
+              <input
+                type="date"
+                name="date"
+                value={removeMoneyForm.date}
+                onChange={(e) => setRemoveMoneyForm(f => ({ ...f, date: e.target.value }))}
+                className="w-full border rounded px-3 py-2"
+              />
+            </div>
+          )}
+        </form>
       </Modal>
       <Modal isOpen={!!deleteConfirm?.open} onClose={handleDeleteCancel} title={t('common.delete')} size="sm"
         footer={<ModalFooter onCancel={handleDeleteCancel} onConfirm={handleDeleteConfirm} confirmText={t('common.delete')} isDanger isLoading={deleteLoading} />}

@@ -22,6 +22,8 @@
     "allTypes": "All types",
     "allSources": "All sources",
     "itemsPerPage": "Items per page",
+    "page": "Page",
+    "of": "of",
     "ascArrow": "▲",
     "descArrow": "▼",
     "first": "First",
@@ -996,7 +998,13 @@
     "noDebtsToRefund": "No debts available for refund.",
     "noRefunds": "No refunds for this debt.",
       "refundEntry": "Refund",
-      "descriptionRequiredForSortie": "Description is required for 'sortie' entries. Please explain the debit."
+      "descriptionRequiredForSortie": "Description is required for 'sortie' entries. Please explain the debit.",
+    "additionalStats": "Additional Statistics",
+    "removeMoney": "Remove Money",
+    "youAreAboutToRemoveMoney": "You are about to remove money from your balance.",
+    "enterPositive": "Enter positive amount",
+    "willBeStoredAsNegative": "This will be stored as a negative amount automatically",
+    "removeMoneyDescriptionPlaceholder": "Describe why this money is being removed (required)"
   },
 
   "suppliers": {

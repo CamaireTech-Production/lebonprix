@@ -1969,12 +1969,38 @@ export const deleteObjective = async (objectiveId: string, companyId: string): P
 export const createFinanceEntry = async (entry: Omit<FinanceEntry, 'id' | 'createdAt' | 'updatedAt'>): Promise<FinanceEntry> => {
   const ref = doc(collection(db, 'finances'));
   const now = serverTimestamp();
-  const data = { ...entry, createdAt: now, updatedAt: now };
-  await setDoc(ref, data);
-  const snap = await getDoc(ref);
-  // Add audit log for manual finance entries (debt/refund)
+  
+  // FIXED: Ensure isDeleted is explicitly set to false (not undefined)
+  // This ensures the entry matches the query filter
+  const data = { 
+    ...entry, 
+    isDeleted: entry.isDeleted !== undefined ? entry.isDeleted : false, // Explicitly set to false if undefined
+    createdAt: now, 
+    updatedAt: now 
+  };
+  
+  // Log for sortie entries to verify negative amount is being stored
+  if (entry.sourceType === 'manual' && entry.type === 'sortie') {
+    console.log('[createFinanceEntry] Storing sortie entry:', {
+      amount: data.amount,
+      type: data.type,
+      description: data.description
+    });
+    // Ensure amount is negative for sortie
+    if (data.amount >= 0) {
+      console.error('[createFinanceEntry] ERROR: Sortie amount is not negative!', data.amount);
+      data.amount = -Math.abs(data.amount);
+      console.log('[createFinanceEntry] Fixed amount to:', data.amount);
+    }
+  }
+  
+  // FIXED: Use batch for manual entries (with audit log) and ensure proper commit
+  // With includeMetadataChanges: true in onSnapshot, batch writes will trigger immediately
   if (entry.sourceType === 'manual') {
+    // For manual entries, we need audit log, so use batch
+    // The onSnapshot listener with includeMetadataChanges will catch this write immediately
     const batch = writeBatch(db);
+    batch.set(ref, data);
     await createAuditLog(
       batch,
       'create',
@@ -1983,13 +2009,66 @@ export const createFinanceEntry = async (entry: Omit<FinanceEntry, 'id' | 'creat
       { all: { oldValue: null, newValue: data } },
       entry.userId
     );
+    
+    // Commit batch - with includeMetadataChanges: true, onSnapshot will fire immediately
     await batch.commit();
+    
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[createFinanceEntry] ✅ Batch committed for manual entry:', {
+        id: ref.id,
+        type: data.type,
+        amount: data.amount,
+        isDeleted: data.isDeleted,
+        companyId: data.companyId,
+        timestamp: new Date().toISOString()
+      });
+      console.log('[createFinanceEntry] 🔔 onSnapshot should fire immediately with includeMetadataChanges');
+    }
+  } else {
+    // For non-manual entries, simple write is faster
+    await setDoc(ref, data);
+    
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[createFinanceEntry] ✅ Document set for non-manual entry:', {
+        id: ref.id,
+        type: data.type,
+        isDeleted: data.isDeleted,
+        companyId: data.companyId,
+        timestamp: new Date().toISOString()
+      });
+      console.log('[createFinanceEntry] 🔔 onSnapshot should fire immediately');
+    }
   }
-  return { id: ref.id, ...snap.data() } as FinanceEntry;
+  
+  // Get the saved data to return (Firestore will have resolved serverTimestamp)
+  const snap = await getDoc(ref);
+  const savedData = snap.data();
+  
+  // Verify what was actually saved
+  if (entry.sourceType === 'manual' && entry.type === 'sortie') {
+    console.log('[createFinanceEntry] ✅ Saved data verified:', {
+      amount: savedData?.amount,
+      type: savedData?.type,
+      isDeleted: savedData?.isDeleted
+    });
+  }
+  
+  // Return the saved entry - Firestore real-time listeners will update automatically via onSnapshot
+  return { id: ref.id, ...savedData } as FinanceEntry;
 };
 
 export const updateFinanceEntry = async (id: string, data: Partial<FinanceEntry>): Promise<void> => {
   const ref = doc(db, 'finances', id);
+  
+  // Ensure sortie entries always have negative amount
+  if (data.type === 'sortie' && data.amount !== undefined) {
+    if (data.amount >= 0) {
+      console.log('[updateFinanceEntry] Fixing sortie amount from', data.amount, 'to negative');
+      data.amount = -Math.abs(data.amount);
+    }
+    console.log('[updateFinanceEntry] Updating sortie entry with amount:', data.amount);
+  }
+  
   await updateDoc(ref, { ...data, updatedAt: serverTimestamp() });
 };
 
