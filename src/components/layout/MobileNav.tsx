@@ -10,21 +10,85 @@ const MobileNav = () => {
   const { effectiveRole, isOwner } = useAuth();
   const { canAccess } = useRolePermissions();
   
+  // Vérifier si on est dans une route d'entreprise
+  const isCompanyRoute = location.pathname.startsWith('/company/');
+  
+  // Vérifier si on est sur le dashboard employé (ne pas afficher la navigation)
+  const isEmployeeDashboard = location.pathname.startsWith('/employee/');
+  
+  // Extraire le companyId depuis l'URL si on est dans une route d'entreprise
+  const companyId = isCompanyRoute ? location.pathname.split('/')[2] : null;
+  
+  // Ne pas afficher la navigation sur le dashboard employé ou si on n'a pas de companyId valide
+  if (isEmployeeDashboard || (isCompanyRoute && !companyId)) {
+    return null;
+  }
+  
   const isActive = (path: string) => {
     return location.pathname === path;
   };
 
   const navigationItems = [
-    { name: t('navigation.dashboard'), path: '/', icon: <LayoutDashboard size={20} />, resource: 'dashboard' },
-    { name: t('navigation.sales'), path: '/sales', icon: <ShoppingCart size={20} />, resource: 'sales' },
-    { name: 'Orders', path: '/orders', icon: <ShoppingBag size={20} />, resource: 'orders' },
-    { name: t('navigation.expenses'), path: '/expenses', icon: <Receipt size={20} />, resource: 'expenses' },
-    { name: t('navigation.products'), path: '/products', icon: <Package2 size={20} />, resource: 'products' },
-    { name: 'Categories', path: '/categories', icon: <Grid3X3 size={20} />, resource: 'categories' },
-    { name: t('navigation.suppliers'), path: '/suppliers', icon: <Users size={20} />, resource: 'suppliers' },
-    { name: t('navigation.reports'), path: '/reports', icon: <FileBarChart size={20} />, resource: 'reports' },
-    { name: t('navigation.finance'), path: '/finance', icon: <DollarSign size={20} />, resource: 'finance' },
-    { name: t('navigation.settings'), path: '/settings', icon: <Settings size={20} />, resource: 'settings' },
+    { 
+      name: t('navigation.dashboard'), 
+      path: isCompanyRoute ? `/company/${companyId}/dashboard` : '/', 
+      icon: <LayoutDashboard size={20} />, 
+      resource: 'dashboard' 
+    },
+    { 
+      name: t('navigation.sales'), 
+      path: isCompanyRoute ? `/company/${companyId}/sales` : '/sales', 
+      icon: <ShoppingCart size={20} />, 
+      resource: 'sales' 
+    },
+    { 
+      name: 'Orders', 
+      path: isCompanyRoute ? `/company/${companyId}/orders` : '/orders', 
+      icon: <ShoppingBag size={20} />, 
+      resource: 'orders' 
+    },
+    { 
+      name: t('navigation.expenses'), 
+      path: isCompanyRoute ? `/company/${companyId}/expenses` : '/expenses', 
+      icon: <Receipt size={20} />, 
+      resource: 'expenses' 
+    },
+    { 
+      name: t('navigation.products'), 
+      path: isCompanyRoute ? `/company/${companyId}/products` : '/products', 
+      icon: <Package2 size={20} />, 
+      resource: 'products' 
+    },
+    { 
+      name: 'Categories', 
+      path: isCompanyRoute ? `/company/${companyId}/categories` : '/categories', 
+      icon: <Grid3X3 size={20} />, 
+      resource: 'categories' 
+    },
+    { 
+      name: t('navigation.suppliers'), 
+      path: isCompanyRoute ? `/company/${companyId}/suppliers` : '/suppliers', 
+      icon: <Users size={20} />, 
+      resource: 'suppliers' 
+    },
+    { 
+      name: t('navigation.reports'), 
+      path: isCompanyRoute ? `/company/${companyId}/reports` : '/reports', 
+      icon: <FileBarChart size={20} />, 
+      resource: 'reports' 
+    },
+    { 
+      name: t('navigation.finance'), 
+      path: isCompanyRoute ? `/company/${companyId}/finance` : '/finance', 
+      icon: <DollarSign size={20} />, 
+      resource: 'finance' 
+    },
+    { 
+      name: t('navigation.settings'), 
+      path: isCompanyRoute ? `/company/${companyId}/settings` : '/settings', 
+      icon: <Settings size={20} />, 
+      resource: 'settings' 
+    },
   ];
 
   return (
@@ -32,10 +96,6 @@ const MobileNav = () => {
       <nav className="flex overflow-x-auto scrollbar-hide">
         {navigationItems.map((item) => {
           // Vérifier si l'utilisateur a accès à cet élément
-          // Si propriétaire, accès total
-          // Si l'item a allowedRoles, vérifier le rôle
-          // Sinon, si l'item a resource, utiliser canAccess
-          // Sinon, autoriser par défaut
           let hasAccess = true;
           if (!isOwner) {
             if ((item as any).allowedRoles) {

@@ -250,57 +250,58 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
               </div>
               
               {/* Customer Dropdown */}
-              {showCustomerDropdown && customerSearch && (() => {
-                const searchTerm = customerSearch.toLowerCase().trim();
-                const filteredCustomers = customers.filter(c => {
-                  const normalizedPhone = c.phone.replace(/\D/g, '');
-                  const normalizedSearch = searchTerm.replace(/\D/g, '');
-                  const phoneMatch = normalizedPhone.includes(normalizedSearch);
-                  const nameMatch = c.name && c.name.toLowerCase().includes(searchTerm);
-                  return phoneMatch || nameMatch;
-                });
-                
-                return (
-                  <div 
-                    data-dropdown="customer"
-                    className="absolute top-full left-0 right-0 z-50 bg-white border border-gray-200 rounded shadow-lg max-h-48 overflow-y-auto mt-1"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <div className="p-2 bg-gray-50 border-b">
-                      <div className="text-xs font-medium text-gray-600">Select Customer:</div>
-                    </div>
-                    
-                    {filteredCustomers.slice(0, 5).map(c => (
-                      <button
-                        key={c.id}
-                        type="button"
-                        className="w-full text-left p-3 hover:bg-emerald-50 border-b border-gray-100 last:border-b-0 transition-colors"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          
-                          // Update the form data with the selected customer's information
-                          setFormData(prev => ({
-                            ...prev,
-                            customerPhone: c.phone,
-                            customerName: c.name || '',
-                            customerQuarter: c.quarter || ''
-                          }));
-                          
-                          // Hide the dropdown after selection
-                          setShowCustomerDropdown(false);
-                        }}
-                      >
-                        <div className="font-medium text-gray-900">{c.name || 'Divers'}</div>
-                        <div className="text-sm text-gray-500">{c.phone}{c.quarter ? ` • ${c.quarter}` : ''}</div>
-                      </button>
-                    ))}
-                    {filteredCustomers.length === 0 && (
-                      <div className="p-3 text-gray-400 text-sm">No customers found</div>
-                )}
-                </div>
-                );
-              })()}
+{showCustomerDropdown && customerSearch && (() => {
+  const searchTerm = customerSearch.toLowerCase().trim();
+  
+  // Filtrer les clients uniquement sur le nom (pas sur le téléphone ou quarter)
+  const filteredCustomers = customers.filter(c => {
+    const customerName = (c.name || '').toLowerCase();
+    return customerName.includes(searchTerm) && searchTerm.length > 0;
+  });
+  
+  // Ne montrer le dropdown que s'il y a des résultats
+  if (filteredCustomers.length === 0) {
+    return null;
+  }
+  
+  return (
+    <div 
+      data-dropdown="customer"
+      className="absolute top-full left-0 right-0 z-50 bg-white border border-gray-200 rounded shadow-lg max-h-48 overflow-y-auto mt-1"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="p-2 bg-gray-50 border-b">
+        <div className="text-xs font-medium text-gray-600">Select Customer:</div>
+      </div>
+      
+      {filteredCustomers.slice(0, 5).map(c => (
+        <button
+          key={c.id}
+          type="button"
+          className="w-full text-left p-3 hover:bg-emerald-50 border-b border-gray-100 last:border-b-0 transition-colors"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // Update the form data with the selected customer's information
+            setFormData(prev => ({
+              ...prev,
+              customerPhone: c.phone,
+              customerName: c.name || '',
+              customerQuarter: c.quarter || ''
+            }));
+            
+            // Hide the dropdown after selection
+            setShowCustomerDropdown(false);
+          }}
+        >
+          <div className="font-medium text-gray-900">{c.name || 'Divers'}</div>
+          <div className="text-sm text-gray-500">{c.phone}{c.quarter ? ` • ${c.quarter}` : ''}</div>
+        </button>
+      ))}
+    </div>
+  );
+})()}
             </div>
             <div className="flex items-center space-x-2 mb-2">
               <input

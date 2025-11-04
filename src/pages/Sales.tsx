@@ -52,13 +52,13 @@ interface ProductOption {
 
 const Sales: React.FC = () => {
   const { t } = useTranslation();
-  const { 
-    sales, 
-    loading: salesLoading, 
+  const {
+    sales,
+    loading: salesLoading,
     loadingMore: salesLoadingMore,
     syncing: salesSyncing,
     hasMore: salesHasMore,
-    error: salesError, 
+    error: salesError,
     loadMore: loadMoreSales,
     refresh: refreshSales
   } = useInfiniteSales();
@@ -676,14 +676,14 @@ const Sales: React.FC = () => {
             {t('sales.overallProfit', { defaultValue: 'Total Profit:' })} {overallTotalProfit.toLocaleString()} XAF
           </p>
         </div>
-        
+
         {/* Sync Indicator */}
-        <SyncIndicator 
-          isSyncing={salesSyncing} 
-          message="Updating sales..." 
+        <SyncIndicator
+          isSyncing={salesSyncing}
+          message="Updating sales..."
           className="mb-4"
         />
-        
+
         <div className="mt-4 md:mt-0 flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
           <select
             className="border rounded-md p-2"
@@ -759,75 +759,81 @@ const Sales: React.FC = () => {
             </tbody>
           </table>
         </div>
-                 <div className="flex items-center justify-between mt-4 px-2 sm:px-4">
-           <span className="text-xs sm:text-sm text-gray-600">
-             {t('sales.table.showing', {
-               from: (page - 1) * rowsPerPage + 1,
-               to: Math.min(page * rowsPerPage, totalRows),
-               total: totalRows,
-             }) ||
-               `Showing ${(page - 1) * rowsPerPage + 1}-${Math.min(page * rowsPerPage, totalRows)} of ${totalRows}`}
-           </span>
-           <div className="flex items-center gap-1 sm:gap-2">
-             <Button 
-               variant="outline" 
-               size="sm" 
-               onClick={() => setPage(1)} 
-               disabled={page === 1}
-               icon={<ChevronsLeft size={14} />}
-               title={t('common.first') || 'First'}
-               className="p-1 sm:p-2"
-             >{t('common.first') || 'First'}</Button>
-             <Button 
-               variant="outline" 
-               size="sm" 
-               onClick={() => setPage(page - 1)} 
-               disabled={page === 1}
-               icon={<ChevronLeft size={14} />}
-               title={t('common.prev') || 'Previous'}
-               className="p-1 sm:p-2"
-             >{t('common.prev') || 'Previous'}</Button>
-             <span className="text-xs sm:text-sm px-2 sm:px-3 py-1 bg-gray-100 rounded-md">
-               {page} / {totalPages}
-             </span>
-             <Button 
-               variant="outline" 
-               size="sm" 
-               onClick={() => setPage(page + 1)} 
-               disabled={page === totalPages}
-               icon={<ChevronRight size={14} />}
-               title={t('common.next') || 'Next'}
-               className="p-1 sm:p-2"
-             >{t('common.next') || 'Next'}</Button>
-             <Button 
-               variant="outline" 
-               size="sm" 
-               onClick={() => setPage(totalPages)} 
-               disabled={page === totalPages}
-               icon={<ChevronsRight size={14} />}
-               title={t('common.last') || 'Last'}
-               className="p-1 sm:p-2"
-             >{t('common.last') || 'Last'}</Button>
-           </div>
-         </div>
-         
-         {/* Infinite Scroll Loading Indicator */}
-         {salesLoadingMore && (
-           <div className="flex justify-center items-center py-8">
-             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
-             <span className="ml-3 text-gray-600">Loading more sales...</span>
-           </div>
-         )}
-         {!salesHasMore && sales.length > 0 && (
-           <div className="text-center py-6 text-gray-500">
-             <p>✅ All sales loaded ({sales.length} total)</p>
-           </div>
-         )}
+        <div className="flex items-center justify-between mt-4 px-2 sm:px-4">
+          <span className="text-xs sm:text-sm text-gray-600">
+            {t('sales.table.showing', {
+              from: (page - 1) * rowsPerPage + 1,
+              to: Math.min(page * rowsPerPage, totalRows),
+              total: totalRows,
+            }) ||
+              `Showing ${(page - 1) * rowsPerPage + 1}-${Math.min(page * rowsPerPage, totalRows)} of ${totalRows}`}
+          </span>
+          <div className="flex items-center gap-1 sm:gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage(1)}
+              disabled={page === 1}
+              icon={<ChevronsLeft size={14} />}
+              title={t('common.first') || 'First'}
+              className="p-1 sm:p-2"
+            >{t('common.first') || 'First'}</Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage(page - 1)}
+              disabled={page === 1}
+              icon={<ChevronLeft size={14} />}
+              title={t('common.prev') || 'Previous'}
+              className="p-1 sm:p-2"
+            >{t('common.prev') || 'Previous'}</Button>
+            <span className="text-xs sm:text-sm px-2 sm:px-3 py-1 bg-gray-100 rounded-md">
+              {page} / {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage(page + 1)}
+              disabled={page === totalPages}
+              icon={<ChevronRight size={14} />}
+              title={t('common.next') || 'Next'}
+              className="p-1 sm:p-2"
+            >{t('common.next') || 'Next'}</Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage(totalPages)}
+              disabled={page === totalPages}
+              icon={<ChevronsRight size={14} />}
+              title={t('common.last') || 'Last'}
+              className="p-1 sm:p-2"
+            >{t('common.last') || 'Last'}</Button>
+          </div>
+        </div>
+
+        {/* Infinite Scroll Loading Indicator */}
+        {salesLoadingMore && (
+          <div className="flex justify-center items-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
+            <span className="ml-3 text-gray-600">Loading more sales...</span>
+          </div>
+        )}
+        {!salesHasMore && sales.length > 0 && (
+          <div className="text-center py-6 text-gray-500">
+            <p>✅ All sales loaded ({sales.length} total)</p>
+          </div>
+        )}
       </Card>
       {/* Mobile spacing for floating action button */}
       <div className="h-20 md:hidden"></div>
-      <AddSaleModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} />
-      <SaleDetailsModal
+      <AddSaleModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        onSaleAdded={() => {
+          // Rafraîchir la liste des ventes après l'ajout
+          refreshSales();
+        }}
+      /><SaleDetailsModal
         isOpen={isViewModalOpen}
         onClose={() => setIsViewModalOpen(false)}
         sale={viewedSale}
@@ -1111,8 +1117,8 @@ const Sales: React.FC = () => {
                 normalizePhone(c.phone).startsWith(normalizePhone(customerSearch)) ||
                 (c.name && c.name.toLowerCase().includes(customerSearch.toLowerCase()))
             ).length === 0 && (
-              <div className="px-4 py-2 text-gray-400 text-sm">{t('common.noResults')}</div>
-            )}
+                <div className="px-4 py-2 text-gray-400 text-sm">{t('common.noResults')}</div>
+              )}
           </div>,
           document.body
         )

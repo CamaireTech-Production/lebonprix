@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { Building2, Plus, Users, Crown, Shield, User, Settings } from 'lucide-react';
+import { Building2, Plus, Users, Crown, Shield, User, Settings, LogOut } from 'lucide-react';
 import Button from '../components/common/Button';
 import Card from '../components/common/Card';
 import LoadingScreen from '../components/common/LoadingScreen';
@@ -112,10 +112,11 @@ const CompanyCard: React.FC<CompanyCardProps> = ({ company, onSelect, isLoading 
 };
 
 const EmployeeDashboard: React.FC = () => {
-  const { userCompanies, selectCompany } = useAuth();
+  const { userCompanies, selectCompany, signOut } = useAuth();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const handleCompanySelect = useCallback(async (companyId: string) => {
     try {
@@ -142,6 +143,17 @@ const EmployeeDashboard: React.FC = () => {
     navigate('/company/create');
   };
 
+  const handleLogout = async () => {
+    try {
+      setIsLoggingOut(true);
+      await signOut();
+      navigate('/auth/login');
+    } catch (error) {
+      console.error('Error signing out:', error);
+      setIsLoggingOut(false);
+    }
+  };
+
   if (isLoading && userCompanies.length === 1) {
     return <LoadingScreen />;
   }
@@ -149,14 +161,26 @@ const EmployeeDashboard: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Vos Entreprises
-          </h1>
-          <p className="text-gray-600">
-            Gérez vos accès aux entreprises et créez votre propre entreprise
-          </p>
+        {/* Header with Logout Button */}
+        <div className="mb-8 flex items-start justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              Vos Entreprises
+            </h1>
+            <p className="text-gray-600">
+              Gérez vos accès aux entreprises et créez votre propre entreprise
+            </p>
+          </div>
+          <Button
+            onClick={handleLogout}
+            variant="outline"
+            icon={<LogOut className="h-4 w-4" />}
+            isLoading={isLoggingOut}
+            disabled={isLoggingOut}
+            className="flex-shrink-0"
+          >
+            Déconnexion
+          </Button>
         </div>
 
         {/* Companies Grid */}

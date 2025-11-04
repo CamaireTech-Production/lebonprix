@@ -85,9 +85,23 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
     // Allow searching/selecting customer when typing name or quarter
-    if (name === 'customerName' || name === 'customerQuarter') {
+    if (name === 'customerName') {
+      const searchTerm = value.toLowerCase().trim();
+      
+      // Filtrer les clients qui correspondent au nom saisi
+      const matchingCustomers = customers.filter(c => {
+        const customerName = (c.name || '').toLowerCase();
+        const customerPhone = normalizePhone(c.phone);
+        const searchPhone = normalizePhone(searchTerm);
+        
+        // Correspondance par nom ou par téléphone
+        return customerName.includes(searchTerm) || 
+               customerPhone.includes(searchPhone);
+      });
+      
+      // Afficher le dropdown seulement s'il y a des résultats ET que l'utilisateur a saisi quelque chose
       setCustomerSearch(value);
-      setShowCustomerDropdown(Boolean(value));
+      setShowCustomerDropdown(searchTerm.length > 0 && matchingCustomers.length > 0);
     }
   };
 
