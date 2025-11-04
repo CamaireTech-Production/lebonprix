@@ -1,187 +1,187 @@
-# Image Migration Scripts
+# Scripts du Projet Lebonprix
 
-This directory contains scripts for migrating product images from base64 strings stored in Firestore to Firebase Storage URLs.
+Ce dossier contient tous les scripts utilitaires pour la gestion, la migration et la maintenance de la base de données.
 
-## Prerequisites
+## 📁 Structure
 
-1. **Firebase Service Account Key**: Download from Firebase Console → Project Settings → Service Accounts
-2. **Environment Variables**: Ensure your `.env` file contains:
-   ```bash
-   FIREBASE_PROJECT_ID=your-project-id
-   FIREBASE_STORAGE_BUCKET=your-project.appspot.com
-   FIREBASE_SERVICE_ACCOUNT_PATH=./path/to/serviceAccountKey.json
-   ```
+- **Scripts actifs** : Scripts utilisés régulièrement
+- **`archived/`** : Scripts de migration obsolètes (archivés pour référence)
+- **`usefull/`** : Scripts utilitaires spécifiques
 
-## Scripts Overview
+## 🔧 Scripts de Migration d'Images
 
-### 1. `setupMigration.js`
-Sets up the migration environment and checks prerequisites.
+### `setupMigration.js`
+Configure l'environnement de migration et vérifie les prérequis.
 
+### `analyzeImages.js`
+Analyse le stockage actuel des images et fournit des estimations de migration.
+
+### `migrateImages.js`
+Script principal de migration qui convertit les images base64 en URLs Firebase Storage.
+
+**Usage:**
 ```bash
-node scripts/setupMigration.js
-```
-
-### 2. `analyzeImages.js`
-Analyzes current image storage and provides migration estimates.
-
-```bash
-node scripts/analyzeImages.js
-```
-
-**Output:**
-- Total products with images
-- Total images to migrate
-- Storage size estimates
-- Cost estimates
-- Migration time estimates
-
-### 3. `migrateImages.js`
-Main migration script that converts base64 images to Firebase Storage URLs.
-
-```bash
-# Dry run (recommended first)
+# Dry run (recommandé)
 node scripts/migrateImages.js --dry-run
 
-# Full migration
+# Migration complète
 node scripts/migrateImages.js
 
-# Migrate specific user
+# Migrer un utilisateur spécifique
 node scripts/migrateImages.js --user user123
-
-# Custom batch size
-node scripts/migrateImages.js --batch-size 5 --max-concurrent 3
 ```
 
-**Options:**
-- `--dry-run`: Run without making changes
-- `--user <userId>`: Migrate only specific user's products
-- `--batch-size <number>`: Products per batch (default: 10)
-- `--max-concurrent <number>`: Max concurrent uploads (default: 5)
-- `--retry-attempts <number>`: Retry attempts (default: 3)
+### `verifyMigration.js`
+Vérifie que la migration a réussi et que toutes les images sont accessibles.
 
-### 4. `verifyMigration.js`
-Verifies that the migration was successful and all images are accessible.
+## 🔄 Scripts de Migration de Données
 
+### `migrateUserIdToCompanyId.js`
+Migre les données de `userId` vers `companyId` pour l'isolation des données.
+
+**Usage:**
 ```bash
-node scripts/verifyMigration.js
+# Audit
+node scripts/migrateUserIdToCompanyId.js --audit
+
+# Dry run
+node scripts/migrateUserIdToCompanyId.js --dry-run
+
+# Migration réelle
+node scripts/migrateUserIdToCompanyId.js
 ```
 
-**Checks:**
-- Migration completion rate
-- Image accessibility
-- Storage usage
-- Error detection
+### `migrateCinetPayConfigs.js`
+Migre les configurations CinetPay vers la nouvelle structure.
 
-## Migration Process
+### `migrateExpensesCompanyId.js`
+Migre les dépenses vers le nouveau système `companyId`.
 
-### Step 1: Setup
+### `migrateFinancesCompanyId.js`
+Migre les entrées financières vers le nouveau système `companyId`.
+
+### `fixSalesCompanyId.js`
+Corrige les `companyId` manquants dans les ventes.
+
+### `fixMissingFinanceEntries.js`
+Corrige les entrées financières manquantes.
+
+### `fixCompanyIds.cjs`
+Corrige les IDs de company dans les documents.
+
+## 🔍 Scripts de Diagnostic et Audit
+
+### `diagnoseBalance.js`
+Diagnostique les problèmes de calcul de balance.
+
+### `diagnoseMissingSales.js`
+Diagnostique les ventes manquantes.
+
+### `checkBalanceCalculation.js`
+Vérifie les calculs de balance.
+
+### `checkUndefinedFinanceEntries.js`
+Vérifie les entrées financières non définies.
+
+### `auditDuplicateExpenseTypes.js`
+Audite les types de dépenses en double.
+
+### `auditUserIdToCompanyId.js`
+Audite les migrations `userId` vers `companyId`.
+
+## 💾 Scripts de Backup et Restore
+
+### `dbBackup.cjs` / `dbBackup.js`
+Sauvegarde complète de la base de données Firestore.
+
+**Usage:**
 ```bash
-node scripts/setupMigration.js
+node scripts/dbBackup.cjs
+# ou
+node scripts/dbBackup.js
 ```
 
-### Step 2: Analysis
+### `dbRestore.cjs`
+Restaure une sauvegarde de la base de données.
+
+**Usage:**
 ```bash
-node scripts/analyzeImages.js
+node scripts/dbRestore.cjs <backup-directory>
 ```
 
-### Step 3: Test Migration
+### `restore.js`
+Restaure des données spécifiques.
+
+### `restoreSale.js`
+Restaure une vente spécifique.
+
+## 🛠️ Scripts Utilitaires
+
+### `testFirebase.js`
+Teste la connexion Firebase (Firestore, Storage, Auth).
+
+**Usage:**
 ```bash
-node scripts/migrateImages.js --dry-run
+node scripts/testFirebase.js
 ```
 
-### Step 4: Run Migration
-```bash
-node scripts/migrateImages.js
-```
+### `createUsersForExistingCompanies.cjs`
+Crée des utilisateurs Firebase Auth pour les entreprises existantes.
 
-### Step 5: Verify
-```bash
-node scripts/verifyMigration.js
-```
+### `generateLoginLinks.js`
+Génère des liens de connexion pour les utilisateurs.
 
-## Environment Variables
+### `stripHashedPassword.js`
+Supprime les mots de passe hashés des documents company.
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `FIREBASE_STORAGE_BUCKET` | Firebase Storage bucket name | Required |
-| `BATCH_SIZE` | Products per batch | 10 |
-| `MAX_CONCURRENT` | Max concurrent uploads | 5 |
-| `RETRY_ATTEMPTS` | Retry attempts | 3 |
-| `DRY_RUN` | Enable dry run mode | false |
-| `USER_ID` | Migrate specific user | undefined |
+### `deleteCompaniesByPrefix.cjs`
+Supprime les entreprises par préfixe (utile pour nettoyer les données de test).
 
-## Error Handling
+### `clear_storage.js`
+Nettoie le localStorage (à exécuter dans la console du navigateur).
 
-The migration script includes comprehensive error handling:
+## 📂 Scripts Archivés
 
-- **Retry Logic**: Automatic retry with exponential backoff
-- **Batch Processing**: Failed batches don't stop the entire migration
-- **Error Logging**: Detailed error logs for troubleshooting
-- **Rollback Support**: Ability to rollback individual products
+Les scripts de migration suivants ont été archivés dans `archived/` car ils ont probablement déjà été exécutés :
 
-## Monitoring
+- `migrateCompanyEmployees.js` - Migration des employés vers companies
+- `migrateEmployeeIds.js` - Migration des IDs d'employés
+- `migrateEmployeesToCompanyDoc.cjs` - Migration vers document company
+- `migrateToEmployeeRefs.cjs` - Migration vers EmployeeRefs
+- `migrateToSimplifiedArchitecture.js` - Migration vers architecture simplifiée
+- `migrateToUnifiedUsers.js` - Migration vers système utilisateurs unifié
+- `provisionEmployees.js` - Provision d'employés
+- `provisionEmployeeUsers.js` - Provision d'utilisateurs Auth
 
-The migration provides real-time progress updates:
+Ces scripts sont conservés pour référence historique mais ne sont plus utilisés activement.
 
-- Current batch being processed
-- Success/failure rates
-- Processing time estimates
-- Storage usage statistics
+## 🚀 Scripts Shell
 
-## Troubleshooting
+### `apply.sh`
+Applique les changements EmployeeRefs pour les companies.
 
-### Common Issues
+### `runMigration.sh`
+Exécute les migrations de manière sécurisée avec vérifications.
 
-1. **Storage Quota Exceeded**
-   ```bash
-   # Check current usage
-   gsutil du -s gs://your-bucket-name
-   ```
+## 📋 Prérequis
 
-2. **Permission Denied**
-   - Verify service account has Storage Admin role
-   - Check Firebase Storage rules
+1. **Firebase Service Account** : Fichier `firebase-service-account.json` à la racine du projet
+2. **Node.js** : Version 18+ recommandée
+3. **Variables d'environnement** : Configurées dans `.env` si nécessaire
 
-3. **Invalid Base64 Data**
-   - Script will skip invalid images and log warnings
-   - Check logs for specific product IDs
+## ⚠️ Avertissements
 
-4. **Network Timeouts**
-   - Increase retry attempts
-   - Reduce batch size
-   - Check network connectivity
+- **Toujours faire un backup** avant d'exécuter des scripts de migration
+- **Utiliser `--dry-run`** pour tester les scripts avant l'exécution réelle
+- **Vérifier les logs** après chaque exécution
+- **Documenter les changements** dans les rapports de migration
 
-### Logs
+## 📝 Notes
 
-All scripts generate detailed logs:
-- Console output with progress updates
-- Error details for failed operations
-- Performance metrics
-- Final migration report
-
-## Safety Features
-
-- **Dry Run Mode**: Test migration without making changes
-- **Batch Processing**: Process products in small batches
-- **Rate Limiting**: Avoid Firebase quota limits
-- **Error Recovery**: Continue migration despite individual failures
-- **Verification**: Post-migration validation
-
-## Performance Tips
-
-1. **Batch Size**: Start with 10, adjust based on performance
-2. **Concurrency**: Start with 5, increase if network allows
-3. **Timing**: Run during off-peak hours
-4. **Monitoring**: Watch Firebase quotas and usage
-
-## Support
-
-For issues or questions:
-1. Check the troubleshooting section
-2. Review error logs
-3. Test with dry-run mode
-4. Contact development team
+- Les scripts utilisent principalement CommonJS (`.cjs`) ou ES Modules (`.js`)
+- Les scripts de migration génèrent des rapports JSON dans `docs/migrations/`
+- Tous les scripts de migration incluent une gestion d'erreur complète
 
 ---
 
-**⚠️ Important**: Always test the migration in a staging environment before running in production. Ensure you have a complete backup and rollback plan in place.
+**Dernière mise à jour** : Après nettoyage et organisation des scripts
