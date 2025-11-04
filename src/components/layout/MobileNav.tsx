@@ -13,8 +13,16 @@ const MobileNav = () => {
   // Vérifier si on est dans une route d'entreprise
   const isCompanyRoute = location.pathname.startsWith('/company/');
   
+  // Vérifier si on est sur le dashboard employé (ne pas afficher la navigation)
+  const isEmployeeDashboard = location.pathname.startsWith('/employee/');
+  
   // Extraire le companyId depuis l'URL si on est dans une route d'entreprise
   const companyId = isCompanyRoute ? location.pathname.split('/')[2] : null;
+  
+  // Ne pas afficher la navigation sur le dashboard employé ou si on n'a pas de companyId valide
+  if (isEmployeeDashboard || (isCompanyRoute && !companyId)) {
+    return null;
+  }
   
   const isActive = (path: string) => {
     return location.pathname === path;
