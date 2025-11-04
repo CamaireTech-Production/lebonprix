@@ -83,7 +83,6 @@ async function backupFirestoreCollections(backupDir) {
           
           // Si c'est une collection companies, sauvegarder aussi les sous-collections
           if (collectionName === 'companies') {
-            // Sauvegarder la sous-collection employees (ancienne structure)
             try {
               const employeesSnapshot = await db
                 .collection(collectionName)
@@ -102,27 +101,6 @@ async function backupFirestoreCollections(backupDir) {
               }
             } catch (error) {
               console.log(`⚠️ Pas de sous-collection employees pour ${doc.id}`);
-            }
-
-            // Sauvegarder la sous-collection employeeRefs (nouvelle structure)
-            try {
-              const employeeRefsSnapshot = await db
-                .collection(collectionName)
-                .doc(doc.id)
-                .collection('employeeRefs')
-                .get();
-              
-              if (!employeeRefsSnapshot.empty) {
-                docData.employeeRefs = [];
-                employeeRefsSnapshot.forEach(empRefDoc => {
-                  docData.employeeRefs.push({
-                    id: empRefDoc.id,
-                    ...empRefDoc.data()
-                  });
-                });
-              }
-            } catch (error) {
-              console.log(`⚠️ Pas de sous-collection employeeRefs pour ${doc.id}`);
             }
           }
           

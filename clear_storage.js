@@ -1,1 +1,0 @@
-console.log('Clearing localStorage...'); Object.keys(localStorage).forEach(key => { if (key.startsWith('products_') || key.startsWith('sales_') || key.startsWith('expenses_')) { localStorage.removeItem(key); console.log('Removed:', key); } }); console.log('localStorage cleared!');

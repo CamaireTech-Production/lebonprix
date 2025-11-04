@@ -207,8 +207,8 @@ const MainLayout = ({ isAddSaleModalOpen, setIsAddSaleModalOpen }: MainLayoutPro
         </main>
       </div>
       
-      {/* Mobile navigation */}
-      {isMobile && <MobileNav />}
+      {/* Mobile navigation - hide on employee dashboard and non-company routes */}
+      {isMobile && !location.pathname.startsWith('/employee/') && <MobileNav />}
       
       {/* Floating Action Button - show on all dashboard pages except catalogue */}
       {!location.pathname.startsWith('/catalogue') && (

@@ -26,3 +26,6 @@ firebase-service-account.json
 *.sln
 *.sw?
 .env
+dev-dist/sw.js
+dev-dist/workbox-13fdf7ef.js
+__MACOSX/._.env
