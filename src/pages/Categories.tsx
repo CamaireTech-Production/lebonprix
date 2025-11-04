@@ -101,13 +101,34 @@ const Categories = () => {
       return;
     }
 
+    // Validate file size before processing (max 10MB before compression)
+    const maxSizeBeforeCompression = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSizeBeforeCompression) {
+      showErrorToast('Image is too large. Please select an image smaller than 10MB');
+      return;
+    }
+
     setIsUploadingImage(true);
     try {
-      // Compress image
+      console.log('Compressing image:', {
+        name: file.name,
+        size: file.size,
+        type: file.type
+      });
+
+      // Compress image with more aggressive settings
       const compressedFile = await imageCompression(file, {
-        maxSizeMB: 1,
-        maxWidthOrHeight: 800,
+        maxSizeMB: 0.5, // Reduced from 1MB to 0.5MB
+        maxWidthOrHeight: 600, // Reduced from 800 to 600
         useWebWorker: true,
+        initialQuality: 0.7, // Add quality setting
+        fileType: 'image/jpeg' // Force JPEG for better compression
+      });
+
+      console.log('Image compressed:', {
+        originalSize: file.size,
+        compressedSize: compressedFile.size,
+        reduction: `${((1 - compressedFile.size / file.size) * 100).toFixed(1)}%`
       });
 
       // Store the compressed file in state (don't upload yet)
@@ -117,9 +138,9 @@ const Categories = () => {
         image: URL.createObjectURL(compressedFile) // For preview only
       }));
       setIsUploadingImage(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error compressing image:', error);
-      showErrorToast('Error processing image');
+      showErrorToast(`Error processing image: ${error.message || 'Unknown error'}`);
       setIsUploadingImage(false);
     }
   };
@@ -177,24 +198,48 @@ const Categories = () => {
       // Upload image first if available
       if (formData.compressedImageFile) {
         try {
-          const storageService = new FirebaseStorageService();
-          // Generate a temporary ID for the upload
-          const tempId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-          const uploadResult = await storageService.uploadCategoryImage(
-            formData.compressedImageFile,
-            company.id,
-            tempId
-          );
-          imageUrl = uploadResult.url;
-          imagePath = uploadResult.path;
-        } catch (error) {
+          // Validate image size before upload
+          const maxSize = 2 * 1024 * 1024; // 2MB
+          if (formData.compressedImageFile.size > maxSize) {
+            console.warn('Image too large, skipping upload:', formData.compressedImageFile.size);
+            showWarningToast('Image is too large. Category will be created without image.');
+          } else {
+            const storageService = new FirebaseStorageService();
+            // Generate a temporary ID for the upload
+            const tempId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            
+            console.log('Uploading category image:', {
+              size: formData.compressedImageFile.size,
+              type: formData.compressedImageFile.type,
+              userId: user.uid,
+              companyId: company.id,
+              tempId
+            });
+            
+            const uploadResult = await storageService.uploadCategoryImage(
+              formData.compressedImageFile,
+              user.uid, // Use user.uid, not company.id
+              tempId
+            );
+            imageUrl = uploadResult.url;
+            imagePath = uploadResult.path;
+            console.log('Image uploaded successfully:', { imageUrl, imagePath });
+          }
+        } catch (error: any) {
           console.error('Error uploading image:', error);
-          showErrorToast('Image upload failed');
-          return;
+          // Log detailed error information
+          if (error.code) {
+            console.error('Firebase Storage error code:', error.code);
+          }
+          if (error.message) {
+            console.error('Error message:', error.message);
+          }
+          // Continue without image - don't block category creation
+          showWarningToast('Image upload failed. Category will be created without image.');
         }
       }
 
-      // Create category with image URL included
+      // Create category with or without image
       const categoryData = {
         name: formData.name.trim(),
         description: formData.description.trim() || '',
@@ -204,14 +249,19 @@ const Categories = () => {
         companyId: company.id,
       };
 
+      console.log('Creating category:', categoryData);
       await createCategory(categoryData, company.id);
       
       setIsAddModalOpen(false);
       resetForm();
       showSuccessToast('Category created successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating category:', error);
-      showErrorToast('Failed to create category');
+      if (error.message) {
+        showErrorToast(`Failed to create category: ${error.message}`);
+      } else {
+        showErrorToast('Failed to create category');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -237,7 +287,7 @@ const Categories = () => {
           const storageService = new FirebaseStorageService();
           const uploadResult = await storageService.uploadCategoryImage(
             formData.compressedImageFile,
-            company.id,
+            user.uid, // Use user.uid, not company.id
             currentCategory.id
           );
           imageUrl = uploadResult.url;

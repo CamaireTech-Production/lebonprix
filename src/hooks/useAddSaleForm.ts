@@ -84,22 +84,18 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
-    // Allow searching/selecting customer when typing name or quarter
+    
+    // Allow searching/selecting customer when typing name
     if (name === 'customerName') {
       const searchTerm = value.toLowerCase().trim();
       
-      // Filtrer les clients qui correspondent au nom saisi
+      // Filter customers by name match
       const matchingCustomers = customers.filter(c => {
         const customerName = (c.name || '').toLowerCase();
-        const customerPhone = normalizePhone(c.phone);
-        const searchPhone = normalizePhone(searchTerm);
-        
-        // Correspondance par nom ou par téléphone
-        return customerName.includes(searchTerm) || 
-               customerPhone.includes(searchPhone);
+        return customerName.includes(searchTerm);
       });
       
-      // Afficher le dropdown seulement s'il y a des résultats ET que l'utilisateur a saisi quelque chose
+      // Show dropdown only if there are results AND user has typed something
       setCustomerSearch(value);
       setShowCustomerDropdown(searchTerm.length > 0 && matchingCustomers.length > 0);
     }
@@ -111,10 +107,21 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
     
     setFormData(prev => ({ ...prev, customerPhone: value }));
     setCustomerSearch(value);
-    setShowCustomerDropdown(Boolean(value && value.length >= 2));
+    
+    // Filter customers by phone number match
+    const normalizedSearch = normalizePhone(value);
+    if (normalizedSearch.length >= 2) {
+      const matchingCustomers = customers.filter(c => {
+        const customerPhone = normalizePhone(c.phone);
+        return customerPhone.includes(normalizedSearch) || normalizedSearch.includes(customerPhone);
+      });
+      setShowCustomerDropdown(matchingCustomers.length > 0);
+    } else {
+      setShowCustomerDropdown(false);
+    }
     
     // Clear found customer when phone changes manually
-    if (foundCustomer && foundCustomer.phone !== value) {
+    if (foundCustomer && normalizePhone(foundCustomer.phone) !== normalizedSearch) {
       setFoundCustomer(null);
     }
   };

@@ -58,8 +58,28 @@ export default function EmployeeLogin() {
       // Rediriger vers le dashboard principal avec accès restreint selon le rôle
       navigate('/');
     } catch (e: any) {
-      console.error(e);
-      showErrorToast('Informations de connexion incorrectes');
+      console.error('Employee login error:', e);
+      
+      // Show user-friendly error messages based on Firebase error codes
+      let errorMessage = 'Invalid Email or Password. Veuillez vérifier vos identifiants.';
+      
+      if (e.code) {
+        const errorMessages: Record<string, string> = {
+          'auth/user-not-found': 'Invalid Email or Password',
+          'auth/wrong-password': 'Invalid Email or Password',
+          'auth/invalid-credential': 'Invalid Email or Password',
+          'auth/invalid-login-credentials': 'Invalid Email or Password',
+          'auth/invalid-email': 'Format d\'email invalide',
+          'auth/user-disabled': 'Compte utilisateur désactivé. Contactez l\'administrateur.',
+          'auth/network-request-failed': 'Erreur réseau. Vérifiez votre connexion internet.',
+          'auth/too-many-requests': 'Trop de tentatives de connexion. Veuillez réessayer plus tard.',
+        };
+        errorMessage = errorMessages[e.code] || errorMessage;
+      } else if (e.message) {
+        errorMessage = e.message;
+      }
+      
+      showErrorToast(errorMessage);
     }
   };
 
