@@ -28,7 +28,8 @@
     "papaparse": "^5.4.1",
     "jspdf": "^2.5.1",
     "jspdf-autotable": "^3.8.2",
-    "react-day-picker": "^8.9.1"
+    "react-day-picker": "^8.9.1",
+    "crypto-js": "^4.2.0"
   },
   "devDependencies": {
     "@types/react": "^18.2.43",
