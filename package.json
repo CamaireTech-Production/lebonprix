@@ -52,7 +52,6 @@
     "@types/crypto-js": "^4.2.2",
     "@types/papaparse": "^5.3.14",
     "@types/jspdf": "^2.0.0",
-    "@types/react-select": "^5.0.5",
     "vitest": "^1.0.4",
     "@testing-library/react": "^14.1.2",
     "@testing-library/jest-dom": "^6.1.5"
