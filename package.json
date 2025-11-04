@@ -29,7 +29,9 @@
     "jspdf": "^2.5.1",
     "jspdf-autotable": "^3.8.2",
     "react-day-picker": "^8.9.1",
-    "crypto-js": "^4.2.0"
+    "crypto-js": "^4.2.0",
+    "@emailjs/browser": "^4.0.1",
+    "@heroicons/react": "^2.1.1"
   },
   "devDependencies": {
     "@types/react": "^18.2.43",
@@ -46,6 +48,13 @@
     "tailwindcss": "^3.3.6",
     "typescript": "^5.2.2",
     "vite": "^5.0.8",
-    "vite-plugin-pwa": "^0.17.4"
+    "vite-plugin-pwa": "^0.17.4",
+    "@types/crypto-js": "^4.2.2",
+    "@types/papaparse": "^5.3.14",
+    "@types/jspdf": "^2.0.0",
+    "@types/react-select": "^5.0.5",
+    "vitest": "^1.0.4",
+    "@testing-library/react": "^14.1.2",
+    "@testing-library/jest-dom": "^6.1.5"
   }
 }
