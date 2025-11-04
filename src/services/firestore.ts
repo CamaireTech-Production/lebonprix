@@ -1563,7 +1563,9 @@ export const updateSaleDocument = async (
   }
 
   const sale = saleSnap.data() as Sale;
-  if (sale.userId !== userId) {
+  // userId parameter is actually company.id in this context
+  // Check companyId instead of userId to allow employees to update sales
+  if (sale.companyId !== userId) {
     throw new Error('Unauthorized to update this sale');
   }
 

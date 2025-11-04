@@ -523,15 +523,20 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       if (error.code) {
         // Erreur Firebase Auth
         const errorMessages: Record<string, string> = {
-          'auth/user-not-found': 'Utilisateur non trouvé',
-          'auth/wrong-password': 'Mot de passe incorrect',
-          'auth/invalid-email': 'Email invalide',
-          'auth/user-disabled': 'Compte utilisateur désactivé',
-          'auth/network-request-failed': 'Erreur réseau. Vérifiez votre connexion.',
-          'auth/too-many-requests': 'Trop de tentatives. Réessayez plus tard.',
+          'auth/user-not-found': 'Invalid Email or Password',
+          'auth/wrong-password': 'Invalid Email or Password',
+          'auth/invalid-credential': 'Invalid Email or Password',
+          'auth/invalid-login-credentials': 'Invalid Email or Password',
+          'auth/invalid-email': 'Format d\'email invalide',
+          'auth/user-disabled': 'Compte utilisateur désactivé. Contactez l\'administrateur.',
+          'auth/network-request-failed': 'Erreur réseau. Vérifiez votre connexion internet.',
+          'auth/too-many-requests': 'Trop de tentatives de connexion. Veuillez réessayer plus tard.',
+          'auth/operation-not-allowed': 'Méthode de connexion non autorisée.',
+          'auth/email-already-in-use': 'Cet email est déjà utilisé.',
         };
         
-        const userMessage = errorMessages[error.code] || `Erreur d'authentification: ${error.code}`;
+        // Use a default message for credentials errors
+        const userMessage = errorMessages[error.code] || 'Invalid Email or Password. Veuillez vérifier vos identifiants.';
         const enhancedError = new Error(userMessage);
         (enhancedError as any).code = error.code;
         throw enhancedError;

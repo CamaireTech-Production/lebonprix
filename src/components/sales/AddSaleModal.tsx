@@ -249,17 +249,17 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                 />
               </div>
               
-              {/* Customer Dropdown */}
-{showCustomerDropdown && customerSearch && (() => {
-  const searchTerm = customerSearch.toLowerCase().trim();
+              {/* Customer Dropdown - Phone based recommendations */}
+{showCustomerDropdown && customerSearch && /\d/.test(customerSearch) && (() => {
+  const normalizedSearch = customerSearch.replace(/\D/g, '');
   
-  // Filtrer les clients uniquement sur le nom (pas sur le téléphone ou quarter)
+  // Filter customers by phone number match
   const filteredCustomers = customers.filter(c => {
-    const customerName = (c.name || '').toLowerCase();
-    return customerName.includes(searchTerm) && searchTerm.length > 0;
+    const customerPhone = c.phone.replace(/\D/g, '');
+    return customerPhone.includes(normalizedSearch) || normalizedSearch.includes(customerPhone);
   });
   
-  // Ne montrer le dropdown que s'il y a des résultats
+  // Don't show dropdown if no results
   if (filteredCustomers.length === 0) {
     return null;
   }
@@ -271,7 +271,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
       onClick={(e) => e.stopPropagation()}
     >
       <div className="p-2 bg-gray-50 border-b">
-        <div className="text-xs font-medium text-gray-600">Select Customer:</div>
+        <div className="text-xs font-medium text-gray-600">Select Customer by Phone:</div>
       </div>
       
       {filteredCustomers.slice(0, 5).map(c => (
@@ -316,12 +316,68 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
               </label>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <Input
-                  label="Name"
-                name="customerName"
-                value={formData.customerName}
-                onChange={handleInputChange}
-              />
+              <div className="relative">
+                <Input
+                    label="Name"
+                  name="customerName"
+                  value={formData.customerName}
+                  onChange={handleInputChange}
+                />
+                
+                {/* Customer Dropdown - Name based recommendations */}
+{showCustomerDropdown && customerSearch && !/\d/.test(customerSearch) && (() => {
+  const searchTerm = customerSearch.toLowerCase().trim();
+  
+  // Filter customers by name match
+  const filteredCustomers = customers.filter(c => {
+    const customerName = (c.name || '').toLowerCase();
+    return customerName.includes(searchTerm);
+  });
+  
+  // Don't show dropdown if no results
+  if (filteredCustomers.length === 0) {
+    return null;
+  }
+  
+  return (
+    <div 
+      data-dropdown="customer"
+      className="absolute top-full left-0 right-0 z-50 bg-white border border-gray-200 rounded shadow-lg max-h-48 overflow-y-auto mt-1"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="p-2 bg-gray-50 border-b">
+        <div className="text-xs font-medium text-gray-600">Select Customer by Name:</div>
+      </div>
+      
+      {filteredCustomers.slice(0, 5).map(c => (
+        <button
+          key={c.id}
+          type="button"
+          className="w-full text-left p-3 hover:bg-emerald-50 border-b border-gray-100 last:border-b-0 transition-colors"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // Update the form data with the selected customer's information
+            setFormData(prev => ({
+              ...prev,
+              customerPhone: c.phone,
+              customerName: c.name || '',
+              customerQuarter: c.quarter || ''
+            }));
+            
+            // Hide the dropdown after selection
+            setShowCustomerDropdown(false);
+          }}
+        >
+          <div className="font-medium text-gray-900">{c.name || 'Divers'}</div>
+          <div className="text-sm text-gray-500">{c.phone}{c.quarter ? ` • ${c.quarter}` : ''}</div>
+        </button>
+      ))}
+    </div>
+  );
+})()}
+              </div>
               <Input
                   label="Quarter"
                 name="customerQuarter"

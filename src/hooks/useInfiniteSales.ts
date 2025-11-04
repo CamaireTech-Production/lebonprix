@@ -16,6 +16,7 @@ interface UseInfiniteSalesReturn {
   error: Error | null;
   loadMore: () => void;
   refresh: () => void;
+  updateSaleInList: (saleId: string, updatedSale: Sale) => void;
 }
 
 const SALES_PER_PAGE = 20;
@@ -138,6 +139,20 @@ export const useInfiniteSales = (): UseInfiniteSalesReturn => {
     loadInitialSales();
   }, [loadInitialSales]);
 
+  // Update a specific sale in the list
+  const updateSaleInList = useCallback((saleId: string, updatedSale: Sale) => {
+    setSales(prev => {
+      const updated = prev.map(sale => 
+        sale.id === saleId ? { ...updatedSale, id: saleId } : sale
+      );
+      // Update localStorage with updated sales
+      if (company?.id) {
+        SalesManager.save(company.id, updated);
+      }
+      return updated;
+    });
+  }, [company?.id]);
+
   useEffect(() => {
     if (user?.uid && company?.id) {
       loadInitialSales();
@@ -158,6 +173,7 @@ export const useInfiniteSales = (): UseInfiniteSalesReturn => {
     hasMore,
     error,
     loadMore,
-    refresh
+    refresh,
+    updateSaleInList
   };
 };
