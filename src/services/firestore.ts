@@ -668,8 +668,7 @@ export const createProduct = async (
   if (
     !data.name ||
     data.sellingPrice < 0 ||
-    data.stock < 0 ||
-    !data.category
+    data.stock < 0
   ) {
     throw new Error('Invalid product data');
   }

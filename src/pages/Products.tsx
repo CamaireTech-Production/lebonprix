@@ -257,8 +257,8 @@ const Products = () => {
     setCurrentStep(1);
   };
 
-  // Get unique categories from products
-  const categories = [t('products.filters.allCategories'), ...new Set(infiniteProducts?.map(p => p.category) || [])];
+  // Get unique categories from products (filter out empty/undefined categories)
+  const categories = [t('products.filters.allCategories'), ...new Set(infiniteProducts?.filter(p => p.category).map(p => p.category!) || [])];
 
   
   const compressImage = async (file: File): Promise<File> => {
@@ -295,7 +295,7 @@ const Products = () => {
     if (!user?.uid) return;
     
     // Validate step 1 data
-    if (!step1Data.name || !step1Data.category) {
+    if (!step1Data.name) {
       showWarningToast(t('products.messages.warnings.requiredFields'));
       return;
     }
@@ -356,12 +356,11 @@ const Products = () => {
       }
 
       // Create product data after image upload
-      const productData = {
+      const productData: any = {
         name: step1Data.name,
         reference,
         sellingPrice: parseFloat(step2Data.sellingPrice),
         cataloguePrice: step2Data.cataloguePrice ? parseFloat(step2Data.cataloguePrice) : 0,
-        category: step1Data.category,
         stock: stockQuantity,
         costPrice: stockCostPrice,
         images: imageUrls, // Firebase Storage URLs
@@ -373,6 +372,11 @@ const Products = () => {
         userId: user.uid,
         updatedAt: { seconds: 0, nanoseconds: 0 }
       };
+      
+      // Only include category if it's not empty (Firestore doesn't accept undefined)
+      if (step1Data.category && step1Data.category.trim()) {
+        productData.category = step1Data.category.trim();
+      }
       
       // Create supplier info for the product creation
       const supplierInfo = step2Data.supplyType === 'fromSupplier' ? {
@@ -433,7 +437,7 @@ const Products = () => {
   const nextStep = () => {
     if (currentStep === 1) {
       // Validate step 1
-      if (!step1Data.name || !step1Data.category) {
+      if (!step1Data.name) {
       showWarningToast(t('products.messages.warnings.requiredFields'));
       return;
     }
@@ -737,7 +741,7 @@ const Products = () => {
     setStep1Data({
       name: product.name,
       reference: product.reference,
-      category: product.category,
+      category: product.category || '',
       images: Array.isArray(product.images) ? product.images : (product.images ? [product.images] : []),
       tags: product.tags || [], // Load existing tags
       isVisible: product.isVisible !== undefined ? product.isVisible : true, // Load visibility setting
@@ -775,7 +779,7 @@ const Products = () => {
     if (!currentProduct || !user?.uid) {
       return;
     }
-    if (!step1Data.name || !step1Data.category) {
+    if (!step1Data.name) {
       showWarningToast(t('products.messages.warnings.requiredFields'));
       return;
     }
@@ -788,7 +792,6 @@ const Products = () => {
     };
     const updateData: Partial<Product> = {
       name: step1Data.name,
-      category: step1Data.category,
       images: safeProduct.images, // Keep existing images, will be updated separately if needed
       tags: step1Data.tags || [], // Include tags in the update, default to empty array
       isAvailable: safeProduct.isAvailable,
@@ -798,6 +801,15 @@ const Products = () => {
       sellingPrice: editPrices.sellingPrice ? parseFloat(editPrices.sellingPrice) : safeProduct.sellingPrice,
       cataloguePrice: editPrices.cataloguePrice ? parseFloat(editPrices.cataloguePrice) : safeProduct.cataloguePrice
     };
+    
+    // Only include category if it's not empty (Firestore doesn't accept undefined)
+    // Use null for empty category (Firestore accepts null but not undefined)
+    if (step1Data.category && step1Data.category.trim()) {
+      updateData.category = step1Data.category.trim();
+    } else {
+      // Set to null if category is empty (Firestore accepts null but not undefined)
+      updateData.category = null as any;
+    }
     if (step1Data.reference && step1Data.reference.trim() !== '') {
       updateData.reference = step1Data.reference;
     }
@@ -1232,7 +1244,8 @@ const Products = () => {
     if (typeof product.isAvailable !== 'undefined' && product.isAvailable === false) return false;
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          product.reference.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === t('products.filters.allCategories') || product.category === selectedCategory;
+    const matchesCategory = selectedCategory === t('products.filters.allCategories') || 
+                            product.category === selectedCategory;
     return matchesSearch && matchesCategory;
   }) || [];
 
@@ -1594,7 +1607,9 @@ const Products = () => {
                       </Badge>
                     </div>
                   </div>
-                  <p className="mt-2 text-sm text-gray-500">{product.category}</p>
+                  {product.category && (
+                    <p className="mt-2 text-sm text-gray-500">{product.category}</p>
+                  )}
                 </div>
                 <div className="mt-4 flex justify-end space-x-2 px-4 pb-3">
                   <button
