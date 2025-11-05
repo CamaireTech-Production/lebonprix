@@ -137,10 +137,11 @@ const Catalogue = () => {
 
   // Subscribe to products with caching and real-time updates
   useEffect(() => {
-    if (!companyId) return;
+    // Wait for company to be loaded before loading products
+    if (!company?.id) return;
 
     // Always subscribe to real-time updates, even if we have cached data
-    const unsubscribe = subscribeToProducts(companyId, (productsData) => {
+    const unsubscribe = subscribeToProducts(company.id, (productsData) => {
       const companyProducts = productsData.filter(
         p => {
           // Filter out products that should not be shown in catalogue:
@@ -156,19 +157,15 @@ const Catalogue = () => {
       );
       
       
-      // Cache the products for future use
-      setProductsCache(prev => new Map(prev).set(companyId, productsData));
+      // Cache the products for future use using company.id
+      setProductsCache(prev => new Map(prev).set(company.id, productsData));
       setProducts(companyProducts);
-      
-      // Only set loading to false if we have company data
-      if (company) {
-        setLoading(false);
-      }
+      setLoading(false);
     });
 
     // If we have cached data, show it immediately while waiting for real-time updates
-    if (productsCache.has(companyId)) {
-      const cachedProducts = productsCache.get(companyId)!;
+    if (productsCache.has(company.id)) {
+      const cachedProducts = productsCache.get(company.id)!;
       const filteredProducts = cachedProducts.filter(
         p => {
           // Filter out products that should not be shown in catalogue:
@@ -189,18 +186,19 @@ const Catalogue = () => {
     }
 
     return () => unsubscribe();
-  }, [companyId, company, productsCache]);
+  }, [company?.id, productsCache]);
 
   // Subscribe to categories for enhanced display
   useEffect(() => {
-    if (!companyId) return;
+    // Wait for company to be loaded before loading categories
+    if (!company?.id) return;
 
-    const unsubscribe = subscribeToCategories(companyId, (categoriesData) => {
+    const unsubscribe = subscribeToCategories(company.id, (categoriesData) => {
       setCategories(categoriesData);
     });
 
     return () => unsubscribe();
-  }, [companyId]);
+  }, [company?.id]);
 
   // Get unique categories from products
   const getUniqueCategories = () => {

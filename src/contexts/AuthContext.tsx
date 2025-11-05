@@ -576,14 +576,41 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     return firebaseSignOut(auth);
   };
 
+  // Fonction utilitaire pour nettoyer les valeurs undefined récursivement
+  const removeUndefinedValues = (obj: any): any => {
+    if (obj === null || obj === undefined) {
+      return undefined;
+    }
+    
+    if (Array.isArray(obj)) {
+      return obj.map(item => removeUndefinedValues(item)).filter(item => item !== undefined);
+    }
+    
+    if (typeof obj === 'object' && obj.constructor === Object) {
+      const cleaned: any = {};
+      for (const [key, value] of Object.entries(obj)) {
+        const cleanedValue = removeUndefinedValues(value);
+        if (cleanedValue !== undefined) {
+          cleaned[key] = cleanedValue;
+        }
+      }
+      return cleaned;
+    }
+    
+    return obj;
+  };
+
   const updateCompany = async (data: Partial<Omit<Company, 'id' | 'createdAt' | 'updatedAt' | 'companyId'>>) => {
     if (!user) {
       throw new Error('No user logged in');
     }
 
     const companyRef = doc(db, 'companies', selectedCompanyId || user.uid);
+    
+    // Nettoyer les valeurs undefined avant de mettre à jour
+    const cleanedData = removeUndefinedValues(data);
     const updateData = {
-      ...data,
+      ...cleanedData,
       updatedAt: Timestamp.now()
     };
 
