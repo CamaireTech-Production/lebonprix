@@ -6,6 +6,7 @@ import { Users, UserPlus, RefreshCw, Settings, Trash2 } from 'lucide-react';
 import type { UserCompanyRef } from '../../types/models';
 import TemplateAssignment from './TemplateAssignment';
 import { removeUserFromCompany } from '../../services/userCompanySyncService';
+import { getTemplateById } from '../../services/permissionTemplateService';
 
 interface TeamOverviewProps {
   teamMembers: UserCompanyRef[];
@@ -23,6 +24,7 @@ interface TeamMember {
   joinedAt: import('../../types/models').Timestamp;
   lastLogin?: import('../../types/models').Timestamp;
   permissionTemplateId?: string;
+  permissionTemplateName?: string;
   userId?: string;
 }
 
@@ -54,13 +56,33 @@ const TeamOverview = ({ teamMembers, onRefresh, companyId }: TeamOverviewProps) 
         userId: member.userId // Store userId separately for deletion
       }));
       
-      setAllTeamMembers(members);
+      // Charger les noms des templates pour les membres qui en ont un
+      const membersWithTemplateNames = await Promise.all(
+        members.map(async (member) => {
+          if (member.permissionTemplateId && companyId) {
+            try {
+              const template = await getTemplateById(companyId, member.permissionTemplateId);
+              if (template) {
+                return {
+                  ...member,
+                  permissionTemplateName: template.name
+                };
+              }
+            } catch (error) {
+              console.error(`❌ Erreur lors du chargement du template ${member.permissionTemplateId}:`, error);
+            }
+          }
+          return member;
+        })
+      );
+      
+      setAllTeamMembers(membersWithTemplateNames);
     } catch (error) {
       console.error('Error loading team members:', error);
     } finally {
       setLoading(false);
     }
-  }, [teamMembers]);
+  }, [teamMembers, companyId]);
 
   useEffect(() => {
     loadTeamMembers();
@@ -230,7 +252,9 @@ const TeamOverview = ({ teamMembers, onRefresh, companyId }: TeamOverviewProps) 
                   </span>
                   
                   <span className="text-xs text-gray-500">
-                    {member.permissionTemplateId ? 'Custom Template' : 'Base Role Only'}
+                    {member.permissionTemplateId 
+                      ? (member.permissionTemplateName || 'Custom Template')
+                      : 'Base Role Only'}
                   </span>
                   
                   {member.lastLogin && (
@@ -296,6 +320,7 @@ const TeamOverview = ({ teamMembers, onRefresh, companyId }: TeamOverviewProps) 
             <div className="bg-white rounded-lg max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
               <TemplateAssignment
                 userId={selectedMember.id}
+                currentRole={selectedMember.role as 'staff' | 'manager' | 'admin' | 'owner'}
                 currentTemplateId={selectedMember.permissionTemplateId}
                 onTemplateAssigned={handleTemplateAssigned}
                 onClose={() => setShowTemplateAssignment(false)}

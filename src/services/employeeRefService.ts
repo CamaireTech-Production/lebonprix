@@ -11,11 +11,14 @@ import {
   updateDoc, 
   Timestamp,
   Unsubscribe,
-  onSnapshot
+  onSnapshot,
+  arrayRemove,
+  arrayUnion,
+  serverTimestamp
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { EmployeeRef, User, UserRole, UserCompanyRef } from '../types/models';
-import { addUserToCompany } from './userCompanySyncService';
+import { addUserToCompany, updateUserRole } from './userCompanySyncService';
 
 /**
  * Service pour gérer les références d'employés (employeeRefs)
@@ -173,31 +176,11 @@ export const updateEmployeeRole = async (
   try {
     console.log(`🔄 Mise à jour du rôle de l'employé ${userId} vers ${newRole}`);
 
-    // 1. Mettre à jour le rôle dans la sous-collection employeeRefs
-    const employeeRef = doc(db, 'companies', companyId, 'employeeRefs', userId);
-    await updateDoc(employeeRef, {
-      role: newRole
-    });
-    console.log(`✅ Rôle mis à jour dans employeeRefs`);
-
-    // 2. Mettre à jour le rôle dans la liste des entreprises de l'utilisateur
-    const userRef = doc(db, 'users', userId);
-    const userSnap = await getDoc(userRef);
-    
-    if (userSnap.exists()) {
-      const userData = userSnap.data() as User;
-      const updatedCompanies = (userData.companies || []).map(company => 
-        company.companyId === companyId 
-          ? { ...company, role: newRole }
-          : company
-      );
-      
-      await updateDoc(userRef, {
-        companies: updatedCompanies
-      });
-      console.log(`✅ Rôle mis à jour dans la référence utilisateur`);
-    }
-
+    // Utiliser le service de synchronisation qui met à jour tout correctement :
+    // - employeeRefs
+    // - company.employees{}
+    // - users.companies[] (avec arrayRemove/arrayUnion)
+    await updateUserRole(userId, companyId, newRole);
     console.log(`🎉 Rôle de l'employé mis à jour avec succès`);
 
   } catch (error: any) {
@@ -249,11 +232,17 @@ export const subscribeToEmployeeRefs = (
   const q = query(employeeRefs, orderBy('addedAt', 'desc'));
 
   return onSnapshot(q, (snapshot) => {
+    console.log(`📡 [subscribeToEmployeeRefs] Snapshot reçu pour company ${companyId}:`, snapshot.size, 'documents');
     const employees: EmployeeRef[] = [];
     snapshot.forEach((doc) => {
-      employees.push(doc.data() as EmployeeRef);
+      const employeeData = { id: doc.id, ...doc.data() } as EmployeeRef;
+      employees.push(employeeData);
+      console.log(`📡 [subscribeToEmployeeRefs] Employé trouvé:`, { id: employeeData.id, role: employeeData.role, name: `${employeeData.firstname} ${employeeData.lastname}` });
     });
+    console.log(`📡 [subscribeToEmployeeRefs] Appel du callback avec ${employees.length} employés`);
     callback(employees);
+  }, (error) => {
+    console.error(`❌ [subscribeToEmployeeRefs] Erreur dans le listener:`, error);
   });
 };
 

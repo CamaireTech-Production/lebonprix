@@ -8,7 +8,7 @@ const MobileNav = () => {
   const { t } = useTranslation();
   const location = useLocation();
   const { effectiveRole, isOwner } = useAuth();
-  const { canAccess } = useRolePermissions();
+  const { canAccess, canAccessFinance, canAccessHR, canAccessSettings } = useRolePermissions();
   
   // Vérifier si on est dans une route d'entreprise
   const isCompanyRoute = location.pathname.startsWith('/company/');
@@ -89,11 +89,25 @@ const MobileNav = () => {
         {navigationItems.map((item) => {
           // Vérifier si l'utilisateur a accès à cet élément
           let hasAccess = true;
+          
+          // Les propriétaires ont accès à tout
           if (!isOwner) {
-            if ((item as any).allowedRoles) {
+            const resource = (item as any).resource;
+            
+            if (resource) {
+              // Permissions spéciales pour Finance, HR et Settings
+              if (resource === 'finance') {
+                hasAccess = canAccessFinance;
+              } else if (resource === 'hr') {
+                hasAccess = canAccessHR;
+              } else if (resource === 'settings') {
+                hasAccess = canAccessSettings;
+              } else {
+                // Pour les autres ressources, utiliser canAccess
+                hasAccess = canAccess(resource);
+              }
+            } else if ((item as any).allowedRoles) {
               hasAccess = effectiveRole ? (item as any).allowedRoles.includes(effectiveRole) : false;
-            } else if ((item as any).resource) {
-              hasAccess = canAccess((item as any).resource);
             }
           }
           

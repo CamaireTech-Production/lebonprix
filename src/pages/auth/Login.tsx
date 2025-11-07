@@ -15,7 +15,7 @@ const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   
-  const { loading, signIn, user } = useAuth();
+  const { loading, signIn, user, companyLoading } = useAuth();
 
   // Check localStorage session on mount and redirect if already logged in
   useEffect(() => {
@@ -46,17 +46,18 @@ const Login = () => {
     }
   }, [loading, navigate]);
 
-  // Watch for user authentication state and stop loading when authenticated
+  // Watch for user authentication state and company verification completion
   useEffect(() => {
     if (user && isLoading) {
-      // Keep loading until navigation completes or after a short delay
-      // This ensures the button shows loading during the entire auth process
-      setTimeout(() => {
+      // Wait for company verification to complete before stopping loading
+      // This ensures the button shows loading during the entire auth process including company verification
+      if (companyLoading === false) {
+        // Company verification is complete, stop loading
         setIsLoading(false);
-      }, 1000); // Delay to ensure navigation is initiated and user sees the loading state
-      // Navigation will be handled by AuthContext
+      }
+      // If companyLoading is still true, this effect will re-run when companyLoading becomes false
     }
-  }, [user, isLoading]);
+  }, [user, isLoading, companyLoading]);
 
   if (loading) {
     return <LoadingScreen />;

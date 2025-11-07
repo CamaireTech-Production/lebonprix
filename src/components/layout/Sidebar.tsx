@@ -19,8 +19,8 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
   const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
-  const { company, currentEmployee } = useAuth();
-  const { canAccess } = useRolePermissions();
+  const { company, currentEmployee, isOwner, effectiveRole } = useAuth();
+  const { canAccess, canAccessFinance, canAccessHR, canAccessSettings } = useRolePermissions();
   const [showCreateCompanyModal, setShowCreateCompanyModal] = React.useState(false);
   const [showCompanyNavigationConfirm, setShowCompanyNavigationConfirm] = React.useState(false);
 
@@ -155,9 +155,33 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
             }
 
             // Mode normal - vérifier les permissions via centralized permissions
-            const hasAccess = (item as any).resource ? canAccess((item as any).resource) : true;
-            
-            if (!hasAccess) return null;
+            // Les propriétaires ont accès à tout
+            if (isOwner) {
+              // Propriétaire - afficher tous les items
+            } else {
+              // Vérifier les permissions selon le type de ressource
+              const resource = (item as any).resource;
+              let hasAccess = true;
+              
+              if (resource) {
+                // Permissions spéciales pour Finance, HR et Settings
+                if (resource === 'finance') {
+                  hasAccess = canAccessFinance;
+                } else if (resource === 'hr') {
+                  hasAccess = canAccessHR;
+                } else if (resource === 'settings') {
+                  hasAccess = canAccessSettings;
+                } else {
+                  // Pour les autres ressources, utiliser canAccess
+                  hasAccess = canAccess(resource);
+                }
+              } else if ((item as any).allowedRoles) {
+                // Vérifier les rôles autorisés si spécifiés
+                hasAccess = effectiveRole ? (item as any).allowedRoles.includes(effectiveRole) : false;
+              }
+              
+              if (!hasAccess) return null;
+            }
             
             // Check if this is the "Mes Entreprises" link that needs confirmation
             const isCompaniesManagementLink = item.path === '/companies' && isCompanyRoute;
