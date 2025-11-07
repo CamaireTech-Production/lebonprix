@@ -156,6 +156,13 @@ export interface Customer {
   userId: string;
   companyId: string; // Reference to the company this customer belongs to
   createdAt: Date;
+  // Informations optionnelles supplémentaires
+  firstName?: string; // Prénom
+  lastName?: string; // Nom de famille
+  address?: string; // Adresse complète
+  town?: string; // Ville
+  birthdate?: string; // Date de naissance (format ISO: YYYY-MM-DD)
+  howKnown?: string; // Comment il a connu l'entreprise
 }
 
 export interface Objective extends BaseModel {

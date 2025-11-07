@@ -1828,17 +1828,28 @@ export const addCustomer = async (customerData: Omit<Customer, 'id'>): Promise<C
 };
 
 export const subscribeToCustomers = (companyId: string, callback: (customers: Customer[]) => void) => {
+  console.log('👂 [subscribeToCustomers] Abonnement aux clients pour company:', companyId);
   const q = query(
     collection(db, 'customers'),
     where('companyId', '==', companyId),
     orderBy('createdAt', 'desc')
   );
   return onSnapshot(q, (snapshot) => {
-    const customers = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    })) as Customer[];
+    console.log(`📡 [subscribeToCustomers] Snapshot reçu pour company ${companyId}:`, snapshot.size, 'documents');
+    const customers = snapshot.docs.map(doc => {
+      const data = doc.data();
+      console.log(`📡 [subscribeToCustomers] Client trouvé:`, { id: doc.id, phone: data.phone, name: data.name, companyId: data.companyId });
+      return {
+        id: doc.id,
+        ...data
+      } as Customer;
+    });
+    console.log(`📡 [subscribeToCustomers] Appel du callback avec ${customers.length} clients`);
     callback(customers);
+  }, (error) => {
+    console.error(`❌ [subscribeToCustomers] Erreur dans le listener pour company ${companyId}:`, error);
+    // En cas d'erreur (par exemple index manquant), retourner un tableau vide
+    callback([]);
   });
 };
 
