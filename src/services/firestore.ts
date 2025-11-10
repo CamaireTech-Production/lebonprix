@@ -106,16 +106,50 @@ export const createStockBatch = async (
  * Get available stock batches for a product (for consumption)
  */
 export const getAvailableStockBatches = async (productId: string): Promise<StockBatch[]> => {
-  const q = query(
-    collection(db, 'stockBatches'),
-    where('productId', '==', productId),
-    where('remainingQuantity', '>', 0),
-    where('status', '==', 'active'),
-    orderBy('createdAt', 'asc')
-  );
-  
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as StockBatch[];
+  try {
+    const q = query(
+      collection(db, 'stockBatches'),
+      where('productId', '==', productId),
+      where('remainingQuantity', '>', 0),
+      where('status', '==', 'active'),
+      orderBy('createdAt', 'asc')
+    );
+    
+    const snapshot = await getDocs(q);
+    const batches = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as StockBatch[];
+    
+    console.log(`📦 [getAvailableStockBatches] Found ${batches.length} available batches for product ${productId}:`, 
+      batches.map(b => ({ id: b.id, remainingQuantity: b.remainingQuantity, status: b.status, companyId: b.companyId }))
+    );
+    
+    return batches;
+  } catch (error: any) {
+    // If orderBy fails (missing index), try without orderBy
+    if (error.code === 'failed-precondition' || error.message?.includes('index')) {
+      console.warn('⚠️ [getAvailableStockBatches] Index missing, querying without orderBy');
+      const q = query(
+        collection(db, 'stockBatches'),
+        where('productId', '==', productId),
+        where('remainingQuantity', '>', 0),
+        where('status', '==', 'active')
+      );
+      
+      const snapshot = await getDocs(q);
+      const batches = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as StockBatch[];
+      
+      // Sort manually
+      batches.sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0));
+      
+      console.log(`📦 [getAvailableStockBatches] Found ${batches.length} available batches (without orderBy):`, 
+        batches.map(b => ({ id: b.id, remainingQuantity: b.remainingQuantity, status: b.status, companyId: b.companyId }))
+      );
+      
+      return batches;
+    }
+    
+    console.error('❌ [getAvailableStockBatches] Error fetching batches:', error);
+    throw error;
+  }
 };
 
 /**
@@ -1084,12 +1118,57 @@ export const createSale = async (
     if (productData.companyId !== companyId) {
       throw new Error(`Unauthorized to sell product ${productData.name}`);
     }
-    if (productData.stock < product.quantity) {
-      throw new Error(`Insufficient stock for product ${productData.name}`);
-    }
     
     // Get inventory method from sale data or fallback to product default
     const inventoryMethod: InventoryMethod = ((data as any).inventoryMethod?.toUpperCase() as InventoryMethod) || (productData as any).inventoryMethod || 'FIFO';
+    
+    // Calculate actual available stock from batches (source of truth)
+    console.log(`🔍 [createSale] Checking stock for product ${product.productId} (${productData.name})`);
+    const availableBatches = await getAvailableStockBatches(product.productId);
+    console.log(`🔍 [createSale] Available batches for product ${product.productId}:`, availableBatches);
+    
+    // Log all batches for this product (for debugging)
+    try {
+      const allBatchesQuery = query(
+        collection(db, 'stockBatches'),
+        where('productId', '==', product.productId)
+      );
+      const allBatchesSnapshot = await getDocs(allBatchesQuery);
+      const allBatches = allBatchesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      console.log(`📋 [createSale] ALL batches for product ${product.productId} (including inactive):`, 
+        allBatches.map(b => ({ 
+          id: b.id, 
+          remainingQuantity: b.remainingQuantity, 
+          status: b.status, 
+          companyId: b.companyId,
+          productId: b.productId
+        }))
+      );
+    } catch (error) {
+      console.error('❌ [createSale] Error fetching all batches:', error);
+    }
+    
+    const actualAvailableStock = availableBatches.reduce((sum, batch) => sum + batch.remainingQuantity, 0);
+    console.log(`📊 [createSale] Product ${productData.name}: product.stock=${productData.stock}, actualAvailableStock=${actualAvailableStock}, requested=${product.quantity}`);
+    
+    // Use actual available stock from batches instead of product.stock
+    if (actualAvailableStock < product.quantity) {
+      console.error(`❌ [createSale] Insufficient stock!`, {
+        productId: product.productId,
+        productName: productData.name,
+        requested: product.quantity,
+        available: actualAvailableStock,
+        productStock: productData.stock,
+        batchesFound: availableBatches.length,
+        batches: availableBatches.map(b => ({ id: b.id, remainingQuantity: b.remainingQuantity, status: b.status, companyId: b.companyId }))
+      });
+      throw new Error(`Insufficient stock available for product ${productData.name}. Need ${product.quantity}, available ${actualAvailableStock}`);
+    }
+    
+    // Also check product.stock as a secondary validation (should match batches)
+    if (productData.stock < product.quantity) {
+      console.warn(`⚠️ Product stock (${productData.stock}) is less than requested quantity (${product.quantity}), but batches have ${actualAvailableStock} available`);
+    }
     
     // Consume stock from batches using FIFO/LIFO logic
     const inventoryResult = await consumeStockFromBatches(
@@ -1136,11 +1215,16 @@ export const createSale = async (
     };
     enhancedProducts.push(enhancedProduct);
     
-    // Update product stock
+    // Calculate actual stock from batches after consumption
+    const stockAfterConsumption = actualAvailableStock - product.quantity;
+    
+    // Update product stock to match actual available stock from batches
     batch.update(productRef, {
-      stock: productData.stock - product.quantity,
+      stock: stockAfterConsumption,
       updatedAt: serverTimestamp()
     });
+    
+    console.log(`📊 [createSale] Updating product stock: ${productData.stock} -> ${stockAfterConsumption} (consumed ${product.quantity})`);
     
     // Add stock change for sale with detailed batch consumption tracking
     createStockChange(
@@ -2742,7 +2826,36 @@ export const restockProduct = async (
   isCredit?: boolean,
   notes?: string
 ): Promise<void> => {
+  console.log('🔄 [restockProduct] Starting restock:', { productId, quantity, costPrice, userId, supplierId, isOwnPurchase, isCredit });
+  
   const batch = writeBatch(db);
+  
+  // Get product to verify companyId
+  const productRef = doc(db, 'products', productId);
+  const productSnap = await getDoc(productRef);
+  if (!productSnap.exists()) {
+    throw new Error('Product not found');
+  }
+  
+  const currentProduct = productSnap.data() as Product;
+  const companyId = currentProduct.companyId; // Get companyId from product
+  
+  console.log('📦 [restockProduct] Product found:', { 
+    id: currentProduct.id, 
+    name: currentProduct.name, 
+    currentStock: currentProduct.stock, 
+    companyId,
+    userId: currentProduct.userId 
+  });
+  
+  // Note: userId parameter might be companyId in some calls, so we check both
+  if (currentProduct.userId !== userId && currentProduct.companyId !== userId) {
+    console.warn('⚠️ [restockProduct] userId mismatch, but continuing:', { 
+      productUserId: currentProduct.userId, 
+      providedUserId: userId,
+      companyId: currentProduct.companyId 
+    });
+  }
   
   // Create new stock batch
   const stockBatchRef = doc(collection(db, 'stockBatches'));
@@ -2755,28 +2868,38 @@ export const restockProduct = async (
     ...(isOwnPurchase !== undefined && { isOwnPurchase }),
     ...(isCredit !== undefined && { isCredit }),
     createdAt: serverTimestamp(),
-    userId,
+    userId: currentProduct.userId || userId, // Use product's userId
+    companyId, // ✅ CRITICAL - Must be included!
     remainingQuantity: quantity,
     status: 'active',
     ...(notes && { notes })
   };
+  
+  console.log('💾 [restockProduct] Creating batch with data:', stockBatchData);
   batch.set(stockBatchRef, stockBatchData);
   
-  // Update product stock
-  const productRef = doc(db, 'products', productId);
-  const productSnap = await getDoc(productRef);
-  if (!productSnap.exists()) {
-    throw new Error('Product not found');
-  }
+  // Calculate actual stock from all batches (including the new one)
+  // Get existing batches to calculate total stock
+  const existingBatches = await getAvailableStockBatches(productId);
+  const existingStock = existingBatches.reduce((sum, batch) => sum + batch.remainingQuantity, 0);
+  const newStock = existingStock + quantity; // Add the new batch quantity
   
-  const currentProduct = productSnap.data() as Product;
-  if (currentProduct.userId !== userId) {
-    throw new Error('Unauthorized to update this product');
-  }
+  console.log('📊 [restockProduct] Stock calculation:', {
+    existingStock,
+    newQuantity: quantity,
+    calculatedNewStock: newStock,
+    productCurrentStock: currentProduct.stock
+  });
   
   batch.update(productRef, {
-    stock: currentProduct.stock + quantity,
+    stock: newStock,
     updatedAt: serverTimestamp()
+  });
+  
+  console.log('📊 [restockProduct] Updating product stock:', { 
+    oldStock: currentProduct.stock, 
+    quantity, 
+    newStock 
   });
   
   // Create stock change record
@@ -2785,13 +2908,24 @@ export const restockProduct = async (
     productId,
     quantity,
     'restock',
-    userId,
+    currentProduct.userId || userId,
+    companyId,
     supplierId,
     isOwnPurchase,
     isCredit,
     costPrice,
     stockBatchRef.id
   );
+  
+  console.log('✅ [restockProduct] Committing batch...');
+  await batch.commit();
+  
+  console.log('✅ [restockProduct] Restock completed successfully!', {
+    batchId: stockBatchRef.id,
+    productId,
+    quantity,
+    newStock
+  });
   
   // Create supplier debt if credit purchase
   if (supplierId && isCredit && !isOwnPurchase) {

@@ -136,7 +136,11 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
         <div>
           <div className="font-medium">{product.name}</div>
           <div className="text-sm text-gray-500">
-            {product.stock} in stock - {product.sellingPrice.toLocaleString()} XAF
+            {(() => {
+              const stockInfo = productStockInfo.get(product.id);
+              const actualStock = stockInfo?.totalStock ?? product.stock;
+              return actualStock;
+            })()} in stock - {product.sellingPrice.toLocaleString()} XAF
           </div>
         </div>
       </div>
@@ -201,7 +205,10 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
     const product = fp?.product;
     const qty = field === 'quantity' ? parseInt(value || '0', 10) : parseInt(fp?.quantity || '0', 10);
     if (product && !isNaN(qty) && qty > 0) {
-      const remainingAfter = (product.stock || 0) - qty;
+      // Get actual stock from batches if available
+      const stockInfo = productStockInfo.get(product.id);
+      const actualStock = stockInfo?.totalStock ?? (product.stock || 0);
+      const remainingAfter = actualStock - qty;
       if (remainingAfter <= LOW_STOCK_THRESHOLD && remainingAfter >= 0) {
         showWarningToast(`Low stock: ${remainingAfter} left for ${product.name}`);
       }
@@ -550,7 +557,11 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                         <div className="flex-1">
                           <p className="font-medium">{product.product.name}</p>
                           <p className="text-sm text-gray-500">
-                            {product.product.stock} in stock - {product.product.sellingPrice.toLocaleString()} XAF
+                            {(() => {
+                            const stockInfo = productStockInfo.get(product.product.id);
+                            const actualStock = stockInfo?.totalStock ?? product.product.stock;
+                            return actualStock;
+                          })()} in stock - {product.product.sellingPrice.toLocaleString()} XAF
                           </p>
                         </div>
                         <button
@@ -595,11 +606,19 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                           label="Quantity"
                           type="number"
                           min="1"
-                          max={product.product.stock.toString()}
+                          max={(() => {
+                            const stockInfo = productStockInfo.get(product.product.id);
+                            const actualStock = stockInfo?.totalStock ?? product.product.stock;
+                            return actualStock;
+                          })().toString()}
                           value={product.quantity}
                           onChange={(e) => onProductInputChange(index, 'quantity', e.target.value)}
                           required
-                          helpText={`Cannot exceed ${product.product.stock}`}
+                          helpText={`Cannot exceed ${(() => {
+                            const stockInfo = productStockInfo.get(product.product.id);
+                            const actualStock = stockInfo?.totalStock ?? product.product.stock;
+                            return actualStock;
+                          })()}`}
                         />
                         <Input
                           label="Negotiated Price"
@@ -670,7 +689,13 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                       </div>
                       <div>
                           <span className="text-sm font-medium text-gray-700">Available Stock:</span>
-                        <span className="ml-2">{product.product.stock}</span>
+                        <span className="ml-2">
+                          {(() => {
+                            const stockInfo = productStockInfo.get(product.product.id);
+                            const actualStock = stockInfo?.totalStock ?? product.product.stock;
+                            return actualStock;
+                          })()}
+                        </span>
                       </div>
                     </div>
                     
@@ -708,11 +733,19 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                           label="Quantity"
                         type="number"
                         min="1"
-                        max={product.product.stock.toString()}
+                        max={(() => {
+                          const stockInfo = productStockInfo.get(product.product.id);
+                          const actualStock = stockInfo?.totalStock ?? product.product.stock;
+                          return actualStock;
+                        })().toString()}
                         value={product.quantity}
                         onChange={(e) => onProductInputChange(index, 'quantity', e.target.value)}
                         required
-                          helpText={`Cannot exceed ${product.product.stock}`}
+                          helpText={`Cannot exceed ${(() => {
+                            const stockInfo = productStockInfo.get(product.product.id);
+                            const actualStock = stockInfo?.totalStock ?? product.product.stock;
+                            return actualStock;
+                          })()}`}
                       />
                       <Input
                           label="Negotiated Price"
@@ -863,7 +896,11 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-sm truncate">{product.name}</p>
                       <p className="text-sm text-gray-500">
-                            {product.stock} in stock - {product.sellingPrice.toLocaleString()} XAF
+                            {(() => {
+                              const stockInfo = productStockInfo.get(product.id);
+                              const actualStock = stockInfo?.totalStock ?? product.stock;
+                              return actualStock;
+                            })()} in stock - {product.sellingPrice.toLocaleString()} XAF
                       </p>
                     </div>
                   </div>
