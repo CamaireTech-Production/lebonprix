@@ -251,20 +251,57 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
               </div>
               
               {/* Customer Dropdown - Phone based recommendations */}
-{showCustomerDropdown && customerSearch && customerSearch.length >= 2 && (() => {
+{showCustomerDropdown && customerSearch && customerSearch.length >= 2 && /\d/.test(customerSearch) && (() => {
   const normalizedSearch = customerSearch.replace(/\D/g, '');
+  
+  // Log all customers first
+  console.log('📋 [AddSaleModal] All customers:', {
+    total: customers.length,
+    customers: customers.map(c => ({
+      id: c.id,
+      name: c.name,
+      phone: c.phone,
+      companyId: c.companyId
+    }))
+  });
+  
+  // Don't show if normalized search is too short
+  if (normalizedSearch.length < 2) {
+    console.log('⚠️ [AddSaleModal] Normalized search too short:', normalizedSearch);
+    return null;
+  }
   
   // Filter customers by phone number match
   const filteredCustomers = customers.filter(c => {
+    if (!c.phone) {
+      console.log('⚠️ [AddSaleModal] Customer without phone:', c.id, c.name);
+      return false;
+    }
     const customerPhone = c.phone.replace(/\D/g, '');
-    return customerPhone.includes(normalizedSearch) || normalizedSearch.includes(customerPhone);
+    const matches = customerPhone.includes(normalizedSearch) || normalizedSearch.includes(customerPhone);
+    if (matches) {
+      console.log('✅ [AddSaleModal] Customer matches:', {
+        id: c.id,
+        name: c.name,
+        phone: c.phone,
+        normalizedPhone: customerPhone,
+        search: normalizedSearch
+      });
+    }
+    return matches;
   });
   
-  console.log('🔍 [AddSaleModal] Dropdown check:', {
+  console.log('🔍 [AddSaleModal] Phone dropdown check:', {
     showCustomerDropdown,
     customerSearch,
     normalizedSearch,
-    filteredCustomersCount: filteredCustomers.length
+    filteredCustomersCount: filteredCustomers.length,
+    customersCount: customers.length,
+    filteredCustomers: filteredCustomers.map(c => ({
+      id: c.id,
+      name: c.name,
+      phone: c.phone
+    }))
   });
   
   // Don't show dropdown if no results
@@ -279,7 +316,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
       onClick={(e) => e.stopPropagation()}
     >
       <div className="p-2 bg-gray-50 border-b">
-        <div className="text-xs font-medium text-gray-600">Select Customer by Phone:</div>
+        <div className="text-xs font-medium text-gray-600">Sélectionner un client par téléphone:</div>
       </div>
       
       {filteredCustomers.slice(0, 5).map(c => (
@@ -291,22 +328,8 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
             e.preventDefault();
             e.stopPropagation();
             
-            // Update the form data with the selected customer's information
-            setFormData(prev => ({
-              ...prev,
-              customerPhone: c.phone,
-              customerName: c.name || '',
-              customerQuarter: c.quarter || '',
-              customerFirstName: c.firstName || '',
-              customerLastName: c.lastName || '',
-              customerAddress: c.address || '',
-              customerTown: c.town || '',
-              customerBirthdate: c.birthdate || '',
-              customerHowKnown: c.howKnown || ''
-            }));
-            
-            // Hide the dropdown after selection
-            setShowCustomerDropdown(false);
+            // Use handleSelectCustomer from the hook
+            handleSelectCustomer(c);
           }}
         >
           <div className="font-medium text-gray-900">{c.name || 'Divers'}</div>
@@ -339,13 +362,51 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                 />
                 
                 {/* Customer Dropdown - Name based recommendations */}
-{showCustomerDropdown && customerSearch && !/\d/.test(customerSearch) && (() => {
+{showCustomerDropdown && customerSearch && customerSearch.length >= 2 && !/\d/.test(customerSearch) && (() => {
   const searchTerm = customerSearch.toLowerCase().trim();
+  
+  // Log all customers first
+  console.log('📋 [AddSaleModal] All customers (name search):', {
+    total: customers.length,
+    customers: customers.map(c => ({
+      id: c.id,
+      name: c.name,
+      phone: c.phone,
+      companyId: c.companyId
+    }))
+  });
   
   // Filter customers by name match
   const filteredCustomers = customers.filter(c => {
+    if (!c.name) {
+      console.log('⚠️ [AddSaleModal] Customer without name:', c.id, c.phone);
+      return false;
+    }
     const customerName = (c.name || '').toLowerCase();
-    return customerName.includes(searchTerm);
+    const matches = customerName.includes(searchTerm);
+    if (matches) {
+      console.log('✅ [AddSaleModal] Customer matches (name):', {
+        id: c.id,
+        name: c.name,
+        phone: c.phone,
+        customerNameLower: customerName,
+        searchTerm: searchTerm
+      });
+    }
+    return matches;
+  });
+  
+  console.log('🔍 [AddSaleModal] Name dropdown check:', {
+    showCustomerDropdown,
+    customerSearch,
+    searchTerm,
+    filteredCustomersCount: filteredCustomers.length,
+    customersCount: customers.length,
+    filteredCustomers: filteredCustomers.map(c => ({
+      id: c.id,
+      name: c.name,
+      phone: c.phone
+    }))
   });
   
   // Don't show dropdown if no results
@@ -360,7 +421,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
       onClick={(e) => e.stopPropagation()}
     >
       <div className="p-2 bg-gray-50 border-b">
-        <div className="text-xs font-medium text-gray-600">Select Customer by Name:</div>
+        <div className="text-xs font-medium text-gray-600">Sélectionner un client par nom:</div>
       </div>
       
       {filteredCustomers.slice(0, 5).map(c => (
@@ -372,22 +433,8 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
             e.preventDefault();
             e.stopPropagation();
             
-            // Update the form data with the selected customer's information
-            setFormData(prev => ({
-              ...prev,
-              customerPhone: c.phone,
-              customerName: c.name || '',
-              customerQuarter: c.quarter || '',
-              customerFirstName: c.firstName || '',
-              customerLastName: c.lastName || '',
-              customerAddress: c.address || '',
-              customerTown: c.town || '',
-              customerBirthdate: c.birthdate || '',
-              customerHowKnown: c.howKnown || ''
-            }));
-            
-            // Hide the dropdown after selection
-            setShowCustomerDropdown(false);
+            // Use handleSelectCustomer from the hook
+            handleSelectCustomer(c);
           }}
         >
           <div className="font-medium text-gray-900">{c.name || 'Divers'}</div>

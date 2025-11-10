@@ -69,6 +69,7 @@ export interface Product extends BaseModel {
   enableBatchTracking?: boolean;
   tags?: ProductTag[]; // Dynamic product tags for variations
   description?: string; // Product description for catalogue
+  barCode?: string; // EAN-13 barcode for product identification
 }
 
 export interface ProductTag {

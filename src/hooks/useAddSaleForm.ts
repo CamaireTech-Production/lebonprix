@@ -102,21 +102,66 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
     if (name === 'customerName') {
       const searchTerm = value.toLowerCase().trim();
       
+      // Log all customers first
+      console.log('📋 [handleInputChange] All customers (name search):', {
+        total: customers.length,
+        customers: customers.map(c => ({
+          id: c.id,
+          name: c.name,
+          phone: c.phone,
+          companyId: c.companyId
+        }))
+      });
+      
       // Filter customers by name match
       const matchingCustomers = customers.filter(c => {
+        if (!c.name) {
+          console.log('⚠️ [handleInputChange] Customer without name:', c.id, c.phone);
+          return false;
+        }
         const customerName = (c.name || '').toLowerCase();
-        return customerName.includes(searchTerm);
+        const matches = customerName.includes(searchTerm);
+        if (matches) {
+          console.log('✅ [handleInputChange] Customer matches (name):', {
+            id: c.id,
+            name: c.name,
+            phone: c.phone,
+            customerNameLower: customerName,
+            searchTerm: searchTerm
+          });
+        }
+        return matches;
+      });
+      
+      console.log('🔍 [handleInputChange] Name search result:', {
+        searchTerm,
+        value,
+        matchingCustomersCount: matchingCustomers.length,
+        customersCount: customers.length,
+        matchingCustomers: matchingCustomers.map(c => ({
+          id: c.id,
+          name: c.name,
+          phone: c.phone
+        })),
+        hasDigits: /\d/.test(value),
+        willShowDropdown: !/\d/.test(value) && searchTerm.length >= 2 && matchingCustomers.length > 0
       });
       
       // Show dropdown only if there are results AND user has typed something
-      setCustomerSearch(value);
-      setShowCustomerDropdown(searchTerm.length > 0 && matchingCustomers.length > 0);
+      // Only set customerSearch if the value doesn't contain digits (to avoid conflicts with phone search)
+      if (!/\d/.test(value)) {
+        setCustomerSearch(value);
+        setShowCustomerDropdown(searchTerm.length >= 2 && matchingCustomers.length > 0);
+      } else {
+        // If name contains digits, don't show name dropdown
+        setShowCustomerDropdown(false);
+      }
     }
   };
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    console.log('📞 Phone input changed to:', value);
+    console.log('📞 [handlePhoneChange] Phone input changed to:', value);
     
     // Ne pas normaliser la valeur dans le champ (garder les caractères pour l'affichage)
     setFormData(prev => ({ ...prev, customerPhone: value }));
@@ -125,15 +170,56 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
     const normalizedSearch = normalizePhone(value);
     setCustomerSearch(normalizedSearch);
     
+    // Log all customers first
+    console.log('📋 [handlePhoneChange] All customers:', {
+      total: customers.length,
+      customers: customers.map(c => ({
+        id: c.id,
+        name: c.name,
+        phone: c.phone,
+        normalizedPhone: normalizePhone(c.phone || ''),
+        companyId: c.companyId
+      }))
+    });
+    
     // Filter customers by phone number match
     if (normalizedSearch.length >= 2) {
       const matchingCustomers = customers.filter(c => {
+        if (!c.phone) {
+          console.log('⚠️ [handlePhoneChange] Customer without phone:', c.id, c.name);
+          return false;
+        }
         const customerPhone = normalizePhone(c.phone);
-        return customerPhone.includes(normalizedSearch) || normalizedSearch.includes(customerPhone);
+        const matches = customerPhone.includes(normalizedSearch) || normalizedSearch.includes(customerPhone);
+        if (matches) {
+          console.log('✅ [handlePhoneChange] Customer matches:', {
+            id: c.id,
+            name: c.name,
+            phone: c.phone,
+            normalizedPhone: customerPhone,
+            search: normalizedSearch
+          });
+        }
+        return matches;
       });
-      console.log('🔍 [handlePhoneChange] Matching customers:', matchingCustomers.length, 'for search:', normalizedSearch);
+      
+      console.log('🔍 [handlePhoneChange] Matching customers result:', {
+        normalizedSearch,
+        value,
+        matchingCustomersCount: matchingCustomers.length,
+        customersCount: customers.length,
+        matchingCustomers: matchingCustomers.map(c => ({
+          id: c.id,
+          name: c.name,
+          phone: c.phone,
+          normalizedPhone: normalizePhone(c.phone || '')
+        })),
+        willShowDropdown: matchingCustomers.length > 0
+      });
+      
       setShowCustomerDropdown(matchingCustomers.length > 0);
     } else {
+      console.log('⚠️ [handlePhoneChange] Normalized search too short:', normalizedSearch);
       setShowCustomerDropdown(false);
     }
     
@@ -277,10 +363,19 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
           negotiatedPrice: p.negotiatedPrice ? parseFloat(p.negotiatedPrice) : p.product!.sellingPrice,
         }));
       
+      // Récupérer les données client AVANT de créer la vente
       const customerName = formData.customerName.trim() || t('sales.modals.add.customerInfo.divers');
       const customerPhone = formData.customerPhone.trim() || '';
       const customerQuarter = formData.customerQuarter || '';
       const customerInfo = { name: customerName, phone: customerPhone, ...(customerQuarter && { quarter: customerQuarter }) };
+      
+      console.log('📝 [handleAddSale] Données client récupérées:', {
+        customerName,
+        customerPhone,
+        customerQuarter,
+        autoSaveCustomer,
+        companyId: company?.id
+      });
       
       const saleData = {
         products: saleProducts,
@@ -295,15 +390,30 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
       
       const newSale = await addSale(saleData);
       
-      showSuccessToast(t('sales.messages.saleAdded'));
-      resetForm();
-      
+      // Sauvegarder le client AVANT de réinitialiser le formulaire
       if (autoSaveCustomer && customerPhone && customerName && company?.id) {
         try {
+          console.log('🔍 [handleAddSale] Vérification du client existant:', {
+            customerPhone,
+            normalizedPhone: normalizePhone(customerPhone),
+            customersCount: customers.length,
+            companyId: company.id,
+            autoSaveCustomer
+          });
+          
+          // Log all customers for debugging
+          console.log('📋 [handleAddSale] Tous les clients actuels:', customers.map(c => ({
+            id: c.id,
+            name: c.name,
+            phone: c.phone,
+            normalizedPhone: normalizePhone(c.phone || ''),
+            companyId: c.companyId
+          })));
+          
           const existing = customers.find(c => normalizePhone(c.phone) === normalizePhone(customerPhone));
+          
           if (!existing) {
-            console.log('💾 [handleAddSale] Ajout du client avec companyId:', company.id);
-            await addCustomer({ 
+            const customerData = { 
               phone: customerPhone, 
               name: customerName, 
               quarter: customerQuarter,
@@ -314,15 +424,84 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
               birthdate: formData.customerBirthdate || undefined,
               howKnown: formData.customerHowKnown || undefined,
               userId: user.uid,
-              companyId: company.id, // Ajouter le companyId
-              createdAt: new Date() 
+              companyId: company.id // createdAt sera ajouté automatiquement par addCustomer avec serverTimestamp()
+            };
+            
+            console.log('💾 [handleAddSale] Ajout du client avec les données:', customerData);
+            console.log('💾 [handleAddSale] Company ID:', company.id);
+            
+            const newCustomer = await addCustomer(customerData);
+            
+            console.log('✅ [handleAddSale] Client ajouté avec succès:', {
+              id: newCustomer.id,
+              name: newCustomer.name,
+              phone: newCustomer.phone,
+              companyId: newCustomer.companyId
             });
-            console.log('✅ [handleAddSale] Client ajouté avec succès');
+            
+            // Réinitialiser les champs client après l'ajout réussi
+            setFormData(prev => ({
+              ...prev,
+              customerName: '',
+              customerPhone: '',
+              customerQuarter: '',
+              customerFirstName: '',
+              customerLastName: '',
+              customerAddress: '',
+              customerTown: '',
+              customerBirthdate: '',
+              customerHowKnown: ''
+            }));
+            setFoundCustomer(null);
+            setShowCustomerDropdown(false);
+            setCustomerSearch('');
+            
+            console.log('🔄 [handleAddSale] Champs client réinitialisés après ajout réussi');
+          } else {
+            console.log('ℹ️ [handleAddSale] Client existe déjà:', {
+              id: existing.id,
+              name: existing.name,
+              phone: existing.phone,
+              companyId: existing.companyId
+            });
+            
+            // Réinitialiser les champs client même si le client existe déjà
+            setFormData(prev => ({
+              ...prev,
+              customerName: '',
+              customerPhone: '',
+              customerQuarter: '',
+              customerFirstName: '',
+              customerLastName: '',
+              customerAddress: '',
+              customerTown: '',
+              customerBirthdate: '',
+              customerHowKnown: ''
+            }));
+            setFoundCustomer(null);
+            setShowCustomerDropdown(false);
+            setCustomerSearch('');
           }
-        } catch (error) {
+        } catch (error: any) {
           console.error('❌ [handleAddSale] Erreur lors de l\'ajout du client:', error);
+          console.error('❌ [handleAddSale] Détails de l\'erreur:', {
+            message: error.message,
+            code: error.code,
+            stack: error.stack
+          });
           /* ignore duplicate errors */
         }
+      } else {
+        console.log('⚠️ [handleAddSale] Client non sauvegardé:', {
+          autoSaveCustomer,
+          customerPhone,
+          customerName,
+          companyId: company?.id,
+          reason: !autoSaveCustomer ? 'autoSaveCustomer désactivé' : 
+                  !customerPhone ? 'pas de téléphone' : 
+                  !customerName ? 'pas de nom' : 
+                  !company?.id ? 'pas de companyId' : 'inconnu'
+        });
       }
       
       return newSale;
@@ -358,8 +537,7 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
           birthdate: formData.customerBirthdate || undefined,
           howKnown: formData.customerHowKnown || undefined,
           userId: user.uid,
-          companyId: company.id, // Ajouter le companyId
-          createdAt: new Date() 
+          companyId: company.id // createdAt sera ajouté automatiquement par addCustomer avec serverTimestamp()
         };
         await addCustomer(data);
         setFoundCustomer(data);

@@ -675,9 +675,22 @@ export const createProduct = async (
 
   const batch = writeBatch(db);
   
+  // Create product document first to get the ID for barcode generation
+  const productRef = doc(collection(db, 'products'));
+  const productId = productRef.id;
+  
+  // Generate barcode automatically if not provided
+  let barCode = data.barCode;
+  if (!barCode) {
+    const { generateEAN13 } = await import('./barcodeService');
+    barCode = generateEAN13(productId);
+    console.log('Generated EAN-13 barcode:', barCode);
+  }
+  
   // Set default inventory settings
   const productData = {
     ...data,
+    barCode, // Include generated or provided barcode
     companyId, // Ensure companyId is set
     isAvailable: true,
     inventoryMethod: (data as any).inventoryMethod || 'FIFO',
@@ -689,8 +702,7 @@ export const createProduct = async (
   // Get userId from data if available, otherwise use companyId for audit
   const userId = data.userId || companyId;
   
-  // Create product
-  const productRef = doc(collection(db, 'products'));
+  // Set product data
   batch.set(productRef, productData);
   
   // Add initial stock change and create stock batch if stock > 0
@@ -1815,14 +1827,79 @@ export const getCustomerByPhone = async (phone: string): Promise<Customer | null
 
 export const addCustomer = async (customerData: Omit<Customer, 'id'>): Promise<Customer> => {
   try {
+    console.log('💾 [addCustomer] Ajout d\'un client avec les données:', customerData);
+    
+    // Vérifier que companyId est présent
+    if (!customerData.companyId) {
+      console.error('❌ [addCustomer] companyId manquant dans customerData:', customerData);
+      throw new Error('companyId is required for customer');
+    }
+    
     const customersRef = collection(db, 'customers');
-    const docRef = await addDoc(customersRef, customerData);
-    return {
+    
+    // Préparer les données avec createdAt si nécessaire
+    // Ne pas inclure createdAt dans customerData car il sera ajouté par serverTimestamp()
+    const { createdAt, ...dataWithoutCreatedAt } = customerData as any;
+    
+    // Filtrer tous les champs undefined pour éviter l'erreur Firestore
+    // Firestore ne supporte pas les valeurs undefined
+    const dataToSave: any = {
+      phone: dataWithoutCreatedAt.phone,
+      name: dataWithoutCreatedAt.name,
+      userId: dataWithoutCreatedAt.userId,
+      companyId: dataWithoutCreatedAt.companyId,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    };
+    
+    // Ajouter seulement les champs optionnels qui ont une valeur (non undefined, non null, non vide)
+    if (dataWithoutCreatedAt.quarter !== undefined && dataWithoutCreatedAt.quarter !== null && dataWithoutCreatedAt.quarter !== '') {
+      dataToSave.quarter = dataWithoutCreatedAt.quarter;
+    }
+    if (dataWithoutCreatedAt.firstName !== undefined && dataWithoutCreatedAt.firstName !== null && dataWithoutCreatedAt.firstName !== '') {
+      dataToSave.firstName = dataWithoutCreatedAt.firstName;
+    }
+    if (dataWithoutCreatedAt.lastName !== undefined && dataWithoutCreatedAt.lastName !== null && dataWithoutCreatedAt.lastName !== '') {
+      dataToSave.lastName = dataWithoutCreatedAt.lastName;
+    }
+    if (dataWithoutCreatedAt.address !== undefined && dataWithoutCreatedAt.address !== null && dataWithoutCreatedAt.address !== '') {
+      dataToSave.address = dataWithoutCreatedAt.address;
+    }
+    if (dataWithoutCreatedAt.town !== undefined && dataWithoutCreatedAt.town !== null && dataWithoutCreatedAt.town !== '') {
+      dataToSave.town = dataWithoutCreatedAt.town;
+    }
+    if (dataWithoutCreatedAt.birthdate !== undefined && dataWithoutCreatedAt.birthdate !== null && dataWithoutCreatedAt.birthdate !== '') {
+      dataToSave.birthdate = dataWithoutCreatedAt.birthdate;
+    }
+    if (dataWithoutCreatedAt.howKnown !== undefined && dataWithoutCreatedAt.howKnown !== null && dataWithoutCreatedAt.howKnown !== '') {
+      dataToSave.howKnown = dataWithoutCreatedAt.howKnown;
+    }
+    
+    console.log('💾 [addCustomer] Données à sauvegarder:', dataToSave);
+    
+    const docRef = await addDoc(customersRef, dataToSave);
+    
+    const savedCustomer = {
       id: docRef.id,
       ...customerData
     };
-  } catch (error) {
-    console.error('Error adding customer:', error);
+    
+    console.log('✅ [addCustomer] Client ajouté avec succès:', {
+      id: savedCustomer.id,
+      name: savedCustomer.name,
+      phone: savedCustomer.phone,
+      companyId: savedCustomer.companyId
+    });
+    
+    return savedCustomer;
+  } catch (error: any) {
+    console.error('❌ [addCustomer] Erreur lors de l\'ajout du client:', error);
+    console.error('❌ [addCustomer] Détails de l\'erreur:', {
+      message: error.message,
+      code: error.code,
+      stack: error.stack,
+      customerData: customerData
+    });
     throw error;
   }
 };

@@ -31,6 +31,7 @@ const Settings = lazy(() => import('./pages/Settings'));
 const TimelinePage = lazy(() => import('./pages/TimelinePage'));
 const Catalogue = lazy(() => import('./pages/Catalogue'));
 const SingleCheckout = lazy(() => import('./pages/SingleCheckout'));
+const ProductDetailPage = lazy(() => import('./pages/ProductDetailPage'));
 // ProductDetail removed - now using modal instead
 const FIFODebugger = lazy(() => import('./pages/FIFODebugger'));
 // Public invite/employee login pages
@@ -91,6 +92,7 @@ function AppWithFAB({ isAddSaleModalOpen, setIsAddSaleModalOpen }: { isAddSaleMo
           {/* Public Routes */}
           <Route path="/track/:id" element={<LazyPage><TimelinePage /></LazyPage>} />
           <Route path="/catalogue/:companyName/:companyId" element={<LazyPage><Catalogue /></LazyPage>} />
+          <Route path="/catalogue/:companyName/:companyId/product/:productId" element={<LazyPage><ProductDetailPage /></LazyPage>} />
           <Route path="/checkout" element={<LazyPage><SingleCheckout /></LazyPage>} />
           {/* ProductDetail route removed - now using modal */}
           {/* Public Invite Activation Route */}
