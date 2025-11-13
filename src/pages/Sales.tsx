@@ -21,7 +21,7 @@ import Badge from '../components/common/Badge';
 import Button from '../components/common/Button';
 import Card from '../components/common/Card';
 import { ImageWithSkeleton } from '../components/common/ImageWithSkeleton';
-import { useProducts, useCustomers } from '../hooks/useFirestore';
+import { useProducts, useCustomers, useSales } from '../hooks/useFirestore';
 import { useInfiniteSales } from '../hooks/useInfiniteSales';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 import type { Product, OrderStatus, Sale, SaleProduct, Customer } from '../types/models';
@@ -60,11 +60,13 @@ const Sales: React.FC = () => {
     hasMore: salesHasMore,
     error: salesError,
     loadMore: loadMoreSales,
-    refresh: refreshSales
+    refresh: refreshSales,
+    updateSaleInList
   } = useInfiniteSales();
   const { products, loading: productsLoading } = useProducts();
   const { customers } = useCustomers();
   const { user, company } = useAuth();
+  const { updateSale } = useSales();
 
   // Infinite scroll for sales
   useInfiniteScroll({
@@ -316,6 +318,8 @@ const Sales: React.FC = () => {
         ...(formData.customerQuarter && { quarter: formData.customerQuarter }),
       };
       const updateData: Partial<Sale> = {};
+      // Include companyId - required by Firebase rules
+      if (company?.id) updateData.companyId = company.id;
       if (saleProducts) updateData.products = saleProducts;
       if (totalAmount !== undefined) updateData.totalAmount = totalAmount;
       if (formData.status) updateData.status = formData.status;
@@ -323,6 +327,18 @@ const Sales: React.FC = () => {
       if (formData.deliveryFee !== undefined && formData.deliveryFee !== '')
         updateData.deliveryFee = parseFloat(formData.deliveryFee);
       await updateSale(currentSale.id, updateData);
+      
+      // Update the sale in the local list immediately
+      // Merge current sale data with updates to ensure all fields are preserved
+      const updatedSale: Sale = {
+        ...currentSale,
+        ...updateData,
+        id: currentSale.id,
+        createdAt: currentSale.createdAt,
+        updatedAt: new Date() as any
+      };
+      updateSaleInList(currentSale.id, updatedSale);
+      
       setIsEditModalOpen(false);
       setCurrentSale(null);
       resetForm();

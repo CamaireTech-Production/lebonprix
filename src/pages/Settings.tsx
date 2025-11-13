@@ -15,7 +15,6 @@ import type { SellerSettings, PaymentMethod } from '../types/order';
 import type { CheckoutSettings, CheckoutSettingsUpdate } from '../types/checkoutSettings';
 import type { CinetPayConfig, CinetPayConfigUpdate } from '../types/cinetpay';
 import PaymentMethodModal from '../components/settings/PaymentMethodModal';
-import EmployeesTab from '../components/settings/EmployeesTab';
 import i18n from '../i18n/config';
 import { combineActivities } from '../utils/activityUtils';
 import { Plus, Copy, Check, ExternalLink, CreditCard, Truck, ShoppingBag, Save, RotateCcw, Eye, Trash2 } from 'lucide-react';
@@ -637,17 +636,6 @@ const Settings = () => {
             `}
           >
             Payment Integration
-          </button>
-          <button
-            onClick={() => setActiveTab('employees')}
-            className={`
-              whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm
-              ${activeTab === 'employees'
-                ? 'border-emerald-500 text-emerald-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
-            `}
-          >
-            Employees
           </button>
         </nav>
       </div>
@@ -1359,10 +1347,6 @@ const Settings = () => {
             </div>
           </div>
         </Card>
-      )}
-      {/* Employees Tab */}
-      {activeTab === 'employees' && (
-        <EmployeesTab />
       )}
       {/* Activity Logs Tab */}
       {activeTab === 'activity' && (

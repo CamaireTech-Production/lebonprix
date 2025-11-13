@@ -57,6 +57,8 @@ export default function EmployeeRefsTab() {
 
     // S'abonner aux changements
     const unsubscribe = subscribeToEmployeeRefs(company.id, (newEmployees) => {
+      console.log(`🔄 [EmployeeRefsTab] Liste des employés mise à jour:`, newEmployees.length, 'employés');
+      console.log(`🔄 [EmployeeRefsTab] Rôles:`, newEmployees.map(e => ({ id: e.id, role: e.role, name: `${e.firstname} ${e.lastname}` })));
       setEmployees(newEmployees);
     });
 
@@ -137,13 +139,17 @@ export default function EmployeeRefsTab() {
   const handleUpdateRole = async (employee: EmployeeRef, newRole: UserRole) => {
     if (!company) return;
 
+    console.log('🔄 [EmployeeRefsTab] handleUpdateRole appelé:', { employeeId: employee.id, employeeName: `${employee.firstname} ${employee.lastname}`, oldRole: employee.role, newRole });
+    
     setIsUpdating(true);
     try {
+      console.log('🔄 [EmployeeRefsTab] Appel de updateEmployeeRole...');
       await updateEmployeeRole(company.id, employee.id, newRole);
+      console.log('✅ [EmployeeRefsTab] updateEmployeeRole terminé avec succès');
       showSuccessToast(`Rôle de ${employee.firstname} ${employee.lastname} mis à jour`);
       setEditingEmployee(null);
     } catch (error: any) {
-      console.error('Erreur lors de la mise à jour du rôle:', error);
+      console.error('❌ [EmployeeRefsTab] Erreur lors de la mise à jour du rôle:', error);
       showErrorToast(error.message || 'Erreur lors de la mise à jour du rôle');
     } finally {
       setIsUpdating(false);
@@ -392,7 +398,22 @@ export default function EmployeeRefsTab() {
                           <>
                             <Button
                               size="sm"
-                              onClick={() => handleUpdateRole(editingEmployee, editingEmployee.role)}
+                              onClick={() => {
+                                console.log('🖱️ [EmployeeRefsTab] Bouton Sauvegarder cliqué');
+                                console.log('🖱️ [EmployeeRefsTab] editingEmployee:', editingEmployee);
+                                console.log('🖱️ [EmployeeRefsTab] Nouveau rôle:', editingEmployee.role);
+                                const originalEmployee = employees.find(e => e.id === editingEmployee.id);
+                                console.log('🖱️ [EmployeeRefsTab] Rôle original:', originalEmployee?.role);
+                                
+                                // Vérifier si le rôle a vraiment changé
+                                if (originalEmployee && originalEmployee.role === editingEmployee.role) {
+                                  console.log('⚠️ [EmployeeRefsTab] Le rôle n\'a pas changé, pas de mise à jour nécessaire');
+                                  showErrorToast('Le rôle n\'a pas changé');
+                                  return;
+                                }
+                                
+                                handleUpdateRole(editingEmployee, editingEmployee.role);
+                              }}
                               disabled={isUpdating}
                             >
                               {isUpdating ? 'Sauvegarde...' : 'Sauvegarder'}

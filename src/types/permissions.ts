@@ -54,8 +54,8 @@ export const ROLE_PERMISSIONS: Record<SystemRole, RolePermissions> = {
     canAccessHR: true
   },
   manager: {
-    canView: ['dashboard', 'sales', 'customers', 'products', 'expenses', 'orders', 'reports'],
-    canEdit: ['sales', 'customers', 'products', 'expenses', 'orders'],
+    canView: ['dashboard', 'sales', 'customers', 'products', 'categories', 'suppliers', 'expenses', 'orders', 'reports'],
+    canEdit: ['sales', 'customers', 'products', 'categories', 'suppliers', 'expenses', 'orders'],
     canDelete: ['sales', 'customers', 'products', 'expenses'],
     canManageEmployees: ['staff'],
     canAccessSettings: false,

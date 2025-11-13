@@ -15,7 +15,7 @@ const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   
-  const { loading, signIn, user } = useAuth();
+  const { loading, signIn, user, companyLoading } = useAuth();
 
   // Check localStorage session on mount and redirect if already logged in
   useEffect(() => {
@@ -46,17 +46,18 @@ const Login = () => {
     }
   }, [loading, navigate]);
 
-  // Watch for user authentication state and stop loading when authenticated
+  // Watch for user authentication state and company verification completion
   useEffect(() => {
     if (user && isLoading) {
-      // Keep loading until navigation completes or after a short delay
-      // This ensures the button shows loading during the entire auth process
-      setTimeout(() => {
+      // Wait for company verification to complete before stopping loading
+      // This ensures the button shows loading during the entire auth process including company verification
+      if (companyLoading === false) {
+        // Company verification is complete, stop loading
         setIsLoading(false);
-      }, 1000); // Delay to ensure navigation is initiated and user sees the loading state
-      // Navigation will be handled by AuthContext
+      }
+      // If companyLoading is still true, this effect will re-run when companyLoading becomes false
     }
-  }, [user, isLoading]);
+  }, [user, isLoading, companyLoading]);
 
   if (loading) {
     return <LoadingScreen />;
@@ -96,16 +97,23 @@ const Login = () => {
         setError(err.message);
       } else if (err.code) {
         const errorMessages: Record<string, string> = {
-          'auth/user-not-found': 'Utilisateur non trouvé',
-          'auth/wrong-password': 'Mot de passe incorrect',
-          'auth/invalid-email': 'Email invalide',
-          'auth/user-disabled': 'Compte utilisateur désactivé',
-          'auth/network-request-failed': 'Erreur réseau. Vérifiez votre connexion.',
-          'auth/too-many-requests': 'Trop de tentatives. Réessayez plus tard.',
+          'auth/user-not-found': 'Invalid Email or Password',
+          'auth/wrong-password': 'Invalid Email or Password',
+          'auth/invalid-credential': 'Invalid Email or Password',
+          'auth/invalid-login-credentials': 'Invalid Email or Password',
+          'auth/invalid-email': 'Format d\'email invalide',
+          'auth/user-disabled': 'Compte utilisateur désactivé. Contactez l\'administrateur.',
+          'auth/network-request-failed': 'Erreur réseau. Vérifiez votre connexion internet.',
+          'auth/too-many-requests': 'Trop de tentatives de connexion. Veuillez réessayer plus tard.',
+          'auth/operation-not-allowed': 'Méthode de connexion non autorisée.',
+          'auth/email-already-in-use': 'Cet email est déjà utilisé.',
         };
-        setError(errorMessages[err.code] || 'Erreur lors de la connexion. Veuillez réessayer.');
+        // Use a default message for credentials errors
+        const errorMessage = errorMessages[err.code] || 'Invalid Email or Password. Veuillez vérifier vos identifiants et réessayer.';
+        setError(errorMessage);
       } else {
-        setError(err.message || 'Failed to sign in. Please check your credentials.');
+        // Generic error - default to credentials error message
+        setError(err.message || 'Invalid Email or Password. Veuillez vérifier vos identifiants.');
       }
     }
   };

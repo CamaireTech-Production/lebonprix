@@ -148,6 +148,7 @@ export default defineConfig(({ mode }) => {
       headers: {
         'Service-Worker-Allowed': '/',
       },
+      maxHttpHeaderSize: 16384,
     },
   };
 });

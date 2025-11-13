@@ -300,12 +300,14 @@ export const getEmployeeRole = async (
  * @param employeeRef - Référence d'employé depuis employeeRefs
  * @param companyId - ID de l'entreprise
  * @param companyData - Données de l'entreprise (nom, description, logo)
+ * @param permissionTemplateId - ID du template de permissions (optionnel, récupéré depuis users.companies[])
  * @returns UserCompanyRef pour l'affichage
  */
 export const convertEmployeeRefToUserCompanyRef = (
   employeeRef: EmployeeRef,
   companyId: string,
-  companyData: { name: string; description?: string; logo?: string }
+  companyData: { name: string; description?: string; logo?: string },
+  permissionTemplateId?: string
 ): UserCompanyRef => {
   return {
     companyId,
@@ -315,7 +317,7 @@ export const convertEmployeeRefToUserCompanyRef = (
     logo: companyData.logo,
     role: employeeRef.role as 'owner' | 'admin' | 'manager' | 'staff',
     joinedAt: employeeRef.addedAt,
-    permissionTemplateId: undefined
+    permissionTemplateId
   };
 };
 
@@ -341,6 +343,13 @@ export const getOwnerUserCompanyRef = async (
       return null;
     }
 
+    // Récupérer le permissionTemplateId depuis users.companies[]
+    let permissionTemplateId: string | undefined;
+    if (Array.isArray(ownerUser.companies)) {
+      const userCompanyRef = ownerUser.companies.find((c: any) => c.companyId === companyId);
+      permissionTemplateId = userCompanyRef?.permissionTemplateId;
+    }
+
     // Vérifier si le propriétaire a déjà un employeeRef pour cette entreprise
     const employeeRefDoc = await getDoc(doc(db, 'companies', companyId, 'employeeRefs', ownerId));
     
@@ -348,7 +357,7 @@ export const getOwnerUserCompanyRef = async (
       // Le propriétaire existe déjà dans employeeRefs, utiliser ces données
       const employeeRefData = employeeRefDoc.data() as EmployeeRef;
       console.log(`✅ Propriétaire trouvé dans employeeRefs avec rôle: ${employeeRefData.role}`);
-      return convertEmployeeRefToUserCompanyRef(employeeRefData, companyId, companyData);
+      return convertEmployeeRefToUserCompanyRef(employeeRefData, companyId, companyData, permissionTemplateId);
     }
 
     // Le propriétaire n'est pas dans employeeRefs, créer un UserCompanyRef avec rôle owner
@@ -361,7 +370,7 @@ export const getOwnerUserCompanyRef = async (
       logo: companyData.logo,
       role: 'owner',
       joinedAt: ownerUser.createdAt,
-      permissionTemplateId: undefined
+      permissionTemplateId
     };
   } catch (error: any) {
     console.error('❌ Erreur lors de la récupération du propriétaire:', error);

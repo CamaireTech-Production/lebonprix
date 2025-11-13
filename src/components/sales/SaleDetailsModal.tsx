@@ -3,13 +3,15 @@ import Invoice from './Invoice';
 import Card from '../common/Card';
 import Badge from '../common/Badge';
 import Button from '../common/Button';
-import type { Sale, Product } from '../../types/models';
+import type { Sale, Product, Customer } from '../../types/models';
 import { Download, Share, Printer } from 'lucide-react';
 import { generatePDF, generatePDFBlob } from '../../utils/pdf';
 import { useTranslation } from 'react-i18next';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { showErrorToast } from '../../utils/toast';
+import CustomerAdditionalInfo from '../customers/CustomerAdditionalInfo';
+import { useCustomers } from '../../hooks/useFirestore';
 
 interface SaleDetailsModalProps {
   isOpen: boolean;
@@ -23,6 +25,32 @@ const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({ isOpen, onClose, sa
   const { t } = useTranslation();
   const [isSharing, setIsSharing] = useState(false);
   const { company } = useAuth();
+  const { customers } = useCustomers();
+  const [customer, setCustomer] = useState<Customer | null>(null);
+
+  // Récupérer le client complet depuis la collection customers
+  useEffect(() => {
+    if (sale && customers) {
+      // Normaliser les numéros de téléphone pour la comparaison
+      const normalizePhone = (phone: string) => phone.replace(/\D/g, '');
+      const salePhone = normalizePhone(sale.customerInfo.phone);
+      
+      const foundCustomer = customers.find(c => {
+        const customerPhone = normalizePhone(c.phone);
+        return customerPhone === salePhone;
+      });
+      
+      console.log('🔍 [SaleDetailsModal] Recherche du client:', {
+        salePhone,
+        customersCount: customers.length,
+        foundCustomer: foundCustomer ? { phone: foundCustomer.phone, name: foundCustomer.name } : null
+      });
+      
+      setCustomer(foundCustomer || null);
+    } else {
+      setCustomer(null);
+    }
+  }, [sale, customers]);
 
   if (!sale) return null;
 
@@ -342,6 +370,20 @@ const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({ isOpen, onClose, sa
                 </a>
               </div>
             </div>
+            
+            {/* Informations supplémentaires du client */}
+            {customer ? (
+              <CustomerAdditionalInfo customer={customer} />
+            ) : (
+              // Si le client n'est pas trouvé dans la collection, créer un Customer à partir de sale.customerInfo
+              // pour permettre l'affichage des informations de base
+              <div className="mt-4 border-t border-gray-200 pt-4">
+                <p className="text-xs text-gray-500 italic">
+                  Le client n'a pas été sauvegardé dans la collection avec des informations supplémentaires. 
+                  Les informations supplémentaires sont disponibles uniquement pour les clients sauvegardés.
+                </p>
+              </div>
+            )}
           </div>
         </Card>
         {/* Products Card */}
