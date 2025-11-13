@@ -8,11 +8,14 @@ import {
   getTemplateById
 } from '../../services/permissionTemplateService';
 import { PermissionTemplate } from '../../types/permissions';
-import { doc, updateDoc, arrayRemove, FieldValue } from 'firebase/firestore';
+import { doc, updateDoc, getDoc, FieldValue } from 'firebase/firestore';
 import { db } from '../../services/firebase';
+import { updateEmployeeRole } from '../../services/employeeRefService';
+import { showSuccessToast, showErrorToast } from '../../utils/toast';
 
 interface TemplateAssignmentProps {
   userId: string;
+  currentRole?: 'staff' | 'manager' | 'admin' | 'owner';
   currentTemplateId?: string;
   onTemplateAssigned?: () => void;
   onClose: () => void;
@@ -20,12 +23,14 @@ interface TemplateAssignmentProps {
 
 const TemplateAssignment = ({ 
   userId, 
+  currentRole,
   currentTemplateId, 
   onTemplateAssigned, 
   onClose 
 }: TemplateAssignmentProps) => {
   const { company, user } = useAuth();
   const [templates, setTemplates] = useState<PermissionTemplate[]>([]);
+  const [selectedRole, setSelectedRole] = useState<string>(currentRole || 'staff');
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>(currentTemplateId || '');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -61,32 +66,80 @@ const TemplateAssignment = ({
   };
 
   const handleAssignTemplate = async () => {
-    if (!company?.id || !user?.uid || !selectedTemplateId) return;
+    if (!company?.id || !user?.uid) return;
     
     try {
       setSaving(true);
       
-      // Update user's company reference with template ID
-      const userRef = doc(db, 'users', userId);
-      const updateData: Record<string, string | FieldValue> = {};
-      
-      if (currentTemplateId) {
-        // Remove old template reference
-        updateData[`companies.${company.id}.permissionTemplateId`] = arrayRemove(currentTemplateId);
+      // 1. Mettre à jour le rôle si nécessaire
+      if (currentRole && selectedRole !== currentRole && selectedRole !== 'owner') {
+        console.log('🔄 [TemplateAssignment] Mise à jour du rôle:', { 
+          userId, 
+          companyId: company.id, 
+          oldRole: currentRole, 
+          newRole: selectedRole 
+        });
+        
+        await updateEmployeeRole(company.id, userId, selectedRole as 'staff' | 'manager' | 'admin');
+        console.log('✅ [TemplateAssignment] Rôle mis à jour avec succès');
       }
       
-      if (selectedTemplateId) {
-        // Add new template reference
-        updateData[`companies.${company.id}.permissionTemplateId`] = selectedTemplateId;
+      // 2. Mettre à jour le template de permissions si nécessaire
+      if (selectedTemplateId !== currentTemplateId) {
+        const userRef = doc(db, 'users', userId);
+        const updateData: Record<string, string | FieldValue> = {};
+        
+        // Trouver l'index de la company dans le tableau companies
+        const userDoc = await getDoc(userRef);
+        if (!userDoc.exists()) {
+          throw new Error('Utilisateur non trouvé');
+        }
+        
+        const userData = userDoc.data();
+        let companies = userData?.companies;
+        
+        // S'assurer que companies est un tableau
+        if (!Array.isArray(companies)) {
+          console.error('❌ [TemplateAssignment] companies n\'est pas un tableau:', companies);
+          companies = [];
+        }
+        
+        const companyIndex = companies.findIndex((c: any) => c.companyId === company.id);
+        
+        if (companyIndex === -1) {
+          console.error('❌ [TemplateAssignment] Company non trouvée dans user.companies[]:', {
+            companyId: company.id,
+            companies: companies.map((c: any) => ({ companyId: c.companyId, role: c.role }))
+          });
+          throw new Error('Company non trouvée dans user.companies[]');
+        }
+        
+        // Créer un nouveau tableau avec le template mis à jour
+        const updatedCompanies = [...companies];
+        if (selectedTemplateId) {
+          updatedCompanies[companyIndex] = {
+            ...updatedCompanies[companyIndex],
+            permissionTemplateId: selectedTemplateId
+          };
+        } else {
+          // Supprimer le template si on sélectionne "Base Role Only"
+          const { permissionTemplateId, ...rest } = updatedCompanies[companyIndex];
+          updatedCompanies[companyIndex] = rest;
+        }
+        
+        await updateDoc(userRef, {
+          companies: updatedCompanies
+        });
+        
+        console.log('✅ [TemplateAssignment] Template mis à jour avec succès');
       }
       
-      await updateDoc(userRef, updateData);
-      
+      showSuccessToast('Rôle et permissions mis à jour avec succès');
       onTemplateAssigned?.();
       onClose();
-    } catch (error) {
-      console.error('Error assigning template:', error);
-      alert('Failed to assign template. Please try again.');
+    } catch (error: any) {
+      console.error('❌ [TemplateAssignment] Erreur lors de la mise à jour:', error);
+      showErrorToast(error.message || 'Erreur lors de la mise à jour du rôle et des permissions');
     } finally {
       setSaving(false);
     }
@@ -130,10 +183,32 @@ const TemplateAssignment = ({
         </div>
 
         <div className="space-y-6">
+          {/* Role Selection */}
+          {currentRole !== 'owner' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                Rôle de base
+              </label>
+              <select
+                value={selectedRole}
+                onChange={(e) => setSelectedRole(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                disabled={saving}
+              >
+                <option value="staff">Staff (Vendeur)</option>
+                <option value="manager">Manager (Gestionnaire)</option>
+                <option value="admin">Admin (Magasinier)</option>
+              </select>
+              <p className="mt-1 text-sm text-gray-500">
+                Le rôle de base détermine les permissions par défaut de l'utilisateur.
+              </p>
+            </div>
+          )}
+          
           {/* Template Selection */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-3">
-              Select Template
+              Template de permissions (optionnel)
             </label>
             <div className="space-y-2">
               <label className="flex items-center p-3 border rounded-lg hover:bg-gray-50">
@@ -232,7 +307,7 @@ const TemplateAssignment = ({
               disabled={saving}
               icon={<Check size={16} />}
             >
-              {saving ? 'Assigning...' : 'Assign Template'}
+              {saving ? 'Sauvegarde...' : 'Sauvegarder'}
             </Button>
           </div>
         </div>

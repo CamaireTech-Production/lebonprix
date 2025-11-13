@@ -75,7 +75,7 @@ service cloud.firestore {
                data.costPrice is number && data.costPrice >= 0 &&
                data.sellingPrice is number && data.sellingPrice >= data.costPrice &&
                data.stock is number && data.stock >= 0 &&
-               data.category is string &&
+               (!('category' in data) || data.category is string) &&
                data.companyId is string &&
                (!('imageUrl' in data) || data.imageUrl is string) &&
                data.isAvailable is bool;

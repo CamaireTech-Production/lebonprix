@@ -20,7 +20,7 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
   placeholder = "Select a category",
   className = ""
 }) => {
-  const { user } = useAuth();
+  const { company } = useAuth();
   const [categories, setCategories] = useState<Category[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -28,19 +28,19 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
 
   // Subscribe to categories
   useEffect(() => {
-    if (!user?.uid) {
+    if (!company?.id) {
       setLoading(false);
       return;
     }
 
     setLoading(true);
-    const unsubscribe = subscribeToCategories(user.uid, (categoriesData) => {
+    const unsubscribe = subscribeToCategories(company.id, (categoriesData) => {
       setCategories(categoriesData);
       setLoading(false);
     });
 
     return () => unsubscribe();
-  }, [user?.uid]);
+  }, [company?.id]);
 
   // Filter categories based on search
   const filteredCategories = categories.filter(category =>

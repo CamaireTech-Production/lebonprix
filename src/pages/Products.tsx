@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Grid, List, Plus, Search, Edit2, Upload, Trash2, CheckSquare, Square, Info, Eye, EyeOff } from 'lucide-react';
+import { Grid, List, Plus, Search, Edit2, Upload, Trash2, CheckSquare, Square, Info, Eye, EyeOff, QrCode } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
@@ -30,6 +30,7 @@ import type { StockBatch } from '../types/models';
 import CostPriceCarousel from '../components/products/CostPriceCarousel';
 import ProductTagsManager from '../components/products/ProductTagsManager';
 import CategorySelector from '../components/products/CategorySelector';
+import BarcodeGenerator from '../components/products/BarcodeGenerator';
 
 interface CsvRow {
   [key: string]: string;
@@ -89,6 +90,7 @@ const Products = () => {
     images: (File | string)[];
     tags: ProductTag[];
     isVisible: boolean;
+    barCode?: string;
   }>({
     name: '',
     reference: '',
@@ -96,6 +98,7 @@ const Products = () => {
     images: [],
     tags: [],
     isVisible: true, // Default to visible
+    barCode: '', // Optional barcode field
   });
   
   // Step 2: Initial stock and supply info
@@ -131,6 +134,10 @@ const Products = () => {
   const [isDeleting, setIsDeleting] = useState(false);
   
   const [editTab, setEditTab] = useState<'info' | 'stock' | 'pricing'>('info');
+  
+  // Barcode/QR Code modal state
+  const [isBarcodeModalOpen, setIsBarcodeModalOpen] = useState(false);
+  const [selectedProductForBarcode, setSelectedProductForBarcode] = useState<Product | null>(null);
   // State for stock adjustment tab
   const [stockAdjustment, setStockAdjustment] = useState('');
   const [stockReason, setStockReason] = useState<'restock' | 'adjustment' | 'damage'>('restock');
@@ -257,8 +264,8 @@ const Products = () => {
     setCurrentStep(1);
   };
 
-  // Get unique categories from products
-  const categories = [t('products.filters.allCategories'), ...new Set(infiniteProducts?.map(p => p.category) || [])];
+  // Get unique categories from products (filter out empty/undefined categories)
+  const categories = [t('products.filters.allCategories'), ...new Set(infiniteProducts?.filter(p => p.category).map(p => p.category!) || [])];
 
   
   const compressImage = async (file: File): Promise<File> => {
@@ -295,7 +302,7 @@ const Products = () => {
     if (!user?.uid) return;
     
     // Validate step 1 data
-    if (!step1Data.name || !step1Data.category) {
+    if (!step1Data.name) {
       showWarningToast(t('products.messages.warnings.requiredFields'));
       return;
     }
@@ -356,12 +363,11 @@ const Products = () => {
       }
 
       // Create product data after image upload
-      const productData = {
+      const productData: any = {
         name: step1Data.name,
         reference,
         sellingPrice: parseFloat(step2Data.sellingPrice),
         cataloguePrice: step2Data.cataloguePrice ? parseFloat(step2Data.cataloguePrice) : 0,
-        category: step1Data.category,
         stock: stockQuantity,
         costPrice: stockCostPrice,
         images: imageUrls, // Firebase Storage URLs
@@ -373,6 +379,16 @@ const Products = () => {
         userId: user.uid,
         updatedAt: { seconds: 0, nanoseconds: 0 }
       };
+      
+      // Include barcode if provided (otherwise will be auto-generated)
+      if (step1Data.barCode && step1Data.barCode.trim()) {
+        productData.barCode = step1Data.barCode.trim();
+      }
+      
+      // Only include category if it's not empty (Firestore doesn't accept undefined)
+      if (step1Data.category && step1Data.category.trim()) {
+        productData.category = step1Data.category.trim();
+      }
       
       // Create supplier info for the product creation
       const supplierInfo = step2Data.supplyType === 'fromSupplier' ? {
@@ -433,7 +449,7 @@ const Products = () => {
   const nextStep = () => {
     if (currentStep === 1) {
       // Validate step 1
-      if (!step1Data.name || !step1Data.category) {
+      if (!step1Data.name) {
       showWarningToast(t('products.messages.warnings.requiredFields'));
       return;
     }
@@ -737,10 +753,11 @@ const Products = () => {
     setStep1Data({
       name: product.name,
       reference: product.reference,
-      category: product.category,
+      category: product.category || '',
       images: Array.isArray(product.images) ? product.images : (product.images ? [product.images] : []),
       tags: product.tags || [], // Load existing tags
       isVisible: product.isVisible !== undefined ? product.isVisible : true, // Load visibility setting
+      barCode: product.barCode || '', // Load existing barcode
     });
     // Find latest stock change for this product
     const latestStockChange = stockChanges
@@ -775,7 +792,7 @@ const Products = () => {
     if (!currentProduct || !user?.uid) {
       return;
     }
-    if (!step1Data.name || !step1Data.category) {
+    if (!step1Data.name) {
       showWarningToast(t('products.messages.warnings.requiredFields'));
       return;
     }
@@ -788,7 +805,6 @@ const Products = () => {
     };
     const updateData: Partial<Product> = {
       name: step1Data.name,
-      category: step1Data.category,
       images: safeProduct.images, // Keep existing images, will be updated separately if needed
       tags: step1Data.tags || [], // Include tags in the update, default to empty array
       isAvailable: safeProduct.isAvailable,
@@ -796,8 +812,19 @@ const Products = () => {
       userId: safeProduct.userId,
       updatedAt: { seconds: 0, nanoseconds: 0 },
       sellingPrice: editPrices.sellingPrice ? parseFloat(editPrices.sellingPrice) : safeProduct.sellingPrice,
-      cataloguePrice: editPrices.cataloguePrice ? parseFloat(editPrices.cataloguePrice) : safeProduct.cataloguePrice
+      cataloguePrice: editPrices.cataloguePrice ? parseFloat(editPrices.cataloguePrice) : safeProduct.cataloguePrice,
+      // Include barcode if provided
+      ...(step1Data.barCode && step1Data.barCode.trim() && { barCode: step1Data.barCode.trim() }),
     };
+    
+    // Only include category if it's not empty (Firestore doesn't accept undefined)
+    // Use null for empty category (Firestore accepts null but not undefined)
+    if (step1Data.category && step1Data.category.trim()) {
+      updateData.category = step1Data.category.trim();
+    } else {
+      // Set to null if category is empty (Firestore accepts null but not undefined)
+      updateData.category = null as any;
+    }
     if (step1Data.reference && step1Data.reference.trim() !== '') {
       updateData.reference = step1Data.reference;
     }
@@ -1232,7 +1259,8 @@ const Products = () => {
     if (typeof product.isAvailable !== 'undefined' && product.isAvailable === false) return false;
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          product.reference.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === t('products.filters.allCategories') || product.category === selectedCategory;
+    const matchesCategory = selectedCategory === t('products.filters.allCategories') || 
+                            product.category === selectedCategory;
     return matchesSearch && matchesCategory;
   }) || [];
 
@@ -1594,7 +1622,9 @@ const Products = () => {
                       </Badge>
                     </div>
                   </div>
-                  <p className="mt-2 text-sm text-gray-500">{product.category}</p>
+                  {product.category && (
+                    <p className="mt-2 text-sm text-gray-500">{product.category}</p>
+                  )}
                 </div>
                 <div className="mt-4 flex justify-end space-x-2 px-4 pb-3">
                   <button
@@ -1604,6 +1634,18 @@ const Products = () => {
                   >
                     <Info size={16} />
                   </button>
+                  {product.barCode && (
+                    <button
+                      onClick={() => {
+                        setSelectedProductForBarcode(product);
+                        setIsBarcodeModalOpen(true);
+                      }}
+                      className="text-emerald-600 hover:text-emerald-900"
+                      title="Voir le QR code"
+                    >
+                      <QrCode size={16} />
+                    </button>
+                  )}
                   <button
                     onClick={() => handleToggleVisibility(product)}
                     className={`px-2 py-1 text-xs rounded-full border transition-colors ${
@@ -1756,6 +1798,18 @@ const Products = () => {
                         >
                           <Info size={16} />
                         </button>
+                        {product.barCode && (
+                          <button
+                            onClick={() => {
+                              setSelectedProductForBarcode(product);
+                              setIsBarcodeModalOpen(true);
+                            }}
+                            className="text-emerald-600 hover:text-emerald-900"
+                            title="Voir le QR code"
+                          >
+                            <QrCode size={16} />
+                          </button>
+                        )}
                         <button
                           onClick={() => handleToggleVisibility(product)}
                           className={`px-2 py-1 text-xs rounded-full border transition-colors ${
@@ -1930,6 +1984,15 @@ const Products = () => {
             </div>
             <p className="mt-1 text-sm text-gray-500">{t('products.form.step1.imageHelp')}</p>
           </div>
+          
+          <Input
+            label="Code-barres EAN-13 (optionnel)"
+            name="barCode"
+            value={step1Data.barCode || ''}
+            onChange={handleStep1InputChange}
+            placeholder="Laissez vide pour génération automatique"
+            helpText="Si vide, un code-barres EAN-13 sera généré automatiquement"
+          />
 
           {/* Product Tags Manager */}
           <ProductTagsManager
@@ -2154,6 +2217,15 @@ const Products = () => {
               value={step1Data.reference}
               onChange={handleStep1InputChange}
               helpText={t('products.form.referenceHelp', 'Auto-generated from name, but you can edit it.')}
+            />
+            {/* Barcode */}
+            <Input
+              label="Code-barres EAN-13"
+              name="barCode"
+              value={step1Data.barCode || ''}
+              onChange={handleStep1InputChange}
+              placeholder="Code-barres EAN-13"
+              helpText="Code-barres EAN-13 du produit"
             />
             {/* Category */}
             <div>
@@ -3764,6 +3836,26 @@ const Products = () => {
           </div>
         )}
       </Modal>
+
+      {/* Barcode/QR Code Modal */}
+      <Modal
+        isOpen={isBarcodeModalOpen}
+        onClose={() => {
+          setIsBarcodeModalOpen(false);
+          setSelectedProductForBarcode(null);
+        }}
+        title="Codes-barres et QR Codes"
+        size="lg"
+      >
+        {selectedProductForBarcode && company && (
+          <BarcodeGenerator
+            product={selectedProductForBarcode}
+            companyName={company.name}
+            companyId={company.id}
+          />
+        )}
+      </Modal>
+
       {/* Mobile spacing for floating action button */}
       <div className="h-20 md:hidden"></div>
     </div>

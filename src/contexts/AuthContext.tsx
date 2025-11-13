@@ -8,7 +8,7 @@ import {
   onAuthStateChanged,
   updatePassword
 } from 'firebase/auth';
-import { doc, getDoc, updateDoc, Timestamp } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, Timestamp, onSnapshot } from 'firebase/firestore';
 import type { Company, UserRole, UserCompanyRef, CompanyEmployee } from '../types/models';
 import { ensureDefaultFinanceEntryTypes } from '../services/firestore';
 import CompanyManager from '../services/storage/CompanyManager';
@@ -168,6 +168,63 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
     return unsubscribe;
   }, []);
+
+  // 🔄 Écouter les changements dans users.companies[] pour mettre à jour le rôle effectif
+  useEffect(() => {
+    if (!user?.uid || !company?.id) return;
+
+    console.log('👂 Écoute des changements du rôle utilisateur pour company:', company.id);
+
+    const userRef = doc(db, 'users', user.uid);
+    const unsubscribe = onSnapshot(userRef, (userSnap) => {
+      if (!userSnap.exists()) {
+        console.log('⚠️ [AuthContext] Document utilisateur n\'existe pas');
+        return;
+      }
+
+      console.log('📡 [AuthContext] Snapshot reçu pour user:', user.uid);
+      const userData = userSnap.data();
+      const userCompanyRef = userData.companies?.find((c: UserCompanyRef) => c.companyId === company.id);
+
+      console.log('📡 [AuthContext] Companies trouvées:', userData.companies?.length || 0);
+      console.log('📡 [AuthContext] Company actuelle trouvée:', userCompanyRef ? { companyId: userCompanyRef.companyId, role: userCompanyRef.role } : 'non trouvée');
+
+      // Mettre à jour userCompanies
+      setUserCompanies(userData.companies || []);
+
+      // Si le rôle a changé pour la company actuelle, mettre à jour le rôle effectif
+      if (userCompanyRef) {
+        const roleMapping: Record<string, string> = {
+          'staff': 'vendeur',
+          'manager': 'gestionnaire',
+          'admin': 'magasinier',
+          'owner': 'owner'
+        };
+
+        const uiRole = roleMapping[userCompanyRef.role] || userCompanyRef.role;
+        const newEffectiveRole = uiRole as UserRole | 'owner' | 'vendeur' | 'gestionnaire' | 'magasinier';
+
+        // Toujours mettre à jour le rôle (le listener se déclenche seulement quand il y a un changement)
+        console.log('🔄 [AuthContext] Rôle effectif mis à jour:', { old: effectiveRole, new: newEffectiveRole, companyId: company.id, userId: user.uid });
+        setEffectiveRole(newEffectiveRole);
+      } else {
+        // Si l'utilisateur n'est plus dans cette company
+        // Vérifier si c'est le propriétaire avant de réinitialiser
+        const isCompanyOwner = company.userId === user.uid;
+        if (!isCompanyOwner) {
+          console.log('⚠️ [AuthContext] Utilisateur retiré de la company, réinitialisation du rôle');
+          setEffectiveRole(null);
+        }
+      }
+    }, (error) => {
+      console.error('❌ [AuthContext] Erreur lors de l\'écoute des changements utilisateur:', error);
+    });
+
+    return () => {
+      console.log('🔇 Arrêt de l\'écoute des changements du rôle utilisateur');
+      unsubscribe();
+    };
+  }, [user?.uid, company?.id]);
 
   // 🔄 Migration automatique d'un utilisateur vers le nouveau système
   const migrateUserToNewSystem = async (userId: string) => {
@@ -576,14 +633,41 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     return firebaseSignOut(auth);
   };
 
+  // Fonction utilitaire pour nettoyer les valeurs undefined récursivement
+  const removeUndefinedValues = (obj: any): any => {
+    if (obj === null || obj === undefined) {
+      return undefined;
+    }
+    
+    if (Array.isArray(obj)) {
+      return obj.map(item => removeUndefinedValues(item)).filter(item => item !== undefined);
+    }
+    
+    if (typeof obj === 'object' && obj.constructor === Object) {
+      const cleaned: any = {};
+      for (const [key, value] of Object.entries(obj)) {
+        const cleanedValue = removeUndefinedValues(value);
+        if (cleanedValue !== undefined) {
+          cleaned[key] = cleanedValue;
+        }
+      }
+      return cleaned;
+    }
+    
+    return obj;
+  };
+
   const updateCompany = async (data: Partial<Omit<Company, 'id' | 'createdAt' | 'updatedAt' | 'companyId'>>) => {
     if (!user) {
       throw new Error('No user logged in');
     }
 
     const companyRef = doc(db, 'companies', selectedCompanyId || user.uid);
+    
+    // Nettoyer les valeurs undefined avant de mettre à jour
+    const cleanedData = removeUndefinedValues(data);
     const updateData = {
-      ...data,
+      ...cleanedData,
       updatedAt: Timestamp.now()
     };
 

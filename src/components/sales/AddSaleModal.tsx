@@ -3,7 +3,7 @@ import Modal, { ModalFooter } from '../common/Modal';
 import Input from '../common/Input';
 import Button from '../common/Button';
 import Select from 'react-select';
-import { Plus, Trash2, Save, Info} from 'lucide-react';
+import { Plus, Trash2, Save, Info, ChevronDown, ChevronUp} from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { ImageWithSkeleton } from '../common/ImageWithSkeleton';
 import { useState, useEffect } from 'react';
@@ -68,6 +68,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
   const [showAllProducts, setShowAllProducts] = useState(false);
   const [productStockInfo, setProductStockInfo] = useState<Map<string, ProductStockInfo>>(new Map());
   const [loadingStockInfo, setLoadingStockInfo] = useState<Set<string>>(new Set());
+  const [showAdditionalCustomerInfo, setShowAdditionalCustomerInfo] = useState(false);
 
 
 
@@ -250,13 +251,57 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
               </div>
               
               {/* Customer Dropdown - Phone based recommendations */}
-{showCustomerDropdown && customerSearch && /\d/.test(customerSearch) && (() => {
+{showCustomerDropdown && customerSearch && customerSearch.length >= 2 && /\d/.test(customerSearch) && (() => {
   const normalizedSearch = customerSearch.replace(/\D/g, '');
+  
+  // Log all customers first
+  console.log('📋 [AddSaleModal] All customers:', {
+    total: customers.length,
+    customers: customers.map(c => ({
+      id: c.id,
+      name: c.name,
+      phone: c.phone,
+      companyId: c.companyId
+    }))
+  });
+  
+  // Don't show if normalized search is too short
+  if (normalizedSearch.length < 2) {
+    console.log('⚠️ [AddSaleModal] Normalized search too short:', normalizedSearch);
+    return null;
+  }
   
   // Filter customers by phone number match
   const filteredCustomers = customers.filter(c => {
+    if (!c.phone) {
+      console.log('⚠️ [AddSaleModal] Customer without phone:', c.id, c.name);
+      return false;
+    }
     const customerPhone = c.phone.replace(/\D/g, '');
-    return customerPhone.includes(normalizedSearch) || normalizedSearch.includes(customerPhone);
+    const matches = customerPhone.includes(normalizedSearch) || normalizedSearch.includes(customerPhone);
+    if (matches) {
+      console.log('✅ [AddSaleModal] Customer matches:', {
+        id: c.id,
+        name: c.name,
+        phone: c.phone,
+        normalizedPhone: customerPhone,
+        search: normalizedSearch
+      });
+    }
+    return matches;
+  });
+  
+  console.log('🔍 [AddSaleModal] Phone dropdown check:', {
+    showCustomerDropdown,
+    customerSearch,
+    normalizedSearch,
+    filteredCustomersCount: filteredCustomers.length,
+    customersCount: customers.length,
+    filteredCustomers: filteredCustomers.map(c => ({
+      id: c.id,
+      name: c.name,
+      phone: c.phone
+    }))
   });
   
   // Don't show dropdown if no results
@@ -271,7 +316,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
       onClick={(e) => e.stopPropagation()}
     >
       <div className="p-2 bg-gray-50 border-b">
-        <div className="text-xs font-medium text-gray-600">Select Customer by Phone:</div>
+        <div className="text-xs font-medium text-gray-600">Sélectionner un client par téléphone:</div>
       </div>
       
       {filteredCustomers.slice(0, 5).map(c => (
@@ -283,16 +328,8 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
             e.preventDefault();
             e.stopPropagation();
             
-            // Update the form data with the selected customer's information
-            setFormData(prev => ({
-              ...prev,
-              customerPhone: c.phone,
-              customerName: c.name || '',
-              customerQuarter: c.quarter || ''
-            }));
-            
-            // Hide the dropdown after selection
-            setShowCustomerDropdown(false);
+            // Use handleSelectCustomer from the hook
+            handleSelectCustomer(c);
           }}
         >
           <div className="font-medium text-gray-900">{c.name || 'Divers'}</div>
@@ -325,13 +362,51 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                 />
                 
                 {/* Customer Dropdown - Name based recommendations */}
-{showCustomerDropdown && customerSearch && !/\d/.test(customerSearch) && (() => {
+{showCustomerDropdown && customerSearch && customerSearch.length >= 2 && !/\d/.test(customerSearch) && (() => {
   const searchTerm = customerSearch.toLowerCase().trim();
+  
+  // Log all customers first
+  console.log('📋 [AddSaleModal] All customers (name search):', {
+    total: customers.length,
+    customers: customers.map(c => ({
+      id: c.id,
+      name: c.name,
+      phone: c.phone,
+      companyId: c.companyId
+    }))
+  });
   
   // Filter customers by name match
   const filteredCustomers = customers.filter(c => {
+    if (!c.name) {
+      console.log('⚠️ [AddSaleModal] Customer without name:', c.id, c.phone);
+      return false;
+    }
     const customerName = (c.name || '').toLowerCase();
-    return customerName.includes(searchTerm);
+    const matches = customerName.includes(searchTerm);
+    if (matches) {
+      console.log('✅ [AddSaleModal] Customer matches (name):', {
+        id: c.id,
+        name: c.name,
+        phone: c.phone,
+        customerNameLower: customerName,
+        searchTerm: searchTerm
+      });
+    }
+    return matches;
+  });
+  
+  console.log('🔍 [AddSaleModal] Name dropdown check:', {
+    showCustomerDropdown,
+    customerSearch,
+    searchTerm,
+    filteredCustomersCount: filteredCustomers.length,
+    customersCount: customers.length,
+    filteredCustomers: filteredCustomers.map(c => ({
+      id: c.id,
+      name: c.name,
+      phone: c.phone
+    }))
   });
   
   // Don't show dropdown if no results
@@ -346,7 +421,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
       onClick={(e) => e.stopPropagation()}
     >
       <div className="p-2 bg-gray-50 border-b">
-        <div className="text-xs font-medium text-gray-600">Select Customer by Name:</div>
+        <div className="text-xs font-medium text-gray-600">Sélectionner un client par nom:</div>
       </div>
       
       {filteredCustomers.slice(0, 5).map(c => (
@@ -358,16 +433,8 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
             e.preventDefault();
             e.stopPropagation();
             
-            // Update the form data with the selected customer's information
-            setFormData(prev => ({
-              ...prev,
-              customerPhone: c.phone,
-              customerName: c.name || '',
-              customerQuarter: c.quarter || ''
-            }));
-            
-            // Hide the dropdown after selection
-            setShowCustomerDropdown(false);
+            // Use handleSelectCustomer from the hook
+            handleSelectCustomer(c);
           }}
         >
           <div className="font-medium text-gray-900">{c.name || 'Divers'}</div>
@@ -385,6 +452,83 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                 onChange={handleInputChange}
                   placeholder="Quarter (optional)"
               />
+            </div>
+            
+            {/* Bouton pour afficher/masquer les informations supplémentaires */}
+            <div className="mt-4">
+              <button
+                type="button"
+                onClick={() => setShowAdditionalCustomerInfo(!showAdditionalCustomerInfo)}
+                className="flex items-center justify-between w-full text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors py-2"
+              >
+                <span className="flex items-center">
+                  <Info className="h-4 w-4 mr-2" />
+                  Informations supplémentaires
+                </span>
+                {showAdditionalCustomerInfo ? (
+                  <ChevronUp className="h-4 w-4" />
+                ) : (
+                  <ChevronDown className="h-4 w-4" />
+                )}
+              </button>
+              
+              {showAdditionalCustomerInfo && (
+                <div className="mt-4 space-y-4 animate-in slide-in-from-top-2 duration-200 border-t border-gray-200 pt-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <Input
+                      label="Prénom"
+                      name="customerFirstName"
+                      value={formData.customerFirstName || ''}
+                      onChange={handleInputChange}
+                      placeholder="Prénom (optionnel)"
+                    />
+                    <Input
+                      label="Nom de famille"
+                      name="customerLastName"
+                      value={formData.customerLastName || ''}
+                      onChange={handleInputChange}
+                      placeholder="Nom de famille (optionnel)"
+                    />
+                  </div>
+                  <Input
+                    label="Adresse"
+                    name="customerAddress"
+                    value={formData.customerAddress || ''}
+                    onChange={handleInputChange}
+                    placeholder="Adresse complète (optionnel)"
+                  />
+                  <div className="grid grid-cols-2 gap-4">
+                    <Input
+                      label="Ville"
+                      name="customerTown"
+                      value={formData.customerTown || ''}
+                      onChange={handleInputChange}
+                      placeholder="Ville (optionnel)"
+                    />
+                    <Input
+                      label="Date de naissance"
+                      name="customerBirthdate"
+                      type="date"
+                      value={formData.customerBirthdate || ''}
+                      onChange={handleInputChange}
+                      placeholder="Date de naissance (optionnel)"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Comment il a connu l'entreprise
+                    </label>
+                    <textarea
+                      name="customerHowKnown"
+                      value={formData.customerHowKnown || ''}
+                      onChange={(e) => handleInputChange({ target: { name: 'customerHowKnown', value: e.target.value } } as any)}
+                      placeholder="Comment il a connu l'entreprise (optionnel)"
+                      rows={3}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
             {/* Selected Products Section - Desktop View */}

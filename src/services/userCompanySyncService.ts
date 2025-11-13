@@ -150,7 +150,7 @@ export async function updateUserRole(
   newRole: 'owner' | 'admin' | 'manager' | 'staff'
 ): Promise<void> {
   try {
-    console.log('🔄 Mise à jour du rôle:', { userId, companyId, newRole });
+    console.log('🔄 [updateUserRole] Début de la mise à jour du rôle:', { userId, companyId, newRole });
 
     // 1. Mettre à jour l'employeeRef
     await updateDoc(doc(db, 'companies', companyId, 'employeeRefs', userId), {
@@ -170,40 +170,43 @@ export async function updateUserRole(
     console.log('✅ Company.employees{} mis à jour');
 
     // 3. Mettre à jour users.companies[]
-    // Firestore ne permet pas de modifier directement un élément d'un array
-    // Il faut retirer l'ancien et ajouter le nouveau
-    const userDoc = await getDoc(doc(db, 'users', userId));
+    // Récupérer le document, modifier le tableau, et le remplacer complètement
+    const userRef = doc(db, 'users', userId);
+    const userDoc = await getDoc(userRef);
     
     if (!userDoc.exists()) {
       throw new Error('Utilisateur non trouvé');
     }
 
     const userData = userDoc.data();
-    const oldCompanyRef = userData?.companies?.find((c: UserCompanyRef) => c.companyId === companyId);
-
-    if (!oldCompanyRef) {
+    const companies = userData?.companies || [];
+    
+    // Trouver l'index de la company à modifier
+    const companyIndex = companies.findIndex((c: UserCompanyRef) => c.companyId === companyId);
+    
+    if (companyIndex === -1) {
       throw new Error('Company non trouvée dans user.companies[]');
     }
 
-    // Créer la nouvelle référence avec le nouveau rôle
-    const newCompanyRef: UserCompanyRef = {
-      ...oldCompanyRef,
+    // Créer un nouveau tableau avec le rôle mis à jour
+    const updatedCompanies = [...companies];
+    updatedCompanies[companyIndex] = {
+      ...updatedCompanies[companyIndex],
       role: newRole,
-      description: oldCompanyRef.description || '',
-      logo: oldCompanyRef.logo || ''
+      description: updatedCompanies[companyIndex].description || '',
+      logo: updatedCompanies[companyIndex].logo || ''
     };
 
-    // Retirer l'ancienne et ajouter la nouvelle
-    await updateDoc(doc(db, 'users', userId), {
-      companies: arrayRemove(oldCompanyRef)
-    });
-
-    await updateDoc(doc(db, 'users', userId), {
-      companies: arrayUnion(newCompanyRef),
+    // Remplacer complètement le tableau companies
+    console.log('🔄 [updateUserRole] Avant mise à jour - companies:', JSON.stringify(companies.map(c => ({ companyId: c.companyId, role: c.role }))));
+    console.log('🔄 [updateUserRole] Après mise à jour - companies:', JSON.stringify(updatedCompanies.map(c => ({ companyId: c.companyId, role: c.role }))));
+    
+    await updateDoc(userRef, {
+      companies: updatedCompanies,
       updatedAt: serverTimestamp()
     });
 
-    console.log('✅ User.companies[] mis à jour');
+    console.log('✅ [updateUserRole] User.companies[] mis à jour avec succès');
   } catch (error) {
     console.error('❌ Erreur lors de la mise à jour du rôle:', error);
     throw error;

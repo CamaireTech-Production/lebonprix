@@ -58,7 +58,7 @@ export interface Product extends BaseModel {
   sellingPrice: number;
   cataloguePrice?: number;
   stock: number;
-  category: string;
+  category?: string;
   images?: string[]; // Stores Firebase Storage URLs only
   imagePaths?: string[]; // Optional: store storage paths for deletion
   migratedAt?: Date; // Track migration status
@@ -69,6 +69,7 @@ export interface Product extends BaseModel {
   enableBatchTracking?: boolean;
   tags?: ProductTag[]; // Dynamic product tags for variations
   description?: string; // Product description for catalogue
+  barCode?: string; // EAN-13 barcode for product identification
 }
 
 export interface ProductTag {
@@ -156,6 +157,13 @@ export interface Customer {
   userId: string;
   companyId: string; // Reference to the company this customer belongs to
   createdAt: Date;
+  // Informations optionnelles supplémentaires
+  firstName?: string; // Prénom
+  lastName?: string; // Nom de famille
+  address?: string; // Adresse complète
+  town?: string; // Ville
+  birthdate?: string; // Date de naissance (format ISO: YYYY-MM-DD)
+  howKnown?: string; // Comment il a connu l'entreprise
 }
 
 export interface Objective extends BaseModel {

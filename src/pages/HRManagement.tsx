@@ -9,6 +9,8 @@ import PermissionTemplateManager from '../components/hr/PermissionTemplateManage
 import { getPendingInvitations } from '../services/invitationService';
 import { getCompanyEmployees } from '../services/employeeRefService';
 import { convertEmployeeRefToUserCompanyRef, getOwnerUserCompanyRef } from '../services/employeeDisplayService';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../services/firebase';
 import type { Invitation, UserCompanyRef } from '../types/models';
 
 const HRManagement = () => {
@@ -41,8 +43,30 @@ const HRManagement = () => {
         logo: company.logo
       };
       
-      const teamMembersList: UserCompanyRef[] = employees.map(emp => 
-        convertEmployeeRefToUserCompanyRef(emp, company.id, companyData)
+      // Récupérer les permissionTemplateId depuis users.companies[] pour chaque employé
+      const teamMembersList: UserCompanyRef[] = await Promise.all(
+        employees.map(async (emp) => {
+          try {
+            // Récupérer le document utilisateur pour obtenir le permissionTemplateId
+            const userDoc = await getDoc(doc(db, 'users', emp.id));
+            if (userDoc.exists()) {
+              const userData = userDoc.data();
+              const companies = userData?.companies;
+              
+              if (Array.isArray(companies)) {
+                const userCompanyRef = companies.find((c: any) => c.companyId === company.id);
+                const permissionTemplateId = userCompanyRef?.permissionTemplateId;
+                
+                return convertEmployeeRefToUserCompanyRef(emp, company.id, companyData, permissionTemplateId);
+              }
+            }
+          } catch (error) {
+            console.error(`❌ Erreur lors de la récupération du template pour ${emp.id}:`, error);
+          }
+          
+          // Fallback si erreur ou si pas de template
+          return convertEmployeeRefToUserCompanyRef(emp, company.id, companyData);
+        })
       );
       
       // Ajouter le propriétaire s'il n'est pas déjà dans la liste des employeeRefs
