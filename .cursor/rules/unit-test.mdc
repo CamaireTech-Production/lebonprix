@@ -1,124 +1,258 @@
 ---
-description: unit test
-alwaysApply: false
----
-=
-
-### 🎯 **PRIMARY OBJECTIVE**
-You are an expert unit testing specialist for the Le Bon Prix React/TypeScript application. Your role is to implement high-quality, comprehensive unit tests following industry best practices and maintain detailed documentation of all testing activities.
-
+description: unit test - Complete rules for unit testing with design problem detection and refactoring guidance
+alwaysApply: true
 ---
 
-## 📋 **MANDATORY WORKFLOW**
+# Unit Testing Rules - Le Bon Prix
 
-### **BEFORE ANY TEST IMPLEMENTATION:**
+## 🎯 PRIMARY OBJECTIVE
 
-1. **ALWAYS READ** the main testing guide: `docs/UNIT_TESTING_IMPLEMENTATION_GUIDE.md`
-2. **ALWAYS CHECK** the current testing status in: `docs/UNIT_TESTING_STATUS.md`
-3. **ALWAYS UPDATE** the status document after implementing any tests
-4. **ALWAYS FOLLOW** the established testing patterns and conventions
+You are an expert unit testing specialist for the Le Bon Prix application. Your mission is to:
+1. **IDENTIFY design problems BEFORE writing tests**
+2. **REFACTOR problematic code to make it testable**
+3. **WRITE quality tests that reveal real problems**
+4. **MAINTAIN consistency in mocks, fixtures, and patterns**
 
-### **FOR EVERY TEST FILE CREATED:**
-
-1. **Create comprehensive test coverage** following the patterns in the guide
-2. **Update the status document** with test details, coverage metrics, and notes
-3. **Ensure proper mocking** of Firebase, localStorage, and external dependencies
-4. **Follow naming conventions** and file structure as specified
+**IMPORTANT**: Never write tests that "pass" by masking problems. Tests must reveal design issues and guide refactoring.
 
 ---
 
-## 🏗️ **TESTING ARCHITECTURE REQUIREMENTS**
+## 📋 MANDATORY WORKFLOW BEFORE ANY TEST
 
-### **File Structure (MANDATORY):**
+### STEP 1: COMPLETE CODE ANALYSIS (MANDATORY)
+
+**BEFORE writing any test**, you MUST:
+
+1. **Read and analyze the complete source code**:
+   - The file/service/component to test
+   - All its imports and dependencies
+   - Related files (types, utilities, services)
+   - Hooks or contexts used
+
+2. **Identify design problems** using the checklist below
+
+3. **Document found problems** in a comment at the beginning of the test file
+
+4. **Decide on necessary refactoring** before writing tests
+
+### MANDATORY ANALYSIS CHECKLIST
+
+For each file to test, verify:
+
+#### 🔴 CRITICAL PROBLEM 1: Strong coupling with Firebase
+- [ ] Does the file directly import `db`, `auth`, or `storage` from `firebase.ts`?
+- [ ] Are there direct calls to `collection()`, `doc()`, `getDoc()`, etc.?
+- [ ] Do components/pages directly access Firebase?
+
+**If YES** → **REFACTOR BEFORE tests**:
+- Create an abstract service (e.g., `ProductRepository`, `SaleRepository`)
+- Inject the repository as a dependency
+- Source code must use the repository, not Firebase directly
+
+**Refactoring example**:
+```typescript
+// ❌ BAD (needs refactoring)
+import { db } from '../services/firebase';
+const productRef = doc(db, 'products', id);
+
+// ✅ GOOD (after refactoring)
+import { ProductRepository } from '../services/repositories/ProductRepository';
+const product = await productRepository.getById(id);
+```
+
+#### 🔴 CRITICAL PROBLEM 2: Business logic in components/pages
+- [ ] Are there complex calculations (profit, totals, statistics) in components?
+- [ ] Is business logic mixed with UI logic?
+- [ ] Are calculation functions reusable elsewhere?
+
+**If YES** → **EXTRACT BEFORE tests**:
+- Create pure functions in `src/utils/` or `src/services/calculations/`
+- Functions must be testable without React/Firebase
+- Components call these functions, don't contain them
+
+**Refactoring example**:
+```typescript
+// ❌ BAD (in Finance.tsx)
+const profit = useMemo(() => {
+  return filteredSales.reduce((sum, sale) => {
+    return sum + sale.products.reduce((productSum, product) => {
+      // ... 20 lines of calculations
+    }, 0);
+  }, 0);
+}, [filteredSales, products, stockChanges]);
+
+// ✅ GOOD (extract to utils/financialCalculations.ts)
+export const calculateProfit = (
+  sales: Sale[],
+  products: Product[],
+  stockChanges: StockChange[]
+): number => {
+  // Pure logic, testable
+};
+
+// In Finance.tsx
+const profit = useMemo(
+  () => calculateProfit(filteredSales, products, stockChanges),
+  [filteredSales, products, stockChanges]
+);
+```
+
+#### 🔴 CRITICAL PROBLEM 3: Functions with too many responsibilities
+- [ ] Does the function do more than 3 different things?
+- [ ] Are there more than 5 parameters?
+- [ ] Does the function do validation + calculations + DB + audit + others?
+
+**If YES** → **DECOMPOSE BEFORE tests**:
+- Separate into smaller functions with single responsibility
+- Use configuration objects instead of many parameters
+- Create intermediate functions testable individually
+
+**Refactoring example**:
+```typescript
+// ❌ BAD (createSale does everything)
+export const createSale = async (data, companyId) => {
+  // Validation (20 lines)
+  // Calculations (30 lines)
+  // Batch operations (40 lines)
+  // Audit logs (10 lines)
+  // Stock updates (20 lines)
+  // Total: 120+ lines
+};
+
+// ✅ GOOD (decomposed)
+export const validateSaleData = (data, products) => { /* ... */ };
+export const calculateSaleTotals = (products, stockBatches) => { /* ... */ };
+export const createSaleTransaction = async (saleData, batch) => { /* ... */ };
+export const createSale = async (data, companyId) => {
+  const validation = validateSaleData(data, products);
+  const totals = calculateSaleTotals(data.products, batches);
+  return createSaleTransaction({ ...data, ...totals }, batch);
+};
+```
+
+#### 🟡 MEDIUM PROBLEM 4: Overly complex hooks
+- [ ] Is the hook more than 300 lines?
+- [ ] Does it mix multiple responsibilities (state + API + localStorage + sync)?
+- [ ] Is it difficult to understand in one reading?
+
+**If YES** → **SIMPLIFY DURING tests**:
+- Extract business logic into separate functions
+- Create smaller, specialized hooks
+- Use composed hooks
+
+#### 🟡 MEDIUM PROBLEM 5: Code duplication
+- [ ] Are calculations repeated in multiple files?
+- [ ] Is validation duplicated?
+- [ ] Are Firebase patterns repeated?
+
+**If YES** → **EXTRACT DURING tests**:
+- Create reusable utilities
+- Use helper functions
+- Create factories for repeated patterns
+
+---
+
+## 🏗️ REQUIRED TEST ARCHITECTURE
+
+### File Structure (MANDATORY)
+
 ```
 src/
 ├── __tests__/
-│   ├── setup.ts                 # Global test setup
-│   ├── mocks/                   # All mock implementations
-│   │   ├── firebase.ts         # Firebase/Firestore mocks
-│   │   ├── localStorage.ts     # localStorage mocks
-│   │   ├── handlers.ts         # MSW API handlers
-│   │   └── pwa.ts             # PWA API mocks
-│   └── utils/                  # Test utilities
-│       ├── render.tsx          # Custom render with providers
-│       ├── test-utils.ts       # Helper functions
-│       └── fixtures/           # Test data fixtures
-├── [component/service/hook].test.tsx  # Test files
+│   ├── setup.ts                    # Global test setup
+│   ├── mocks/                      # Standardized mocks
+│   │   ├── firebase.ts            # Complete Firebase mocks
+│   │   ├── repositories.ts        # Abstract repository mocks
+│   │   ├── localStorage.ts        # localStorage mocks
+│   │   └── fixtures/              # Standardized test data
+│   │       ├── products.ts
+│   │       ├── sales.ts
+│   │       ├── companies.ts
+│   │       └── users.ts
+│   ├── utils/
+│   │   ├── render.tsx              # Custom render with providers
+│   │   ├── test-utils.ts           # Test helpers
+│   │   └── [feature]/              # Feature-specific test folder
+│   │       ├── [feature].test.ts   # Test file
+│   │       └── MANUAL_VERIFICATION.md  # Manual testing guide
+│   ├── services/
+│   │   └── [service]/              # Service-specific test folder
+│   │       ├── [service].test.ts   # Test file
+│   │       └── MANUAL_VERIFICATION.md  # Manual testing guide
+│   └── components/
+│       └── [component]/            # Component-specific test folder
+│           ├── [component].test.tsx # Test file
+│           └── MANUAL_VERIFICATION.md  # Manual testing guide
 ```
 
-### **Naming Conventions (MANDATORY):**
-- Test files: `[ComponentName].test.tsx` or `[functionName].test.ts`
-- Test suites: `describe('[Component/Function Name]', () => {})`
-- Test cases: `it('should [expected behavior]', () => {})`
-- Mock functions: `mock[FunctionName]`
-- Test data: `mock[DataType]` or `test[DataType]`
+### Test Folder Organization (MANDATORY)
+
+Each test MUST be in its own folder containing:
+1. **Test file**: `[name].test.ts` or `[name].test.tsx`
+2. **Manual verification guide**: `MANUAL_VERIFICATION.md`
+
+Example:
+```
+src/__tests__/utils/security/
+  ├── security.test.ts            # Automated tests
+  └── MANUAL_VERIFICATION.md      # Manual testing guide
+```
+
+### Naming Conventions (MANDATORY)
+
+- **Test folders**: `src/__tests__/[category]/[feature]/`
+- **Test files**: `[FileName].test.ts` or `[FileName].test.tsx`
+- **Manual guides**: `MANUAL_VERIFICATION.md` (always uppercase)
+- **Test suites**: `describe('[Component/Function Name]', () => {})`
+- **Tests**: `it('should [expected behavior]', () => {})`
+- **Mocks**: `mock[FunctionName]` or `vi.fn()` with descriptive name
+- **Fixtures**: `mock[Type]` or `createMock[Type]()` for factories
 
 ---
 
-## 🧪 **TEST QUALITY STANDARDS**
+## 🔧 MOCKING STANDARDS
 
-### **MANDATORY Test Structure:**
+### 1. Firebase/Firestore (MANDATORY)
+
+**NEVER** mock Firebase directly in individual tests.
+
+**USE** centralized mocks from `src/__tests__/mocks/firebase.ts`:
+
 ```typescript
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { render, screen, userEvent } from '@/__tests__/utils/render'
-import { ComponentName } from '@/components/ComponentName'
-
-describe('ComponentName', () => {
-  beforeEach(() => {
-    // Setup before each test
-    vi.clearAllMocks()
-  })
-
-  afterEach(() => {
-    // Cleanup after each test
-  })
-
-  it('should render with required props', () => {
-    // Test implementation
-  })
-
-  it('should handle user interactions correctly', async () => {
-    // Test implementation
-  })
-
-  it('should handle error states gracefully', () => {
-    // Test implementation
-  })
-})
-```
-
-### **REQUIRED Test Categories:**
-1. **Rendering Tests** - Component renders correctly
-2. **Props Tests** - Different prop combinations
-3. **User Interaction Tests** - Click, type, select events
-4. **State Management Tests** - State changes and updates
-5. **Error Handling Tests** - Error states and edge cases
-6. **Accessibility Tests** - ARIA labels, keyboard navigation
-7. **Loading States Tests** - Loading, success, error states
-
----
-
-## 🔧 **MOCKING REQUIREMENTS**
-
-### **Firebase/Firestore Mocking (MANDATORY):**
-```typescript
-// ALWAYS use these mock patterns
+// ✅ GOOD - Use centralized mocks
 import { mockFirestore, mockAuth } from '@/__tests__/mocks/firebase'
 
 beforeEach(() => {
   vi.clearAllMocks()
   mockFirestore.collection.mockReturnValue({
-    add: vi.fn(),
-    get: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn()
+    doc: vi.fn().mockReturnValue({
+      get: vi.fn().mockResolvedValue({
+        exists: () => true,
+        data: () => mockProduct
+      })
+    })
   })
 })
 ```
 
-### **localStorage Mocking (MANDATORY):**
+**FOR abstract repositories** (after refactoring):
+
 ```typescript
-// ALWAYS mock localStorage for offline functionality tests
+// ✅ GOOD - Mock the abstract repository
+import { ProductRepository } from '@/services/repositories/ProductRepository'
+
+vi.mock('@/services/repositories/ProductRepository', () => ({
+  ProductRepository: {
+    getById: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn()
+  }
+}))
+```
+
+### 2. localStorage (MANDATORY)
+
+```typescript
 import { mockLocalStorage } from '@/__tests__/mocks/localStorage'
 
 beforeEach(() => {
@@ -126,224 +260,439 @@ beforeEach(() => {
 })
 ```
 
-### **API Mocking (MANDATORY):**
+### 3. Test Data Fixtures (MANDATORY)
+
+**USE** factories to create test data:
+
 ```typescript
-// ALWAYS use MSW for API mocking
-import { server } from '@/__tests__/mocks/server'
-import { http, HttpResponse } from 'msw'
+import { createMockProduct, createMockSale } from '@/__tests__/mocks/fixtures'
 
-// Define handlers for each API endpoint
-const handlers = [
-  http.get('/api/products', () => {
-    return HttpResponse.json({ products: mockProducts })
+// ✅ GOOD - Use factories
+const product = createMockProduct({ name: 'Test Product', stock: 100 })
+
+// ❌ BAD - Hardcoded data
+const product = { id: '1', name: 'Test', stock: 100, /* ... 20 properties */ }
+```
+
+---
+
+## 📝 MANDATORY TEST STRUCTURE
+
+### Creating a New Test (Step-by-Step)
+
+When creating tests for any file, follow these steps:
+
+1. **Create test folder**: `src/__tests__/[category]/[feature]/`
+2. **Create test file**: `[feature].test.ts` in the folder
+3. **Create manual guide**: `MANUAL_VERIFICATION.md` in the folder
+4. **Write automated tests**: Follow template below
+5. **Write manual guide**: Follow manual verification template
+
+### Template for each test file
+
+```typescript
+import { describe, it, expect, beforeEach, vi } from 'vitest'
+
+/**
+ * PROBLEMS IDENTIFIED BEFORE TESTS:
+ * 
+ * 1. [Problem 1] - [Solution applied]
+ * 2. [Problem 2] - [Solution applied]
+ * 
+ * REFACTORING PERFORMED:
+ * - [List of refactorings]
+ */
+
+describe('[Component/Function Name]', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    // Specific setup
   })
-]
+
+  describe('Main behavior', () => {
+    it('should [expected behavior]', () => {
+      // Arrange
+      // Act
+      // Assert
+    })
+  })
+
+  describe('Edge cases', () => {
+    it('should handle [edge case]', () => {
+      // Test
+    })
+  })
+
+  describe('Error handling', () => {
+    it('should handle [error] gracefully', () => {
+      // Test
+    })
+  })
+})
 ```
 
----
+### Template for MANUAL_VERIFICATION.md
 
-## 📊 **COVERAGE REQUIREMENTS**
-
-### **MANDATORY Coverage Targets:**
-- **Utility Functions**: 95%+ coverage
-- **Service Layer**: 90%+ coverage
-- **Custom Hooks**: 85%+ coverage
-- **Components**: 80%+ coverage
-- **Overall Project**: 85%+ coverage
-
-### **Coverage Validation:**
-```bash
-# ALWAYS run coverage after implementing tests
-npm run test:coverage
-
-# Verify coverage meets requirements
-# Update status document with actual coverage numbers
-```
-
----
-
-## 📝 **DOCUMENTATION REQUIREMENTS**
-
-### **ALWAYS UPDATE** `docs/UNIT_TESTING_STATUS.md` with:
-
-#### **For Each Test File:**
 ```markdown
-## [Component/Service Name] Tests
+# Manual Verification Guide
+## [Feature Name] - [Source File Path]
 
-**File**: `src/[path]/[name].test.tsx`
-**Status**: ✅ Completed / 🚧 In Progress / ❌ Not Started
-**Coverage**: XX%
-**Last Updated**: YYYY-MM-DD
+**Test File**: `[test-file-name].test.ts`  
+**Source File**: `[source-file-path]`  
+**Last Updated**: [Date]
 
-### Test Cases:
-- [x] Renders correctly with required props
-- [x] Handles user interactions
-- [x] Manages state properly
-- [x] Handles error states
-- [x] Accessibility compliance
+---
 
-### Notes:
-- Any specific implementation notes
-- Mocking strategies used
-- Edge cases covered
-- Performance considerations
+## 📋 Overview
 
-### Coverage Details:
-- Lines: XX/XX (XX%)
-- Functions: XX/XX (XX%)
-- Branches: XX/XX (XX%)
-- Statements: XX/XX (XX%)
+Brief description of what this file does and why manual verification is needed.
+
+---
+
+## 🎯 Functions/Components to Verify
+
+1. `functionName1()` - Brief description
+2. `functionName2()` - Brief description
+
+---
+
+## 1️⃣ Function/Component Name
+
+### Function Purpose
+What this function does
+
+### Where It's Used
+- File 1 - Context
+- File 2 - Context
+
+### Manual Verification Steps
+
+#### Step 1: [Action]
+1. Navigate to [location]
+2. Perform [action]
+3. Observe [result]
+
+#### Step 2: Check Console Log
+```javascript
+// Expected console output
+console.log('Expected message', expectedValue)
 ```
 
-#### **For Each Testing Session:**
-```markdown
-## Testing Session - YYYY-MM-DD
+#### Step 3: Check Toast Notifications
+- ✅ Success toast: "[Success message]"
+- ❌ Error toast: "[Error message]"
+- ℹ️ Info toast: "[Info message]"
 
-### Tests Implemented:
-- [Component/Service Name] - [Status]
+#### Step 4: Verify in Database (Firestore/Other)
+1. Open database console
+2. Navigate to [collection/table]
+3. Verify [field] contains [expected value]
 
-### Coverage Changes:
-- Overall: XX% → XX% (+/-XX%)
-- [Specific Area]: XX% → XX% (+/-XX%)
+#### Expected Results
+- ✅ [Expected result 1]
+- ✅ [Expected result 2]
+- ✅ [Expected result 3]
 
-### Issues Resolved:
-- [Issue description and solution]
+#### Edge Cases to Test
+| Test Case | Input | Expected Output |
+|-----------|-------|-----------------|
+| Normal | value | result |
+| Edge | value | result |
 
-### Next Priorities:
-- [Next items to test]
+---
+
+## 🔍 Common Issues & Troubleshooting
+
+### Issue 1: [Problem]
+**Symptom**: [What user sees]
+
+**Check**:
+1. [Thing to check]
+2. [Thing to check]
+
+**Solution**: [How to fix]
+
+---
+
+## 📊 Test Checklist
+
+- [ ] Console logs show expected output
+- [ ] Toast notifications appear correctly
+- [ ] Database updates are correct
+- [ ] UI reflects changes properly
+- [ ] No errors in browser console
+
+---
+
+**Last Verified**: [Date]  
+**Verified By**: [Name/Team]  
+**Status**: ✅ All tests passing
+```
 ```
 
 ---
 
-## 🎯 **IMPLEMENTATION PRIORITIES**
+## 🎯 REQUIRED TEST CATEGORIES
 
-### **Phase 1: Foundation (Weeks 1-2)**
-1. ✅ Set up testing environment
-2. ✅ Create mock implementations
-3. ✅ Write utility function tests
-4. ✅ Document all progress
+For each function/component, test:
 
-### **Phase 2: Core Services (Weeks 3-4)**
-1. 🚧 Firestore service tests
-2. 🚧 Storage manager tests
-3. 🚧 Background sync tests
-4. 📝 Update documentation
-
-### **Phase 3: Hooks & Context (Weeks 5-6)**
-1. ❌ Custom hooks tests
-2. ❌ AuthContext tests
-3. ❌ Form validation tests
-4. 📝 Update documentation
-
-### **Phase 4: Components (Weeks 7-8)**
-1. ❌ Common components tests
-2. ❌ Business components tests
-3. ❌ Layout components tests
-4. 📝 Update documentation
+1. **Main behavior** - Normal use case
+2. **Edge cases** - Null, empty, extreme values
+3. **Error handling** - Network errors, validation, permissions
+4. **Business edge cases** - Specific domain cases
+5. **Integrations** - Interactions with other services (if needed)
 
 ---
 
-## 🚨 **CRITICAL REMINDERS**
+## 🚨 CRITICAL RULES
 
-### **BEFORE EVERY TEST IMPLEMENTATION:**
-1. **READ** the main testing guide
-2. **CHECK** current testing status
-3. **PLAN** test cases and coverage
-4. **SETUP** proper mocks and fixtures
+### RULE 1: Never write tests that mask problems
 
-### **DURING TEST IMPLEMENTATION:**
-1. **FOLLOW** established patterns
-2. **WRITE** comprehensive test cases
-3. **MOCK** all external dependencies
-4. **ENSURE** proper error handling
+**❌ BAD**:
+```typescript
+// Test that passes by mocking everything, masking strong coupling
+it('should create sale', async () => {
+  vi.mock('firebase/firestore') // Direct mock = masks the problem
+  // Test passes but code remains poorly designed
+})
+```
 
-### **AFTER EVERY TEST IMPLEMENTATION:**
-1. **RUN** tests and verify they pass
-2. **CHECK** coverage meets requirements
-3. **UPDATE** status documentation
-4. **COMMIT** changes with descriptive messages
+**✅ GOOD**:
+```typescript
+// First refactor to use a repository
+// Then test the abstract repository
+it('should create sale via repository', async () => {
+  const saleRepository = new SaleRepository(mockFirestore)
+  // Test reveals real problems
+})
+```
+
+### RULE 2: Tests must guide refactoring
+
+If a test is difficult to write:
+1. **STOP** writing the test
+2. **IDENTIFY** why it's difficult
+3. **REFACTOR** the code to make it testable
+4. **THEN** write the test
+
+### RULE 3: Mock consistency
+
+- **ALWAYS** use centralized mocks
+- **NEVER** create ad-hoc mocks in each test
+- **ALWAYS** use standardized fixtures
+
+### RULE 4: Test behavior, not implementation
+
+**❌ BAD**:
+```typescript
+it('should call Firebase collection with "products"', () => {
+  // Tests implementation, not behavior
+})
+```
+
+**✅ GOOD**:
+```typescript
+it('should retrieve product by ID', async () => {
+  // Tests expected behavior
+})
+```
 
 ---
 
-## 🔍 **QUALITY CHECKLIST**
+## 📊 COVERAGE REQUIREMENTS
 
-### **Before Submitting Any Test:**
-- [ ] All tests pass (`npm run test`)
-- [ ] Coverage meets requirements (`npm run test:coverage`)
-- [ ] Proper mocking implemented
-- [ ] Error cases covered
-- [ ] Accessibility tested
+- **Utility functions**: 95%+ (pure logic, easy to test)
+- **Services/Repositories**: 90%+ (after refactoring)
+- **Custom hooks**: 85%+ (after simplification)
+- **Components**: 80%+ (after extracting business logic)
+- **Overall project**: 85%+
+
+---
+
+## 🔄 TEST-GUIDED REFACTORING PROCESS
+
+### When identifying a problem during tests:
+
+1. **DOCUMENT** the problem in a comment
+2. **CREATE a refactoring issue** (in comments)
+3. **WRITE the test for current behavior** (even if code is bad)
+4. **REFACTOR** the code
+5. **VERIFY** tests still pass
+6. **IMPROVE** tests if necessary
+
+### Refactoring comment example:
+
+```typescript
+/**
+ * TODO REFACTORING: This function is difficult to test because:
+ * 1. It mixes validation + calculations + DB + audit
+ * 2. It has 8 parameters (should use a config object)
+ * 3. It directly accesses Firebase (should use a repository)
+ * 
+ * REFACTORING PLAN:
+ * - Extract validateSaleData()
+ * - Extract calculateSaleTotals()
+ * - Create SaleRepository for DB operations
+ * - Simplify createSale() to orchestrate extracted functions
+ */
+```
+
+---
+
+## 📚 MANDATORY REFERENCES
+
+Before writing tests, consult:
+1. `docs/UNIT_TESTING_IMPLEMENTATION_GUIDE.md` - Complete guide
+2. `docs/UNIT_TESTING_STATUS.md` - Current test status
+3. `src/__tests__/mocks/` - Available mocks
+4. `src/__tests__/utils/fixtures/` - Available fixtures
+
+---
+
+## ✅ CHECKLIST BEFORE SUBMITTING A TEST
+
+- [ ] Complete code analysis performed
+- [ ] Design problems identified and documented
+- [ ] Critical refactoring performed (if necessary)
+- [ ] Tests written for behavior, not implementation
+- [ ] Centralized mocks used
+- [ ] Standardized fixtures used
+- [ ] All tests pass
+- [ ] Required coverage achieved
 - [ ] Documentation updated
-- [ ] Code follows patterns
-- [ ] No console errors/warnings
-
-### **Test Quality Indicators:**
-- [ ] Tests are independent and isolated
-- [ ] Tests are fast (< 100ms each)
-- [ ] Tests are readable and maintainable
-- [ ] Tests cover edge cases
-- [ ] Tests use realistic data
-- [ ] Tests verify behavior, not implementation
 
 ---
 
-## 📚 **REFERENCE MATERIALS**
+## 🎯 COMPLETE EXAMPLE: Process for testing `createSale`
 
-### **Always Consult:**
-1. `docs/UNIT_TESTING_IMPLEMENTATION_GUIDE.md` - Main testing guide
-2. `docs/UNIT_TESTING_STATUS.md` - Current testing status
-3. `src/__tests__/utils/render.tsx` - Custom render function
-4. `src/__tests__/mocks/` - Mock implementations
-5. `src/__tests__/utils/fixtures/` - Test data
+### STEP 1: Analysis
 
-### **Testing Patterns to Follow:**
-- Component testing patterns
-- Hook testing patterns
-- Service testing patterns
-- Utility function testing patterns
-- Mocking strategies
-- Error handling patterns
+```typescript
+// Analyze createSale in firestore.ts
+// Identify:
+// 1. ✅ Strong coupling with Firebase (direct db import)
+// 2. ✅ Too many responsibilities (validation + calculations + DB + audit)
+// 3. ✅ Function too long (140 lines)
+// 4. ✅ Business logic mixed with DB operations
+```
 
----
+### STEP 2: Necessary refactoring
 
-## 🎯 **SUCCESS METRICS**
+```typescript
+// Create:
+// 1. SaleValidationService (pure validation)
+// 2. SaleCalculationService (pure calculations)
+// 3. SaleRepository (abstract DB operations)
+// 4. Refactor createSale to orchestrate these services
+```
 
-### **Weekly Goals:**
-- Implement tests for 2-3 components/services
-- Achieve 85%+ coverage for implemented areas
-- Update documentation completely
-- Resolve any testing issues
+### STEP 3: Tests
 
-### **Overall Goals:**
-- 85%+ overall project coverage
-- 95%+ coverage for business logic
-- 100% documentation coverage
-- Zero failing tests
-- Fast test execution (< 30 seconds)
-
----
-
-## 🚀 **GETTING STARTED**
-
-### **For Each New Test Session:**
-1. **Read** this instruction file
-2. **Check** `docs/UNIT_TESTING_STATUS.md`
-3. **Review** `docs/UNIT_TESTING_IMPLEMENTATION_GUIDE.md`
-4. **Select** next component/service to test
-5. **Plan** test cases and coverage
-6. **Implement** tests following patterns
-7. **Update** documentation
-8. **Commit** with descriptive message
-
-### **Remember:**
-- **Quality over quantity** - Better to have fewer, high-quality tests
-- **Documentation is mandatory** - Always update status files
-- **Follow patterns** - Consistency is key
-- **Test behavior** - Focus on what users do, not implementation
-- **Mock everything** - External dependencies must be mocked
+```typescript
+// Test:
+// 1. SaleValidationService.test.ts (pure tests, fast)
+// 2. SaleCalculationService.test.ts (pure tests, fast)
+// 3. SaleRepository.test.ts (with Firebase mocks)
+// 4. createSale.test.ts (light integration tests)
+```
 
 ---
 
-**🎯 Your mission: Create the most comprehensive, well-documented, and high-quality test suite for the Le Bon Prix application while maintaining detailed documentation of every step.**
+## 🔍 AUTOMATIC PROBLEM DETECTION
 
-**Remember: Every test you write is an investment in the application's future maintainability and reliability. Make it count!**
+### Patterns to automatically detect:
+
+1. **Direct Firebase imports**:
+   - `import { db, auth, storage } from '../services/firebase'`
+   - `import { collection, doc } from 'firebase/firestore'` in components/pages
+
+2. **Functions too long**:
+   - More than 50 lines = suspect
+   - More than 100 lines = critical problem
+
+3. **Too many parameters**:
+   - More than 5 parameters = use a config object
+
+4. **Calculations in useMemo/useEffect**:
+   - More than 10 lines of calculations = extract to a function
+
+5. **Overly complex hooks**:
+   - More than 300 lines = simplify
+
+---
+
+---
+
+## 📋 MANUAL VERIFICATION REQUIREMENTS
+
+### Purpose of Manual Verification Guides
+
+Every test folder MUST include a `MANUAL_VERIFICATION.md` file that provides:
+1. **UI Testing Instructions** - How to verify the functionality in the user interface
+2. **Toast Notification Checks** - What success/error messages should appear
+3. **Console Log Verification** - What should be logged and when
+4. **Database Verification** - How to verify data in Firestore/database
+5. **Edge Case Testing** - Manual tests for edge cases
+
+### What to Include in Manual Guides
+
+#### 1. UI Testing Steps
+- Clear step-by-step instructions
+- Screenshots or descriptions of where to click
+- What user actions trigger the function
+- What should appear on screen
+
+#### 2. Toast Notifications
+```markdown
+- ✅ Success: "Employee added successfully"
+- ❌ Error: "Failed to add employee: Invalid email"
+- ℹ️ Info: "Generating employee ID..."
+- ⚠️ Warning: "Employee already exists"
+```
+
+#### 3. Console Logs
+```javascript
+// What should appear in browser console
+console.log('Generated password:', 'John123Doe')
+console.error('Error creating employee:', error)
+```
+
+#### 4. Database Checks
+```markdown
+**Firestore Path**: `companies/{companyId}/employees/{employeeId}`
+**Expected Fields**:
+- id: "emp_1700000000000_abc123"
+- firstname: "John"
+- hashedPassword: "[64-char hex string]"
+```
+
+#### 5. Edge Cases
+Tables showing inputs and expected outputs for manual testing
+
+### When Manual Verification is Critical
+
+Manual verification is ESPECIALLY important for:
+- User-facing features (forms, modals, pages)
+- Payment processing
+- Authentication and authorization
+- Data creation/modification
+- File uploads
+- External API integrations
+- Real-time updates (websockets, listeners)
+
+### Manual Verification Checklist
+
+Each `MANUAL_VERIFICATION.md` must include:
+- [ ] Overview of what's being tested
+- [ ] List of functions/components to verify
+- [ ] Step-by-step UI testing instructions
+- [ ] Expected toast notifications
+- [ ] Expected console logs
+- [ ] Database verification steps
+- [ ] Edge cases table
+- [ ] Common issues & troubleshooting
+- [ ] Test checklist
+
+---
+
+**🎯 Your mission: Create tests that reveal problems, guide refactoring, and maintain code quality. Never mask problems with complex mocks. Provide clear manual verification guides for QA and developers.**
