@@ -115,53 +115,6 @@ export const createStockBatch = (
 };
 
 /**
- * Calculate total stock value and average cost price
- */
-export const calculateStockValue = (batches: StockBatch[]): {
-  totalStock: number;
-  totalValue: number;
-  averageCostPrice: number;
-  activeBatches: number;
-} => {
-  const activeBatches = batches.filter(batch => batch.status === 'active' && batch.remainingQuantity > 0);
-  const totalStock = activeBatches.reduce((sum, batch) => sum + batch.remainingQuantity, 0);
-  const totalValue = activeBatches.reduce((sum, batch) => sum + (batch.remainingQuantity * batch.costPrice), 0);
-  const averageCostPrice = totalStock > 0 ? totalValue / totalStock : 0;
-  
-  return {
-    totalStock,
-    totalValue,
-    averageCostPrice,
-    activeBatches: activeBatches.length
-  };
-};
-
-/**
- * Get stock batch statistics
- */
-export const getBatchStatistics = (batches: StockBatch[]): {
-  totalBatches: number;
-  activeBatches: number;
-  depletedBatches: number;
-  totalStockValue: number;
-  averageCostPrice: number;
-} => {
-  const activeBatches = batches.filter(batch => batch.status === 'active' && batch.remainingQuantity > 0);
-  const depletedBatches = batches.filter(batch => batch.status === 'depleted');
-  const totalStockValue = activeBatches.reduce((sum, batch) => sum + (batch.remainingQuantity * batch.costPrice), 0);
-  const totalStock = activeBatches.reduce((sum, batch) => sum + batch.remainingQuantity, 0);
-  const averageCostPrice = totalStock > 0 ? totalStockValue / totalStock : 0;
-  
-  return {
-    totalBatches: batches.length,
-    activeBatches: activeBatches.length,
-    depletedBatches: depletedBatches.length,
-    totalStockValue,
-    averageCostPrice
-  };
-};
-
-/**
  * Validate stock batch data
  */
 export const validateStockBatch = (batch: Partial<StockBatch>): string[] => {
