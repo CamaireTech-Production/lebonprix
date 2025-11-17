@@ -4,7 +4,17 @@ import { useAuth } from '../contexts/AuthContext';
 import { useFinanceEntries, useSales, useExpenses, useProducts, useStockChanges } from './useFirestore';
 import FinanceEntryTypesManager from '../services/storage/FinanceEntryTypesManager';
 import BackgroundSyncService from '../services/backgroundSync';
-import { getLatestCostPrice } from '../utils/productUtils';
+import {
+  calculateTotalProfit,
+  calculateTotalExpenses,
+  calculateSolde,
+  calculateTotalPurchasePrice,
+  calculateTotalSalesAmount,
+  calculateTotalDeliveryFee,
+  calculateTotalProductsSold,
+  calculateTotalOrders,
+  calculateTotalDebt
+} from '../utils/financialCalculations';
 import type { FinanceEntryType } from '../types/models';
 
 interface UseFinancialDataReturn {
@@ -91,60 +101,36 @@ export const useFinancialData = (dateRange: { from: Date; to: Date } = { from: n
       new Date(entry.createdAt.seconds * 1000) <= dateRange.to
     );
     
-    // Calculate profit (gross profit: selling price - purchase price) * quantity for filtered sales
-    const profit = filteredSales.reduce((sum, sale) => {
-      return sum + sale.products.reduce((productSum, product) => {
-        const productData = products.find(p => p.id === product.productId);
-        if (!productData) return productSum;
-        const sellingPrice = product.negotiatedPrice || product.basePrice;
-        const safeStockChanges = Array.isArray(stockChanges) ? stockChanges : [];
-        const costPrice = getLatestCostPrice(productData.id, safeStockChanges);
-        if (costPrice === undefined) return productSum;
-        return productSum + (sellingPrice - costPrice) * product.quantity;
-      }, 0);
-    }, 0);
+    // Calculate financial metrics using extracted functions
+    const profit = calculateTotalProfit(filteredSales, products, stockChanges);
     
     // Calculate total expenses (filtered expenses + manual negative entries)
     const filteredManualEntries = filteredFinanceEntries.filter(entry => entry.sourceType === 'manual');
-    const totalExpenses = filteredExpenses.reduce((sum, exp) => sum + exp.amount, 0) + 
-      filteredManualEntries.filter(e => e.amount < 0).reduce((sum, e) => sum + Math.abs(e.amount), 0);
+    const totalExpenses = calculateTotalExpenses(filteredExpenses, filteredManualEntries);
     
     // Total orders (filtered)
-    const totalOrders = filteredSales.length;
+    const totalOrders = calculateTotalOrders(filteredSales);
     
     // Total delivery fee (from filtered sales)
-    const totalDeliveryFee = filteredSales.reduce((sum, sale) => sum + (sale.deliveryFee || 0), 0);
+    const totalDeliveryFee = calculateTotalDeliveryFee(filteredSales);
     
     // Total sales amount (filtered)
-    const totalSalesAmount = filteredSales.reduce((sum, sale) => sum + sale.totalAmount, 0);
+    const totalSalesAmount = calculateTotalSalesAmount(filteredSales);
     
     // Total products sold (sum of all product quantities in filtered sales)
-    const totalProductsSold = filteredSales.reduce((sum, sale) => sum + sale.products.reduce((pSum, p) => pSum + p.quantity, 0), 0);
+    const totalProductsSold = calculateTotalProductsSold(filteredSales);
     
     // Calculate total purchase price for all products in stock (this is not date-filtered as it's current stock)
-    const totalPurchasePrice = products.reduce((sum, product) => {
-      const safeStockChanges = Array.isArray(stockChanges) ? stockChanges : [];
-      const costPrice = getLatestCostPrice(product.id, safeStockChanges);
-      if (costPrice === undefined) return sum;
-      return sum + (costPrice * product.stock);
-    }, 0);
+    const totalPurchasePrice = calculateTotalPurchasePrice(products, stockChanges);
     
     // Calculate solde: sum of all non-debt/refund entries (filtered by date)
-    const nonDebtEntries = filteredFinanceEntries.filter(
-      (entry) => entry.type !== 'debt' && entry.type !== 'refund' && entry.type !== 'supplier_debt' && entry.type !== 'supplier_refund'
-    );
-    const solde = nonDebtEntries.reduce((sum, entry) => sum + entry.amount, 0);
+    // Note: This hook only calculates solde without customer debt, so we pass empty arrays
+    const solde = calculateSolde(filteredFinanceEntries, [], []);
     
     // Calculate total debt (all debt entries, not date-filtered as debt is ongoing)
     const debtEntries = financeEntries.filter(entry => entry.type === 'debt' || entry.type === 'supplier_debt');
     const refundEntries = financeEntries.filter(entry => entry.type === 'refund' || entry.type === 'supplier_refund');
-    const totalDebt = debtEntries.reduce((sum, debt) => {
-      const linkedRefunds = refundEntries.filter(refund => 
-        refund.refundedDebtId && String(refund.refundedDebtId) === String(debt.id)
-      );
-      const refundedAmount = linkedRefunds.reduce((s, r) => s + r.amount, 0);
-      return sum + Math.max(0, debt.amount - refundedAmount);
-    }, 0);
+    const totalDebt = calculateTotalDebt(debtEntries, refundEntries);
     
     // Update calculations
     Object.assign(financialCalculations, {

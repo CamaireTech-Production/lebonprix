@@ -15,6 +15,7 @@ import LoadingScreen from '../components/common/LoadingScreen';
 import { showSuccessToast, showErrorToast, showWarningToast } from '../utils/toast';
 import type { Supplier, FinanceEntry } from '../types/models';
 import StatCard from '../components/dashboard/StatCard';
+import { calculateSolde } from '../utils/financialCalculations';
 
 const Suppliers = () => {
   const { t } = useTranslation();
@@ -356,15 +357,12 @@ const Suppliers = () => {
         <div className="w-full">
           <StatCard
             title={t('dashboard.stats.solde')}
-                         value={(() => {
-               // Calculate solde: sum of all non-debt/refund/supplier_debt/supplier_refund entries
-               const nonSupplierEntries = entries.filter(
-                 (entry: FinanceEntry) => entry.type !== 'debt' && entry.type !== 'refund' && entry.type !== 'supplier_debt' && entry.type !== 'supplier_refund'
-               );
-               const nonSupplierSum = nonSupplierEntries.reduce((sum, entry) => sum + entry.amount, 0);
-               // Don't add supplier debt to balance - it's a liability, not cash
-               return nonSupplierSum.toLocaleString() + ' XAF';
-             })()}
+            value={(() => {
+              // Calculate solde using extracted function
+              // Note: Suppliers page only uses non-debt entries, so we pass empty arrays for debt/refund
+              const solde = calculateSolde(entries, [], []);
+              return solde.toLocaleString() + ' XAF';
+            })()}
             icon={<DollarSign size={24} />}
             type="solde"
             className="ring-2 ring-green-400 shadow bg-green-50 text-green-900 border border-green-200 rounded-xl py-2 mb-2 w-full text-base md:text-xl font-bold break-words"

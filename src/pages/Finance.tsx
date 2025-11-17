@@ -17,7 +17,16 @@ import ObjectivesBar from '../components/objectives/ObjectivesBar';
 import ObjectivesModal from '../components/objectives/ObjectivesModal';
 import { showSuccessToast, showErrorToast } from '../utils/toast';
 import type { FinanceEntry } from '../types/models';
-import { getLatestCostPrice } from '../utils/productUtils';
+import {
+  calculateTotalProfit,
+  calculateTotalExpenses,
+  calculateSolde,
+  calculateTotalPurchasePrice,
+  calculateTotalSalesAmount,
+  calculateTotalDeliveryFee,
+  calculateTotalProductsSold,
+  calculateTotalOrders
+} from '../utils/financialCalculations';
 // Removed skeleton loaders and sync indicator imports - back to original approach
 
 type CustomerDebt = {
@@ -213,10 +222,9 @@ const Finance: React.FC = () => {
     }, 0);
   }, [userDebt.debtEntries, userDebt.refundEntries]);
 
-  // Calculate solde: sum of all non-debt/refund/supplier_debt/supplier_refund entries plus only customer debt (excluding supplier debt)
+  // Calculate solde using extracted function
   const solde = useMemo<number>(() => {
-    const activeEntries = effectiveEntries.filter((entry: FinanceEntry) => entry.isDeleted !== true);
-    const nonDebtEntries = activeEntries.filter(
+    const nonDebtEntries = filteredFinanceEntries.filter(
       (entry: FinanceEntry) => entry.type !== 'debt' && entry.type !== 'refund' && entry.type !== 'supplier_debt' && entry.type !== 'supplier_refund'
     );
     const nonDebtSum = nonDebtEntries.reduce((sum: number, entry: FinanceEntry) => sum + entry.amount, 0);
@@ -236,7 +244,7 @@ const Finance: React.FC = () => {
       }, 0);
     
     return nonDebtSum + customerDebt;
-  }, [effectiveEntries, userDebt.debtEntries, userDebt.refundEntries]);
+  }, [filteredFinanceEntries, userDebt.debtEntries, userDebt.refundEntries]);
 
   // Filtering logic
   const filteredAndSearchedEntries = useMemo(() => {
@@ -299,38 +307,22 @@ const Finance: React.FC = () => {
   }, [entries, currentPage]);
 
 
-  // 🚀 REVERTED: Direct financial calculations (as they were working before) - MOVED BEFORE EARLY RETURN
+  // Financial calculations using extracted functions
   const profit = useMemo<number>(() => {
-    return filteredSales.reduce((sum, sale) => {
-      return sum + sale.products.reduce((productSum, product) => {
-        const productData = products.find(p => p.id === product.productId);
-        if (!productData) return productSum;
-        const sellingPrice = product.negotiatedPrice || product.basePrice;
-        const safeStockChanges = Array.isArray(stockChanges) ? stockChanges : [];
-        const costPrice = getLatestCostPrice(productData.id, safeStockChanges);
-        if (costPrice === undefined) return productSum;
-        return productSum + (sellingPrice - costPrice) * product.quantity;
-      }, 0);
-    }, 0);
+    return calculateTotalProfit(filteredSales, products, stockChanges);
   }, [filteredSales, products, stockChanges]);
 
   const totalExpenses = useMemo<number>(() => {
-    return filteredExpenses.reduce((sum, exp) => sum + exp.amount, 0) + 
-      filteredManualEntries.filter(e => e.amount < 0).reduce((sum, e) => sum + Math.abs(e.amount), 0);
+    return calculateTotalExpenses(filteredExpenses, filteredManualEntries);
   }, [filteredExpenses, filteredManualEntries]);
 
-  const totalOrders = filteredSales.length;
-  const totalDeliveryFee = filteredSales.reduce((sum, sale) => sum + (sale.deliveryFee || 0), 0);
-  const totalSalesAmount = filteredSales.reduce((sum, sale) => sum + sale.totalAmount, 0);
-  const totalProductsSold = filteredSales.reduce((sum, sale) => sum + sale.products.reduce((pSum, p) => pSum + p.quantity, 0), 0);
+  const totalOrders = calculateTotalOrders(filteredSales);
+  const totalDeliveryFee = calculateTotalDeliveryFee(filteredSales);
+  const totalSalesAmount = calculateTotalSalesAmount(filteredSales);
+  const totalProductsSold = calculateTotalProductsSold(filteredSales);
 
   const totalPurchasePrice = useMemo<number>(() => {
-    return products.reduce((sum, product) => {
-      const safeStockChanges = Array.isArray(stockChanges) ? stockChanges : [];
-      const costPrice = getLatestCostPrice(product.id, safeStockChanges);
-      if (costPrice === undefined) return sum;
-      return sum + (costPrice * product.stock);
-    }, 0);
+    return calculateTotalPurchasePrice(products, stockChanges);
   }, [products, stockChanges]);
 
   // 🚀 HYBRID APPROACH: Only show loading screen if essential data is loading
