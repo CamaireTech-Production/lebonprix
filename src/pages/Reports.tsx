@@ -3,20 +3,26 @@ import { Calendar, FileDown } from 'lucide-react';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Input from '../components/common/Input';
-import { Line } from 'react-chartjs-2';
+import { Line, Pie } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
   PointElement,
   LineElement,
+  ArcElement,
   Title,
   Tooltip,
   Legend,
   ChartOptions
 } from 'chart.js';
-import { useProducts, useSales, useExpenses } from '../hooks/useFirestore';
+import { useProducts, useSales, useExpenses, useCategories } from '../hooks/useFirestore';
 import type { Timestamp, Product, Sale, Expense } from '../types/models';
+import ComparisonIndicator from '../components/reports/ComparisonIndicator';
+import KPICard from '../components/reports/KPICard';
+import QuickReportsBar from '../components/reports/QuickReportsBar';
+import SavedReportsManager, { SavedReport } from '../components/reports/SavedReportsManager';
+import { useAuth } from '../contexts/AuthContext';
 
 // Register Chart.js components
 ChartJS.register(
@@ -24,6 +30,7 @@ ChartJS.register(
   LinearScale,
   PointElement,
   LineElement,
+  ArcElement,
   Title,
   Tooltip,
   Legend
@@ -54,15 +61,28 @@ const Reports = () => {
   const [startDate, setStartDate] = useState<string>(defaultRange.start);
   const [endDate, setEndDate] = useState<string>(defaultRange.end);
   const [selectedProduct, setSelectedProduct] = useState('all');
+  const [selectedCategory, setSelectedCategory] = useState('all');
   const [period, setPeriod] = useState<'none' | 'today' | 'daily' | 'weekly' | 'monthly' | 'yearly'>('weekly');
+  const [showTrend, setShowTrend] = useState(() => {
+    const saved = localStorage.getItem('reports_showTrend');
+    return saved === 'true';
+  });
   
   const { sales } = useSales();
   const { expenses } = useExpenses();
   const { products } = useProducts();
+  const { categories } = useCategories();
+  const { company } = useAuth();
 
   const toDate = (ts?: Timestamp) => (ts?.seconds ? new Date(ts.seconds * 1000) : null);
-  const start = useMemo(() => new Date(startDate + 'T00:00:00'), [startDate]);
-  const end = useMemo(() => new Date(endDate + 'T23:59:59'), [endDate]);
+  const start = useMemo(() => {
+    const [year, month, day] = startDate.split('-').map(Number);
+    return new Date(year, month - 1, day, 0, 0, 0, 0);
+  }, [startDate]);
+  const end = useMemo(() => {
+    const [year, month, day] = endDate.split('-').map(Number);
+    return new Date(year, month - 1, day, 23, 59, 59, 999);
+  }, [endDate]);
   const inRange = useCallback((d: Date | null) => !!d && d >= start && d <= end, [start, end]);
 
   const productOptions = useMemo(() => {
@@ -115,15 +135,113 @@ const Reports = () => {
     // For 'none' period, keep the current date range as is
   }, [period, startOfWeek, startOfMonth, startOfYear]);
 
+  // Quick reports handler
+  const handleQuickReport = (period: string) => {
+    const today = new Date();
+    let start: Date, end: Date;
+
+    switch (period) {
+      case 'thisWeek': {
+        const day = (today.getDay() + 6) % 7;
+        start = new Date(today);
+        start.setDate(today.getDate() - day);
+        start.setHours(0, 0, 0, 0);
+        end = new Date(start);
+        end.setDate(start.getDate() + 6);
+        end.setHours(23, 59, 59, 999);
+        break;
+      }
+      case 'lastWeek': {
+        const day = (today.getDay() + 6) % 7;
+        start = new Date(today);
+        start.setDate(today.getDate() - day - 7);
+        start.setHours(0, 0, 0, 0);
+        end = new Date(start);
+        end.setDate(start.getDate() + 6);
+        end.setHours(23, 59, 59, 999);
+        break;
+      }
+      case 'thisMonth': {
+        start = new Date(today.getFullYear(), today.getMonth(), 1);
+        end = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999);
+        break;
+      }
+      case 'lastMonth': {
+        start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+        end = new Date(today.getFullYear(), today.getMonth(), 0, 23, 59, 59, 999);
+        break;
+      }
+      case 'thisQuarter': {
+        const quarter = Math.floor(today.getMonth() / 3);
+        start = new Date(today.getFullYear(), quarter * 3, 1);
+        end = new Date(today.getFullYear(), (quarter + 1) * 3, 0, 23, 59, 59, 999);
+        break;
+      }
+      case 'lastQuarter': {
+        const quarter = Math.floor(today.getMonth() / 3);
+        const lastQuarter = quarter === 0 ? 3 : quarter - 1;
+        const year = quarter === 0 ? today.getFullYear() - 1 : today.getFullYear();
+        start = new Date(year, lastQuarter * 3, 1);
+        end = new Date(year, (lastQuarter + 1) * 3, 0, 23, 59, 59, 999);
+        break;
+      }
+      case 'thisYear': {
+        start = new Date(today.getFullYear(), 0, 1);
+        end = new Date(today.getFullYear(), 11, 31, 23, 59, 59, 999);
+        break;
+      }
+      case 'lastYear': {
+        start = new Date(today.getFullYear() - 1, 0, 1);
+        end = new Date(today.getFullYear() - 1, 11, 31, 23, 59, 59, 999);
+        break;
+      }
+      default:
+        return;
+    }
+
+    setStartDate(toYMD(start));
+    setEndDate(toYMD(end));
+    
+    // Set appropriate period
+    if (period.includes('Week')) setPeriod('weekly');
+    else if (period.includes('Month')) setPeriod('monthly');
+    else if (period.includes('Quarter')) setPeriod('monthly');
+    else if (period.includes('Year')) setPeriod('yearly');
+  };
+
+  // Load saved report handler
+  const handleLoadReport = (report: SavedReport) => {
+    setStartDate(report.startDate);
+    setEndDate(report.endDate);
+    setSelectedProduct(report.selectedProduct);
+    setSelectedCategory(report.selectedCategory);
+    setPeriod(report.period as any);
+  };
+
 
   const filteredSales: Sale[] = useMemo(() => {
-    const byDate = sales.filter(s => inRange(toDate(s.createdAt)));
-    if (selectedProduct === 'all') return byDate;
-    return byDate.filter(sale => sale.products.some(sp => sp.productId === selectedProduct));
-  }, [sales, inRange, selectedProduct]);
+    let byDate = sales.filter(s => s.isAvailable !== false && inRange(toDate(s.createdAt)));
+    
+    // Filter by category if selected
+    if (selectedCategory !== 'all') {
+      byDate = byDate.filter(sale => 
+        sale.products.some(sp => {
+          const product = products.find(p => p.id === sp.productId);
+          return product?.category === selectedCategory;
+        })
+      );
+    }
+    
+    // Filter by product if selected
+    if (selectedProduct !== 'all') {
+      byDate = byDate.filter(sale => sale.products.some(sp => sp.productId === selectedProduct));
+    }
+    
+    return byDate;
+  }, [sales, inRange, selectedCategory, selectedProduct, products]);
 
   const filteredExpenses: Expense[] = useMemo(() => {
-    return expenses.filter(e => inRange(toDate(e.createdAt)));
+    return expenses.filter(e => e.isAvailable !== false && inRange(toDate(e.createdAt)));
   }, [expenses, inRange]);
 
   const formatKey = useCallback((d: Date) => {
@@ -157,6 +275,10 @@ const Reports = () => {
   }, [period, startOfYear, startOfMonth, startOfWeek]);
 
   const dateKeys = useMemo(() => {
+    if (start > end) {
+      console.warn('Invalid date range: start date is after end date');
+      return [];
+    }
     const keys: string[] = [];
     let cur = normalizeToBucketStart(start);
     const endNorm = normalizeToBucketStart(end);
@@ -181,9 +303,10 @@ const Reports = () => {
         
         // Calculate cost of goods sold for this sale
         const costOfGoodsSold = s.products.reduce((sum, saleProduct) => {
-          const product = products.find(p => p.id === saleProduct.productId);
-          if (!product) return sum;
-          return sum + ((product.costPrice || 0) * saleProduct.quantity);
+          // Use costPrice from saleProduct (historical price at time of sale)
+          const costPrice = saleProduct.costPrice ?? 
+            products.find(p => p.id === saleProduct.productId)?.costPrice ?? 0;
+          return sum + (costPrice * saleProduct.quantity);
         }, 0);
         
         costOfGoodsSoldByDay[key] += costOfGoodsSold;
@@ -203,12 +326,49 @@ const Reports = () => {
     return { salesData, expensesData, costOfGoodsSoldData, profitData };
   }, [dateKeys, filteredSales, filteredExpenses, products, formatKey, normalizeToBucketStart]);
 
+  // Calculate moving average for trend line
+  const calculateMovingAverage = useCallback((data: number[], window: number): number[] => {
+    if (data.length === 0) return [];
+    const result: number[] = [];
+    for (let i = 0; i < data.length; i++) {
+      const start = Math.max(0, i - Math.floor(window / 2));
+      const end = Math.min(data.length, i + Math.ceil(window / 2));
+      const slice = data.slice(start, end);
+      const avg = slice.reduce((sum, val) => sum + val, 0) / slice.length;
+      result.push(avg);
+    }
+    return result;
+  }, []);
+
+  // Determine window size based on period
+  const trendWindow = useMemo(() => {
+    if (period === 'yearly') return 4;
+    if (period === 'monthly') return 7;
+    if (period === 'weekly' || period === 'daily' || period === 'today') return 3;
+    return 3;
+  }, [period]);
+
+  // Calculate trend data
+  const trendData = useMemo(() => {
+    if (!showTrend) return null;
+    return calculateMovingAverage(series.salesData, trendWindow);
+  }, [showTrend, series.salesData, trendWindow, calculateMovingAverage]);
+
+  // Save trend preference
+  useEffect(() => {
+    localStorage.setItem('reports_showTrend', String(showTrend));
+  }, [showTrend]);
+
   const labels = useMemo(() => {
     return dateKeys.map(k => {
       if (period === 'yearly') return k;
       if (period === 'monthly') {
-        const [y, m] = k.split('-').map(Number);
-        const dt = new Date(y, (m || 1) - 1, 1);
+        const parts = k.split('-').map(Number);
+        if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) {
+          return k; // Fallback to original key
+        }
+        const [y, m] = parts;
+        const dt = new Date(y, Math.max(0, Math.min(11, m - 1)), 1);
         return dt.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
       }
       if (period === 'weekly') {
@@ -223,15 +383,31 @@ const Reports = () => {
     });
   }, [dateKeys, period]);
 
-  const chartData = useMemo(() => ({
-    labels,
-    datasets: [
+  const chartData = useMemo(() => {
+    const datasets = [
       { label: 'Sales', data: series.salesData, borderColor: '#10B981', backgroundColor: 'rgba(16, 185, 129, 0.1)', fill: false, tension: 0.4, borderWidth: 2 },
       { label: 'Cost of Goods Sold', data: series.costOfGoodsSoldData, borderColor: '#F59E0B', backgroundColor: 'rgba(245, 158, 11, 0.1)', fill: false, tension: 0.4, borderWidth: 2 },
       { label: 'Expenses', data: series.expensesData, borderColor: '#EF4444', backgroundColor: 'rgba(239, 68, 68, 0.1)', fill: false, tension: 0.4, borderWidth: 2 },
       { label: 'Net Profit', data: series.profitData, borderColor: '#4F46E5', backgroundColor: 'rgba(79, 70, 229, 0.1)', fill: false, tension: 0.4, borderWidth: 2 },
-    ],
-  }), [labels, series]);
+    ];
+
+    // Add trend line if enabled
+    if (showTrend && trendData) {
+      datasets.push({
+        label: 'Trend Line',
+        data: trendData,
+        borderColor: '#6B7280',
+        backgroundColor: 'rgba(107, 114, 128, 0.1)',
+        fill: false,
+        tension: 0.4,
+        borderWidth: 2,
+        borderDash: [5, 5],
+        pointRadius: 0,
+      } as any);
+    }
+
+    return { labels, datasets };
+  }, [labels, series, showTrend, trendData]);
   
   const chartOptions: ChartOptions<'line'> = {
     responsive: true,
@@ -297,12 +473,9 @@ const Reports = () => {
   const totalCostOfGoodsSold = useMemo(() => {
     return filteredSales.reduce((sum, sale) => {
       return sum + sale.products.reduce((productSum, saleProduct) => {
-        // Find the product to get its cost price
-        const product = products.find(p => p.id === saleProduct.productId);
-        if (!product) return productSum;
-        
-        // Use the cost price from the product (this assumes all products have costPrice)
-        const costPrice = product.costPrice || 0;
+        // Use costPrice from saleProduct (historical price at time of sale)
+        const costPrice = saleProduct.costPrice ?? 
+          products.find(p => p.id === saleProduct.productId)?.costPrice ?? 0;
         return productSum + (costPrice * saleProduct.quantity);
       }, 0);
     }, 0);
@@ -310,24 +483,282 @@ const Reports = () => {
   
   const netProfit = useMemo(() => totalSales - totalCostOfGoodsSold - totalExpenses, [totalSales, totalCostOfGoodsSold, totalExpenses]);
 
+  // Calculate previous period range
+  const getPreviousPeriodRange = useCallback((start: Date, end: Date) => {
+    const duration = end.getTime() - start.getTime();
+    return {
+      start: new Date(start.getTime() - duration - 1),
+      end: new Date(start.getTime() - 1)
+    };
+  }, []);
+
+  const previousPeriodRange = useMemo(() => getPreviousPeriodRange(start, end), [start, end, getPreviousPeriodRange]);
+  const previousInRange = useCallback((d: Date | null) => !!d && d >= previousPeriodRange.start && d <= previousPeriodRange.end, [previousPeriodRange]);
+
+  // Calculate previous period data
+  const previousPeriodData = useMemo(() => {
+    const previousSales = sales.filter(s => s.isAvailable !== false && previousInRange(toDate(s.createdAt)));
+    
+    // Apply same filters as current period
+    let filteredPreviousSales = previousSales;
+    if (selectedCategory !== 'all') {
+      filteredPreviousSales = filteredPreviousSales.filter(sale => 
+        sale.products.some(sp => {
+          const product = products.find(p => p.id === sp.productId);
+          return product?.category === selectedCategory;
+        })
+      );
+    }
+    if (selectedProduct !== 'all') {
+      filteredPreviousSales = filteredPreviousSales.filter(sale => sale.products.some(sp => sp.productId === selectedProduct));
+    }
+
+    const previousExpenses = expenses.filter(e => e.isAvailable !== false && previousInRange(toDate(e.createdAt)));
+
+    const prevTotalSales = filteredPreviousSales.reduce((sum, s) => sum + (s.totalAmount || 0), 0);
+    const prevTotalExpenses = previousExpenses.reduce((sum, e) => sum + (e.amount || 0), 0);
+    
+    const prevTotalCostOfGoodsSold = filteredPreviousSales.reduce((sum, sale) => {
+      return sum + sale.products.reduce((productSum, saleProduct) => {
+        const costPrice = saleProduct.costPrice ?? 
+          products.find(p => p.id === saleProduct.productId)?.costPrice ?? 0;
+        return productSum + (costPrice * saleProduct.quantity);
+      }, 0);
+    }, 0);
+
+    const prevNetProfit = prevTotalSales - prevTotalCostOfGoodsSold - prevTotalExpenses;
+
+    return {
+      totalSales: prevTotalSales,
+      totalCostOfGoodsSold: prevTotalCostOfGoodsSold,
+      totalExpenses: prevTotalExpenses,
+      netProfit: prevNetProfit
+    };
+  }, [sales, expenses, products, previousInRange, selectedCategory, selectedProduct]);
+
+  // Calculate KPI metrics
+  const kpiMetrics = useMemo(() => {
+    const grossMarginRate = totalSales > 0 
+      ? ((totalSales - totalCostOfGoodsSold) / totalSales) * 100 
+      : 0;
+    
+    const netMarginRate = totalSales > 0 
+      ? (netProfit / totalSales) * 100 
+      : 0;
+    
+    const expenseRatio = totalSales > 0 
+      ? (totalExpenses / totalSales) * 100 
+      : 0;
+    
+    const growthRate = previousPeriodData.totalSales > 0
+      ? ((totalSales - previousPeriodData.totalSales) / previousPeriodData.totalSales) * 100
+      : 0;
+    
+    const roi = totalCostOfGoodsSold > 0
+      ? (netProfit / totalCostOfGoodsSold) * 100
+      : 0;
+
+    // Determine status for each KPI
+    const getGrossMarginStatus = (rate: number): 'good' | 'warning' | 'bad' => {
+      if (rate > 30) return 'good';
+      if (rate >= 20) return 'warning';
+      return 'bad';
+    };
+
+    const getNetMarginStatus = (rate: number): 'good' | 'warning' | 'bad' => {
+      if (rate > 15) return 'good';
+      if (rate >= 10) return 'warning';
+      return 'bad';
+    };
+
+    const getExpenseRatioStatus = (ratio: number): 'good' | 'warning' | 'bad' => {
+      if (ratio < 20) return 'good';
+      if (ratio <= 30) return 'warning';
+      return 'bad';
+    };
+
+    return {
+      grossMarginRate: {
+        value: grossMarginRate,
+        status: getGrossMarginStatus(grossMarginRate),
+        trend: previousPeriodData.totalSales > 0 ? {
+          value: ((grossMarginRate - ((previousPeriodData.totalSales - previousPeriodData.totalCostOfGoodsSold) / previousPeriodData.totalSales * 100))),
+          isPositive: grossMarginRate > ((previousPeriodData.totalSales - previousPeriodData.totalCostOfGoodsSold) / previousPeriodData.totalSales * 100)
+        } : undefined
+      },
+      netMarginRate: {
+        value: netMarginRate,
+        status: getNetMarginStatus(netMarginRate),
+        trend: previousPeriodData.totalSales > 0 ? {
+          value: ((netMarginRate - (previousPeriodData.netProfit / previousPeriodData.totalSales * 100))),
+          isPositive: netMarginRate > (previousPeriodData.netProfit / previousPeriodData.totalSales * 100)
+        } : undefined
+      },
+      expenseRatio: {
+        value: expenseRatio,
+        status: getExpenseRatioStatus(expenseRatio),
+        trend: previousPeriodData.totalSales > 0 ? {
+          value: ((expenseRatio - (previousPeriodData.totalExpenses / previousPeriodData.totalSales * 100))),
+          isPositive: expenseRatio < (previousPeriodData.totalExpenses / previousPeriodData.totalSales * 100) // Lower is better
+        } : undefined
+      },
+      growthRate: {
+        value: growthRate,
+        status: growthRate > 0 ? 'good' : growthRate === 0 ? 'warning' : 'bad',
+        trend: undefined
+      },
+      roi: {
+        value: roi,
+        status: roi > 20 ? 'good' : roi >= 10 ? 'warning' : 'bad',
+        trend: previousPeriodData.totalCostOfGoodsSold > 0 ? {
+          value: ((roi - (previousPeriodData.netProfit / previousPeriodData.totalCostOfGoodsSold * 100))),
+          isPositive: roi > (previousPeriodData.netProfit / previousPeriodData.totalCostOfGoodsSold * 100)
+        } : undefined
+      }
+    };
+  }, [totalSales, totalCostOfGoodsSold, totalExpenses, netProfit, previousPeriodData]);
+
   const topProducts = useMemo(() => {
-    const byId = new Map<string, { name: string; quantity: number; customers: Set<string> }>();
-    const productById: Record<string, Product> = Object.fromEntries(products.map(p => [p.id, p]));
+    const byId = new Map<string, { name: string; quantity: number; customers: Set<string>; totalSales: number }>();
+    const productById: Record<string, Product> = Object.fromEntries(
+      products
+        .filter(p => p.isAvailable !== false && p.isDeleted !== true)
+        .map(p => [p.id, p])
+    );
     for (const s of filteredSales) {
       const customerName = s.customerInfo?.name || 'Unknown';
       for (const sp of s.products) {
         if (selectedProduct !== 'all' && sp.productId !== selectedProduct) continue;
-        const entry = byId.get(sp.productId) || { name: productById[sp.productId]?.name || 'Unknown', quantity: 0, customers: new Set<string>() };
+        const entry = byId.get(sp.productId) || { name: productById[sp.productId]?.name || 'Unknown', quantity: 0, customers: new Set<string>(), totalSales: 0 };
         entry.quantity += sp.quantity || 0;
         entry.customers.add(customerName);
+        // Calculate total sales for this product in this sale
+        const unitPrice = sp.negotiatedPrice || sp.basePrice;
+        entry.totalSales += unitPrice * (sp.quantity || 0);
         byId.set(sp.productId, entry);
       }
     }
-    return Array.from(byId.values())
-      .map(v => ({ name: v.name, quantity: v.quantity, customersCount: v.customers.size }))
+    const sorted = Array.from(byId.values())
+      .map(v => ({ name: v.name, quantity: v.quantity, customersCount: v.customers.size, totalSales: v.totalSales }))
       .sort((a, b) => b.quantity - a.quantity)
       .slice(0, 5);
+    
+    // Calculate cumulative sales
+    let cumulative = 0;
+    return sorted.map(item => {
+      cumulative += item.totalSales;
+      return { ...item, cumulativeSales: cumulative };
+    });
   }, [filteredSales, products, selectedProduct]);
+
+  // Product profitability analysis
+  const productProfitability = useMemo(() => {
+    const profitabilityMap = new Map<string, {
+      name: string;
+      quantitySold: number;
+      totalSales: number;
+      totalCOGS: number;
+      grossProfit: number;
+      profitMargin: number;
+    }>();
+
+    const productById: Record<string, Product> = Object.fromEntries(
+      products
+        .filter(p => p.isAvailable !== false && p.isDeleted !== true)
+        .map(p => [p.id, p])
+    );
+
+    for (const sale of filteredSales) {
+      for (const saleProduct of sale.products) {
+        const product = productById[saleProduct.productId];
+        if (!product) continue;
+
+        const entry = profitabilityMap.get(saleProduct.productId) || {
+          name: product.name,
+          quantitySold: 0,
+          totalSales: 0,
+          totalCOGS: 0,
+          grossProfit: 0,
+          profitMargin: 0
+        };
+
+        const unitPrice = saleProduct.negotiatedPrice || saleProduct.basePrice || 0;
+        const quantity = saleProduct.quantity || 0;
+        const costPrice = saleProduct.costPrice ?? product.costPrice ?? 0;
+
+        entry.quantitySold += quantity;
+        entry.totalSales += unitPrice * quantity;
+        entry.totalCOGS += costPrice * quantity;
+        profitabilityMap.set(saleProduct.productId, entry);
+      }
+    }
+
+    // Calculate profit and margin
+    const results = Array.from(profitabilityMap.values()).map(entry => {
+      entry.grossProfit = entry.totalSales - entry.totalCOGS;
+      entry.profitMargin = entry.totalSales > 0 
+        ? (entry.grossProfit / entry.totalSales) * 100 
+        : 0;
+      return entry;
+    });
+
+    // Sort by profit margin descending
+    return results.sort((a, b) => b.profitMargin - a.profitMargin).slice(0, 10);
+  }, [filteredSales, products]);
+
+  // Expense category analysis
+  const expenseCategoryAnalysis = useMemo(() => {
+    const categoryMap = new Map<string, { amount: number; count: number }>();
+
+    for (const expense of filteredExpenses) {
+      const category = expense.category || 'Uncategorized';
+      const entry = categoryMap.get(category) || { amount: 0, count: 0 };
+      entry.amount += expense.amount || 0;
+      entry.count += 1;
+      categoryMap.set(category, entry);
+    }
+
+    const totalExpensesAmount = totalExpenses;
+    return Array.from(categoryMap.entries())
+      .map(([category, data]) => ({
+        category,
+        amount: data.amount,
+        count: data.count,
+        percentage: totalExpensesAmount > 0 ? (data.amount / totalExpensesAmount) * 100 : 0,
+        average: data.count > 0 ? data.amount / data.count : 0
+      }))
+      .sort((a, b) => b.amount - a.amount);
+  }, [filteredExpenses, totalExpenses]);
+
+  // Customer metrics
+  const customerMetrics = useMemo(() => {
+    const customerMap = new Map<string, { orders: number; totalSales: number }>();
+    let totalOrders = 0;
+
+    for (const sale of filteredSales) {
+      const customerName = sale.customerInfo?.name || 'Unknown';
+      const entry = customerMap.get(customerName) || { orders: 0, totalSales: 0 };
+      entry.orders += 1;
+      entry.totalSales += sale.totalAmount || 0;
+      customerMap.set(customerName, entry);
+      totalOrders += 1;
+    }
+
+    const uniqueCustomers = customerMap.size;
+    const averageBasket = totalOrders > 0 ? totalSales / totalOrders : 0;
+    const repeatCustomers = Array.from(customerMap.values()).filter(c => c.orders > 1).length;
+    const retentionRate = uniqueCustomers > 0 ? (repeatCustomers / uniqueCustomers) * 100 : 0;
+    const newCustomers = uniqueCustomers - repeatCustomers;
+
+    return {
+      totalCustomers: uniqueCustomers,
+      totalOrders,
+      averageBasket,
+      repeatCustomers,
+      newCustomers,
+      retentionRate
+    };
+  }, [filteredSales, totalSales]);
 
   const topCustomers = useMemo(() => {
     const map = new Map<string, { name: string; sales: number; orders: number }>();
@@ -338,10 +769,25 @@ const Reports = () => {
       entry.orders += 1;
       map.set(name, entry);
     }
-    return Array.from(map.values()).sort((a, b) => b.sales - a.sales).slice(0, 5);
+    const sorted = Array.from(map.values()).sort((a, b) => b.sales - a.sales).slice(0, 5);
+    
+    // Calculate cumulative sales
+    let cumulative = 0;
+    return sorted.map(item => {
+      cumulative += item.sales;
+      return { ...item, cumulativeSales: cumulative };
+    });
   }, [filteredSales]);
 
   const handleExport = () => {
+    // Enhanced CSV escaping function
+    const escapeCSV = (field: string): string => {
+      if (field.includes(',') || field.includes('"') || field.includes('\n')) {
+        return `"${field.replace(/"/g, '""')}"`;
+      }
+      return field;
+    };
+
     const header = ['Date', 'Sales', 'Cost of Goods Sold', 'Expenses', 'Net Profit'];
     const rows = dateKeys.map((key, i) => [
       key,
@@ -351,7 +797,7 @@ const Reports = () => {
       String(series.profitData[i] || 0),
     ]);
     rows.push(['TOTAL', String(totalSales), String(totalCostOfGoodsSold), String(totalExpenses), String(netProfit)]);
-    const csv = [header, ...rows].map(r => r.map(field => /[,"]/.test(field) ? '"' + field.replace(/"/g, '""') + '"' : field).join(',')).join('\n');
+    const csv = [header, ...rows].map(r => r.map(escapeCSV).join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -380,9 +826,29 @@ const Reports = () => {
         </div>
       </div>
       
+      {/* Quick Reports & Saved Reports */}
+      <Card className="mb-6">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
+          <QuickReportsBar onSelectPeriod={handleQuickReport} />
+          {company && (
+            <SavedReportsManager
+              companyId={company.id}
+              currentConfig={{
+                startDate,
+                endDate,
+                selectedProduct,
+                selectedCategory,
+                period
+              }}
+              onLoadReport={handleLoadReport}
+            />
+          )}
+        </div>
+      </Card>
+
       {/* Filters */}
       <Card className="mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           <div className="flex items-center space-x-2">
             <span className="text-gray-500">
               <Calendar size={18} />
@@ -427,6 +893,22 @@ const Reports = () => {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
+              Category
+            </label>
+            <select
+              className="w-full rounded-md border border-gray-300 shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+            >
+              <option value="all">All Categories</option>
+              {categories.map(cat => (
+                <option key={cat.id} value={cat.name}>{cat.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
               Product
             </label>
             <select
@@ -451,6 +933,11 @@ const Reports = () => {
             <p className="mt-1 text-sm text-emerald-600">
               <span className="font-medium">{filteredSales.length}</span> orders
             </p>
+            <ComparisonIndicator 
+              current={totalSales} 
+              previous={previousPeriodData.totalSales}
+              formatValue={(v) => `${v.toLocaleString()} XAF`}
+            />
           </div>
         </Card>
         
@@ -459,8 +946,13 @@ const Reports = () => {
             <p className="text-sm font-medium text-amber-700">Cost of Goods Sold</p>
             <p className="mt-1 text-3xl font-semibold text-amber-900">{totalCostOfGoodsSold.toLocaleString()} XAF</p>
             <p className="mt-1 text-sm text-amber-600">
-              <span className="font-medium">{(totalSales ? Math.round(((totalCostOfGoodsSold) / totalSales) * 100) : 0)}%</span> of sales
+              <span className="font-medium">{(totalSales > 0 ? Math.round(((totalCostOfGoodsSold) / totalSales) * 100) : 0)}%</span> of sales
             </p>
+            <ComparisonIndicator 
+              current={totalCostOfGoodsSold} 
+              previous={previousPeriodData.totalCostOfGoodsSold}
+              formatValue={(v) => `${v.toLocaleString()} XAF`}
+            />
           </div>
         </Card>
         
@@ -471,6 +963,11 @@ const Reports = () => {
             <p className="mt-1 text-sm text-red-600">
               <span className="font-medium">{filteredExpenses.length}</span> entries
             </p>
+            <ComparisonIndicator 
+              current={totalExpenses} 
+              previous={previousPeriodData.totalExpenses}
+              formatValue={(v) => `${v.toLocaleString()} XAF`}
+            />
           </div>
         </Card>
         
@@ -479,14 +976,76 @@ const Reports = () => {
             <p className="text-sm font-medium text-indigo-700">Net Profit</p>
             <p className="mt-1 text-3xl font-semibold text-indigo-900">{netProfit.toLocaleString()} XAF</p>
             <p className="mt-1 text-sm text-indigo-600">
-              <span className="font-medium">{(totalSales ? Math.round(((netProfit) / totalSales) * 100) : 0)}%</span> margin
+              <span className="font-medium">{(totalSales > 0 ? Math.round(((netProfit) / totalSales) * 100) : 0)}%</span> margin
             </p>
+            <ComparisonIndicator 
+              current={netProfit} 
+              previous={previousPeriodData.netProfit}
+              formatValue={(v) => `${v.toLocaleString()} XAF`}
+            />
           </div>
         </Card>
       </div>
       
+      {/* KPI Dashboard */}
+      <Card className="mb-6" title="Key Performance Indicators">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <KPICard
+            title="Gross Margin Rate"
+            value={kpiMetrics.grossMarginRate.value.toFixed(1)}
+            unit="%"
+            status={kpiMetrics.grossMarginRate.status}
+            trend={kpiMetrics.grossMarginRate.trend}
+            description="Sales - COGS / Sales"
+          />
+          <KPICard
+            title="Net Margin Rate"
+            value={kpiMetrics.netMarginRate.value.toFixed(1)}
+            unit="%"
+            status={kpiMetrics.netMarginRate.status}
+            trend={kpiMetrics.netMarginRate.trend}
+            description="Net Profit / Sales"
+          />
+          <KPICard
+            title="Expense Ratio"
+            value={kpiMetrics.expenseRatio.value.toFixed(1)}
+            unit="%"
+            status={kpiMetrics.expenseRatio.status}
+            trend={kpiMetrics.expenseRatio.trend}
+            description="Expenses / Sales"
+          />
+          <KPICard
+            title="Growth Rate"
+            value={kpiMetrics.growthRate.value.toFixed(1)}
+            unit="%"
+            status={kpiMetrics.growthRate.status}
+            description="vs Previous Period"
+          />
+          <KPICard
+            title="ROI"
+            value={kpiMetrics.roi.value.toFixed(1)}
+            unit="%"
+            status={kpiMetrics.roi.status}
+            trend={kpiMetrics.roi.trend}
+            description="Net Profit / COGS"
+          />
+        </div>
+      </Card>
+      
       {/* Chart */}
       <Card className="mb-6" title="Financial Overview">
+        <div className="flex justify-end mb-2">
+          <button
+            onClick={() => setShowTrend(!showTrend)}
+            className={`px-3 py-1 text-sm rounded-md border ${
+              showTrend 
+                ? 'bg-gray-100 border-gray-300 text-gray-700' 
+                : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            {showTrend ? 'Hide' : 'Show'} Trend Line
+          </button>
+        </div>
         <div className="h-80">
           <Line data={chartData} options={chartOptions} />
         </div>
@@ -508,6 +1067,12 @@ const Reports = () => {
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Customers
                   </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Sales
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Cumulative
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -521,6 +1086,12 @@ const Reports = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {product.customersCount}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {product.totalSales.toLocaleString()} XAF
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
+                      {product.cumulativeSales.toLocaleString()} XAF
                     </td>
                   </tr>
                 ))}
@@ -543,6 +1114,9 @@ const Reports = () => {
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Orders
                   </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Cumulative
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -556,6 +1130,9 @@ const Reports = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {customer.orders}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
+                      {customer.cumulativeSales.toLocaleString()} XAF
                     </td>
                   </tr>
                 ))}
@@ -575,29 +1152,185 @@ const Reports = () => {
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cumulative</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredExpenses.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-6 py-4 text-sm text-gray-500 text-center">No expenses for selected period.</td>
+                  <td colSpan={5} className="px-6 py-4 text-sm text-gray-500 text-center">No expenses for selected period.</td>
                 </tr>
               ) : (
-                filteredExpenses.map((ex, idx) => {
-                  const d = ex.createdAt?.seconds ? new Date(ex.createdAt.seconds * 1000) : null;
-                  const dateStr = d ? d.toLocaleDateString() : '';
-                  return (
-                    <tr key={idx}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{dateStr}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{ex.description}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{ex.category}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{ex.amount.toLocaleString()} XAF</td>
-                    </tr>
-                  );
-                })
+                (() => {
+                  // Sort expenses by date (oldest first for cumulative calculation)
+                  const sortedExpenses = [...filteredExpenses].sort((a, b) => {
+                    const dateA = a.createdAt?.seconds || 0;
+                    const dateB = b.createdAt?.seconds || 0;
+                    return dateA - dateB;
+                  });
+                  
+                  let cumulative = 0;
+                  return sortedExpenses.map((ex, idx) => {
+                    cumulative += ex.amount || 0;
+                    const d = ex.createdAt?.seconds ? new Date(ex.createdAt.seconds * 1000) : null;
+                    const dateStr = d ? d.toLocaleDateString() : '';
+                    return (
+                      <tr key={ex.id || idx}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{dateStr}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{ex.description}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{ex.category}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{ex.amount.toLocaleString()} XAF</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">{cumulative.toLocaleString()} XAF</td>
+                      </tr>
+                    );
+                  });
+                })()
               )}
             </tbody>
           </table>
+        </div>
+      </Card>
+
+      {/* Advanced Analyses */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        {/* Product Profitability Analysis */}
+        <Card title="Product Profitability Analysis">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Qty Sold</th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sales</th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">COGS</th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Profit</th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Margin %</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {productProfitability.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-4 text-sm text-gray-500 text-center">No product data available</td>
+                  </tr>
+                ) : (
+                  productProfitability.map((product, idx) => (
+                    <tr key={idx}>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{product.name}</td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{product.quantitySold}</td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{product.totalSales.toLocaleString()} XAF</td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{product.totalCOGS.toLocaleString()} XAF</td>
+                      <td className={`px-4 py-3 whitespace-nowrap text-sm font-semibold ${product.grossProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                        {product.grossProfit.toLocaleString()} XAF
+                      </td>
+                      <td className={`px-4 py-3 whitespace-nowrap text-sm font-semibold ${product.profitMargin >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                        {product.profitMargin.toFixed(1)}%
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+
+        {/* Expense Category Analysis */}
+        <Card title="Expense Category Analysis">
+          {expenseCategoryAnalysis.length === 0 ? (
+            <p className="text-sm text-gray-500 text-center py-4">No expense data available</p>
+          ) : (
+            <>
+              <div className="h-64 mb-4">
+                <Pie
+                  data={{
+                    labels: expenseCategoryAnalysis.map(e => e.category),
+                    datasets: [{
+                      data: expenseCategoryAnalysis.map(e => e.amount),
+                      backgroundColor: [
+                        '#EF4444', '#F59E0B', '#10B981', '#3B82F6', '#8B5CF6',
+                        '#EC4899', '#14B8A6', '#F97316', '#6366F1', '#A855F7'
+                      ],
+                      borderWidth: 2,
+                      borderColor: '#fff'
+                    }]
+                  }}
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                      legend: {
+                        position: 'bottom'
+                      },
+                      tooltip: {
+                        callbacks: {
+                          label: (context) => {
+                            const label = context.label || '';
+                            const value = context.parsed || 0;
+                            const total = context.dataset.data.reduce((a: number, b: number) => a + b, 0);
+                            const percentage = ((value / total) * 100).toFixed(1);
+                            return `${label}: ${value.toLocaleString()} XAF (${percentage}%)`;
+                          }
+                        }
+                      }
+                    }
+                  }}
+                />
+              </div>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+                      <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                      <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">%</th>
+                      <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Count</th>
+                      <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Avg</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {expenseCategoryAnalysis.map((exp, idx) => (
+                      <tr key={idx}>
+                        <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{exp.category}</td>
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{exp.amount.toLocaleString()} XAF</td>
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{exp.percentage.toFixed(1)}%</td>
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{exp.count}</td>
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{exp.average.toLocaleString()} XAF</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </Card>
+      </div>
+
+      {/* Customer Metrics */}
+      <Card title="Customer Metrics" className="mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          <div className="text-center">
+            <p className="text-sm font-medium text-gray-700">Total Customers</p>
+            <p className="mt-1 text-2xl font-semibold text-gray-900">{customerMetrics.totalCustomers}</p>
+          </div>
+          <div className="text-center">
+            <p className="text-sm font-medium text-gray-700">Total Orders</p>
+            <p className="mt-1 text-2xl font-semibold text-gray-900">{customerMetrics.totalOrders}</p>
+          </div>
+          <div className="text-center">
+            <p className="text-sm font-medium text-gray-700">Average Basket</p>
+            <p className="mt-1 text-2xl font-semibold text-gray-900">{customerMetrics.averageBasket.toLocaleString()} XAF</p>
+          </div>
+          <div className="text-center">
+            <p className="text-sm font-medium text-gray-700">Repeat Customers</p>
+            <p className="mt-1 text-2xl font-semibold text-emerald-600">{customerMetrics.repeatCustomers}</p>
+          </div>
+          <div className="text-center">
+            <p className="text-sm font-medium text-gray-700">New Customers</p>
+            <p className="mt-1 text-2xl font-semibold text-blue-600">{customerMetrics.newCustomers}</p>
+          </div>
+          <div className="text-center">
+            <p className="text-sm font-medium text-gray-700">Retention Rate</p>
+            <p className="mt-1 text-2xl font-semibold text-indigo-600">{customerMetrics.retentionRate.toFixed(1)}%</p>
+          </div>
         </div>
       </Card>
     </div>

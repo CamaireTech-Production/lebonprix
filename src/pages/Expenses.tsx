@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, FileDown, Edit2, Trash2, Loader2, Settings, Tag } from 'lucide-react';
+import { Plus, FileDown, Edit2, Trash2, Loader2, Settings, Tag, Search } from 'lucide-react';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Table from '../components/common/Table';
 import Badge from '../components/common/Badge';
 import Modal, { ModalFooter } from '../components/common/Modal';
 import Input from '../components/common/Input';
+import DateRangePicker from '../components/common/DateRangePicker';
 import { useInfiniteExpenses } from '../hooks/useInfiniteExpenses';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 import CreatableSelect from '../components/common/CreatableSelect';
@@ -17,8 +18,6 @@ import { showSuccessToast, showErrorToast, showWarningToast } from '../utils/toa
 import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
 import type { Expense, ExpenseType } from '../types/models';
-
-type CategoryKey = 'transportation' | 'purchase' | 'other';
 
 const Expenses = () => {
   const { t } = useTranslation();
@@ -49,6 +48,13 @@ const Expenses = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [currentExpense, setCurrentExpense] = useState<Expense | null>(null);
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>({
+    from: new Date(2025, 3, 1), // 1er avril 2025 (début de l'app)
+    to: new Date(2100, 0, 1), // Date future pour inclure toutes les dates
+  });
+  const [sortBy, setSortBy] = useState<'date' | 'amount' | 'description' | 'category'>('date');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [expenseToDelete, setExpenseToDelete] = useState<Expense | null>(null);
@@ -70,6 +76,7 @@ const Expenses = () => {
     description: '',
     amount: '',
     category: 'transportation',
+    date: new Date().toISOString().split('T')[0], // Date par défaut = aujourd'hui
   });
   const [expenseTypes, setExpenseTypes] = useState<{ label: string; value: string }[]>([]);
   const [selectedType, setSelectedType] = useState<{ label: string; value: string } | null>(null);
@@ -209,6 +216,7 @@ const Expenses = () => {
       description: '',
       amount: '',
       category: 'transportation',
+      date: new Date().toISOString().split('T')[0], // Réinitialiser à aujourd'hui
     });
     setSelectedType(null);
   };
@@ -221,18 +229,55 @@ const Expenses = () => {
 
     try {
       const typeValue = selectedType?.value || formData.category;
-      if (!formData.description || !formData.amount || !typeValue) {
-        showWarningToast(t('errors.fillAllFields'));
+      
+      // Validation améliorée
+      if (!formData.description?.trim()) {
+        showWarningToast(t('errors.fillAllFields') || 'Veuillez remplir tous les champs');
+        return;
+      }
+      
+      const amount = parseFloat(formData.amount);
+      if (isNaN(amount) || amount <= 0) {
+        showWarningToast('Le montant doit être un nombre positif');
+        return;
+      }
+      
+      if (!typeValue) {
+        showWarningToast('Veuillez sélectionner une catégorie');
+        return;
+      }
+      
+      // Valider que la catégorie existe dans la liste
+      const categoryExists = expenseTypesList.some(cat => cat.name === typeValue) ||
+                             ['transportation', 'purchase', 'other'].includes(typeValue);
+      if (!categoryExists) {
+        showWarningToast('Catégorie invalide');
+        return;
+      }
+      
+      // Valider la date
+      if (!formData.date) {
+        showWarningToast('Veuillez sélectionner une date');
+        return;
+      }
+      
+      const expenseDate = new Date(formData.date + 'T00:00:00');
+      const today = new Date();
+      today.setHours(23, 59, 59, 999); // Fin de la journée
+      if (expenseDate > today) {
+        showWarningToast('La date ne peut pas être dans le futur');
         return;
       }
 
       setIsSubmitting(true);
+      
       const newExpense = await createExpense({
-        description: formData.description,
-        amount: parseFloat(formData.amount),
+        description: formData.description.trim(),
+        amount: amount,
         category: typeValue,
         userId: user.uid,
         companyId: company.id,
+        date: expenseDate, // Inclure la date de transaction
       }, company.id);
       
       // Sync finance entry for the expense
@@ -262,8 +307,43 @@ const Expenses = () => {
     
     try {
       const typeValue = selectedType?.value || formData.category;
-      if (!formData.description || !formData.amount || !typeValue) {
-        showWarningToast(t('errors.fillAllFields'));
+      
+      // Validation améliorée
+      if (!formData.description?.trim()) {
+        showWarningToast(t('errors.fillAllFields') || 'Veuillez remplir tous les champs');
+        return;
+      }
+      
+      const amount = parseFloat(formData.amount);
+      if (isNaN(amount) || amount <= 0) {
+        showWarningToast('Le montant doit être un nombre positif');
+        return;
+      }
+      
+      if (!typeValue) {
+        showWarningToast('Veuillez sélectionner une catégorie');
+        return;
+      }
+      
+      // Valider que la catégorie existe dans la liste
+      const categoryExists = expenseTypesList.some(cat => cat.name === typeValue) ||
+                             ['transportation', 'purchase', 'other'].includes(typeValue);
+      if (!categoryExists) {
+        showWarningToast('Catégorie invalide');
+        return;
+      }
+      
+      // Valider la date
+      if (!formData.date) {
+        showWarningToast('Veuillez sélectionner une date');
+        return;
+      }
+      
+      const expenseDate = new Date(formData.date + 'T00:00:00');
+      const today = new Date();
+      today.setHours(23, 59, 59, 999); // Fin de la journée
+      if (expenseDate > today) {
+        showWarningToast('La date ne peut pas être dans le futur');
         return;
       }
 
@@ -272,7 +352,11 @@ const Expenses = () => {
       // Store original expense for potential rollback
       const originalExpense = currentExpense;
       
+      // Convertir la date string en Date object pour la transaction
+      const transactionDate = expenseDate;
+      
       // Prepare updated expense data
+      // IMPORTANT: Préserver createdAt original
       const updatedExpenseData = {
         ...currentExpense,
         description: formData.description,
@@ -280,6 +364,8 @@ const Expenses = () => {
         category: typeValue,
         companyId: company.id,
         userId: user.uid,
+        date: transactionDate, // Date de transaction (modifiable)
+        createdAt: currentExpense.createdAt, // PRÉSERVER createdAt original
         updatedAt: { seconds: Math.floor(Date.now() / 1000), nanoseconds: 0 }
       };
       
@@ -289,10 +375,12 @@ const Expenses = () => {
       try {
         // Send update directly to Firebase
         await updateExpense(currentExpense.id, {
-          description: formData.description,
-          amount: parseFloat(formData.amount),
+          description: formData.description.trim(),
+          amount: amount,
           category: typeValue,
           userId: user.uid, // Include userId for authorization check
+          date: transactionDate, // Date de transaction (modifiable)
+          // NE PAS inclure createdAt - il ne doit pas être modifié
         }, company.id);
         
         // Note: updateExpense already handles finance entry sync internally
@@ -315,15 +403,79 @@ const Expenses = () => {
   
   const openEditModal = (expense: Expense) => {
     setCurrentExpense(expense);
+    
+    // Convertir date (date de transaction) en format string pour l'input
+    // Si date n'existe pas, utiliser createdAt comme fallback (rétrocompatibilité)
+    let dateValue = new Date().toISOString().split('T')[0];
+    if (expense.date?.seconds) {
+      // Utiliser date (date de transaction) si disponible
+      dateValue = new Date(expense.date.seconds * 1000).toISOString().split('T')[0];
+    } else if (expense.createdAt?.seconds) {
+      // Fallback sur createdAt pour les anciennes dépenses
+      dateValue = new Date(expense.createdAt.seconds * 1000).toISOString().split('T')[0];
+    }
+    
     setFormData({
       description: expense.description,
       amount: expense.amount.toString(),
       category: expense.category,
+      date: dateValue, // Date de transaction (modifiable)
     });
+    
+    // IMPORTANT: Ne pas modifier expense.createdAt - il reste inchangé
     setSelectedType({ label: t(`expenses.categories.${expense.category}`, expense.category), value: expense.category });
     setIsEditModalOpen(true);
   };
   
+  const handleExportExpenses = () => {
+    if (filteredExpenses.length === 0) {
+      showWarningToast('Aucune dépense à exporter');
+      return;
+    }
+
+    // Créer le contenu CSV
+    const headers = ['Date', 'Description', 'Montant (XAF)', 'Catégorie'];
+    const rows = filteredExpenses.map(expense => {
+      const timestamp = expense.date || expense.createdAt;
+      const date = timestamp?.seconds 
+        ? new Date(timestamp.seconds * 1000).toLocaleDateString('fr-FR')
+        : 'N/A';
+      
+      // Échapper les virgules et guillemets dans la description
+      const description = expense.description
+        .replace(/"/g, '""') // Échapper les guillemets doubles
+        .replace(/,/g, ', '); // Échapper les virgules (ou les remplacer)
+      
+      const amount = expense.amount.toLocaleString('fr-FR');
+      const category = expense.category;
+      
+      return `"${date}","${description}","${amount}","${category}"`;
+    });
+
+    const csvContent = [
+      '\uFEFF', // BOM UTF-8 pour Excel
+      headers.join(','),
+      ...rows
+    ].join('\n');
+
+    // Créer le blob et télécharger
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    
+    // Nom de fichier avec date
+    const today = new Date().toISOString().split('T')[0];
+    link.setAttribute('download', `expenses_${today}.csv`);
+    
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    showSuccessToast(`Export réussi: ${filteredExpenses.length} dépense(s) exportée(s)`);
+  };
+
   const handleDeleteExpense = async () => {
     if (!expenseToDelete || !user?.uid) {
       return;
@@ -373,8 +525,10 @@ const Expenses = () => {
     { 
       header: t('expenses.table.date'), 
       accessor: (expense: Expense) => {
-        if (!expense.createdAt?.seconds) return 'N/A';
-        return new Date(expense.createdAt.seconds * 1000).toLocaleDateString();
+        // Utiliser date (date de transaction) si disponible, sinon createdAt (rétrocompatibilité)
+        const timestamp = expense.date || expense.createdAt;
+        if (!timestamp?.seconds) return 'N/A';
+        return new Date(timestamp.seconds * 1000).toLocaleDateString();
       },
     },
     { 
@@ -417,18 +571,69 @@ const Expenses = () => {
 
   // Filter out soft-deleted expenses everywhere
   const visibleExpenses = expenses.filter(exp => exp.isAvailable !== false);
-  const summaryStats: Record<CategoryKey, number> = { transportation: 0, purchase: 0, other: 0 };
+  
+  // Calculer les statistiques dynamiquement pour toutes les catégories
+  const summaryStats: Record<string, number> = {};
   visibleExpenses.forEach(expense => {
-    let normalizedCategory: CategoryKey = 'other';
-    if (expense.category === 'purchase') normalizedCategory = 'purchase';
-    else if (expense.category === 'transportation') normalizedCategory = 'transportation';
-    summaryStats[normalizedCategory] += expense.amount;
+    const category = expense.category;
+    if (!summaryStats[category]) {
+      summaryStats[category] = 0;
+    }
+    summaryStats[category] += expense.amount;
   });
 
-  // Filter expenses by category
-  const filteredExpenses = selectedCategory === 'All'
-    ? visibleExpenses
-    : visibleExpenses.filter(expense => expense.category === selectedCategory);
+  // Filter expenses by category, search query, and date range
+  let filteredExpenses = visibleExpenses.filter(expense => {
+    // Filtre par catégorie
+    const categoryMatch = selectedCategory === 'All' || expense.category === selectedCategory;
+    
+    // Filtre par recherche (description)
+    const searchMatch = !searchQuery || 
+      expense.description.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    // Filtre par période de dates
+    const timestamp = expense.date || expense.createdAt;
+    let dateMatch = true;
+    if (timestamp?.seconds) {
+      const expenseDate = new Date(timestamp.seconds * 1000);
+      dateMatch = expenseDate >= dateRange.from && expenseDate <= dateRange.to;
+    }
+    
+    return categoryMatch && searchMatch && dateMatch;
+  });
+  
+  // Trier les dépenses selon les critères sélectionnés
+  filteredExpenses = [...filteredExpenses].sort((a, b) => {
+    let aValue: any;
+    let bValue: any;
+    
+    switch (sortBy) {
+      case 'date':
+        const aTimestamp = a.date || a.createdAt;
+        const bTimestamp = b.date || b.createdAt;
+        aValue = aTimestamp?.seconds || 0;
+        bValue = bTimestamp?.seconds || 0;
+        break;
+      case 'amount':
+        aValue = a.amount;
+        bValue = b.amount;
+        break;
+      case 'description':
+        aValue = a.description.toLowerCase();
+        bValue = b.description.toLowerCase();
+        break;
+      case 'category':
+        aValue = a.category.toLowerCase();
+        bValue = b.category.toLowerCase();
+        break;
+      default:
+        return 0;
+    }
+    
+    if (aValue < bValue) return sortOrder === 'asc' ? -1 : 1;
+    if (aValue > bValue) return sortOrder === 'asc' ? 1 : -1;
+    return 0;
+  });
 
   return (
     <div className="pb-16 md:pb-0">
@@ -471,31 +676,81 @@ const Expenses = () => {
         )}
         
         {activeView === 'expenses' && (
-        <div className="mt-4 md:mt-0 flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
-          <select
-            className="rounded-md border border-gray-300 shadow-sm py-2 px-3 bg-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-            value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
-          >
-            <option value="All">{t('expenses.filters.allCategories')}</option>
-            <option value="transportation">{t('expenses.categories.transportation')}</option>
-            <option value="purchase">{t('expenses.categories.purchase')}</option>
-            <option value="other">{t('expenses.categories.other')}</option>
-          </select>
+        <div className="mt-4 md:mt-0 space-y-3">
+          <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
+            <div className="relative flex-1 sm:flex-initial sm:w-64">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
+              <Input
+                type="text"
+                placeholder={t('expenses.search.placeholder') || 'Rechercher par description...'}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            
+            <select
+              className="rounded-md border border-gray-300 shadow-sm py-2 px-3 bg-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+            >
+              <option value="All">{t('expenses.filters.allCategories')}</option>
+              {expenseTypesList.map((category) => {
+                const defaultCategories = ['transportation', 'purchase', 'other'];
+                const isDefault = defaultCategories.includes(category.name);
+                const label = isDefault 
+                  ? t(`expenses.categories.${category.name}`, category.name)
+                  : category.name;
+                return (
+                  <option key={category.id} value={category.name}>
+                    {label}
+                  </option>
+                );
+              })}
+            </select>
+            
+            <Button 
+              variant="outline" 
+              icon={<FileDown size={16} />}
+              onClick={handleExportExpenses}
+            >
+              {t('expenses.actions.export')}
+            </Button>
+            
+            <Button 
+              icon={<Plus size={16} />}
+              onClick={async () => { await loadExpenseTypes(); setIsAddModalOpen(true); }}
+            >
+              {t('expenses.actions.add')}
+            </Button>
+          </div>
           
-          <Button 
-            variant="outline" 
-            icon={<FileDown size={16} />}
-          >
-            {t('expenses.actions.export')}
-          </Button>
-          
-          <Button 
-            icon={<Plus size={16} />}
-            onClick={async () => { await loadExpenseTypes(); setIsAddModalOpen(true); }}
-          >
-            {t('expenses.actions.add')}
-          </Button>
+          <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
+            <DateRangePicker
+              onChange={(range) => setDateRange(range)}
+              className="w-full sm:w-auto"
+            />
+            
+            <select
+              className="rounded-md border border-gray-300 shadow-sm py-2 px-3 bg-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as 'date' | 'amount' | 'description' | 'category')}
+            >
+              <option value="date">Trier par date</option>
+              <option value="amount">Trier par montant</option>
+              <option value="description">Trier par description</option>
+              <option value="category">Trier par catégorie</option>
+            </select>
+            
+            <select
+              className="rounded-md border border-gray-300 shadow-sm py-2 px-3 bg-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              value={sortOrder}
+              onChange={(e) => setSortOrder(e.target.value as 'asc' | 'desc')}
+            >
+              <option value="desc">Décroissant</option>
+              <option value="asc">Croissant</option>
+            </select>
+          </div>
         </div>
         )}
       </div>
@@ -589,29 +844,42 @@ const Expenses = () => {
       {/* Expenses List View */}
       {activeView === 'expenses' && (
         <>
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-        <Card>
-          <p className="text-sm font-medium text-blue-700">{t('expenses.summary.transportation')}</p>
-          <p className="text-xl font-semibold text-gray-900">
-            {summaryStats.transportation.toLocaleString()} XAF
-          </p>
-        </Card>
-        
-        <Card>
-          <p className="text-sm font-medium text-red-700">{t('expenses.summary.purchase')}</p>
-          <p className="text-xl font-semibold text-gray-900">
-            {summaryStats.purchase.toLocaleString()} XAF
-          </p>
-        </Card>
-        
-        <Card>
-          <p className="text-sm font-medium text-yellow-700">{t('expenses.summary.other')}</p>
-          <p className="text-xl font-semibold text-gray-900">
-            {summaryStats.other.toLocaleString()} XAF
-          </p>
-        </Card>
-      </div>
+      {/* Summary Cards - Dynamiques pour toutes les catégories */}
+      {Object.keys(summaryStats).length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+          {Object.entries(summaryStats)
+            .filter(([_, amount]) => amount > 0) // Afficher seulement les catégories avec montant > 0
+            .map(([category, amount], index) => {
+              const defaultCategories = ['transportation', 'purchase', 'other'];
+              const isDefault = defaultCategories.includes(category);
+              
+              // Utiliser les traductions pour les catégories par défaut
+              const label = isDefault 
+                ? t(`expenses.categories.${category}`, category)
+                : category;
+              
+              // Couleurs dynamiques basées sur l'index ou le type
+              const colorClasses = [
+                'text-blue-700',
+                'text-red-700',
+                'text-yellow-700',
+                'text-green-700',
+                'text-purple-700',
+                'text-indigo-700',
+              ];
+              const colorClass = colorClasses[index % colorClasses.length] || 'text-gray-700';
+              
+              return (
+                <Card key={category}>
+                  <p className={`text-sm font-medium ${colorClass}`}>{label}</p>
+                  <p className="text-xl font-semibold text-gray-900">
+                    {amount.toLocaleString()} XAF
+                  </p>
+                </Card>
+              );
+            })}
+        </div>
+      )}
       
       <Card>
         <Table
@@ -671,6 +939,16 @@ const Expenses = () => {
             required
           />
           
+          <Input
+            label={t('expenses.form.date') || 'Date'}
+            name="date"
+            type="date"
+            value={formData.date}
+            onChange={handleInputChange}
+            required
+            max={new Date().toISOString().split('T')[0]} // Empêcher les dates futures
+          />
+          
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               {t('expenses.form.category')}
@@ -723,6 +1001,16 @@ const Expenses = () => {
             value={formData.amount}
             onChange={handleInputChange}
             required
+          />
+          
+          <Input
+            label={t('expenses.form.date') || 'Date'}
+            name="date"
+            type="date"
+            value={formData.date}
+            onChange={handleInputChange}
+            required
+            max={new Date().toISOString().split('T')[0]} // Empêcher les dates futures
           />
           
           <div>

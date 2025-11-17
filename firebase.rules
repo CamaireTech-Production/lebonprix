@@ -125,12 +125,19 @@ service cloud.firestore {
         return data.description is string && data.description.size() > 0 &&
                data.amount is number && data.amount > 0 &&
                data.companyId is string &&
-               data.date is timestamp &&
+               // Vérifier date OU createdAt (rétrocompatibilité)
+               ((data.date is timestamp) || (data.createdAt is timestamp)) &&
                (!('attachments' in data) || (data.attachments is list && data.attachments.size() <= 5));
       }
       
+      // Empêcher la modification de createdAt lors d'un update
+      function createdAtNotModified() {
+        return !('createdAt' in request.resource.data) || 
+               request.resource.data.createdAt == resource.data.createdAt;
+      }
+      
       allow create: if isValidExpense() && hasCompanyAccess(request.resource.data.companyId);
-      allow update: if isValidExpense() && hasCompanyAccess(request.resource.data.companyId);
+      allow update: if isValidExpense() && hasCompanyAccess(request.resource.data.companyId) && createdAtNotModified();
     }
     
     // Dashboard stats - Company-scoped access

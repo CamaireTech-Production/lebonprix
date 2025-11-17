@@ -24,7 +24,7 @@ interface UseInfiniteExpensesReturn {
 const EXPENSES_PER_PAGE = 20;
 
 export const useInfiniteExpenses = (): UseInfiniteExpensesReturn => {
-  const { user } = useAuth();
+  const { user, company } = useAuth();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(false); // Start as false
   const [loadingMore, setLoadingMore] = useState(false);
@@ -35,13 +35,13 @@ export const useInfiniteExpenses = (): UseInfiniteExpensesReturn => {
 
   // Load initial expenses
   const loadInitialExpenses = useCallback(async () => {
-    if (!user?.uid) {
+    if (!user?.uid || !company?.id) {
       setLoading(false);
       return;
     }
 
     // 1. Check localStorage FIRST - instant display if data exists
-    const localExpenses = ExpensesManager.load(user.uid);
+    const localExpenses = ExpensesManager.load(company.id);
     if (localExpenses && localExpenses.length > 0) {
       setExpenses(localExpenses);
       setLoading(false); // No loading spinner - data is available
@@ -49,7 +49,7 @@ export const useInfiniteExpenses = (): UseInfiniteExpensesReturn => {
       console.log('🚀 Expenses loaded instantly from localStorage');
       
       // Start background sync
-      BackgroundSyncService.syncExpenses(user.uid, (freshExpenses) => {
+      BackgroundSyncService.syncExpenses(company.id, (freshExpenses) => {
         setExpenses(freshExpenses);
         setSyncing(false); // Hide background sync indicator
         console.log('🔄 Expenses updated from background sync');
@@ -64,7 +64,7 @@ export const useInfiniteExpenses = (): UseInfiniteExpensesReturn => {
 
       const q = query(
         collection(db, 'expenses'),
-        where('userId', '==', user.uid),
+        where('companyId', '==', company.id),
         orderBy('createdAt', 'desc'),
         limit(EXPENSES_PER_PAGE)
       );
@@ -80,7 +80,7 @@ export const useInfiniteExpenses = (): UseInfiniteExpensesReturn => {
       setHasMore(snapshot.docs.length === EXPENSES_PER_PAGE);
       
       // Save to localStorage for future instant loads
-      ExpensesManager.save(user.uid, expensesData);
+      ExpensesManager.save(company.id, expensesData);
       console.log(`✅ Initial expenses loaded and cached: ${expensesData.length} items`);
     } catch (err) {
       console.error('❌ Error loading initial expenses:', err);
@@ -88,11 +88,11 @@ export const useInfiniteExpenses = (): UseInfiniteExpensesReturn => {
     } finally {
       setLoading(false);
     }
-  }, [user?.uid]);
+  }, [user?.uid, company?.id]);
 
   // Load more expenses (infinite scroll)
   const loadMore = useCallback(async () => {
-    if (!user?.uid || !lastDoc || loadingMore || !hasMore) return;
+    if (!user?.uid || !company?.id || !lastDoc || loadingMore || !hasMore) return;
 
     try {
       setLoadingMore(true);
@@ -100,7 +100,7 @@ export const useInfiniteExpenses = (): UseInfiniteExpensesReturn => {
 
       const q = query(
         collection(db, 'expenses'),
-        where('userId', '==', user.uid),
+        where('companyId', '==', company.id),
         orderBy('createdAt', 'desc'),
         startAfter(lastDoc),
         limit(EXPENSES_PER_PAGE)
@@ -116,7 +116,7 @@ export const useInfiniteExpenses = (): UseInfiniteExpensesReturn => {
         setExpenses(prev => {
           const updatedExpenses = [...prev, ...newExpenses];
           // Update localStorage with all expenses
-          ExpensesManager.save(user.uid, updatedExpenses);
+          ExpensesManager.save(company.id, updatedExpenses);
           console.log(`✅ More expenses loaded: ${newExpenses.length} items (total: ${updatedExpenses.length})`);
           return updatedExpenses;
         });
@@ -132,7 +132,7 @@ export const useInfiniteExpenses = (): UseInfiniteExpensesReturn => {
     } finally {
       setLoadingMore(false);
     }
-  }, [user?.uid, lastDoc, loadingMore, hasMore]);
+  }, [user?.uid, company?.id, lastDoc, loadingMore, hasMore]);
 
   const refresh = useCallback(() => {
     setExpenses([]);
@@ -143,33 +143,33 @@ export const useInfiniteExpenses = (): UseInfiniteExpensesReturn => {
 
   // Function to manually add an expense to the local state
   const addExpense = useCallback((newExpense: Expense) => {
-    if (!user?.uid) return;
+    if (!user?.uid || !company?.id) return;
     
     setExpenses(prev => {
       // Add the new expense at the beginning (most recent first)
       const updatedExpenses = [newExpense, ...prev];
       // Update localStorage with the new expense
-      ExpensesManager.save(user.uid, updatedExpenses);
+      ExpensesManager.save(company.id, updatedExpenses);
       return updatedExpenses;
     });
-  }, [user?.uid]);
+  }, [user?.uid, company?.id]);
 
   // Function to manually remove an expense from the local state
   const removeExpense = useCallback((expenseId: string) => {
-    if (!user?.uid) return;
+    if (!user?.uid || !company?.id) return;
     
     setExpenses(prev => {
       // Remove the expense with the given ID
       const updatedExpenses = prev.filter(expense => expense.id !== expenseId);
       // Update localStorage with the updated expenses
-      ExpensesManager.save(user.uid, updatedExpenses);
+      ExpensesManager.save(company.id, updatedExpenses);
       return updatedExpenses;
     });
-  }, [user?.uid]);
+  }, [user?.uid, company?.id]);
 
   // Function to manually update an expense in the local state
   const updateExpense = useCallback((expenseId: string, updatedExpense: Expense) => {
-    if (!user?.uid) return;
+    if (!user?.uid || !company?.id) return;
     
     setExpenses(prev => {
       // Update the expense with the given ID
@@ -177,13 +177,13 @@ export const useInfiniteExpenses = (): UseInfiniteExpensesReturn => {
         expense.id === expenseId ? updatedExpense : expense
       );
       // Update localStorage with the updated expenses immediately
-      ExpensesManager.save(user.uid, updatedExpenses);
+      ExpensesManager.save(company.id, updatedExpenses);
       return updatedExpenses;
     });
-  }, [user?.uid]);
+  }, [user?.uid, company?.id]);
 
   useEffect(() => {
-    if (user?.uid) {
+    if (user?.uid && company?.id) {
       loadInitialExpenses();
     } else {
       setExpenses([]);
@@ -192,7 +192,7 @@ export const useInfiniteExpenses = (): UseInfiniteExpensesReturn => {
       setLoading(false);
       setError(null);
     }
-  }, [user?.uid, loadInitialExpenses]);
+  }, [user?.uid, company?.id, loadInitialExpenses]);
 
   return {
     expenses,
