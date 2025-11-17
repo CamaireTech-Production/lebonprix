@@ -16,6 +16,16 @@ import type { DashboardStats } from '../types/models';
 import { showSuccessToast, showErrorToast } from '../utils/toast';
 import { useTranslation } from 'react-i18next';
 import { getLatestCostPrice } from '../utils/productUtils';
+import {
+  calculateTotalProfit,
+  calculateTotalExpenses,
+  calculateSolde,
+  calculateTotalPurchasePrice,
+  calculateTotalSalesAmount,
+  calculateTotalDeliveryFee,
+  calculateTotalProductsSold,
+  calculateTotalOrders
+} from '../utils/financialCalculations';
 import { differenceInDays, format, startOfWeek, endOfWeek, addDays, addWeeks, startOfMonth as startMonth, endOfMonth as endMonth, addMonths, isSameMonth, isSameDay } from 'date-fns';
 import DateRangePicker from '../components/common/DateRangePicker';
 import ObjectivesBar from '../components/objectives/ObjectivesBar';
@@ -107,30 +117,21 @@ const Dashboard = () => {
     return expenseDate >= dateRange.from && expenseDate <= dateRange.to;
   });
 
-  // Calculate profit (gross profit: selling price - purchase price) * quantity for all sales
-  const profit = filteredSales?.reduce((sum, sale) => {
-    return sum + sale.products.reduce((productSum, product) => {
-      const productData = products?.find(p => p.id === product.productId);
-      if (!productData) return productSum;
-      const sellingPrice = product.negotiatedPrice || product.basePrice;
-      const safeStockChanges = Array.isArray(stockChanges) ? stockChanges : [];
-      const costPrice = getLatestCostPrice(productData.id, safeStockChanges);
-      if (costPrice === undefined) return productSum;
-      return productSum + (sellingPrice - costPrice) * product.quantity;
-    }, 0);
-  }, 0) || 0;
+  // Calculate financial metrics using extracted functions
+  const profit = calculateTotalProfit(filteredSales || [], products || [], stockChanges || []);
 
   // 🔄 BACKGROUND DATA: Calculate expenses only when available
-  const totalExpenses = expensesLoading ? 0 : (filteredExpenses?.reduce((sum, exp) => sum + exp.amount, 0) || 0);
+  // Note: Dashboard only uses expenses, not manual entries, so we pass an empty array for manual entries
+  const totalExpenses = expensesLoading ? 0 : calculateTotalExpenses(filteredExpenses || [], []);
 
   // Total orders
-  const totalOrders = filteredSales?.length || 0;
+  const totalOrders = calculateTotalOrders(filteredSales || []);
 
   // Total delivery fee (from sales)
-  const totalDeliveryFee = filteredSales?.reduce((sum, sale) => sum + (sale.deliveryFee || 0), 0) || 0;
+  const totalDeliveryFee = calculateTotalDeliveryFee(filteredSales || []);
 
   // Total sales amount
-  const totalSalesAmount = filteredSales?.reduce((sum, sale) => sum + sale.totalAmount, 0) || 0;
+  const totalSalesAmount = calculateTotalSalesAmount(filteredSales || []);
 
   // Calculate total purchase price for all products in stock as of the end of the selected period
   const getStockAtDate = (productId: string, date: Date) => {
@@ -319,7 +320,7 @@ const Dashboard = () => {
   ];
 
   // Total products sold (sum of all product quantities in filteredSales)
-  const totalProductsSold = filteredSales?.reduce((sum, sale) => sum + sale.products.reduce((pSum, p) => pSum + p.quantity, 0), 0) || 0;
+  const totalProductsSold = calculateTotalProductsSold(filteredSales || []);
 
   const statsMap = {
     profit,
@@ -331,13 +332,12 @@ const Dashboard = () => {
   };
 
   // 🔄 BACKGROUND DATA: Calculate balance only when finance data is available
-  const solde = financeLoading ? 0 : (() => {
-    const activeFinanceEntries = financeEntries?.filter(entry => !entry.isDeleted) || [];
-    const nonDebtEntries = activeFinanceEntries.filter(
-      (entry) => entry.type !== 'debt' && entry.type !== 'refund' && entry.type !== 'supplier_debt' && entry.type !== 'supplier_refund'
-    );
-    return nonDebtEntries.reduce((sum, entry) => sum + entry.amount, 0);
-  })();
+  // Note: Dashboard only uses non-debt entries (no customer debt added), so we pass empty arrays for debt/refund
+  const solde = financeLoading ? 0 : calculateSolde(
+    financeEntries?.filter(entry => !entry.isDeleted) || [],
+    [], // No debt entries for Dashboard calculation
+    []  // No refund entries for Dashboard calculation
+  );
 
   // 🎯 STAT CARDS: Show loading states for background data
   const statCards: { title: string; value: string | number; icon: JSX.Element; type: 'products' | 'sales' | 'expenses' | 'profit' | 'orders' | 'delivery' | 'solde'; loading?: boolean; }[] = [
