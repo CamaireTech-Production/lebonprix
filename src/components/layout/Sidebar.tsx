@@ -1,6 +1,6 @@
 import React from 'react';
 import { useLocation, Link, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, ShoppingCart, DollarSign, Package2, FileBarChart, Settings, X, Receipt, Users, Building2, Plus, Grid3X3, ShoppingBag, UserCheck} from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, DollarSign, Package2, FileBarChart, Settings, X, Receipt, Users, Building2, Plus, Grid3X3, ShoppingBag, UserCheck, ChevronDown, ChevronRight} from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useRolePermissions } from '../../hooks/useRolePermissions';
 import UserAvatar from '../common/UserAvatar';
@@ -23,6 +23,7 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
   const { canAccess, canAccessFinance, canAccessHR, canAccessSettings } = useRolePermissions();
   const [showCreateCompanyModal, setShowCreateCompanyModal] = React.useState(false);
   const [showCompanyNavigationConfirm, setShowCompanyNavigationConfirm] = React.useState(false);
+  const [expensesMenuExpanded, setExpensesMenuExpanded] = React.useState(false);
 
   
   // Get dashboard colors
@@ -40,6 +41,13 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
   const isActive = (path: string) => {
     return location.pathname === path;
   };
+
+  // Check if expenses menu should be expanded (if on any expenses sub-route)
+  React.useEffect(() => {
+    if (location.pathname.includes('/expenses')) {
+      setExpensesMenuExpanded(true);
+    }
+  }, [location.pathname]);
 
   const handleCreateCompany = () => {
     window.location.href = '/company/create';
@@ -84,7 +92,18 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
     { name: t('navigation.dashboard'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/dashboard` : '/', icon: <LayoutDashboard size={20} />, resource: 'dashboard' },
     { name: t('navigation.sales'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/sales` : '/sales', icon: <ShoppingCart size={20} />, resource: 'sales' },
     { name: 'Orders', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/orders` : '/orders', icon: <ShoppingBag size={20} />, resource: 'orders' },
-    { name: 'Expenses', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/expenses` : '/expenses', icon: <Receipt size={20} />, resource: 'expenses' },
+    { 
+      name: 'Expenses', 
+      path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/expenses` : '/expenses', 
+      icon: <Receipt size={20} />, 
+      resource: 'expenses',
+      subItems: [
+        { name: 'Liste', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/expenses/list` : '/expenses/list' },
+        { name: 'Catégories', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/expenses/categories` : '/expenses/categories' },
+        { name: 'Analyses', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/expenses/analytics` : '/expenses/analytics' },
+        { name: 'Rapports', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/expenses/reports` : '/expenses/reports' },
+      ]
+    },
     { name: 'Finance', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/finance` : '/finance', icon: <DollarSign size={20} />, resource: 'finance' },
     { name: t('navigation.products'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/products` : '/products', icon: <Package2 size={20} />, resource: 'products' },
     { name: 'Categories', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/categories` : '/categories', icon: <Grid3X3 size={20} />, resource: 'categories' },
@@ -186,9 +205,57 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
             // Check if this is the "Mes Entreprises" link that needs confirmation
             const isCompaniesManagementLink = item.path === '/companies' && isCompanyRoute;
             
+            // Check if this item has subItems (expansible menu)
+            const hasSubItems = (item as any).subItems && Array.isArray((item as any).subItems);
+            const isExpensesItem = item.name === 'Expenses';
+            const isExpanded = isExpensesItem && expensesMenuExpanded;
+            
             return (
               <li key={item.path}>
-                {isCompaniesManagementLink ? (
+                {hasSubItems ? (
+                  // Expansible menu item
+                  <>
+                    <button
+                      onClick={() => {
+                        if (isExpensesItem) {
+                          setExpensesMenuExpanded(!expensesMenuExpanded);
+                        }
+                      }}
+                      className={`
+                        w-full flex items-center justify-between px-3 py-2 text-sm font-medium rounded-md transition-colors
+                        ${isActive(item.path) || (isExpensesItem && location.pathname.includes('/expenses'))
+                          ? 'bg-emerald-50 text-emerald-600'
+                          : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'}
+                      `}
+                    >
+                      <div className="flex items-center">
+                        <span className="mr-3">{item.icon}</span>
+                        {item.name}
+                      </div>
+                      {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                    </button>
+                    {isExpanded && (
+                      <ul className="ml-4 mt-1 space-y-1">
+                        {(item as any).subItems.map((subItem: any) => (
+                          <li key={subItem.path}>
+                            <Link
+                              to={subItem.path}
+                              onClick={() => onClose()}
+                              className={`
+                                flex items-center px-3 py-2 text-sm rounded-md transition-colors
+                                ${isActive(subItem.path)
+                                  ? 'bg-emerald-100 text-emerald-700 font-medium'
+                                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}
+                              `}
+                            >
+                              {subItem.name}
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </>
+                ) : isCompaniesManagementLink ? (
                   <button
                     onClick={(e) => {
                       e.preventDefault();

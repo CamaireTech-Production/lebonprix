@@ -840,6 +840,7 @@
       "addExpense": "Ajouter une dépense",
       "editExpense": "Modifier la dépense",
       "deleteExpense": "Supprimer la dépense",
+      "edit": "Modifier",
       "delete": "Supprimer",
       "export": "Exporter les dépenses",
       "importCSV": "Importer depuis CSV",
@@ -880,7 +881,11 @@
       "categoryPlaceholder": "Sélectionner ou créer une catégorie",
       "image": "Image de la dépense",
       "imageHelp": "Optionnel, max 500KB. Sera compressé.",
-      "description": "Description"
+      "description": "Description",
+      "date": "Date"
+    },
+    "search": {
+      "placeholder": "Rechercher par description..."
     },
     "import": {
       "title": "Importer des dépenses depuis un CSV",
