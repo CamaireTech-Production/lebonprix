@@ -742,11 +742,15 @@
       "allCategories": "All Categories",
       "search": "Search by name or reference..."
     },
+    "search": {
+      "placeholder": "Search by description..."
+    },
     "actions": {
       "add": "Add Expense",
       "addExpense": "Add Expense",
       "editExpense": "Edit Expense",
       "deleteExpense": "Delete Expense",
+      "edit": "Edit",
       "delete": "Delete",
       "export": "Export Expenses",
       "importCSV": "Import from CSV",
@@ -787,7 +791,8 @@
       "categoryPlaceholder": "Select or create a category",
       "image": "Expense Image",
       "imageHelp": "Optional, max 500KB. Will be compressed.",
-      "description": "Description"
+      "description": "Description",
+      "date": "Date"
     },
     "import": {
       "title": "Import Expenses from CSV",

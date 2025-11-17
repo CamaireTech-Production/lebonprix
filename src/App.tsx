@@ -23,6 +23,10 @@ const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Sales = lazy(() => import('./pages/Sales'));
 const Orders = lazy(() => import('./pages/Orders'));
 const Expenses = lazy(() => import('./pages/Expenses'));
+const ExpensesList = lazy(() => import('./pages/expenses/ExpensesList'));
+const ExpensesCategories = lazy(() => import('./pages/expenses/ExpensesCategories'));
+const ExpensesAnalytics = lazy(() => import('./pages/expenses/ExpensesAnalytics'));
+const ExpensesReports = lazy(() => import('./pages/expenses/ExpensesReports'));
 const Products = lazy(() => import('./pages/Products'));
 const Categories = lazy(() => import('./pages/Categories'));
 const Suppliers = lazy(() => import('./pages/Suppliers'));
@@ -119,7 +123,11 @@ function AppWithFAB({ isAddSaleModalOpen, setIsAddSaleModalOpen }: { isAddSaleMo
               <Route path="dashboard" element={<LazyPage><Dashboard /></LazyPage>} />
               <Route path="sales" element={<LazyPage><Sales /></LazyPage>} />
               <Route path="orders" element={<LazyPage><Orders /></LazyPage>} />
-              <Route path="expenses" element={<LazyPage><Expenses /></LazyPage>} />
+              <Route path="expenses" element={<Navigate to="expenses/list" replace />} />
+              <Route path="expenses/list" element={<LazyPage><ExpensesList /></LazyPage>} />
+              <Route path="expenses/categories" element={<LazyPage><ExpensesCategories /></LazyPage>} />
+              <Route path="expenses/analytics" element={<LazyPage><ExpensesAnalytics /></LazyPage>} />
+              <Route path="expenses/reports" element={<LazyPage><ExpensesReports /></LazyPage>} />
               <Route path="finance" element={<RoleRoute allowedRoles={['gestionnaire', 'magasinier', 'owner']}><Finance /></RoleRoute>} />
               <Route path="products" element={<LazyPage><Products /></LazyPage>} />
               <Route path="categories" element={<LazyPage><Categories /></LazyPage>} />
