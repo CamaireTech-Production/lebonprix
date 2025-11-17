@@ -392,7 +392,10 @@ export const subscribeToProducts = (companyId: string, callback: (products: Prod
       id: doc.id,
       ...doc.data()
     })) as Product[];
-    callback(products);
+    // Only return products that are not soft-deleted
+    callback(products.filter(product => 
+      product.isAvailable !== false && product.isDeleted !== true
+    ));
   });
 };
 
@@ -441,7 +444,8 @@ export const subscribeToExpenses = (companyId: string, callback: (expenses: Expe
       id: doc.id,
       ...doc.data()
     })) as Expense[];
-    callback(expenses);
+    // Only return expenses that are not soft-deleted
+    callback(expenses.filter(expense => expense.isAvailable !== false));
   });
 };
 
@@ -1241,21 +1245,42 @@ export const createExpense = async (
   // Get userId from data if available
   const userId = data.userId || companyId;
   
+  // Convertir date en Timestamp si fournie, sinon utiliser serverTimestamp() par défaut
+  let transactionDate: any;
+  if (data.date) {
+    if (data.date instanceof Date) {
+      transactionDate = Timestamp.fromDate(data.date);
+    } else if (data.date.seconds) {
+      // Déjà un Timestamp
+      transactionDate = data.date;
+    } else {
+      // Fallback: créer un Timestamp à partir de la date
+      transactionDate = Timestamp.fromDate(new Date(data.date as any));
+    }
+  } else {
+    // Si date non fournie, utiliser la date actuelle
+    transactionDate = serverTimestamp();
+  }
+  
   const expenseRef = await addDoc(collection(db, 'expenses'), {
     ...data,
+    date: transactionDate, // Date de la transaction (peut être dans le passé)
     companyId, // Ensure companyId is set
     isAvailable: true,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp()
+    createdAt: serverTimestamp(), // Date de création de l'enregistrement (TOUJOURS maintenant)
+    updatedAt: serverTimestamp() // Date de modification (initialement = createdAt)
   });
 
+  // Pour le retour, convertir serverTimestamp en Timestamp client si nécessaire
+  const now = Date.now() / 1000;
   return {
     id: expenseRef.id,
     ...data,
+    date: data.date || { seconds: now, nanoseconds: 0 },
     companyId,
     isAvailable: true,
-    createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 },
-    updatedAt: { seconds: Date.now() / 1000, nanoseconds: 0 }
+    createdAt: { seconds: now, nanoseconds: 0 },
+    updatedAt: { seconds: now, nanoseconds: 0 }
   };
 };
 
@@ -1309,13 +1334,31 @@ export const updateExpense = async (
   // Get userId for audit log
   const userId = expense.userId || data.userId || companyId;
   
-  // Ensure companyId is set in update (for legacy expenses or company migration)
-  // Always use the current companyId to ensure consistency
-  const updateData = {
+  // Convertir date en Timestamp si fournie dans l'update
+  const updateData: any = {
     ...data,
     companyId: companyId, // Always use current companyId for consistency
     updatedAt: serverTimestamp()
+    // IMPORTANT: NE PAS inclure createdAt - il ne doit JAMAIS changer
   };
+  
+  // Si date est fournie, la convertir en Timestamp
+  if (data.date !== undefined) {
+    if (data.date instanceof Date) {
+      updateData.date = Timestamp.fromDate(data.date);
+    } else if (data.date && typeof data.date === 'object' && 'seconds' in data.date) {
+      // Déjà un Timestamp
+      updateData.date = data.date;
+    } else {
+      // Fallback: créer un Timestamp à partir de la date
+      updateData.date = Timestamp.fromDate(new Date(data.date as any));
+    }
+  }
+  
+  // CRITIQUE: S'assurer qu'on ne modifie JAMAIS createdAt
+  // Ne pas inclure createdAt dans updateData (déjà exclu par le spread de data)
+  // Mais on s'assure explicitement qu'il n'est pas présent
+  delete updateData.createdAt;
   
   const batch = writeBatch(db);
   
@@ -1327,7 +1370,13 @@ export const updateExpense = async (
   await batch.commit();
   
   // Sync with finance entry after successful update
-  const updatedExpense = { ...expense, ...data, id };
+  // Préserver createdAt original
+  const updatedExpense = { 
+    ...expense, 
+    ...data, 
+    id,
+    createdAt: expense.createdAt // Préserver createdAt original
+  };
   await syncFinanceEntryWithExpense(updatedExpense);
 };
 
@@ -2284,7 +2333,8 @@ export const syncFinanceEntryWithExpense = async (expense: Expense) => {
     type: 'expense',
     amount: -Math.abs(expense.amount),
     description: expense.description,
-    date: expense.createdAt,
+    // Utiliser date (date de transaction) si disponible, sinon createdAt (rétrocompatibilité)
+    date: expense.date || expense.createdAt,
     isDeleted: expense.isAvailable === false,
   };
   const snap = await getDocs(q);

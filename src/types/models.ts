@@ -131,6 +131,7 @@ export interface Expense extends BaseModel {
   amount: number;
   category: string;
   isAvailable?: boolean;
+  date?: Timestamp; // Date de la transaction (modifiable par l'utilisateur)
 }
 
 export interface DashboardStats extends BaseModel {
