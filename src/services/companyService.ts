@@ -12,6 +12,7 @@ export interface CompanyData {
   location?: string;
   logo?: string;
   email: string;
+  report_mail?: string;
 }
 
 /**
@@ -45,7 +46,8 @@ export const createCompany = async (
       // Ajouter seulement les champs non-undefined
       ...(companyData.description && { description: companyData.description }),
       ...(companyData.location && { location: companyData.location }),
-      ...(companyData.logo && { logo: companyData.logo })
+      ...(companyData.logo && { logo: companyData.logo }),
+      ...(companyData.report_mail && { report_mail: companyData.report_mail })
     };
 
     // 3. Sauvegarder en base de données

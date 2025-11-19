@@ -885,6 +885,8 @@
       "location": "Location",
       "locationHelp": "Optional",
       "emailAddress": "Email Address",
+      "reportMail": "Email for sales reports",
+      "reportMailHelp": "Email address where sales reports will be sent",
       "changePassword": "Change Password",
       "currentPassword": "Current Password",
       "currentPasswordHelp": "Required only if changing password",

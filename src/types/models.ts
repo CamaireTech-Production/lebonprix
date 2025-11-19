@@ -354,6 +354,7 @@ export interface Company extends BaseModel {
   role : "Companie"
   location?: string;
   email: string;
+  report_mail?: string; // Email pour les rapports de vente
   companyId: string; // ID du propriétaire de l'entreprise
   employees?: Record<string, CompanyEmployee>; // Mirroir de employeeRefs pour lecture rapide
   employeeCount?: number; // Nombre total d'employés

@@ -4,7 +4,7 @@ import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Input from '../components/common/Input';
 import ActivityList from '../components/dashboard/ActivityList';
-import { showSuccessToast, showErrorToast } from '../utils/toast';
+import { showSuccessToast, showErrorToast, showWarningToast } from '../utils/toast';
 import { useTranslation } from 'react-i18next';
 import { useSales, useExpenses, useAuditLogs, useProducts } from '../hooks/useFirestore';
 import { getSellerSettings, updateSellerSettings } from '../services/firestore';
@@ -29,7 +29,7 @@ function normalizeWebsite(raw: string): string | undefined {
 const Settings = () => {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('colors');
-  const { company, updateCompany, updateUserPassword, user } = useAuth();
+  const { company, updateCompany, updateUserPassword, user, isOwner, effectiveRole } = useAuth();
   
   // Checkout settings state
   const [checkoutSettings, setCheckoutSettings] = useState<CheckoutSettings | null>(null);
@@ -58,6 +58,7 @@ const Settings = () => {
     phone: '',
     location: '',
     email: '',
+    report_mail: '',
     logo: '',
     website: '',
     // Catalogue colors
@@ -88,6 +89,7 @@ const Settings = () => {
         phone: company.phone?.replace('+237', '') || '',
         location: company.location || '',
         email: company.email || '',
+        report_mail: company.report_mail || '',
         logo: company.logo || '',
         website: company.website || '',
         // Catalogue colors
@@ -338,6 +340,7 @@ const Settings = () => {
         location: formData.location || undefined,
         logo: formData.logo || undefined,
         email: formData.email,
+        report_mail: formData.report_mail || undefined,
         website: normalizedWebsite,
         // New color schemes
         catalogueColors: {
@@ -357,7 +360,19 @@ const Settings = () => {
         tertiaryColor: formData.tertiaryColor
       };
 
-      await updateCompany(companyData);
+      try {
+        await updateCompany(companyData);
+      } catch (error: any) {
+        // Si l'erreur concerne report_mail, continuer avec les autres champs
+        if (error.message && error.message.includes('report_mail')) {
+          showWarningToast('Email de rapport non sauvegardé (les autres modifications sont OK)');
+          // Retirer report_mail et réessayer
+          const { report_mail, ...companyDataWithoutReportMail } = companyData;
+          await updateCompany(companyDataWithoutReportMail);
+        } else {
+          throw error;
+        }
+      }
 
       // Update password if provided
       if (formData.currentPassword && formData.newPassword) {
@@ -1051,6 +1066,22 @@ const Settings = () => {
                       onChange={handleInputChange}
                       required
                     />
+                    {(isOwner || effectiveRole !== 'vendeur') && (
+                      <Input
+                        label={t('settings.account.reportMail')}
+                        name="report_mail"
+                        type="email"
+                        value={formData.report_mail}
+                        onChange={handleInputChange}
+                        onBlur={() => {
+                          if (formData.report_mail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.report_mail)) {
+                            // Validation silencieuse
+                          }
+                        }}
+                        placeholder="rapports@entreprise.com"
+                        helpText={t('settings.account.reportMailHelp')}
+                      />
+                    )}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Site web</label>
                       <div className="flex rounded-md shadow-sm">
