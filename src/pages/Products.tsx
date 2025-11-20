@@ -65,6 +65,23 @@ const Products = () => {
     onLoadMore: loadMore,
     threshold: 300 // Load more when 300px from bottom
   });
+
+  // Refresh products list when other parts of the app (e.g., sales) update stock
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleProductsRefresh = (event: Event) => {
+      const { detail } = event as CustomEvent<{ companyId?: string }>;
+      if (!company?.id) return;
+      if (detail?.companyId && detail.companyId !== company.id) return;
+      refresh();
+    };
+
+    window.addEventListener('products:refresh', handleProductsRefresh as EventListener);
+    return () => {
+      window.removeEventListener('products:refresh', handleProductsRefresh as EventListener);
+    };
+  }, [company?.id, refresh]);
   
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [searchQuery, setSearchQuery] = useState('');

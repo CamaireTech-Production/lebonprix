@@ -286,6 +286,17 @@ export const useSales = () => {
       BackgroundSyncService.forceSyncSales(company.id, (freshSales) => {
         setSales(freshSales);
       });
+      // Invalidate product caches so stock values refresh
+      ProductsManager.remove(company.id);
+      if (user.uid) {
+        ProductsManager.remove(user.uid);
+      }
+      // Notify product list to refresh immediately if mounted
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('products:refresh', {
+          detail: { companyId: company.id }
+        }));
+      }
       return newSale;
     } catch (err) {
       setError(err as Error);
