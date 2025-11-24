@@ -68,3 +68,4 @@ const ExpenseDeleteModal = ({ isOpen, expense, onClose, onSuccess }: ExpenseDele
 
 export default ExpenseDeleteModal;
 
+
