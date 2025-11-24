@@ -48,3 +48,4 @@ const ComparisonIndicator = ({
 
 export default ComparisonIndicator;
 
+

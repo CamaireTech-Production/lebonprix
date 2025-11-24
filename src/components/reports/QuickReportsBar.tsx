@@ -31,3 +31,4 @@ const QuickReportsBar = ({ onSelectPeriod }: QuickReportsBarProps) => {
 
 export default QuickReportsBar;
 
+
