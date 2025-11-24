@@ -6,12 +6,14 @@ import { storage } from '../../services/firebase';
 import Card from '../../components/common/Card';
 import Button from '../../components/common/Button';
 import { Building2, Upload, ArrowLeft } from 'lucide-react';
+import { showWarningToast } from '../../utils/toast';
 
 interface CompanyFormData {
   name: string;
   description: string;
   phone: string;
   email: string;
+  report_mail: string;
   location: string;
   logo?: string;
 }
@@ -22,6 +24,7 @@ export default function CreateCompany() {
     description: '',
     phone: '',
     email: '',
+    report_mail: '',
     location: '',
     logo: ''
   });
@@ -68,6 +71,12 @@ export default function CreateCompany() {
       newErrors.email = 'Format d\'email invalide';
     }
 
+    if (!formData.report_mail.trim()) {
+      newErrors.report_mail = 'L\'email de rapport est requis';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.report_mail)) {
+      newErrors.report_mail = 'Format d\'email invalide';
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -103,6 +112,7 @@ export default function CreateCompany() {
         description: formData.description.trim(),
         phone: formData.phone.trim(),
         email: formData.email.trim(),
+        report_mail: formData.report_mail.trim(),
         location: formData.location.trim(),
         logo: formData.logo || undefined
       });
@@ -115,9 +125,15 @@ export default function CreateCompany() {
         navigate(`/company/${company.id}/dashboard`);
       }, 1500);
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erreur lors de la création de la company:', error);
-      setError('Erreur lors de la création de la company. Veuillez réessayer.');
+      
+      // Vérifier si c'est une erreur spécifique à report_mail
+      if (error.message && error.message.includes('report_mail')) {
+        showWarningToast('Email de rapport non sauvegardé (les autres modifications sont OK)');
+      } else {
+        setError('Erreur lors de la création de la company. Veuillez réessayer.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -359,6 +375,32 @@ export default function CreateCompany() {
                   <p className="mt-1 text-sm text-red-600">{errors.email}</p>
                 )}
               </div>
+            </div>
+
+            {/* Report Mail */}
+            <div>
+              <label htmlFor="report_mail" className="block text-sm font-medium text-gray-700 mb-2">
+                Email pour les rapports de vente *
+              </label>
+              <input
+                type="email"
+                id="report_mail"
+                name="report_mail"
+                value={formData.report_mail}
+                onChange={handleInputChange}
+                onBlur={() => {
+                  if (formData.report_mail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.report_mail)) {
+                    setErrors(prev => ({ ...prev, report_mail: 'Format d\'email invalide' }));
+                  }
+                }}
+                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                  errors.report_mail ? 'border-red-300' : 'border-gray-300'
+                }`}
+                placeholder="rapports@entreprise.com"
+              />
+              {errors.report_mail && (
+                <p className="mt-1 text-sm text-red-600">{errors.report_mail}</p>
+              )}
             </div>
 
             {/* Location */}

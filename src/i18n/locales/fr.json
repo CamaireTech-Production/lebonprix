@@ -759,6 +759,8 @@
       "location": "Localisation",
       "locationHelp": "Optionnel",
       "emailAddress": "Adresse e-mail",
+      "reportMail": "Email pour les rapports de vente",
+      "reportMailHelp": "Adresse email vers laquelle les rapports de vente seront envoyés",
       "changePassword": "Changer le mot de passe",
       "currentPassword": "Mot de passe actuel",
       "currentPasswordHelp": "Requis seulement si vous changez le mot de passe",

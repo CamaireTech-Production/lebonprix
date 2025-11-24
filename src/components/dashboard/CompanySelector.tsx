@@ -24,6 +24,7 @@ export const CompanySelector: React.FC<CompanySelectorProps> = ({ onCompanySelec
     description: '',
     phone: '',
     email: '',
+    report_mail: '',
     location: '',
     logo: ''
   });
@@ -59,6 +60,7 @@ export const CompanySelector: React.FC<CompanySelectorProps> = ({ onCompanySelec
         description: companyForm.description,
         phone: companyForm.phone,
         email: companyForm.email,
+        report_mail: companyForm.report_mail,
         location: companyForm.location,
         logo: companyForm.logo
       });
@@ -70,6 +72,7 @@ export const CompanySelector: React.FC<CompanySelectorProps> = ({ onCompanySelec
         description: '',
         phone: '',
         email: '',
+        report_mail: '',
         location: '',
         logo: ''
       });
@@ -242,6 +245,25 @@ export const CompanySelector: React.FC<CompanySelectorProps> = ({ onCompanySelec
                       placeholder="contact@entreprise.com"
                     />
                   </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Email pour les rapports de vente *
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={companyForm.report_mail}
+                    onChange={(e) => setCompanyForm({...companyForm, report_mail: e.target.value})}
+                    onBlur={() => {
+                      if (companyForm.report_mail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(companyForm.report_mail)) {
+                        // Validation silencieuse, l'erreur sera affichée à la soumission
+                      }
+                    }}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="rapports@entreprise.com"
+                  />
                 </div>
 
                 <div>

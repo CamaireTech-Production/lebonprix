@@ -8,7 +8,7 @@ import Button from '../components/common/Button';
 import Modal from '../components/common/Modal';
 import Input from '../components/common/Input';
 import Textarea from '../components/common/Textarea';
-import { showSuccessToast, showErrorToast } from '../utils/toast';
+import { showSuccessToast, showErrorToast, showWarningToast } from '../utils/toast';
 
 /**
  * Dashboard de gestion des entreprises type Netflix
@@ -31,6 +31,7 @@ export const CompaniesManagement: React.FC = () => {
     description: '',
     phone: '',
     email: '',
+    report_mail: '',
     location: '',
     logo: ''
   });
@@ -117,6 +118,14 @@ export const CompaniesManagement: React.FC = () => {
       showErrorToast('L\'email est requis');
       return;
     }
+    if (!companyForm.report_mail.trim()) {
+      showErrorToast('L\'email de rapport est requis');
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(companyForm.report_mail)) {
+      showErrorToast('Format d\'email de rapport invalide');
+      return;
+    }
 
     try {
       setIsCreating(true);
@@ -132,6 +141,7 @@ export const CompaniesManagement: React.FC = () => {
         description: companyForm.description.trim() || undefined,
         phone: companyForm.phone.trim(),
         email: companyForm.email.trim(),
+        report_mail: companyForm.report_mail.trim(),
         location: companyForm.location.trim() || undefined,
         logo: logoBase64 || companyForm.logo.trim() || undefined
       });
@@ -143,6 +153,7 @@ export const CompaniesManagement: React.FC = () => {
         description: '',
         phone: '',
         email: '',
+        report_mail: '',
         location: '',
         logo: ''
       });
@@ -151,7 +162,13 @@ export const CompaniesManagement: React.FC = () => {
       
     } catch (error: any) {
       console.error('❌ Erreur lors de la création de l\'entreprise:', error);
-      showErrorToast(error.message || 'Erreur lors de la création de l\'entreprise');
+      
+      // Vérifier si c'est une erreur spécifique à report_mail
+      if (error.message && error.message.includes('report_mail')) {
+        showWarningToast('Email de rapport non sauvegardé (les autres modifications sont OK)');
+      } else {
+        showErrorToast(error.message || 'Erreur lors de la création de l\'entreprise');
+      }
     } finally {
       setIsCreating(false);
     }
@@ -388,6 +405,20 @@ export const CompaniesManagement: React.FC = () => {
                 required
               />
             </div>
+
+            <Input
+              label="Email pour les rapports de vente *"
+              type="email"
+              value={companyForm.report_mail}
+              onChange={(e) => setCompanyForm({...companyForm, report_mail: e.target.value})}
+              onBlur={() => {
+                if (companyForm.report_mail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(companyForm.report_mail)) {
+                  showErrorToast('Format d\'email de rapport invalide');
+                }
+              }}
+              placeholder="rapports@entreprise.com"
+              required
+            />
 
             <Input
               label="Localisation"
