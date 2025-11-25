@@ -215,7 +215,8 @@ const Finance: React.FC = () => {
 
   // Calculate solde: sum of all non-debt/refund/supplier_debt/supplier_refund entries plus only customer debt (excluding supplier debt)
   const solde = useMemo<number>(() => {
-    const nonDebtEntries = filteredFinanceEntries.filter(
+    const activeEntries = effectiveEntries.filter((entry: FinanceEntry) => entry.isDeleted !== true);
+    const nonDebtEntries = activeEntries.filter(
       (entry: FinanceEntry) => entry.type !== 'debt' && entry.type !== 'refund' && entry.type !== 'supplier_debt' && entry.type !== 'supplier_refund'
     );
     const nonDebtSum = nonDebtEntries.reduce((sum: number, entry: FinanceEntry) => sum + entry.amount, 0);
@@ -235,7 +236,7 @@ const Finance: React.FC = () => {
       }, 0);
     
     return nonDebtSum + customerDebt;
-  }, [filteredFinanceEntries, userDebt.debtEntries, userDebt.refundEntries]);
+  }, [effectiveEntries, userDebt.debtEntries, userDebt.refundEntries]);
 
   // Filtering logic
   const filteredAndSearchedEntries = useMemo(() => {
@@ -580,12 +581,6 @@ const Finance: React.FC = () => {
       } else {
         // Create the entry in database
         await createFinanceEntry(entryData);
-        
-        // Simple solution: Manually refresh the table data after create
-        setTimeout(() => {
-          refresh();
-        }, 500); // Small delay to ensure Firestore has processed the write
-        
         showSuccessToast(t('finance.messages.addSuccess'));
       }
       handleCloseRemoveMoneyModal();
