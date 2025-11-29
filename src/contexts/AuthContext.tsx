@@ -16,7 +16,7 @@ import FinanceTypesManager from '../services/storage/FinanceTypesManager';
 import BackgroundSyncService from '../services/backgroundSync';
 import { saveCompanyToCache, getCompanyFromCache, clearCompanyCache } from '../utils/companyCache';
 import { getUserById, updateUserLastLogin, createUser } from '../services/userService';
-import { saveUserSession, getUserSession, clearUserSession, updateUserSessionCompanies } from '../utils/userSession';
+import { saveUserSession, getUserSession, clearUserSession} from '../utils/userSession';
 import { clearUserDataOnLogout } from '../utils/logoutCleanup';
 
 interface AuthContextType {
@@ -456,6 +456,20 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           
           const uiRole = roleMapping[userCompanyRef.role] || userCompanyRef.role;
           setEffectiveRole(uiRole as UserRole | 'owner' | 'vendeur' | 'gestionnaire' | 'magasinier');
+          
+          // Create CompanyEmployee from user data for currentEmployee
+          const employee: CompanyEmployee = {
+            id: userId, // Use userId as id
+            firstname: userData.firstname || '',
+            lastname: userData.lastname || '',
+            email: userData.email || '',
+            phone: userData.phone || undefined,
+            role: userCompanyRef.role as UserRole,
+            firebaseUid: userId,
+            createdAt: userCompanyRef.joinedAt || Timestamp.now(),
+            updatedAt: Timestamp.now()
+          };
+          setCurrentEmployee(employee);
           return;
         }
       }

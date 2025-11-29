@@ -158,8 +158,11 @@ export const createOrder = async (
       }
     };
 
+    // Get createdBy from metadata if provided
+    const createdBy = orderData.metadata?.createdBy;
+    
     // Create order document
-    const orderDoc = {
+    const orderDoc: any = {
       orderId: orderId || '',
       orderNumber: orderNumber || '',
       customerInfo: sanitizedCustomerInfo,
@@ -177,6 +180,11 @@ export const createOrder = async (
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     };
+    
+    // Add createdBy if provided
+    if (createdBy) {
+      orderDoc.createdBy = createdBy;
+    }
 
     const docRef = await addDoc(collection(db, COLLECTION_NAME), orderDoc);
     

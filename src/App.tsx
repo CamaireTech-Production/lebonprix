@@ -1,5 +1,5 @@
 import { lazy, Suspense, useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { CartProvider } from './contexts/CartContext';
 import AuthLayout from './components/layout/AuthLayout';
@@ -11,8 +11,6 @@ import LazyPage from './components/common/LazyPage';
 import { Toaster } from 'react-hot-toast';
 import Finance from './pages/Finance';
 import { PWAErrorHandler } from './components/PWAErrorHandler';
-import { PWAUpdateNotification } from './components/PWAUpdateNotification';
-import { usePWAUpdate } from './hooks/usePWAUpdate';
 
 // Lazy load pages
 const Login = lazy(() => import('./pages/auth/Login'));
@@ -32,6 +30,7 @@ const Categories = lazy(() => import('./pages/Categories'));
 const Suppliers = lazy(() => import('./pages/Suppliers'));
 const Reports = lazy(() => import('./pages/Reports'));
 const Settings = lazy(() => import('./pages/Settings'));
+const Profile = lazy(() => import('./pages/Profile'));
 const TimelinePage = lazy(() => import('./pages/TimelinePage'));
 const Catalogue = lazy(() => import('./pages/Catalogue'));
 const SingleCheckout = lazy(() => import('./pages/SingleCheckout'));
@@ -62,23 +61,10 @@ function App() {
 }
 
 function AppWithFAB({ isAddSaleModalOpen, setIsAddSaleModalOpen }: { isAddSaleModalOpen: boolean, setIsAddSaleModalOpen: (open: boolean) => void }) {
-  const location = useLocation();
-  const { isUpdateAvailable, applyUpdate, dismissUpdate } = usePWAUpdate();
-  const isCataloguePage = /^\/catalogue\/[^/]+\/[^/]+$/.test(location.pathname);
-  const isCheckoutPage = location.pathname === '/checkout';
-  
   return (
     <PWAErrorHandler>
       <Suspense fallback={<LoadingScreen />}>
         <Toaster />
-        
-        {/* PWA Update Notification - Don't show on catalogue or checkout pages */}
-        {isUpdateAvailable && !isCataloguePage && !isCheckoutPage && (
-          <PWAUpdateNotification
-            onUpdate={applyUpdate}
-            onDismiss={dismissUpdate}
-          />
-        )}
         
         <Routes>
           {/* Root redirect to login */}
@@ -134,6 +120,7 @@ function AppWithFAB({ isAddSaleModalOpen, setIsAddSaleModalOpen }: { isAddSaleMo
               <Route path="suppliers" element={<LazyPage><Suppliers /></LazyPage>} />
               <Route path="hr" element={<RoleRoute allowedRoles={['magasinier', 'owner']}><LazyPage><HRManagement /></LazyPage></RoleRoute>} />
               <Route path="reports" element={<RoleRoute allowedRoles={['gestionnaire', 'magasinier', 'owner']}><LazyPage><Reports /></LazyPage></RoleRoute>} />
+              <Route path="profile" element={<LazyPage><Profile /></LazyPage>} />
               <Route path="settings" element={<RoleRoute allowedRoles={['magasinier', 'owner']}><LazyPage><Settings /></LazyPage></RoleRoute>} />
               <Route path="fifo-debugger" element={<LazyPage><FIFODebugger /></LazyPage>} />
             </Route>

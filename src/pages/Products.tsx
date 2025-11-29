@@ -12,6 +12,8 @@ import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 import { useAllStockBatches } from '../hooks/useStockBatches';
 import { createSupplier, recalculateCategoryProductCounts } from '../services/firestore';
 import { useAuth } from '../contexts/AuthContext';
+import { getCurrentEmployeeRef } from '../utils/employeeUtils';
+import { getUserById } from '../services/userService';
 import { FirebaseStorageService } from '../services/firebaseStorageService';
 import { ImageWithSkeleton } from '../components/common/ImageWithSkeleton';
 import LoadingScreen from '../components/common/LoadingScreen';
@@ -22,6 +24,7 @@ import * as Papa from 'papaparse';
 import type { Product, ProductTag} from '../types/models';
 import type { ParseResult } from 'papaparse';
 import { getLatestCostPrice} from '../utils/productUtils';
+import { formatCreatorName } from '../utils/employeeUtils';
 import { 
   getProductBatchesForAdjustment,
   adjustBatchWithDebtManagement
@@ -56,7 +59,7 @@ const Products = () => {
   useCategories();
   const { suppliers } = useSuppliers();
   const { batches: allStockBatches } = useAllStockBatches();
-  const { user, company } = useAuth();
+  const { user, company, currentEmployee, isOwner } = useAuth();
   
   // Set up infinite scroll
   useInfiniteScroll({
@@ -419,10 +422,25 @@ const Products = () => {
         costPrice: stockCostPrice
       };
 
+      // Get createdBy employee reference
+      let createdBy = null;
+      if (user && company) {
+        let userData = null;
+        if (isOwner && !currentEmployee) {
+          // If owner, fetch user data to create EmployeeRef
+          try {
+            userData = await getUserById(user.uid);
+          } catch (error) {
+            console.error('Error fetching user data for createdBy:', error);
+          }
+        }
+        createdBy = getCurrentEmployeeRef(currentEmployee, user, isOwner, userData);
+      }
+      
       // Create the product with supplier information and image URLs included
       let createdProduct;
       try {
-        createdProduct = await addProduct(productData, supplierInfo);
+        createdProduct = await addProduct(productData, supplierInfo, createdBy);
         console.log('Created product result:', createdProduct);
         
         if (!createdProduct) {
@@ -1308,6 +1326,21 @@ const Products = () => {
       return;
     }
 
+    // Get createdBy employee reference once for all imports
+    let createdBy = null;
+    if (user && company) {
+      let userData = null;
+      if (isOwner && !currentEmployee) {
+        // If owner, fetch user data to create EmployeeRef
+        try {
+          userData = await getUserById(user.uid);
+        } catch (error) {
+          console.error('Error fetching user data for createdBy:', error);
+        }
+      }
+      createdBy = getCurrentEmployeeRef(currentEmployee, user, isOwner, userData);
+    }
+
     setIsImporting(true);
     setImportProgress(0);
     let importedCount = 0;
@@ -1403,7 +1436,7 @@ const Products = () => {
       }
 
       try {
-        await addProduct(productData, supplierInfo);
+        await addProduct(productData, supplierInfo, createdBy);
         importedCount++;
       } catch (err) {
         console.error(`Failed to import product ${name}:`, err);
@@ -1642,6 +1675,9 @@ const Products = () => {
                   {product.category && (
                     <p className="mt-2 text-sm text-gray-500">{product.category}</p>
                   )}
+                  <div className="mt-2 text-xs text-gray-400">
+                    Créé par: {formatCreatorName(product.createdBy)}
+                  </div>
                 </div>
                 <div className="mt-4 flex justify-end space-x-2 px-4 pb-3">
                   <button
@@ -1721,6 +1757,9 @@ const Products = () => {
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     {t('products.table.columns.category')}
                   </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Créé par
+                  </th>
                   <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                     {t('products.table.columns.actions')}
                   </th>
@@ -1730,7 +1769,7 @@ const Products = () => {
                 {filteredProducts.map((product) => (
                   <tr key={product.id} className={isBulkSelection && !selectedProducts.includes(product.id) ? 'relative' : ''}>
                     {isBulkSelection && !selectedProducts.includes(product.id) && (
-                      <td className="absolute left-0 top-0 w-full h-full bg-black bg-opacity-20 z-10" colSpan={7} />
+                      <td className="absolute left-0 top-0 w-full h-full bg-black bg-opacity-20 z-10" colSpan={8} />
                     )}
                     {isBulkSelection && (
                       <td className="px-4 py-4 relative z-20">
@@ -1805,6 +1844,9 @@ const Products = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-500">{product.category}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-600">{formatCreatorName(product.createdBy)}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex justify-end space-x-2">

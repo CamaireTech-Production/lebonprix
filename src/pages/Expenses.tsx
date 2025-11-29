@@ -17,11 +17,13 @@ import SyncIndicator from '../components/common/SyncIndicator';
 import { showSuccessToast, showErrorToast, showWarningToast } from '../utils/toast';
 import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
+import { getCurrentEmployeeRef, formatCreatorName } from '../utils/employeeUtils';
+import { getUserById } from '../services/userService';
 import type { Expense, ExpenseType } from '../types/models';
 
 const Expenses = () => {
   const { t } = useTranslation();
-  const { user, company } = useAuth();
+  const { user, company, currentEmployee, isOwner } = useAuth();
   const { 
     expenses, 
     loading, 
@@ -271,6 +273,21 @@ const Expenses = () => {
 
       setIsSubmitting(true);
       
+      // Get createdBy employee reference
+      let createdBy = null;
+      if (user && company) {
+        let userData = null;
+        if (isOwner && !currentEmployee) {
+          // If owner, fetch user data to create EmployeeRef
+          try {
+            userData = await getUserById(user.uid);
+          } catch (error) {
+            console.error('Error fetching user data for createdBy:', error);
+          }
+        }
+        createdBy = getCurrentEmployeeRef(currentEmployee, user, isOwner, userData);
+      }
+      
       const newExpense = await createExpense({
         description: formData.description.trim(),
         amount: amount,
@@ -278,7 +295,7 @@ const Expenses = () => {
         userId: user.uid,
         companyId: company.id,
         date: expenseDate, // Inclure la date de transaction
-      }, company.id);
+      }, company.id, createdBy);
       
       // Sync finance entry for the expense
       await syncFinanceEntryWithExpense(newExpense);
@@ -530,6 +547,12 @@ const Expenses = () => {
         if (!timestamp?.seconds) return 'N/A';
         return new Date(timestamp.seconds * 1000).toLocaleDateString();
       },
+    },
+    { 
+      header: 'Créé par', 
+      accessor: (expense: Expense) => (
+        <span className="text-gray-600">{formatCreatorName(expense.createdBy)}</span>
+      ),
     },
     { 
       header: t('expenses.table.actions'), 

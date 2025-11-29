@@ -33,6 +33,7 @@ import { generatePDF, generatePDFBlob } from '../utils/pdf';
 import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { addCustomer, softDeleteSale } from '../services/firestore';
+import { formatCreatorName } from '../utils/employeeUtils';
 import { createPortal } from 'react-dom';
 import AddSaleModal from '../components/sales/AddSaleModal';
 import SaleDetailsModal from '../components/sales/SaleDetailsModal';
@@ -517,6 +518,9 @@ const Sales: React.FC = () => {
               return <Badge variant={variant}>{t(`sales.filters.status.${sale.status}`)}</Badge>;
             })()}
           </td>
+          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+            {formatCreatorName(sale.createdBy)}
+          </td>
           <td className="px-6 py-4 whitespace-nowrap text-sm">
             <div className="flex space-x-2">
               <button
@@ -563,7 +567,7 @@ const Sales: React.FC = () => {
         </tr>,
         isExpanded && (
           <tr key={sale.id + '-details'}>
-            <td colSpan={8} className="p-0 bg-white border-t-0">
+            <td colSpan={9} className="p-0 bg-white border-t-0">
               <div className="overflow-x-auto custom-scrollbar border-t border-gray-100">
                 <table className="min-w-[600px] w-full text-sm">
                   <thead className="bg-emerald-50">
@@ -758,6 +762,9 @@ const Sales: React.FC = () => {
                   {t('sales.table.columns.status')}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Créé par
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   {t('sales.table.columns.actions')}
                 </th>
               </tr>
@@ -767,7 +774,7 @@ const Sales: React.FC = () => {
                 renderRows(pagedSales).flat()
               ) : (
                 <tr>
-                  <td colSpan={9} className="px-6 py-4 text-center text-sm text-gray-500">
+                  <td colSpan={10} className="px-6 py-4 text-center text-sm text-gray-500">
                     {t('sales.table.emptyMessage')}
                   </td>
                 </tr>

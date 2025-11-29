@@ -94,6 +94,8 @@ export interface OrderMetadata {
     os?: string;
     browser?: string;
   };
+  userId?: string; // Legacy field
+  createdBy?: import('./models').EmployeeRef; // Employee who created the order
 }
 
 // Main Order interface

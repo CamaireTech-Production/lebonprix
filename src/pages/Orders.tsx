@@ -7,6 +7,7 @@ import {
   addOrderNote,
   deleteOrder 
 } from '../services/orderService';
+import { formatCreatorName } from '../utils/employeeUtils';
 import { Order, OrderFilters, OrderStats } from '../types/order';
 import { 
   ShoppingBag, 
@@ -379,6 +380,10 @@ const Orders: React.FC = () => {
                     <div className="flex items-center gap-1">
                       <Package className="w-4 h-4" />
                       <span>{order.items.length} item{order.items.length !== 1 ? 's' : ''}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <User className="w-4 h-4" />
+                      <span className="text-gray-500">Créé par: {formatCreatorName(order.createdBy)}</span>
                     </div>
                   </div>
                 </div>

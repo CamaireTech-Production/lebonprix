@@ -467,7 +467,8 @@ export const subscribeToDashboardStats = (callback: (stats: Partial<DashboardSta
 
 export const createCategory = async (
   data: Omit<Category, 'id' | 'createdAt' | 'updatedAt'>,
-  companyId: string
+  companyId: string,
+  createdBy?: import('../types/models').EmployeeRef | null
 ): Promise<Category> => {
   const batch = writeBatch(db);
   
@@ -476,7 +477,7 @@ export const createCategory = async (
     throw new Error('Category name is required');
   }
   
-  const categoryData = {
+  const categoryData: any = {
     ...data,
     companyId, // Ensure companyId is set
     isActive: data.isActive !== false, // Default to true
@@ -484,6 +485,11 @@ export const createCategory = async (
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   };
+  
+  // Add createdBy if provided
+  if (createdBy) {
+    categoryData.createdBy = createdBy;
+  }
   
   const categoryRef = doc(collection(db, 'categories'));
   batch.set(categoryRef, categoryData);
@@ -663,7 +669,8 @@ export const createProduct = async (
     isOwnPurchase?: boolean;
     isCredit?: boolean;
     costPrice?: number;
-  }
+  },
+  createdBy?: import('../types/models').EmployeeRef | null
 ): Promise<Product> => {
   try {
     console.log('Creating product with data:', data, 'supplierInfo:', supplierInfo);
@@ -692,7 +699,7 @@ export const createProduct = async (
   }
   
   // Set default inventory settings
-  const productData = {
+  const productData: any = {
     ...data,
     barCode, // Include generated or provided barcode
     companyId, // Ensure companyId is set
@@ -702,6 +709,11 @@ export const createProduct = async (
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   };
+  
+  // Add createdBy if provided
+  if (createdBy) {
+    productData.createdBy = createdBy;
+  }
   
   // Get userId from data if available, otherwise use companyId for audit
   const userId = data.userId || companyId;
@@ -1057,7 +1069,8 @@ export const softDeleteProduct = async (id: string, userId: string): Promise<voi
 
 export const createSale = async (
   data: Omit<Sale, 'id' | 'createdAt' | 'updatedAt'>,
-  companyId: string
+  companyId: string,
+  createdBy?: import('../types/models').EmployeeRef | null
 ): Promise<Sale> => {
   try {
     console.log('Creating sale with data:', data);
@@ -1168,7 +1181,7 @@ export const createSale = async (
   const averageProfitMargin = totalCost > 0 ? (totalProfit / totalCost) * 100 : 0;
   
   // Create sale with enhanced data
-  const saleData = {
+  const saleData: any = {
     ...data,
     products: enhancedProducts,
     totalCost,
@@ -1178,6 +1191,11 @@ export const createSale = async (
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   };
+  
+  // Add createdBy if provided
+  if (createdBy) {
+    saleData.createdBy = createdBy;
+  }
   batch.set(saleRef, saleData);
   
   // Create audit log
@@ -1240,7 +1258,8 @@ export const updateSaleStatus = async (
 
 export const createExpense = async (
   data: Omit<Expense, 'id' | 'createdAt' | 'updatedAt'>,
-  companyId: string
+  companyId: string,
+  createdBy?: import('../types/models').EmployeeRef | null
 ): Promise<Expense> => {
   // Get userId from data if available
   const userId = data.userId || companyId;
@@ -1262,14 +1281,21 @@ export const createExpense = async (
     transactionDate = serverTimestamp();
   }
   
-  const expenseRef = await addDoc(collection(db, 'expenses'), {
+  const expenseData: any = {
     ...data,
     date: transactionDate, // Date de la transaction (peut être dans le passé)
     companyId, // Ensure companyId is set
     isAvailable: true,
     createdAt: serverTimestamp(), // Date de création de l'enregistrement (TOUJOURS maintenant)
     updatedAt: serverTimestamp() // Date de modification (initialement = createdAt)
-  });
+  };
+  
+  // Add createdBy if provided
+  if (createdBy) {
+    expenseData.createdBy = createdBy;
+  }
+  
+  const expenseRef = await addDoc(collection(db, 'expenses'), expenseData);
 
   // Pour le retour, convertir serverTimestamp en Timestamp client si nécessaire
   const now = Date.now() / 1000;

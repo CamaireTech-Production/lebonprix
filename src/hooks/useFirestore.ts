@@ -105,11 +105,12 @@ export const useProducts = () => {
       isOwnPurchase?: boolean;
       isCredit?: boolean;
       costPrice?: number;
-    }
+    },
+    createdBy?: import('../types/models').EmployeeRef | null
   ) => {
     if (!user) throw new Error('User not authenticated');
     try {
-      const createdProduct = await createProduct(productData, company.id, supplierInfo);
+      const createdProduct = await createProduct(productData, company.id, supplierInfo, createdBy);
       // Invalidate products cache when new product is added
       invalidateSpecificCache(company.id, 'products');
       // Force sync to update localStorage
@@ -273,12 +274,12 @@ export const useSales = () => {
     return () => unsubscribe();
   }, [user, company]);
 
-  const addSale = async (data: Omit<Sale, 'id' | 'createdAt' | 'updatedAt'>): Promise<Sale> => {
+  const addSale = async (data: Omit<Sale, 'id' | 'createdAt' | 'updatedAt'>, createdBy?: import('../types/models').EmployeeRef | null): Promise<Sale> => {
     if (!user || !company) {
       throw new Error('User not authenticated');
     }
     try {
-      const newSale = await createSale({ ...data, userId: user.uid, companyId: company.id }, company.id);
+      const newSale = await createSale({ ...data, userId: user.uid, companyId: company.id }, company.id, createdBy);
       await syncFinanceEntryWithSale(newSale);
       // Invalidate sales cache when new sale is added
       invalidateSpecificCache(company.id, 'sales');
@@ -465,10 +466,10 @@ export const useExpenses = () => {
     return () => unsubscribe();
   }, [user, company]);
 
-  const addExpense = async (data: Omit<Expense, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const addExpense = async (data: Omit<Expense, 'id' | 'createdAt' | 'updatedAt'>, createdBy?: import('../types/models').EmployeeRef | null) => {
     if (!user) throw new Error('User not authenticated');
     try {
-      const newExpense = await createExpense({ ...data, userId: user.uid, companyId: company.id }, company.id);
+      const newExpense = await createExpense({ ...data, userId: user.uid, companyId: company.id }, company.id, createdBy);
       await syncFinanceEntryWithExpense(newExpense);
       // Force sync to update localStorage
       BackgroundSyncService.forceSyncExpenses(company.id, (freshExpenses) => {

@@ -5,6 +5,8 @@ import { useCart } from '../contexts/CartContext';
 import { useAuth } from '../contexts/AuthContext';
 import { createOrder } from '../services/orderService';
 import { getCompanyByUserId, getSellerSettings } from '../services/firestore';
+import { getCurrentEmployeeRef } from '../utils/employeeUtils';
+import { getUserById } from '../services/userService';
 import { getCheckoutSettingsWithDefaults, subscribeToCheckoutSettings } from '../services/checkoutSettingsService';
 // Removed useCheckoutPersistence - using manual save approach
 import { subscribeToCinetPayConfig, isCinetPayConfigured } from '../services/cinetpayService';
@@ -49,7 +51,7 @@ const SingleCheckout: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { cart, clearCart, getCartTotal, loadCartForCompany, setCurrentCompanyId } = useCart();
-  const { user, company } = useAuth();
+  const { user, company, currentEmployee, isOwner } = useAuth();
   
   // Get company colors with fallbacks
   const getCompanyColors = () => {
@@ -603,6 +605,21 @@ const SingleCheckout: React.FC = () => {
         );
 
         if (paymentResult.success && company) {
+          // Get createdBy employee reference
+          let createdBy = null;
+          if (user && company) {
+            let userData = null;
+            if (isOwner && !currentEmployee) {
+              // If owner, fetch user data to create EmployeeRef
+              try {
+                userData = await getUserById(user.uid);
+              } catch (error) {
+                console.error('Error fetching user data for createdBy:', error);
+              }
+            }
+            createdBy = getCurrentEmployeeRef(currentEmployee, user, isOwner, userData);
+          }
+          
           // Create order with CinetPay payment details
           const order = await createOrder(
             company.id,
@@ -625,6 +642,7 @@ const SingleCheckout: React.FC = () => {
               metadata: {
                 source: 'catalogue',
                 userId: user?.uid, // Include userId in metadata for audit
+                createdBy,
                 deviceInfo: {
                   type: 'desktop',
                   os: navigator.platform,
@@ -655,6 +673,21 @@ const SingleCheckout: React.FC = () => {
           toast.error(paymentResult.error || 'Payment failed');
         }
       } else if (company) {
+        // Get createdBy employee reference
+        let createdBy = null;
+        if (user && company) {
+          let userData = null;
+          if (isOwner && !currentEmployee) {
+            // If owner, fetch user data to create EmployeeRef
+            try {
+              userData = await getUserById(user.uid);
+            } catch (error) {
+              console.error('Error fetching user data for createdBy:', error);
+            }
+          }
+          createdBy = getCurrentEmployeeRef(currentEmployee, user, isOwner, userData);
+        }
+        
         // Handle regular payment methods (existing logic)
         const order = await createOrder(
           company.id,
@@ -677,6 +710,7 @@ const SingleCheckout: React.FC = () => {
             metadata: {
               source: 'catalogue',
               userId: user?.uid, // Include userId in metadata for audit
+              createdBy,
               deviceInfo: {
                 type: 'desktop',
                 os: navigator.platform,

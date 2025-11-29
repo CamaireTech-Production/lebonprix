@@ -4,6 +4,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
 import { getCompanyByUserId } from '../services/firestore';
 import { createOrder } from '../services/orderService';
+import { getCurrentEmployeeRef } from '../utils/employeeUtils';
+import { getUserById } from '../services/userService';
 import type { Company } from '../types/models';
 import type { CustomerInfo, OrderData, OrderPaymentMethod, OrderPricing, DeliveryInfo, Order } from '../types/order';
 import { ArrowLeft, MapPin, Phone, User, MessageSquare, CreditCard, Truck, CheckCircle, Clock } from 'lucide-react';
@@ -14,7 +16,7 @@ import toast from 'react-hot-toast';
 const Checkout = () => {
   const { companyId } = useParams<{ companyId: string }>();
   const navigate = useNavigate();
-  useAuth();
+  const { user, company, currentEmployee, isOwner } = useAuth();
   const { cart, getCartTotal, clearCart } = useCart();
   const [company, setCompany] = useState<Company | null>(null);
   const [loading, setLoading] = useState(true);
@@ -157,6 +159,21 @@ const Checkout = () => {
         instructions: customerInfo.deliveryInstructions
       };
 
+      // Get createdBy employee reference
+      let createdBy = null;
+      if (user && company) {
+        let userData = null;
+        if (isOwner && !currentEmployee) {
+          // If owner, fetch user data to create EmployeeRef
+          try {
+            userData = await getUserById(user.uid);
+          } catch (error) {
+            console.error('Error fetching user data for createdBy:', error);
+          }
+        }
+        createdBy = getCurrentEmployeeRef(currentEmployee, user, isOwner, userData);
+      }
+      
       // Create order in database
       const order = await createOrder(
         companyId,
@@ -175,7 +192,8 @@ const Checkout = () => {
               type: 'web',
               os: navigator.platform,
               browser: navigator.userAgent
-            }
+            },
+            createdBy
           }
         }
       );

@@ -4,6 +4,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { showSuccessToast, showErrorToast, showWarningToast } from '../utils/toast';
 import { addCustomer } from '../services/firestore';
+import { getCurrentEmployeeRef } from '../utils/employeeUtils';
+import { getUserById } from '../services/userService';
 import type { OrderStatus, SaleProduct, Customer, Product, Sale } from '../types/models';
 
 export interface FormProduct {
@@ -37,7 +39,7 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
   const { customers, addCustomer } = useCustomers();
   
 
-  const { user, company } = useAuth();
+  const { user, company, currentEmployee, isOwner } = useAuth();
 
   /* ----------------------------- UI helpers ----------------------------- */
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -377,6 +379,21 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
         companyId: company?.id
       });
       
+      // Get createdBy employee reference
+      let createdBy = null;
+      if (user && company) {
+        let userData = null;
+        if (isOwner && !currentEmployee) {
+          // If owner, fetch user data to create EmployeeRef
+          try {
+            userData = await getUserById(user.uid);
+          } catch (error) {
+            console.error('Error fetching user data for createdBy:', error);
+          }
+        }
+        createdBy = getCurrentEmployeeRef(currentEmployee, user, isOwner, userData);
+      }
+      
       const saleData = {
         products: saleProducts,
         totalAmount,
@@ -388,7 +405,7 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
         inventoryMethod: formData.inventoryMethod,
       };
       
-      const newSale = await addSale(saleData);
+      const newSale = await addSale(saleData, createdBy);
       
       // Sauvegarder le client AVANT de réinitialiser le formulaire
       if (autoSaveCustomer && customerPhone && customerName && company?.id) {
