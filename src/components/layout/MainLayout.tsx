@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
+import { Users } from 'lucide-react';
 import Navbar from './Navbar';
 import Sidebar from './Sidebar';
 import MobileNav from './MobileNav';
@@ -23,7 +24,7 @@ const MainLayout = ({ isAddSaleModalOpen, setIsAddSaleModalOpen }: MainLayoutPro
   const [companyError, setCompanyError] = useState<string | null>(null);
   const [showLockedModal, setShowLockedModal] = useState(false);
   const location = useLocation();
-  const { selectCompany } = useAuth();
+  const { selectCompany, company, isOwner, currentEmployee } = useAuth();
 
   // Vérifier qu'une entreprise est sélectionnée pour les routes /company/:companyId/*
   const isCompanyRoute = location.pathname.startsWith('/company/');
@@ -170,9 +171,26 @@ const MainLayout = ({ isAddSaleModalOpen, setIsAddSaleModalOpen }: MainLayoutPro
     );
   }
 
+  // Check if user is managing a company account (employee, not owner)
+  const isManagingCompanyAccount = company && !isOwner && currentEmployee;
+
   return (
     <div className="h-screen flex flex-col">
       <Navbar onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
+      
+      {/* Employee account indicator banner */}
+      {isManagingCompanyAccount && (
+        <div className="bg-blue-50 border-b border-blue-200 px-4 py-2">
+          <div className="max-w-7xl mx-auto flex items-center justify-center">
+            <div className="flex items-center space-x-2 text-blue-700">
+              <Users className="h-4 w-4" />
+              <span className="text-sm font-medium">
+                Vous gérez le compte de l'entreprise <strong>{company.name}</strong>
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
       
       <div className="flex-grow flex overflow-hidden relative">
         {/* Sidebar for larger screens */}

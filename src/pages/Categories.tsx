@@ -8,6 +8,8 @@ import Modal from '../components/common/Modal';
 import Input from '../components/common/Input';
 import { useAuth } from '../contexts/AuthContext';
 import { FirebaseStorageService } from '../services/firebaseStorageService';
+import { getCurrentEmployeeRef } from '../utils/employeeUtils';
+import { getUserById } from '../services/userService';
 import { ImageWithSkeleton } from '../components/common/ImageWithSkeleton';
 import LoadingScreen from '../components/common/LoadingScreen';
 import SyncIndicator from '../components/common/SyncIndicator';
@@ -24,7 +26,7 @@ import {
 
 const Categories = () => {
   // const { t } = useTranslation();
-  const { user, company } = useAuth();
+  const { user, company, currentEmployee, isOwner } = useAuth();
   
   // State management
   const [categories, setCategories] = useState<Category[]>([]);
@@ -239,6 +241,21 @@ const Categories = () => {
         }
       }
 
+      // Get createdBy employee reference
+      let createdBy = null;
+      if (user && company) {
+        let userData = null;
+        if (isOwner && !currentEmployee) {
+          // If owner, fetch user data to create EmployeeRef
+          try {
+            userData = await getUserById(user.uid);
+          } catch (error) {
+            console.error('Error fetching user data for createdBy:', error);
+          }
+        }
+        createdBy = getCurrentEmployeeRef(currentEmployee, user, isOwner, userData);
+      }
+      
       // Create category with or without image
       const categoryData = {
         name: formData.name.trim(),
@@ -250,7 +267,7 @@ const Categories = () => {
       };
 
       console.log('Creating category:', categoryData);
-      await createCategory(categoryData, company.id);
+      await createCategory(categoryData, company.id, createdBy);
       
       setIsAddModalOpen(false);
       resetForm();

@@ -9,6 +9,7 @@ export interface BaseModel {
   updatedAt: Timestamp;
   userId: string; // Legacy field - kept for audit trail, user who created the record
   companyId: string; // Reference to the company this record belongs to (primary field for data isolation)
+  createdBy?: EmployeeRef; // Employee who created this record (optional for backward compatibility)
 }
 
 export interface Company extends BaseModel {
