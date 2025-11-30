@@ -26,6 +26,7 @@ import {
   softDeleteSupplier
 } from '../services/firestore';
 import { dataCache, cacheKeys, invalidateSpecificCache } from '../utils/dataCache';
+import { logError } from '../utils/logger';
 import ProductsManager from '../services/storage/ProductsManager';
 import SalesManager from '../services/storage/SalesManager';
 import ExpensesManager from '../services/storage/ExpensesManager';
@@ -168,7 +169,7 @@ export const useProducts = () => {
         setProducts(freshProducts);
       });
     } catch (err) {
-      console.error('Error deleting product:', err);
+      logError('Error deleting product', err);
       throw err;
     }
   };
@@ -226,7 +227,7 @@ export const useCategories = () => {
           try {
             userData = await getUserById(user.uid);
           } catch (error) {
-            console.error('Error fetching user data for createdBy:', error);
+            logError('Error fetching user data for createdBy', error);
           }
         }
         createdBy = getCurrentEmployeeRef(currentEmployee, user, isOwner, userData);
@@ -371,7 +372,7 @@ export const useSales = () => {
         setSales(freshSales);
       });
     } catch (err) {
-      console.error('Error updating sale:', err);
+      logError('Error updating sale', err);
       throw err;
     }
   };
@@ -389,7 +390,7 @@ export const useSales = () => {
       })) as Sale[];
       setSales(salesData);
     } catch (error) {
-      console.error('Error fetching sales:', error);
+      logError('Error fetching sales', error);
       throw error;
     }
   };
@@ -417,7 +418,7 @@ export const useSales = () => {
       await fetchSales();
       return true;
     } catch (error) {
-      console.error('Error deleting sale:', error);
+      logError('Error deleting sale', error);
       throw error;
     }
   };
@@ -676,11 +677,8 @@ export const useFinanceEntries = () => {
       setEntries([...financeEntries]);
       setLoading(false);
       
-      if (process.env.NODE_ENV === 'development') {
-        console.log(`[useFinanceEntries] 🔄 Manual refresh: ${financeEntries.length} entries`);
-      }
     } catch (error) {
-      console.error('[useFinanceEntries] ❌ Error refreshing entries:', error);
+      logError('Error refreshing finance entries', error);
       setLoading(false);
     }
   }, [user, company]);
@@ -730,81 +728,10 @@ export const useFinanceEntries = () => {
         // CRITICAL: Create new array reference to ensure React detects the change
         setEntries([...financeEntries]);
         setLoading(false);
-        
-        // Debug log for development
-        if (process.env.NODE_ENV === 'development') {
-          const pendingWrites = snapshot.metadata.hasPendingWrites;
-          const fromCache = snapshot.metadata.fromCache;
-          
-          console.log(`[useFinanceEntries] ✅ Real-time update: ${financeEntries.length} entries (from ${snapshot.docs.length} total)`, {
-            hasPendingWrites: pendingWrites,
-            fromCache: fromCache,
-            timestamp: new Date().toISOString(),
-            isFresh: !fromCache && !pendingWrites,
-            newEntryIds: snapshot.docChanges().filter(change => change.type === 'added').map(c => c.doc.id)
-          });
-          
-          // Log document changes to track what's new
-          const changes = snapshot.docChanges();
-          if (changes.length > 0) {
-            changes.forEach(change => {
-              const entryData = change.doc.data();
-              if (change.type === 'added') {
-                console.log(`[useFinanceEntries] ➕ New entry added: ${change.doc.id}`, {
-                  ...entryData,
-                  isInFiltered: financeEntries.some(e => e.id === change.doc.id)
-                });
-              } else if (change.type === 'modified') {
-                const isInFiltered = financeEntries.some(e => e.id === change.doc.id);
-                console.log(`[useFinanceEntries] ✏️ Entry modified: ${change.doc.id}`, {
-                  isInFiltered,
-                  isDeleted: entryData.isDeleted,
-                  companyId: entryData.companyId,
-                  hasCreatedAt: !!entryData.createdAt
-                });
-              } else if (change.type === 'removed') {
-                console.log(`[useFinanceEntries] ➖ Entry removed: ${change.doc.id}`);
-              }
-            });
-          }
-          
-          // CRITICAL: Log if the new entry ID is in the filtered results
-          const addedChanges = changes.filter(c => c.type === 'added' || c.type === 'modified');
-          if (addedChanges.length > 0) {
-            addedChanges.forEach(change => {
-              const isInResults = financeEntries.some(e => e.id === change.doc.id);
-              if (!isInResults) {
-                console.error(`[useFinanceEntries] ⚠️ Entry ${change.doc.id} NOT in filtered results!`, {
-                  entryData: change.doc.data(),
-                  totalDocs: snapshot.docs.length,
-                  filteredCount: financeEntries.length
-                });
-              }
-            });
-          }
-        }
       },
       (error) => {
         // Error callback - log error and provide helpful information
-        console.error('[useFinanceEntries] ❌ Error listening to finance entries:', error);
-        
-        // If it's a missing index error, log it clearly with instructions
-        if (error.code === 'failed-precondition') {
-          console.error(
-            '[useFinanceEntries] ⚠️ Missing Firestore index!',
-            '\nCreate composite index for: finances collection',
-            '\nFields: companyId (Ascending), createdAt (Descending)',
-            '\nCheck Firebase Console -> Firestore -> Indexes for the link to create it',
-            '\nOr check the browser console for the automatic index creation link'
-          );
-          // Try to get the index URL from the error if available
-          if (error.message) {
-            const indexMatch = error.message.match(/https:\/\/console\.firebase\.google\.com[^\s]+/);
-            if (indexMatch) {
-              console.error('[useFinanceEntries] 📌 Index creation link:', indexMatch[0]);
-            }
-          }
-        }
+        logError('Error listening to finance entries', error);
         
         setLoading(false);
         // Fallback: Try to get data without orderBy (simpler query)
@@ -822,9 +749,8 @@ export const useFinanceEntries = () => {
               return bTime - aTime;
             });
           setEntries(fallbackEntries);
-          console.log(`[useFinanceEntries] ✅ Fallback: Loaded ${fallbackEntries.length} entries (no real-time updates)`);
         }).catch((err) => {
-          console.error('[useFinanceEntries] ❌ Fallback query also failed:', err);
+          logError('Fallback query for finance entries failed', err);
         });
       }
     );
@@ -879,7 +805,7 @@ export const useSuppliers = () => {
           try {
             userData = await getUserById(user.uid);
           } catch (error) {
-            console.error('Error fetching user data for createdBy:', error);
+            logError('Error fetching user data for createdBy', error);
           }
         }
         createdBy = getCurrentEmployeeRef(currentEmployee, user, isOwner, userData);

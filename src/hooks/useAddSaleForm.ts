@@ -1,12 +1,13 @@
 import { useState, useRef, useEffect } from 'react';
 import { useSales, useProducts, useCustomers } from '../hooks/useFirestore';
+import { useCustomerSources } from '../hooks/useCustomerSources';
 import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { showSuccessToast, showErrorToast, showWarningToast } from '../utils/toast';
-import { addCustomer } from '../services/firestore';
 import { getCurrentEmployeeRef } from '../utils/employeeUtils';
 import { getUserById } from '../services/userService';
 import type { OrderStatus, SaleProduct, Customer, Product, Sale } from '../types/models';
+import { logError } from '../utils/logger';
 
 export interface FormProduct {
   product: Product | null;
@@ -25,6 +26,7 @@ interface FormState {
   customerTown?: string;
   customerBirthdate?: string;
   customerHowKnown?: string;
+  customerSourceId?: string; // Source clientelle
   status: OrderStatus;
   deliveryFee: string;
   saleDate: string;
@@ -37,7 +39,7 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
   const { addSale } = useSales();
   const { products } = useProducts();
   const { customers, addCustomer } = useCustomers();
-  
+  const { activeSources } = useCustomerSources();
 
   const { user, company, currentEmployee, isOwner } = useAuth();
 
@@ -62,6 +64,7 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
     customerTown: '',
     customerBirthdate: '',
     customerHowKnown: '',
+    customerSourceId: '',
     status: 'commande',
     deliveryFee: '',
     saleDate: new Date().toISOString().slice(0, 10),
@@ -104,49 +107,13 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
     if (name === 'customerName') {
       const searchTerm = value.toLowerCase().trim();
       
-      // Log all customers first
-      console.log('📋 [handleInputChange] All customers (name search):', {
-        total: customers.length,
-        customers: customers.map(c => ({
-          id: c.id,
-          name: c.name,
-          phone: c.phone,
-          companyId: c.companyId
-        }))
-      });
-      
       // Filter customers by name match
       const matchingCustomers = customers.filter(c => {
         if (!c.name) {
-          console.log('⚠️ [handleInputChange] Customer without name:', c.id, c.phone);
           return false;
         }
         const customerName = (c.name || '').toLowerCase();
-        const matches = customerName.includes(searchTerm);
-        if (matches) {
-          console.log('✅ [handleInputChange] Customer matches (name):', {
-            id: c.id,
-            name: c.name,
-            phone: c.phone,
-            customerNameLower: customerName,
-            searchTerm: searchTerm
-          });
-        }
-        return matches;
-      });
-      
-      console.log('🔍 [handleInputChange] Name search result:', {
-        searchTerm,
-        value,
-        matchingCustomersCount: matchingCustomers.length,
-        customersCount: customers.length,
-        matchingCustomers: matchingCustomers.map(c => ({
-          id: c.id,
-          name: c.name,
-          phone: c.phone
-        })),
-        hasDigits: /\d/.test(value),
-        willShowDropdown: !/\d/.test(value) && searchTerm.length >= 2 && matchingCustomers.length > 0
+        return customerName.includes(searchTerm);
       });
       
       // Show dropdown only if there are results AND user has typed something
@@ -163,7 +130,6 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    console.log('📞 [handlePhoneChange] Phone input changed to:', value);
     
     // Ne pas normaliser la valeur dans le champ (garder les caractères pour l'affichage)
     setFormData(prev => ({ ...prev, customerPhone: value }));
@@ -172,56 +138,18 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
     const normalizedSearch = normalizePhone(value);
     setCustomerSearch(normalizedSearch);
     
-    // Log all customers first
-    console.log('📋 [handlePhoneChange] All customers:', {
-      total: customers.length,
-      customers: customers.map(c => ({
-        id: c.id,
-        name: c.name,
-        phone: c.phone,
-        normalizedPhone: normalizePhone(c.phone || ''),
-        companyId: c.companyId
-      }))
-    });
-    
     // Filter customers by phone number match
     if (normalizedSearch.length >= 2) {
       const matchingCustomers = customers.filter(c => {
         if (!c.phone) {
-          console.log('⚠️ [handlePhoneChange] Customer without phone:', c.id, c.name);
           return false;
         }
         const customerPhone = normalizePhone(c.phone);
-        const matches = customerPhone.includes(normalizedSearch) || normalizedSearch.includes(customerPhone);
-        if (matches) {
-          console.log('✅ [handlePhoneChange] Customer matches:', {
-            id: c.id,
-            name: c.name,
-            phone: c.phone,
-            normalizedPhone: customerPhone,
-            search: normalizedSearch
-          });
-        }
-        return matches;
-      });
-      
-      console.log('🔍 [handlePhoneChange] Matching customers result:', {
-        normalizedSearch,
-        value,
-        matchingCustomersCount: matchingCustomers.length,
-        customersCount: customers.length,
-        matchingCustomers: matchingCustomers.map(c => ({
-          id: c.id,
-          name: c.name,
-          phone: c.phone,
-          normalizedPhone: normalizePhone(c.phone || '')
-        })),
-        willShowDropdown: matchingCustomers.length > 0
+        return customerPhone.includes(normalizedSearch) || normalizedSearch.includes(customerPhone);
       });
       
       setShowCustomerDropdown(matchingCustomers.length > 0);
     } else {
-      console.log('⚠️ [handlePhoneChange] Normalized search too short:', normalizedSearch);
       setShowCustomerDropdown(false);
     }
     
@@ -284,6 +212,7 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
       customerTown: '',
       customerBirthdate: '',
       customerHowKnown: '',
+      customerSourceId: '',
       status: 'commande',
       deliveryFee: '',
       saleDate: new Date().toISOString().slice(0, 10),
@@ -371,14 +300,6 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
       const customerQuarter = formData.customerQuarter || '';
       const customerInfo = { name: customerName, phone: customerPhone, ...(customerQuarter && { quarter: customerQuarter }) };
       
-      console.log('📝 [handleAddSale] Données client récupérées:', {
-        customerName,
-        customerPhone,
-        customerQuarter,
-        autoSaveCustomer,
-        companyId: company?.id
-      });
-      
       // Get createdBy employee reference
       let createdBy = null;
       if (user && company) {
@@ -388,7 +309,7 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
           try {
             userData = await getUserById(user.uid);
           } catch (error) {
-            console.error('Error fetching user data for createdBy:', error);
+            logError('Error fetching user data for createdBy', error);
           }
         }
         createdBy = getCurrentEmployeeRef(currentEmployee, user, isOwner, userData);
@@ -399,6 +320,7 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
         totalAmount,
         status: formData.status,
         customerInfo,
+        customerSourceId: formData.customerSourceId || undefined,
         deliveryFee: formData.deliveryFee ? parseFloat(formData.deliveryFee) : 0,
         paymentStatus: 'pending' as const,
         userId: user.uid,
@@ -410,23 +332,6 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
       // Sauvegarder le client AVANT de réinitialiser le formulaire
       if (autoSaveCustomer && customerPhone && customerName && company?.id) {
         try {
-          console.log('🔍 [handleAddSale] Vérification du client existant:', {
-            customerPhone,
-            normalizedPhone: normalizePhone(customerPhone),
-            customersCount: customers.length,
-            companyId: company.id,
-            autoSaveCustomer
-          });
-          
-          // Log all customers for debugging
-          console.log('📋 [handleAddSale] Tous les clients actuels:', customers.map(c => ({
-            id: c.id,
-            name: c.name,
-            phone: c.phone,
-            normalizedPhone: normalizePhone(c.phone || ''),
-            companyId: c.companyId
-          })));
-          
           const existing = customers.find(c => normalizePhone(c.phone) === normalizePhone(customerPhone));
           
           if (!existing) {
@@ -444,17 +349,7 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
               companyId: company.id // createdAt sera ajouté automatiquement par addCustomer avec serverTimestamp()
             };
             
-            console.log('💾 [handleAddSale] Ajout du client avec les données:', customerData);
-            console.log('💾 [handleAddSale] Company ID:', company.id);
-            
-            const newCustomer = await addCustomer(customerData);
-            
-            console.log('✅ [handleAddSale] Client ajouté avec succès:', {
-              id: newCustomer.id,
-              name: newCustomer.name,
-              phone: newCustomer.phone,
-              companyId: newCustomer.companyId
-            });
+            await addCustomer(customerData);
             
             // Réinitialiser les champs client après l'ajout réussi
             setFormData(prev => ({
@@ -467,20 +362,13 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
               customerAddress: '',
               customerTown: '',
               customerBirthdate: '',
-              customerHowKnown: ''
+              customerHowKnown: '',
+              customerSourceId: ''
             }));
             setFoundCustomer(null);
             setShowCustomerDropdown(false);
             setCustomerSearch('');
-            
-            console.log('🔄 [handleAddSale] Champs client réinitialisés après ajout réussi');
           } else {
-            console.log('ℹ️ [handleAddSale] Client existe déjà:', {
-              id: existing.id,
-              name: existing.name,
-              phone: existing.phone,
-              companyId: existing.companyId
-            });
             
             // Réinitialiser les champs client même si le client existe déjà
             setFormData(prev => ({
@@ -500,25 +388,9 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
             setCustomerSearch('');
           }
         } catch (error: any) {
-          console.error('❌ [handleAddSale] Erreur lors de l\'ajout du client:', error);
-          console.error('❌ [handleAddSale] Détails de l\'erreur:', {
-            message: error.message,
-            code: error.code,
-            stack: error.stack
-          });
+          logError('Error adding customer during sale', error);
           /* ignore duplicate errors */
         }
-      } else {
-        console.log('⚠️ [handleAddSale] Client non sauvegardé:', {
-          autoSaveCustomer,
-          customerPhone,
-          customerName,
-          companyId: company?.id,
-          reason: !autoSaveCustomer ? 'autoSaveCustomer désactivé' : 
-                  !customerPhone ? 'pas de téléphone' : 
-                  !customerName ? 'pas de nom' : 
-                  !company?.id ? 'pas de companyId' : 'inconnu'
-        });
       }
       
       return newSale;
@@ -542,11 +414,11 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
       const existing = customers.find(c => normalizePhone(c.phone) === normalizePhone(formData.customerPhone));
       
       if (!existing) {
-        console.log('💾 [handleSaveCustomer] Ajout du client avec companyId:', company.id);
         const data: Customer = { 
           phone: formData.customerPhone, 
           name: customerName, 
           quarter: customerQuarter,
+          customerSourceId: formData.customerSourceId || undefined,
           firstName: formData.customerFirstName || undefined,
           lastName: formData.customerLastName || undefined,
           address: formData.customerAddress || undefined,
@@ -558,14 +430,13 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
         };
         await addCustomer(data);
         setFoundCustomer(data);
-        console.log('✅ [handleSaveCustomer] Client ajouté avec succès');
         showSuccessToast(t('sales.messages.customerSaved'));
       } else {
         setFoundCustomer(existing);
         showWarningToast(t('sales.messages.warnings.customerExists'));
       }
     } catch (error) {
-      console.error('❌ [handleSaveCustomer] Erreur lors de l\'ajout du client:', error);
+      logError('Error saving customer', error);
       showErrorToast(t('sales.messages.errors.saveCustomer'));
     } finally {
       setIsSavingCustomer(false);
@@ -573,43 +444,24 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
   };
 
   const handleSelectCustomer = (customer: Customer) => {
-    console.log('🔄 handleSelectCustomer called with:', customer);
-    console.log('📝 Customer data:', {
-      phone: customer.phone,
-      name: customer.name,
-      quarter: customer.quarter,
-      firstName: customer.firstName,
-      lastName: customer.lastName,
-      address: customer.address,
-      town: customer.town,
-      birthdate: customer.birthdate,
-      howKnown: customer.howKnown
-    });
-    
     // Update form data with customer information
-    setFormData(prev => {
-      const newFormData = { 
-        ...prev, 
-        customerPhone: customer.phone,
-        customerName: customer.name || '',
-        customerQuarter: customer.quarter || '',
-        customerFirstName: customer.firstName || '',
-        customerLastName: customer.lastName || '',
-        customerAddress: customer.address || '',
-        customerTown: customer.town || '',
-        customerBirthdate: customer.birthdate || '',
-        customerHowKnown: customer.howKnown || ''
-      };
-      console.log('📋 Updated formData:', newFormData);
-      return newFormData;
-    });
+    setFormData(prev => ({
+      ...prev, 
+      customerPhone: customer.phone,
+      customerName: customer.name || '',
+      customerQuarter: customer.quarter || '',
+      customerFirstName: customer.firstName || '',
+      customerLastName: customer.lastName || '',
+      customerAddress: customer.address || '',
+      customerTown: customer.town || '',
+      customerBirthdate: customer.birthdate || '',
+      customerHowKnown: customer.howKnown || ''
+    }));
     
     // Update search state and hide dropdown
     setCustomerSearch(customer.phone);
     setShowCustomerDropdown(false);
     setFoundCustomer(customer);
-    
-    console.log('✅ handleSelectCustomer completed');
   };
 
   /* ------------------------------------------------------------------ */
@@ -628,6 +480,7 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
     phoneInputRef,
     products,
     customers,
+    activeSources,
     normalizePhone,
     handleInputChange,
     handlePhoneChange,

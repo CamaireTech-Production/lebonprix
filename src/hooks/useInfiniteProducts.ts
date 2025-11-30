@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { query, collection, where, orderBy, limit, startAfter, getDocs, DocumentSnapshot } from 'firebase/firestore';
 import { db } from '../services/firebase';
+import { devLog, logError } from '../utils/logger';
 import ProductsManager from '../services/storage/ProductsManager';
 import BackgroundSyncService from '../services/backgroundSync';
 import type { Product } from '../types/models';
@@ -31,16 +32,8 @@ export const useInfiniteProducts = (): UseInfiniteProductsReturn => {
 
   // Load initial products
   const loadInitialProducts = useCallback(async () => {
-    console.log('🔍 [useInfiniteProducts] Loading products:', {
-      hasUser: !!user,
-      userId: user?.uid,
-      hasCompany: !!company,
-      companyId: company?.id,
-      companyName: company?.name
-    });
     
     if (!user?.uid || !company?.id) {
-      console.log('❌ [useInfiniteProducts] Cannot load - missing user or company');
       setLoading(false);
       return;
     }
@@ -54,7 +47,6 @@ export const useInfiniteProducts = (): UseInfiniteProductsReturn => {
       setProducts(visibleProducts);
       setLoading(false); // No loading spinner - data is available
       setSyncing(true); // Show background sync indicator
-      console.log('🚀 Products loaded instantly from localStorage');
       
       // Start background sync
       BackgroundSyncService.syncProducts(company.id, (freshProducts) => {
@@ -63,7 +55,6 @@ export const useInfiniteProducts = (): UseInfiniteProductsReturn => {
         );
         setProducts(visibleProducts);
         setSyncing(false); // Hide background sync indicator
-        console.log('🔄 Products updated from background sync');
       });
       return;
     }
@@ -71,7 +62,6 @@ export const useInfiniteProducts = (): UseInfiniteProductsReturn => {
     try {
       setLoading(true); // Only show loading spinner if no cached data
       setError(null);
-      console.log('📡 No cached products, loading from Firebase...');
 
       const q = query(
         collection(db, 'products'),
@@ -96,7 +86,6 @@ export const useInfiniteProducts = (): UseInfiniteProductsReturn => {
       
       // Save to localStorage for future instant loads
       ProductsManager.save(company.id, productsData);
-      console.log(`✅ Initial products loaded and cached: ${productsData.length} items`);
     } catch (err) {
       console.error('❌ Error loading initial products:', err);
       setError(err as Error);
@@ -134,17 +123,15 @@ export const useInfiniteProducts = (): UseInfiniteProductsReturn => {
       if (newProducts.length > 0) {
         setProducts(prev => {
           const totalLength = prev.length + newProducts.length;
-          console.log(`✅ More products loaded: ${newProducts.length} items (total: ${totalLength})`);
           return [...prev, ...newProducts];
         });
         setLastDoc(snapshot.docs[snapshot.docs.length - 1]);
         setHasMore(newProducts.length === PRODUCTS_PER_PAGE);
       } else {
         setHasMore(false);
-        console.log('✅ No more products to load');
       }
     } catch (err) {
-      console.error('❌ Error loading more products:', err);
+      logError('Error loading more products', err);
       setError(err as Error);
     } finally {
       setLoadingMore(false);

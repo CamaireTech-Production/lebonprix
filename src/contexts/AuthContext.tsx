@@ -18,6 +18,7 @@ import { saveCompanyToCache, getCompanyFromCache, clearCompanyCache } from '../u
 import { getUserById, updateUserLastLogin, createUser } from '../services/userService';
 import { saveUserSession, getUserSession, clearUserSession} from '../utils/userSession';
 import { clearUserDataOnLogout } from '../utils/logoutCleanup';
+import { logError } from '../utils/logger';
 
 interface AuthContextType {
   user: FirebaseUser | null;
@@ -94,10 +95,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         if (currentUser) {
           // Firebase auth restored - validate match
           if (currentUser.uid !== session.userId) {
-            console.log('⚠️ Session mismatch: Firebase auth does not match localStorage session');
             clearUserSession(session.userId);
           } else {
-            console.log('✅ Session validated: Firebase auth matches localStorage session');
           }
           clearInterval(checkInterval);
         }
@@ -109,7 +108,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         const currentUser = auth.currentUser;
         // If still no Firebase auth after timeout, keep session (will validate in onAuthStateChanged)
         if (!currentUser) {
-          console.log('⏳ Firebase auth not restored yet, session validation will happen in onAuthStateChanged');
         }
       }, 3000);
       
@@ -147,7 +145,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         try {
           await loadUserAndCompanyDataInBackground(user.uid);
         } catch (error) {
-          console.error('❌ Error in background loading:', error);
+          logError('Error in background loading', error);
         }
         
         // 🔄 BACKGROUND LOADING: Start finance types in background
@@ -173,21 +171,14 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   useEffect(() => {
     if (!user?.uid || !company?.id) return;
 
-    console.log('👂 Écoute des changements du rôle utilisateur pour company:', company.id);
-
     const userRef = doc(db, 'users', user.uid);
     const unsubscribe = onSnapshot(userRef, (userSnap) => {
       if (!userSnap.exists()) {
-        console.log('⚠️ [AuthContext] Document utilisateur n\'existe pas');
         return;
       }
 
-      console.log('📡 [AuthContext] Snapshot reçu pour user:', user.uid);
       const userData = userSnap.data();
       const userCompanyRef = userData.companies?.find((c: UserCompanyRef) => c.companyId === company.id);
-
-      console.log('📡 [AuthContext] Companies trouvées:', userData.companies?.length || 0);
-      console.log('📡 [AuthContext] Company actuelle trouvée:', userCompanyRef ? { companyId: userCompanyRef.companyId, role: userCompanyRef.role } : 'non trouvée');
 
       // Mettre à jour userCompanies
       setUserCompanies(userData.companies || []);
@@ -205,14 +196,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         const newEffectiveRole = uiRole as UserRole | 'owner' | 'vendeur' | 'gestionnaire' | 'magasinier';
 
         // Toujours mettre à jour le rôle (le listener se déclenche seulement quand il y a un changement)
-        console.log('🔄 [AuthContext] Rôle effectif mis à jour:', { old: effectiveRole, new: newEffectiveRole, companyId: company.id, userId: user.uid });
         setEffectiveRole(newEffectiveRole);
       } else {
         // Si l'utilisateur n'est plus dans cette company
         // Vérifier si c'est le propriétaire avant de réinitialiser
         const isCompanyOwner = company.userId === user.uid;
         if (!isCompanyOwner) {
-          console.log('⚠️ [AuthContext] Utilisateur retiré de la company, réinitialisation du rôle');
           setEffectiveRole(null);
         }
       }
@@ -221,7 +210,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     });
 
     return () => {
-      console.log('🔇 Arrêt de l\'écoute des changements du rôle utilisateur');
       unsubscribe();
     };
   }, [user?.uid, company?.id]);
@@ -245,7 +233,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       });
       
     } catch (error) {
-      console.error('❌ Erreur lors de la migration de l\'utilisateur:', error);
+      logError('Error migrating user', error);
       throw error;
     }
   };
@@ -346,7 +334,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         }
       }
     } catch (error) {
-      console.error('❌ Erreur lors du chargement des données utilisateur:', error);
+      logError('Error loading user data', error);
       // Fallback vers l'ancien système
       await loadCompanyDataLegacy(userId);
     } finally {
@@ -397,7 +385,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         saveCompanyToCache(companyData);
       }
     } catch (error) {
-      console.error('❌ Company loading failed:', error);
+      logError('Company loading failed', error);
     } finally {
       setCompanyLoading(false);
     }
@@ -405,13 +393,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   // Charger les données d'une entreprise spécifique
   const loadCompanyData = async (companyId: string, userId: string) => {
-    console.log('🏢 [loadCompanyData] Loading company:', { companyId, userId });
     try {
       const companyDoc = await getDoc(doc(db, 'companies', companyId));
       
       if (companyDoc.exists()) {
         const companyData = { id: companyDoc.id, ...companyDoc.data() } as Company;
-        console.log('✅ [loadCompanyData] Company loaded:', { id: companyData.id, name: companyData.name });
         setCompany(companyData);
         
         // Déterminer le rôle effectif et ownership
@@ -427,7 +413,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         console.log('🔍  this is the company informations', companyId);
       }
     } catch (error) {
-      console.error(`❌ Erreur lors du chargement de l'entreprise ${companyId}:`, error);
+      logError('Error loading company', error);
     }
   };
 
@@ -512,7 +498,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         setEffectiveRole(null);
       }
     } catch (error) {
-      console.error('❌ Error determining user role:', error);
+      logError('Error determining user role', error);
       setEffectiveRole(null);
     }
   };
@@ -533,7 +519,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       // Mark as setup in localStorage to skip future checks
       FinanceTypesManager.markAsSetup(user.uid);
     } catch (error) {
-      console.error('❌ Finance types setup failed:', error);
+      logError('Finance types setup failed', error);
       // App continues to work without finance types setup
     }
   };
@@ -545,8 +531,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   ): Promise<FirebaseUser> => {
     // This signUp function is deprecated - users should be created first, then companies
     // For now, we'll throw an error to force migration to the new pattern
-    console.warn('SignUp with company creation is deprecated. Please use: 1) Create user account first, 2) Then create company separately');
-    console.warn('Parameters received:', { email, password, companyData });
+    logWarning('SignUp with company creation is deprecated. Please use: 1) Create user account first, 2) Then create company separately');
     throw new Error('SignUp with company creation is deprecated. Please use: 1) Create user account first, 2) Then create company separately');
   };
 
@@ -581,7 +566,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         response = await signInPromise;
       }
       
-      console.log('✅ Successful login:', response.user.email);
       
       // The onAuthStateChanged listener will handle the routing and reset isSigningInRef
       // Let the background loading handle routing based on user's companies
@@ -591,7 +575,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       
       return response.user;
     } catch (error: any) {
-      console.error('❌ signIn error:', error);
+      logError('Sign in error', error);
       isInitialLoginRef.current = false; // Reset on error
       isSigningInRef.current = false; // Reset on error
       

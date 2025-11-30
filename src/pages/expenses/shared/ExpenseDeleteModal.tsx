@@ -5,6 +5,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import Modal, { ModalFooter } from '../../../components/common/Modal';
 import { softDeleteExpense } from '../../../services/firestore';
 import { showSuccessToast, showErrorToast } from '../../../utils/toast';
+import { logError } from '../../../utils/logger';
 import type { Expense } from '../../../types/models';
 
 interface ExpenseDeleteModalProps {
@@ -31,7 +32,7 @@ const ExpenseDeleteModal = ({ isOpen, expense, onClose, onSuccess }: ExpenseDele
       onSuccess();
       onClose();
     } catch (error) {
-      console.error('Failed to delete expense:', error);
+      logError('Failed to delete expense', error);
       showErrorToast(t('expenses.messages.deleteError'));
     } finally {
       setDeleteLoading(false);

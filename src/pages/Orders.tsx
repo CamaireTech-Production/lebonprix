@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import { 
   subscribeToOrders, 
@@ -36,8 +37,10 @@ import Badge from '../components/common/Badge';
 import Card from '../components/common/Card';
 import SyncIndicator from '../components/common/SyncIndicator';
 import { toast } from 'react-hot-toast';
+import { logError } from '../utils/logger';
 
 const Orders: React.FC = () => {
+  const { t } = useTranslation();
   const { user, company } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
@@ -81,8 +84,8 @@ const Orders: React.FC = () => {
         const statsData = await getOrderStats(company.id);
         setStats(statsData);
       } catch (error) {
-        console.error('Error loading order stats:', error);
-        toast.error('Failed to load order statistics');
+        logError('Error loading order stats', error);
+        toast.error(t('orders.messages.statsLoadFailed'));
       }
     };
 
@@ -116,12 +119,12 @@ const Orders: React.FC = () => {
     try {
       setSyncing(true);
       await updateOrderStatus(selectedOrder.id, newStatus, company.id, newNote);
-      toast.success('Order status updated successfully');
+      toast.success(t('orders.messages.statusUpdated'));
       setShowStatusModal(false);
       setSelectedOrder(null);
     } catch (error) {
-      console.error('Error updating order status:', error);
-      toast.error('Failed to update order status');
+      logError('Error updating order status', error);
+      toast.error(t('orders.messages.statusUpdateFailed'));
     } finally {
       setSyncing(false);
     }
@@ -134,13 +137,13 @@ const Orders: React.FC = () => {
     try {
       setSyncing(true);
       await addOrderNote(selectedOrder.id, newNote.trim(), company.id);
-      toast.success('Note added successfully');
+      toast.success(t('orders.messages.noteAdded'));
       setShowNoteModal(false);
       setNewNote('');
       setSelectedOrder(null);
     } catch (error) {
       console.error('Error adding note:', error);
-      toast.error('Failed to add note');
+      toast.error(t('orders.messages.noteAddFailed'));
     } finally {
       setSyncing(false);
     }
@@ -153,7 +156,7 @@ const Orders: React.FC = () => {
     try {
       setSyncing(true);
       await deleteOrder(selectedOrder.id, user!.uid);
-      toast.success('Order deleted successfully');
+      toast.success(t('orders.messages.orderDeleted'));
       setShowDeleteModal(false);
       setSelectedOrder(null);
       
@@ -161,7 +164,7 @@ const Orders: React.FC = () => {
       setOrders(prevOrders => prevOrders.filter(o => o.id !== selectedOrder.id));
       setFilteredOrders(prevFiltered => prevFiltered.filter(o => o.id !== selectedOrder.id));
     } catch (error) {
-      console.error('Error deleting order:', error);
+      logError('Error deleting order', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to delete order';
       toast.error(errorMessage);
     } finally {
@@ -232,7 +235,7 @@ const Orders: React.FC = () => {
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4 text-primary" />
-          <p className="text-gray-600">Loading orders...</p>
+          <p className="text-gray-600">{t('orders.loading')}</p>
         </div>
       </div>
     );
@@ -245,10 +248,10 @@ const Orders: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
             <ShoppingBag className="w-6 h-6" />
-            Orders
+            {t('orders.title')}
           </h1>
           <p className="text-gray-600 mt-1">
-            Manage and track customer orders
+            {t('orders.subtitle')}
           </p>
         </div>
         
@@ -260,7 +263,7 @@ const Orders: React.FC = () => {
             size="sm"
           >
             <Filter className="w-4 h-4 mr-2" />
-            Filters
+            {t('orders.filters')}
           </Button>
         </div>
       </div>
@@ -271,7 +274,7 @@ const Orders: React.FC = () => {
           <Card className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Total Orders</p>
+                <p className="text-sm text-gray-600">{t('orders.stats.totalOrders')}</p>
                 <p className="text-2xl font-bold text-gray-900">{stats.totalOrders}</p>
               </div>
               <ShoppingBag className="w-8 h-8 text-blue-500" />
@@ -281,7 +284,7 @@ const Orders: React.FC = () => {
           <Card className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Pending</p>
+                <p className="text-sm text-gray-600">{t('orders.stats.pending')}</p>
                 <p className="text-2xl font-bold text-yellow-600">{stats.pendingOrders}</p>
               </div>
               <Clock className="w-8 h-8 text-yellow-500" />
@@ -291,7 +294,7 @@ const Orders: React.FC = () => {
           <Card className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Completed</p>
+                <p className="text-sm text-gray-600">{t('orders.stats.completed')}</p>
                 <p className="text-2xl font-bold text-green-600">{stats.completedOrders}</p>
               </div>
               <CheckCircle className="w-8 h-8 text-green-500" />
@@ -301,7 +304,7 @@ const Orders: React.FC = () => {
           <Card className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Total Revenue</p>
+                <p className="text-sm text-gray-600">{t('orders.stats.totalRevenue')}</p>
                 <p className="text-2xl font-bold text-gray-900">{formatCurrency(stats.totalRevenue)}</p>
               </div>
               <DollarSign className="w-8 h-8 text-green-500" />
@@ -316,7 +319,7 @@ const Orders: React.FC = () => {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
             <Input
-              placeholder="Search orders by number, customer name, or phone..."
+              placeholder={t('orders.searchPlaceholder')}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
@@ -330,9 +333,9 @@ const Orders: React.FC = () => {
         {filteredOrders.length === 0 ? (
           <Card className="p-8 text-center">
             <ShoppingBag className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No orders found</h3>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">{t('orders.noOrders')}</h3>
             <p className="text-gray-600">
-              {searchTerm ? 'No orders match your search criteria.' : 'You haven\'t received any orders yet.'}
+              {searchTerm ? t('orders.noOrdersSearch') : t('orders.noOrdersMessage')}
             </p>
           </Card>
         ) : (
@@ -346,10 +349,10 @@ const Orders: React.FC = () => {
                     </h3>
                     <Badge color={getStatusBadgeColor(order.status)}>
                       {getStatusIcon(order.status)}
-                      <span className="ml-1 capitalize">{order.status}</span>
+                      <span className="ml-1 capitalize">{t(`orders.status.${order.status}`)}</span>
                     </Badge>
                     <Badge color={getPaymentStatusBadgeColor(order.paymentStatus)}>
-                      <span className="capitalize">{order.paymentStatus.replace('_', ' ')}</span>
+                      <span className="capitalize">{t(`orders.paymentStatus.${order.paymentStatus}`)}</span>
                     </Badge>
                   </div>
                   
@@ -379,11 +382,11 @@ const Orders: React.FC = () => {
                     </div>
                     <div className="flex items-center gap-1">
                       <Package className="w-4 h-4" />
-                      <span>{order.items.length} item{order.items.length !== 1 ? 's' : ''}</span>
+                      <span>{order.items.length} {order.items.length !== 1 ? t('orders.orderDetails.itemsPlural') : t('orders.orderDetails.items')}</span>
                     </div>
                     <div className="flex items-center gap-1">
                       <User className="w-4 h-4" />
-                      <span className="text-gray-500">Créé par: {formatCreatorName(order.createdBy)}</span>
+                      <span className="text-gray-500">{t('orders.orderDetails.createdBy')}: {formatCreatorName(order.createdBy)}</span>
                     </div>
                   </div>
                 </div>
@@ -448,7 +451,7 @@ const Orders: React.FC = () => {
           setShowOrderModal(false);
           setSelectedOrder(null);
         }}
-        title="Order Details"
+        title={t('orders.orderDetails.title')}
         size="lg"
       >
         {selectedOrder && (
@@ -458,39 +461,39 @@ const Orders: React.FC = () => {
               <div>
                 <h3 className="text-lg font-semibold">{selectedOrder.orderNumber}</h3>
                 <p className="text-sm text-gray-600">
-                  Created on {formatDate(selectedOrder.createdAt)}
+                  {t('orders.orderDetails.createdOn')} {formatDate(selectedOrder.createdAt)}
                 </p>
               </div>
               <div className="flex gap-2">
                 <Badge color={getStatusBadgeColor(selectedOrder.status)}>
                   {getStatusIcon(selectedOrder.status)}
-                  <span className="ml-1 capitalize">{selectedOrder.status}</span>
+                  <span className="ml-1 capitalize">{t(`orders.status.${selectedOrder.status}`)}</span>
                 </Badge>
                 <Badge color={getPaymentStatusBadgeColor(selectedOrder.paymentStatus)}>
-                  <span className="capitalize">{selectedOrder.paymentStatus.replace('_', ' ')}</span>
+                  <span className="capitalize">{t(`orders.paymentStatus.${selectedOrder.paymentStatus}`)}</span>
                 </Badge>
               </div>
             </div>
 
             {/* Customer Info */}
             <div>
-              <h4 className="font-medium mb-3">Customer Information</h4>
+              <h4 className="font-medium mb-3">{t('orders.orderDetails.customerInformation')}</h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
                 <div>
-                  <p className="text-sm text-gray-600">Name</p>
+                  <p className="text-sm text-gray-600">{t('orders.orderDetails.name')}</p>
                   <p className="font-medium">{selectedOrder.customerInfo.name}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Phone</p>
+                  <p className="text-sm text-gray-600">{t('orders.orderDetails.phone')}</p>
                   <p className="font-medium">{selectedOrder.customerInfo.phone}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Location</p>
+                  <p className="text-sm text-gray-600">{t('orders.orderDetails.location')}</p>
                   <p className="font-medium">{selectedOrder.customerInfo.location}</p>
                 </div>
                 {selectedOrder.customerInfo.email && (
                   <div>
-                    <p className="text-sm text-gray-600">Email</p>
+                    <p className="text-sm text-gray-600">{t('orders.orderDetails.email')}</p>
                     <p className="font-medium">{selectedOrder.customerInfo.email}</p>
                   </div>
                 )}
@@ -499,7 +502,7 @@ const Orders: React.FC = () => {
 
             {/* Order Items */}
             <div>
-              <h4 className="font-medium mb-3">Order Items</h4>
+              <h4 className="font-medium mb-3">{t('orders.orderDetails.orderItems')}</h4>
               <div className="space-y-2">
                 {selectedOrder.items.map((item, index) => (
                   <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
@@ -515,16 +518,16 @@ const Orders: React.FC = () => {
                         <p className="font-medium">{item.name}</p>
                         <p className="text-sm text-gray-600">{item.category}</p>
                         {item.selectedColor && (
-                          <p className="text-xs text-gray-500">Color: {item.selectedColor}</p>
+                          <p className="text-xs text-gray-500">{t('orders.orderDetails.color')}: {item.selectedColor}</p>
                         )}
                         {item.selectedSize && (
-                          <p className="text-xs text-gray-500">Size: {item.selectedSize}</p>
+                          <p className="text-xs text-gray-500">{t('orders.orderDetails.size')}: {item.selectedSize}</p>
                         )}
                       </div>
                     </div>
                     <div className="text-right">
                       <p className="font-medium">{formatCurrency(item.price)}</p>
-                      <p className="text-sm text-gray-600">Qty: {item.quantity}</p>
+                      <p className="text-sm text-gray-600">{t('orders.orderDetails.qty')}: {item.quantity}</p>
                     </div>
                   </div>
                 ))}
@@ -533,30 +536,30 @@ const Orders: React.FC = () => {
 
             {/* Pricing */}
             <div>
-              <h4 className="font-medium mb-3">Pricing</h4>
+              <h4 className="font-medium mb-3">{t('orders.orderDetails.pricing')}</h4>
               <div className="space-y-2 p-4 bg-gray-50 rounded-lg">
                 <div className="flex justify-between">
-                  <span>Subtotal:</span>
+                  <span>{t('orders.orderDetails.subtotal')}:</span>
                   <span>{formatCurrency(selectedOrder.pricing.subtotal)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Delivery Fee:</span>
+                  <span>{t('orders.orderDetails.deliveryFee')}:</span>
                   <span>{formatCurrency(selectedOrder.pricing.deliveryFee)}</span>
                 </div>
                 {selectedOrder.pricing.tax && selectedOrder.pricing.tax > 0 && (
                   <div className="flex justify-between">
-                    <span>Tax:</span>
+                    <span>{t('orders.orderDetails.tax')}:</span>
                     <span>{formatCurrency(selectedOrder.pricing.tax)}</span>
                   </div>
                 )}
                 {selectedOrder.pricing.discount && selectedOrder.pricing.discount > 0 && (
                   <div className="flex justify-between text-green-600">
-                    <span>Discount:</span>
+                    <span>{t('orders.orderDetails.discount')}:</span>
                     <span>-{formatCurrency(selectedOrder.pricing.discount)}</span>
                   </div>
                 )}
                 <div className="flex justify-between font-bold text-lg border-t pt-2">
-                  <span>Total:</span>
+                  <span>{t('orders.orderDetails.total')}:</span>
                   <span>{formatCurrency(selectedOrder.pricing.total)}</span>
                 </div>
               </div>
@@ -564,7 +567,7 @@ const Orders: React.FC = () => {
 
             {/* Timeline */}
             <div>
-              <h4 className="font-medium mb-3">Order Timeline</h4>
+              <h4 className="font-medium mb-3">{t('orders.orderDetails.orderTimeline')}</h4>
               <div className="space-y-2">
                 {selectedOrder.timeline.map((event, index) => (
                   <div key={index} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
@@ -591,24 +594,24 @@ const Orders: React.FC = () => {
           setShowStatusModal(false);
           setSelectedOrder(null);
         }}
-        title="Update Order Status"
+        title={t('orders.actions.updateStatus')}
       >
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              New Status
+              {t('orders.actions.newStatus')}
             </label>
             <select
               value={newStatus}
               onChange={(e) => setNewStatus(e.target.value as Order['status'])}
               className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
-              <option value="pending">Pending</option>
-              <option value="confirmed">Confirmed</option>
-              <option value="preparing">Preparing</option>
-              <option value="ready">Ready</option>
-              <option value="delivered">Delivered</option>
-              <option value="cancelled">Cancelled</option>
+              <option value="pending">{t('orders.status.pending')}</option>
+              <option value="confirmed">{t('orders.status.confirmed')}</option>
+              <option value="preparing">{t('orders.status.preparing')}</option>
+              <option value="ready">{t('orders.status.ready')}</option>
+              <option value="delivered">{t('orders.status.delivered')}</option>
+              <option value="cancelled">{t('orders.status.cancelled')}</option>
             </select>
           </div>
           
@@ -617,13 +620,13 @@ const Orders: React.FC = () => {
               onClick={() => setShowStatusModal(false)}
               variant="outline"
             >
-              Cancel
+              {t('orders.actions.cancel')}
             </Button>
             <Button
               onClick={handleStatusUpdate}
               disabled={syncing}
             >
-              {syncing ? 'Updating...' : 'Update Status'}
+              {syncing ? t('orders.actions.updating') : t('orders.actions.updateStatusButton')}
             </Button>
           </div>
         </div>
@@ -637,17 +640,17 @@ const Orders: React.FC = () => {
           setSelectedOrder(null);
           setNewNote('');
         }}
-        title="Add Note to Order"
+        title={t('orders.actions.addNote')}
       >
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Note
+              {t('orders.actions.note')}
             </label>
             <textarea
               value={newNote}
               onChange={(e) => setNewNote(e.target.value)}
-              placeholder="Add a note about this order..."
+              placeholder={t('orders.actions.notePlaceholder')}
               className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               rows={4}
             />
@@ -658,13 +661,13 @@ const Orders: React.FC = () => {
               onClick={() => setShowNoteModal(false)}
               variant="outline"
             >
-              Cancel
+              {t('orders.actions.cancel')}
             </Button>
             <Button
               onClick={handleAddNote}
               disabled={syncing || !newNote.trim()}
             >
-              {syncing ? 'Adding...' : 'Add Note'}
+              {syncing ? t('orders.actions.adding') : t('orders.actions.addNoteButton')}
             </Button>
           </div>
         </div>
@@ -677,14 +680,14 @@ const Orders: React.FC = () => {
           setShowDeleteModal(false);
           setSelectedOrder(null);
         }}
-        title="Delete Order"
+        title={t('orders.actions.delete')}
       >
         <div className="space-y-4">
           <p className="text-gray-700">
-            Are you sure you want to delete order <strong>{selectedOrder?.orderNumber}</strong>?
+            {t('orders.actions.deleteConfirm')} <strong>{selectedOrder?.orderNumber}</strong>?
           </p>
           <p className="text-sm text-gray-500">
-            This action cannot be undone. The order will be permanently deleted.
+            {t('orders.actions.deleteWarning')}
           </p>
           
           <div className="flex justify-end gap-2">
@@ -692,14 +695,14 @@ const Orders: React.FC = () => {
               onClick={() => setShowDeleteModal(false)}
               variant="outline"
             >
-              Cancel
+              {t('orders.actions.cancel')}
             </Button>
             <Button
               onClick={handleDeleteOrder}
               disabled={syncing}
               className="bg-red-600 hover:bg-red-700 text-white"
             >
-              {syncing ? 'Deleting...' : 'Delete Order'}
+              {syncing ? t('orders.actions.deleting') : t('orders.actions.deleteButton')}
             </Button>
           </div>
         </div>

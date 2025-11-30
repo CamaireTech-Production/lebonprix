@@ -301,7 +301,7 @@ export const updateCategoryProductCount = async (categoryName: string, companyId
     const snapshot = await getDocs(q);
     
     if (snapshot.empty) {
-      console.warn(`Category "${categoryName}" not found for company ${companyId}`);
+      logWarning('Category not found for company');
       return;
     }
 
@@ -314,7 +314,6 @@ export const updateCategoryProductCount = async (categoryName: string, companyId
       updatedAt: serverTimestamp()
     });
 
-    console.log(`Updated category "${categoryName}" product count: ${currentCount} -> ${newCount}`);
   } catch (error) {
     console.error('Error updating category product count:', error);
   }
@@ -372,7 +371,6 @@ export const recalculateCategoryProductCounts = async (companyId: string): Promi
     });
 
     await batch.commit();
-    console.log('Recalculated all category product counts');
   } catch (error) {
     console.error('Error recalculating category product counts:', error);
   }
@@ -673,7 +671,6 @@ export const createProduct = async (
   createdBy?: import('../types/models').EmployeeRef | null
 ): Promise<Product> => {
   try {
-    console.log('Creating product with data:', data, 'supplierInfo:', supplierInfo);
     
   // Validate product data
   if (
@@ -695,7 +692,6 @@ export const createProduct = async (
   if (!barCode) {
     const { generateEAN13 } = await import('./barcodeService');
     barCode = generateEAN13(productId);
-    console.log('Generated EAN-13 barcode:', barCode);
   }
   
   // Set default inventory settings
@@ -724,8 +720,6 @@ export const createProduct = async (
   // Add initial stock change and create stock batch if stock > 0
   if (data.stock > 0) {
     // Create stock batch if cost price is provided
-    console.log('Creating product with supplierInfo:', supplierInfo);
-    console.log('Product data enableBatchTracking:', (data as any).enableBatchTracking);
     
     // Always create batch if cost price is provided (enableBatchTracking defaults to true)
     if (supplierInfo?.costPrice) {
@@ -762,12 +756,8 @@ export const createProduct = async (
       );
       
       // Create supplier debt if credit purchase
-      console.log('=== DEBT CREATION DEBUG ===');
-      console.log('supplierInfo:', supplierInfo);
-      
       // Force debt creation for credit purchases
       if (supplierInfo.supplierId && supplierInfo.isCredit === true && supplierInfo.isOwnPurchase === false) {
-        console.log('✅ Creating debt for credit purchase');
         const debtAmount = data.stock * supplierInfo.costPrice;
         const debtRef = doc(collection(db, 'finances'));
         const debtData = {
@@ -787,14 +777,6 @@ export const createProduct = async (
           batchId: stockBatchRef.id
         };
         batch.set(debtRef, debtData);
-        console.log('✅ Debt created successfully:', debtData);
-      } else {
-        console.log('❌ Debt creation skipped - conditions not met');
-        console.log('Conditions:', {
-          hasSupplierId: !!supplierInfo.supplierId,
-          isCredit: supplierInfo.isCredit,
-          isOwnPurchase: supplierInfo.isOwnPurchase
-        });
       }
     } else {
       // Create stock change without batch (legacy mode)
@@ -816,14 +798,10 @@ export const createProduct = async (
   // Create audit log
   createAuditLog(batch, 'create', 'product', productRef.id, productData, userId);
   
-  console.log('=== BATCH COMMIT DEBUG ===');
-  console.log('About to commit batch with all operations...');
-  
   try {
     await batch.commit();
-    console.log('✅ Batch committed successfully!');
   } catch (error) {
-    console.error('❌ Batch commit failed:', error);
+    logError('Batch commit failed', error);
     throw error;
   }
   
@@ -832,7 +810,7 @@ export const createProduct = async (
     try {
       await updateCategoryProductCount(data.category, companyId, true);
     } catch (error) {
-      console.error('Error updating category product count:', error);
+      logError('Error updating category product count', error);
       // Don't throw here as the product was created successfully
     }
   }
@@ -844,7 +822,7 @@ export const createProduct = async (
     updatedAt: { seconds: Date.now() / 1000, nanoseconds: 0 }
   };
   } catch (error) {
-    console.error('Error creating product:', error);
+    logError('Error creating product', error);
     throw error;
   }
 };
@@ -863,7 +841,6 @@ export const updateProduct = async (
   }
 ): Promise<void> => {
   try {
-    console.log('Updating product:', id, 'data:', data, 'stockReason:', stockReason, 'stockChange:', stockChange, 'supplierInfo:', supplierInfo);
   const batch = writeBatch(db);
   const productRef = doc(db, 'products', id);
   
@@ -994,7 +971,7 @@ export const updateProduct = async (
           await updateCategoryProductCount(data.category, companyId, true);
         }
       } catch (error) {
-        console.error('Error updating category product counts:', error);
+        logError('Error updating category product counts', error);
         // Don't throw here as the product was updated successfully
       }
     }
@@ -1010,12 +987,12 @@ export const updateProduct = async (
           await updateCategoryProductCount(categoryName, companyId, shouldIncrement);
         }
       } catch (error) {
-        console.error('Error updating category product count for visibility change:', error);
+        logError('Error updating category product count for visibility change', error);
         // Don't throw here as the product was updated successfully
       }
     }
   } catch (error) {
-    console.error('Error updating product:', error);
+    logError('Error updating product', error);
     throw error;
   }
 };
@@ -1053,12 +1030,12 @@ export const softDeleteProduct = async (id: string, userId: string): Promise<voi
       try {
         await updateCategoryProductCount(currentProduct.category, companyId, false);
       } catch (error) {
-        console.error('Error updating category product count after deletion:', error);
+        logError('Error updating category product count after deletion', error);
         // Don't throw here as the product was deleted successfully
       }
     }
   } catch (error) {
-    console.error('Error soft deleting product:', error);
+    logError('Error soft deleting product', error);
     throw error;
   }
 };
@@ -1073,7 +1050,6 @@ export const createSale = async (
   createdBy?: import('../types/models').EmployeeRef | null
 ): Promise<Sale> => {
   try {
-    console.log('Creating sale with data:', data);
   const batch = writeBatch(db);
   
   // Create sale reference first (needed for stock change tracking)
@@ -1196,6 +1172,11 @@ export const createSale = async (
   if (createdBy) {
     saleData.createdBy = createdBy;
   }
+  
+  // Add customerSourceId if provided (from data)
+  if (data.customerSourceId) {
+    saleData.customerSourceId = data.customerSourceId;
+  }
   batch.set(saleRef, saleData);
   
   // Create audit log
@@ -1210,7 +1191,7 @@ export const createSale = async (
     updatedAt: { seconds: Date.now() / 1000, nanoseconds: 0 }
   };
   } catch (error) {
-    console.error('Error creating sale:', error);
+    logError('Error creating sale', error);
     throw error;
   }
 };
@@ -1345,7 +1326,7 @@ export const updateExpense = async (
     if (data.userId && expenseUserId && data.userId === expenseUserId) {
       // Same user, different company - this is likely a legacy expense being migrated
       // Allow update and migrate companyId
-      console.log(`⚠️ Migrating expense ${id} from company ${expenseCompanyId} to ${companyId}`);
+      devLog('Migrating expense to new company');
     } else {
       // Different user - unauthorized
       throw new Error('Unauthorized: Expense belongs to different company');
@@ -1524,7 +1505,6 @@ export const ensureDefaultExpenseTypes = async (): Promise<void> => {
   
   // If all types exist, skip the batch operation entirely
   if (missingTypes.length === 0) {
-    console.log('✅ All default expense types already exist - skipping');
     return;
   }
   
@@ -1540,14 +1520,12 @@ export const ensureDefaultExpenseTypes = async (): Promise<void> => {
       createdAt: serverTimestamp()
     };
     batch.set(typeRef, newType);
-    console.log(`✅ Creating missing default expense type: ${typeData.name}`);
   }
   
   try {
     await batch.commit();
-    console.log(`✅ Created ${missingTypes.length} missing default expense types`);
   } catch (error) {
-    console.error('❌ Error creating default expense types:', error);
+    logError('Error creating default expense types', error);
     throw error;
   }
 };
@@ -1559,7 +1537,6 @@ export const ensureDefaultExpenseTypes = async (): Promise<void> => {
 export const updateDashboardStats = async (companyId: string): Promise<void> => {
   // This function would calculate and update dashboard statistics
   // Implementation depends on your specific requirements
-  console.log('Dashboard stats update requested for company:', companyId);
 };
 
 export const getLowStockProducts = async (companyId: string, threshold?: number): Promise<Product[]> => {
@@ -1623,7 +1600,6 @@ export const getProductPerformance = async (companyId: string, productId: string
 
 export const addSaleWithValidation = async (sale: Sale) => {
   // Implementation remains the same
-  console.log('Sale validation requested:', sale);
 };
 
 export const getSaleDetails = async (saleId: string): Promise<Sale> => {
@@ -1731,7 +1707,6 @@ export const getCompanyByUserId = async (companyId: string): Promise<Company> =>
       } as Company;
     }
   } catch (error) {
-    console.log('Company not found by document ID, trying alternative lookup...');
   }
   
   // Fallback: search by companyId field (for backward compatibility)
@@ -1762,7 +1737,7 @@ export const getSellerSettings = async (userId: string): Promise<SellerSettings 
     const data = snap.data() as SellerSettings;
     return { ...data };
   } catch (error) {
-    console.error('Error fetching seller settings:', error);
+    logError('Error fetching seller settings', error);
     throw error;
   }
 };
@@ -1778,7 +1753,7 @@ export const updateSellerSettings = async (userId: string, settings: Partial<Sel
       await setDoc(ref, { userId, createdAt: now, updatedAt: now, currency: 'XAF', paymentMethods: {}, ...settings });
     }
   } catch (error) {
-    console.error('Error updating seller settings:', error);
+    logError('Error updating seller settings', error);
     throw error;
   }
 };
@@ -1896,18 +1871,17 @@ export const getCustomerByPhone = async (phone: string): Promise<Customer | null
       ...customerDoc.data()
     } as Customer;
   } catch (error) {
-    console.error('Error getting customer:', error);
+    logError('Error getting customer', error);
     throw error;
   }
 };
 
 export const addCustomer = async (customerData: Omit<Customer, 'id'>): Promise<Customer> => {
   try {
-    console.log('💾 [addCustomer] Ajout d\'un client avec les données:', customerData);
     
     // Vérifier que companyId est présent
     if (!customerData.companyId) {
-      console.error('❌ [addCustomer] companyId manquant dans customerData:', customerData);
+      logError('Missing companyId in customerData');
       throw new Error('companyId is required for customer');
     }
     
@@ -1950,8 +1924,13 @@ export const addCustomer = async (customerData: Omit<Customer, 'id'>): Promise<C
     if (dataWithoutCreatedAt.howKnown !== undefined && dataWithoutCreatedAt.howKnown !== null && dataWithoutCreatedAt.howKnown !== '') {
       dataToSave.howKnown = dataWithoutCreatedAt.howKnown;
     }
+    // Ajouter customerSourceId si fourni
+    if (dataWithoutCreatedAt.customerSourceId !== undefined && dataWithoutCreatedAt.customerSourceId !== null && dataWithoutCreatedAt.customerSourceId !== '') {
+      dataToSave.customerSourceId = dataWithoutCreatedAt.customerSourceId;
+      // Si customerSourceId est fourni, l'enregistrer aussi comme firstSourceId
+      dataToSave.firstSourceId = dataWithoutCreatedAt.customerSourceId;
+    }
     
-    console.log('💾 [addCustomer] Données à sauvegarder:', dataToSave);
     
     const docRef = await addDoc(customersRef, dataToSave);
     
@@ -1960,47 +1939,31 @@ export const addCustomer = async (customerData: Omit<Customer, 'id'>): Promise<C
       ...customerData
     };
     
-    console.log('✅ [addCustomer] Client ajouté avec succès:', {
-      id: savedCustomer.id,
-      name: savedCustomer.name,
-      phone: savedCustomer.phone,
-      companyId: savedCustomer.companyId
-    });
     
     return savedCustomer;
   } catch (error: any) {
-    console.error('❌ [addCustomer] Erreur lors de l\'ajout du client:', error);
-    console.error('❌ [addCustomer] Détails de l\'erreur:', {
-      message: error.message,
-      code: error.code,
-      stack: error.stack,
-      customerData: customerData
-    });
+    logError('Error adding customer', error);
     throw error;
   }
 };
 
 export const subscribeToCustomers = (companyId: string, callback: (customers: Customer[]) => void) => {
-  console.log('👂 [subscribeToCustomers] Abonnement aux clients pour company:', companyId);
   const q = query(
     collection(db, 'customers'),
     where('companyId', '==', companyId),
     orderBy('createdAt', 'desc')
   );
   return onSnapshot(q, (snapshot) => {
-    console.log(`📡 [subscribeToCustomers] Snapshot reçu pour company ${companyId}:`, snapshot.size, 'documents');
     const customers = snapshot.docs.map(doc => {
       const data = doc.data();
-      console.log(`📡 [subscribeToCustomers] Client trouvé:`, { id: doc.id, phone: data.phone, name: data.name, companyId: data.companyId });
       return {
         id: doc.id,
         ...data
       } as Customer;
     });
-    console.log(`📡 [subscribeToCustomers] Appel du callback avec ${customers.length} clients`);
     callback(customers);
   }, (error) => {
-    console.error(`❌ [subscribeToCustomers] Erreur dans le listener pour company ${companyId}:`, error);
+    logError('Error in customers subscription', error);
     // En cas d'erreur (par exemple index manquant), retourner un tableau vide
     callback([]);
   });
@@ -2023,7 +1986,7 @@ export const updateCustomer = async (customerId: string, customerData: Partial<C
     
     await updateDoc(customerRef, updateData);
   } catch (error: any) {
-    console.error('❌ [updateCustomer] Erreur lors de la mise à jour du client:', error);
+    logError('Error updating customer', error);
     throw error;
   }
 };
@@ -2033,7 +1996,7 @@ export const deleteCustomer = async (customerId: string, companyId: string): Pro
     const customerRef = doc(db, 'customers', customerId);
     await deleteDoc(customerRef);
   } catch (error: any) {
-    console.error('❌ [deleteCustomer] Erreur lors de la suppression du client:', error);
+    logError('Error deleting customer', error);
     throw error;
   }
 };
@@ -2178,16 +2141,10 @@ export const createFinanceEntry = async (entry: Omit<FinanceEntry, 'id' | 'creat
   
   // Log for sortie entries to verify negative amount is being stored
   if (entry.sourceType === 'manual' && entry.type === 'sortie') {
-    console.log('[createFinanceEntry] Storing sortie entry:', {
-      amount: data.amount,
-      type: data.type,
-      description: data.description
-    });
     // Ensure amount is negative for sortie
     if (data.amount >= 0) {
-      console.error('[createFinanceEntry] ERROR: Sortie amount is not negative!', data.amount);
+      logWarning('Sortie amount should be negative, fixing it');
       data.amount = -Math.abs(data.amount);
-      console.log('[createFinanceEntry] Fixed amount to:', data.amount);
     }
   }
   
@@ -2209,46 +2166,14 @@ export const createFinanceEntry = async (entry: Omit<FinanceEntry, 'id' | 'creat
     
     // Commit batch - with includeMetadataChanges: true, onSnapshot will fire immediately
     await batch.commit();
-    
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[createFinanceEntry] ✅ Batch committed for manual entry:', {
-        id: ref.id,
-        type: data.type,
-        amount: data.amount,
-        isDeleted: data.isDeleted,
-        companyId: data.companyId,
-        timestamp: new Date().toISOString()
-      });
-      console.log('[createFinanceEntry] 🔔 onSnapshot should fire immediately with includeMetadataChanges');
-    }
   } else {
     // For non-manual entries, simple write is faster
     await setDoc(ref, data);
-    
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[createFinanceEntry] ✅ Document set for non-manual entry:', {
-        id: ref.id,
-        type: data.type,
-        isDeleted: data.isDeleted,
-        companyId: data.companyId,
-        timestamp: new Date().toISOString()
-      });
-      console.log('[createFinanceEntry] 🔔 onSnapshot should fire immediately');
-    }
   }
   
   // Get the saved data to return (Firestore will have resolved serverTimestamp)
   const snap = await getDoc(ref);
   const savedData = snap.data();
-  
-  // Verify what was actually saved
-  if (entry.sourceType === 'manual' && entry.type === 'sortie') {
-    console.log('[createFinanceEntry] ✅ Saved data verified:', {
-      amount: savedData?.amount,
-      type: savedData?.type,
-      isDeleted: savedData?.isDeleted
-    });
-  }
   
   // Return the saved entry - Firestore real-time listeners will update automatically via onSnapshot
   return { id: ref.id, ...savedData } as FinanceEntry;
@@ -2260,10 +2185,8 @@ export const updateFinanceEntry = async (id: string, data: Partial<FinanceEntry>
   // Ensure sortie entries always have negative amount
   if (data.type === 'sortie' && data.amount !== undefined) {
     if (data.amount >= 0) {
-      console.log('[updateFinanceEntry] Fixing sortie amount from', data.amount, 'to negative');
       data.amount = -Math.abs(data.amount);
     }
-    console.log('[updateFinanceEntry] Updating sortie entry with amount:', data.amount);
   }
   
   await updateDoc(ref, { ...data, updatedAt: serverTimestamp() });
@@ -2289,29 +2212,20 @@ export const softDeleteFinanceEntryWithCascade = async (financeEntryId: string):
   }
   // Cascade: if debt, also soft delete all related refunds
   if (entry.type === 'debt') {
-    console.log('[CascadeDelete] Attempting to delete refunds for debt:', financeEntryId);
     let q = query(collection(db, 'finances'), where('type', '==', 'refund'), where('refundedDebtId', '==', financeEntryId));
     let snap = await getDocs(q);
     if (!snap.empty) {
       for (const docSnap of snap.docs) {
-        console.log('[CascadeDelete] Soft deleting refund (direct match):', docSnap.id);
         await updateFinanceEntry(docSnap.id, { isDeleted: true });
       }
     } else {
       // Fallback: fetch all refunds and compare refundedDebtId as string
-      console.log('[CascadeDelete] No direct Firestore match, falling back to manual string comparison.');
       const allRefundsSnap = await getDocs(query(collection(db, 'finances'), where('type', '==', 'refund')));
-      let found = false;
       for (const docSnap of allRefundsSnap.docs) {
         const refund = docSnap.data();
         if (refund.refundedDebtId && String(refund.refundedDebtId) === String(financeEntryId)) {
-          console.log('[CascadeDelete] Soft deleting refund (manual match):', docSnap.id);
           await updateFinanceEntry(docSnap.id, { isDeleted: true });
-          found = true;
         }
-      }
-      if (!found) {
-        console.log('[CascadeDelete] No associated refunds found for debt:', financeEntryId);
       }
     }
   }
@@ -2350,7 +2264,7 @@ export const softDeleteExpense = async (expenseId: string, userId: string): Prom
 export const syncFinanceEntryWithSale = async (sale: Sale) => {
   // Add explicit checks for required fields before querying
   if (!sale || !sale.id || !sale.userId || !sale.companyId) {
-    console.error('syncFinanceEntryWithSale: Invalid sale object received, skipping sync.', sale);
+    logWarning('syncFinanceEntryWithSale: Invalid sale object received, skipping sync');
     return; // Exit early if data is invalid
   }
 
@@ -2379,7 +2293,7 @@ export const syncFinanceEntryWithSale = async (sale: Sale) => {
 export const syncFinanceEntryWithExpense = async (expense: Expense) => {
   // Add explicit checks for required fields before querying
   if (!expense || !expense.id || !expense.userId || !expense.companyId) {
-    console.error('syncFinanceEntryWithExpense: Invalid expense object received, skipping sync.', expense);
+    logWarning('syncFinanceEntryWithExpense: Invalid expense object received, skipping sync');
     return; // Exit early if data is invalid
   }
 
@@ -2464,7 +2378,6 @@ export const ensureDefaultFinanceEntryTypes = async (): Promise<void> => {
   
   // If all types exist, skip the batch operation entirely
   if (missingTypes.length === 0) {
-    console.log('✅ All default finance entry types already exist - skipping');
     return;
   }
   
@@ -2480,14 +2393,12 @@ export const ensureDefaultFinanceEntryTypes = async (): Promise<void> => {
       createdAt: serverTimestamp()
     };
     batch.set(typeRef, newType);
-    console.log(`✅ Creating missing default finance entry type: ${typeData.name}`);
   }
   
   try {
     await batch.commit();
-    console.log(`✅ Created ${missingTypes.length} missing default finance entry types`);
   } catch (error) {
-    console.error('❌ Error creating default finance entry types:', error);
+    logError('Error creating default finance entry types', error);
     throw error;
   }
 };
@@ -2838,9 +2749,8 @@ export const deleteStockChange = async (stockChangeId: string): Promise<void> =>
   try {
     const stockChangeRef = doc(db, 'stockChanges', stockChangeId);
     await deleteDoc(stockChangeRef);
-    console.log(`Stock change ${stockChangeId} deleted successfully`);
   } catch (error) {
-    console.error('Error deleting stock change:', error);
+    logError('Error deleting stock change', error);
     throw error;
   }
 };

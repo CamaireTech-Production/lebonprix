@@ -16,6 +16,7 @@ import { useTranslation } from 'react-i18next';
 import ObjectivesBar from '../components/objectives/ObjectivesBar';
 import ObjectivesModal from '../components/objectives/ObjectivesModal';
 import { showSuccessToast, showErrorToast } from '../utils/toast';
+import { devLog } from '../utils/logger';
 import type { FinanceEntry } from '../types/models';
 import {
   calculateTotalProfit,
@@ -162,28 +163,13 @@ const Finance: React.FC = () => {
       
       // If no date found, include entry anyway (don't filter out entries without dates)
       if (!entryDate) {
-        if (process.env.NODE_ENV === 'development') {
-          console.log(`[Finance] ⚠️ Entry ${entry.id} has no date, including anyway`);
-        }
         return true;
       }
       
       // Check date range
       const inRange = entryDate >= dateRange.from && entryDate <= dateRange.to;
-      if (!inRange && process.env.NODE_ENV === 'development') {
-        console.log(`[Finance] ⚠️ Entry ${entry.id} filtered out by date range:`, {
-          entryDate: entryDate.toISOString(),
-          from: dateRange.from.toISOString(),
-          to: dateRange.to.toISOString(),
-          inRange
-        });
-      }
       return inRange;
     });
-    
-    if (process.env.NODE_ENV === 'development' && filtered.length !== effectiveEntries.length) {
-      console.log(`[Finance] 📊 Filtered entries: ${filtered.length} of ${effectiveEntries.length} entries`);
-    }
     
     return filtered;
   }, [effectiveEntries, dateRange]);
@@ -280,27 +266,9 @@ const Finance: React.FC = () => {
     const prevLength = prevEntriesLengthRef.current;
     const currentLength = entries.length;
     
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`[Finance] 🔄 Entries changed: ${currentLength} total entries (was ${prevLength})`);
-      if (currentLength > prevLength) {
-        console.log(`[Finance] ➕ ${currentLength - prevLength} new entry/entries added!`);
-      }
-      if (entries.length > 0) {
-        const latestEntry = entries[0]; // Should be most recent
-        console.log(`[Finance] 📊 Latest entry:`, {
-          id: latestEntry.id,
-          type: latestEntry.type,
-          amount: latestEntry.amount,
-          createdAt: latestEntry.createdAt,
-          hasCreatedAt: !!latestEntry.createdAt
-        });
-      }
-    }
-    
     // Reset to page 1 when new entries are added
     if (currentLength > prevLength && currentPage !== 1) {
-      console.log(`[Finance] 🔄 Resetting to page 1 because new entries were added`);
-        setCurrentPage(1);
+      setCurrentPage(1);
     }
     
     prevEntriesLengthRef.current = currentLength;

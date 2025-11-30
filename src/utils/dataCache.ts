@@ -20,7 +20,6 @@ class DataCache {
     };
     
     this.cache.set(key, entry);
-    console.log(`📦 Cached data for key: ${key}`);
   }
 
   /**
@@ -38,11 +37,9 @@ class DataCache {
 
     if (isExpired) {
       this.cache.delete(key);
-      console.log(`⏰ Cache expired for key: ${key}`);
       return null;
     }
 
-    console.log(`✅ Cache hit for key: ${key}`);
     return entry.data as T;
   }
 
@@ -58,7 +55,6 @@ class DataCache {
    */
   delete(key: string): void {
     this.cache.delete(key);
-    console.log(`🗑️ Removed cache for key: ${key}`);
   }
 
   /**
@@ -66,7 +62,6 @@ class DataCache {
    */
   clear(): void {
     this.cache.clear();
-    console.log(`🧹 Cleared all cache`);
   }
 
   /**
@@ -94,7 +89,6 @@ class DataCache {
     }
 
     if (cleaned > 0) {
-      console.log(`🧹 Cleaned ${cleaned} expired cache entries`);
     }
   }
 }
@@ -140,7 +134,6 @@ export const invalidateCompanyCache = (companyId: string) => {
     dataCache.delete(key);
   });
   
-  console.log(`🗑️ Invalidated all cache for company: ${companyId}`);
 };
 
 // Keep invalidateUserCache for backward compatibility (deprecated)
@@ -149,7 +142,6 @@ export const invalidateUserCache = (companyId: string) => invalidateCompanyCache
 export const invalidateSpecificCache = (companyId: string, dataType: 'products' | 'sales' | 'expenses' | 'stockChanges' | 'suppliers' | 'categories' | 'company' | 'dashboard') => {
   const key = cacheKeys[dataType](companyId);
   dataCache.delete(key);
-  console.log(`🗑️ Invalidated ${dataType} cache for company: ${companyId}`);
 };
 
 export default dataCache;

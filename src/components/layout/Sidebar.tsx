@@ -24,6 +24,7 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
   const [showCreateCompanyModal, setShowCreateCompanyModal] = React.useState(false);
   const [showCompanyNavigationConfirm, setShowCompanyNavigationConfirm] = React.useState(false);
   const [expensesMenuExpanded, setExpensesMenuExpanded] = React.useState(false);
+  const [contactsMenuExpanded, setContactsMenuExpanded] = React.useState(false);
   
   // Vérifier si on doit afficher le loader pour le template
   const isActualOwner = isOwner || effectiveRole === 'owner';
@@ -50,6 +51,13 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
   React.useEffect(() => {
     if (location.pathname.includes('/expenses')) {
       setExpensesMenuExpanded(true);
+    }
+  }, [location.pathname]);
+
+  // Check if contacts menu should be expanded (if on any contacts sub-route)
+  React.useEffect(() => {
+    if (location.pathname.includes('/contacts')) {
+      setContactsMenuExpanded(true);
     }
   }, [location.pathname]);
 
@@ -112,7 +120,16 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
     { name: t('navigation.products'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/products` : '/products', icon: <Package2 size={20} />, resource: 'products' },
     { name: 'Categories', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/categories` : '/categories', icon: <Grid3X3 size={20} />, resource: 'categories' },
     { name: t('navigation.suppliers'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/suppliers` : '/suppliers', icon: <Users size={20} />, resource: 'suppliers' },
-    { name: 'Contacts', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/contacts` : '/contacts', icon: <Phone size={20} />, resource: 'customers' },
+    { 
+      name: 'Contacts', 
+      path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/contacts` : '/contacts', 
+      icon: <Phone size={20} />, 
+      resource: 'customers',
+      subItems: [
+        { name: 'Liste', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/contacts` : '/contacts' },
+        { name: 'Sources Clientelles', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/contacts/sources` : '/contacts/sources' },
+      ]
+    },
     { name: 'HR Management', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/hr` : '/hr', icon: <UserCheck size={20} />, resource: 'hr' },
     { name: t('navigation.reports'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/reports` : '/reports', icon: <FileBarChart size={20} />, resource: 'reports' },
     { name: t('navigation.settings'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/settings` : '/settings', icon: <Settings size={20} />, resource: 'settings' },
@@ -214,7 +231,8 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
             // Check if this item has subItems (expansible menu)
             const hasSubItems = (item as any).subItems && Array.isArray((item as any).subItems);
             const isExpensesItem = item.name === 'Expenses';
-            const isExpanded = isExpensesItem && expensesMenuExpanded;
+            const isContactsItem = item.name === 'Contacts';
+            const isExpanded = (isExpensesItem && expensesMenuExpanded) || (isContactsItem && contactsMenuExpanded);
             
             return (
               <li key={item.path}>
@@ -225,11 +243,13 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
                       onClick={() => {
                         if (isExpensesItem) {
                           setExpensesMenuExpanded(!expensesMenuExpanded);
+                        } else if (isContactsItem) {
+                          setContactsMenuExpanded(!contactsMenuExpanded);
                         }
                       }}
                       className={`
                         w-full flex items-center justify-between px-3 py-2 text-sm font-medium rounded-md transition-colors
-                        ${isActive(item.path) || (isExpensesItem && location.pathname.includes('/expenses'))
+                        ${isActive(item.path) || (isExpensesItem && location.pathname.includes('/expenses')) || (isContactsItem && location.pathname.includes('/contacts'))
                           ? 'bg-emerald-50 text-emerald-600'
                           : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'}
                       `}

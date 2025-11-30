@@ -35,7 +35,8 @@
     "rowsPerPage": "Lignes par page :",
     "ascArrow": "▲",
     "descArrow": "▼",
-    "confirm": "Confirmer"
+    "confirm": "Confirmer",
+    "close": "Fermer"
   },
   "auth": {
     "login": "Connexion",
@@ -259,6 +260,7 @@
   "sales": {
     "title": "Ventes",
     "subtitle": "Gérez vos transactions de vente",
+    "overallProfit": "Profit Total :",
     "filters": {
       "allStatuses": "Tous les statuts",
       "status": {
@@ -427,6 +429,24 @@
       "common": {
         "cancel": "Annuler"
       },
+      "profitDetails": {
+        "title": "Détails du Profit",
+        "breakdown": "Répartition du Profit",
+        "unitPrice": "Prix Unitaire",
+        "totalPrice": "Prix Total",
+        "profit": "Profit",
+        "batchConsumptionDetails": "Détails de Consommation par Lot :",
+        "batchId": "ID du Lot",
+        "qty": "Qté",
+        "batchCostPrice": "Prix de Revient du Lot",
+        "salePriceUnit": "Prix de Vente (unité)",
+        "batchProfit": "Profit du Lot",
+        "batchProfitFormula": "Profit par Lot : ({{unitPrice}} - {{costPrice}}) × {{quantity}} = {{profit}} XAF",
+        "productSubtotal": "Sous-total Profit Produit :",
+        "totalProfit": "Profit Total",
+        "totalCost": "Coût Total",
+        "profitMargin": "Marge Bénéficiaire"
+      },
       "delete": {
         "title": "Supprimer la vente",
         "message": "Êtes-vous sûr de vouloir supprimer cette vente pour {{customerName}} ({{amount}} XAF) ?",
@@ -492,6 +512,8 @@
   "products": {
     "title": "Produits",
     "subtitle": "Gérez votre inventaire de produits",
+    "batchInfo": "Lot {{batchId}} • {{quantity}} unités",
+    "goToBatch": "Aller au lot {{index}}",
     "filters": {
       "allCategories": "Toutes les catégories",
       "search": "Rechercher par nom ou référence..."
@@ -1148,6 +1170,207 @@
       "paymentFailed": "Échec du paiement. Veuillez réessayer.",
       "draftSaved": "Brouillon sauvegardé",
       "draftSaveFailed": "Échec de la sauvegarde du brouillon"
+    }
+  },
+  "reports": {
+    "title": "Rapports",
+    "subtitle": "Consultez des rapports et analyses détaillés de votre entreprise",
+    "exportReport": "Exporter le Rapport",
+    "filters": {
+      "startDate": "Date de Début",
+      "endDate": "Date de Fin",
+      "period": "Période",
+      "category": "Catégorie",
+      "product": "Produit",
+      "none": "Aucune",
+      "today": "Aujourd'hui",
+      "daily": "Quotidien",
+      "weekly": "Hebdomadaire",
+      "monthly": "Mensuel",
+      "yearly": "Annuel",
+      "allCategories": "Toutes les Catégories",
+      "allProducts": "Tous les Produits"
+    },
+    "summary": {
+      "totalSales": "Ventes Totales",
+      "costOfGoodsSold": "Coût des Marchandises Vendues",
+      "totalExpenses": "Dépenses Totales",
+      "netProfit": "Bénéfice Net",
+      "orders": "commandes",
+      "entries": "entrées",
+      "ofSales": "des ventes",
+      "margin": "marge"
+    },
+    "kpi": {
+      "title": "Indicateurs Clés de Performance",
+      "grossMarginRate": "Taux de Marge Brute",
+      "netMarginRate": "Taux de Marge Nette",
+      "expenseRatio": "Ratio des Dépenses",
+      "growthRate": "Taux de Croissance",
+      "roi": "ROI",
+      "salesMinusCogs": "Ventes - CMV / Ventes",
+      "netProfitOverSales": "Bénéfice Net / Ventes",
+      "expensesOverSales": "Dépenses / Ventes",
+      "vsPreviousPeriod": "par rapport à la Période Précédente",
+      "netProfitOverCogs": "Bénéfice Net / CMV"
+    },
+    "chart": {
+      "title": "Aperçu Financier",
+      "showTrendLine": "Afficher la Ligne de Tendance",
+      "hideTrendLine": "Masquer la Ligne de Tendance",
+      "sales": "Ventes",
+      "costOfGoodsSold": "Coût des Marchandises Vendues",
+      "expenses": "Dépenses",
+      "netProfit": "Bénéfice Net",
+      "trendLine": "Ligne de Tendance"
+    },
+    "tables": {
+      "topProducts": {
+        "title": "Top Produits (Clients & Quantité)",
+        "product": "Produit",
+        "quantity": "Quantité",
+        "customers": "Clients",
+        "sales": "Ventes",
+        "cumulative": "Cumulatif",
+        "units": "unités"
+      },
+      "topCustomers": {
+        "title": "Top Clients",
+        "customer": "Client",
+        "sales": "Ventes",
+        "orders": "Commandes",
+        "cumulative": "Cumulatif"
+      },
+      "expenses": {
+        "title": "Dépenses",
+        "date": "Date",
+        "description": "Description",
+        "category": "Catégorie",
+        "amount": "Montant",
+        "cumulative": "Cumulatif",
+        "noExpenses": "Aucune dépense pour la période sélectionnée."
+      },
+      "productProfitability": {
+        "title": "Analyse de Rentabilité des Produits",
+        "product": "Produit",
+        "qtySold": "Qté Vendue",
+        "sales": "Ventes",
+        "cogs": "CMV",
+        "profit": "Profit",
+        "margin": "Marge %",
+        "noData": "Aucune donnée produit disponible"
+      },
+      "expenseCategory": {
+        "title": "Analyse par Catégorie de Dépenses",
+        "category": "Catégorie",
+        "amount": "Montant",
+        "percentage": "%",
+        "count": "Nombre",
+        "average": "Moyenne",
+        "noData": "Aucune donnée de dépense disponible"
+      }
+    },
+    "customerMetrics": {
+      "title": "Métriques Clients",
+      "totalCustomers": "Total Clients",
+      "totalOrders": "Total Commandes",
+      "averageBasket": "Panier Moyen",
+      "repeatCustomers": "Clients Fidèles",
+      "newCustomers": "Nouveaux Clients",
+      "retentionRate": "Taux de Fidélisation"
+    },
+    "customerSourceStats": {
+      "title": "Statistiques par Source Clientelle",
+      "sales": "Ventes",
+      "revenue": "CA",
+      "profit": "Profit",
+      "customers": "Clients",
+      "margin": "Marge",
+      "noSource": "Sans source",
+      "source": "Source",
+      "totalRevenue": "CA Total",
+      "totalProfit": "Profit Total"
+    }
+  },
+  "orders": {
+    "title": "Commandes",
+    "subtitle": "Gérez et suivez les commandes clients",
+    "filters": "Filtres",
+    "searchPlaceholder": "Rechercher des commandes par numéro, nom client ou téléphone...",
+    "loading": "Chargement des commandes...",
+    "noOrders": "Aucune commande trouvée",
+    "noOrdersMessage": "Vous n'avez pas encore reçu de commandes.",
+    "noOrdersSearch": "Aucune commande ne correspond à vos critères de recherche.",
+    "stats": {
+      "totalOrders": "Total Commandes",
+      "pending": "En Attente",
+      "completed": "Terminées",
+      "totalRevenue": "Revenu Total"
+    },
+    "status": {
+      "pending": "En Attente",
+      "confirmed": "Confirmée",
+      "preparing": "En Préparation",
+      "ready": "Prête",
+      "delivered": "Livrée",
+      "cancelled": "Annulée"
+    },
+    "paymentStatus": {
+      "pending": "En Attente",
+      "paid": "Payée",
+      "failed": "Échouée",
+      "awaiting_payment": "En Attente de Paiement",
+      "cancelled": "Annulée"
+    },
+    "orderDetails": {
+      "title": "Détails de la Commande",
+      "createdOn": "Créée le",
+      "customerInformation": "Informations Client",
+      "name": "Nom",
+      "phone": "Téléphone",
+      "location": "Localisation",
+      "email": "Email",
+      "orderItems": "Articles de la Commande",
+      "color": "Couleur",
+      "size": "Taille",
+      "qty": "Qté",
+      "pricing": "Tarification",
+      "subtotal": "Sous-total",
+      "deliveryFee": "Frais de Livraison",
+      "tax": "Taxe",
+      "discount": "Remise",
+      "total": "Total",
+      "orderTimeline": "Chronologie de la Commande",
+      "createdBy": "Créé par",
+      "items": "article",
+      "itemsPlural": "articles"
+    },
+    "actions": {
+      "updateStatus": "Mettre à Jour le Statut de la Commande",
+      "newStatus": "Nouveau Statut",
+      "cancel": "Annuler",
+      "update": "Mettre à Jour",
+      "updating": "Mise à jour...",
+      "updateStatusButton": "Mettre à Jour le Statut",
+      "addNote": "Ajouter une Note à la Commande",
+      "note": "Note",
+      "notePlaceholder": "Ajoutez une note concernant cette commande...",
+      "adding": "Ajout...",
+      "addNoteButton": "Ajouter la Note",
+      "delete": "Supprimer la Commande",
+      "deleteConfirm": "Êtes-vous sûr de vouloir supprimer la commande",
+      "deleteWarning": "Cette action ne peut pas être annulée. La commande sera définitivement supprimée.",
+      "deleting": "Suppression...",
+      "deleteButton": "Supprimer la Commande"
+    },
+    "messages": {
+      "statusUpdated": "Statut de la commande mis à jour avec succès",
+      "statusUpdateFailed": "Échec de la mise à jour du statut de la commande",
+      "noteAdded": "Note ajoutée avec succès",
+      "noteAddFailed": "Échec de l'ajout de la note",
+      "orderDeleted": "Commande supprimée avec succès",
+      "orderDeleteFailed": "Échec de la suppression de la commande",
+      "statsLoadFailed": "Échec du chargement des statistiques de commande"
     }
   },
   "invitations": {

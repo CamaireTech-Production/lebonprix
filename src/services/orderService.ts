@@ -195,7 +195,7 @@ export const createOrder = async (
       updatedAt: new Date()
     } as Order;
   } catch (error) {
-    console.error('Error creating order:', error);
+    logError('Error creating order', error);
     throw error;
   }
 };
@@ -218,7 +218,7 @@ export const getOrderById = async (orderId: string): Promise<Order | null> => {
     
     return null;
   } catch (error) {
-    console.error('Error getting order:', error);
+    logError('Error getting order', error);
     throw error;
   }
 };
@@ -315,7 +315,7 @@ export const updateOrderStatus = async (
       timeline: [statusEvent] // This will be handled by arrayUnion in a real implementation
     });
   } catch (error) {
-    console.error('Error updating order status:', error);
+    logError('Error updating order status', error);
     throw error;
   }
 };
@@ -373,7 +373,7 @@ export const updateOrderPaymentStatus = async (
 
     await updateDoc(orderRef, updateData);
   } catch (error) {
-    console.error('Error updating payment status:', error);
+    logError('Error updating payment status', error);
     throw error;
   }
 };
@@ -481,7 +481,7 @@ export const getOrderStats = async (companyId: string): Promise<OrderStats> => {
       recentOrders
     };
   } catch (error) {
-    console.error('Error getting order stats:', error);
+    logError('Error getting order stats', error);
     throw error;
   }
 };
@@ -527,7 +527,7 @@ export const deleteOrder = async (
     // Option 2: Hard delete - actually remove from database
     await deleteDoc(orderRef);
   } catch (error) {
-    console.error('Error deleting order:', error);
+    logError('Error deleting order', error);
     throw error;
   }
 };

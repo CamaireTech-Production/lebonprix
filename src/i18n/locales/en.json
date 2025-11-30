@@ -33,7 +33,8 @@
     "select": "Select",
     "used": "Used",
     "copy": "Copy",
-    "confirm": "Confirm"
+    "confirm": "Confirm",
+    "close": "Close"
   },
   "auth": {
     "login": "Login",
@@ -256,6 +257,7 @@
   "sales": {
     "title": "Sales",
     "subtitle": "Manage your sales transactions",
+    "overallProfit": "Total Profit:",
     "filters": {
       "allStatuses": "All Statuses",
       "status": {
@@ -429,6 +431,24 @@
       },
       "common": {
         "cancel": "Cancel"
+      },
+      "profitDetails": {
+        "title": "Profit Details",
+        "breakdown": "Profit Breakdown",
+        "unitPrice": "Unit Price",
+        "totalPrice": "Total Price",
+        "profit": "Profit",
+        "batchConsumptionDetails": "Batch Consumption Details:",
+        "batchId": "Batch ID",
+        "qty": "Qty",
+        "batchCostPrice": "Batch Cost Price",
+        "salePriceUnit": "Sale Price (unit)",
+        "batchProfit": "Batch Profit",
+        "batchProfitFormula": "Batch Profit: ({{unitPrice}} - {{costPrice}}) × {{quantity}} = {{profit}} XAF",
+        "productSubtotal": "Product Profit Subtotal:",
+        "totalProfit": "Total Profit",
+        "totalCost": "Total Cost",
+        "profitMargin": "Profit Margin"
       }
     },
     "messages": {
@@ -526,6 +546,8 @@
   "products": {
     "title": "Products",
     "subtitle": "Manage your product inventory",
+    "batchInfo": "Batch {{batchId}} • {{quantity}} units",
+    "goToBatch": "Go to batch {{index}}",
     "filters": {
       "allCategories": "All Categories",
       "search": "Search by name or reference..."
@@ -1147,6 +1169,207 @@
       "paymentFailed": "Payment failed. Please try again.",
       "draftSaved": "Draft saved",
       "draftSaveFailed": "Failed to save draft"
+    }
+  },
+  "reports": {
+    "title": "Reports",
+    "subtitle": "View detailed business reports and analytics",
+    "exportReport": "Export Report",
+    "filters": {
+      "startDate": "Start Date",
+      "endDate": "End Date",
+      "period": "Period",
+      "category": "Category",
+      "product": "Product",
+      "none": "None",
+      "today": "Today",
+      "daily": "Daily",
+      "weekly": "Weekly",
+      "monthly": "Monthly",
+      "yearly": "Yearly",
+      "allCategories": "All Categories",
+      "allProducts": "All Products"
+    },
+    "summary": {
+      "totalSales": "Total Sales",
+      "costOfGoodsSold": "Cost of Goods Sold",
+      "totalExpenses": "Total Expenses",
+      "netProfit": "Net Profit",
+      "orders": "orders",
+      "entries": "entries",
+      "ofSales": "of sales",
+      "margin": "margin"
+    },
+    "kpi": {
+      "title": "Key Performance Indicators",
+      "grossMarginRate": "Gross Margin Rate",
+      "netMarginRate": "Net Margin Rate",
+      "expenseRatio": "Expense Ratio",
+      "growthRate": "Growth Rate",
+      "roi": "ROI",
+      "salesMinusCogs": "Sales - COGS / Sales",
+      "netProfitOverSales": "Net Profit / Sales",
+      "expensesOverSales": "Expenses / Sales",
+      "vsPreviousPeriod": "vs Previous Period",
+      "netProfitOverCogs": "Net Profit / COGS"
+    },
+    "chart": {
+      "title": "Financial Overview",
+      "showTrendLine": "Show Trend Line",
+      "hideTrendLine": "Hide Trend Line",
+      "sales": "Sales",
+      "costOfGoodsSold": "Cost of Goods Sold",
+      "expenses": "Expenses",
+      "netProfit": "Net Profit",
+      "trendLine": "Trend Line"
+    },
+    "tables": {
+      "topProducts": {
+        "title": "Top Products (Customers & Quantity)",
+        "product": "Product",
+        "quantity": "Quantity",
+        "customers": "Customers",
+        "sales": "Sales",
+        "cumulative": "Cumulative",
+        "units": "units"
+      },
+      "topCustomers": {
+        "title": "Top Customers",
+        "customer": "Customer",
+        "sales": "Sales",
+        "orders": "Orders",
+        "cumulative": "Cumulative"
+      },
+      "expenses": {
+        "title": "Expenses",
+        "date": "Date",
+        "description": "Description",
+        "category": "Category",
+        "amount": "Amount",
+        "cumulative": "Cumulative",
+        "noExpenses": "No expenses for selected period."
+      },
+      "productProfitability": {
+        "title": "Product Profitability Analysis",
+        "product": "Product",
+        "qtySold": "Qty Sold",
+        "sales": "Sales",
+        "cogs": "COGS",
+        "profit": "Profit",
+        "margin": "Margin %",
+        "noData": "No product data available"
+      },
+      "expenseCategory": {
+        "title": "Expense Category Analysis",
+        "category": "Category",
+        "amount": "Amount",
+        "percentage": "%",
+        "count": "Count",
+        "average": "Avg",
+        "noData": "No expense data available"
+      }
+    },
+    "customerMetrics": {
+      "title": "Customer Metrics",
+      "totalCustomers": "Total Customers",
+      "totalOrders": "Total Orders",
+      "averageBasket": "Average Basket",
+      "repeatCustomers": "Repeat Customers",
+      "newCustomers": "New Customers",
+      "retentionRate": "Retention Rate"
+    },
+    "customerSourceStats": {
+      "title": "Customer Source Statistics",
+      "sales": "Sales",
+      "revenue": "Revenue",
+      "profit": "Profit",
+      "customers": "Customers",
+      "margin": "Margin",
+      "noSource": "No Source",
+      "source": "Source",
+      "totalRevenue": "Total Revenue",
+      "totalProfit": "Total Profit"
+    }
+  },
+  "orders": {
+    "title": "Orders",
+    "subtitle": "Manage and track customer orders",
+    "filters": "Filters",
+    "searchPlaceholder": "Search orders by number, customer name, or phone...",
+    "loading": "Loading orders...",
+    "noOrders": "No orders found",
+    "noOrdersMessage": "You haven't received any orders yet.",
+    "noOrdersSearch": "No orders match your search criteria.",
+    "stats": {
+      "totalOrders": "Total Orders",
+      "pending": "Pending",
+      "completed": "Completed",
+      "totalRevenue": "Total Revenue"
+    },
+    "status": {
+      "pending": "Pending",
+      "confirmed": "Confirmed",
+      "preparing": "Preparing",
+      "ready": "Ready",
+      "delivered": "Delivered",
+      "cancelled": "Cancelled"
+    },
+    "paymentStatus": {
+      "pending": "Pending",
+      "paid": "Paid",
+      "failed": "Failed",
+      "awaiting_payment": "Awaiting Payment",
+      "cancelled": "Cancelled"
+    },
+    "orderDetails": {
+      "title": "Order Details",
+      "createdOn": "Created on",
+      "customerInformation": "Customer Information",
+      "name": "Name",
+      "phone": "Phone",
+      "location": "Location",
+      "email": "Email",
+      "orderItems": "Order Items",
+      "color": "Color",
+      "size": "Size",
+      "qty": "Qty",
+      "pricing": "Pricing",
+      "subtotal": "Subtotal",
+      "deliveryFee": "Delivery Fee",
+      "tax": "Tax",
+      "discount": "Discount",
+      "total": "Total",
+      "orderTimeline": "Order Timeline",
+      "createdBy": "Created by",
+      "items": "item",
+      "itemsPlural": "items"
+    },
+    "actions": {
+      "updateStatus": "Update Order Status",
+      "newStatus": "New Status",
+      "cancel": "Cancel",
+      "update": "Update",
+      "updating": "Updating...",
+      "updateStatusButton": "Update Status",
+      "addNote": "Add Note to Order",
+      "note": "Note",
+      "notePlaceholder": "Add a note about this order...",
+      "adding": "Adding...",
+      "addNoteButton": "Add Note",
+      "delete": "Delete Order",
+      "deleteConfirm": "Are you sure you want to delete order",
+      "deleteWarning": "This action cannot be undone. The order will be permanently deleted.",
+      "deleting": "Deleting...",
+      "deleteButton": "Delete Order"
+    },
+    "messages": {
+      "statusUpdated": "Order status updated successfully",
+      "statusUpdateFailed": "Failed to update order status",
+      "noteAdded": "Note added successfully",
+      "noteAddFailed": "Failed to add note",
+      "orderDeleted": "Order deleted successfully",
+      "orderDeleteFailed": "Failed to delete order",
+      "statsLoadFailed": "Failed to load order statistics"
     }
   },
   "invitations": {

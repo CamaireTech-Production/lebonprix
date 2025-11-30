@@ -82,6 +82,12 @@ const MobileNav = () => {
       resource: 'customers' 
     },
     { 
+      name: 'Sources', 
+      path: isCompanyRoute ? `/company/${companyId}/contacts/sources` : '/contacts/sources', 
+      icon: <Phone size={20} />, 
+      resource: 'customers' 
+    },
+    { 
       name: t('navigation.reports'), 
       path: isCompanyRoute ? `/company/${companyId}/reports` : '/reports', 
       icon: <FileBarChart size={20} />, 

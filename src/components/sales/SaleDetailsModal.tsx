@@ -12,6 +12,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import { showErrorToast } from '../../utils/toast';
 import CustomerAdditionalInfo from '../customers/CustomerAdditionalInfo';
 import { useCustomers } from '../../hooks/useFirestore';
+import { useCustomerSources } from '../../hooks/useCustomerSources';
+import type { CustomerSource } from '../../types/models';
 
 interface SaleDetailsModalProps {
   isOpen: boolean;
@@ -26,7 +28,9 @@ const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({ isOpen, onClose, sa
   const [isSharing, setIsSharing] = useState(false);
   const { company } = useAuth();
   const { customers } = useCustomers();
+  const { sources } = useCustomerSources();
   const [customer, setCustomer] = useState<Customer | null>(null);
+  const [customerSource, setCustomerSource] = useState<CustomerSource | null>(null);
 
   // Récupérer le client complet depuis la collection customers
   useEffect(() => {
@@ -40,17 +44,22 @@ const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({ isOpen, onClose, sa
         return customerPhone === salePhone;
       });
       
-      console.log('🔍 [SaleDetailsModal] Recherche du client:', {
-        salePhone,
-        customersCount: customers.length,
-        foundCustomer: foundCustomer ? { phone: foundCustomer.phone, name: foundCustomer.name } : null
-      });
       
       setCustomer(foundCustomer || null);
     } else {
       setCustomer(null);
     }
   }, [sale, customers]);
+
+  // Récupérer la source clientelle
+  useEffect(() => {
+    if (sale?.customerSourceId && company?.id) {
+      const source = sources.find(s => s.id === sale.customerSourceId);
+      setCustomerSource(source || null);
+    } else {
+      setCustomerSource(null);
+    }
+  }, [sale?.customerSourceId, sources, company?.id]);
 
   if (!sale) return null;
 
@@ -76,7 +85,7 @@ const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({ isOpen, onClose, sa
         alert('Sharing is not supported on this device/browser. Please download the PDF and share it manually.');
       }
     } catch (error) {
-      console.error('Failed to share PDF:', error);
+      logError('Failed to share PDF', error);
       alert('Failed to share PDF.');
     } finally {
       setIsSharing(false);
@@ -370,6 +379,23 @@ const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({ isOpen, onClose, sa
                 </a>
               </div>
             </div>
+            {customerSource && (
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <p className="text-sm font-medium text-gray-500 mb-1">Source Clientelle</p>
+                <div className="flex items-center gap-2">
+                  {customerSource.color && (
+                    <div
+                      className="w-4 h-4 rounded-full"
+                      style={{ backgroundColor: customerSource.color }}
+                    />
+                  )}
+                  <p className="text-sm text-gray-900">{customerSource.name}</p>
+                </div>
+                {customerSource.description && (
+                  <p className="text-xs text-gray-500 mt-1">{customerSource.description}</p>
+                )}
+              </div>
+            )}
             
             {/* Informations supplémentaires du client */}
             {customer ? (

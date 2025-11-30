@@ -4,6 +4,7 @@ import { SystemRole, PermissionTemplate, RolePermissions } from '../types/permis
 import { getTemplateById } from '../services/permissionTemplateService';
 import { getUserById } from '../services/userService';
 import { RESOURCES } from '../constants/resources';
+import { logError } from '../utils/logger';
 
 export function useRolePermissions(companyId?: string) {
   const { effectiveRole, isOwner, company, user, userCompanies } = useAuth();
@@ -27,77 +28,31 @@ export function useRolePermissions(companyId?: string) {
         
         // If userCompanies is empty or doesn't contain current company, load directly from Firestore
         if (!userCompanyRef || !userCompanies || userCompanies.length === 0) {
-          console.log('⚠️ [useRolePermissions] userCompanies not populated, loading from Firestore...');
           const userData = await getUserById(user.uid);
           if (userData?.companies) {
             userCompanyRef = userData.companies.find(c => c.companyId === company.id);
-            console.log('✅ [useRolePermissions] Loaded from Firestore:', {
-              companiesCount: userData.companies.length,
-              foundCompany: !!userCompanyRef,
-              templateId: userCompanyRef?.permissionTemplateId
-            });
           }
         }
         
         const templateId = userCompanyRef?.permissionTemplateId;
         
-        console.log('🔍 [useRolePermissions] Chargement du template:', { 
-          userId: user.uid, 
-          companyId: company.id, 
-          templateId,
-          hasCompanies: !!userCompanies,
-          companiesCount: userCompanies?.length || 0,
-          userCompanyRef: userCompanyRef ? {
-            companyId: userCompanyRef.companyId,
-            role: userCompanyRef.role,
-            templateId: userCompanyRef.permissionTemplateId
-          } : null
-        });
-        
         if (templateId) {
           try {
-            console.log('🔄 [useRolePermissions] Tentative de chargement du template depuis Firestore...', {
-              templateId,
-              companyId: company.id,
-              path: `companies/${company.id}/permissionTemplates/${templateId}`
-            });
             const templateData = await getTemplateById(company.id, templateId);
             if (templateData) {
-              console.log('✅ [useRolePermissions] Template chargé:', { 
-                templateId, 
-                templateName: templateData.name,
-                canView: templateData.permissions.canView,
-                canEdit: templateData.permissions.canEdit,
-                canDelete: templateData.permissions.canDelete,
-                canManageEmployees: templateData.permissions.canManageEmployees
-              });
               setTemplate(templateData);
             } else {
-              console.error('❌ [useRolePermissions] Template non trouvé dans Firestore (getTemplateById retourne null):', {
-                templateId,
-                companyId: company.id,
-                path: `companies/${company.id}/permissionTemplates/${templateId}`,
-                message: 'Le document n\'existe pas ou n\'a pas pu être lu'
-              });
               setTemplate(null);
             }
           } catch (error) {
-            console.error('❌ [useRolePermissions] Erreur lors du chargement du template depuis Firestore:', {
-              error,
-              templateId,
-              companyId: company.id,
-              path: `companies/${company.id}/permissionTemplates/${templateId}`,
-              errorMessage: error instanceof Error ? error.message : String(error),
-              errorStack: error instanceof Error ? error.stack : undefined
-            });
+            logError('Error loading permission template', error);
             setTemplate(null);
           }
         } else {
-          console.log('⚠️ [useRolePermissions] Aucun template assigné pour cet employé (templateId est undefined)');
           setTemplate(null);
         }
       } catch (error) {
-        console.error('❌ [useRolePermissions] Erreur lors du chargement du template:', error);
+        logError('Error loading template', error);
         setTemplate(null);
       } finally {
         setTemplateLoading(false);
@@ -119,8 +74,6 @@ export function useRolePermissions(companyId?: string) {
         canDelete: [RESOURCES.ALL],
         canManageEmployees: [RESOURCES.ALL],
       };
-      
-      console.log('🔐 [useRolePermissions] Owner permissions (full access)');
       
       const canAccess = (resource: string): boolean => {
         return ownerPermissions.canView.includes(RESOURCES.ALL) || ownerPermissions.canView.includes(resource);
@@ -248,15 +201,6 @@ export function useRolePermissions(companyId?: string) {
     const canAccessHR = canAccess(RESOURCES.HR);
     const canAccessSettings = canAccess(RESOURCES.SETTINGS);
 
-    console.log('🔐 [useRolePermissions] Permissions effectives (depuis template):', {
-      hasTemplate: true,
-      templateName: template.name,
-      usingTemplate: true,
-      canView: effectivePermissions.canView,
-      canAccessFinance,
-      canAccessHR,
-      canAccessSettings
-    });
 
     return {
       systemRole: 'staff' as SystemRole, // systemRole n'est plus utilisé pour les permissions, mais gardé pour compatibilité

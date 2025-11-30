@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect, useCallback } from 'react';
 import { Calendar, FileDown } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Input from '../components/common/Input';
@@ -17,12 +18,14 @@ import {
   ChartOptions
 } from 'chart.js';
 import { useProducts, useSales, useExpenses, useCategories } from '../hooks/useFirestore';
+import { useCustomerSources } from '../hooks/useCustomerSources';
 import type { Timestamp, Product, Sale, Expense } from '../types/models';
 import ComparisonIndicator from '../components/reports/ComparisonIndicator';
 import KPICard from '../components/reports/KPICard';
 import QuickReportsBar from '../components/reports/QuickReportsBar';
 import SavedReportsManager, { SavedReport } from '../components/reports/SavedReportsManager';
 import { useAuth } from '../contexts/AuthContext';
+import { logWarning } from '../utils/logger';
 
 // Register Chart.js components
 ChartJS.register(
@@ -37,6 +40,8 @@ ChartJS.register(
 );
 
 const Reports = () => {
+  const { t } = useTranslation();
+  
   // Calculate default weekly range
   const getDefaultWeeklyRange = () => {
     const today = new Date();
@@ -72,6 +77,7 @@ const Reports = () => {
   const { expenses } = useExpenses();
   const { products } = useProducts();
   const { categories } = useCategories();
+  const { sources } = useCustomerSources();
   const { company } = useAuth();
 
   const toDate = (ts?: Timestamp) => (ts?.seconds ? new Date(ts.seconds * 1000) : null);
@@ -87,8 +93,8 @@ const Reports = () => {
 
   const productOptions = useMemo(() => {
     const opts = products.map(p => ({ value: p.id, label: p.name }));
-    return [{ value: 'all', label: 'All Products' }, ...opts];
-  }, [products]);
+    return [{ value: 'all', label: t('reports.filters.allProducts') }, ...opts];
+  }, [products, t]);
 
   const toYMD = (d: Date) => d.toISOString().slice(0, 10);
 
@@ -276,7 +282,7 @@ const Reports = () => {
 
   const dateKeys = useMemo(() => {
     if (start > end) {
-      console.warn('Invalid date range: start date is after end date');
+      logWarning('Invalid date range: start date is after end date');
       return [];
     }
     const keys: string[] = [];
@@ -385,16 +391,16 @@ const Reports = () => {
 
   const chartData = useMemo(() => {
     const datasets = [
-      { label: 'Sales', data: series.salesData, borderColor: '#10B981', backgroundColor: 'rgba(16, 185, 129, 0.1)', fill: false, tension: 0.4, borderWidth: 2 },
-      { label: 'Cost of Goods Sold', data: series.costOfGoodsSoldData, borderColor: '#F59E0B', backgroundColor: 'rgba(245, 158, 11, 0.1)', fill: false, tension: 0.4, borderWidth: 2 },
-      { label: 'Expenses', data: series.expensesData, borderColor: '#EF4444', backgroundColor: 'rgba(239, 68, 68, 0.1)', fill: false, tension: 0.4, borderWidth: 2 },
-      { label: 'Net Profit', data: series.profitData, borderColor: '#4F46E5', backgroundColor: 'rgba(79, 70, 229, 0.1)', fill: false, tension: 0.4, borderWidth: 2 },
+      { label: t('reports.chart.sales'), data: series.salesData, borderColor: '#10B981', backgroundColor: 'rgba(16, 185, 129, 0.1)', fill: false, tension: 0.4, borderWidth: 2 },
+      { label: t('reports.chart.costOfGoodsSold'), data: series.costOfGoodsSoldData, borderColor: '#F59E0B', backgroundColor: 'rgba(245, 158, 11, 0.1)', fill: false, tension: 0.4, borderWidth: 2 },
+      { label: t('reports.chart.expenses'), data: series.expensesData, borderColor: '#EF4444', backgroundColor: 'rgba(239, 68, 68, 0.1)', fill: false, tension: 0.4, borderWidth: 2 },
+      { label: t('reports.chart.netProfit'), data: series.profitData, borderColor: '#4F46E5', backgroundColor: 'rgba(79, 70, 229, 0.1)', fill: false, tension: 0.4, borderWidth: 2 },
     ];
 
     // Add trend line if enabled
     if (showTrend && trendData) {
       datasets.push({
-        label: 'Trend Line',
+        label: t('reports.chart.trendLine'),
         data: trendData,
         borderColor: '#6B7280',
         backgroundColor: 'rgba(107, 114, 128, 0.1)',
@@ -407,7 +413,7 @@ const Reports = () => {
     }
 
     return { labels, datasets };
-  }, [labels, series, showTrend, trendData]);
+  }, [labels, series, showTrend, trendData, t]);
   
   const chartOptions: ChartOptions<'line'> = {
     responsive: true,
@@ -811,8 +817,8 @@ const Reports = () => {
     <div className="pb-16 md:pb-0"> {/* Add padding to bottom for mobile nav */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Reports</h1>
-          <p className="text-gray-600">View detailed business reports and analytics</p>
+          <h1 className="text-2xl font-semibold text-gray-900">{t('reports.title')}</h1>
+          <p className="text-gray-600">{t('reports.subtitle')}</p>
         </div>
         
         <div className="mt-4 md:mt-0">
@@ -821,7 +827,7 @@ const Reports = () => {
             icon={<FileDown size={16} />}
             onClick={handleExport}
           >
-            Export Report
+            {t('reports.exportReport')}
           </Button>
         </div>
       </div>
@@ -857,7 +863,7 @@ const Reports = () => {
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              label="Start Date"
+              label={t('reports.filters.startDate')}
             />
           </div>
           
@@ -869,38 +875,38 @@ const Reports = () => {
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              label="End Date"
+              label={t('reports.filters.endDate')}
             />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Period
+              {t('reports.filters.period')}
             </label>
             <select
               className="w-full rounded-md border border-gray-300 shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
               value={period}
               onChange={(e) => setPeriod(e.target.value as 'none' | 'today' | 'daily' | 'weekly' | 'monthly' | 'yearly')}
             >
-              <option value="none">None</option>
-              <option value="today">Today</option>
-              <option value="daily">Daily</option>
-              <option value="weekly">Weekly</option>
-              <option value="monthly">Monthly</option>
-              <option value="yearly">Yearly</option>
+              <option value="none">{t('reports.filters.none')}</option>
+              <option value="today">{t('reports.filters.today')}</option>
+              <option value="daily">{t('reports.filters.daily')}</option>
+              <option value="weekly">{t('reports.filters.weekly')}</option>
+              <option value="monthly">{t('reports.filters.monthly')}</option>
+              <option value="yearly">{t('reports.filters.yearly')}</option>
             </select>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Category
+              {t('reports.filters.category')}
             </label>
             <select
               className="w-full rounded-md border border-gray-300 shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
             >
-              <option value="all">All Categories</option>
+              <option value="all">{t('reports.filters.allCategories')}</option>
               {categories.map(cat => (
                 <option key={cat.id} value={cat.name}>{cat.name}</option>
               ))}
@@ -909,7 +915,7 @@ const Reports = () => {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Product
+              {t('reports.filters.product')}
             </label>
             <select
               className="w-full rounded-md border border-gray-300 shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
@@ -928,10 +934,10 @@ const Reports = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <Card className="bg-emerald-50 border border-emerald-100">
           <div className="text-center">
-            <p className="text-sm font-medium text-emerald-700">Total Sales</p>
+            <p className="text-sm font-medium text-emerald-700">{t('reports.summary.totalSales')}</p>
             <p className="mt-1 text-3xl font-semibold text-emerald-900">{totalSales.toLocaleString()} XAF</p>
             <p className="mt-1 text-sm text-emerald-600">
-              <span className="font-medium">{filteredSales.length}</span> orders
+              <span className="font-medium">{filteredSales.length}</span> {t('reports.summary.orders')}
             </p>
             <ComparisonIndicator 
               current={totalSales} 
@@ -943,10 +949,10 @@ const Reports = () => {
         
         <Card className="bg-amber-50 border border-amber-100">
           <div className="text-center">
-            <p className="text-sm font-medium text-amber-700">Cost of Goods Sold</p>
+            <p className="text-sm font-medium text-amber-700">{t('reports.summary.costOfGoodsSold')}</p>
             <p className="mt-1 text-3xl font-semibold text-amber-900">{totalCostOfGoodsSold.toLocaleString()} XAF</p>
             <p className="mt-1 text-sm text-amber-600">
-              <span className="font-medium">{(totalSales > 0 ? Math.round(((totalCostOfGoodsSold) / totalSales) * 100) : 0)}%</span> of sales
+              <span className="font-medium">{(totalSales > 0 ? Math.round(((totalCostOfGoodsSold) / totalSales) * 100) : 0)}%</span> {t('reports.summary.ofSales')}
             </p>
             <ComparisonIndicator 
               current={totalCostOfGoodsSold} 
@@ -958,10 +964,10 @@ const Reports = () => {
         
         <Card className="bg-red-50 border border-red-100">
           <div className="text-center">
-            <p className="text-sm font-medium text-red-700">Total Expenses</p>
+            <p className="text-sm font-medium text-red-700">{t('reports.summary.totalExpenses')}</p>
             <p className="mt-1 text-3xl font-semibold text-red-900">{totalExpenses.toLocaleString()} XAF</p>
             <p className="mt-1 text-sm text-red-600">
-              <span className="font-medium">{filteredExpenses.length}</span> entries
+              <span className="font-medium">{filteredExpenses.length}</span> {t('reports.summary.entries')}
             </p>
             <ComparisonIndicator 
               current={totalExpenses} 
@@ -973,10 +979,10 @@ const Reports = () => {
         
         <Card className="bg-indigo-50 border border-indigo-100">
           <div className="text-center">
-            <p className="text-sm font-medium text-indigo-700">Net Profit</p>
+            <p className="text-sm font-medium text-indigo-700">{t('reports.summary.netProfit')}</p>
             <p className="mt-1 text-3xl font-semibold text-indigo-900">{netProfit.toLocaleString()} XAF</p>
             <p className="mt-1 text-sm text-indigo-600">
-              <span className="font-medium">{(totalSales > 0 ? Math.round(((netProfit) / totalSales) * 100) : 0)}%</span> margin
+              <span className="font-medium">{(totalSales > 0 ? Math.round(((netProfit) / totalSales) * 100) : 0)}%</span> {t('reports.summary.margin')}
             </p>
             <ComparisonIndicator 
               current={netProfit} 
@@ -988,52 +994,52 @@ const Reports = () => {
       </div>
       
       {/* KPI Dashboard */}
-      <Card className="mb-6" title="Key Performance Indicators">
+      <Card className="mb-6" title={t('reports.kpi.title')}>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           <KPICard
-            title="Gross Margin Rate"
+            title={t('reports.kpi.grossMarginRate')}
             value={kpiMetrics.grossMarginRate.value.toFixed(1)}
             unit="%"
             status={kpiMetrics.grossMarginRate.status}
             trend={kpiMetrics.grossMarginRate.trend}
-            description="Sales - COGS / Sales"
+            description={t('reports.kpi.salesMinusCogs')}
           />
           <KPICard
-            title="Net Margin Rate"
+            title={t('reports.kpi.netMarginRate')}
             value={kpiMetrics.netMarginRate.value.toFixed(1)}
             unit="%"
             status={kpiMetrics.netMarginRate.status}
             trend={kpiMetrics.netMarginRate.trend}
-            description="Net Profit / Sales"
+            description={t('reports.kpi.netProfitOverSales')}
           />
           <KPICard
-            title="Expense Ratio"
+            title={t('reports.kpi.expenseRatio')}
             value={kpiMetrics.expenseRatio.value.toFixed(1)}
             unit="%"
             status={kpiMetrics.expenseRatio.status}
             trend={kpiMetrics.expenseRatio.trend}
-            description="Expenses / Sales"
+            description={t('reports.kpi.expensesOverSales')}
           />
           <KPICard
-            title="Growth Rate"
+            title={t('reports.kpi.growthRate')}
             value={kpiMetrics.growthRate.value.toFixed(1)}
             unit="%"
             status={kpiMetrics.growthRate.status}
-            description="vs Previous Period"
+            description={t('reports.kpi.vsPreviousPeriod')}
           />
           <KPICard
-            title="ROI"
+            title={t('reports.kpi.roi')}
             value={kpiMetrics.roi.value.toFixed(1)}
             unit="%"
             status={kpiMetrics.roi.status}
             trend={kpiMetrics.roi.trend}
-            description="Net Profit / COGS"
+            description={t('reports.kpi.netProfitOverCogs')}
           />
         </div>
       </Card>
       
       {/* Chart */}
-      <Card className="mb-6" title="Financial Overview">
+      <Card className="mb-6" title={t('reports.chart.title')}>
         <div className="flex justify-end mb-2">
           <button
             onClick={() => setShowTrend(!showTrend)}
@@ -1043,7 +1049,7 @@ const Reports = () => {
                 : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
             }`}
           >
-            {showTrend ? 'Hide' : 'Show'} Trend Line
+            {showTrend ? t('reports.chart.hideTrendLine') : t('reports.chart.showTrendLine')}
           </button>
         </div>
         <div className="h-80">
@@ -1053,25 +1059,25 @@ const Reports = () => {
       
       {/* Top Products & Customers */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-        <Card title="Top Products (Customers & Quantity)">
+        <Card title={t('reports.tables.topProducts.title')}>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Product
+                    {t('reports.tables.topProducts.product')}
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Quantity
+                    {t('reports.tables.topProducts.quantity')}
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Customers
+                    {t('reports.tables.topProducts.customers')}
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Sales
+                    {t('reports.tables.topProducts.sales')}
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Cumulative
+                    {t('reports.tables.topProducts.cumulative')}
                   </th>
                 </tr>
               </thead>
@@ -1082,7 +1088,7 @@ const Reports = () => {
                       {product.name}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {product.quantity} units
+                      {product.quantity} {t('reports.tables.topProducts.units')}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {product.customersCount}
@@ -1100,22 +1106,22 @@ const Reports = () => {
           </div>
         </Card>
         
-        <Card title="Top Customers">
+        <Card title={t('reports.tables.topCustomers.title')}>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Customer
+                    {t('reports.tables.topCustomers.customer')}
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Sales
+                    {t('reports.tables.topCustomers.sales')}
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Orders
+                    {t('reports.tables.topCustomers.orders')}
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Cumulative
+                    {t('reports.tables.topCustomers.cumulative')}
                   </th>
                 </tr>
               </thead>
@@ -1143,22 +1149,22 @@ const Reports = () => {
       </div>
 
       {/* Expenses List */}
-      <Card title="Expenses" className="mb-6">
+      <Card title={t('reports.tables.expenses.title')} className="mb-6">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cumulative</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('reports.tables.expenses.date')}</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('reports.tables.expenses.description')}</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('reports.tables.expenses.category')}</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('reports.tables.expenses.amount')}</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('reports.tables.expenses.cumulative')}</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredExpenses.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-4 text-sm text-gray-500 text-center">No expenses for selected period.</td>
+                  <td colSpan={5} className="px-6 py-4 text-sm text-gray-500 text-center">{t('reports.tables.expenses.noExpenses')}</td>
                 </tr>
               ) : (
                 (() => {
@@ -1194,23 +1200,23 @@ const Reports = () => {
       {/* Advanced Analyses */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         {/* Product Profitability Analysis */}
-        <Card title="Product Profitability Analysis">
+        <Card title={t('reports.tables.productProfitability.title')}>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Qty Sold</th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sales</th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">COGS</th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Profit</th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Margin %</th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('reports.tables.productProfitability.product')}</th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('reports.tables.productProfitability.qtySold')}</th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('reports.tables.productProfitability.sales')}</th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('reports.tables.productProfitability.cogs')}</th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('reports.tables.productProfitability.profit')}</th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('reports.tables.productProfitability.margin')}</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {productProfitability.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-4 py-4 text-sm text-gray-500 text-center">No product data available</td>
+                    <td colSpan={6} className="px-4 py-4 text-sm text-gray-500 text-center">{t('reports.tables.productProfitability.noData')}</td>
                   </tr>
                 ) : (
                   productProfitability.map((product, idx) => (
@@ -1234,9 +1240,9 @@ const Reports = () => {
         </Card>
 
         {/* Expense Category Analysis */}
-        <Card title="Expense Category Analysis">
+        <Card title={t('reports.tables.expenseCategory.title')}>
           {expenseCategoryAnalysis.length === 0 ? (
-            <p className="text-sm text-gray-500 text-center py-4">No expense data available</p>
+            <p className="text-sm text-gray-500 text-center py-4">{t('reports.tables.expenseCategory.noData')}</p>
           ) : (
             <>
               <div className="h-64 mb-4">
@@ -1279,11 +1285,11 @@ const Reports = () => {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
-                      <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                      <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">%</th>
-                      <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Count</th>
-                      <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Avg</th>
+                      <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('reports.tables.expenseCategory.category')}</th>
+                      <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('reports.tables.expenseCategory.amount')}</th>
+                      <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('reports.tables.expenseCategory.percentage')}</th>
+                      <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('reports.tables.expenseCategory.count')}</th>
+                      <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('reports.tables.expenseCategory.average')}</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
@@ -1304,31 +1310,189 @@ const Reports = () => {
         </Card>
       </div>
 
+      {/* Customer Source Statistics */}
+      {sources.length > 0 && (
+        <Card title={t('reports.customerSourceStats.title')} className="mb-6">
+          <div className="space-y-6">
+            {/* KPIs */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {sources.map((source) => {
+                const sourceSales = filteredSales.filter(s => s.customerSourceId === source.id);
+                const sourceRevenue = sourceSales.reduce((sum, s) => sum + (s.totalAmount || 0), 0);
+                const sourceProfit = sourceSales.reduce((sum, sale) => {
+                  return sum + sale.products.reduce((productSum, sp) => {
+                    const unitSalePrice = sp.negotiatedPrice ?? sp.basePrice;
+                    if (sp.batchLevelProfits && sp.batchLevelProfits.length > 0) {
+                      return productSum + sp.batchLevelProfits.reduce(
+                        (batchSum, batch) => batchSum + (unitSalePrice - batch.costPrice) * batch.consumedQuantity,
+                        0
+                      );
+                    }
+                    return productSum + (unitSalePrice - sp.costPrice) * sp.quantity;
+                  }, 0);
+                }, 0);
+                const sourceCustomers = new Set(sourceSales.map(s => s.customerInfo.phone)).size;
+                const profitMargin = sourceRevenue > 0 ? (sourceProfit / sourceRevenue) * 100 : 0;
+
+                return (
+                  <div key={source.id} className="p-4 bg-gray-50 rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      {source.color && (
+                        <div
+                          className="w-4 h-4 rounded-full"
+                          style={{ backgroundColor: source.color }}
+                        />
+                      )}
+                      <h4 className="font-medium text-gray-900">{source.name}</h4>
+                    </div>
+                    <div className="space-y-1 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">{t('reports.customerSourceStats.sales')}:</span>
+                        <span className="font-semibold">{sourceSales.length}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">{t('reports.customerSourceStats.revenue')}:</span>
+                        <span className="font-semibold">{sourceRevenue.toLocaleString()} XAF</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">{t('reports.customerSourceStats.profit')}:</span>
+                        <span className="font-semibold text-emerald-600">{sourceProfit.toLocaleString()} XAF</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">{t('reports.customerSourceStats.customers')}:</span>
+                        <span className="font-semibold">{sourceCustomers}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">{t('reports.customerSourceStats.margin')}:</span>
+                        <span className="font-semibold">{profitMargin.toFixed(1)}%</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Table détaillée */}
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('reports.customerSourceStats.source')}</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('reports.customerSourceStats.sales')}</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('reports.customerSourceStats.customers')}</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('reports.customerSourceStats.totalRevenue')}</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('reports.customerSourceStats.totalProfit')}</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('reports.customerSourceStats.margin')}</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {sources.map((source) => {
+                    const sourceSales = filteredSales.filter(s => s.customerSourceId === source.id);
+                    const sourceRevenue = sourceSales.reduce((sum, s) => sum + (s.totalAmount || 0), 0);
+                    const sourceProfit = sourceSales.reduce((sum, sale) => {
+                      return sum + sale.products.reduce((productSum, sp) => {
+                        const unitSalePrice = sp.negotiatedPrice ?? sp.basePrice;
+                        if (sp.batchLevelProfits && sp.batchLevelProfits.length > 0) {
+                          return productSum + sp.batchLevelProfits.reduce(
+                            (batchSum, batch) => batchSum + (unitSalePrice - batch.costPrice) * batch.consumedQuantity,
+                            0
+                          );
+                        }
+                        return productSum + (unitSalePrice - sp.costPrice) * sp.quantity;
+                      }, 0);
+                    }, 0);
+                    const sourceCustomers = new Set(sourceSales.map(s => s.customerInfo.phone)).size;
+                    const profitMargin = sourceRevenue > 0 ? (sourceProfit / sourceRevenue) * 100 : 0;
+                    const avgBasket = sourceSales.length > 0 ? sourceRevenue / sourceSales.length : 0;
+
+                    return (
+                      <tr key={source.id}>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <div className="flex items-center gap-2">
+                            {source.color && (
+                              <div
+                                className="w-3 h-3 rounded-full"
+                                style={{ backgroundColor: source.color }}
+                              />
+                            )}
+                            <span className="text-sm font-medium text-gray-900">{source.name}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{sourceSales.length}</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{sourceCustomers}</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{sourceRevenue.toLocaleString()} XAF</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-emerald-600 font-semibold">{sourceProfit.toLocaleString()} XAF</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{profitMargin.toFixed(1)}%</td>
+                      </tr>
+                    );
+                  })}
+                  {/* Ligne pour les ventes sans source */}
+                  {(() => {
+                    const noSourceSales = filteredSales.filter(s => !s.customerSourceId);
+                    if (noSourceSales.length > 0) {
+                      const noSourceRevenue = noSourceSales.reduce((sum, s) => sum + (s.totalAmount || 0), 0);
+                      const noSourceProfit = noSourceSales.reduce((sum, sale) => {
+                        return sum + sale.products.reduce((productSum, sp) => {
+                          const unitSalePrice = sp.negotiatedPrice ?? sp.basePrice;
+                          if (sp.batchLevelProfits && sp.batchLevelProfits.length > 0) {
+                            return productSum + sp.batchLevelProfits.reduce(
+                              (batchSum, batch) => batchSum + (unitSalePrice - batch.costPrice) * batch.consumedQuantity,
+                              0
+                            );
+                          }
+                          return productSum + (unitSalePrice - sp.costPrice) * sp.quantity;
+                        }, 0);
+                      }, 0);
+                      const noSourceCustomers = new Set(noSourceSales.map(s => s.customerInfo.phone)).size;
+                      const noSourceProfitMargin = noSourceRevenue > 0 ? (noSourceProfit / noSourceRevenue) * 100 : 0;
+
+                      return (
+                        <tr className="bg-gray-50">
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <span className="text-sm font-medium text-gray-500 italic">{t('reports.customerSourceStats.noSource')}</span>
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{noSourceSales.length}</td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{noSourceCustomers}</td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{noSourceRevenue.toLocaleString()} XAF</td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-emerald-600 font-semibold">{noSourceProfit.toLocaleString()} XAF</td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{noSourceProfitMargin.toFixed(1)}%</td>
+                        </tr>
+                      );
+                    }
+                    return null;
+                  })()}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </Card>
+      )}
+
       {/* Customer Metrics */}
-      <Card title="Customer Metrics" className="mb-6">
+      <Card title={t('reports.customerMetrics.title')} className="mb-6">
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
           <div className="text-center">
-            <p className="text-sm font-medium text-gray-700">Total Customers</p>
+            <p className="text-sm font-medium text-gray-700">{t('reports.customerMetrics.totalCustomers')}</p>
             <p className="mt-1 text-2xl font-semibold text-gray-900">{customerMetrics.totalCustomers}</p>
           </div>
           <div className="text-center">
-            <p className="text-sm font-medium text-gray-700">Total Orders</p>
+            <p className="text-sm font-medium text-gray-700">{t('reports.customerMetrics.totalOrders')}</p>
             <p className="mt-1 text-2xl font-semibold text-gray-900">{customerMetrics.totalOrders}</p>
           </div>
           <div className="text-center">
-            <p className="text-sm font-medium text-gray-700">Average Basket</p>
+            <p className="text-sm font-medium text-gray-700">{t('reports.customerMetrics.averageBasket')}</p>
             <p className="mt-1 text-2xl font-semibold text-gray-900">{customerMetrics.averageBasket.toLocaleString()} XAF</p>
           </div>
           <div className="text-center">
-            <p className="text-sm font-medium text-gray-700">Repeat Customers</p>
+            <p className="text-sm font-medium text-gray-700">{t('reports.customerMetrics.repeatCustomers')}</p>
             <p className="mt-1 text-2xl font-semibold text-emerald-600">{customerMetrics.repeatCustomers}</p>
           </div>
           <div className="text-center">
-            <p className="text-sm font-medium text-gray-700">New Customers</p>
+            <p className="text-sm font-medium text-gray-700">{t('reports.customerMetrics.newCustomers')}</p>
             <p className="mt-1 text-2xl font-semibold text-blue-600">{customerMetrics.newCustomers}</p>
           </div>
           <div className="text-center">
-            <p className="text-sm font-medium text-gray-700">Retention Rate</p>
+            <p className="text-sm font-medium text-gray-700">{t('reports.customerMetrics.retentionRate')}</p>
             <p className="mt-1 text-2xl font-semibold text-indigo-600">{customerMetrics.retentionRate.toFixed(1)}%</p>
           </div>
         </div>
