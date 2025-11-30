@@ -16,6 +16,8 @@ import { Invitation, UserCompanyRef } from '../types/models';
 import { getUserById } from './userService';
 import { addUserToCompany } from './userCompanySyncService';
 import { sendInvitationEmail, sendCompanyAccessNotification } from './emailService';
+import { getTemplateById } from './permissionTemplateService';
+import { getEffectiveBaseRole } from '../utils/permissionUtils';
 import { showSuccessToast, showErrorToast } from '../utils/toast';
 
 /**
@@ -160,8 +162,7 @@ export const createInvitation = async (
     firstname: string;
     lastname: string;
     phone?: string;
-    role: 'staff' | 'manager' | 'admin';
-    permissionTemplateId?: string;
+    permissionTemplateId: string;
   }
 ): Promise<Invitation> => {
   try {
@@ -187,7 +188,6 @@ export const createInvitation = async (
       firstname: employeeData.firstname,
       lastname: employeeData.lastname,
       phone: employeeData.phone,
-      role: employeeData.role,
       status: 'pending',
       createdAt: Timestamp.now(),
       expiresAt: Timestamp.fromDate(expiresAt),
@@ -318,6 +318,20 @@ export const acceptInvitation = async (inviteId: string, userId: string): Promis
     }
     const companyData = companyDoc.data();
     
+    // Get permission template to extract baseRole
+    console.log('📋 [acceptInvitation] Loading template:', invitation.permissionTemplateId);
+    const template = await getTemplateById(invitation.companyId, invitation.permissionTemplateId);
+    if (!template) {
+      console.error('❌ [acceptInvitation] Template not found:', invitation.permissionTemplateId);
+      throw new Error('Permission template not found');
+    }
+    
+    console.log('✅ [acceptInvitation] Template loaded:', template);
+    
+    // Use baseRole from template, or detect it automatically from permissions
+    const baseRole = getEffectiveBaseRole(template);
+    console.log('🎯 [acceptInvitation] Using baseRole:', baseRole);
+    
     // Add user to company using addUserToCompany (creates employeeRef, updates company.employees{}, employeeCount, and users.companies[])
     await addUserToCompany(
       userId,
@@ -332,7 +346,8 @@ export const acceptInvitation = async (inviteId: string, userId: string): Promis
         lastname: user.lastname,
         email: user.email
       },
-      invitation.role
+      baseRole,
+      invitation.permissionTemplateId
     );
     
     // Update invitation status
@@ -449,8 +464,7 @@ export const handleExistingUserInvitation = async (
     firstname: string;
     lastname: string;
     phone?: string;
-    role: 'staff' | 'manager' | 'admin';
-    permissionTemplateId?: string;
+    permissionTemplateId: string;
   },
   existingUser: import('../types/models').User
 ): Promise<boolean> => {
@@ -477,6 +491,20 @@ export const handleExistingUserInvitation = async (
     }
     const companyData = companyDoc.data();
     
+    // Get permission template to extract baseRole
+    console.log('📋 [handleExistingUserInvitation] Loading template:', employeeData.permissionTemplateId);
+    const template = await getTemplateById(companyId, employeeData.permissionTemplateId);
+    if (!template) {
+      console.error('❌ [handleExistingUserInvitation] Template not found:', employeeData.permissionTemplateId);
+      throw new Error('Permission template not found');
+    }
+    
+    console.log('✅ [handleExistingUserInvitation] Template loaded:', template);
+    
+    // Use baseRole from template, or detect it automatically from permissions
+    const baseRole = getEffectiveBaseRole(template);
+    console.log('🎯 [handleExistingUserInvitation] Using baseRole:', baseRole);
+    
     // Add user to company using addUserToCompany (creates employeeRef, updates company.employees{}, employeeCount, and users.companies[])
     await addUserToCompany(
       existingUser.id,
@@ -491,7 +519,8 @@ export const handleExistingUserInvitation = async (
         lastname: existingUser.lastname,
         email: existingUser.email
       },
-      employeeData.role
+      baseRole,
+      employeeData.permissionTemplateId
     );
     
     // Send notification email
@@ -500,7 +529,7 @@ export const handleExistingUserInvitation = async (
       to_name: formatFullName(existingUser.firstname, existingUser.lastname),
       company_name: companyName,
       inviter_name: inviterData.name,
-      role: employeeData.role,
+      role: baseRole,
       invite_link: `${window.location.origin}/company/${companyId}/dashboard`,
       expires_in_days: 0
     };

@@ -436,7 +436,7 @@ const Products = () => {
         }
         createdBy = getCurrentEmployeeRef(currentEmployee, user, isOwner, userData);
       }
-      
+
       // Create the product with supplier information and image URLs included
       let createdProduct;
       try {

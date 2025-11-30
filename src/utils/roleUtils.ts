@@ -57,7 +57,10 @@ export const hasAccess = (
   isOwner: boolean,
   allowedRoles: Array<UserRole | 'owner'>
 ): boolean => {
-  if (isOwner) return true;
+  // Un utilisateur est owner si isOwner est true OU si effectiveRole est 'owner'
+  const isActualOwner = isOwner || effectiveRole === 'owner';
+  
+  if (isActualOwner) return true;
   if (!effectiveRole) return false;
   return allowedRoles.includes(effectiveRole);
 };

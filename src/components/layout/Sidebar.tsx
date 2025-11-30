@@ -1,6 +1,6 @@
 import React from 'react';
 import { useLocation, Link, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, ShoppingCart, DollarSign, Package2, FileBarChart, Settings, X, Receipt, Users, Building2, Plus, Grid3X3, ShoppingBag, UserCheck, ChevronDown, ChevronRight} from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, DollarSign, Package2, FileBarChart, Settings, X, Receipt, Users, Building2, Plus, Grid3X3, ShoppingBag, UserCheck, ChevronDown, ChevronRight, Loader2} from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useRolePermissions } from '../../hooks/useRolePermissions';
 import UserAvatar from '../common/UserAvatar';
@@ -20,10 +20,14 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { company, currentEmployee, isOwner, effectiveRole } = useAuth();
-  const { canAccess, canAccessFinance, canAccessHR, canAccessSettings } = useRolePermissions();
+  const { canAccess, canAccessFinance, canAccessHR, canAccessSettings, templateLoading } = useRolePermissions();
   const [showCreateCompanyModal, setShowCreateCompanyModal] = React.useState(false);
   const [showCompanyNavigationConfirm, setShowCompanyNavigationConfirm] = React.useState(false);
   const [expensesMenuExpanded, setExpensesMenuExpanded] = React.useState(false);
+  
+  // Vérifier si on doit afficher le loader pour le template
+  const isActualOwner = isOwner || effectiveRole === 'owner';
+  const showTemplateLoader = !isActualOwner && templateLoading;
 
   
   // Get dashboard colors
@@ -87,7 +91,7 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
   const normalNavigationItems = [
     // Bouton retour aux entreprises (seulement dans les routes d'entreprise)
     ...(isCompanyRoute ? [
-      { name: 'Mes Entreprises', path: '/companies', icon: <Building2 size={20} />, allowedRoles: ['vendeur', 'gestionnaire', 'magasinier', 'owner'] }
+      { name: 'Mes Entreprises', path: '/companies', icon: <Building2 size={20} />, resource: 'dashboard' }
     ] : []),
     { name: t('navigation.dashboard'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/dashboard` : '/', icon: <LayoutDashboard size={20} />, resource: 'dashboard' },
     { name: t('navigation.sales'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/sales` : '/sales', icon: <ShoppingCart size={20} />, resource: 'sales' },
@@ -144,7 +148,15 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
       
       {/* Navigation items */}
       <nav className="flex-1 overflow-y-auto py-4">
-        <ul className="space-y-1 px-2" id='select'>
+        {showTemplateLoader ? (
+          <div className="flex flex-col items-center justify-center h-full py-8">
+            <Loader2 className="h-8 w-8 text-emerald-500 animate-spin mb-4" />
+            <p className="text-sm text-gray-500 text-center px-4">
+              Chargement des permissions...
+            </p>
+          </div>
+        ) : (
+          <ul className="space-y-1 px-2" id='select'>
           {navigationItems.map((item) => {
             // En mode sélection, tous les liens sont activés mais interceptés
             if (isCompanySelectionRoute) {
@@ -174,29 +186,22 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
             }
 
             // Mode normal - vérifier les permissions via centralized permissions
-            // Les propriétaires ont accès à tout
-            if (isOwner) {
-              // Propriétaire - afficher tous les items
+            // Les propriétaires ont accès à tout (isOwner ou effectiveRole === 'owner')
+            const isActualOwner = isOwner || effectiveRole === 'owner';
+            
+            if (isActualOwner) {
+              // Propriétaire - afficher tous les items sans restriction
             } else {
               // Vérifier les permissions selon le type de ressource
               const resource = (item as any).resource;
               let hasAccess = true;
               
               if (resource) {
-                // Permissions spéciales pour Finance, HR et Settings
-                if (resource === 'finance') {
-                  hasAccess = canAccessFinance;
-                } else if (resource === 'hr') {
-                  hasAccess = canAccessHR;
-                } else if (resource === 'settings') {
-                  hasAccess = canAccessSettings;
-                } else {
-                  // Pour les autres ressources, utiliser canAccess
-                  hasAccess = canAccess(resource);
-                }
-              } else if ((item as any).allowedRoles) {
-                // Vérifier les rôles autorisés si spécifiés
-                hasAccess = effectiveRole ? (item as any).allowedRoles.includes(effectiveRole) : false;
+                // Toutes les ressources utilisent maintenant canAccess (unifié avec canView array)
+                hasAccess = canAccess(resource);
+              } else {
+                // If no resource specified, deny access by default for non-owners
+                hasAccess = false;
               }
               
               if (!hasAccess) return null;
@@ -303,6 +308,7 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
             <DownloadAppButton variant="sidebar" />
           </li>
         </ul>
+        )}
       </nav>
       
       {/* User section */}

@@ -278,12 +278,11 @@ export interface Invitation {
   firstname: string;
   lastname: string;
   phone?: string;
-  role: 'staff' | 'manager' | 'admin';
   status: 'pending' | 'accepted' | 'rejected' | 'expired';
   createdAt: Timestamp;
   expiresAt: Timestamp;
   acceptedAt?: Timestamp;
-  permissionTemplateId?: string; // Optional template assignment
+  permissionTemplateId: string; // Required: Permission template for this invitation
 }
 
 // Employee management types

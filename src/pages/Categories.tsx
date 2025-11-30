@@ -255,7 +255,7 @@ const Categories = () => {
         }
         createdBy = getCurrentEmployeeRef(currentEmployee, user, isOwner, userData);
       }
-      
+
       // Create category with or without image
       const categoryData = {
         name: formData.name.trim(),

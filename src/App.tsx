@@ -114,14 +114,14 @@ function AppWithFAB({ isAddSaleModalOpen, setIsAddSaleModalOpen }: { isAddSaleMo
               <Route path="expenses/categories" element={<LazyPage><ExpensesCategories /></LazyPage>} />
               <Route path="expenses/analytics" element={<LazyPage><ExpensesAnalytics /></LazyPage>} />
               <Route path="expenses/reports" element={<LazyPage><ExpensesReports /></LazyPage>} />
-              <Route path="finance" element={<RoleRoute allowedRoles={['gestionnaire', 'magasinier', 'owner']}><Finance /></RoleRoute>} />
+              <Route path="finance" element={<RoleRoute requiredResource="finance"><Finance /></RoleRoute>} />
               <Route path="products" element={<LazyPage><Products /></LazyPage>} />
               <Route path="categories" element={<LazyPage><Categories /></LazyPage>} />
               <Route path="suppliers" element={<LazyPage><Suppliers /></LazyPage>} />
-              <Route path="hr" element={<RoleRoute allowedRoles={['magasinier', 'owner']}><LazyPage><HRManagement /></LazyPage></RoleRoute>} />
-              <Route path="reports" element={<RoleRoute allowedRoles={['gestionnaire', 'magasinier', 'owner']}><LazyPage><Reports /></LazyPage></RoleRoute>} />
+              <Route path="hr" element={<RoleRoute requiredResource="hr"><LazyPage><HRManagement /></LazyPage></RoleRoute>} />
+              <Route path="reports" element={<RoleRoute requiredResource="reports"><LazyPage><Reports /></LazyPage></RoleRoute>} />
               <Route path="profile" element={<LazyPage><Profile /></LazyPage>} />
-              <Route path="settings" element={<RoleRoute allowedRoles={['magasinier', 'owner']}><LazyPage><Settings /></LazyPage></RoleRoute>} />
+              <Route path="settings" element={<RoleRoute requiredResource="settings"><LazyPage><Settings /></LazyPage></RoleRoute>} />
               <Route path="fifo-debugger" element={<LazyPage><FIFODebugger /></LazyPage>} />
             </Route>
           </Route>

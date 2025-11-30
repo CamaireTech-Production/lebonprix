@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useRolePermissions } from '../hooks/useRolePermissions';
 import Card from '../components/common/Card';
 import LoadingScreen from '../components/common/LoadingScreen';
 import InviteEmployeeForm from '../components/hr/InviteEmployeeForm';
@@ -15,6 +16,7 @@ import type { Invitation, UserCompanyRef } from '../types/models';
 
 const HRManagement = () => {
   const { company, user, effectiveRole, isOwner } = useAuth();
+  const { canAccess } = useRolePermissions(company?.id);
   const [activeTab, setActiveTab] = useState<'team' | 'invitations' | 'invite' | 'templates'>('team');
   const [pendingInvitations, setPendingInvitations] = useState<Invitation[]>([]);
   const [teamMembers, setTeamMembers] = useState<UserCompanyRef[]>([]);
@@ -117,7 +119,10 @@ const HRManagement = () => {
   };
 
   // Check if user has permission to access HR management
-  const hasPermission = isOwner || effectiveRole === 'magasinier' || effectiveRole== 'owner' ;
+  // HR access is controlled by the permission template's canAccessHR checkbox
+  // Owner always has access (isOwner or effectiveRole === 'owner'), employees need explicit HR permission
+  const isActualOwner = isOwner || effectiveRole === 'owner';
+  const hasPermission = isActualOwner || canAccess('hr');
   
   if (!hasPermission) {
     return (
@@ -126,6 +131,7 @@ const HRManagement = () => {
           <div className="text-center py-8">
             <h2 className="text-xl font-semibold text-gray-900 mb-2">Access Denied</h2>
             <p className="text-gray-600">You don't have permission to access HR management.</p>
+            <p className="text-sm text-gray-500 mt-2">Contact your company owner to grant you HR access via a permission template.</p>
           </div>
         </Card>
       </div>

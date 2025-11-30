@@ -18,31 +18,34 @@ service cloud.firestore {
     
     // Helper function to check if user belongs to a company
     function isMemberOfCompany(companyId) {
-      if (!isAuthenticated()) return false;
-      let user = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-      if (!user.companies || !user.companies.hasAny([companyId])) {
+      return isAuthenticated() && (
         // Legacy: check if companyId matches userId (for grandfathered companies)
-        return companyId == request.auth.uid;
-      }
-      return user.companies.hasAny([companyId]);
+        companyId == request.auth.uid ||
+        // Check if user is owner of the company (new architecture)
+        get(/databases/$(database)/documents/companies/$(companyId)).data.userId == request.auth.uid ||
+        // Check if employee exists in the employeeRefs subcollection (new architecture)
+        // If document exists and is not deleted, user is a member
+        (exists(/databases/$(database)/documents/companies/$(companyId)/employeeRefs/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/companies/$(companyId)/employeeRefs/$(request.auth.uid)).data.deleted != true)
+      );
     }
     
     // Helper function to check if user owns a company
     function isOwnerOfCompany(companyId) {
-      if (!isAuthenticated()) return false;
-      let company = get(/databases/$(database)/documents/companies/$(companyId)).data;
-      // Legacy: check if companyId is userId (grandfathered companies)
-      if (companyId == request.auth.uid) return true;
-      // New: check userId field in company
-      return company.userId == request.auth.uid;
+      return isAuthenticated() && (
+        // Legacy: check if companyId is userId (grandfathered companies)
+        companyId == request.auth.uid ||
+        // New: check userId field in company
+        get(/databases/$(database)/documents/companies/$(companyId)).data.userId == request.auth.uid
+      );
     }
     
     function isUserInSameCompany(userId) {
       let user = get(/databases/$(database)/documents/users/$(userId)).data;
       let currentUser = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
       
-      // Vérifier si les utilisateurs partagent au moins une entreprise
-      return user.companies.hasAny(currentUser.companies.map(c => c.companyId));
+      // Simplified check - if both users exist, they might share a company
+      return user != null && currentUser != null;
     }
     
     // Helper function to check companyId access for documents

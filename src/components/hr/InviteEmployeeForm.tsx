@@ -26,7 +26,6 @@ const InviteEmployeeForm = ({ onInvitationCreated, companyId, companyName, invit
   const [firstname, setFirstname] = useState('');
   const [lastname, setLastname] = useState('');
   const [phone, setPhone] = useState('');
-  const [role, setRole] = useState<'staff' | 'manager' | 'admin'>('staff');
   const [permissionTemplateId, setPermissionTemplateId] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [isCheckingUser, setIsCheckingUser] = useState(false);
@@ -107,6 +106,12 @@ const InviteEmployeeForm = ({ onInvitationCreated, companyId, companyName, invit
       return;
     }
     
+    // Validate permission template is selected
+    if (!permissionTemplateId) {
+      showErrorToast('Please select a permission template');
+      return;
+    }
+    
     // Validate email format
     const trimmedEmail = email.trim();
     if (!trimmedEmail) {
@@ -129,7 +134,7 @@ const InviteEmployeeForm = ({ onInvitationCreated, companyId, companyName, invit
           companyId,
           companyName,
           inviterData,
-          { email, firstname, lastname, phone, role, permissionTemplateId },
+          { email, firstname, lastname, phone, permissionTemplateId },
           existingUser
         );
       } else if (!isAlreadyMember) {
@@ -138,7 +143,7 @@ const InviteEmployeeForm = ({ onInvitationCreated, companyId, companyName, invit
           companyId,
           companyName,
           inviterData,
-          { email, firstname, lastname, phone, role, permissionTemplateId }
+          { email, firstname, lastname, phone, permissionTemplateId }
         );
         
         // Send invitation email
@@ -153,7 +158,6 @@ const InviteEmployeeForm = ({ onInvitationCreated, companyId, companyName, invit
       setFirstname('');
       setLastname('');
       setPhone('');
-      setRole('staff');
       setPermissionTemplateId('');
       setExistingUser(null);
       setUserChecked(false);
@@ -263,35 +267,10 @@ const InviteEmployeeForm = ({ onInvitationCreated, companyId, companyName, invit
             disabled={isLoading}
           />
 
-          {/* Role Selection */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Role *
-            </label>
-            <select
-              className="w-full rounded-md border border-gray-300 shadow-sm py-2 px-3 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
-              value={role}
-              onChange={(e) => setRole(e.target.value as 'staff' | 'manager' | 'admin')}
-              required
-              disabled={isLoading}
-            >
-              <option value="staff">Staff (Vendeur)</option>
-              <option value="manager">Manager (Gestionnaire)</option>
-              <option value="admin">Admin (Magasinier)</option>
-            </select>
-            <p className="text-xs text-gray-500 mt-1">
-              Staff: Basic access to sales and products
-              <br />
-              Manager: Access to finance and reports
-              <br />
-              Admin: Full access including HR and settings
-            </p>
-          </div>
-
           {/* Permission Template Selection */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Permission Template (Optional)
+              Permission Template *
             </label>
             {templatesLoading ? (
               <div className="w-full rounded-md border border-gray-300 shadow-sm py-2 px-3 bg-gray-50">
@@ -304,7 +283,7 @@ const InviteEmployeeForm = ({ onInvitationCreated, companyId, companyName, invit
                 onChange={(e) => setPermissionTemplateId(e.target.value)}
                 disabled={isLoading}
               >
-                <option value="">Base Role Only</option>
+                <option value="">-- Select a template --</option>
                 {templates.map((template) => (
                   <option key={template.id} value={template.id}>
                     {template.name} - {template.description}
@@ -313,8 +292,8 @@ const InviteEmployeeForm = ({ onInvitationCreated, companyId, companyName, invit
               </select>
             )}
             <p className="text-xs text-gray-500 mt-1">
-              Select a permission template to override the base role permissions.
-              If no template is selected, the user will get standard permissions for their role.
+              Select a permission template that defines what the employee can access and manage.
+              This is required for all invitations.
             </p>
           </div>
 

@@ -25,7 +25,9 @@ const Profile = () => {
   });
 
   // Determine if we're showing employee profile or company profile
-  const isEmployeeProfile = !isOwner && currentEmployee;
+  // Un utilisateur est owner si isOwner est true OU si effectiveRole est 'owner'
+  const isActualOwner = isOwner || effectiveRole === 'owner';
+  const isEmployeeProfile = !isActualOwner && currentEmployee;
 
   useEffect(() => {
     const loadProfileData = async () => {

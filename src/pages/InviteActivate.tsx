@@ -5,16 +5,19 @@ import Button from '../components/common/Button';
 import LoadingScreen from '../components/common/LoadingScreen';
 import { useAuth } from '../contexts/AuthContext';
 import { getInvitation, acceptInvitation, rejectInvitation } from '../services/invitationService';
+import { getTemplateById } from '../services/permissionTemplateService';
 import { showErrorToast } from '../utils/toast';
 import { formatDistanceToNow } from 'date-fns';
 import { CheckCircle, XCircle, Clock, Building2, User } from 'lucide-react';
 import type { Invitation } from '../types/models';
+import type { PermissionTemplate } from '../types/permissions';
 
 export default function InviteActivate() {
   const { inviteId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
   const [invitation, setInvitation] = useState<Invitation | null>(null);
+  const [template, setTemplate] = useState<PermissionTemplate | null>(null);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState('');
@@ -44,6 +47,17 @@ export default function InviteActivate() {
       }
       
       setInvitation(invite);
+      
+      // Load permission template
+      if (invite.permissionTemplateId) {
+        try {
+          const tmpl = await getTemplateById(invite.companyId, invite.permissionTemplateId);
+          setTemplate(tmpl);
+        } catch (error) {
+          console.error('Error loading template:', error);
+          // Template is optional for display, so don't fail the whole invitation
+        }
+      }
     } catch (error: any) {
       console.error('Error loading invitation:', error);
       setError(error.message || 'Failed to load invitation');
@@ -102,13 +116,11 @@ export default function InviteActivate() {
     }
   };
 
-  const getRoleDisplayName = (role: string) => {
-    switch (role) {
-      case 'staff': return 'Staff (Vendeur)';
-      case 'manager': return 'Manager (Gestionnaire)';
-      case 'admin': return 'Admin (Magasinier)';
-      default: return role;
+  const getTemplateDisplayName = () => {
+    if (template) {
+      return template.name;
     }
+    return 'Loading...';
   };
 
   if (loading) {
@@ -180,8 +192,8 @@ export default function InviteActivate() {
             <div className="flex items-center">
               <User className="h-5 w-5 text-gray-400 mr-3" />
               <div>
-                <p className="text-sm font-medium text-gray-900">{getRoleDisplayName(invitation.role)}</p>
-                <p className="text-xs text-gray-500">Your Role</p>
+                <p className="text-sm font-medium text-gray-900">{getTemplateDisplayName()}</p>
+                <p className="text-xs text-gray-500">Your access will be determined by this template's permissions</p>
               </div>
             </div>
             
@@ -251,7 +263,7 @@ export default function InviteActivate() {
         {/* Footer */}
         <div className="text-center">
           <p className="text-xs text-gray-500">
-            By accepting this invitation, you agree to join {invitation.companyName} as a {getRoleDisplayName(invitation.role).toLowerCase()}.
+            By accepting this invitation, you agree to join {invitation.companyName}. Your access to different sections will be controlled by the permissions defined in the {template?.name || 'assigned'} template, not by a fixed role.
           </p>
         </div>
       </Card>

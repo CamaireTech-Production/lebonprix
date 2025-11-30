@@ -151,9 +151,7 @@ const TemplateAssignment = ({
     count += permissions.canView.length;
     count += permissions.canEdit.length;
     count += permissions.canDelete.length;
-    if (permissions.canAccessSettings) count++;
-    if (permissions.canAccessFinance) count++;
-    if (permissions.canAccessHR) count++;
+    // Note: canAccessSettings, canAccessFinance, canAccessHR removed - now part of canView array
     return count;
   };
 
@@ -280,12 +278,12 @@ const TemplateAssignment = ({
                   </div>
                 </div>
                 <div>
-                  <h4 className="text-sm font-medium text-gray-700 mb-1">Special Access</h4>
+                  <h4 className="text-sm font-medium text-gray-700 mb-1">Special Sections</h4>
                   <div className="text-sm text-gray-600">
                     {[
-                      previewTemplate.permissions.canAccessSettings && 'Settings',
-                      previewTemplate.permissions.canAccessFinance && 'Finance',
-                      previewTemplate.permissions.canAccessHR && 'HR'
+                      previewTemplate.permissions.canView.includes('settings') && 'Settings',
+                      previewTemplate.permissions.canView.includes('finance') && 'Finance',
+                      previewTemplate.permissions.canView.includes('hr') && 'HR'
                     ].filter(Boolean).join(', ') || 'None'}
                   </div>
                 </div>

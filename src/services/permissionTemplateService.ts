@@ -12,10 +12,11 @@ export async function createTemplate(companyId: string, createdBy: string, data:
     companyId,
     name: data.name,
     description: data.description,
+    ...(data.baseRole && { baseRole: data.baseRole }), // Only include if provided
     permissions: data.permissions,
     createdBy,
     createdAt: serverTimestamp() as unknown as import('../types/models').Timestamp,
-    updatedAt: serverTimestamp() as unknown as import('../types/models').Timestamp
+    updatedAt: serverTimestamp() as unknown as import('../types/models').Timestamp,
   };
   await setDoc(ref, payload);
   return payload;
@@ -32,7 +33,7 @@ export async function getTemplateById(companyId: string, templateId: string): Pr
   return snap.exists() ? (snap.data() as PermissionTemplate) : null;
 }
 
-export async function updateTemplate(companyId: string, templateId: string, updates: Partial<Pick<PermissionTemplate, 'name' | 'description' | 'permissions'>>) {
+export async function updateTemplate(companyId: string, templateId: string, updates: Partial<Pick<PermissionTemplate, 'name' | 'description' | 'baseRole' | 'permissions'>>) {
   const ref = doc(db, 'companies', companyId, 'permissionTemplates', templateId);
   await updateDoc(ref, { ...updates, updatedAt: serverTimestamp() });
 }

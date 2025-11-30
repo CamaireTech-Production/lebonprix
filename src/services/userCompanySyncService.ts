@@ -24,10 +24,11 @@ export async function addUserToCompany(
     lastname: string;
     email: string;
   },
-  role: 'owner' | 'admin' | 'manager' | 'staff'
+  role: 'owner' | 'admin' | 'manager' | 'staff',
+  permissionTemplateId?: string
 ): Promise<void> {
   try {
-    console.log('➕ Ajout utilisateur à company:', { userId, companyId, role });
+    console.log('➕ Ajout utilisateur à company:', { userId, companyId, role, permissionTemplateId });
 
     // 1. Créer l'employeeRef dans companies/{companyId}/employeeRefs/{userId}
     const employeeRefData = {
@@ -69,7 +70,8 @@ export async function addUserToCompany(
       description: companyData.description || '',
       logo: companyData.logo || '',
       role: role,
-      joinedAt: new Date() as any
+      joinedAt: new Date() as any,
+      ...(permissionTemplateId && { permissionTemplateId })
     };
 
     await updateDoc(doc(db, 'users', userId), {

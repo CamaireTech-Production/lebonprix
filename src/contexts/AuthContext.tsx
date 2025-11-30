@@ -405,21 +405,26 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   // Charger les données d'une entreprise spécifique
   const loadCompanyData = async (companyId: string, userId: string) => {
+    console.log('🏢 [loadCompanyData] Loading company:', { companyId, userId });
     try {
       const companyDoc = await getDoc(doc(db, 'companies', companyId));
       
       if (companyDoc.exists()) {
         const companyData = { id: companyDoc.id, ...companyDoc.data() } as Company;
+        console.log('✅ [loadCompanyData] Company loaded:', { id: companyData.id, name: companyData.name });
         setCompany(companyData);
         
         // Déterminer le rôle effectif et ownership
-        determineUserRole(companyData, userId);
+        await determineUserRole(companyData, userId);
         
         // Save to localStorage for future instant loads
         CompanyManager.save(userId, companyData);
         
         // Mettre à jour le cache global
         saveCompanyToCache(companyData);
+      } else {
+        console.error('❌ [loadCompanyData] Company document does not exist:', companyId);
+        console.log('🔍  this is the company informations', companyId);
       }
     } catch (error) {
       console.error(`❌ Erreur lors du chargement de l'entreprise ${companyId}:`, error);
