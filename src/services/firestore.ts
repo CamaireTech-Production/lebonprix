@@ -2006,6 +2006,38 @@ export const subscribeToCustomers = (companyId: string, callback: (customers: Cu
   });
 };
 
+export const updateCustomer = async (customerId: string, customerData: Partial<Customer>, companyId: string): Promise<void> => {
+  try {
+    const customerRef = doc(db, 'customers', customerId);
+    const updateData: any = {
+      ...customerData,
+      updatedAt: serverTimestamp()
+    };
+    
+    // Remove undefined fields
+    Object.keys(updateData).forEach(key => {
+      if (updateData[key] === undefined) {
+        delete updateData[key];
+      }
+    });
+    
+    await updateDoc(customerRef, updateData);
+  } catch (error: any) {
+    console.error('❌ [updateCustomer] Erreur lors de la mise à jour du client:', error);
+    throw error;
+  }
+};
+
+export const deleteCustomer = async (customerId: string, companyId: string): Promise<void> => {
+  try {
+    const customerRef = doc(db, 'customers', customerId);
+    await deleteDoc(customerRef);
+  } catch (error: any) {
+    console.error('❌ [deleteCustomer] Erreur lors de la suppression du client:', error);
+    throw error;
+  }
+};
+
 // Objectives
 export const subscribeToObjectives = (companyId: string, callback: (objectives: Objective[]) => void): (() => void) => {
   const q = query(

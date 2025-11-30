@@ -14,6 +14,8 @@ import {
   subscribeToDashboardStats,
   updateSaleDocument,
   subscribeToCustomers,
+  updateCustomer,
+  deleteCustomer,
   addCustomer,
   syncFinanceEntryWithSale,
   syncFinanceEntryWithExpense,
@@ -605,7 +607,7 @@ export const useCustomers = () => {
   }, [user, company]);
 
   const addCustomerToStore = async (customerData: Omit<Customer, 'id'>) => {
-    if (!user) throw new Error('User not authenticated');
+    if (!user || !company) throw new Error('User not authenticated');
     try {
       return await addCustomer(customerData);
     } catch (err) {
@@ -614,7 +616,34 @@ export const useCustomers = () => {
     }
   };
 
-  return { customers, loading, error, addCustomer: addCustomerToStore };
+  const updateCustomerData = async (customerId: string, customerData: Partial<Customer>) => {
+    if (!user || !company) throw new Error('User not authenticated');
+    try {
+      await updateCustomer(customerId, customerData, company.id);
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
+  };
+
+  const deleteCustomerData = async (customerId: string) => {
+    if (!user || !company) throw new Error('User not authenticated');
+    try {
+      await deleteCustomer(customerId, company.id);
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
+  };
+
+  return { 
+    customers, 
+    loading, 
+    error, 
+    addCustomer: addCustomerToStore,
+    updateCustomer: updateCustomerData,
+    deleteCustomer: deleteCustomerData
+  };
 };
 
 export const useFinanceEntries = () => {

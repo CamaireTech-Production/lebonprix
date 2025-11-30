@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, ShoppingCart, DollarSign, Package2, FileBarChart, Receipt, Settings, Users, Grid3X3, ShoppingBag, Loader2} from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, DollarSign, Package2, FileBarChart, Receipt, Settings, Users, Grid3X3, ShoppingBag, Loader2, Phone} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
 import { useRolePermissions } from '../../hooks/useRolePermissions';
@@ -74,6 +74,12 @@ const MobileNav = () => {
       path: isCompanyRoute ? `/company/${companyId}/suppliers` : '/suppliers', 
       icon: <Users size={20} />, 
       resource: 'suppliers' 
+    },
+    { 
+      name: 'Contacts', 
+      path: isCompanyRoute ? `/company/${companyId}/contacts` : '/contacts', 
+      icon: <Phone size={20} />, 
+      resource: 'customers' 
     },
     { 
       name: t('navigation.reports'), 
