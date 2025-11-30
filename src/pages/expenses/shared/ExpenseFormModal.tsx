@@ -8,7 +8,9 @@ import CreatableSelect from '../../../components/common/CreatableSelect';
 import { createExpense, updateExpense, syncFinanceEntryWithExpense } from '../../../services/firestore';
 import { showSuccessToast, showErrorToast, showWarningToast } from '../../../utils/toast';
 import { useExpenseCategories } from '../../../hooks/useExpenseCategories';
-import type { Expense } from '../../../types/models';
+import { getCurrentEmployeeRef } from '../../../utils/employeeUtils';
+import { getUserById } from '../../../services/userService';
+import type { Expense, EmployeeRef } from '../../../types/models';
 
 interface ExpenseFormModalProps {
   isOpen: boolean;
@@ -20,7 +22,7 @@ interface ExpenseFormModalProps {
 
 const ExpenseFormModal = ({ isOpen, mode, expense, onClose, onSuccess }: ExpenseFormModalProps) => {
   const { t } = useTranslation();
-  const { user, company } = useAuth();
+  const { user, company, currentEmployee, isOwner } = useAuth();
   const { expenseTypes, expenseTypesList, createCategory, loadExpenseTypes } = useExpenseCategories();
   
   const [formData, setFormData] = useState({
@@ -131,6 +133,38 @@ const ExpenseFormModal = ({ isOpen, mode, expense, onClose, onSuccess }: Expense
       setIsSubmitting(true);
       
       if (mode === 'add') {
+        // Get createdBy employee reference
+        let createdBy = null;
+        if (user && company) {
+          let userData = null;
+          if (isOwner && !currentEmployee) {
+            // If owner, fetch user data to create EmployeeRef
+            try {
+              userData = await getUserById(user.uid);
+            } catch (error) {
+              console.error('Error fetching user data for createdBy:', error);
+            }
+          }
+          createdBy = getCurrentEmployeeRef(currentEmployee, user, isOwner, userData);
+          
+          // Debug log to verify createdBy
+          if (!createdBy) {
+            console.warn('[ExpenseFormModal] createdBy is null:', {
+              hasCurrentEmployee: !!currentEmployee,
+              isOwner,
+              hasUser: !!user,
+              hasUserData: !!userData
+            });
+          } else {
+            const employeeRef: EmployeeRef = createdBy;
+            console.log('[ExpenseFormModal] createdBy:', {
+              name: `${employeeRef.firstname} ${employeeRef.lastname}`,
+              email: employeeRef.email,
+              role: employeeRef.role
+            });
+          }
+        }
+        
         const newExpense = await createExpense({
           description: formData.description.trim(),
           amount: amount,
@@ -138,7 +172,14 @@ const ExpenseFormModal = ({ isOpen, mode, expense, onClose, onSuccess }: Expense
           userId: user.uid,
           companyId: company.id,
           date: expenseDate,
-        }, company.id);
+        }, company.id, createdBy);
+        
+        // Verify createdBy is in the returned expense
+        if (newExpense.createdBy) {
+          console.log('[ExpenseFormModal] Expense created with createdBy:', newExpense.createdBy);
+        } else {
+          console.warn('[ExpenseFormModal] Expense created but createdBy is missing in returned object');
+        }
         
         await syncFinanceEntryWithExpense(newExpense);
         onSuccess(newExpense);

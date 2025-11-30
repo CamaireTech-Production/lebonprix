@@ -8,7 +8,7 @@ import Modal from '../components/common/Modal';
 import Input from '../components/common/Input';
 import { useAuth } from '../contexts/AuthContext';
 import { FirebaseStorageService } from '../services/firebaseStorageService';
-import { getCurrentEmployeeRef } from '../utils/employeeUtils';
+import { getCurrentEmployeeRef, formatCreatorName } from '../utils/employeeUtils';
 import { getUserById } from '../services/userService';
 import { ImageWithSkeleton } from '../components/common/ImageWithSkeleton';
 import LoadingScreen from '../components/common/LoadingScreen';
@@ -502,6 +502,9 @@ const Categories = () => {
                       <Badge variant="info" className="mb-3">
                         {category.productCount || 0} products
                       </Badge>
+                      <div className="text-xs text-gray-400 mb-3">
+                        Créé par: {formatCreatorName(category.createdBy)}
+                      </div>
                       
                       {/* Actions */}
                       <div className="flex justify-end space-x-2">
@@ -552,9 +555,12 @@ const Categories = () => {
                         {category.description}
                       </p>
                     )}
-                    <Badge variant="info">
+                    <Badge variant="info" className="mb-2">
                       {category.productCount || 0} products
                     </Badge>
+                    <div className="text-xs text-gray-400">
+                      Créé par: {formatCreatorName(category.createdBy)}
+                    </div>
                   </div>
                   
                   {/* Actions */}

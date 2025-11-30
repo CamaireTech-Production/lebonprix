@@ -1306,7 +1306,8 @@ export const createExpense = async (
     companyId,
     isAvailable: true,
     createdAt: { seconds: now, nanoseconds: 0 },
-    updatedAt: { seconds: now, nanoseconds: 0 }
+    updatedAt: { seconds: now, nanoseconds: 0 },
+    createdBy: createdBy || undefined // Include createdBy in returned object
   };
 };
 
@@ -2480,7 +2481,8 @@ export const subscribeToSuppliers = (companyId: string, callback: (suppliers: Su
 
 export const createSupplier = async (
   data: Omit<Supplier, 'id' | 'createdAt' | 'updatedAt'>,
-  companyId: string
+  companyId: string,
+  createdBy?: import('../types/models').EmployeeRef | null
 ): Promise<Supplier> => {
   // Validate supplier data
   if (!data.name || !data.contact) {
@@ -2494,7 +2496,7 @@ export const createSupplier = async (
   
   // Create supplier
   const supplierRef = doc(collection(db, 'suppliers'));
-  const supplierData = {
+  const supplierData: any = {
     ...data,
     userId,
     companyId, // Ensure companyId is set
@@ -2502,6 +2504,12 @@ export const createSupplier = async (
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   };
+  
+  // Add createdBy if provided
+  if (createdBy) {
+    supplierData.createdBy = createdBy;
+  }
+  
   batch.set(supplierRef, supplierData);
   
   // Create audit log

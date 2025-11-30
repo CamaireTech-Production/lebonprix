@@ -508,13 +508,27 @@ const Products = () => {
 
     setIsAddingSupplier(true);
     try {
+      // Get createdBy employee reference
+      let createdBy = null;
+      if (user && company) {
+        let userData = null;
+        if (isOwner && !currentEmployee) {
+          try {
+            userData = await getUserById(user.uid);
+          } catch (error) {
+            console.error('Error fetching user data for createdBy:', error);
+          }
+        }
+        createdBy = getCurrentEmployeeRef(currentEmployee, user, isOwner, userData);
+      }
+      
       const newSupplier = await createSupplier({
         name: quickSupplierData.name,
         contact: quickSupplierData.contact,
         location: quickSupplierData.location || undefined,
         userId: user.uid,
         companyId: company.id
-      }, company.id);
+      }, company.id, createdBy);
 
       // Set the new supplier as selected
       setStep2Data(prev => ({
@@ -746,13 +760,27 @@ const Products = () => {
 
     setIsAddingSupplier(true);
     try {
+      // Get createdBy employee reference
+      let createdBy = null;
+      if (user && company) {
+        let userData = null;
+        if (isOwner && !currentEmployee) {
+          try {
+            userData = await getUserById(user.uid);
+          } catch (error) {
+            console.error('Error fetching user data for createdBy:', error);
+          }
+        }
+        createdBy = getCurrentEmployeeRef(currentEmployee, user, isOwner, userData);
+      }
+      
       const newSupplier = await createSupplier({
         name: quickSupplierData.name,
         contact: quickSupplierData.contact,
         location: quickSupplierData.location || undefined,
         userId: user.uid,
         companyId: company.id
-      }, company.id);
+      }, company.id, createdBy);
 
       // Set the new supplier as selected for stock adjustment
       setStockAdjustmentSupplier(prev => ({
@@ -1402,7 +1430,7 @@ const Products = () => {
               contact: 'Imported',
               userId: user.uid,
               companyId: company.id
-            }, company.id);
+            }, company.id, createdBy);
           }
           finalSupplierId = supplier.id;
         } else if (finalSupplierId) {
@@ -1411,8 +1439,9 @@ const Products = () => {
             supplier = await createSupplier({
               name: finalSupplierId,
               contact: 'Imported',
-              userId: user.uid
-            });
+              userId: user.uid,
+              companyId: company.id
+            }, company.id, createdBy);
             finalSupplierId = supplier.id;
           }
         } else {

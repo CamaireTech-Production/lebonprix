@@ -13,6 +13,7 @@ import { createSupplierRefund } from '../services/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import LoadingScreen from '../components/common/LoadingScreen';
 import { showSuccessToast, showErrorToast, showWarningToast } from '../utils/toast';
+import { formatCreatorName } from '../utils/employeeUtils';
 import type { Supplier, FinanceEntry } from '../types/models';
 import StatCard from '../components/dashboard/StatCard';
 import { calculateSolde } from '../utils/financialCalculations';
@@ -147,7 +148,7 @@ const Suppliers = () => {
   };
 
   const handleAddSupplier = async () => {
-    if (!user?.uid) return;
+    if (!user?.uid || !company?.id) return;
     if (!formData.name || !formData.contact) {
       showWarningToast(t('suppliers.messages.warnings.requiredFields'));
       return;
@@ -159,7 +160,8 @@ const Suppliers = () => {
         name: formData.name,
         contact: formData.contact,
         location: formData.location || undefined,
-        userId: user.uid
+        userId: user.uid,
+        companyId: company.id
       });
       setIsAddModalOpen(false);
       resetForm();
@@ -216,7 +218,7 @@ const Suppliers = () => {
   };
 
   const handleAddRefund = async () => {
-    if (!currentSupplier || !user?.uid) return;
+    if (!currentSupplier || !user?.uid || !company?.id) return;
     if (!refundData.amount || !refundData.description) {
       showWarningToast(t('suppliers.messages.warnings.requiredFields'));
       return;
@@ -280,6 +282,7 @@ const Suppliers = () => {
       location: supplier.location || '-',
       totalDebt: debt.total.toLocaleString(),
       outstandingDebt: debt.outstanding.toLocaleString(),
+      createdBy: formatCreatorName(supplier.createdBy),
       actions: (
         <div className="flex space-x-2">
           <Button
@@ -331,6 +334,7 @@ const Suppliers = () => {
     { header: t('suppliers.table.columns.location'), accessor: 'location' as const },
     { header: t('suppliers.table.columns.totalDebt'), accessor: 'totalDebt' as const },
     { header: t('suppliers.table.columns.outstandingDebt'), accessor: 'outstandingDebt' as const },
+    { header: 'Créé par', accessor: 'createdBy' as const },
     { header: t('suppliers.table.columns.actions'), accessor: 'actions' as const }
   ];
 
