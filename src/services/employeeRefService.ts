@@ -17,6 +17,7 @@ import {
   serverTimestamp
 } from 'firebase/firestore';
 import { db } from './firebase';
+import { logError } from '../utils/logger';
 import { EmployeeRef, User, UserRole, UserCompanyRef } from '../types/models';
 import { addUserToCompany, updateUserRole } from './userCompanySyncService';
 
@@ -32,8 +33,6 @@ import { addUserToCompany, updateUserRole } from './userCompanySyncService';
  */
 export const searchUserByEmail = async (email: string): Promise<User[]> => {
   try {
-    console.log(`🔍 Recherche d'utilisateurs par email: ${email}`);
-    
     if (!email || email.trim().length < 2) {
       return [];
     }
@@ -53,10 +52,9 @@ export const searchUserByEmail = async (email: string): Promise<User[]> => {
       users.push({ id: doc.id, ...doc.data() } as User);
     });
 
-    console.log(`✅ ${users.length} utilisateurs trouvés`);
     return users;
   } catch (error: any) {
-    console.error('❌ Erreur lors de la recherche d\'utilisateurs:', error);
+    logError('Error searching users by email', error);
     throw error;
   }
 };
@@ -75,8 +73,6 @@ export const addEmployeeToCompany = async (
   companyInfo: { name: string; description?: string; logo?: string }
 ): Promise<void> => {
   try {
-    console.log(`👥 Ajout de l'employé ${userId} à l'entreprise ${companyId} avec le rôle ${role}`);
-
     // 1. Vérifier que le user existe
     const userRef = doc(db, 'users', userId);
     const userSnap = await getDoc(userRef);
@@ -86,7 +82,6 @@ export const addEmployeeToCompany = async (
     }
 
     const userData = userSnap.data() as User;
-    console.log(`✅ Utilisateur trouvé: ${userData.firstname} ${userData.lastname}`);
 
     // 2. Vérifier que l'employé n'est pas déjà dans cette entreprise
     const employeeRef = doc(db, 'companies', companyId, 'employeeRefs', userId);
@@ -113,10 +108,8 @@ export const addEmployeeToCompany = async (
       role
     );
 
-    console.log(`🎉 Employé ajouté avec succès à l'entreprise ${companyInfo.name}`);
-
   } catch (error: any) {
-    console.error('❌ Erreur lors de l\'ajout de l\'employé:', error);
+    logError('Error adding employee to company', error);
     throw error;
   }
 };
@@ -131,12 +124,9 @@ export const removeEmployeeFromCompany = async (
   userId: string
 ): Promise<void> => {
   try {
-    console.log(`🗑️ Suppression de l'employé ${userId} de l'entreprise ${companyId}`);
-
     // 1. Supprimer la référence employé de la sous-collection
     const employeeRef = doc(db, 'companies', companyId, 'employeeRefs', userId);
     await deleteDoc(employeeRef);
-    console.log(`✅ Référence employé supprimée de employeeRefs`);
 
     // 2. Retirer la référence de la liste des entreprises de l'utilisateur
     const userRef = doc(db, 'users', userId);
@@ -151,13 +141,10 @@ export const removeEmployeeFromCompany = async (
       await updateDoc(userRef, {
         companies: updatedCompanies
       });
-      console.log(`✅ Référence d'entreprise retirée de l'utilisateur`);
     }
 
-    console.log(`🎉 Employé retiré avec succès de l'entreprise`);
-
   } catch (error: any) {
-    console.error('❌ Erreur lors de la suppression de l\'employé:', error);
+    logError('Error removing employee from company', error);
     throw error;
   }
 };
@@ -174,17 +161,14 @@ export const updateEmployeeRole = async (
   newRole: UserRole
 ): Promise<void> => {
   try {
-    console.log(`🔄 Mise à jour du rôle de l'employé ${userId} vers ${newRole}`);
-
     // Utiliser le service de synchronisation qui met à jour tout correctement :
     // - employeeRefs
     // - company.employees{}
     // - users.companies[] (avec arrayRemove/arrayUnion)
     await updateUserRole(userId, companyId, newRole);
-    console.log(`🎉 Rôle de l'employé mis à jour avec succès`);
 
   } catch (error: any) {
-    console.error('❌ Erreur lors de la mise à jour du rôle:', error);
+    logError('Error updating employee role', error);
     throw error;
   }
 };
@@ -196,8 +180,6 @@ export const updateEmployeeRole = async (
  */
 export const getCompanyEmployees = async (companyId: string): Promise<EmployeeRef[]> => {
   try {
-    console.log(`📋 Récupération des employés de l'entreprise ${companyId}`);
-
     const employeeRefs = collection(db, 'companies', companyId, 'employeeRefs');
     const q = query(employeeRefs, orderBy('addedAt', 'desc'));
     const snapshot = await getDocs(q);
@@ -207,11 +189,10 @@ export const getCompanyEmployees = async (companyId: string): Promise<EmployeeRe
       employees.push({ id: doc.id, ...doc.data() } as EmployeeRef);
     });
 
-    console.log(`✅ ${employees.length} employés récupérés`);
     return employees;
 
   } catch (error: any) {
-    console.error('❌ Erreur lors de la récupération des employés:', error);
+    logError('Error fetching company employees', error);
     throw error;
   }
 };
@@ -226,23 +207,18 @@ export const subscribeToEmployeeRefs = (
   companyId: string, 
   callback: (employees: EmployeeRef[]) => void
 ): Unsubscribe => {
-  console.log(`👂 Abonnement aux employés de l'entreprise ${companyId}`);
-
   const employeeRefs = collection(db, 'companies', companyId, 'employeeRefs');
   const q = query(employeeRefs, orderBy('addedAt', 'desc'));
 
   return onSnapshot(q, (snapshot) => {
-    console.log(`📡 [subscribeToEmployeeRefs] Snapshot reçu pour company ${companyId}:`, snapshot.size, 'documents');
     const employees: EmployeeRef[] = [];
     snapshot.forEach((doc) => {
       const employeeData = { id: doc.id, ...doc.data() } as EmployeeRef;
       employees.push(employeeData);
-      console.log(`📡 [subscribeToEmployeeRefs] Employé trouvé:`, { id: employeeData.id, role: employeeData.role, name: `${employeeData.firstname} ${employeeData.lastname}` });
     });
-    console.log(`📡 [subscribeToEmployeeRefs] Appel du callback avec ${employees.length} employés`);
     callback(employees);
   }, (error) => {
-    console.error(`❌ [subscribeToEmployeeRefs] Erreur dans le listener:`, error);
+    logError(`Error in subscribeToEmployeeRefs listener for company ${companyId}`, error);
   });
 };
 
@@ -261,7 +237,7 @@ export const isUserEmployeeOfCompany = async (
     const employeeSnap = await getDoc(employeeRef);
     return employeeSnap.exists();
   } catch (error: any) {
-    console.error('❌ Erreur lors de la vérification de l\'employé:', error);
+    logError('Error checking if user is employee of company', error);
     return false;
   }
 };
@@ -287,7 +263,7 @@ export const getEmployeeRole = async (
     
     return null;
   } catch (error: any) {
-    console.error('❌ Erreur lors de la récupération du rôle:', error);
+    logError('Error getting employee role', error);
     return null;
   }
 };

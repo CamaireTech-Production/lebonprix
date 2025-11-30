@@ -1,6 +1,7 @@
 import { db } from './firebase';
 import { doc, setDoc, updateDoc, getDoc, arrayUnion, arrayRemove, serverTimestamp, increment, deleteField, writeBatch } from 'firebase/firestore';
 import { UserCompanyRef } from '../types/models';
+import { logError } from '../utils/logger';
 
 /**
  * Service de synchronisation bidirectionnelle entre employeeRefs et users.companies[]
@@ -28,7 +29,6 @@ export async function addUserToCompany(
   permissionTemplateId?: string
 ): Promise<void> {
   try {
-    console.log('➕ Ajout utilisateur à company:', { userId, companyId, role, permissionTemplateId });
 
     // 1. Créer l'employeeRef dans companies/{companyId}/employeeRefs/{userId}
     const employeeRefData = {
@@ -46,7 +46,6 @@ export async function addUserToCompany(
       employeeRefData
     );
 
-    console.log('✅ EmployeeRef créé');
 
     // 2. Mettre à jour company.employees{} et employeeCount
     const companyRef = doc(db, 'companies', companyId);
@@ -79,9 +78,8 @@ export async function addUserToCompany(
       updatedAt: serverTimestamp()
     });
 
-    console.log('✅ User.companies[] mis à jour');
   } catch (error) {
-    console.error('❌ Erreur lors de l\'ajout de l\'utilisateur à la company:', error);
+    logError('Error adding user to company', error);
     throw error;
   }
 }
@@ -95,7 +93,6 @@ export async function removeUserFromCompany(
   companyId: string
 ): Promise<void> {
   try {
-    console.log('➖ Suppression utilisateur de company:', { userId, companyId });
 
     const userRef = doc(db, 'users', userId);
     const companyRef = doc(db, 'companies', companyId);
@@ -137,7 +134,7 @@ export async function removeUserFromCompany(
     await batch.commit();
     console.log('✅ Suppression terminée (hard delete atomique)');
   } catch (error) {
-    console.error('❌ Erreur lors de la suppression de l\'utilisateur de la company:', error);
+    logError('Error removing user from company', error);
     throw error;
   }
 }
@@ -160,7 +157,6 @@ export async function updateUserRole(
       updatedAt: serverTimestamp()
     });
 
-    console.log('✅ EmployeeRef mis à jour');
 
     // 2. Mettre à jour le rôle dans company.employees{}
     const companyRef = doc(db, 'companies', companyId);
@@ -200,8 +196,6 @@ export async function updateUserRole(
     };
 
     // Remplacer complètement le tableau companies
-    console.log('🔄 [updateUserRole] Avant mise à jour - companies:', JSON.stringify(companies.map(c => ({ companyId: c.companyId, role: c.role }))));
-    console.log('🔄 [updateUserRole] Après mise à jour - companies:', JSON.stringify(updatedCompanies.map(c => ({ companyId: c.companyId, role: c.role }))));
     
     await updateDoc(userRef, {
       companies: updatedCompanies,
@@ -210,7 +204,7 @@ export async function updateUserRole(
 
     console.log('✅ [updateUserRole] User.companies[] mis à jour avec succès');
   } catch (error) {
-    console.error('❌ Erreur lors de la mise à jour du rôle:', error);
+    logError('Error updating user role', error);
     throw error;
   }
 }
@@ -276,7 +270,6 @@ export async function syncEmployeeRefToUser(
       updatedAt: serverTimestamp()
     });
 
-    console.log('✅ Synchronisation terminée');
   } catch (error) {
     console.error('❌ Erreur lors de la synchronisation:', error);
     throw error;
@@ -328,7 +321,7 @@ export async function checkConsistency(
       issues
     };
   } catch (error) {
-    console.error('❌ Erreur lors de la vérification de cohérence:', error);
+    logError('Error checking consistency', error);
     return {
       isConsistent: false,
       issues: ['Erreur lors de la vérification']

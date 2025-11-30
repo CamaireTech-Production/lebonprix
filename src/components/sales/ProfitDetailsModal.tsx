@@ -127,16 +127,16 @@ const ProfitDetailsModal: React.FC<ProfitDetailsModalProps> = ({ isOpen, onClose
                             <td colSpan={6} className="p-0">
                               <div className="ml-4 my-2">
                                 <div className="font-semibold text-xs text-gray-700 mb-1">
-                                  Batch Consumption Details:
+                                  {t('sales.modals.profitDetails.batchConsumptionDetails')}
                                 </div>
                                 <table className="w-full text-xs border mb-2">
                                   <thead>
                                     <tr>
-                                      <th className="text-left py-1 px-2 border-b">Batch ID</th>
-                                      <th className="text-right py-1 px-2 border-b">Qty</th>
-                                      <th className="text-right py-1 px-2 border-b">Batch Cost Price</th>
-                                      <th className="text-right py-1 px-2 border-b">Sale Price (unit)</th>
-                                      <th className="text-right py-1 px-2 border-b">Batch Profit</th>
+                                      <th className="text-left py-1 px-2 border-b">{t('sales.modals.profitDetails.batchId')}</th>
+                                      <th className="text-right py-1 px-2 border-b">{t('sales.modals.profitDetails.qty')}</th>
+                                      <th className="text-right py-1 px-2 border-b">{t('sales.modals.profitDetails.batchCostPrice')}</th>
+                                      <th className="text-right py-1 px-2 border-b">{t('sales.modals.profitDetails.salePriceUnit')}</th>
+                                      <th className="text-right py-1 px-2 border-b">{t('sales.modals.profitDetails.batchProfit')}</th>
                                     </tr>
                                   </thead>
                                   <tbody>

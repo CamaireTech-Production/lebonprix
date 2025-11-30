@@ -12,6 +12,7 @@ import { getCompanyEmployees } from '../services/employeeRefService';
 import { convertEmployeeRefToUserCompanyRef, getOwnerUserCompanyRef } from '../services/employeeDisplayService';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../services/firebase';
+import { logError } from '../utils/logger';
 import type { Invitation, UserCompanyRef } from '../types/models';
 
 const HRManagement = () => {
@@ -33,10 +34,7 @@ const HRManagement = () => {
       setPendingInvitations(invitations);
       
       // Load team members from employeeRefs subcollection
-      console.log(`📋 Chargement des employés pour l'entreprise ${company.id}`);
-      
       const employees = await getCompanyEmployees(company.id);
-      console.log(`✅ ${employees.length} employés récupérés depuis employeeRefs`);
       
       // Convertir les EmployeeRef en UserCompanyRef
       const companyData = {
@@ -63,7 +61,7 @@ const HRManagement = () => {
               }
             }
           } catch (error) {
-            console.error(`❌ Erreur lors de la récupération du template pour ${emp.id}:`, error);
+            logError(`Error fetching template for employee ${emp.id}`, error);
           }
           
           // Fallback si erreur ou si pas de template
@@ -85,19 +83,15 @@ const HRManagement = () => {
           );
           
           if (ownerUserCompanyRef) {
-            console.log('✅ Propriétaire ajouté à la liste des membres');
             teamMembersList.unshift(ownerUserCompanyRef); // Ajouter en premier
           }
-        } else {
-          console.log('ℹ️ Propriétaire déjà présent dans employeeRefs');
         }
       }
       
-      console.log(`✅ ${teamMembersList.length} membres de l'équipe chargés`);
       setTeamMembers(teamMembersList);
       
     } catch (error) {
-      console.error('❌ Erreur lors du chargement des données HR:', error);
+      logError('Error loading HR data', error);
       // En cas d'erreur, initialiser avec un tableau vide
       setTeamMembers([]);
     } finally {

@@ -47,7 +47,7 @@ const CostPriceCarousel: React.FC<CostPriceCarouselProps> = ({ batches, classNam
           {batch.costPrice.toLocaleString()} XAF
         </div>
         <div className="text-xs text-gray-500">
-          {t('products.batchInfo', 'Batch {{batchId}} • {{quantity}} units', {
+          {t('products.batchInfo', {
             batchId: batch.id.slice(-6),
             quantity: batch.remainingQuantity
           })}
@@ -70,7 +70,7 @@ const CostPriceCarousel: React.FC<CostPriceCarouselProps> = ({ batches, classNam
           {currentBatch.costPrice.toLocaleString()} XAF
         </div>
         <div className="text-xs text-gray-500">
-          {t('products.batchInfo', 'Batch {{batchId}} • {{quantity}} units', {
+          {t('products.batchInfo', {
             batchId: currentBatch.id.slice(-6),
             quantity: currentBatch.remainingQuantity
           })}
@@ -88,7 +88,7 @@ const CostPriceCarousel: React.FC<CostPriceCarouselProps> = ({ batches, classNam
                 ? 'bg-emerald-500' 
                 : 'bg-gray-300 hover:bg-gray-400'
             }`}
-            aria-label={t('products.goToBatch', 'Go to batch {{index}}', { index: index + 1 })}
+            aria-label={t('products.goToBatch', { index: index + 1 })}
           />
         ))}
       </div>

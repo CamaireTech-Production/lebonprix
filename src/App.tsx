@@ -29,6 +29,7 @@ const Products = lazy(() => import('./pages/Products'));
 const Categories = lazy(() => import('./pages/Categories'));
 const Suppliers = lazy(() => import('./pages/Suppliers'));
 const Contacts = lazy(() => import('./pages/Contacts'));
+const CustomerSources = lazy(() => import('./pages/CustomerSources'));
 const Reports = lazy(() => import('./pages/Reports'));
 const Settings = lazy(() => import('./pages/Settings'));
 const Profile = lazy(() => import('./pages/Profile'));
@@ -120,6 +121,7 @@ function AppWithFAB({ isAddSaleModalOpen, setIsAddSaleModalOpen }: { isAddSaleMo
               <Route path="categories" element={<LazyPage><Categories /></LazyPage>} />
               <Route path="suppliers" element={<LazyPage><Suppliers /></LazyPage>} />
               <Route path="contacts" element={<RoleRoute requiredResource="customers"><LazyPage><Contacts /></LazyPage></RoleRoute>} />
+              <Route path="contacts/sources" element={<RoleRoute requiredResource="customers"><LazyPage><CustomerSources /></LazyPage></RoleRoute>} />
               <Route path="hr" element={<RoleRoute requiredResource="hr"><LazyPage><HRManagement /></LazyPage></RoleRoute>} />
               <Route path="reports" element={<RoleRoute requiredResource="reports"><LazyPage><Reports /></LazyPage></RoleRoute>} />
               <Route path="profile" element={<LazyPage><Profile /></LazyPage>} />

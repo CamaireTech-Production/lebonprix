@@ -22,6 +22,7 @@ import Button from '../components/common/Button';
 import Card from '../components/common/Card';
 import { ImageWithSkeleton } from '../components/common/ImageWithSkeleton';
 import { useProducts, useCustomers, useSales } from '../hooks/useFirestore';
+import { useCustomerSources } from '../hooks/useCustomerSources';
 import { useInfiniteSales } from '../hooks/useInfiniteSales';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 import type { Product, OrderStatus, Sale, SaleProduct, Customer } from '../types/models';
@@ -66,6 +67,7 @@ const Sales: React.FC = () => {
   } = useInfiniteSales();
   const { products, loading: productsLoading } = useProducts();
   const { customers } = useCustomers();
+  const { activeSources } = useCustomerSources();
   const { user, company } = useAuth();
   const { updateSale } = useSales();
 
@@ -105,6 +107,7 @@ const Sales: React.FC = () => {
     customerName: '',
     customerPhone: '',
     customerQuarter: '',
+    customerSourceId: '',
     status: 'commande' as OrderStatus,
     deliveryFee: '',
     products: [{ product: null, quantity: '', negotiatedPrice: '' }] as FormProduct[],
@@ -184,6 +187,7 @@ const Sales: React.FC = () => {
       customerName: '',
       customerPhone: '',
       customerQuarter: '',
+      customerSourceId: '',
       status: 'commande',
       deliveryFee: '',
       products: [{ product: null, quantity: '', negotiatedPrice: '' }],
@@ -325,6 +329,7 @@ const Sales: React.FC = () => {
       if (totalAmount !== undefined) updateData.totalAmount = totalAmount;
       if (formData.status) updateData.status = formData.status;
       if (customerInfo) updateData.customerInfo = customerInfo;
+      if (formData.customerSourceId) updateData.customerSourceId = formData.customerSourceId;
       if (formData.deliveryFee !== undefined && formData.deliveryFee !== '')
         updateData.deliveryFee = parseFloat(formData.deliveryFee);
       await updateSale(currentSale.id, updateData);
@@ -345,7 +350,7 @@ const Sales: React.FC = () => {
       resetForm();
       showSuccessToast(t('sales.messages.saleUpdated'));
     } catch (err) {
-      console.error('Failed to update sale:', err);
+      logError('Failed to update sale', err);
       showErrorToast(t('sales.messages.errors.updateSale'));
     } finally {
       setIsSubmitting(false);
@@ -358,6 +363,7 @@ const Sales: React.FC = () => {
       customerName: sale.customerInfo.name,
       customerPhone: sale.customerInfo.phone,
       customerQuarter: sale.customerInfo.quarter || '',
+      customerSourceId: sale.customerSourceId || '',
       status: sale.status,
       deliveryFee: sale.deliveryFee?.toString() || '',
       products: sale.products.map((p) => {
@@ -434,7 +440,7 @@ const Sales: React.FC = () => {
       setCurrentSale(null);
       showSuccessToast(t('sales.messages.saleDeleted'));
     } catch (err) {
-      console.error('Failed to delete sale:', err);
+      logError('Failed to delete sale', err);
       showErrorToast(t('sales.messages.errors.deleteSale'));
     } finally {
       setDeleteLoading(false);
@@ -969,6 +975,52 @@ const Sales: React.FC = () => {
                 helpText={t('sales.modals.edit.customerInfo.phoneHelp')}
               />
             </div>
+            {activeSources.length > 0 && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Source Clientelle
+                </label>
+                <Select
+                  options={[
+                    { value: '', label: 'Aucune source' },
+                    ...activeSources.map(source => ({
+                      value: source.id,
+                      label: source.name,
+                      color: source.color || '#3B82F6'
+                    }))
+                  ]}
+                  value={activeSources.find(s => s.id === formData.customerSourceId) 
+                    ? { 
+                        value: formData.customerSourceId || '', 
+                        label: activeSources.find(s => s.id === formData.customerSourceId)?.name || '',
+                        color: activeSources.find(s => s.id === formData.customerSourceId)?.color || '#3B82F6'
+                      }
+                    : { value: '', label: 'Aucune source' }
+                  }
+                  onChange={(option) => {
+                    setFormData(prev => ({
+                      ...prev,
+                      customerSourceId: option?.value || ''
+                    }));
+                  }}
+                  formatOptionLabel={({ label, color }) => (
+                    <div className="flex items-center gap-2">
+                      {color && (
+                        <div
+                          className="w-3 h-3 rounded-full"
+                          style={{ backgroundColor: color }}
+                        />
+                      )}
+                      <span>{label}</span>
+                    </div>
+                  )}
+                  className="react-select-container"
+                  classNamePrefix="react-select"
+                  isClearable
+                  placeholder="Sélectionner une source..."
+                />
+              </div>
+            )}
           </div>
           <div className="space-y-4">
             <div className="flex justify-between items-center">

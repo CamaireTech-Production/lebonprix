@@ -7,10 +7,10 @@ import Input from '../../../components/common/Input';
 import CreatableSelect from '../../../components/common/CreatableSelect';
 import { createExpense, updateExpense, syncFinanceEntryWithExpense } from '../../../services/firestore';
 import { showSuccessToast, showErrorToast, showWarningToast } from '../../../utils/toast';
+import { logError, logWarning } from '../../../utils/logger';
 import { useExpenseCategories } from '../../../hooks/useExpenseCategories';
-import { getCurrentEmployeeRef } from '../../../utils/employeeUtils';
 import { getUserById } from '../../../services/userService';
-import type { Expense, EmployeeRef } from '../../../types/models';
+import type { Expense} from '../../../types/models';
 
 interface ExpenseFormModalProps {
   isOpen: boolean;
@@ -142,26 +142,14 @@ const ExpenseFormModal = ({ isOpen, mode, expense, onClose, onSuccess }: Expense
             try {
               userData = await getUserById(user.uid);
             } catch (error) {
-              console.error('Error fetching user data for createdBy:', error);
+              logError('Error fetching user data for createdBy', error);
             }
           }
           createdBy = getCurrentEmployeeRef(currentEmployee, user, isOwner, userData);
           
-          // Debug log to verify createdBy
+          // Verify createdBy
           if (!createdBy) {
-            console.warn('[ExpenseFormModal] createdBy is null:', {
-              hasCurrentEmployee: !!currentEmployee,
-              isOwner,
-              hasUser: !!user,
-              hasUserData: !!userData
-            });
-          } else {
-            const employeeRef: EmployeeRef = createdBy;
-            console.log('[ExpenseFormModal] createdBy:', {
-              name: `${employeeRef.firstname} ${employeeRef.lastname}`,
-              email: employeeRef.email,
-              role: employeeRef.role
-            });
+            logWarning('[ExpenseFormModal] createdBy is null');
           }
         }
         
@@ -178,7 +166,7 @@ const ExpenseFormModal = ({ isOpen, mode, expense, onClose, onSuccess }: Expense
         if (newExpense.createdBy) {
           console.log('[ExpenseFormModal] Expense created with createdBy:', newExpense.createdBy);
         } else {
-          console.warn('[ExpenseFormModal] Expense created but createdBy is missing in returned object');
+          logWarning('[ExpenseFormModal] Expense created but createdBy is missing in returned object');
         }
         
         await syncFinanceEntryWithExpense(newExpense);
@@ -224,7 +212,7 @@ const ExpenseFormModal = ({ isOpen, mode, expense, onClose, onSuccess }: Expense
       
       onClose();
     } catch (err) {
-      console.error(`Failed to ${mode} expense:`, err);
+      logError(`Failed to ${mode} expense`, err);
       showErrorToast(
         mode === 'add' 
           ? t('expenses.messages.addError')

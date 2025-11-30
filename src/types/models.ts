@@ -118,6 +118,7 @@ export interface Sale extends BaseModel {
     phone: string;
     quarter?: string;
   };
+  customerSourceId?: string; // Source clientelle de la vente (optionnel pour rétrocompatibilité)
   deliveryFee?: number;
   statusHistory?: Array<{ status: string; timestamp: string }>;
   isAvailable?: boolean;
@@ -166,6 +167,15 @@ export interface Customer {
   town?: string; // Ville
   birthdate?: string; // Date de naissance (format ISO: YYYY-MM-DD)
   howKnown?: string; // Comment il a connu l'entreprise
+  customerSourceId?: string; // Source principale du client
+  firstSourceId?: string; // Première source enregistrée (pour historique)
+}
+
+export interface CustomerSource extends BaseModel {
+  name: string; // Nom de la source (ex: "TikTok", "Facebook", "Influenceur")
+  description?: string; // Description optionnelle
+  color?: string; // Couleur pour les graphiques (format hex)
+  isActive: boolean; // Actif/inactif
 }
 
 export interface Objective extends BaseModel {

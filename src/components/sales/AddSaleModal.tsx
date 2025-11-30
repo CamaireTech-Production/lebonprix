@@ -3,11 +3,11 @@ import Modal, { ModalFooter } from '../common/Modal';
 import Input from '../common/Input';
 import Button from '../common/Button';
 import Select from 'react-select';
-import { Plus, Trash2, Save, Info, ChevronDown, ChevronUp} from 'lucide-react';
-import { createPortal } from 'react-dom';
+import { Plus, Trash2, Info, ChevronDown, ChevronUp} from 'lucide-react';
 import { ImageWithSkeleton } from '../common/ImageWithSkeleton';
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { logError } from '../../utils/logger';
 import type { Sale, StockBatch } from '../../types/models';
 import SaleDetailsModal from './SaleDetailsModal';
 import { getProductStockBatches } from '../../services/firestore';
@@ -46,6 +46,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
     phoneInputRef,
     products,
     customers,
+    activeSources,
     handleInputChange,
     handlePhoneChange,
     handlePhoneBlur,
@@ -94,7 +95,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
         averageCostPrice
       }));
     } catch (error) {
-      console.error('Error loading stock info for product:', productId, error);
+      logError('Error loading stock info for product', error);
     } finally {
       setLoadingStockInfo(prev => {
         const newSet = new Set(prev);
@@ -254,54 +255,18 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
 {showCustomerDropdown && customerSearch && customerSearch.length >= 2 && /\d/.test(customerSearch) && (() => {
   const normalizedSearch = customerSearch.replace(/\D/g, '');
   
-  // Log all customers first
-  console.log('📋 [AddSaleModal] All customers:', {
-    total: customers.length,
-    customers: customers.map(c => ({
-      id: c.id,
-      name: c.name,
-      phone: c.phone,
-      companyId: c.companyId
-    }))
-  });
-  
   // Don't show if normalized search is too short
   if (normalizedSearch.length < 2) {
-    console.log('⚠️ [AddSaleModal] Normalized search too short:', normalizedSearch);
     return null;
   }
   
   // Filter customers by phone number match
   const filteredCustomers = customers.filter(c => {
     if (!c.phone) {
-      console.log('⚠️ [AddSaleModal] Customer without phone:', c.id, c.name);
       return false;
     }
     const customerPhone = c.phone.replace(/\D/g, '');
-    const matches = customerPhone.includes(normalizedSearch) || normalizedSearch.includes(customerPhone);
-    if (matches) {
-      console.log('✅ [AddSaleModal] Customer matches:', {
-        id: c.id,
-        name: c.name,
-        phone: c.phone,
-        normalizedPhone: customerPhone,
-        search: normalizedSearch
-      });
-    }
-    return matches;
-  });
-  
-  console.log('🔍 [AddSaleModal] Phone dropdown check:', {
-    showCustomerDropdown,
-    customerSearch,
-    normalizedSearch,
-    filteredCustomersCount: filteredCustomers.length,
-    customersCount: customers.length,
-    filteredCustomers: filteredCustomers.map(c => ({
-      id: c.id,
-      name: c.name,
-      phone: c.phone
-    }))
+    return customerPhone.includes(normalizedSearch) || normalizedSearch.includes(customerPhone);
   });
   
   // Don't show dropdown if no results
@@ -365,48 +330,13 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
 {showCustomerDropdown && customerSearch && customerSearch.length >= 2 && !/\d/.test(customerSearch) && (() => {
   const searchTerm = customerSearch.toLowerCase().trim();
   
-  // Log all customers first
-  console.log('📋 [AddSaleModal] All customers (name search):', {
-    total: customers.length,
-    customers: customers.map(c => ({
-      id: c.id,
-      name: c.name,
-      phone: c.phone,
-      companyId: c.companyId
-    }))
-  });
-  
   // Filter customers by name match
   const filteredCustomers = customers.filter(c => {
     if (!c.name) {
-      console.log('⚠️ [AddSaleModal] Customer without name:', c.id, c.phone);
       return false;
     }
     const customerName = (c.name || '').toLowerCase();
-    const matches = customerName.includes(searchTerm);
-    if (matches) {
-      console.log('✅ [AddSaleModal] Customer matches (name):', {
-        id: c.id,
-        name: c.name,
-        phone: c.phone,
-        customerNameLower: customerName,
-        searchTerm: searchTerm
-      });
-    }
-    return matches;
-  });
-  
-  console.log('🔍 [AddSaleModal] Name dropdown check:', {
-    showCustomerDropdown,
-    customerSearch,
-    searchTerm,
-    filteredCustomersCount: filteredCustomers.length,
-    customersCount: customers.length,
-    filteredCustomers: filteredCustomers.map(c => ({
-      id: c.id,
-      name: c.name,
-      phone: c.phone
-    }))
+    return customerName.includes(searchTerm);
   });
   
   // Don't show dropdown if no results
@@ -453,6 +383,54 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                   placeholder="Quarter (optional)"
               />
             </div>
+            
+            {/* Customer Source Dropdown */}
+            {activeSources.length > 0 && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Source Clientelle
+                </label>
+                <Select
+                  options={[
+                    { value: '', label: 'Aucune source' },
+                    ...activeSources.map(source => ({
+                      value: source.id,
+                      label: source.name,
+                      color: source.color || '#3B82F6'
+                    }))
+                  ]}
+                  value={activeSources.find(s => s.id === formData.customerSourceId) 
+                    ? { 
+                        value: formData.customerSourceId || '', 
+                        label: activeSources.find(s => s.id === formData.customerSourceId)?.name || '',
+                        color: activeSources.find(s => s.id === formData.customerSourceId)?.color || '#3B82F6'
+                      }
+                    : { value: '', label: 'Aucune source' }
+                  }
+                  onChange={(option) => {
+                    setFormData(prev => ({
+                      ...prev,
+                      customerSourceId: option?.value || ''
+                    }));
+                  }}
+                  formatOptionLabel={({ label, color }) => (
+                    <div className="flex items-center gap-2">
+                      {color && (
+                        <div
+                          className="w-3 h-3 rounded-full"
+                          style={{ backgroundColor: color }}
+                        />
+                      )}
+                      <span>{label}</span>
+                    </div>
+                  )}
+                  className="react-select-container"
+                  classNamePrefix="react-select"
+                  isClearable
+                  placeholder="Sélectionner une source..."
+                />
+              </div>
+            )}
             
             {/* Bouton pour afficher/masquer les informations supplémentaires */}
             <div className="mt-4">
