@@ -28,6 +28,8 @@ import ProductsManager from '../services/storage/ProductsManager';
 import SalesManager from '../services/storage/SalesManager';
 import ExpensesManager from '../services/storage/ExpensesManager';
 import BackgroundSyncService from '../services/backgroundSync';
+import { getCurrentEmployeeRef } from '../utils/employeeUtils';
+import { getUserById } from '../services/userService';
 import type {
   Product,
   Sale,
@@ -185,7 +187,7 @@ export const useCategories = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-  const { user, company } = useAuth();
+  const { user, company, currentEmployee, isOwner } = useAuth();
 
   useEffect(() => {
     if (!user || !company) return;
@@ -213,7 +215,22 @@ export const useCategories = () => {
   const addCategory = async (name: string) => {
     if (!user || !company) throw new Error('User not authenticated');
     try {
-      const category = await createCategory({ name, userId: user.uid, companyId: company.id }, company.id);
+      // Get createdBy employee reference
+      let createdBy = null;
+      if (user && company) {
+        let userData = null;
+        if (isOwner && !currentEmployee) {
+          // If owner, fetch user data to create EmployeeRef
+          try {
+            userData = await getUserById(user.uid);
+          } catch (error) {
+            console.error('Error fetching user data for createdBy:', error);
+          }
+        }
+        createdBy = getCurrentEmployeeRef(currentEmployee, user, isOwner, userData);
+      }
+      
+      const category = await createCategory({ name, userId: user.uid, companyId: company.id }, company.id, createdBy);
       return category;
     } catch (err) {
       setError(err as Error);
@@ -794,7 +811,7 @@ export const useSuppliers = () => {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-  const { user, company } = useAuth();
+  const { user, company, currentEmployee, isOwner } = useAuth();
 
   useEffect(() => {
     if (!user || !company) return;
@@ -822,9 +839,24 @@ export const useSuppliers = () => {
   }, [user, company]);
 
   const addSupplier = async (supplierData: Omit<Supplier, 'id' | 'createdAt' | 'updatedAt'>) => {
-    if (!user) throw new Error('User not authenticated');
+    if (!user || !company) throw new Error('User not authenticated');
     try {
-      await createSupplier(supplierData, company.id);
+      // Get createdBy employee reference
+      let createdBy = null;
+      if (user && company) {
+        let userData = null;
+        if (isOwner && !currentEmployee) {
+          // If owner, fetch user data to create EmployeeRef
+          try {
+            userData = await getUserById(user.uid);
+          } catch (error) {
+            console.error('Error fetching user data for createdBy:', error);
+          }
+        }
+        createdBy = getCurrentEmployeeRef(currentEmployee, user, isOwner, userData);
+      }
+      
+      await createSupplier(supplierData, company.id, createdBy);
     } catch (err) {
       setError(err as Error);
       throw err;

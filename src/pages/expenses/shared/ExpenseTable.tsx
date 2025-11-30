@@ -3,6 +3,7 @@ import { Edit2, Trash2, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import Table from '../../../components/common/Table';
 import Badge from '../../../components/common/Badge';
+import { formatCreatorName } from '../../../utils/employeeUtils';
 import type { Expense } from '../../../types/models';
 
 interface ExpenseTableProps {
@@ -49,6 +50,12 @@ const ExpenseTable = ({ expenses, onEdit, onDelete, loading, deleteLoading, dele
         if (!timestamp?.seconds) return 'N/A';
         return new Date(timestamp.seconds * 1000).toLocaleDateString();
       },
+    },
+    { 
+      header: 'Créé par', 
+      accessor: (expense: Expense) => (
+        <span className="text-gray-600">{formatCreatorName(expense.createdBy)}</span>
+      ),
     },
     { 
       header: t('expenses.table.actions'), 
