@@ -7,6 +7,7 @@ import { Plus, Edit, Trash2, Users } from 'lucide-react';
 import { 
   getCompanyTemplates, 
   createTemplate, 
+  updateTemplate,
   deleteTemplate
 } from '../../services/permissionTemplateService';
 import { getDefaultPermissionTemplates } from '../../types/permissions';
@@ -50,9 +51,24 @@ const PermissionTemplateManager = ({ onTemplateChange }: PermissionTemplateManag
       await createTemplate(company.id, user.uid, templateData);
       await loadTemplates();
       setShowForm(false);
+      setEditingTemplate(null);
       onTemplateChange?.();
     } catch (error) {
       console.error('Error creating template:', error);
+    }
+  };
+
+  const handleUpdateTemplate = async (templateData: Omit<PermissionTemplate, 'id' | 'companyId' | 'createdAt' | 'updatedAt' | 'createdBy'>) => {
+    if (!company?.id || !editingTemplate) return;
+    
+    try {
+      await updateTemplate(company.id, editingTemplate.id, templateData);
+      await loadTemplates();
+      setShowForm(false);
+      setEditingTemplate(null);
+      onTemplateChange?.();
+    } catch (error) {
+      console.error('Error updating template:', error);
     }
   };
 
@@ -99,9 +115,7 @@ const PermissionTemplateManager = ({ onTemplateChange }: PermissionTemplateManag
     count += permissions.canView.length;
     count += permissions.canEdit.length;
     count += permissions.canDelete.length;
-    if (permissions.canAccessSettings) count++;
-    if (permissions.canAccessFinance) count++;
-    if (permissions.canAccessHR) count++;
+    // Note: canAccessSettings, canAccessFinance, canAccessHR removed - now part of canView array
     return count;
   };
 
@@ -113,7 +127,7 @@ const PermissionTemplateManager = ({ onTemplateChange }: PermissionTemplateManag
     return (
       <PermissionTemplateForm
         template={editingTemplate}
-        onSave={handleCreateTemplate}
+        onSave={editingTemplate ? handleUpdateTemplate : handleCreateTemplate}
         onCancel={() => {
           setShowForm(false);
           setEditingTemplate(null);

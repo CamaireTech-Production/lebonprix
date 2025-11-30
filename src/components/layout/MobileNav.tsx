@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, ShoppingCart, DollarSign, Package2, FileBarChart, Receipt, Settings, Users, Grid3X3, ShoppingBag} from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, DollarSign, Package2, FileBarChart, Receipt, Settings, Users, Grid3X3, ShoppingBag, Loader2} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
 import { useRolePermissions } from '../../hooks/useRolePermissions';
@@ -8,7 +8,7 @@ const MobileNav = () => {
   const { t } = useTranslation();
   const location = useLocation();
   const { effectiveRole, isOwner } = useAuth();
-  const { canAccess, canAccessFinance, canAccessHR, canAccessSettings } = useRolePermissions();
+  const { canAccess, canAccessFinance, canAccessHR, canAccessSettings, templateLoading } = useRolePermissions();
   
   // Vérifier si on est dans une route d'entreprise
   const isCompanyRoute = location.pathname.startsWith('/company/');
@@ -23,6 +23,10 @@ const MobileNav = () => {
   if (isEmployeeDashboard || (isCompanyRoute && !companyId)) {
     return null;
   }
+  
+  // Vérifier si on doit afficher le loader pour le template
+  const isActualOwner = isOwner || effectiveRole === 'owner';
+  const showTemplateLoader = !isActualOwner && templateLoading;
   
   const isActive = (path: string) => {
     return location.pathname === path;
@@ -94,28 +98,26 @@ const MobileNav = () => {
   return (
     <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 md:hidden pb-safe">
       <nav className="flex overflow-x-auto scrollbar-hide">
-        {navigationItems.map((item) => {
-          // Vérifier si l'utilisateur a accès à cet élément
-          let hasAccess = true;
-          
-          // Les propriétaires ont accès à tout
-          if (!isOwner) {
+        {showTemplateLoader ? (
+          <div className="flex items-center justify-center w-full py-4">
+            <Loader2 className="h-6 w-6 text-emerald-500 animate-spin mr-2" />
+            <span className="text-sm text-gray-500">Chargement des permissions...</span>
+          </div>
+        ) : (
+          navigationItems.map((item) => {
+            // Vérifier si l'utilisateur a accès à cet élément
+            let hasAccess = true;
+            
+            // Les propriétaires ont accès à tout
+            if (!isActualOwner) {
             const resource = (item as any).resource;
             
             if (resource) {
-              // Permissions spéciales pour Finance, HR et Settings
-              if (resource === 'finance') {
-                hasAccess = canAccessFinance;
-              } else if (resource === 'hr') {
-                hasAccess = canAccessHR;
-              } else if (resource === 'settings') {
-                hasAccess = canAccessSettings;
-              } else {
-                // Pour les autres ressources, utiliser canAccess
-                hasAccess = canAccess(resource);
-              }
-            } else if ((item as any).allowedRoles) {
-              hasAccess = effectiveRole ? (item as any).allowedRoles.includes(effectiveRole) : false;
+              // Toutes les ressources utilisent maintenant canAccess (unifié avec canView array)
+              hasAccess = canAccess(resource);
+            } else {
+              // If no resource specified, deny access by default for non-owners
+              hasAccess = false;
             }
           }
           
@@ -136,7 +138,8 @@ const MobileNav = () => {
               <span className="mt-1 truncate">{item.name}</span>
             </Link>
           );
-        })}
+        })
+        )}
       </nav>
     </div>
   );

@@ -173,7 +173,7 @@ const Checkout = () => {
         }
         createdBy = getCurrentEmployeeRef(currentEmployee, user, isOwner, userData);
       }
-      
+
       // Create order in database
       const order = await createOrder(
         companyId,

@@ -17,8 +17,8 @@ class BackgroundSyncService {
   /**
    * Sync products in background
    */
-  static async syncProducts(userId: string, onUpdate?: (products: Product[]) => void): Promise<void> {
-    const key = `products_${userId}`;
+  static async syncProducts(companyId: string, onUpdate?: (products: Product[]) => void): Promise<void> {
+    const key = `products_${companyId}`;
     
     // Prevent duplicate syncs
     if (this.syncInProgress.has(key)) {
@@ -34,12 +34,12 @@ class BackgroundSyncService {
     try {
       
       // Check if sync is needed
-      if (!ProductsManager.needsSync(userId)) {
+      if (!ProductsManager.needsSync(companyId)) {
         
         // Still notify callback that sync is complete (data is fresh)
         const callback = this.syncCallbacks.get(key);
         if (callback) {
-          const localProducts = ProductsManager.load(userId);
+          const localProducts = ProductsManager.load(companyId);
           if (localProducts) {
             callback(localProducts);
           }
@@ -52,14 +52,14 @@ class BackgroundSyncService {
       }
 
       // Subscribe to Firebase for fresh data
-      const unsubscribe = subscribeToProducts(userId, (freshProducts) => {
+      const unsubscribe = subscribeToProducts(companyId, (freshProducts) => {
         
         // Get current local data
-        const localProducts = ProductsManager.load(userId);
+        const localProducts = ProductsManager.load(companyId);
         
         // Check if data has actually changed
         if (localProducts && !ProductsManager.hasChanged(localProducts, freshProducts)) {
-          ProductsManager.updateLastSync(userId);
+          ProductsManager.updateLastSync(companyId);
           
           // Still notify callback that sync is complete (even if no data change)
           const callback = this.syncCallbacks.get(key);
@@ -75,7 +75,7 @@ class BackgroundSyncService {
         }
 
         // Data has changed, update localStorage
-        ProductsManager.save(userId, freshProducts);
+        ProductsManager.save(companyId, freshProducts);
         
         // Notify callback if provided
         const callback = this.syncCallbacks.get(key);
@@ -92,7 +92,7 @@ class BackgroundSyncService {
       // Set timeout to prevent hanging syncs
       setTimeout(() => {
         if (this.syncInProgress.has(key)) {
-          console.warn(`⏰ Products sync timeout for user: ${userId}`);
+          console.warn(`⏰ Products sync timeout for company: ${companyId}`);
           unsubscribe();
           this.syncInProgress.delete(key);
           this.syncCallbacks.delete(key);
@@ -100,7 +100,7 @@ class BackgroundSyncService {
       }, 30000); // 30 second timeout
 
     } catch (error) {
-      console.error(`❌ Background sync failed for products: ${userId}`, error);
+      console.error(`❌ Background sync failed for products: ${companyId}`, error);
       this.syncInProgress.delete(key);
       this.syncCallbacks.delete(key);
     }
@@ -109,20 +109,20 @@ class BackgroundSyncService {
   /**
    * Force immediate sync for products
    */
-  static async forceSyncProducts(userId: string, onUpdate?: (products: Product[]) => void): Promise<void> {
+  static async forceSyncProducts(companyId: string, onUpdate?: (products: Product[]) => void): Promise<void> {
     
     // Remove from localStorage to force fresh fetch
-    ProductsManager.remove(userId);
+    ProductsManager.remove(companyId);
     
     // Start sync
-    await this.syncProducts(userId, onUpdate);
+    await this.syncProducts(companyId, onUpdate);
   }
 
   /**
    * Check if sync is in progress
    */
-  static isSyncing(userId: string): boolean {
-    return this.syncInProgress.has(`products_${userId}`);
+  static isSyncing(companyId: string): boolean {
+    return this.syncInProgress.has(`products_${companyId}`);
   }
 
   /**

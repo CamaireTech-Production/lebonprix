@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Card from '../common/Card';
 import Button from '../common/Button';
 import { cancelInvitation, sendInvitationEmailToUser, getInvitationLink } from '../../services/invitationService';
+import { getTemplateById } from '../../services/permissionTemplateService';
 import { formatDistanceToNow } from 'date-fns';
 import { Mail, Clock, User, Trash2, RefreshCw, Copy } from 'lucide-react';
 import type { Invitation } from '../../types/models';
+import type { PermissionTemplate } from '../../types/permissions';
 import { showSuccessToast, showErrorToast } from '../../utils/toast';
 
 interface PendingInvitationsListProps {
@@ -16,6 +18,31 @@ const PendingInvitationsList = ({ invitations, onInvitationCancelled }: PendingI
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [resendingId, setResendingId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [templates, setTemplates] = useState<Record<string, PermissionTemplate>>({});
+
+  useEffect(() => {
+    // Load templates for all invitations
+    const loadTemplates = async () => {
+      const templateMap: Record<string, PermissionTemplate> = {};
+      for (const invitation of invitations) {
+        if (invitation.permissionTemplateId && invitation.companyId) {
+          try {
+            const template = await getTemplateById(invitation.companyId, invitation.permissionTemplateId);
+            if (template) {
+              templateMap[invitation.permissionTemplateId] = template;
+            }
+          } catch (error) {
+            console.error(`Error loading template ${invitation.permissionTemplateId}:`, error);
+          }
+        }
+      }
+      setTemplates(templateMap);
+    };
+
+    if (invitations.length > 0) {
+      loadTemplates();
+    }
+  }, [invitations]);
 
   const handleCancelInvitation = async (invitationId: string) => {
     if (!confirm('Are you sure you want to cancel this invitation?')) return;
@@ -59,13 +86,11 @@ const PendingInvitationsList = ({ invitations, onInvitationCancelled }: PendingI
     }
   };
 
-  const getRoleDisplayName = (role: string) => {
-    switch (role) {
-      case 'staff': return 'Staff (Vendeur)';
-      case 'manager': return 'Manager (Gestionnaire)';
-      case 'admin': return 'Admin (Magasinier)';
-      default: return role;
+  const getTemplateDisplayName = (invitation: Invitation) => {
+    if (invitation.permissionTemplateId && templates[invitation.permissionTemplateId]) {
+      return templates[invitation.permissionTemplateId].name;
     }
+    return 'Loading...';
   };
 
   const getStatusColor = (status: string) => {
@@ -125,8 +150,8 @@ const PendingInvitationsList = ({ invitations, onInvitationCancelled }: PendingI
                     
                     <div className="mt-2 flex items-center space-x-4 text-sm text-gray-500">
                       <span className="flex items-center">
-                        <span className="font-medium">Role:</span>
-                        <span className="ml-1">{getRoleDisplayName(invitation.role)}</span>
+                        <span className="font-medium">Template:</span>
+                        <span className="ml-1">{getTemplateDisplayName(invitation)}</span>
                       </span>
                       <span className="flex items-center">
                         <Clock className="h-4 w-4 mr-1" />

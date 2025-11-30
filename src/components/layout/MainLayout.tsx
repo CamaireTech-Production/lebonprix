@@ -24,7 +24,7 @@ const MainLayout = ({ isAddSaleModalOpen, setIsAddSaleModalOpen }: MainLayoutPro
   const [companyError, setCompanyError] = useState<string | null>(null);
   const [showLockedModal, setShowLockedModal] = useState(false);
   const location = useLocation();
-  const { selectCompany, company, isOwner, currentEmployee } = useAuth();
+  const { selectCompany, company, isOwner, currentEmployee, effectiveRole } = useAuth();
 
   // Vérifier qu'une entreprise est sélectionnée pour les routes /company/:companyId/*
   const isCompanyRoute = location.pathname.startsWith('/company/');
@@ -172,7 +172,9 @@ const MainLayout = ({ isAddSaleModalOpen, setIsAddSaleModalOpen }: MainLayoutPro
   }
 
   // Check if user is managing a company account (employee, not owner)
-  const isManagingCompanyAccount = company && !isOwner && currentEmployee;
+  // Un utilisateur est owner si isOwner est true OU si effectiveRole est 'owner'
+  const isActualOwner = isOwner || effectiveRole === 'owner';
+  const isManagingCompanyAccount = company && !isActualOwner && currentEmployee;
 
   return (
     <div className="h-screen flex flex-col">

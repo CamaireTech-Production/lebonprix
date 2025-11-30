@@ -3,6 +3,7 @@ import Card from '../common/Card';
 import Button from '../common/Button';
 import { X, Check } from 'lucide-react';
 import { PermissionTemplate, RolePermissions } from '../../types/permissions';
+import { ALL_RESOURCES, getResourceLabel } from '../../constants/resources';
 
 interface PermissionTemplateFormProps {
   template?: PermissionTemplate | null;
@@ -13,14 +14,12 @@ interface PermissionTemplateFormProps {
 const PermissionTemplateForm = ({ template, onSave, onCancel }: PermissionTemplateFormProps) => {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [baseRole, setBaseRole] = useState<'staff' | 'manager' | 'admin' | ''>('');
   const [permissions, setPermissions] = useState<RolePermissions>({
     canView: [],
     canEdit: [],
     canDelete: [],
     canManageEmployees: [],
-    canAccessSettings: false,
-    canAccessFinance: false,
-    canAccessHR: false
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -28,41 +27,26 @@ const PermissionTemplateForm = ({ template, onSave, onCancel }: PermissionTempla
     if (template) {
       setName(template.name);
       setDescription(template.description || '');
-      setPermissions(template.permissions);
+      setBaseRole(template.baseRole || '');
+      // Remove legacy boolean fields if they exist (for backward compatibility)
+      const { canAccessSettings, canAccessFinance, canAccessHR, ...cleanPermissions } = template.permissions as any;
+      setPermissions(cleanPermissions);
     }
   }, [template]);
 
-  const allResources = [
-    'dashboard', 'sales', 'products', 'customers', 'orders', 
-    'expenses', 'finance', 'reports', 'categories', 'suppliers'
-  ];
+  // Use RESOURCES constants for all resources
+  const allResources = ALL_RESOURCES;
 
   const handlePermissionChange = (type: keyof RolePermissions, resource: string, checked: boolean) => {
-    if (type === 'canAccessSettings' || type === 'canAccessFinance' || type === 'canAccessHR') {
-      setPermissions(prev => ({
-        ...prev,
-        [type]: checked
-      }));
-      return;
-    }
-
     setPermissions(prev => ({
       ...prev,
       [type]: checked 
-        ? [...prev[type], resource]
-        : prev[type].filter(r => r !== resource)
+        ? [...(prev[type] as string[]), resource]
+        : (prev[type] as string[]).filter(r => r !== resource)
     }));
   };
 
   const handleSelectAll = (type: keyof RolePermissions, checked: boolean) => {
-    if (type === 'canAccessSettings' || type === 'canAccessFinance' || type === 'canAccessHR') {
-      setPermissions(prev => ({
-        ...prev,
-        [type]: checked
-      }));
-      return;
-    }
-
     setPermissions(prev => ({
       ...prev,
       [type]: checked ? allResources : []
@@ -82,6 +66,7 @@ const PermissionTemplateForm = ({ template, onSave, onCancel }: PermissionTempla
       await onSave({
         name: name.trim(),
         description: description.trim(),
+        ...(baseRole && { baseRole: baseRole as 'staff' | 'manager' | 'admin' }),
         permissions
       });
     } catch (error) {
@@ -138,6 +123,25 @@ const PermissionTemplateForm = ({ template, onSave, onCancel }: PermissionTempla
                 rows={3}
               />
             </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Base Role (Optional)
+              </label>
+              <select
+                value={baseRole}
+                onChange={(e) => setBaseRole(e.target.value as 'staff' | 'manager' | 'admin' | '')}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              >
+                <option value="">Auto-detect from permissions</option>
+                <option value="staff">Staff (Vendeur)</option>
+                <option value="manager">Manager (Gestionnaire)</option>
+                <option value="admin">Admin (Magasinier)</option>
+              </select>
+              <p className="text-xs text-gray-500 mt-1">
+                Leave empty to automatically detect based on selected permissions. This is only a label for display purposes - actual access is controlled by the checkboxes below.
+              </p>
+            </div>
           </div>
 
           {/* Permissions */}
@@ -167,7 +171,7 @@ const PermissionTemplateForm = ({ template, onSave, onCancel }: PermissionTempla
                       onChange={(e) => handlePermissionChange('canView', resource, e.target.checked)}
                       className="mr-2"
                     />
-                    {resource.charAt(0).toUpperCase() + resource.slice(1)}
+                    {getResourceLabel(resource)}
                   </label>
                 ))}
               </div>
@@ -196,7 +200,7 @@ const PermissionTemplateForm = ({ template, onSave, onCancel }: PermissionTempla
                       onChange={(e) => handlePermissionChange('canEdit', resource, e.target.checked)}
                       className="mr-2"
                     />
-                    {resource.charAt(0).toUpperCase() + resource.slice(1)}
+                    {getResourceLabel(resource)}
                   </label>
                 ))}
               </div>
@@ -225,45 +229,12 @@ const PermissionTemplateForm = ({ template, onSave, onCancel }: PermissionTempla
                       onChange={(e) => handlePermissionChange('canDelete', resource, e.target.checked)}
                       className="mr-2"
                     />
-                    {resource.charAt(0).toUpperCase() + resource.slice(1)}
+                    {getResourceLabel(resource)}
                   </label>
                 ))}
               </div>
             </div>
 
-            {/* Special Access */}
-            <div>
-              <h4 className="text-sm font-medium text-gray-700 mb-3">Special Access</h4>
-              <div className="space-y-2">
-                <label className="flex items-center text-sm">
-                  <input
-                    type="checkbox"
-                    checked={permissions.canAccessSettings}
-                    onChange={(e) => handlePermissionChange('canAccessSettings', '', e.target.checked)}
-                    className="mr-2"
-                  />
-                  Settings Management
-                </label>
-                <label className="flex items-center text-sm">
-                  <input
-                    type="checkbox"
-                    checked={permissions.canAccessFinance}
-                    onChange={(e) => handlePermissionChange('canAccessFinance', '', e.target.checked)}
-                    className="mr-2"
-                  />
-                  Finance Management
-                </label>
-                <label className="flex items-center text-sm">
-                  <input
-                    type="checkbox"
-                    checked={permissions.canAccessHR}
-                    onChange={(e) => handlePermissionChange('canAccessHR', '', e.target.checked)}
-                    className="mr-2"
-                  />
-                  HR Management
-                </label>
-              </div>
-            </div>
           </div>
 
           {/* Submit */}

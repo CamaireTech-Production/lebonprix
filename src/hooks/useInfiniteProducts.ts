@@ -20,7 +20,7 @@ interface UseInfiniteProductsReturn {
 const PRODUCTS_PER_PAGE = 20;
 
 export const useInfiniteProducts = (): UseInfiniteProductsReturn => {
-  const { user } = useAuth();
+  const { user, company } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false); // Start as false
   const [loadingMore, setLoadingMore] = useState(false);
@@ -31,13 +31,22 @@ export const useInfiniteProducts = (): UseInfiniteProductsReturn => {
 
   // Load initial products
   const loadInitialProducts = useCallback(async () => {
-    if (!user?.uid) {
+    console.log('🔍 [useInfiniteProducts] Loading products:', {
+      hasUser: !!user,
+      userId: user?.uid,
+      hasCompany: !!company,
+      companyId: company?.id,
+      companyName: company?.name
+    });
+    
+    if (!user?.uid || !company?.id) {
+      console.log('❌ [useInfiniteProducts] Cannot load - missing user or company');
       setLoading(false);
       return;
     }
 
     // 1. Check localStorage FIRST - instant display if data exists
-    const localProducts = ProductsManager.load(user.uid);
+    const localProducts = ProductsManager.load(company.id);
     if (localProducts && localProducts.length > 0) {
       const visibleProducts = localProducts.filter(product => 
         product.isAvailable !== false
@@ -48,7 +57,7 @@ export const useInfiniteProducts = (): UseInfiniteProductsReturn => {
       console.log('🚀 Products loaded instantly from localStorage');
       
       // Start background sync
-      BackgroundSyncService.syncProducts(user.uid, (freshProducts) => {
+      BackgroundSyncService.syncProducts(company.id, (freshProducts) => {
         const visibleProducts = freshProducts.filter(product => 
           product.isAvailable !== false
         );
@@ -66,7 +75,7 @@ export const useInfiniteProducts = (): UseInfiniteProductsReturn => {
 
       const q = query(
         collection(db, 'products'),
-        where('userId', '==', user.uid),
+        where('companyId', '==', company.id),
         orderBy('createdAt', 'desc'),
         limit(PRODUCTS_PER_PAGE)
       );
@@ -86,7 +95,7 @@ export const useInfiniteProducts = (): UseInfiniteProductsReturn => {
       setHasMore(snapshot.docs.length === PRODUCTS_PER_PAGE);
       
       // Save to localStorage for future instant loads
-      ProductsManager.save(user.uid, productsData);
+      ProductsManager.save(company.id, productsData);
       console.log(`✅ Initial products loaded and cached: ${productsData.length} items`);
     } catch (err) {
       console.error('❌ Error loading initial products:', err);
@@ -94,11 +103,11 @@ export const useInfiniteProducts = (): UseInfiniteProductsReturn => {
     } finally {
       setLoading(false);
     }
-  }, [user?.uid]);
+  }, [user?.uid, company?.id]);
 
   // Load more products (infinite scroll)
   const loadMore = useCallback(async () => {
-    if (!user?.uid || !lastDoc || loadingMore || !hasMore) return;
+    if (!user?.uid || !company?.id || !lastDoc || loadingMore || !hasMore) return;
 
     try {
       setLoadingMore(true);
@@ -106,7 +115,7 @@ export const useInfiniteProducts = (): UseInfiniteProductsReturn => {
 
       const q = query(
         collection(db, 'products'),
-        where('userId', '==', user.uid),
+        where('companyId', '==', company.id),
         orderBy('createdAt', 'desc'),
         startAfter(lastDoc),
         limit(PRODUCTS_PER_PAGE)
@@ -140,33 +149,33 @@ export const useInfiniteProducts = (): UseInfiniteProductsReturn => {
     } finally {
       setLoadingMore(false);
     }
-  }, [user?.uid, lastDoc, loadingMore, hasMore]);
+  }, [user?.uid, company?.id, lastDoc, loadingMore, hasMore]);
 
   // Refresh products (reset and reload)
   const refresh = useCallback(() => {
     // Clear localStorage to force fresh data with images
-    if (user?.uid) {
-      ProductsManager.remove(user.uid);
+    if (company?.id) {
+      ProductsManager.remove(company.id);
     }
     setProducts([]);
     setLastDoc(null);
     setHasMore(true);
     loadInitialProducts();
-  }, [loadInitialProducts, user?.uid]);
+  }, [loadInitialProducts, company?.id]);
 
-  // Load initial products when user changes
+  // Load initial products when user or company changes
   useEffect(() => {
-    if (user?.uid) {
+    if (user?.uid && company?.id) {
       loadInitialProducts();
     } else {
-      // Reset state when user is not available
+      // Reset state when user or company is not available
       setProducts([]);
       setLastDoc(null);
       setHasMore(true);
       setLoading(false);
       setError(null);
     }
-  }, [user?.uid, loadInitialProducts]);
+  }, [user?.uid, company?.id, loadInitialProducts]);
 
   return {
     products,
