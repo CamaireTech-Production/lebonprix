@@ -82,13 +82,13 @@ src/__tests__/
 |---------|--------|----------|------------|--------------|
 | **Section 1: Pure Utility Functions** | ✅ COMPLETED | 100% | 4/4 | 2024-11-17 |
 | **Section 2: Financial Calculations** | ✅ COMPLETED | 100% | 1/1 | 2024-11-17 |
-| **Section 3: Service Layer** | ❌ Not Started | 0% | 0/7 | - |
+| **Section 3: Service Layer** | 🟡 In Progress | ~15% | 2/7 | 2024-11-17 |
 | **Section 4: Custom Hooks** | ❌ Not Started | 0% | 0/8 | - |
 | **Section 5: Components** | ❌ Not Started | 0% | 0/15 | - |
 
-**Overall Coverage**: ~8%  
-**Total Test Files**: 5/35 (14.3%)  
-**Total Test Cases**: 196 (5 setup + 60 inventory + 19 product + 63 cache + 49 financial)
+**Overall Coverage**: ~10%  
+**Total Test Files**: 7/35 (20%)  
+**Total Test Cases**: ~250+ (5 setup + 60 inventory + 19 product + 63 cache + 49 financial + ~50 expenses)
 
 ---
 
@@ -218,11 +218,29 @@ src/__tests__/
 - **Files**:
   - `src/services/storage/ProductsManager.test.ts`
   - `src/services/storage/SalesManager.test.ts`
-  - `src/services/storage/ExpensesManager.test.ts`
+  - ✅ `src/services/storage/ExpensesManager/ExpensesManager.test.ts` - **COMPLETED**
   - `src/services/storage/CompanyManager.test.ts`
-- **Status**: ❌ Not Started
-- **Coverage**: 0%
+- **Status**: 🟡 In Progress (1/4 completed)
+- **Coverage**: ~25% (ExpensesManager: 100%)
 - **Notes**: Test localStorage integration and TTL logic
+- **ExpensesManager**: 20 tests covering all methods (getKey, load, save, needsSync, hasChanged, updateLastSync, getLastSync, remove, exists, getStorageInfo)
+
+#### 3.1.1 Expenses Service Layer ✅ COMPLETED
+- **Files**:
+  - ✅ `src/__tests__/utils/expenseCalculations/expenseCalculations.test.ts` - **COMPLETED**
+  - ✅ `src/__tests__/services/expenses/expenses.test.ts` - **COMPLETED**
+  - ✅ `src/__tests__/services/expenses/expenseSync.test.ts` - **COMPLETED**
+- **Status**: ✅ COMPLETED
+- **Coverage**: 100%
+- **Refactoring Performed**:
+  - ✅ Extracted `useExpenseStats` logic into pure functions (`expenseCalculations.ts`)
+  - ✅ Created `filterExpenses()`, `calculateExpenseStats()`, `calculateCategoryBreakdown()`
+  - ✅ Refactored `useExpenseStats.ts` to use extracted functions
+- **Test Cases**: ~50+ tests
+  - Expense calculations: 20+ tests (filtering, stats, breakdown)
+  - Expenses CRUD: 15+ tests (create, update, softDelete)
+  - Expense sync: 10+ tests (finance entry synchronization)
+- **Date Completed**: 2024-11-17
 
 #### 3.2 Abstract Repositories (After Refactoring)
 - **Files** (to be created after refactoring):
@@ -245,7 +263,9 @@ src/__tests__/
 - **Status**: ❌ Not Started
 - **Coverage**: 0%
 
-**Section 3 Progress**: 0/7 files completed
+**Section 3 Progress**: 2/7 files completed (28.6%)
+- ✅ ExpensesManager.test.ts
+- ✅ Expenses service tests (expenseCalculations, expenses CRUD, expenseSync)
 
 ---
 

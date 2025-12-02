@@ -12,7 +12,7 @@ import {
   Info,
   ChevronsLeft,
   ChevronLeft,
-  ChevronsRight,
+  ChevronsRight
 } from 'lucide-react';
 import Select from 'react-select';
 import Modal, { ModalFooter } from '../components/common/Modal';
@@ -33,7 +33,7 @@ import Invoice from '../components/sales/Invoice';
 import { generatePDF, generatePDFBlob } from '../utils/pdf';
 import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
-import { addCustomer, softDeleteSale } from '../services/firestore';
+import { softDeleteSale } from '../services/firestore';
 import { formatCreatorName } from '../utils/employeeUtils';
 import { createPortal } from 'react-dom';
 import AddSaleModal from '../components/sales/AddSaleModal';
@@ -978,24 +978,25 @@ const Sales: React.FC = () => {
             {activeSources.length > 0 && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Source Clientelle
+                  Source Clientelle <span className="text-gray-500 font-normal">(optionnel)</span>
                 </label>
                 <Select
                   options={[
-                    { value: '', label: 'Aucune source' },
+                    { value: '', label: 'Aucune source', color: '#9CA3AF' },
                     ...activeSources.map(source => ({
                       value: source.id,
                       label: source.name,
                       color: source.color || '#3B82F6'
                     }))
                   ]}
-                  value={activeSources.find(s => s.id === formData.customerSourceId) 
-                    ? { 
-                        value: formData.customerSourceId || '', 
-                        label: activeSources.find(s => s.id === formData.customerSourceId)?.name || '',
-                        color: activeSources.find(s => s.id === formData.customerSourceId)?.color || '#3B82F6'
-                      }
-                    : { value: '', label: 'Aucune source' }
+                  value={
+                    formData.customerSourceId && activeSources.find(s => s.id === formData.customerSourceId)
+                      ? { 
+                          value: formData.customerSourceId, 
+                          label: activeSources.find(s => s.id === formData.customerSourceId)?.name || '',
+                          color: activeSources.find(s => s.id === formData.customerSourceId)?.color || '#3B82F6'
+                        }
+                      : null
                   }
                   onChange={(option) => {
                     setFormData(prev => ({
@@ -1017,7 +1018,8 @@ const Sales: React.FC = () => {
                   className="react-select-container"
                   classNamePrefix="react-select"
                   isClearable
-                  placeholder="Sélectionner une source..."
+                  placeholder="Sélectionner une source (optionnel)..."
+                  isSearchable={false}
                 />
               </div>
             )}

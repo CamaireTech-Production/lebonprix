@@ -10,6 +10,7 @@ import { showSuccessToast, showErrorToast, showWarningToast } from '../../../uti
 import { logError, logWarning } from '../../../utils/logger';
 import { useExpenseCategories } from '../../../hooks/useExpenseCategories';
 import { getUserById } from '../../../services/userService';
+import { getCurrentEmployeeRef } from '../../../utils/employeeUtils';
 import type { Expense} from '../../../types/models';
 
 interface ExpenseFormModalProps {
