@@ -1,12 +1,13 @@
 import { useState, useRef, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Menu, Bell, Search, User, Settings, LogOut, Users } from 'lucide-react';
+import { Link, useNavigate, useLocation, useParams } from 'react-router-dom';
+import { Menu, Bell, Search, User, Settings, LogOut, Users, ScanLine } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import UserAvatar from '../common/UserAvatar';
 import LanguageSwitcher from '../common/LanguageSwitcher';
 import DownloadAppButton from '../common/DownloadAppButton';
 import { PWAStatusIndicator } from '../PWAStatusIndicator';
 import { useTranslation } from 'react-i18next';
+import { useRolePermissions } from '../../hooks/useRolePermissions';
 
 interface NavbarProps {
   onMenuClick: () => void;
@@ -17,8 +18,17 @@ const Navbar = ({ onMenuClick, isSelectionMode }: NavbarProps) => {
   const { t } = useTranslation();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const { company, signOut } = useAuth();
+  const { company, signOut, isOwner, effectiveRole } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const { companyId } = useParams<{ companyId: string }>();
+  const { canAccess } = useRolePermissions(company?.id);
+  
+  // Check if user has access to POS (sales resource)
+  const hasPOSAccess = isOwner || effectiveRole === 'owner' || canAccess('sales');
+  
+  // Check if we're on a company route
+  const isCompanyRoute = location.pathname.startsWith('/company/') && companyId;
 
   // Get dashboard colors
   const getDashboardColors = () => {
@@ -86,6 +96,18 @@ const Navbar = ({ onMenuClick, isSelectionMode }: NavbarProps) => {
 
         {/* Right actions */}
         <div className="flex items-center space-x-4">
+          {/* POS Button - only show if user has access and on company route */}
+          {hasPOSAccess && isCompanyRoute && !isSelectionMode && (
+            <Link
+              to={`/company/${companyId}/pos`}
+              className="flex items-center space-x-2 px-3 py-2 rounded-md transition-colors hover:bg-gray-100 text-gray-700 hover:text-gray-900"
+              title={t('navigation.pos')}
+            >
+              <ScanLine size={18} />
+              <span className="hidden sm:inline text-sm font-medium">{t('navigation.pos')}</span>
+            </Link>
+          )}
+          
           <LanguageSwitcher />
           
           {/* PWA Status Indicator */}

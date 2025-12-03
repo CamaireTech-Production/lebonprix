@@ -176,6 +176,14 @@ const MainLayout = ({ isAddSaleModalOpen, setIsAddSaleModalOpen }: MainLayoutPro
   const isActualOwner = isOwner || effectiveRole === 'owner';
   const isManagingCompanyAccount = company && !isActualOwner && currentEmployee;
 
+  // Check if current route is POS - render full-screen without layout
+  const isPOSRoute = location.pathname.includes('/pos');
+
+  // Full-screen POS layout (no sidebar, navbar, or padding)
+  if (isPOSRoute) {
+    return <Outlet />;
+  }
+
   return (
     <div className="h-screen flex flex-col">
       <Navbar onMenuClick={() => setSidebarOpen(!sidebarOpen)} />

@@ -1,4 +1,4 @@
-import { DollarSign, TrendingUp, Package2, Info, Receipt, Copy, Check, ExternalLink} from 'lucide-react';
+import { DollarSign, TrendingUp, Package2, Info, Receipt, Copy, Check, ExternalLink, ScanLine} from 'lucide-react';
 import StatCard from '../components/dashboard/StatCard';
 import SalesChart from '../components/dashboard/SalesChart';
 import ActivityList from '../components/dashboard/ActivityList';
@@ -16,6 +16,8 @@ import type { DashboardStats } from '../types/models';
 import { showSuccessToast, showErrorToast } from '../utils/toast';
 import { useTranslation } from 'react-i18next';
 import { getLatestCostPrice } from '../utils/productUtils';
+import { useNavigate, useParams } from 'react-router-dom';
+import { useRolePermissions } from '../hooks/useRolePermissions';
 import {
   calculateTotalProfit,
   calculateTotalExpenses,
@@ -34,6 +36,8 @@ import { combineActivities } from '../utils/activityUtils';
 
 const Dashboard = () => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const { companyId } = useParams<{ companyId: string }>();
   
   // 🚀 PROGRESSIVE LOADING: Load essential data first
   const { sales, loading: salesLoading } = useSales();
@@ -42,7 +46,11 @@ const Dashboard = () => {
   // 🔄 BACKGROUND LOADING: Load all sales in background after initial render
   const [allSales, setAllSales] = useState<any[]>([]);
   const [loadingAllSales, setLoadingAllSales] = useState(false);
-  const { user, company } = useAuth();
+  const { user, company, isOwner, effectiveRole } = useAuth();
+  const { canAccess } = useRolePermissions(company?.id);
+  
+  // Check if user has access to POS (sales resource)
+  const hasPOSAccess = isOwner || effectiveRole === 'owner' || canAccess('sales');
   
   // 🔄 BACKGROUND LOADING: Load secondary data in background (don't block UI)
   const { expenses, loading: expensesLoading } = useExpenses();
@@ -373,6 +381,29 @@ const Dashboard = () => {
 
   return (
     <div className="pb-16 md:pb-0">
+      {/* Quick Actions Section - POS Button */}
+      {hasPOSAccess && companyId && (
+        <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-semibold mb-1" style={{color: getCompanyColors().primary}}>
+                {t('dashboard.quickActions')}
+              </h3>
+              <p className="text-sm text-gray-600">
+                {t('dashboard.quickActionsDescription')}
+              </p>
+            </div>
+            <Button
+              onClick={() => navigate(`/company/${companyId}/pos`)}
+              icon={<ScanLine size={20} />}
+              className="ml-4"
+            >
+              {t('navigation.pos')}
+            </Button>
+          </div>
+        </div>
+      )}
+      
       {/* Company Products Link Section */}
       {company && (
         <div className="bg-white rounded-lg shadow-sm p-6 mt-6">

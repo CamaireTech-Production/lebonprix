@@ -19,6 +19,7 @@ const ModeSelection = lazy(() => import('./pages/ModeSelection'));
 const CompaniesManagement = lazy(() => import('./pages/CompaniesManagement'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Sales = lazy(() => import('./pages/Sales'));
+const POS = lazy(() => import('./pages/POS'));
 const Orders = lazy(() => import('./pages/Orders'));
 const Expenses = lazy(() => import('./pages/Expenses'));
 const ExpensesList = lazy(() => import('./pages/expenses/ExpensesList'));
@@ -66,7 +67,16 @@ function AppWithFAB({ isAddSaleModalOpen, setIsAddSaleModalOpen }: { isAddSaleMo
   return (
     <PWAErrorHandler>
       <Suspense fallback={<LoadingScreen />}>
-        <Toaster />
+        <Toaster 
+          containerStyle={{
+            zIndex: 9999, // Highest z-index to ensure toasts appear above all other elements
+          }}
+          toastOptions={{
+            style: {
+              zIndex: 9999, // Highest z-index for individual toasts
+            },
+          }}
+        />
         
         <Routes>
           {/* Root redirect to login */}
@@ -110,6 +120,7 @@ function AppWithFAB({ isAddSaleModalOpen, setIsAddSaleModalOpen }: { isAddSaleMo
             <Route path="/company/:companyId" element={<MainLayout isAddSaleModalOpen={isAddSaleModalOpen} setIsAddSaleModalOpen={setIsAddSaleModalOpen} />}>
               <Route path="dashboard" element={<LazyPage><Dashboard /></LazyPage>} />
               <Route path="sales" element={<LazyPage><Sales /></LazyPage>} />
+              <Route path="pos" element={<RoleRoute requiredResource="sales"><LazyPage><POS /></LazyPage></RoleRoute>} />
               <Route path="orders" element={<LazyPage><Orders /></LazyPage>} />
               <Route path="expenses" element={<Navigate to="expenses/list" replace />} />
               <Route path="expenses/list" element={<LazyPage><ExpensesList /></LazyPage>} />

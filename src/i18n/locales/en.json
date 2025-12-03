@@ -82,6 +82,8 @@
     "title": "Dashboard",
     "welcome": "Welcome back! Here's what's happening with your business today.",
     "howCalculated": "How are these calculated?",
+    "quickActions": "Quick Actions",
+    "quickActionsDescription": "Access frequently used features quickly",
     "stats": {
       "title": "Statistics",
       "grossProfit": "Gross Profit",
@@ -257,6 +259,15 @@
   "sales": {
     "title": "Sales",
     "subtitle": "Manage your sales transactions",
+    "validation": {
+      "productsRequired": "At least one product is required",
+      "totalAmountRequired": "Total amount is required and must be >= 0",
+      "userIdRequired": "User ID is required",
+      "companyIdRequired": "Company ID is required",
+      "productXMissingId": "Product ID is required for all products",
+      "productXInvalidQuantity": "Product quantity must be greater than 0",
+      "productXInvalidPrice": "Product base price must be >= 0"
+    },
     "overallProfit": "Total Profit:",
     "filters": {
       "allStatuses": "All Statuses",
@@ -1381,5 +1392,108 @@
     "hasPendingInvitation": "This user already has a pending invitation for this company.",
     "checkFailed": "Failed to check if user exists",
     "requiredFields": "Please fill in all required fields"
+  },
+  "pos": {
+    "title": "Point of Sale",
+    "searchPlaceholder": "Search products by name, reference, or barcode...",
+    "customer": {
+      "title": "Customer (Optional)",
+      "walkIn": "Walk-in Customer",
+      "searchPlaceholder": "Search by phone or name, or click 'Walk-in'"
+    },
+    "cart": {
+      "title": "Cart",
+      "empty": "Cart is empty",
+      "emptyMessage": "Add products to get started",
+      "clear": "Clear",
+      "subtotal": "Subtotal",
+      "deliveryFee": "Delivery Fee",
+      "total": "Total",
+      "completeSale": "Complete Sale"
+    },
+    "products": {
+      "title": "Products",
+      "noProducts": "No products found",
+      "all": "All",
+      "stock": "Stock"
+    },
+    "payment": {
+      "title": "Complete Payment",
+      "subtotal": "Subtotal",
+      "totalAmount": "Total Amount",
+      "deliveryFee": "Delivery Fee",
+      "discount": "Discount",
+      "tax": "Tax",
+      "selectMethod": "Select Payment Method",
+      "cash": "Cash",
+      "cashDescription": "Pay with cash",
+      "mobileMoney": "Mobile Money",
+      "mobileMoneyDescription": "MTN, Orange, etc.",
+      "card": "Card",
+      "cardDescription": "Credit/Debit card",
+      "amountReceived": "Amount Received",
+      "change": "Change",
+      "completePayment": "Complete Payment",
+      "cancel": "Cancel",
+      "customerInfo": "Customer Information",
+      "customerPhone": "Phone",
+      "customerPhoneOptional": "Phone (optional)",
+      "customerName": "Name",
+      "customerQuarter": "Quarter",
+      "customerSource": "Customer Source",
+      "noSource": "No Source",
+      "selectSource": "Select a source (optional)...",
+      "customerAddress": "Address",
+      "customerTown": "Town",
+      "saleInfo": "Sale Information",
+      "saleDate": "Sale Date",
+      "status": "Status",
+      "statusOrder": "Order",
+      "statusDelivery": "Under Delivery",
+      "statusPaid": "Paid",
+      "inventoryMethod": "Inventory Method",
+      "additionalOptions": "Additional Options",
+      "discountAmount": "Amount (XAF)",
+      "discountPercentage": "Percentage (%)",
+      "notes": "Notes",
+      "notesPlaceholder": "Add any additional notes about this sale...",
+      "printReceipt": "Print Receipt",
+      "promoCode": "Promo Code",
+      "products": "Products",
+      "promoCodePlaceholder": "Enter promo code...",
+      "showAdditional": "Show Additional Fields",
+      "hideAdditional": "Hide Additional Fields",
+      "mobileMoneyPhone": "Mobile Money Phone Number",
+      "transactionReference": "Transaction Reference",
+      "transactionReferencePlaceholder": "Enter transaction reference number",
+      "walkInCustomer": "Walk-in Customer",
+      "errors": {
+        "selectMethod": "Please select a payment method",
+        "insufficientAmount": "Amount received is insufficient",
+        "mobileMoneyPhone": "Mobile Money phone number is required",
+        "customerPhone": "Customer phone number is required"
+      }
+    },
+    "messages": {
+      "saleCompleted": "Sale completed successfully!",
+      "emptyCart": "Cart is empty. Add products before completing sale.",
+      "insufficientStock": "Insufficient stock. Available: {{stock}}",
+      "productAdded": "Product added to cart",
+      "productNotFound": "Product not found"
+    },
+    "transactions": {
+      "recentTransactions": "Recent Transactions",
+      "transactions": "transactions",
+      "noTransactions": "No transactions yet",
+      "paid": "Paid",
+      "pending": "Pending",
+      "cancelled": "Cancelled",
+      "justNow": "Just now",
+      "minAgo": "m ago",
+      "hourAgo": "h ago",
+      "walkIn": "Walk-in",
+      "product": "product",
+      "products": "products"
+    }
   }
 } 

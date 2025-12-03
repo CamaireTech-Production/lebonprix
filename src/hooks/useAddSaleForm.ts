@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { showSuccessToast, showErrorToast, showWarningToast } from '../utils/toast';
 import { getCurrentEmployeeRef } from '../utils/employeeUtils';
 import { getUserById } from '../services/userService';
+import { validateSaleData, normalizeSaleData } from '../utils/saleUtils';
 import type { OrderStatus, SaleProduct, Customer, Product, Sale } from '../types/models';
 import { logError } from '../utils/logger';
 
@@ -279,6 +280,11 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
       showErrorToast(t('sales.messages.errors.notLoggedIn'));
       return undefined;
     }
+
+    if (!company?.id) {
+      showErrorToast(t('sales.validation.companyIdRequired'));
+      return undefined;
+    }
     
     try {
       setIsSubmitting(true);
@@ -300,6 +306,29 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
       const customerQuarter = formData.customerQuarter || '';
       const customerInfo = { name: customerName, phone: customerPhone, ...(customerQuarter && { quarter: customerQuarter }) };
       
+      // Prepare raw sale data for validation
+      const rawSaleData = {
+        products: saleProducts,
+        totalAmount,
+        userId: user.uid,
+        companyId: company.id,
+        status: formData.status,
+        customerInfo,
+        customerSourceId: formData.customerSourceId || '',
+        deliveryFee: formData.deliveryFee ? parseFloat(formData.deliveryFee) : 0,
+        paymentStatus: 'pending' as const,
+        inventoryMethod: formData.inventoryMethod,
+        saleDate: formData.saleDate || new Date().toISOString(),
+      };
+
+      // Validate sale data with translations
+      if (!validateSaleData(rawSaleData, t)) {
+        return undefined;
+      }
+
+      // Normalize sale data with defaults
+      const normalizedData = normalizeSaleData(rawSaleData, user.uid, company.id);
+      
       // Get createdBy employee reference
       let createdBy = null;
       if (user && company) {
@@ -315,19 +344,10 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
         createdBy = getCurrentEmployeeRef(currentEmployee, user, isOwner, userData);
       }
       
-      const saleData = {
-        products: saleProducts,
-        totalAmount,
-        status: formData.status,
-        customerInfo,
-        customerSourceId: formData.customerSourceId || undefined,
-        deliveryFee: formData.deliveryFee ? parseFloat(formData.deliveryFee) : 0,
-        paymentStatus: 'pending' as const,
-        userId: user.uid,
-        inventoryMethod: formData.inventoryMethod,
-      };
+      const newSale = await addSale(normalizedData, createdBy);
       
-      const newSale = await addSale(saleData, createdBy);
+      // Show success toast notification for sale completion
+      showSuccessToast(t('sales.messages.saleAdded') + ` - ${totalAmount.toLocaleString()} XAF`);
       
       // Sauvegarder le client AVANT de réinitialiser le formulaire
       if (autoSaveCustomer && customerPhone && customerName && company?.id) {
