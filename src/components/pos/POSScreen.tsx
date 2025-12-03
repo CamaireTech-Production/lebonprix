@@ -1,0 +1,164 @@
+import { useState, useMemo } from 'react';
+import { usePOS } from '../../hooks/usePOS';
+import { POSHeader } from './POSHeader';
+import { POSProductSearch } from './POSProductSearch';
+import { POSProductGrid } from './POSProductGrid';
+import { POSCart } from './POSCart';
+import { POSCustomerQuickAdd } from './POSCustomerQuickAdd';
+import { POSPaymentModal } from './POSPaymentModal';
+import { POSKeyboardShortcuts } from './POSKeyboardShortcuts';
+import { POSTransactionsSidebar } from './POSTransactionsSidebar';
+import { useAuth } from '../../contexts/AuthContext';
+import { useParams } from 'react-router-dom';
+import type { Sale } from '../../types/models';
+
+export const POSScreen: React.FC = () => {
+  const { company } = useAuth();
+  const { companyId } = useParams<{ companyId: string }>();
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+
+  const {
+    cart,
+    customer,
+    searchQuery,
+    selectedCategory,
+    deliveryFee,
+    filteredProducts,
+    cartTotals,
+    isSubmitting,
+    autoSaveCustomer,
+    showCustomerDropdown,
+    customerSearch,
+    customers,
+    activeSources,
+    searchInputRef,
+    customerInputRef,
+    addToCart,
+    removeFromCart,
+    updateCartQuantity,
+    updateNegotiatedPrice,
+    clearCart,
+    selectCustomer,
+    setWalkInCustomer,
+    clearCustomer,
+    handleCustomerSearch,
+    updateState,
+    completeSale,
+    handleBarcodeScan,
+    focusSearch,
+    setAutoSaveCustomer,
+    setShowCustomerDropdown,
+  } = usePOS();
+
+  // Get unique categories from products
+  const categories = useMemo(() => {
+    if (!filteredProducts) return [];
+    const cats = new Set<string>();
+    filteredProducts.forEach(p => {
+      if (p.category) cats.add(p.category);
+    });
+    return Array.from(cats).sort();
+  }, [filteredProducts]);
+
+  const handleCompleteSaleClick = () => {
+    setShowPaymentModal(true);
+  };
+
+  const handlePaymentComplete = async (paymentData: import('./POSPaymentModal').POSPaymentData) => {
+    setShowPaymentModal(false);
+    await completeSale(paymentData);
+  };
+
+  const companyName = company?.name || 'POS System';
+
+  return (
+    <div className="h-screen flex flex-col bg-gray-50">
+      <POSKeyboardShortcuts
+        onFocusSearch={focusSearch}
+        onCompleteSale={handleCompleteSaleClick}
+        onCloseModal={() => setShowPaymentModal(false)}
+        disabled={showPaymentModal}
+      />
+
+      <POSHeader companyName={companyName} />
+
+      <div className="flex-1 flex overflow-hidden">
+        {/* Left Side - Recent Transactions (20%) */}
+        <POSTransactionsSidebar
+          onTransactionClick={(sale: Sale) => {
+            // Optional: Handle transaction click (e.g., show details modal)
+            console.log('Transaction clicked:', sale);
+          }}
+        />
+
+        {/* Middle - Cart (50%) */}
+        <div className="w-full lg:w-[50%] flex flex-col border-r border-gray-200">
+          <div className="p-4 border-b bg-white">
+            <POSCustomerQuickAdd
+              customer={customer}
+              customerSearch={customerSearch}
+              onCustomerSearch={handleCustomerSearch}
+              onSelectCustomer={selectCustomer}
+              onSetWalkIn={setWalkInCustomer}
+              onClearCustomer={clearCustomer}
+              showDropdown={showCustomerDropdown}
+              customers={customers || []}
+              customerInputRef={customerInputRef}
+            />
+          </div>
+
+          <div className="flex-1 overflow-hidden">
+            <POSCart
+              cart={cart}
+              onUpdateQuantity={updateCartQuantity}
+              onRemoveItem={removeFromCart}
+              onUpdateNegotiatedPrice={updateNegotiatedPrice}
+              onClearCart={clearCart}
+              subtotal={cartTotals.subtotal}
+              deliveryFee={deliveryFee}
+              total={cartTotals.total}
+              onDeliveryFeeChange={(fee) => updateState({ deliveryFee: fee })}
+              onCompleteSale={handleCompleteSaleClick}
+              isSubmitting={isSubmitting}
+            />
+          </div>
+        </div>
+
+        {/* Right Side - Products (30%) */}
+        <div className="hidden lg:flex lg:w-[30%] flex-col bg-white p-4">
+          <POSProductSearch
+            searchQuery={searchQuery}
+            onSearchChange={(query) => updateState({ searchQuery: query })}
+            searchInputRef={searchInputRef}
+            onBarcodeScan={handleBarcodeScan}
+            companyId={companyId || ''}
+            companyName={companyName}
+          />
+
+          <div className="flex-1 overflow-hidden">
+            <POSProductGrid
+              products={filteredProducts}
+              onAddToCart={addToCart}
+              selectedCategory={selectedCategory}
+              onCategoryChange={(category) => updateState({ selectedCategory: category })}
+              categories={categories}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Payment Modal */}
+      <POSPaymentModal
+        isOpen={showPaymentModal}
+        onClose={() => setShowPaymentModal(false)}
+        subtotal={cartTotals.subtotal}
+        currentDeliveryFee={deliveryFee}
+        cart={cart}
+        currentCustomer={customer}
+        onComplete={handlePaymentComplete}
+        isSubmitting={isSubmitting}
+      />
+    </div>
+  );
+};
+

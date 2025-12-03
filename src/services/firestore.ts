@@ -1156,7 +1156,26 @@ export const createSale = async (
   // Calculate sale totals
   const averageProfitMargin = totalCost > 0 ? (totalProfit / totalCost) * 100 : 0;
   
-  // Create sale with enhanced data
+  // Apply default values if missing
+  const normalizedStatus = data.status || 'paid';
+  const normalizedPaymentStatus = data.paymentStatus || 'paid';
+  const normalizedCustomerInfo = data.customerInfo || { name: 'divers', phone: '' };
+  const normalizedDeliveryFee = data.deliveryFee ?? 0;
+  const normalizedInventoryMethod = data.inventoryMethod?.toUpperCase() === 'LIFO' ? 'LIFO' : 'FIFO';
+  
+  // Handle saleDate conversion to timestamp if provided
+  let normalizedCreatedAt = serverTimestamp();
+  if ((data as any).saleDate && typeof (data as any).saleDate === 'string') {
+    // saleDate is ISO string, convert to Timestamp
+    const saleDateObj = new Date((data as any).saleDate);
+    if (!isNaN(saleDateObj.getTime())) {
+      normalizedCreatedAt = Timestamp.fromDate(saleDateObj);
+    }
+  } else if (data.createdAt) {
+    normalizedCreatedAt = data.createdAt as any;
+  }
+  
+  // Create sale with enhanced data and defaults
   const saleData: any = {
     ...data,
     products: enhancedProducts,
@@ -1164,7 +1183,12 @@ export const createSale = async (
     totalProfit,
     averageProfitMargin,
     companyId, // Ensure companyId is set
-    createdAt: serverTimestamp(),
+    status: normalizedStatus,
+    paymentStatus: normalizedPaymentStatus,
+    customerInfo: normalizedCustomerInfo,
+    deliveryFee: normalizedDeliveryFee,
+    inventoryMethod: normalizedInventoryMethod,
+    createdAt: normalizedCreatedAt,
     updatedAt: serverTimestamp()
   };
   

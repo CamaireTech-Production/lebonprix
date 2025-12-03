@@ -95,20 +95,15 @@ service cloud.firestore {
       allow update: if isAuthenticated() && hasCompanyAccess(resource.data.companyId) && hasCompanyAccess(request.resource.data.companyId);
       allow delete: if isAuthenticated() && hasCompanyAccess(resource.data.companyId);
       
-      // Validate sale data
+      // Validate sale data - Only required fields
+      // Default values (status, paymentStatus, customerInfo, etc.) are handled by the code
       function isValidSale() {
         let data = request.resource.data;
-        return data.productId is string &&
-               data.quantity is number && data.quantity > 0 &&
-               data.basePrice is number && data.basePrice >= 0 &&
-               data.negotiatedPrice is number && data.negotiatedPrice >= 0 &&
+        return data.products is list && data.products.size() > 0 &&
                data.totalAmount is number && data.totalAmount >= 0 &&
-               data.profit is number &&
                data.companyId is string &&
-               data.status in ['commande', 'under_delivery', 'paid'] &&
-               data.paymentStatus in ['pending', 'paid', 'cancelled'] &&
-               data.customerInfo.name is string && data.customerInfo.name.size() > 0 &&
-               data.customerInfo.phone is string;
+               data.userId is string &&
+               data.createdAt is timestamp;
       }
       
       allow create: if isValidSale() && hasCompanyAccess(request.resource.data.companyId);

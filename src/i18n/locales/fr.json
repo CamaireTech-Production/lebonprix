@@ -84,6 +84,8 @@
     "title": "Tableau de bord",
     "welcome": "Bienvenue ! Voici ce qui se passe dans votre entreprise aujourd'hui.",
     "howCalculated": "Comment sont calculées ces valeurs ?",
+    "quickActions": "Actions Rapides",
+    "quickActionsDescription": "Accédez rapidement aux fonctionnalités fréquemment utilisées",
     "stats": {
       "title": "Statistiques",
       "grossProfit": "Bénéfice brut",
@@ -260,6 +262,15 @@
   "sales": {
     "title": "Ventes",
     "subtitle": "Gérez vos transactions de vente",
+    "validation": {
+      "productsRequired": "Au moins un produit est requis",
+      "totalAmountRequired": "Le montant total est requis et doit être >= 0",
+      "userIdRequired": "L'ID utilisateur est requis",
+      "companyIdRequired": "L'ID de l'entreprise est requis",
+      "productXMissingId": "L'ID du produit est requis pour tous les produits",
+      "productXInvalidQuantity": "La quantité du produit doit être supérieure à 0",
+      "productXInvalidPrice": "Le prix de base du produit doit être >= 0"
+    },
     "overallProfit": "Profit Total :",
     "filters": {
       "allStatuses": "Tous les statuts",
@@ -1382,5 +1393,108 @@
     "hasPendingInvitation": "Cet utilisateur a déjà une invitation en attente pour cette entreprise.",
     "checkFailed": "Échec de la vérification de l'existence de l'utilisateur",
     "requiredFields": "Veuillez remplir tous les champs obligatoires"
+  },
+  "pos": {
+    "title": "Point de Vente",
+    "searchPlaceholder": "Rechercher des produits par nom, référence ou code-barres...",
+    "customer": {
+      "title": "Client (Optionnel)",
+      "walkIn": "Client de Passage",
+      "searchPlaceholder": "Rechercher par téléphone ou nom, ou cliquer sur 'Client de Passage'"
+    },
+    "cart": {
+      "title": "Panier",
+      "empty": "Panier vide",
+      "emptyMessage": "Ajoutez des produits pour commencer",
+      "clear": "Vider",
+      "subtotal": "Sous-total",
+      "deliveryFee": "Frais de livraison",
+      "total": "Total",
+      "completeSale": "Finaliser la Vente"
+    },
+    "products": {
+      "title": "Produits",
+      "noProducts": "Aucun produit trouvé",
+      "all": "Tous",
+      "stock": "Stock"
+    },
+    "payment": {
+      "title": "Finaliser le Paiement",
+      "subtotal": "Sous-total",
+      "totalAmount": "Montant Total",
+      "deliveryFee": "Frais de Livraison",
+      "discount": "Remise",
+      "tax": "Taxe/TVA",
+      "selectMethod": "Sélectionner le Mode de Paiement",
+      "cash": "Espèces",
+      "cashDescription": "Payer en espèces",
+      "mobileMoney": "Mobile Money",
+      "mobileMoneyDescription": "MTN, Orange, etc.",
+      "card": "Carte",
+      "cardDescription": "Carte de crédit/débit",
+      "amountReceived": "Montant Reçu",
+      "change": "Monnaie",
+      "completePayment": "Finaliser le Paiement",
+      "cancel": "Annuler",
+      "customerInfo": "Informations Client",
+      "customerPhone": "Téléphone",
+      "customerPhoneOptional": "Téléphone (optionnel)",
+      "customerName": "Nom",
+      "customerQuarter": "Quartier",
+      "customerSource": "Source Clientèle",
+      "noSource": "Aucune Source",
+      "selectSource": "Sélectionner une source (optionnel)...",
+      "customerAddress": "Adresse",
+      "customerTown": "Ville",
+      "saleInfo": "Informations de Vente",
+      "saleDate": "Date de Vente",
+      "status": "Statut",
+      "statusOrder": "Commande",
+      "statusDelivery": "En Livraison",
+      "statusPaid": "Payé",
+      "inventoryMethod": "Méthode d'Inventaire",
+      "additionalOptions": "Options Supplémentaires",
+      "discountAmount": "Montant (XAF)",
+      "discountPercentage": "Pourcentage (%)",
+      "notes": "Notes",
+      "notesPlaceholder": "Ajouter des notes supplémentaires sur cette vente...",
+      "printReceipt": "Imprimer le Reçu",
+      "promoCode": "Code Promo",
+      "products": "Produits",
+      "promoCodePlaceholder": "Entrer le code promo...",
+      "showAdditional": "Afficher les Champs Supplémentaires",
+      "hideAdditional": "Masquer les Champs Supplémentaires",
+      "mobileMoneyPhone": "Numéro de Téléphone Mobile Money",
+      "transactionReference": "Référence de Transaction",
+      "transactionReferencePlaceholder": "Entrer le numéro de référence de transaction",
+      "walkInCustomer": "Client de Passage",
+      "errors": {
+        "selectMethod": "Veuillez sélectionner un mode de paiement",
+        "insufficientAmount": "Le montant reçu est insuffisant",
+        "mobileMoneyPhone": "Le numéro de téléphone Mobile Money est requis",
+        "customerPhone": "Le numéro de téléphone du client est requis"
+      }
+    },
+    "messages": {
+      "saleCompleted": "Vente finalisée avec succès !",
+      "emptyCart": "Panier vide. Ajoutez des produits avant de finaliser la vente.",
+      "insufficientStock": "Stock insuffisant. Disponible : {{stock}}",
+      "productAdded": "Produit ajouté au panier",
+      "productNotFound": "Produit non trouvé"
+    },
+    "transactions": {
+      "recentTransactions": "Transactions Récentes",
+      "transactions": "transactions",
+      "noTransactions": "Aucune transaction pour le moment",
+      "paid": "Payé",
+      "pending": "En attente",
+      "cancelled": "Annulé",
+      "justNow": "À l'instant",
+      "minAgo": "min",
+      "hourAgo": "h",
+      "walkIn": "Client de passage",
+      "product": "produit",
+      "products": "produits"
+    }
   }
 } 
