@@ -1,5 +1,5 @@
 import { lazy, Suspense, useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { CartProvider } from './contexts/CartContext';
 import AuthLayout from './components/layout/AuthLayout';
@@ -13,6 +13,7 @@ import Finance from './pages/Finance';
 import { PWAErrorHandler } from './components/PWAErrorHandler';
 
 // Lazy load pages
+const Landing = lazy(() => import('./pages/Landing'));
 const Login = lazy(() => import('./pages/auth/Login'));
 const Register = lazy(() => import('./pages/auth/Register'));
 const ModeSelection = lazy(() => import('./pages/ModeSelection'));
@@ -79,8 +80,8 @@ function AppWithFAB({ isAddSaleModalOpen, setIsAddSaleModalOpen }: { isAddSaleMo
         />
         
         <Routes>
-          {/* Root redirect to login */}
-          <Route path="/" element={<Navigate to="/auth/login" replace />} />
+          {/* Landing Page */}
+          <Route path="/" element={<LazyPage><Landing /></LazyPage>} />
           
           {/* Auth Routes */}
                 <Route element={<AuthLayout />}>
