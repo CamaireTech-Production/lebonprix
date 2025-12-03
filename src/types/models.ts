@@ -111,7 +111,7 @@ export interface SaleProduct {
 export interface Sale extends BaseModel {
   products: SaleProduct[];
   totalAmount: number;
-  status: 'commande' | 'under_delivery' | 'paid';
+  status: 'commande' | 'under_delivery' | 'paid' | 'draft';
   paymentStatus: 'pending' | 'paid' | 'cancelled';
   customerInfo: {
     name: string;
@@ -145,7 +145,7 @@ export interface DashboardStats extends BaseModel {
   cancelledOrders: number;
 }
 
-export type OrderStatus = 'commande' | 'under_delivery' | 'paid';
+export type OrderStatus = 'commande' | 'under_delivery' | 'paid' | 'draft';
 export type PaymentStatus = 'pending' | 'paid' | 'cancelled';
 
 export interface SaleDetails extends Sale {

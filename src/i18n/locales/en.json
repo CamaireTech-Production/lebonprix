@@ -34,7 +34,9 @@
     "used": "Used",
     "copy": "Copy",
     "confirm": "Confirm",
-    "close": "Close"
+    "close": "Close",
+    "phone": "Phone",
+    "email": "Email"
   },
   "auth": {
     "login": "Login",
@@ -1432,6 +1434,10 @@
       "card": "Card",
       "cardDescription": "Credit/Debit card",
       "amountReceived": "Amount Received",
+      "optional": "(Optional)",
+      "exactAmount": "Exact Amount",
+      "exactAmountHint": "Leave empty if exact amount",
+      "amountReceivedHint": "Leave empty if customer pays exact amount. Enter amount only if you need to give change.",
       "change": "Change",
       "completePayment": "Complete Payment",
       "cancel": "Cancel",
@@ -1453,6 +1459,8 @@
       "statusPaid": "Paid",
       "inventoryMethod": "Inventory Method",
       "additionalOptions": "Additional Options",
+      "additionalInfo": "Additional Information",
+      "calculator": "Calculator",
       "discountAmount": "Amount (XAF)",
       "discountPercentage": "Percentage (%)",
       "notes": "Notes",
@@ -1467,6 +1475,26 @@
       "transactionReference": "Transaction Reference",
       "transactionReferencePlaceholder": "Enter transaction reference number",
       "walkInCustomer": "Walk-in Customer",
+      "saveDraft": "Save Draft",
+      "draftSaved": "Draft saved successfully",
+      "draftSaveError": "Failed to save draft",
+      "printBill": "Print Bill",
+      "printing": "Printing...",
+      "printSuccess": "Bill printed successfully",
+      "printError": "Failed to print bill. Please try again.",
+      "processingPayment": "Processing Payment...",
+      "pleaseWait": "Please wait...",
+      "invoicePreview": "Invoice Preview",
+      "invoice": "Invoice",
+      "invoiceNumber": "Invoice Number",
+      "date": "Date",
+      "product": "Product",
+      "quantity": "Quantity",
+      "unitPrice": "Unit Price",
+      "total": "Total",
+      "close": "Close",
+      "paymentMethod": "Payment Method",
+      "paymentError": "Payment failed",
       "errors": {
         "selectMethod": "Please select a payment method",
         "insufficientAmount": "Amount received is insufficient",
@@ -1493,7 +1521,17 @@
       "hourAgo": "h ago",
       "walkIn": "Walk-in",
       "product": "product",
-      "products": "products"
+      "products": "products",
+      "drafts": "Drafts",
+      "resumeDraft": "Resume Draft",
+      "noDrafts": "No drafts"
+    },
+    "calculator": {
+      "title": "Calculator",
+      "apply": "Apply to Amount",
+      "clear": "Clear",
+      "clearAll": "Clear All",
+      "history": "History"
     }
   }
 } 

@@ -36,7 +36,9 @@
     "ascArrow": "▲",
     "descArrow": "▼",
     "confirm": "Confirmer",
-    "close": "Fermer"
+    "close": "Fermer",
+    "phone": "Téléphone",
+    "email": "Email"
   },
   "auth": {
     "login": "Connexion",
@@ -1433,6 +1435,10 @@
       "card": "Carte",
       "cardDescription": "Carte de crédit/débit",
       "amountReceived": "Montant Reçu",
+      "optional": "(Optionnel)",
+      "exactAmount": "Montant Exact",
+      "exactAmountHint": "Laisser vide si montant exact",
+      "amountReceivedHint": "Laissez vide si le client paie le montant exact. Entrez le montant uniquement si vous devez rendre de la monnaie.",
       "change": "Monnaie",
       "completePayment": "Finaliser le Paiement",
       "cancel": "Annuler",
@@ -1454,6 +1460,8 @@
       "statusPaid": "Payé",
       "inventoryMethod": "Méthode d'Inventaire",
       "additionalOptions": "Options Supplémentaires",
+      "additionalInfo": "Infos Supplémentaires",
+      "calculator": "Calculatrice",
       "discountAmount": "Montant (XAF)",
       "discountPercentage": "Pourcentage (%)",
       "notes": "Notes",
@@ -1468,6 +1476,26 @@
       "transactionReference": "Référence de Transaction",
       "transactionReferencePlaceholder": "Entrer le numéro de référence de transaction",
       "walkInCustomer": "Client de Passage",
+      "saveDraft": "Sauvegarder Brouillon",
+      "draftSaved": "Brouillon sauvegardé avec succès",
+      "draftSaveError": "Échec de la sauvegarde du brouillon",
+      "printBill": "Imprimer la Facture",
+      "printing": "Impression...",
+      "printSuccess": "Facture imprimée avec succès",
+      "printError": "Échec de l'impression. Veuillez réessayer.",
+      "processingPayment": "Traitement du Paiement...",
+      "pleaseWait": "Veuillez patienter...",
+      "invoicePreview": "Aperçu de la Facture",
+      "invoice": "Facture",
+      "invoiceNumber": "Numéro de Facture",
+      "date": "Date",
+      "product": "Produit",
+      "quantity": "Quantité",
+      "unitPrice": "Prix Unitaire",
+      "total": "Total",
+      "close": "Fermer",
+      "paymentMethod": "Méthode de Paiement",
+      "paymentError": "Échec du paiement",
       "errors": {
         "selectMethod": "Veuillez sélectionner un mode de paiement",
         "insufficientAmount": "Le montant reçu est insuffisant",
@@ -1494,7 +1522,21 @@
       "hourAgo": "h",
       "walkIn": "Client de passage",
       "product": "produit",
-      "products": "produits"
+      "products": "produits",
+      "drafts": "Brouillons",
+      "draft": "Brouillon",
+      "resumeDraft": "Reprendre",
+      "noDrafts": "Aucun brouillon",
+      "draftResumed": "Brouillon repris avec succès",
+      "draftResumeError": "Échec de la reprise du brouillon",
+      "productNotFoundInDraft": "Certains produits du brouillon ne sont plus disponibles"
+    },
+    "calculator": {
+      "title": "Calculatrice",
+      "apply": "Appliquer au Montant",
+      "clear": "Effacer",
+      "clearAll": "Tout Effacer",
+      "history": "Historique"
     }
   }
 } 

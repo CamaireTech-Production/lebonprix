@@ -1,20 +1,23 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useSales } from '../../hooks/useFirestore';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
-import { Clock, User, DollarSign, CheckCircle, XCircle } from 'lucide-react';
+import { Clock, User, DollarSign, CheckCircle, XCircle} from 'lucide-react';
 import type { Sale, OrderStatus, PaymentStatus } from '../../types/models';
 
 interface POSTransactionsSidebarProps {
   onTransactionClick?: (sale: Sale) => void;
+  onResumeDraft?: (sale: Sale) => void;
 }
 
 export const POSTransactionsSidebar: React.FC<POSTransactionsSidebarProps> = ({
   onTransactionClick,
+  onResumeDraft,
 }) => {
   const { t } = useTranslation();
   const { sales, loading } = useSales();
   const { user, currentEmployee, isOwner } = useAuth();
+  const [showDrafts, setShowDrafts] = useState<boolean>(true);
 
   // Filter sales by current cashier/employee
   const cashierSales = useMemo(() => {
@@ -39,9 +42,21 @@ export const POSTransactionsSidebar: React.FC<POSTransactionsSidebarProps> = ({
         const aTime = a.createdAt?.seconds || 0;
         const bTime = b.createdAt?.seconds || 0;
         return bTime - aTime;
-      })
-      .slice(0, 15); // Limit to last 15 transactions
+      });
   }, [sales, currentEmployee, user, isOwner]);
+
+  // Separate completed sales and drafts
+  const completedSales = useMemo(() => {
+    return cashierSales
+      .filter(sale => sale.status !== 'draft')
+      .slice(0, 15); // Limit to last 15 completed transactions
+  }, [cashierSales]);
+
+  const draftSales = useMemo(() => {
+    return cashierSales
+      .filter(sale => sale.status === 'draft')
+      .slice(0, 10); // Limit to last 10 drafts
+  }, [cashierSales]);
 
   const getStatusIcon = (status: OrderStatus, paymentStatus: PaymentStatus) => {
     if (paymentStatus === 'paid') {
@@ -85,7 +100,7 @@ export const POSTransactionsSidebar: React.FC<POSTransactionsSidebarProps> = ({
   };
 
   return (
-    <div className="hidden lg:flex lg:w-1/5 bg-white border-r border-gray-200 flex-col overflow-hidden">
+    <div className="hidden lg:flex lg:w-[15%] bg-white border-r border-gray-200 flex-col overflow-hidden">
       {/* Header */}
       <div className="p-4 border-b border-gray-200 bg-gray-50">
         <h3 className="text-sm font-semibold text-gray-700 flex items-center space-x-2">
