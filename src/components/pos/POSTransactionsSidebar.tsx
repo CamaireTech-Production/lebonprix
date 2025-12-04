@@ -3,13 +3,15 @@ import { useSales } from '../../hooks/useFirestore';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { Clock, User, DollarSign, CheckCircle, XCircle, ChevronDown, ChevronUp, Trash2, FileText } from 'lucide-react';
+import Modal, { ModalFooter } from '../common/Modal';
+import { showSuccessToast, showErrorToast } from '../../utils/toast';
 import type { Sale, OrderStatus, PaymentStatus } from '../../types/models';
 import type { POSDraft } from '../../utils/posDraftStorage';
 
 interface POSTransactionsSidebarProps {
   onTransactionClick?: (sale: Sale) => void;
   onResumeDraft?: (draft: POSDraft) => void;
-  onDeleteDraft?: (draftId: string) => void;
+  onDeleteDraft?: (draftId: string) => boolean;
   drafts?: POSDraft[];
 }
 
@@ -23,6 +25,8 @@ export const POSTransactionsSidebar: React.FC<POSTransactionsSidebarProps> = ({
   const { sales, loading } = useSales();
   const { user, currentEmployee, isOwner } = useAuth();
   const [showRecentTransactions, setShowRecentTransactions] = useState<boolean>(false);
+  const [showDeleteModal, setShowDeleteModal] = useState<boolean>(false);
+  const [draftToDelete, setDraftToDelete] = useState<POSDraft | null>(null);
 
   // Filter sales by current cashier/employee
   const cashierSales = useMemo(() => {
@@ -124,11 +128,28 @@ export const POSTransactionsSidebar: React.FC<POSTransactionsSidebarProps> = ({
     });
   };
 
-  const handleDeleteDraft = (e: React.MouseEvent, draftId: string) => {
+  const handleDeleteDraft = (e: React.MouseEvent, draft: POSDraft) => {
     e.stopPropagation();
-    if (window.confirm(t('pos.transactions.confirmDeleteDraft') || 'Are you sure you want to delete this draft?')) {
-      onDeleteDraft?.(draftId);
+    setDraftToDelete(draft);
+    setShowDeleteModal(true);
+  };
+
+  const handleDeleteConfirm = () => {
+    if (draftToDelete && onDeleteDraft) {
+      const success = onDeleteDraft(draftToDelete.id);
+      if (success) {
+        showSuccessToast(t('pos.transactions.draftDeleted') || 'Draft deleted successfully');
+      } else {
+        showErrorToast(t('pos.transactions.draftDeleteError') || 'Failed to delete draft');
+      }
     }
+    setShowDeleteModal(false);
+    setDraftToDelete(null);
+  };
+
+  const handleDeleteCancel = () => {
+    setShowDeleteModal(false);
+    setDraftToDelete(null);
   };
 
   return (
@@ -165,7 +186,7 @@ export const POSTransactionsSidebar: React.FC<POSTransactionsSidebarProps> = ({
                   </div>
                   <div className="flex items-center space-x-1">
                     <button
-                      onClick={(e) => handleDeleteDraft(e, draft.id)}
+                      onClick={(e) => handleDeleteDraft(e, draft)}
                       className="p-1 hover:bg-red-100 rounded text-red-600 transition-colors"
                       title={t('pos.transactions.deleteDraft') || 'Delete draft'}
                     >
@@ -301,6 +322,46 @@ export const POSTransactionsSidebar: React.FC<POSTransactionsSidebarProps> = ({
           </div>
         )}
       </div>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={showDeleteModal}
+        onClose={handleDeleteCancel}
+        title={t('pos.transactions.deleteDraft') || 'Delete Draft'}
+        footer={
+          <ModalFooter
+            onCancel={handleDeleteCancel}
+            onConfirm={handleDeleteConfirm}
+            confirmText={t('common.delete') || 'Delete'}
+            cancelText={t('common.cancel') || 'Cancel'}
+            isDanger
+          />
+        }
+      >
+        <div className="text-center py-4">
+          <p className="text-gray-600 mb-4">
+            {t('pos.transactions.confirmDeleteDraft') || 'Are you sure you want to delete this draft?'}
+          </p>
+          {draftToDelete && (
+            <div className="bg-gray-50 rounded-lg p-4 mb-4 text-left">
+              <p className="text-sm font-medium text-gray-700 mb-2">
+                {t('pos.transactions.customer') || 'Customer'}: {draftToDelete.customer?.name || t('pos.transactions.walkIn') || 'Walk-in'}
+              </p>
+              <p className="text-sm text-gray-600">
+                {t('pos.transactions.total') || 'Total'}: {draftToDelete.total?.toLocaleString() || 0} XAF
+              </p>
+              {draftToDelete.cart && draftToDelete.cart.length > 0 && (
+                <p className="text-sm text-gray-600">
+                  {t('pos.transactions.products') || 'Products'}: {draftToDelete.cart.length}
+                </p>
+              )}
+            </div>
+          )}
+          <p className="text-sm text-red-600">
+            {t('pos.transactions.deleteWarning') || 'This action cannot be undone.'}
+          </p>
+        </div>
+      </Modal>
     </div>
   );
 };

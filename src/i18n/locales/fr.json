@@ -1531,7 +1531,13 @@
       "draftResumeError": "Échec de la reprise du brouillon",
       "productNotFoundInDraft": "Certains produits du brouillon ne sont plus disponibles",
       "deleteDraft": "Supprimer le brouillon",
-      "confirmDeleteDraft": "Êtes-vous sûr de vouloir supprimer ce brouillon ?"
+      "confirmDeleteDraft": "Êtes-vous sûr de vouloir supprimer ce brouillon ?",
+      "draftDeleted": "Brouillon supprimé avec succès",
+      "draftDeleteError": "Échec de la suppression du brouillon",
+      "deleteWarning": "Cette action est irréversible.",
+      "customer": "Client",
+      "total": "Total",
+      "products": "Produits"
     },
     "calculator": {
       "title": "Calculatrice",

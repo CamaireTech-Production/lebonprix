@@ -107,9 +107,7 @@ export const POSScreen: React.FC = () => {
             }
           }}
           onDeleteDraft={(draftId) => {
-            if (deleteDraftById(draftId)) {
-              // Draft deleted successfully
-            }
+            return deleteDraftById(draftId);
           }}
         />
 

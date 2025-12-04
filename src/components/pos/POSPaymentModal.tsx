@@ -258,7 +258,9 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
 
     const paymentData: POSPaymentData = {
       paymentMethod,
-      amountReceived: paymentMethod === 'cash' ? parseFloat(amountReceived) : undefined,
+      amountReceived: paymentMethod === 'cash' && amountReceived && amountReceived.trim() !== '' 
+        ? parseFloat(amountReceived) 
+        : undefined,
       change: paymentMethod === 'cash' ? change : undefined,
       transactionReference: paymentMethod !== 'cash' ? (transactionReference || '') : '',
       mobileMoneyPhone: paymentMethod === 'mobile_money' ? (mobileMoneyPhone || '') : '',

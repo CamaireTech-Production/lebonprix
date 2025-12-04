@@ -1527,7 +1527,13 @@
       "resumeDraft": "Resume Draft",
       "noDrafts": "No drafts",
       "deleteDraft": "Delete draft",
-      "confirmDeleteDraft": "Are you sure you want to delete this draft?"
+      "confirmDeleteDraft": "Are you sure you want to delete this draft?",
+      "draftDeleted": "Draft deleted successfully",
+      "draftDeleteError": "Failed to delete draft",
+      "deleteWarning": "This action cannot be undone.",
+      "customer": "Customer",
+      "total": "Total",
+      "products": "Products"
     },
     "calculator": {
       "title": "Calculator",
