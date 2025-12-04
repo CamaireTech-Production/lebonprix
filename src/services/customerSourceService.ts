@@ -8,9 +8,11 @@ import {
   getDoc,
   addDoc,
   updateDoc,
-  onSnapshot
+  onSnapshot,
+  serverTimestamp
 } from 'firebase/firestore';
 import { db } from './firebase';
+import { logError } from '../utils/logger';
 import type { CustomerSource } from '../types/models';
 
 /**
