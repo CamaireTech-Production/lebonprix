@@ -46,7 +46,7 @@ export const UseCasesSection: React.FC = () => {
   ];
 
   return (
-    <SectionContainer backgroundColor="white" className="py-20" id="business-sizes">
+    <SectionContainer backgroundColor="slate" className="py-20" id="business-sizes">
       <div
         ref={titleRef}
         className={`text-center mb-12 transition-all duration-600 ${

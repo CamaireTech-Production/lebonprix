@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 
 interface SectionContainerProps {
   children: React.ReactNode;
-  backgroundColor?: 'white' | 'beige' | 'dark' | 'green';
+  backgroundColor?: 'white' | 'beige' | 'dark' | 'green' | 'slate' | 'yellow' | 'black' | 'epic';
   className?: string;
   id?: string;
 }
@@ -40,7 +40,11 @@ export const SectionContainer: React.FC<SectionContainerProps> = ({
   const bgClasses = {
     white: 'bg-white',
     beige: 'bg-[#f5f5f0]',
-    dark: 'bg-theme-forest',
+    dark: 'bg-[#183524]',
+    black: 'bg-[#000000]',
+    slate: 'bg-[#F3F3EC]',
+    yellow: 'bg-[#E9C502]',
+    epic: 'bg-[#18181B]',
     green: 'bg-emerald-600'
   };
 
@@ -51,7 +55,7 @@ export const SectionContainer: React.FC<SectionContainerProps> = ({
       className={`${bgClasses[backgroundColor]} ${className}`}
     >
       <div
-        className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 transition-all duration-600 ${
+        className={`max-w-7xl scale-90 mx-auto px-4 sm:px-6 lg:px-8 transition-all duration-600 ${
           isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'
         }`}
       >

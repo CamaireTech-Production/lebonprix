@@ -48,7 +48,7 @@ export const WhyGeskapSection: React.FC = () => {
   ];
 
   return (
-    <SectionContainer backgroundColor="white" className="py-20" id="why-geskap">
+    <SectionContainer backgroundColor="slate" className="py-20" id="why-geskap">
       <div
         ref={titleRef}
         className={`text-center mb-16 transition-all duration-600 ${

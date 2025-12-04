@@ -5,7 +5,7 @@ import { SectionContainer } from './SectionContainer'
 const Pricing = () => {
   return (
 
-   <SectionContainer backgroundColor='beige'>   
+   <SectionContainer backgroundColor='yellow'>   
         <div className='bg-beige flex gap-12 justify-center items-center w-full p-12'>
             <div>
                 <img src="/placeholder.png" className='py-12 object-cover' alt="Pricing" />

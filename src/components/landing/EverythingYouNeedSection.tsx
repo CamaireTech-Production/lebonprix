@@ -111,7 +111,7 @@ export const EverythingYouNeedSection: React.FC = () => {
                 {/* Tag/Bouton cliquable en position absolute sur l'image */}
                 <button
                   onClick={() => toggleDescription(index)}
-                  className={`absolute z-10 bg-emerald-100 text-emerald-700 px-4 py-3 rounded-md flex flex-col items-start gap-2 text-sm font-semibold hover:bg-emerald-200 transition-all duration-300 cursor-pointer shadow-lg max-w-[280px] ${
+                  className={`absolute z-10 bg-[#E9C502] text-emerald-700 px-4 py-3 rounded-md flex flex-col items-start gap-2 text-sm font-semibold hover:bg-emerald-200 transition-all duration-300 cursor-pointer shadow-lg max-w-[280px] ${
                     isExpanded ? 'min-w-[250px]' : 'w-auto'
                   }`}
                   style={{

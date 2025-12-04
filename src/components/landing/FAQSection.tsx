@@ -63,7 +63,7 @@ export const FAQSection: React.FC = () => {
   ];
 
   return (
-    <SectionContainer backgroundColor="dark" className="py-20">
+    <SectionContainer backgroundColor="epic" className="py-20">
       <div
         ref={titleRef}
         className={`text-center mb-12 transition-all duration-600 ${

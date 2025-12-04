@@ -28,7 +28,7 @@ export const FinalCTASection: React.FC = () => {
   }, []);
 
   return (
-    <SectionContainer backgroundColor="green" className="py-20">
+    <SectionContainer backgroundColor="dark" className="py-20">
       <div
         ref={ref}
         className={`text-center transition-all duration-600 ${
