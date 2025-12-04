@@ -162,12 +162,13 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
   };
 
   // Initialize form with current customer data when modal opens
+  // Reset form only when modal opens/closes, not when dependencies change
   useEffect(() => {
-    if (isOpen) {
-      // Reset form first
+    if (isOpen && !completedSale) {
+      // Modal just opened and no sale completed yet - reset form
       resetForm();
       
-      // Then populate with current customer data if available
+      // Populate customer data if available
       if (currentCustomer) {
         setCustomerPhone(currentCustomer.phone || '');
         setCustomerName(currentCustomer.name || '');
@@ -176,8 +177,24 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
         setCustomerAddress(currentCustomer.address || '');
         setCustomerTown(currentCustomer.town || '');
       }
+    } else if (!isOpen) {
+      // Modal closed - always reset
+      resetForm();
     }
-  }, [isOpen, currentCustomer, currentDeliveryFee]);
+  }, [isOpen]); // Only depend on isOpen, not on currentCustomer or currentDeliveryFee
+
+  // Separate effect to update customer fields when customer changes (but don't reset form)
+  useEffect(() => {
+    if (isOpen && currentCustomer && !completedSale) {
+      // Only update customer fields, don't reset entire form
+      setCustomerPhone(currentCustomer.phone || '');
+      setCustomerName(currentCustomer.name || '');
+      setCustomerQuarter(currentCustomer.quarter || '');
+      setCustomerSourceId(currentCustomer.sourceId || '');
+      setCustomerAddress(currentCustomer.address || '');
+      setCustomerTown(currentCustomer.town || '');
+    }
+  }, [currentCustomer, isOpen, completedSale]);
 
   // Auto-print when invoice preview is shown
   // This useEffect must be before the conditional return to respect React hooks rules

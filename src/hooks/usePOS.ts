@@ -1,14 +1,15 @@
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { useState, useRef, useCallback, useMemo } from 'react';
 import { useSales, useProducts, useCustomers } from './useFirestore';
 import { useCustomerSources } from './useCustomerSources';
 import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { showSuccessToast, showErrorToast, showWarningToast } from '../utils/toast';
-import { getCurrentEmployeeRef } from '../utils/employeeUtils';
+import { getCurrentEmployeeRef, formatCreatorName } from '../utils/employeeUtils';
 import { getUserById } from '../services/userService';
 import { validateSaleData, normalizeSaleData } from '../utils/saleUtils';
-import type { OrderStatus, PaymentStatus, SaleProduct, Customer, Product, Sale } from '../types/models';
+import type { OrderStatus, Customer, Product} from '../types/models';
 import { logError } from '../utils/logger';
+import { saveDraft as saveDraftToStorage, getDrafts, deleteDraft, type POSDraft } from '../utils/posDraftStorage';
 
 export interface CartItem {
   product: Product;
@@ -94,7 +95,7 @@ export function usePOS() {
   }, [state.cart, state.deliveryFee]);
 
   // Add product to cart
-  const addToCart = useCallback((product: Product, quantity: number = 1) => {
+  const addToCart = useCallback((product: Product, quantity: number = 1, negotiatedPrice?: number) => {
     if (product.stock < quantity) {
       showWarningToast(t('pos.messages.insufficientStock', { stock: product.stock }));
       return;
@@ -114,14 +115,14 @@ export function usePOS() {
           ...prev,
           cart: prev.cart.map(item =>
             item.product.id === product.id
-              ? { ...item, quantity: newQuantity }
+              ? { ...item, quantity: newQuantity, negotiatedPrice: negotiatedPrice ?? item.negotiatedPrice }
               : item
           ),
         };
       } else {
         return {
           ...prev,
-          cart: [...prev.cart, { product, quantity, negotiatedPrice: undefined }],
+          cart: [...prev.cart, { product, quantity, negotiatedPrice }],
         };
       }
     });
@@ -271,7 +272,8 @@ export function usePOS() {
     try {
       setIsSubmitting(true);
 
-      const saleProducts: SaleProduct[] = state.cart.map(item => ({
+      // Note: saleProducts will be enriched with costPrice, profit, profitMargin by createSale
+      const saleProducts = state.cart.map(item => ({
         productId: item.product.id,
         quantity: item.quantity,
         basePrice: item.product.sellingPrice,
@@ -285,9 +287,18 @@ export function usePOS() {
         quarter: paymentData.customerQuarter || '',
         address: paymentData.customerAddress || '',
         town: paymentData.customerTown || '',
-      } : (state.customer || {
+      } : (state.customer ? {
+        name: state.customer.name,
+        phone: state.customer.phone || '',
+        quarter: state.customer.quarter || '',
+        address: '',
+        town: '',
+      } : {
         name: t('sales.modals.add.customerInfo.divers'),
         phone: '',
+        quarter: '',
+        address: '',
+        town: '',
       });
 
       // Calculate final total with discount and tax
@@ -296,8 +307,9 @@ export function usePOS() {
       const finalTotal = cartTotals.subtotal + (paymentData?.deliveryFee ?? state.deliveryFee) - discountAmount + taxAmount;
 
       // Prepare raw sale data for validation
+      // Note: products will be enriched with costPrice, profit, profitMargin by createSale
       const rawSaleData = {
-        products: saleProducts,
+        products: saleProducts as any, // Products will be enriched by createSale
         totalAmount: finalTotal,
         userId: user.uid,
         companyId: company.id,
@@ -328,9 +340,9 @@ export function usePOS() {
       const normalizedData = normalizeSaleData(rawSaleData, user.uid, company.id);
 
       // Get createdBy employee reference
-      let createdBy = null;
+      let createdBy: ReturnType<typeof getCurrentEmployeeRef> = null;
       if (user && company) {
-        let userData = null;
+        let userData: Awaited<ReturnType<typeof getUserById>> | null = null;
         if (isOwner && !currentEmployee) {
           try {
             userData = await getUserById(user.uid);
@@ -361,6 +373,7 @@ export function usePOS() {
               customerSourceId: paymentData?.customerSourceId || state.customer?.sourceId || '',
               userId: user.uid,
               companyId: company.id,
+              createdAt: new Date(),
             });
           }
         } catch (error: any) {
@@ -382,6 +395,8 @@ export function usePOS() {
       showSuccessToast(t('pos.messages.saleCompleted') + ` - ${finalTotal.toLocaleString()} XAF`);
       return newSale;
     } catch (error) {
+      console.error('Error completing sale:', error);
+      logError('Error completing sale', error);
       showErrorToast(t('sales.messages.errors.addSale'));
       return null;
     } finally {
@@ -389,7 +404,7 @@ export function usePOS() {
     }
   }, [state, cartTotals, user, company, currentEmployee, isOwner, autoSaveCustomer, customers, addSale, addCustomer, clearCart, clearCustomer, t]);
 
-  // Save draft (save without completing sale)
+  // Save draft (save without completing sale) - now uses localStorage
   const saveDraft = useCallback(async (paymentData?: import('../components/pos/POSPaymentModal').POSPaymentData) => {
     if (state.cart.length === 0) {
       showWarningToast(t('pos.messages.emptyCart'));
@@ -409,13 +424,6 @@ export function usePOS() {
     try {
       setIsSubmitting(true);
 
-      const saleProducts: SaleProduct[] = state.cart.map(item => ({
-        productId: item.product.id,
-        quantity: item.quantity,
-        basePrice: item.product.sellingPrice,
-        negotiatedPrice: item.negotiatedPrice ?? item.product.sellingPrice,
-      }));
-
       // Use payment data if provided, otherwise use state
       const customerInfo = paymentData ? {
         name: paymentData.customerName,
@@ -423,53 +431,25 @@ export function usePOS() {
         quarter: paymentData.customerQuarter || '',
         address: paymentData.customerAddress || '',
         town: paymentData.customerTown || '',
-      } : (state.customer || {
-        name: t('sales.modals.add.customerInfo.divers'),
-        phone: '',
-      });
+        sourceId: paymentData.customerSourceId || '',
+      } : (state.customer ? {
+        name: state.customer.name,
+        phone: state.customer.phone || '',
+        quarter: state.customer.quarter || '',
+        address: '',
+        town: '',
+        sourceId: state.customer.sourceId || '',
+      } : null);
 
       // Calculate final total with discount and tax
       const discountAmount = paymentData?.discountValue || 0;
       const taxAmount = paymentData?.tax || 0;
       const finalTotal = cartTotals.subtotal + (paymentData?.deliveryFee ?? state.deliveryFee) - discountAmount + taxAmount;
 
-      // Prepare raw sale data for validation (draft always has status 'draft' and paymentStatus 'pending')
-      const rawSaleData = {
-        products: saleProducts,
-        totalAmount: finalTotal,
-        userId: user.uid,
-        companyId: company.id,
-        status: 'draft' as const,
-        paymentStatus: 'pending' as const,
-        customerInfo: {
-          name: customerInfo.name || t('sales.modals.add.customerInfo.divers'),
-          phone: customerInfo.phone || '',
-          quarter: customerInfo.quarter || '',
-        },
-        deliveryFee: paymentData?.deliveryFee ?? state.deliveryFee ?? 0,
-        inventoryMethod: paymentData?.inventoryMethod || state.inventoryMethod || 'fifo',
-        saleDate: paymentData?.saleDate || new Date().toISOString(),
-        customerSourceId: paymentData?.customerSourceId || state.customer?.sourceId || '',
-        paymentMethod: paymentData?.paymentMethod || '',
-        transactionReference: paymentData?.transactionReference || '',
-        notes: paymentData?.notes || '',
-      };
-
-      // Validate sale data with translations
-      if (!validateSaleData(rawSaleData, t)) {
-        return null;
-      }
-
-      // Normalize sale data with defaults
-      const normalizedData = normalizeSaleData(rawSaleData, user.uid, company.id);
-      // Override status and paymentStatus to ensure draft
-      normalizedData.status = 'draft' as OrderStatus;
-      normalizedData.paymentStatus = 'pending' as PaymentStatus;
-
-      // Get createdBy employee reference
-      let createdBy = null;
+      // Get createdBy employee reference for metadata
+      let createdBy: { id: string; name: string } | null = null;
       if (user && company) {
-        let userData = null;
+        let userData: Awaited<ReturnType<typeof getUserById>> | null = null;
         if (isOwner && !currentEmployee) {
           try {
             userData = await getUserById(user.uid);
@@ -477,13 +457,54 @@ export function usePOS() {
             logError('Error fetching user data for createdBy', error);
           }
         }
-        createdBy = getCurrentEmployeeRef(currentEmployee, user, isOwner, userData);
+        const employeeRef = getCurrentEmployeeRef(currentEmployee, user, isOwner, userData);
+        if (employeeRef) {
+          createdBy = {
+            id: employeeRef.id,
+            name: formatCreatorName(employeeRef),
+          };
+        }
       }
 
-      const newDraft = await addSale(normalizedData, createdBy);
+      // Save draft to localStorage
+      const newDraft = saveDraftToStorage(
+        user.uid,
+        company.id,
+        {
+          cart: state.cart,
+          customer: customerInfo,
+          paymentData: paymentData ? {
+            paymentMethod: paymentData.paymentMethod,
+            amountReceived: paymentData.amountReceived,
+            change: paymentData.change,
+            transactionReference: paymentData.transactionReference,
+            mobileMoneyPhone: paymentData.mobileMoneyPhone,
+            customerPhone: paymentData.customerPhone,
+            customerName: paymentData.customerName,
+            customerQuarter: paymentData.customerQuarter,
+            customerSourceId: paymentData.customerSourceId,
+            customerAddress: paymentData.customerAddress,
+            customerTown: paymentData.customerTown,
+            saleDate: paymentData.saleDate,
+            deliveryFee: paymentData.deliveryFee,
+            status: paymentData.status,
+            inventoryMethod: paymentData.inventoryMethod,
+            discountType: paymentData.discountType,
+            discountValue: paymentData.discountValue,
+            promoCode: paymentData.promoCode,
+            tax: paymentData.tax,
+            notes: paymentData.notes,
+            printReceipt: paymentData.printReceipt,
+          } : {},
+          deliveryFee: paymentData?.deliveryFee ?? state.deliveryFee ?? 0,
+          subtotal: cartTotals.subtotal,
+          total: finalTotal,
+          createdBy,
+        }
+      );
 
       // Auto-save customer if enabled (phone is optional for POS)
-      if (autoSaveCustomer && customerInfo.name && company?.id) {
+      if (autoSaveCustomer && customerInfo && customerInfo.name && company?.id) {
         try {
           // Only check for existing customer if phone is provided
           const existing = customerInfo.phone ? customers.find(c => 
@@ -494,12 +515,13 @@ export function usePOS() {
             await addCustomer({
               phone: customerInfo.phone || '',
               name: customerInfo.name,
-              quarter: customerInfo.quarter || paymentData?.customerQuarter || '',
-              address: customerInfo.address || paymentData?.customerAddress || '',
-              town: customerInfo.town || paymentData?.customerTown || '',
-              customerSourceId: paymentData?.customerSourceId || state.customer?.sourceId || '',
+              quarter: customerInfo.quarter || '',
+              address: customerInfo.address || '',
+              town: customerInfo.town || '',
+              customerSourceId: customerInfo.sourceId || '',
               userId: user.uid,
               companyId: company.id,
+              createdAt: new Date(),
             });
           }
         } catch (error: any) {
@@ -519,11 +541,11 @@ export function usePOS() {
     } finally {
       setIsSubmitting(false);
     }
-  }, [state, cartTotals, user, company, currentEmployee, isOwner, autoSaveCustomer, customers, addSale, addCustomer, t]);
+  }, [state, cartTotals, user, company, currentEmployee, isOwner, autoSaveCustomer, customers, addCustomer, t]);
 
-  // Resume draft (load draft into cart)
-  const resumeDraft = useCallback((sale: Sale) => {
-    if (!sale || !sale.products || sale.products.length === 0) {
+  // Resume draft (load draft into cart) - now uses localStorage
+  const resumeDraft = useCallback((draft: POSDraft) => {
+    if (!draft || !draft.cart || draft.cart.length === 0) {
       showErrorToast(t('pos.transactions.draftResumeError') || 'Draft has no products');
       return null;
     }
@@ -533,47 +555,58 @@ export function usePOS() {
       clearCart();
 
       // Load products from draft into cart
-      sale.products.forEach((saleProduct: any) => {
-        const product = products?.find(p => p.id === saleProduct.productId);
+      draft.cart.forEach((cartItem) => {
+        const product = products?.find(p => p.id === cartItem.product.id);
         if (product && product.isAvailable) {
           // Add product to cart with negotiated price if available
-          addToCart(product, saleProduct.quantity, saleProduct.negotiatedPrice || saleProduct.basePrice);
+          addToCart(product, cartItem.quantity, cartItem.negotiatedPrice);
         } else {
-          showWarningToast(t('pos.transactions.productNotFoundInDraft') || `Product ${saleProduct.productId} not found`);
+          showWarningToast(t('pos.transactions.productNotFoundInDraft') || `Product ${cartItem.product.id} not found`);
         }
       });
 
       // Load customer info if available
-      if (sale.customerInfo) {
-        selectCustomer({
-          name: sale.customerInfo.name,
-          phone: sale.customerInfo.phone || '',
-          quarter: sale.customerInfo.quarter || '',
-          sourceId: sale.customerSourceId || '',
-        });
+      if (draft.customer) {
+        // Create a temporary Customer object for selectCustomer
+        const tempCustomer: Customer = {
+          name: draft.customer.name,
+          phone: draft.customer.phone || '',
+          quarter: draft.customer.quarter,
+          address: draft.customer.address,
+          town: draft.customer.town,
+          customerSourceId: draft.customer.sourceId,
+          userId: user?.uid || '',
+          companyId: company?.id || '',
+          createdAt: new Date(),
+        };
+        selectCustomer(tempCustomer);
       } else {
         clearCustomer();
       }
 
       // Load delivery fee
-      if (sale.deliveryFee) {
-        updateState({ deliveryFee: sale.deliveryFee });
+      if (draft.deliveryFee !== undefined) {
+        updateState({ deliveryFee: draft.deliveryFee });
       }
 
       // Return draft data for pre-filling payment modal
       return {
-        customerName: sale.customerInfo?.name || '',
-        customerPhone: sale.customerInfo?.phone || '',
-        customerQuarter: sale.customerInfo?.quarter || '',
-        customerSourceId: sale.customerSourceId || '',
-        deliveryFee: sale.deliveryFee || 0,
-        status: sale.status,
-        inventoryMethod: sale.inventoryMethod?.toLowerCase() as 'fifo' | 'lifo' || 'fifo',
-        saleDate: sale.createdAt?.seconds 
-          ? new Date(sale.createdAt.seconds * 1000).toISOString().slice(0, 10)
-          : new Date().toISOString().slice(0, 10),
-        notes: (sale as any).notes || '',
-        paymentMethod: (sale as any).paymentMethod || undefined,
+        customerName: draft.customer?.name || '',
+        customerPhone: draft.customer?.phone || '',
+        customerQuarter: draft.customer?.quarter || '',
+        customerSourceId: draft.customer?.sourceId || '',
+        customerAddress: draft.customer?.address || '',
+        customerTown: draft.customer?.town || '',
+        deliveryFee: draft.deliveryFee || 0,
+        status: draft.paymentData?.status || 'commande',
+        inventoryMethod: (draft.paymentData?.inventoryMethod || 'fifo') as 'fifo' | 'lifo',
+        saleDate: draft.paymentData?.saleDate || new Date().toISOString().slice(0, 10),
+        notes: draft.paymentData?.notes || '',
+        paymentMethod: draft.paymentData?.paymentMethod || undefined,
+        discountType: draft.paymentData?.discountType,
+        discountValue: draft.paymentData?.discountValue,
+        promoCode: draft.paymentData?.promoCode || '',
+        tax: draft.paymentData?.tax,
       };
     } catch (error) {
       logError('Error resuming draft', error);
@@ -581,6 +614,22 @@ export function usePOS() {
       return null;
     }
   }, [products, clearCart, addToCart, selectCustomer, clearCustomer, updateState, t]);
+
+  // Get all drafts from localStorage
+  const getDraftsList = useCallback((): POSDraft[] => {
+    if (!user?.uid || !company?.id) {
+      return [];
+    }
+    return getDrafts(user.uid, company.id);
+  }, [user, company]);
+
+  // Delete draft from localStorage
+  const deleteDraftById = useCallback((draftId: string): boolean => {
+    if (!user?.uid || !company?.id) {
+      return false;
+    }
+    return deleteDraft(user.uid, company.id, draftId);
+  }, [user, company]);
 
   // Handle barcode scan
   const handleBarcodeScan = useCallback((productId: string) => {
@@ -635,6 +684,8 @@ export function usePOS() {
     completeSale,
     saveDraft,
     resumeDraft,
+    getDraftsList,
+    deleteDraftById,
     handleBarcodeScan,
     focusSearch,
     setAutoSaveCustomer,

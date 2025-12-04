@@ -1529,7 +1529,9 @@
       "noDrafts": "Aucun brouillon",
       "draftResumed": "Brouillon repris avec succès",
       "draftResumeError": "Échec de la reprise du brouillon",
-      "productNotFoundInDraft": "Certains produits du brouillon ne sont plus disponibles"
+      "productNotFoundInDraft": "Certains produits du brouillon ne sont plus disponibles",
+      "deleteDraft": "Supprimer le brouillon",
+      "confirmDeleteDraft": "Êtes-vous sûr de vouloir supprimer ce brouillon ?"
     },
     "calculator": {
       "title": "Calculatrice",

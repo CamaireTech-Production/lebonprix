@@ -46,6 +46,8 @@ export const POSScreen: React.FC = () => {
     completeSale,
     saveDraft,
     resumeDraft,
+    getDraftsList,
+    deleteDraftById,
     handleBarcodeScan,
     focusSearch,
     setAutoSaveCustomer,
@@ -92,14 +94,22 @@ export const POSScreen: React.FC = () => {
       <div className="flex-1 flex overflow-hidden">
         {/* Left Side - Recent Transactions (15%) */}
         <POSTransactionsSidebar
+          drafts={getDraftsList()}
           onTransactionClick={(sale: Sale) => {
             // Optional: Handle transaction click (e.g., show details modal)
             console.log('Transaction clicked:', sale);
           }}
-          onResumeDraft={(sale: Sale) => {
-            resumeDraft(sale);
-            // Optionally open payment modal after resuming
-            setShowPaymentModal(true);
+          onResumeDraft={(draft) => {
+            const paymentData = resumeDraft(draft);
+            // Open payment modal after resuming
+            if (paymentData) {
+              setShowPaymentModal(true);
+            }
+          }}
+          onDeleteDraft={(draftId) => {
+            if (deleteDraftById(draftId)) {
+              // Draft deleted successfully
+            }
           }}
         />
 

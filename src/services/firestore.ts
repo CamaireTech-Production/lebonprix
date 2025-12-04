@@ -19,6 +19,7 @@ import {
   deleteDoc
 } from 'firebase/firestore';
 import { db } from './firebase';
+import { logError } from '../utils/logger';
 import type {
   Product,
   Sale,
@@ -1166,13 +1167,26 @@ export const createSale = async (
   // Handle saleDate conversion to timestamp if provided
   let normalizedCreatedAt = serverTimestamp();
   if ((data as any).saleDate && typeof (data as any).saleDate === 'string') {
-    // saleDate is ISO string, convert to Timestamp
-    const saleDateObj = new Date((data as any).saleDate);
-    if (!isNaN(saleDateObj.getTime())) {
-      normalizedCreatedAt = Timestamp.fromDate(saleDateObj);
+    const saleDateStr = (data as any).saleDate;
+    
+    // Si saleDate est seulement une date (YYYY-MM-DD), ajouter l'heure actuelle
+    if (saleDateStr.length === 10 && saleDateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      // C'est seulement une date, ajouter l'heure actuelle pour avoir un timestamp unique
+      const now = new Date();
+      const saleDateWithTime = `${saleDateStr}T${now.toTimeString().slice(0, 8)}`;
+      const saleDateObj = new Date(saleDateWithTime);
+      if (!isNaN(saleDateObj.getTime())) {
+        normalizedCreatedAt = Timestamp.fromDate(saleDateObj);
+      }
+    } else {
+      // saleDate contient déjà l'heure (ISO string complète)
+      const saleDateObj = new Date(saleDateStr);
+      if (!isNaN(saleDateObj.getTime())) {
+        normalizedCreatedAt = Timestamp.fromDate(saleDateObj);
+      }
     }
-  } else if (data.createdAt) {
-    normalizedCreatedAt = data.createdAt as any;
+  } else if ((data as any).createdAt) {
+    normalizedCreatedAt = (data as any).createdAt as any;
   }
   
   // Create sale with enhanced data and defaults
@@ -1208,11 +1222,19 @@ export const createSale = async (
   
   await batch.commit();
   
+  // Récupérer le document sauvegardé pour obtenir les vraies valeurs de createdAt/updatedAt
+  const savedSaleDoc = await getDoc(saleRef);
+  if (!savedSaleDoc.exists()) {
+    throw new Error('Failed to retrieve saved sale');
+  }
+  
+  const savedSaleData = savedSaleDoc.data();
+  
   return {
     id: saleRef.id,
     ...saleData,
-    createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 },
-    updatedAt: { seconds: Date.now() / 1000, nanoseconds: 0 }
+    createdAt: savedSaleData.createdAt || { seconds: Math.floor(Date.now() / 1000), nanoseconds: 0 },
+    updatedAt: savedSaleData.updatedAt || { seconds: Math.floor(Date.now() / 1000), nanoseconds: 0 }
   };
   } catch (error) {
     logError('Error creating sale', error);
@@ -1845,7 +1867,7 @@ export const deleteSale = async (saleId: string, userId: string): Promise<void> 
     throw new Error('Unauthorized to delete this sale');
   }
 
-  // Restore product stock
+  // Restore product stock AND batches
   for (const product of sale.products) {
     const productRef = doc(db, 'products', product.productId);
     const productSnap = await getDoc(productRef);
@@ -1865,6 +1887,44 @@ export const deleteSale = async (saleId: string, userId: string): Promise<void> 
       stock: productData.stock + product.quantity,
       updatedAt: serverTimestamp()
     });
+
+    // Restore batches if consumedBatches or batchLevelProfits exist
+    // This ensures stock and batches remain in sync
+    if (product.consumedBatches && product.consumedBatches.length > 0) {
+      for (const consumedBatch of product.consumedBatches) {
+        const batchRef = doc(db, 'stockBatches', consumedBatch.batchId);
+        const batchSnap = await getDoc(batchRef);
+        
+        if (batchSnap.exists()) {
+          const batchData = batchSnap.data() as StockBatch;
+          // Restore the consumed quantity to the batch
+          const restoredQuantity = batchData.remainingQuantity + consumedBatch.consumedQuantity;
+          
+          batch.update(batchRef, {
+            remainingQuantity: restoredQuantity,
+            status: restoredQuantity > 0 ? 'active' : 'depleted',
+            updatedAt: serverTimestamp()
+          });
+        }
+      }
+    } else if (product.batchLevelProfits && product.batchLevelProfits.length > 0) {
+      // Fallback: use batchLevelProfits if consumedBatches is not available
+      for (const batchProfit of product.batchLevelProfits) {
+        const batchRef = doc(db, 'stockBatches', batchProfit.batchId);
+        const batchSnap = await getDoc(batchRef);
+        
+        if (batchSnap.exists()) {
+          const batchData = batchSnap.data() as StockBatch;
+          const restoredQuantity = batchData.remainingQuantity + batchProfit.consumedQuantity;
+          
+          batch.update(batchRef, {
+            remainingQuantity: restoredQuantity,
+            status: restoredQuantity > 0 ? 'active' : 'depleted',
+            updatedAt: serverTimestamp()
+          });
+        }
+      }
+    }
   }
 
   // Soft delete the sale (set isAvailable: false)

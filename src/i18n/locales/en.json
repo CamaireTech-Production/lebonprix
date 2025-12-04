@@ -1523,8 +1523,11 @@
       "product": "product",
       "products": "products",
       "drafts": "Drafts",
+      "draft": "Draft",
       "resumeDraft": "Resume Draft",
-      "noDrafts": "No drafts"
+      "noDrafts": "No drafts",
+      "deleteDraft": "Delete draft",
+      "confirmDeleteDraft": "Are you sure you want to delete this draft?"
     },
     "calculator": {
       "title": "Calculator",
