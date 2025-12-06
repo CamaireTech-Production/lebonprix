@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, ShoppingCart, DollarSign, Package2, FileBarChart, Receipt, Settings, Users, Grid3X3, ShoppingBag, Loader2, Phone, ScanLine} from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, DollarSign, Package2, FileBarChart, Receipt, Settings, Users, Grid3X3, ShoppingBag, Loader2, Phone} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
 import { useRolePermissions } from '../../hooks/useRolePermissions';
@@ -43,12 +43,6 @@ const MobileNav = () => {
       name: t('navigation.sales'), 
       path: isCompanyRoute ? `/company/${companyId}/sales` : '/sales', 
       icon: <ShoppingCart size={20} />, 
-      resource: 'sales' 
-    },
-    { 
-      name: 'POS', 
-      path: isCompanyRoute ? `/company/${companyId}/pos` : '/pos', 
-      icon: <ScanLine size={20} />, 
       resource: 'sales' 
     },
     { 
@@ -114,7 +108,7 @@ const MobileNav = () => {
   ];
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 md:hidden pb-safe">
+    <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 md:hidden pb-safe mb-4">
       <nav className="flex overflow-x-auto scrollbar-hide">
         {showTemplateLoader ? (
           <div className="flex items-center justify-center w-full py-4">

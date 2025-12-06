@@ -72,7 +72,7 @@ export const PWAUpdateNotification: React.FC = () => {
       setToastId(null);
       setIsUpdating(false);
     }
-  }, [hasUpdate, toastId, isUpdating]);
+  }, [hasUpdate, toastId]);
 
   const handleUpdate = (id: string) => {
     setIsUpdating(true);

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { AlertTriangle, RefreshCw, WifiOff } from 'lucide-react';
 
 interface PWAErrorHandlerProps {
@@ -10,17 +10,27 @@ export const PWAErrorHandler: React.FC<PWAErrorHandlerProps> = ({ children }) =>
   const [hasServiceWorker, setHasServiceWorker] = useState(false);
   const [swError, setSwError] = useState<string | null>(null);
   const [showOfflineBanner, setShowOfflineBanner] = useState(false);
+  
+  // Track timeouts and mounted state to prevent memory leaks
+  const timeoutRefs = useRef<NodeJS.Timeout[]>([]);
+  const isMountedRef = useRef(true);
 
   useEffect(() => {
+    isMountedRef.current = true;
+    
     // Listen for online/offline events
     const handleOnline = () => {
-      setIsOnline(true);
-      setShowOfflineBanner(false);
+      if (isMountedRef.current) {
+        setIsOnline(true);
+        setShowOfflineBanner(false);
+      }
     };
 
     const handleOffline = () => {
-      setIsOnline(false);
-      setShowOfflineBanner(true);
+      if (isMountedRef.current) {
+        setIsOnline(false);
+        setShowOfflineBanner(true);
+      }
     };
 
     window.addEventListener('online', handleOnline);
@@ -37,10 +47,20 @@ export const PWAErrorHandler: React.FC<PWAErrorHandlerProps> = ({ children }) =>
       const checkInterval = 2000; // Check every 2 seconds
       
       const checkServiceWorker = async () => {
+        // Don't proceed if component is unmounted
+        if (!isMountedRef.current) {
+          return;
+        }
+        
         attempts++;
         
         try {
           const registration = await navigator.serviceWorker.getRegistration();
+          
+          // Check again if component is still mounted
+          if (!isMountedRef.current) {
+            return;
+          }
           
           if (registration) {
             // Service worker is registered, clear any error
@@ -50,39 +70,64 @@ export const PWAErrorHandler: React.FC<PWAErrorHandlerProps> = ({ children }) =>
           
           // If no registration after max attempts, show error (only in production)
           if (attempts >= maxAttempts) {
-            if (import.meta.env.PROD) {
+            if (import.meta.env.PROD && isMountedRef.current) {
               setSwError('Service Worker not registered');
             }
           } else {
-            // Try again after delay
-            setTimeout(checkServiceWorker, checkInterval);
+            // Try again after delay - store timeout ID
+            const timeoutId = setTimeout(() => {
+              checkServiceWorker();
+            }, checkInterval);
+            timeoutRefs.current.push(timeoutId);
           }
         } catch (error) {
+          // Don't proceed if component is unmounted
+          if (!isMountedRef.current) {
+            return;
+          }
+          
           // Only show error after all retries failed (only in production)
           if (attempts >= maxAttempts) {
-            if (import.meta.env.PROD) {
+            if (import.meta.env.PROD && isMountedRef.current) {
               const errorMessage = error instanceof Error ? error.message : 'Unknown error';
               setSwError(`Service Worker error: ${errorMessage}`);
             }
           } else {
-            // Try again after delay
-            setTimeout(checkServiceWorker, checkInterval);
+            // Try again after delay - store timeout ID
+            const timeoutId = setTimeout(() => {
+              checkServiceWorker();
+            }, checkInterval);
+            timeoutRefs.current.push(timeoutId);
           }
         }
       };
       
       // Start checking after initial delay (give Vite PWA time to register)
-      setTimeout(checkServiceWorker, 3000); // Wait 3 seconds before first check
+      // Store the initial timeout ID
+      const initialTimeoutId = setTimeout(() => {
+        checkServiceWorker();
+      }, 3000);
+      timeoutRefs.current.push(initialTimeoutId);
     } else {
       // Service worker not supported - only show in production
-      if (import.meta.env.PROD) {
+      if (import.meta.env.PROD && isMountedRef.current) {
         setSwError('Service Worker not supported');
       }
     }
 
     return () => {
+      // Mark component as unmounted
+      isMountedRef.current = false;
+      
+      // Remove event listeners
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      
+      // Clear all pending timeouts to prevent memory leaks
+      timeoutRefs.current.forEach(timeoutId => {
+        clearTimeout(timeoutId);
+      });
+      timeoutRefs.current = [];
     };
   }, []);
 

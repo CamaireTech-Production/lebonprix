@@ -171,7 +171,7 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
           </button>
         ) : (
           <Link to="/" className="flex items-center">
-            <span className="font-bold text-xl" style={{color: colors.primary}}>Le Bon Prix</span>
+            <span className="font-bold text-xl" style={{color: colors.primary}}>Geskap</span>
           </Link>
         )}
         <button 

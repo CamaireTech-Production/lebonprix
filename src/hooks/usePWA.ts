@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 interface PWAState {
   isInstalled: boolean;
@@ -21,6 +21,7 @@ export const usePWA = () => {
   });
 
   const [registration, setRegistration] = useState<ServiceWorkerRegistration | null>(null);
+  const isMountedRef = useRef(true);
 
   // Function to check for updates with safeguards
   const checkForUpdate = useCallback(async () => {
@@ -173,31 +174,57 @@ export const usePWA = () => {
 
   // Effect for update detection
   useEffect(() => {
+    isMountedRef.current = true;
+    
     if (!('serviceWorker' in navigator)) {
       return;
     }
+
+    // Track registration and handlers for cleanup
+    let currentRegistration: ServiceWorkerRegistration | null = null;
+    let updateFoundHandler: (() => void) | null = null;
+    let stateChangeHandler: (() => void) | null = null;
+    let currentWorker: ServiceWorker | null = null;
 
     // Initial check for updates
     checkForUpdate();
 
     // Set up periodic checks (every 60 seconds)
     const intervalId = setInterval(() => {
-      if (navigator.onLine) {
+      if (navigator.onLine && isMountedRef.current) {
         checkForUpdate();
       }
     }, UPDATE_CHECK_INTERVAL);
 
     // Listen for service worker registration and updates
     navigator.serviceWorker.getRegistration().then(reg => {
+      // Don't proceed if component unmounted
+      if (!isMountedRef.current) {
+        return;
+      }
+      
       if (reg) {
+        currentRegistration = reg;
         setRegistration(reg);
 
-        // Listen for updatefound event
-        reg.addEventListener('updatefound', () => {
+        // Create named handler for updatefound event so it can be removed
+        updateFoundHandler = () => {
+          if (!isMountedRef.current) {
+            return;
+          }
+          
           const newWorker = reg.installing;
           
           if (newWorker) {
-            newWorker.addEventListener('statechange', () => {
+            currentWorker = newWorker;
+            
+            // Create named handler for statechange event so it can be removed
+            stateChangeHandler = () => {
+              // Don't proceed if component unmounted
+              if (!isMountedRef.current) {
+                return;
+              }
+              
               // When new service worker is installed and there's an active controller
               if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
                 // Verify it's a different version
@@ -216,19 +243,39 @@ export const usePWA = () => {
                   }
                 }
               }
-            });
+            };
+            
+            newWorker.addEventListener('statechange', stateChangeHandler);
           }
-        });
+        };
+
+        // Listen for updatefound event
+        reg.addEventListener('updatefound', updateFoundHandler);
 
         // Manually trigger update check
         reg.update().catch(err => {
-          console.error('Error updating service worker:', err);
+          if (isMountedRef.current) {
+            console.error('Error updating service worker:', err);
+          }
         });
       }
     });
 
     return () => {
+      // Mark as unmounted
+      isMountedRef.current = false;
+      
+      // Clear interval
       clearInterval(intervalId);
+      
+      // Remove event listeners
+      if (currentWorker && stateChangeHandler) {
+        currentWorker.removeEventListener('statechange', stateChangeHandler);
+      }
+      
+      if (currentRegistration && updateFoundHandler) {
+        currentRegistration.removeEventListener('updatefound', updateFoundHandler);
+      }
     };
   }, [checkForUpdate]);
 
