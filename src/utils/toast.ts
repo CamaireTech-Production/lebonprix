@@ -45,4 +45,15 @@ export const showWarningToast = (message: string): string => {
       borderLeft: '4px solid #F59E0B', // amber-500
     },
   });
+};
+
+export const showInfoToast = (message: string): string => {
+  return toast(message, {
+    ...defaultOptions,
+    icon: 'ℹ️',
+    style: {
+      ...defaultOptions.style,
+      borderLeft: '4px solid #3B82F6', // blue-500
+    },
+  });
 }; 

@@ -11,6 +11,7 @@ import LazyPage from './components/common/LazyPage';
 import { Toaster } from 'react-hot-toast';
 import Finance from './pages/Finance';
 import { PWAErrorHandler } from './components/PWAErrorHandler';
+import { PWAUpdateNotification } from './components/PWAUpdateNotification';
 
 // Lazy load pages
 const Login = lazy(() => import('./pages/auth/Login'));
@@ -77,6 +78,7 @@ function AppWithFAB({ isAddSaleModalOpen, setIsAddSaleModalOpen }: { isAddSaleMo
             },
           }}
         />
+        <PWAUpdateNotification />
         
         <Routes>
           {/* Root redirect to login */}

@@ -12,24 +12,6 @@ export const PWAErrorHandler: React.FC<PWAErrorHandlerProps> = ({ children }) =>
   const [showOfflineBanner, setShowOfflineBanner] = useState(false);
 
   useEffect(() => {
-    // Check service worker support
-    if ('serviceWorker' in navigator) {
-      setHasServiceWorker(true);
-      
-      // Check if service worker is registered
-      navigator.serviceWorker.getRegistration()
-        .then(registration => {
-          if (!registration) {
-            setSwError('Service Worker not registered');
-          }
-        })
-        .catch(error => {
-          setSwError(`Service Worker error: ${error.message}`);
-        });
-    } else {
-      setSwError('Service Worker not supported');
-    }
-
     // Listen for online/offline events
     const handleOnline = () => {
       setIsOnline(true);
@@ -43,6 +25,60 @@ export const PWAErrorHandler: React.FC<PWAErrorHandlerProps> = ({ children }) =>
 
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
+
+    // Check service worker support
+    if ('serviceWorker' in navigator) {
+      setHasServiceWorker(true);
+      
+      // Wait 3 seconds before first check (give Vite PWA time to register)
+      // Then check multiple times before showing error
+      let attempts = 0;
+      const maxAttempts = 5; // Check 5 times over ~10 seconds
+      const checkInterval = 2000; // Check every 2 seconds
+      
+      const checkServiceWorker = async () => {
+        attempts++;
+        
+        try {
+          const registration = await navigator.serviceWorker.getRegistration();
+          
+          if (registration) {
+            // Service worker is registered, clear any error
+            setSwError(null);
+            return;
+          }
+          
+          // If no registration after max attempts, show error (only in production)
+          if (attempts >= maxAttempts) {
+            if (import.meta.env.PROD) {
+              setSwError('Service Worker not registered');
+            }
+          } else {
+            // Try again after delay
+            setTimeout(checkServiceWorker, checkInterval);
+          }
+        } catch (error) {
+          // Only show error after all retries failed (only in production)
+          if (attempts >= maxAttempts) {
+            if (import.meta.env.PROD) {
+              const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+              setSwError(`Service Worker error: ${errorMessage}`);
+            }
+          } else {
+            // Try again after delay
+            setTimeout(checkServiceWorker, checkInterval);
+          }
+        }
+      };
+      
+      // Start checking after initial delay (give Vite PWA time to register)
+      setTimeout(checkServiceWorker, 3000); // Wait 3 seconds before first check
+    } else {
+      // Service worker not supported - only show in production
+      if (import.meta.env.PROD) {
+        setSwError('Service Worker not supported');
+      }
+    }
 
     return () => {
       window.removeEventListener('online', handleOnline);
@@ -75,8 +111,8 @@ export const PWAErrorHandler: React.FC<PWAErrorHandlerProps> = ({ children }) =>
         </div>
       )}
 
-      {/* Service Worker Error */}
-      {swError && (
+      {/* Service Worker Error - Only show in production */}
+      {swError && import.meta.env.PROD && (
         <div className="fixed bottom-4 left-4 right-4 z-50 bg-red-500 text-white p-4 rounded-lg shadow-lg">
           <div className="flex items-start space-x-3">
             <AlertTriangle className="h-5 w-5 flex-shrink-0 mt-0.5" />
