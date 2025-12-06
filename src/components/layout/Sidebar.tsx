@@ -1,6 +1,6 @@
 import React from 'react';
 import { useLocation, Link, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, ShoppingCart, DollarSign, Package2, FileBarChart, Settings, X, Receipt, Users, Building2, Plus, Grid3X3, ShoppingBag, UserCheck, ChevronDown, ChevronRight, Loader2, Phone, ScanLine} from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, DollarSign, Package2, FileBarChart, Settings, X, Receipt, Users, Building2, Plus, ShoppingBag, UserCheck, ChevronDown, ChevronRight, Loader2, Phone, ScanLine} from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useRolePermissions } from '../../hooks/useRolePermissions';
 import UserAvatar from '../common/UserAvatar';
@@ -50,23 +50,17 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
 
   // Check if expenses menu should be expanded (if on any expenses sub-route)
   React.useEffect(() => {
-    if (location.pathname.includes('/expenses')) {
-      setExpensesMenuExpanded(true);
-    }
+    setExpensesMenuExpanded(location.pathname.includes('/expenses'));
   }, [location.pathname]);
 
   // Check if contacts menu should be expanded (if on any contacts sub-route)
   React.useEffect(() => {
-    if (location.pathname.includes('/contacts')) {
-      setContactsMenuExpanded(true);
-    }
+    setContactsMenuExpanded(location.pathname.includes('/contacts'));
   }, [location.pathname]);
 
   // Check if products menu should be expanded (if on any products/categories sub-route)
   React.useEffect(() => {
-    if (location.pathname.includes('/products') || location.pathname.includes('/categories')) {
-      setProductsMenuExpanded(true);
-    }
+    setProductsMenuExpanded(location.pathname.includes('/products') || location.pathname.includes('/categories'));
   }, [location.pathname]);
 
   const handleCreateCompany = () => {
