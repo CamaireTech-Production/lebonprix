@@ -108,6 +108,22 @@
       "expenses": "Dépenses",
       "productsSold": "Produits vendus"
     },
+    "profit": {
+      "periodSettings": "Paramètres de période de profit",
+      "customDate": "Date personnalisée",
+      "thisMonth": "Ce mois-ci",
+      "last30Days": "30 derniers jours",
+      "last2Months": "2 derniers mois",
+      "last3Months": "3 derniers mois",
+      "thisQuarter": "Ce trimestre",
+      "thisYear": "Cette année",
+      "allTime": "Tout le temps",
+      "since": "Depuis",
+      "setPeriod": "Définir le début de période",
+      "clearPeriod": "Réinitialiser la période",
+      "save": "Enregistrer",
+      "cancel": "Annuler"
+    },
     "tooltips": {
       "grossProfit": "Revenu total moins le coût des marchandises vendues",
       "netProfit": "Bénéfice brut moins toutes les dépenses",

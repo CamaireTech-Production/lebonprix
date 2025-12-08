@@ -191,6 +191,27 @@ export interface Objective extends BaseModel {
   isAvailable?: boolean;
 }
 
+export type ProfitPeriodType = 
+  | 'custom' 
+  | 'this_month' 
+  | 'last_30_days' 
+  | 'last_2_months' 
+  | 'last_3_months' 
+  | 'this_quarter' 
+  | 'this_year' 
+  | 'all_time';
+
+export interface ProfitPeriodPreference {
+  id: string;
+  companyId: string;
+  periodStartDate: Timestamp | null; // null for non-custom types, Date for custom
+  periodType: ProfitPeriodType; // Type of period
+  isActive: boolean;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+  updatedBy: string;
+}
+
 // Stock change event for product inventory tracking
 export interface StockChange {
   id: string;

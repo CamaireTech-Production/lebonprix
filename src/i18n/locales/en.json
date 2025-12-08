@@ -106,6 +106,22 @@
       "expenses": "Expenses",
       "productsSold": "Products Sold"
     },
+    "profit": {
+      "periodSettings": "Profit Period Settings",
+      "customDate": "Custom Date",
+      "thisMonth": "This Month",
+      "last30Days": "Last 30 Days",
+      "last2Months": "Last 2 Months",
+      "last3Months": "Last 3 Months",
+      "thisQuarter": "This Quarter",
+      "thisYear": "This Year",
+      "allTime": "All Time",
+      "since": "Since",
+      "setPeriod": "Set Period Start",
+      "clearPeriod": "Clear Period",
+      "save": "Save",
+      "cancel": "Cancel"
+    },
     "tooltips": {
       "grossProfit": "Total revenue minus cost of goods sold",
       "netProfit": "Gross profit minus all expenses",

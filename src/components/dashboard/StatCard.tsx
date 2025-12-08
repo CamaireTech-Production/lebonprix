@@ -1,7 +1,7 @@
 import { ReactNode, useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import Card from '../common/Card';
-import { Info } from 'lucide-react';
+import { Info, Settings } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -16,9 +16,12 @@ interface StatCardProps {
   tooltipKey?: string;
   type: 'sales' | 'expenses' | 'profit' | 'products' | 'orders' | 'delivery' | 'solde';
   className?: string;
+  periodLabel?: string;
+  showPeriodIndicator?: boolean;
+  onPeriodSettingsClick?: () => void;
 }
 
-const StatCard = ({ title, value, icon, trend, tooltipKey, type, className = '' }: StatCardProps) => {
+const StatCard = ({ title, value, icon, trend, tooltipKey, type, className = '', periodLabel, showPeriodIndicator, onPeriodSettingsClick }: StatCardProps) => {
   const { t } = useTranslation();
   const { company } = useAuth();
   const [showTooltip, setShowTooltip] = useState(false);
@@ -211,11 +214,39 @@ const StatCard = ({ title, value, icon, trend, tooltipKey, type, className = '' 
               </span>
             </div>
           )}
+          {showPeriodIndicator && type === 'profit' && (
+            <div className="mt-1">
+              <span className="text-xs text-gray-500">
+                {periodLabel || t('dashboard.profit.allTime', { defaultValue: 'All Time' })}
+              </span>
+            </div>
+          )}
         </div>
         <div className="p-1.5 sm:p-2 rounded-md ml-2 flex-shrink-0" style={getIconColor(type)}>
           <div className="w-5 h-5 sm:w-6 sm:h-6">{icon}</div>
         </div>
       </div>
+      {showPeriodIndicator && type === 'profit' && onPeriodSettingsClick && (
+        <div className="mt-3 pt-3 border-t border-gray-200">
+          <button
+            onClick={onPeriodSettingsClick}
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-md transition-colors"
+            style={{
+              backgroundColor: `${getCompanyColors().primary}10`,
+              color: getCompanyColors().primary,
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = `${getCompanyColors().primary}20`;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = `${getCompanyColors().primary}10`;
+            }}
+          >
+            <Settings size={16} />
+            <span>{t('dashboard.profit.setPeriod', { defaultValue: 'Configure Period' })}</span>
+          </button>
+        </div>
+      )}
       {renderTooltip()}
     </Card>
   );

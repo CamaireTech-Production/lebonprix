@@ -20,6 +20,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useRolePermissions } from '../hooks/useRolePermissions';
 import {
   calculateTotalProfit,
+  calculateDashboardProfit,
   calculateTotalExpenses,
   calculateSolde,
   calculateTotalPurchasePrice,
@@ -28,10 +29,13 @@ import {
   calculateTotalProductsSold,
   calculateTotalOrders
 } from '../utils/financialCalculations';
+import { useProfitPeriod } from '../hooks/useProfitPeriod';
+import { getPeriodStartDate, getPeriodShortLabel } from '../utils/profitPeriodUtils';
 import { differenceInDays, format, startOfWeek, endOfWeek, addDays, addWeeks, startOfMonth as startMonth, endOfMonth as endMonth, addMonths, isSameMonth, isSameDay } from 'date-fns';
 import DateRangePicker from '../components/common/DateRangePicker';
 import ObjectivesBar from '../components/objectives/ObjectivesBar';
 import ObjectivesModal from '../components/objectives/ObjectivesModal';
+import ProfitPeriodModal from '../components/dashboard/ProfitPeriodModal';
 import { combineActivities } from '../utils/activityUtils';
 
 const Dashboard = () => {
@@ -57,6 +61,9 @@ const Dashboard = () => {
   const { stockChanges, loading: stockChangesLoading } = useStockChanges();
   const { entries: financeEntries, loading: financeLoading } = useFinanceEntries();
   const { auditLogs, loading: auditLogsLoading } = useAuditLogs();
+  
+  // 💰 PROFIT PERIOD: Load profit period preference
+  const { preference: profitPeriodPreference, setPeriod, clearPeriod } = useProfitPeriod();
   
   // 🎯 ESSENTIAL DATA: Only block UI for critical data (sales + products)
   const essentialDataLoading = salesLoading || productsLoading;
@@ -87,6 +94,7 @@ const Dashboard = () => {
   });
   const [showObjectivesModal, setShowObjectivesModal] = useState(false);
   const [applyDateFilter, setApplyDateFilter] = useState(true);
+  const [showProfitPeriodModal, setShowProfitPeriodModal] = useState(false);
 
   // Get company colors with fallbacks - prioritize dashboard colors
   const getCompanyColors = () => {
@@ -126,7 +134,25 @@ const Dashboard = () => {
   });
 
   // Calculate financial metrics using extracted functions
-  const profit = calculateTotalProfit(filteredSales || [], products || [], stockChanges || []);
+  // 💰 PROFIT PERIOD: Calculate profit with dynamic date from periodType (Dashboard only)
+  const customDate = profitPeriodPreference?.periodStartDate 
+    ? new Date(profitPeriodPreference.periodStartDate.seconds * 1000)
+    : null;
+  
+  const actualStartDate = profitPeriodPreference?.periodType
+    ? getPeriodStartDate(profitPeriodPreference.periodType, customDate)
+    : null;
+  
+  const profit = calculateDashboardProfit(
+    filteredSales || [],
+    products || [],
+    stockChanges || [],
+    actualStartDate,
+    dateRange.from
+  );
+  
+  // Also calculate all-time profit for comparison (optional)
+  const allTimeProfit = calculateTotalProfit(filteredSales || [], products || [], stockChanges || []);
 
   // 🔄 BACKGROUND DATA: Calculate expenses only when available
   // Note: Dashboard only uses expenses, not manual entries, so we pass an empty array for manual entries
@@ -348,7 +374,7 @@ const Dashboard = () => {
   );
 
   // 🎯 STAT CARDS: Show loading states for background data
-  const statCards: { title: string; value: string | number; icon: JSX.Element; type: 'products' | 'sales' | 'expenses' | 'profit' | 'orders' | 'delivery' | 'solde'; loading?: boolean; }[] = [
+  const statCards: { title: string; value: string | number; icon: JSX.Element; type: 'products' | 'sales' | 'expenses' | 'profit' | 'orders' | 'delivery' | 'solde'; loading?: boolean; periodLabel?: string; showPeriodIndicator?: boolean; onPeriodSettingsClick?: () => void; }[] = [
     { 
       title: t('dashboard.stats.solde'), 
       value: financeLoading ? '...' : `${solde.toLocaleString()} XAF`, 
@@ -361,7 +387,12 @@ const Dashboard = () => {
       value: stockChangesLoading ? '...' : `${profit.toLocaleString()} XAF`, 
       icon: <TrendingUp size={20} />, 
       type: 'profit',
-      loading: stockChangesLoading
+      loading: stockChangesLoading,
+      periodLabel: profitPeriodPreference?.periodType 
+        ? getPeriodShortLabel(profitPeriodPreference.periodType, customDate)
+        : 'All Time',
+      showPeriodIndicator: true,
+      onPeriodSettingsClick: () => setShowProfitPeriodModal(true)
     },
     { 
       title: t('dashboard.stats.expenses'), 
@@ -577,6 +608,17 @@ const Dashboard = () => {
           onAfterAdd={() => setApplyDateFilter(false)}
         />
       )}
+      {/* Profit Period Modal */}
+      {showProfitPeriodModal && (
+        <ProfitPeriodModal
+          isOpen={showProfitPeriodModal}
+          onClose={() => setShowProfitPeriodModal(false)}
+          currentPeriodType={profitPeriodPreference?.periodType}
+          currentCustomDate={customDate}
+          onSetPeriod={setPeriod}
+          onClearPeriod={clearPeriod}
+        />
+      )}
       {/* Stats section */}
       <div className="mb-6">
         <div className="mb-4">
@@ -595,6 +637,9 @@ const Dashboard = () => {
                 value={card.value}
                 icon={card.icon}
                 type={card.type}
+                periodLabel={card.periodLabel}
+                showPeriodIndicator={card.showPeriodIndicator}
+                onPeriodSettingsClick={card.onPeriodSettingsClick}
               />
             )
           ))}
