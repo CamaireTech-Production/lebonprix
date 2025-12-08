@@ -624,7 +624,8 @@
       "viewAllHistory": "View All History",
       "clickToUpload": "Click to upload",
       "orDragAndDrop": "or drag and drop",
-      "hideFromCatalogue": "Hide from Catalogue"
+      "hideFromCatalogue": "Hide from Catalogue",
+      "showInCatalogue": "Show in Catalogue"
     },
     "form": {
       "name": "Product Name",

@@ -66,6 +66,12 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           ...updatedCart[existingItemIndex],
           quantity: updatedCart[existingItemIndex].quantity + quantity
         };
+        
+        // Dispatch event to open cart drawer
+        window.dispatchEvent(new CustomEvent('cart:itemAdded', { 
+          detail: { product, quantity, isUpdate: true } 
+        }));
+        
         return updatedCart;
       } else {
         // Add new item
@@ -79,6 +85,12 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           selectedColor,
           selectedSize
         };
+        
+        // Dispatch event to open cart drawer
+        window.dispatchEvent(new CustomEvent('cart:itemAdded', { 
+          detail: { product, quantity, isUpdate: false } 
+        }));
+        
         return [...prevCart, newItem];
       }
     });

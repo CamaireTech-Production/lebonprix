@@ -860,19 +860,20 @@ export const updateProduct = async (
   // Get userId from product for audit
   const userId = currentProduct.userId || companyId;
   
+  // Prepare update fields object (will be applied in a single batch.update)
+  const updateFields: any = {};
+  let newStock: number | undefined;
+  
   // Handle stock changes
   if (stockChange !== undefined && stockReason) {
-    const newStock = currentProduct.stock + stockChange;
+    newStock = currentProduct.stock + stockChange;
     
     if (newStock < 0) {
       throw new Error('Stock cannot be negative');
     }
     
-    // Update product stock
-    batch.update(productRef, {
-      stock: newStock,
-    updatedAt: serverTimestamp()
-    });
+    // Add stock to update fields
+    updateFields.stock = newStock;
     
     // Handle stock batch creation for restock
     if (stockChange > 0 && stockReason === 'restock' && supplierInfo?.costPrice) {
@@ -932,27 +933,34 @@ export const updateProduct = async (
       }
     } else {
       // Create stock change without batch
-    createStockChange(
-      batch,
-      id,
-      stockChange,
-      stockReason,
-      userId,
-      companyId,
-      supplierInfo?.supplierId,
-      supplierInfo?.isOwnPurchase,
-      supplierInfo?.isCredit,
-      supplierInfo?.costPrice
-    );
-  }
+      createStockChange(
+        batch,
+        id,
+        stockChange,
+        stockReason,
+        userId,
+        companyId,
+        supplierInfo?.supplierId,
+        supplierInfo?.isOwnPurchase,
+        supplierInfo?.isCredit,
+        supplierInfo?.costPrice
+      );
+    }
   }
   
-  // Update other product data
+  // Merge other product data (excluding stock if it was already set above)
   if (Object.keys(data).length > 0) {
-    batch.update(productRef, {
-      ...data,
-      updatedAt: serverTimestamp()
-    });
+    // Filter out stock from data if it's being updated via stockChange parameter
+    const { stock: _, ...dataWithoutStock } = data;
+    Object.assign(updateFields, stockChange !== undefined ? dataWithoutStock : data);
+  }
+  
+  // Add updatedAt timestamp
+  updateFields.updatedAt = serverTimestamp();
+  
+  // Perform single consolidated batch update
+  if (Object.keys(updateFields).length > 0) {
+    batch.update(productRef, updateFields);
   }
   
   // Create audit log
@@ -2766,7 +2774,8 @@ export const correctBatchCostPrice = async (
   // Update the batch cost price
   batch.update(batchRef, {
     costPrice: newCostPrice,
-    status: 'corrected'
+    status: 'corrected',
+    updatedAt: serverTimestamp()
   });
   
   // Create a stock change record for the correction
@@ -2776,6 +2785,7 @@ export const correctBatchCostPrice = async (
     0, // No stock change
     'cost_correction',
     userId,
+    batchData.companyId, // Fix: Add companyId as 6th parameter
     batchData.supplierId,
     batchData.isOwnPurchase,
     batchData.isCredit,
@@ -2896,6 +2906,7 @@ export const restockProduct = async (
     quantity,
     'restock',
     userId,
+    currentProduct.companyId, // Fix: Add companyId as 6th parameter
     supplierId,
     isOwnPurchase,
     isCredit,
@@ -2910,6 +2921,7 @@ export const restockProduct = async (
     const debtData = {
       id: debtRef.id,
       userId,
+      companyId: currentProduct.companyId, // Fix: Add companyId to debt record
       sourceType: 'supplier',
       sourceId: supplierId,
       type: 'supplier_debt',
@@ -2961,7 +2973,7 @@ export const adjustStockManually = async (
   const batchUpdates: Partial<StockBatch> = {
     remainingQuantity: newRemainingQuantity,
     status: newRemainingQuantity === 0 ? 'depleted' : 'active',
-    updatedAt: { seconds: Date.now() / 1000, nanoseconds: 0 }
+    updatedAt: serverTimestamp() // Fix: Use serverTimestamp() instead of manual timestamp
   };
   
   if (newCostPrice !== undefined) {
@@ -2998,6 +3010,7 @@ export const adjustStockManually = async (
     quantityChange,
     'manual_adjustment',
     userId,
+    batchData.companyId, // Fix: Add companyId as 6th parameter
     batchData.supplierId,
     batchData.isOwnPurchase,
     batchData.isCredit,
@@ -3014,6 +3027,7 @@ export const adjustStockManually = async (
       const debtData = {
         id: debtRef.id,
         userId,
+        companyId: currentProduct.companyId, // Fix: Add companyId to debt record
         sourceType: 'supplier',
         sourceId: batchData.supplierId,
         type: debtChange > 0 ? 'supplier_debt' : 'supplier_refund',
@@ -3093,6 +3107,7 @@ export const adjustStockForDamage = async (
     -damagedQuantity,
     'damage',
     userId,
+    batchData.companyId, // Fix: Add companyId as 6th parameter
     batchData.supplierId,
     batchData.isOwnPurchase,
     batchData.isCredit,

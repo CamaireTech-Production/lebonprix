@@ -22,7 +22,8 @@ i18n
         translation: frTranslations
       }
     },
-    fallbackLng: 'en',
+    lng: 'fr', // Set French as the default language
+    fallbackLng: 'fr', // Changed from 'en' to 'fr'
     debug: process.env.NODE_ENV === 'development',
     
     interpolation: {
@@ -31,7 +32,8 @@ i18n
 
     // Language detection options
     detection: {
-      order: ['localStorage', 'navigator'],
+      order: ['querystring', 'localStorage', 'navigator'],
+      lookupQuerystring: 'lng',
       caches: ['localStorage'],
     },
   });

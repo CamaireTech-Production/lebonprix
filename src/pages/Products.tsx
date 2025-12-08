@@ -10,7 +10,7 @@ import { useProducts, useStockChanges, useCategories, useSuppliers } from '../ho
 import { useInfiniteProducts } from '../hooks/useInfiniteProducts';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 import { useAllStockBatches } from '../hooks/useStockBatches';
-import { createSupplier, recalculateCategoryProductCounts } from '../services/firestore';
+import { createSupplier, recalculateCategoryProductCounts, correctBatchCostPrice } from '../services/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import { getCurrentEmployeeRef } from '../utils/employeeUtils';
 import { getUserById } from '../services/userService';
@@ -873,21 +873,19 @@ const Products = () => {
       isAvailable: safeProduct.isAvailable,
       isVisible: step1Data.isVisible !== false, // Default to true, never undefined
       userId: safeProduct.userId,
-      updatedAt: { seconds: 0, nanoseconds: 0 },
+      // updatedAt will be set by firestore.ts with serverTimestamp()
       sellingPrice: editPrices.sellingPrice ? parseFloat(editPrices.sellingPrice) : safeProduct.sellingPrice,
       cataloguePrice: editPrices.cataloguePrice ? parseFloat(editPrices.cataloguePrice) : safeProduct.cataloguePrice,
       // Include barcode if provided
       ...(step1Data.barCode && step1Data.barCode.trim() && { barCode: step1Data.barCode.trim() }),
     };
     
-    // Only include category if it's not empty (Firestore doesn't accept undefined)
-    // Use null for empty category (Firestore accepts null but not undefined)
+    // Only include category if it's not empty
+    // Omit the field entirely if empty to preserve existing value
     if (step1Data.category && step1Data.category.trim()) {
       updateData.category = step1Data.category.trim();
-    } else {
-      // Set to null if category is empty (Firestore accepts null but not undefined)
-      updateData.category = null as any;
     }
+    // If category is empty, don't include it in updateData - Firestore will preserve existing value
     if (step1Data.reference && step1Data.reference.trim() !== '') {
       updateData.reference = step1Data.reference;
     }
@@ -920,8 +918,8 @@ const Products = () => {
         
         // For restock, add to current stock
         if (stockReasonType === 'restock') {
-          const newStock = (currentProduct.stock || 0) + stockChange;
-          updateData.stock = newStock;
+          // Stock will be calculated in the service layer based on stockChange
+          // Don't set updateData.stock here to avoid double stock updates
           
           // Create stock change with supplier info
           await updateProductData(currentProduct.id, updateData, stockReasonType, stockChange, {
@@ -941,7 +939,8 @@ const Products = () => {
           }
         } else {
           // For simple adjustment, set to new value
-          updateData.stock = stockChange;
+          // Stock will be calculated in the service layer based on the delta
+          // Don't set updateData.stock here to avoid double stock updates
           await updateProductData(currentProduct.id, updateData, stockReasonType, stockChange - (currentProduct.stock || 0));
         }
       } else {
@@ -1052,13 +1051,14 @@ const Products = () => {
         .filter(sc => sc.productId === currentProduct.id)
         .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))[0];
       if (latestStockChange && editPrices.costPrice && parseFloat(editPrices.costPrice) !== latestStockChange.costPrice) {
-        // Use updateProductData with stockReason 'adjustment' and stockChange 0 to update cost price only
-        await updateProductData(currentProduct.id, {}, 'adjustment', 0, {
-          supplierId: latestStockChange.supplierId,
-          isOwnPurchase: latestStockChange.isOwnPurchase,
-          isCredit: latestStockChange.isCredit,
-          costPrice: parseFloat(editPrices.costPrice)
-        });
+        // Update the batch cost price directly using correctBatchCostPrice
+        if (latestStockChange.batchId) {
+          await correctBatchCostPrice(
+            latestStockChange.batchId,
+            parseFloat(editPrices.costPrice),
+            user.uid
+          );
+        }
       }
       
       // Recalculate category product counts after updating product
@@ -1712,7 +1712,7 @@ const Products = () => {
                   <button
                     onClick={() => { setDetailProduct(product); setIsDetailModalOpen(true); }}
                     className="text-blue-600 hover:text-blue-900"
-                    title={t('products.actions.viewDetails', 'View Details')}
+                    title={t('products.actions.viewDetails')}
                   >
                     <Info size={16} />
                   </button>
@@ -1882,7 +1882,7 @@ const Products = () => {
                         <button
                           onClick={() => { setDetailProduct(product); setIsDetailModalOpen(true); }}
                           className="text-blue-600 hover:text-blue-900"
-                          title={t('products.actions.viewDetails', 'View Details')}
+                          title={t('products.actions.viewDetails')}
                         >
                           <Info size={16} />
                         </button>
@@ -3496,7 +3496,7 @@ const Products = () => {
       <Modal
         isOpen={isDetailModalOpen}
         onClose={() => { setIsDetailModalOpen(false); setDetailProduct(null); }}
-        title={t('products.actions.viewDetails', 'Product Details')}
+        title={t('products.actions.viewDetails')}
         size="xl"
       >
         <div className="mb-4 flex border-b">

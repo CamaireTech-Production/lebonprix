@@ -584,10 +584,12 @@
       "addSupplier": "Ajouter un fournisseur",
       "note": "Note",
       "stockAdjustmentNote": "Pour mettre à jour uniquement le prix d'achat sans changer le stock, entrez la valeur du stock actuel dans le champ quantité. Le prix d'achat et les informations du fournisseur seront mis à jour pour la dernière entrée de stock.",
+      "viewDetails": "Voir les détails",
       "viewAllHistory": "Voir tout l'historique",
       "clickToUpload": "Cliquez pour télécharger",
       "orDragAndDrop": "ou glisser-déposer",
-      "hideFromCatalogue": "Masquer du catalogue"
+      "hideFromCatalogue": "Masquer du catalogue",
+      "showInCatalogue": "Afficher dans le catalogue"
     },
     "stockBatch": {
       "title": "Gestion des Lots de Stock",

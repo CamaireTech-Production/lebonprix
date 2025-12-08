@@ -331,17 +331,17 @@ const SingleCheckout: React.FC = () => {
     if (checkoutSettings?.showContactSection) {
       // Validate name field only if it's enabled
       if (checkoutSettings.showFirstName && !customerInfo.name.trim()) {
-        newErrors.name = 'Name is required';
+        newErrors.name = 'Le nom est requis';
       }
 
       // Validate phone field only if it's enabled
       if (checkoutSettings.showPhone && !customerInfo.phone.trim()) {
-        newErrors.phone = 'Phone number is required';
+        newErrors.phone = 'Le numéro de téléphone est requis';
       } else if (checkoutSettings.showPhone && customerInfo.phone.trim()) {
         // Basic phone validation only if phone field is enabled
         const phoneRegex = /^[+]?[0-9\s\-()]{8,}$/;
         if (!phoneRegex.test(customerInfo.phone.replace(/\s/g, ''))) {
-          newErrors.phone = 'Please enter a valid phone number';
+          newErrors.phone = 'Veuillez entrer un numéro de téléphone valide';
         }
       }
     }
@@ -350,45 +350,45 @@ const SingleCheckout: React.FC = () => {
     if (checkoutSettings?.showDeliverySection) {
       // Validate address field only if it's enabled
       if (checkoutSettings.showAddress && !customerInfo.location.trim()) {
-        newErrors.location = 'Location is required';
+        newErrors.location = 'L\'adresse est requise';
       }
       
       // Validate first name field only if it's enabled
       if (checkoutSettings.showFirstName && !customerInfo.name.trim()) {
-        newErrors.name = 'First name is required';
+        newErrors.name = 'Le prénom est requis';
       }
       
       // Validate last name field only if it's enabled
       if (checkoutSettings.showLastName && !customerInfo.surname?.trim()) {
-        newErrors.surname = 'Last name is required';
+        newErrors.surname = 'Le nom de famille est requis';
       }
       
       // Validate city field only if it's enabled
       if (checkoutSettings.showCity && !customerInfo.location.trim()) {
-        newErrors.location = 'City is required';
+        newErrors.location = 'La ville est requise';
       }
     }
 
     // Validate payment-specific fields only if payment section is enabled
     if (checkoutSettings?.showPaymentSection && selectedPaymentOption) {
       if (selectedPaymentOption === 'mtn_money' && !customerInfo.phone.trim()) {
-        newErrors.phone = 'MTN Mobile Money number is required';
+        newErrors.phone = 'Le numéro MTN Mobile Money est requis';
       }
       if (selectedPaymentOption === 'orange_money' && !customerInfo.phone.trim()) {
-        newErrors.phone = 'Orange Mobile Money number is required';
+        newErrors.phone = 'Le numéro Orange Mobile Money est requis';
       }
       if (selectedPaymentOption === 'visa_card') {
         if (!paymentFormData.cardNumber.trim()) {
-          newErrors.name = 'Card number is required';
+          newErrors.name = 'Le numéro de carte est requis';
         }
         if (!paymentFormData.expiryDate.trim()) {
-          newErrors.location = 'Expiry date is required';
+          newErrors.location = 'La date d\'expiration est requise';
         }
         if (!paymentFormData.securityCode.trim()) {
-          newErrors.deliveryInstructions = 'Security code is required';
+          newErrors.deliveryInstructions = 'Le code de sécurité est requis';
         }
         if (!paymentFormData.nameOnCard.trim()) {
-          newErrors.name = 'Name on card is required';
+          newErrors.name = 'Le nom sur la carte est requis';
         }
       }
     }
@@ -499,12 +499,12 @@ const SingleCheckout: React.FC = () => {
     // Validate payment form data based on selected method and checkout settings
     if (checkoutSettings?.showPaymentSection) {
       if (selectedPaymentOption === 'mtn_money' && !customerInfo.phone.trim()) {
-        toast.error('Please enter your MTN Mobile Money number');
+        toast.error('Veuillez entrer votre numéro MTN Mobile Money');
         return;
       }
 
       if (selectedPaymentOption === 'orange_money' && !customerInfo.phone.trim()) {
-        toast.error('Please enter your Orange Money number');
+        toast.error('Veuillez entrer votre numéro Orange Money');
         return;
       }
 
@@ -1027,13 +1027,13 @@ const SingleCheckout: React.FC = () => {
                   {checkoutSettings.showDeliveryInstructions && (
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Delivery Instructions (optional)
+                        Instructions de livraison (facultatif)
                       </label>
                       <textarea
                         value={customerInfo.deliveryInstructions}
                         onChange={(e) => handleInputChange('deliveryInstructions', e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                        placeholder="Any special delivery instructions..."
+                        placeholder="Instructions spéciales pour la livraison..."
                         rows={3}
                       />
                     </div>
@@ -1045,7 +1045,7 @@ const SingleCheckout: React.FC = () => {
             {/* Shipping Method Section */}
             {checkoutSettings?.showShippingMethod && (
               <div className="bg-white rounded-lg shadow-sm border p-6">
-                <h2 className="text-xl font-bold mb-4" style={{color: getCompanyColors().primary}}>Shipping method</h2>
+                <h2 className="text-xl font-bold mb-4" style={{color: getCompanyColors().primary}}>Mode de livraison</h2>
                 
                 <div className="space-y-3">
                   <div className="border border-gray-200 rounded-lg p-4 bg-emerald-50">
@@ -1057,14 +1057,14 @@ const SingleCheckout: React.FC = () => {
                           defaultChecked
                           className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300"
                         />
-                        <div>
-                          <p className="font-medium text-gray-900">Standard Delivery</p>
-                          <p className="text-sm text-gray-600">3-5 Business Days</p>
-                        </div>
+                      <div>
+                        <p className="font-medium text-gray-900">Livraison standard</p>
+                        <p className="text-sm text-gray-600">3-5 jours ouvrables</p>
                       </div>
-                      <span className="font-semibold text-gray-900">
-                        {deliveryFee > 0 ? `${deliveryFee.toLocaleString('fr-FR', { style: 'currency', currency: 'XAF' })}` : 'Free'}
-                      </span>
+                    </div>
+                    <span className="font-semibold text-gray-900">
+                      {deliveryFee > 0 ? `${deliveryFee.toLocaleString('fr-FR', { style: 'currency', currency: 'XAF' })}` : 'À confirmer après commande'}
+                    </span>
                     </div>
                   </div>
                 </div>
@@ -1075,7 +1075,7 @@ const SingleCheckout: React.FC = () => {
             {checkoutSettings?.showPaymentSection && (
               <div className="bg-white rounded-lg shadow-sm border p-6">
                 <h2 className="text-xl font-bold mb-4" style={{color: getCompanyColors().primary}}>{t('checkout.payment')}</h2>
-                <p className="text-sm text-gray-600 mb-4">All transactions are secure and encrypted.</p>
+                <p className="text-sm text-gray-600 mb-4">Toutes les transactions sont sécurisées et cryptées.</p>
                 
                 {/* Payment Options Container */}
                 <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
@@ -1104,14 +1104,14 @@ const SingleCheckout: React.FC = () => {
                     <div className="mt-4 pl-8">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                          MTN Mobile Money Number *
+                          Numéro MTN Mobile Money *
                         </label>
                         <input
                           type="text"
                           value={paymentFormData.mtnNumber}
                           onChange={(e) => handlePaymentFormChange('mtnNumber', e.target.value)}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
-                          placeholder="Enter your MTN Mobile Money number"
+                          placeholder="Entrez votre numéro MTN Mobile Money"
                         />
                       </div>
                     </div>
@@ -1144,14 +1144,14 @@ const SingleCheckout: React.FC = () => {
                         <div className="mt-4 pl-8">
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Orange Money Number *
+                              Numéro Orange Money *
                             </label>
                             <input
                               type="text"
                               value={paymentFormData.orangeNumber}
                               onChange={(e) => handlePaymentFormChange('orangeNumber', e.target.value)}
                               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
-                              placeholder="Enter your Orange Money number"
+                              placeholder="Entrez votre numéro Orange Money"
                             />
                           </div>
                         </div>
@@ -1188,7 +1188,7 @@ const SingleCheckout: React.FC = () => {
                         <div className="mt-4 pl-8 space-y-4">
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Card number *
+                              Numéro de carte *
                             </label>
                             <div className="relative">
                               <input
@@ -1205,19 +1205,19 @@ const SingleCheckout: React.FC = () => {
                           <div className="grid grid-cols-2 gap-4">
                             <div>
                               <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Expiration date (MM/YY) *
+                                Date d'expiration (MM/AA) *
                               </label>
                               <input
                                 type="text"
                                 value={paymentFormData.expiryDate}
                                 onChange={(e) => handlePaymentFormChange('expiryDate', e.target.value)}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
-                                placeholder="MM/YY"
+                                placeholder="MM/AA"
                               />
                             </div>
                             <div>
                               <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Security code *
+                                Code de sécurité *
                               </label>
                               <div className="relative">
                                 <input
@@ -1234,14 +1234,14 @@ const SingleCheckout: React.FC = () => {
 
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Name on card *
+                              Nom sur la carte *
                             </label>
                             <input
                               type="text"
                               value={paymentFormData.nameOnCard}
                               onChange={(e) => handlePaymentFormChange('nameOnCard', e.target.value)}
                               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
-                              placeholder="Enter name as it appears on card"
+                              placeholder="Entrez le nom tel qu'il apparaît sur la carte"
                             />
                           </div>
                         </div>
@@ -1279,10 +1279,10 @@ const SingleCheckout: React.FC = () => {
                               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                                 <div className="flex items-center space-x-2 text-blue-700 mb-2">
                                   <CreditCard className="h-4 w-4" />
-                                  <span className="font-medium text-sm">Secure Online Payment</span>
+                                  <span className="font-medium text-sm">Paiement en ligne sécurisé</span>
                                 </div>
                                 <p className="text-sm text-blue-600">
-                                  Pay securely with MTN Money or Orange Money. You'll be redirected to a secure payment page.
+                                  Payez en toute sécurité avec MTN Money ou Orange Money. Vous serez redirigé vers une page de paiement sécurisée.
                                 </p>
                               </div>
                             </div>
@@ -1304,7 +1304,7 @@ const SingleCheckout: React.FC = () => {
                             />
                             <label htmlFor="cinetpay_credit_card" className="flex items-center space-x-3 cursor-pointer flex-1">
                               <CreditCard className="h-5 w-5 text-gray-600" />
-                              <span className="font-medium text-gray-900">Credit Card (CinetPay)</span>
+                              <span className="font-medium text-gray-900">Carte de crédit (CinetPay)</span>
                               <div className="flex space-x-1 ml-auto">
                                 <div className="w-8 h-5 bg-blue-600 rounded text-white text-xs flex items-center justify-center">V</div>
                                 <div className="w-8 h-5 bg-red-600 rounded text-white text-xs flex items-center justify-center">M</div>
@@ -1318,10 +1318,10 @@ const SingleCheckout: React.FC = () => {
                               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                                 <div className="flex items-center space-x-2 text-blue-700 mb-2">
                                   <CreditCard className="h-4 w-4" />
-                                  <span className="font-medium text-sm">Secure Card Payment</span>
+                                  <span className="font-medium text-sm">Paiement par carte sécurisé</span>
                                 </div>
                                 <p className="text-sm text-blue-600">
-                                  Pay securely with Visa or Mastercard. You'll be redirected to a secure payment page.
+                                  Payez en toute sécurité avec Visa ou Mastercard. Vous serez redirigé vers une page de paiement sécurisée.
                                 </p>
                               </div>
                             </div>
@@ -1345,7 +1345,7 @@ const SingleCheckout: React.FC = () => {
                               <div className="w-8 h-8 bg-purple-600 rounded flex items-center justify-center">
                                 <span className="text-white font-bold text-sm">W</span>
                               </div>
-                              <span className="font-medium text-gray-900">Digital Wallet (CinetPay)</span>
+                              <span className="font-medium text-gray-900">Portefeuille numérique (CinetPay)</span>
                             </label>
                           </div>
                           
@@ -1355,10 +1355,10 @@ const SingleCheckout: React.FC = () => {
                               <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
                                 <div className="flex items-center space-x-2 text-purple-700 mb-2">
                                   <CreditCard className="h-4 w-4" />
-                                  <span className="font-medium text-sm">Digital Wallet Payment</span>
+                                  <span className="font-medium text-sm">Paiement par portefeuille numérique</span>
                                 </div>
                                 <p className="text-sm text-purple-600">
-                                  Pay with your digital wallet. You'll be redirected to a secure payment page.
+                                  Payez avec votre portefeuille numérique. Vous serez redirigé vers une page de paiement sécurisée.
                                 </p>
                               </div>
                             </div>
@@ -1392,10 +1392,10 @@ const SingleCheckout: React.FC = () => {
                           <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
                             <div className="flex items-center space-x-2 text-emerald-700 mb-2">
                               <Truck className="h-4 w-4" />
-                              <span className="font-medium text-sm">Pay at Pickup</span>
+                              <span className="font-medium text-sm">Payer à la réception</span>
                             </div>
                             <p className="text-sm text-emerald-600">
-                              You will pay when you collect your order. WhatsApp confirmation will be sent with pickup instructions.
+                              Vous paierez lors de la réception de votre commande. Une confirmation WhatsApp sera envoyée avec les instructions de retrait.
                             </p>
                           </div>
                         </div>
@@ -1477,12 +1477,12 @@ const SingleCheckout: React.FC = () => {
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Shipping</span>
+                  <span className="text-gray-600">Livraison</span>
                   <span className="font-medium">
                     {deliveryFee > 0 ? deliveryFee.toLocaleString('fr-FR', {
                       style: 'currency',
                       currency: 'XAF'
-                    }) : 'Free'}
+                    }) : 'À confirmer'}
                   </span>
                 </div>
                 <div className="border-t border-gray-200 pt-3">
@@ -1503,15 +1503,15 @@ const SingleCheckout: React.FC = () => {
                 <div className="space-y-3 mb-6">
                   <div className="flex items-center space-x-2 text-sm text-gray-600">
                     <Lock className="h-4 w-4 text-yellow-500" />
-                    <span>SECURE CHECKOUT</span>
+                    <span>PAIEMENT SÉCURISÉ</span>
                   </div>
                   <div className="flex items-center space-x-2 text-sm text-gray-600">
                     <Shield className="h-4 w-4 text-yellow-500" />
-                    <span>EXCEPTIONAL CUSTOMER SERVICE</span>
+                    <span>SERVICE CLIENT EXCEPTIONNEL</span>
                   </div>
                   <div className="flex items-center space-x-2 text-sm text-gray-600">
                     <RotateCcw className="h-4 w-4 text-yellow-500" />
-                    <span>14 DAYS RETURNS</span>
+                    <span>RETOURS 14 JOURS</span>
                   </div>
                 </div>
               )}
@@ -1540,7 +1540,7 @@ const SingleCheckout: React.FC = () => {
                   {submitting ? (
                     <>
                       <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                      Processing...
+                      Traitement en cours...
                     </>
                   ) : (
                     t('checkout.completeOrder')

@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
-import { getCompanyByUserId, subscribeToProducts } from '../services/firestore';
+import { getCompanyByUserId, subscribeToProducts, getSellerSettings } from '../services/firestore';
 import type { Company, Product } from '../types/models';
-import { ArrowLeft, Share2, Plus, Minus, ShoppingCart, Camera, QrCode } from 'lucide-react';
+import type { SellerSettings } from '../types/order';
+import { ArrowLeft, Share2, Plus, Minus, ShoppingCart, Camera, QrCode, MessageCircle } from 'lucide-react';
 import FloatingCartButton from '../components/common/FloatingCartButton';
 import { ImageWithSkeleton } from '../components/common/ImageWithSkeleton';
 import BarcodeGenerator from '../components/products/BarcodeGenerator';
@@ -27,6 +28,7 @@ const ProductDetailPage = () => {
   const { addToCart } = useCart();
   const [company, setCompany] = useState<Company | null>(null);
   const [product, setProduct] = useState<Product | null>(null);
+  const [sellerSettings, setSellerSettings] = useState<SellerSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
@@ -56,14 +58,15 @@ const ProductDetailPage = () => {
         setLoading(true);
         setError(null);
 
-        const [companyData, productsData] = await Promise.all([
+        const [companyData, productsData, settingsData] = await Promise.all([
           getCompanyByUserId(companyId),
           new Promise<Product[]>((resolve) => {
             const unsubscribe = subscribeToProducts(companyId, (products) => {
               unsubscribe();
               resolve(products);
             });
-          })
+          }),
+          getSellerSettings(companyId)
         ]);
 
         const foundProduct = productsData.find(p => p.id === productId);
@@ -76,6 +79,11 @@ const ProductDetailPage = () => {
 
         setCompany(companyData);
         setProduct(foundProduct);
+        
+        // Load seller settings for WhatsApp number
+        if (settingsData) {
+          setSellerSettings(settingsData);
+        }
 
         // Si action=buy, ajouter automatiquement au panier
         if (action === 'buy' && foundProduct) {
@@ -121,6 +129,49 @@ const ProductDetailPage = () => {
     if (!product) return;
     addToCart(product, quantity);
     navigate('/checkout');
+  };
+
+  const handleWhatsAppOrder = () => {
+    if (!product || !company) return;
+    
+    const variations = Object.entries(selectedVariations)
+      .filter(([key, value]) => value) // Only include selected variations
+      .map(([key, value]) => `${key}: ${value}`)
+      .join(', ');
+    
+    const totalPrice = displayPrice * quantity;
+    
+    const message = `Bonjour! Je voudrais commander:
+
+*${product.name}*
+${variations ? `Options: ${variations}` : ''}
+Quantité: ${quantity}
+Prix unitaire: ${displayPrice.toLocaleString('fr-FR', {
+  style: 'currency',
+  currency: 'XAF'
+})}
+Total: ${totalPrice.toLocaleString('fr-FR', {
+  style: 'currency',
+  currency: 'XAF'
+})}
+
+Veuillez confirmer la disponibilité et fournir les détails de livraison.`;
+
+    // Use seller settings WhatsApp number first, fallback to company phone
+    const whatsappNumber = sellerSettings?.whatsappNumber || company.phone;
+    
+    // Clean phone number - remove all non-digits and ensure it starts with country code
+    let cleanPhone = whatsappNumber.replace(/\D/g, '');
+    
+    // If phone doesn't start with country code, assume it's Cameroon (+237)
+    if (!cleanPhone.startsWith('237') && !cleanPhone.startsWith('+237')) {
+      // Remove leading zeros and add Cameroon country code
+      cleanPhone = cleanPhone.replace(/^0+/, '');
+      cleanPhone = '237' + cleanPhone;
+    }
+
+    const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+    window.open(whatsappUrl, '_blank');
   };
 
   const handleShare = async () => {
@@ -376,24 +427,34 @@ const ProductDetailPage = () => {
 
       {/* Action Buttons */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-4 space-y-2">
-        <Button
-          onClick={handleBuyNow}
-          variant="primary"
-          className="w-full"
-          style={{ backgroundColor: colors.primary }}
+        <button
+          onClick={handleWhatsAppOrder}
+          className="w-full bg-[#25D366] text-white py-3 rounded-lg font-semibold hover:bg-[#1da851] transition-colors shadow-lg flex items-center justify-center space-x-2"
           disabled={product.stock === 0}
         >
-          Acheter maintenant
-        </Button>
-        <Button
-          onClick={handleAddToCart}
-          variant="outline"
-          className="w-full flex items-center justify-center space-x-2"
-          disabled={product.stock === 0}
-        >
-          <ShoppingCart size={18} />
-          <span>Ajouter au panier</span>
-        </Button>
+          <MessageCircle size={20} />
+          <span>Commander via WhatsApp</span>
+        </button>
+        
+        <div className="grid grid-cols-2 gap-2">
+          <Button
+            onClick={handleAddToCart}
+            variant="outline"
+            className="flex items-center justify-center space-x-1"
+            disabled={product.stock === 0}
+          >
+            <ShoppingCart size={16} />
+            <span>Panier</span>
+          </Button>
+          <Button
+            onClick={handleBuyNow}
+            variant="primary"
+            style={{ backgroundColor: colors.primary }}
+            disabled={product.stock === 0}
+          >
+            Acheter
+          </Button>
+        </div>
       </div>
 
       {/* Floating Cart Button */}
