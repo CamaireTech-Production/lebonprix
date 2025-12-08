@@ -115,6 +115,7 @@ const DesktopProductDetail: React.FC<DesktopProductDetailProps> = ({
     const selectedColor = selectedVariations['Color'] || '';
     const selectedSize = selectedVariations['Size'] || '';
     const variations = Object.entries(selectedVariations)
+      .filter(([key, value]) => value) // Only include selected variations
       .map(([key, value]) => `${key}: ${value}`)
       .join(', ');
     

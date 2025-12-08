@@ -8,7 +8,7 @@ import { useSales, useExpenses, useProducts, useStockChanges, useFinanceEntries,
 import { subscribeToAllSales } from '../services/firestore';
 import LoadingScreen from '../components/common/LoadingScreen';
 import { SkeletonStatCard, SkeletonChart, SkeletonTable, SkeletonActivityList, SkeletonObjectivesBar } from '../components/common/SkeletonLoader';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import Modal from '../components/common/Modal';
 import Button from '../components/common/Button';
 import { useAuth } from '../contexts/AuthContext';
@@ -23,7 +23,6 @@ import {
   calculateDashboardProfit,
   calculateTotalExpenses,
   calculateSolde,
-  calculateTotalPurchasePrice,
   calculateTotalSalesAmount,
   calculateTotalDeliveryFee,
   calculateTotalProductsSold,
@@ -98,10 +97,8 @@ const Dashboard = () => {
   const [showProfitPeriodModal, setShowProfitPeriodModal] = useState(false);
 
   // Détecter si on est en mode mobile ou PWA
-  const isMobileOrPWA = useMemo(() => {
-    const deviceInfo = getDeviceInfo();
-    return deviceInfo.isMobile || deviceInfo.isStandalone;
-  }, []);
+  const deviceInfo = getDeviceInfo();
+  const isMobileOrPWA = deviceInfo.isMobile || deviceInfo.isStandalone;
 
   // Get company colors with fallbacks - prioritize dashboard colors
   const getCompanyColors = () => {

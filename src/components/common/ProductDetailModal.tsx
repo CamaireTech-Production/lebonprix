@@ -136,6 +136,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     if (!product || !company) return;
     
     const variations = Object.entries(selectedVariations)
+      .filter(([key, value]) => value) // Only include selected variations
       .map(([key, value]) => `${key}: ${value}`)
       .join(', ');
     

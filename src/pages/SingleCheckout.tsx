@@ -487,12 +487,12 @@ const SingleCheckout: React.FC = () => {
   // Handle order creation
   const handleCreateOrder = async () => {
     if (!selectedPaymentMethod) {
-      toast.error('Please select a payment method');
+      toast.error('Veuillez sélectionner un mode de paiement');
       return;
     }
 
     if (!validateForm()) {
-      toast.error('Please fill in all required fields');
+      toast.error('Veuillez remplir tous les champs requis');
       return;
     }
 
@@ -511,7 +511,7 @@ const SingleCheckout: React.FC = () => {
       if (selectedPaymentOption === 'visa_card') {
         if (!paymentFormData.cardNumber.trim() || !paymentFormData.expiryDate.trim() || 
             !paymentFormData.securityCode.trim() || !paymentFormData.nameOnCard.trim()) {
-          toast.error('Please fill in all card details');
+          toast.error('Veuillez remplir tous les détails de la carte');
           return;
         }
       }
