@@ -814,6 +814,8 @@
       "emailAddress": "Adresse e-mail",
       "reportMail": "Email pour les rapports de vente",
       "reportMailHelp": "Adresse email vers laquelle les rapports de vente seront envoyés",
+      "reportTime": "Heure de réception des rapports",
+      "reportTimeHelp": "Heure à laquelle les rapports seront envoyés (0-23h)",
       "changePassword": "Changer le mot de passe",
       "currentPassword": "Mot de passe actuel",
       "currentPasswordHelp": "Requis seulement si vous changez le mot de passe",
@@ -831,6 +833,7 @@
     "messages": {
       "settingsUpdated": "Paramètres mis à jour avec succès",
       "updateFailed": "Échec de la mise à jour des paramètres",
+      "reportTimeDefault": "Heure de réception non définie, valeur par défaut 8h utilisée",
       "currentPasswordRequired": "Le mot de passe actuel est requis pour changer le mot de passe",
       "passwordsDoNotMatch": "Les nouveaux mots de passe ne correspondent pas",
       "passwordTooShort": "Le nouveau mot de passe doit contenir au moins 6 caractères"

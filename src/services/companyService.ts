@@ -13,6 +13,7 @@ export interface CompanyData {
   logo?: string;
   email: string;
   report_mail?: string;
+  report_time?: number;
 }
 
 /**
