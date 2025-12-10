@@ -7,6 +7,7 @@ import Card from '../../components/common/Card';
 import Button from '../../components/common/Button';
 import { Building2, Upload, ArrowLeft } from 'lucide-react';
 import { showWarningToast } from '../../utils/toast';
+import { useTranslation } from 'react-i18next';
 
 interface CompanyFormData {
   name: string;
@@ -14,17 +15,20 @@ interface CompanyFormData {
   phone: string;
   email: string;
   report_mail: string;
+  report_time: string;
   location: string;
   logo?: string;
 }
 
 export default function CreateCompany() {
+  const { t } = useTranslation();
   const [formData, setFormData] = useState<CompanyFormData>({
     name: '',
     description: '',
     phone: '',
     email: '',
     report_mail: '',
+    report_time: '8',
     location: '',
     logo: ''
   });
@@ -103,6 +107,17 @@ export default function CreateCompany() {
     setError(''); // Clear previous errors
 
     try {
+      // Handle report_time: default to 8 if empty, show warning
+      let reportTime = 8;
+      if (formData.report_time && formData.report_time.trim() !== '') {
+        const parsedTime = parseInt(formData.report_time);
+        if (!isNaN(parsedTime) && parsedTime >= 0 && parsedTime <= 23) {
+          reportTime = parsedTime;
+        }
+      } else {
+        showWarningToast(t('settings.messages.reportTimeDefault'));
+      }
+      
       // Import the correct createCompany function
       const { createCompany } = await import('../../services/companyService');
       
@@ -113,6 +128,7 @@ export default function CreateCompany() {
         phone: formData.phone.trim(),
         email: formData.email.trim(),
         report_mail: formData.report_mail.trim(),
+        report_time: reportTime,
         location: formData.location.trim(),
         logo: formData.logo || undefined
       });
@@ -401,6 +417,32 @@ export default function CreateCompany() {
               {errors.report_mail && (
                 <p className="mt-1 text-sm text-red-600">{errors.report_mail}</p>
               )}
+            </div>
+
+            {/* Report Time */}
+            <div>
+              <label htmlFor="report_time" className="block text-sm font-medium text-gray-700 mb-2">
+                {t('settings.account.reportTime')}
+              </label>
+              <div className="flex rounded-md shadow-sm">
+                <input
+                  type="number"
+                  id="report_time"
+                  name="report_time"
+                  min="0"
+                  max="23"
+                  value={formData.report_time}
+                  onChange={handleInputChange}
+                  className="flex-1 min-w-0 block w-full px-3 py-2 rounded-l-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  placeholder="8"
+                />
+                <span className="inline-flex items-center px-3 rounded-r-md border border-l-0 border-gray-300 bg-gray-50 text-gray-500 sm:text-sm">
+                  h
+                </span>
+              </div>
+              <p className="mt-1 text-sm text-gray-500">
+                {t('settings.account.reportTimeHelp')}
+              </p>
             </div>
 
             {/* Location */}

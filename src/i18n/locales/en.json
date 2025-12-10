@@ -944,6 +944,8 @@
       "emailAddress": "Email Address",
       "reportMail": "Email for sales reports",
       "reportMailHelp": "Email address where sales reports will be sent",
+      "reportTime": "Report reception time",
+      "reportTimeHelp": "Hour when reports will be sent (0-23h)",
       "changePassword": "Change Password",
       "currentPassword": "Current Password",
       "currentPasswordHelp": "Required only if changing password",
@@ -961,6 +963,7 @@
     "messages": {
       "settingsUpdated": "Settings updated successfully",
       "updateFailed": "Failed to update settings",
+      "reportTimeDefault": "Report time not set, default value 8h used",
       "currentPasswordRequired": "Current password is required to change password",
       "passwordsDoNotMatch": "New passwords do not match",
       "passwordTooShort": "New password must be at least 6 characters"

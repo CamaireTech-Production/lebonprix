@@ -9,6 +9,7 @@ import Modal from '../components/common/Modal';
 import Input from '../components/common/Input';
 import Textarea from '../components/common/Textarea';
 import { showSuccessToast, showErrorToast, showWarningToast } from '../utils/toast';
+import { useTranslation } from 'react-i18next';
 
 /**
  * Dashboard de gestion des entreprises type Netflix
@@ -20,6 +21,7 @@ import { showSuccessToast, showErrorToast, showWarningToast } from '../utils/toa
  * - Naviguer vers le dashboard d'une entreprise
  */
 export const CompaniesManagement: React.FC = () => {
+  const { t } = useTranslation();
   const { user, userCompanies, selectCompany, signOut } = useAuth();
   const navigate = useNavigate();
   
@@ -32,6 +34,7 @@ export const CompaniesManagement: React.FC = () => {
     phone: '',
     email: '',
     report_mail: '',
+    report_time: '8',
     location: '',
     logo: ''
   });
@@ -130,6 +133,17 @@ export const CompaniesManagement: React.FC = () => {
     try {
       setIsCreating(true);
       
+      // Handle report_time: default to 8 if empty, show warning
+      let reportTime = 8;
+      if (companyForm.report_time && companyForm.report_time.trim() !== '') {
+        const parsedTime = parseInt(companyForm.report_time);
+        if (!isNaN(parsedTime) && parsedTime >= 0 && parsedTime <= 23) {
+          reportTime = parsedTime;
+        }
+      } else {
+        showWarningToast(t('settings.messages.reportTimeDefault'));
+      }
+      
       // Convertir le logo en base64 si un fichier est sélectionné
       let logoBase64: string | undefined;
       if (logoFile) {
@@ -142,6 +156,7 @@ export const CompaniesManagement: React.FC = () => {
         phone: companyForm.phone.trim(),
         email: companyForm.email.trim(),
         report_mail: companyForm.report_mail.trim(),
+        report_time: reportTime,
         location: companyForm.location.trim() || undefined,
         logo: logoBase64 || companyForm.logo.trim() || undefined
       });
@@ -154,6 +169,7 @@ export const CompaniesManagement: React.FC = () => {
         phone: '',
         email: '',
         report_mail: '',
+        report_time: '8',
         location: '',
         logo: ''
       });
@@ -419,6 +435,30 @@ export const CompaniesManagement: React.FC = () => {
               placeholder="rapports@entreprise.com"
               required
             />
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {t('settings.account.reportTime')}
+              </label>
+              <div className="flex rounded-md shadow-sm">
+                <input
+                  type="number"
+                  name="report_time"
+                  min="0"
+                  max="23"
+                  value={companyForm.report_time}
+                  onChange={(e) => setCompanyForm({...companyForm, report_time: e.target.value})}
+                  className="flex-1 min-w-0 block w-full px-3 py-2 rounded-l-md border border-gray-300 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
+                  placeholder="8"
+                />
+                <span className="inline-flex items-center px-3 rounded-r-md border border-l-0 border-gray-300 bg-gray-50 text-gray-500 sm:text-sm">
+                  h
+                </span>
+              </div>
+              <p className="mt-1 text-sm text-gray-500">
+                {t('settings.account.reportTimeHelp')}
+              </p>
+            </div>
 
             <Input
               label="Localisation"

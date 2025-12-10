@@ -59,6 +59,7 @@ const Settings = () => {
     location: '',
     email: '',
     report_mail: '',
+    report_time: '',
     logo: '',
     website: '',
     // Catalogue colors
@@ -90,6 +91,7 @@ const Settings = () => {
         location: company.location || '',
         email: company.email || '',
         report_mail: company.report_mail || '',
+        report_time: company.report_time?.toString() || '8',
         logo: company.logo || '',
         website: company.website || '',
         // Catalogue colors
@@ -332,6 +334,18 @@ const Settings = () => {
           return;
         }
       }
+      
+      // Handle report_time: default to 8 if empty, show warning
+      let reportTime = 8;
+      if (formData.report_time && formData.report_time.trim() !== '') {
+        const parsedTime = parseInt(formData.report_time);
+        if (!isNaN(parsedTime) && parsedTime >= 0 && parsedTime <= 23) {
+          reportTime = parsedTime;
+        }
+      } else {
+        showWarningToast(t('settings.messages.reportTimeDefault'));
+      }
+      
       // Update company information
       const companyData = {
         name: formData.name,
@@ -341,6 +355,7 @@ const Settings = () => {
         logo: formData.logo || undefined,
         email: formData.email,
         report_mail: formData.report_mail || undefined,
+        report_time: reportTime,
         website: normalizedWebsite,
         // New color schemes
         catalogueColors: {
@@ -405,6 +420,7 @@ const Settings = () => {
         phone: company.phone?.replace('+237', '') || '',
         location: company.location || '',
         email: company.email || '',
+        report_time: company.report_time?.toString() || '8',
         logo: company.logo || '',
         currentPassword: '',
         newPassword: '',
@@ -1081,6 +1097,31 @@ const Settings = () => {
                         placeholder="rapports@entreprise.com"
                         helpText={t('settings.account.reportMailHelp')}
                       />
+                    )}
+                    {(isOwner || effectiveRole !== 'vendeur') && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          {t('settings.account.reportTime')}
+                        </label>
+                        <div className="flex rounded-md shadow-sm">
+                          <input
+                            type="number"
+                            name="report_time"
+                            min="0"
+                            max="23"
+                            value={formData.report_time}
+                            onChange={handleInputChange}
+                            className="flex-1 min-w-0 block w-full px-3 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
+                            placeholder="8"
+                          />
+                          <span className="inline-flex items-center px-3 rounded-r-md border border-l-0 border-gray-300 bg-gray-50 text-gray-500 sm:text-sm">
+                            h
+                          </span>
+                        </div>
+                        <p className="mt-1 text-sm text-gray-500">
+                          {t('settings.account.reportTimeHelp')}
+                        </p>
+                      </div>
                     )}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Site web</label>
