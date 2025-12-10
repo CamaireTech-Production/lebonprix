@@ -10,6 +10,7 @@ import { validateSaleData, normalizeSaleData } from '../utils/saleUtils';
 import type { OrderStatus, Customer, Product} from '../types/models';
 import { logError } from '../utils/logger';
 import { saveDraft as saveDraftToStorage, getDrafts, deleteDraft, type POSDraft } from '../utils/posDraftStorage';
+import { normalizePhoneForComparison } from '../utils/phoneUtils';
 
 export interface CartItem {
   product: Product;
@@ -183,8 +184,8 @@ export function usePOS() {
     }));
   }, []);
 
-  // Handle customer search
-  const normalizePhone = (phone: string) => phone.replace(/\D/g, '');
+  // Handle customer search - use centralized normalization
+  const normalizePhone = normalizePhoneForComparison;
 
   const handleCustomerSearch = useCallback((value: string) => {
     setCustomerSearch(value);

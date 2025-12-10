@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { countryCodes, defaultCountry, type CountryCode } from '../../data/countryCodes';
+import { normalizePhoneNumber } from '../../utils/phoneUtils';
 
 interface PhoneInputProps {
   value: string;
@@ -58,7 +59,10 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
     
     // Send the full phone number (country code + number) to parent
     const fullNumber = cleanValue ? `${selectedCountry.dialCode}${cleanValue}` : selectedCountry.dialCode;
-    onChange(fullNumber);
+    
+    // Normalize the phone number before sending to parent
+    const normalized = normalizePhoneNumber(fullNumber, selectedCountry.dialCode);
+    onChange(normalized);
   };
 
   // Handle input focus
@@ -66,6 +70,12 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
     // If input is empty, set the country code
     if (!value) {
       onChange(selectedCountry.dialCode);
+    } else {
+      // Normalize existing value on focus
+      const normalized = normalizePhoneNumber(value, selectedCountry.dialCode);
+      if (normalized !== value) {
+        onChange(normalized);
+      }
     }
   };
 
