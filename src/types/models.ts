@@ -268,8 +268,8 @@ export interface FinanceEntry {
   id: string;
   userId: string; // Legacy field - kept for audit trail
   companyId: string; // Reference to the company this finance entry belongs to
-  sourceType: 'sale' | 'expense' | 'manual' | 'supplier';
-  sourceId?: string; // saleId, expenseId, or supplierId if applicable
+  sourceType: 'sale' | 'expense' | 'manual' | 'supplier' | 'order';
+  sourceId?: string; // saleId, expenseId, orderId, or supplierId if applicable
   type: string; // e.g., "sale", "expense", "loan", "deposit", "supplier_debt", "supplier_refund", etc.
   amount: number;
   description?: string;
@@ -393,3 +393,4 @@ export interface Company extends BaseModel {
   employeeCount?: number; // Nombre total d'employés
   // Nouvelle architecture: employeeRefs via sous-collection companies/{id}/employeeRefs/{firebaseUid}
 }
+
