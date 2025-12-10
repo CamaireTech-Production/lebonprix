@@ -1397,6 +1397,36 @@
       "deleting": "Suppression...",
       "deleteButton": "Supprimer la Commande"
     },
+    "quickActions": {
+      "menu": "Actions",
+      "markAsDelivered": "Marquer comme livré",
+      "markAsPaid": "Marquer comme payé",
+      "markAsCancelled": "Marquer comme annulé",
+      "editStatus": "Modifier le statut",
+      "addNote": "Ajouter une note",
+      "delete": "Supprimer",
+      "viewDetails": "Voir les détails"
+    },
+    "confirmations": {
+      "markAsDelivered": {
+        "title": "Marquer comme livré",
+        "message": "Êtes-vous sûr de vouloir marquer la commande {{orderNumber}} comme livrée ?",
+        "confirm": "Oui, marquer comme livré",
+        "cancel": "Annuler"
+      },
+      "markAsPaid": {
+        "title": "Marquer comme payé",
+        "message": "Êtes-vous sûr de vouloir marquer la commande {{orderNumber}} comme payée ? Le montant sera ajouté à la caisse.",
+        "confirm": "Oui, marquer comme payé",
+        "cancel": "Annuler"
+      },
+      "markAsCancelled": {
+        "title": "Marquer comme annulé",
+        "message": "Êtes-vous sûr de vouloir annuler la commande {{orderNumber}} ?",
+        "confirm": "Oui, annuler",
+        "cancel": "Annuler"
+      }
+    },
     "messages": {
       "statusUpdated": "Statut de la commande mis à jour avec succès",
       "statusUpdateFailed": "Échec de la mise à jour du statut de la commande",
@@ -1404,7 +1434,12 @@
       "noteAddFailed": "Échec de l'ajout de la note",
       "orderDeleted": "Commande supprimée avec succès",
       "orderDeleteFailed": "Échec de la suppression de la commande",
-      "statsLoadFailed": "Échec du chargement des statistiques de commande"
+      "statsLoadFailed": "Échec du chargement des statistiques de commande",
+      "orderMarkedAsDelivered": "Commande marquée comme livrée avec succès",
+      "orderMarkedAsPaid": "Commande marquée comme payée avec succès. Montant ajouté à la caisse.",
+      "orderMarkedAsCancelled": "Commande annulée avec succès",
+      "deliveredAtUpdated": "Date de livraison mise à jour",
+      "paymentStatusUpdateFailed": "Échec de la mise à jour du statut de paiement"
     }
   },
   "invitations": {
