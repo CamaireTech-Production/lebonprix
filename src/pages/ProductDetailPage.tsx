@@ -12,6 +12,7 @@ import BarcodeGenerator from '../components/products/BarcodeGenerator';
 import BarcodeScanner from '../components/products/BarcodeScanner';
 import Button from '../components/common/Button';
 import { showSuccessToast, showErrorToast } from '../utils/toast';
+import { formatPhoneForWhatsApp } from '../utils/phoneUtils';
 
 const placeholderImg = '/placeholder.png';
 
@@ -160,15 +161,8 @@ Veuillez confirmer la disponibilité et fournir les détails de livraison.`;
     // Use seller settings WhatsApp number first, fallback to company phone
     const whatsappNumber = sellerSettings?.whatsappNumber || company.phone;
     
-    // Clean phone number - remove all non-digits and ensure it starts with country code
-    let cleanPhone = whatsappNumber.replace(/\D/g, '');
-    
-    // If phone doesn't start with country code, assume it's Cameroon (+237)
-    if (!cleanPhone.startsWith('237') && !cleanPhone.startsWith('+237')) {
-      // Remove leading zeros and add Cameroon country code
-      cleanPhone = cleanPhone.replace(/^0+/, '');
-      cleanPhone = '237' + cleanPhone;
-    }
+    // Use centralized WhatsApp formatting function
+    const cleanPhone = formatPhoneForWhatsApp(whatsappNumber);
 
     const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, '_blank');

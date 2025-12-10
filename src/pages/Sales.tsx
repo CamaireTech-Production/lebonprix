@@ -32,6 +32,7 @@ import { showSuccessToast, showErrorToast, showWarningToast } from '../utils/toa
 import Invoice from '../components/sales/Invoice';
 import { generatePDF, generatePDFBlob } from '../utils/pdf';
 import { useAuth } from '../contexts/AuthContext';
+import { normalizePhoneForComparison } from '../utils/phoneUtils';
 import { useTranslation } from 'react-i18next';
 import { softDeleteSale } from '../services/firestore';
 import { formatCreatorName } from '../utils/employeeUtils';
@@ -120,7 +121,8 @@ const Sales: React.FC = () => {
 
 
 
-  const normalizePhone = (phone: string): string => phone.replace(/\D/g, '');
+  // Use centralized phone normalization for comparison
+  const normalizePhone = normalizePhoneForComparison;
 
   useEffect(() => {
     if (showCustomerDropdown && phoneInputRef.current) {

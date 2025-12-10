@@ -20,6 +20,7 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { logError } from '../utils/logger';
+import { normalizePhoneNumber } from '../utils/phoneUtils';
 import type {
   Product,
   Sale,
@@ -1985,8 +1986,9 @@ export const addCustomer = async (customerData: Omit<Customer, 'id'>): Promise<C
     
     // Filtrer tous les champs undefined pour éviter l'erreur Firestore
     // Firestore ne supporte pas les valeurs undefined
+    // Normalize phone number before saving
     const dataToSave: any = {
-      phone: dataWithoutCreatedAt.phone,
+      phone: dataWithoutCreatedAt.phone ? normalizePhoneNumber(dataWithoutCreatedAt.phone) : '',
       name: dataWithoutCreatedAt.name,
       userId: dataWithoutCreatedAt.userId,
       companyId: dataWithoutCreatedAt.companyId,

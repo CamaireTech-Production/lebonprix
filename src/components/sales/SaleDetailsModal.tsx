@@ -12,6 +12,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { showErrorToast } from '../../utils/toast';
 import CustomerAdditionalInfo from '../customers/CustomerAdditionalInfo';
 import { useCustomers } from '../../hooks/useFirestore';
+import { normalizePhoneForComparison } from '../../utils/phoneUtils';
 import { useCustomerSources } from '../../hooks/useCustomerSources';
 import type { CustomerSource } from '../../types/models';
 
@@ -36,11 +37,10 @@ const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({ isOpen, onClose, sa
   useEffect(() => {
     if (sale && customers) {
       // Normaliser les numéros de téléphone pour la comparaison
-      const normalizePhone = (phone: string) => phone.replace(/\D/g, '');
-      const salePhone = normalizePhone(sale.customerInfo.phone);
+      const salePhone = normalizePhoneForComparison(sale.customerInfo.phone);
       
       const foundCustomer = customers.find(c => {
-        const customerPhone = normalizePhone(c.phone);
+        const customerPhone = normalizePhoneForComparison(c.phone);
         return customerPhone === salePhone;
       });
       
