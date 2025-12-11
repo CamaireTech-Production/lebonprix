@@ -1238,13 +1238,21 @@ export const createSale = async (
   }
   
   const savedSaleData = savedSaleDoc.data();
-  
-  return {
+  const savedSale = {
     id: saleRef.id,
     ...saleData,
     createdAt: savedSaleData.createdAt || { seconds: Math.floor(Date.now() / 1000), nanoseconds: 0 },
     updatedAt: savedSaleData.updatedAt || { seconds: Math.floor(Date.now() / 1000), nanoseconds: 0 }
   };
+
+  // Synchronize finance entry automatically; do not fail sale creation on sync error
+  try {
+    await syncFinanceEntryWithSale(savedSale as Sale);
+  } catch (syncError) {
+    logError('Error syncing finance entry with sale', syncError);
+  }
+
+  return savedSale;
   } catch (error) {
     logError('Error creating sale', error);
     throw error;
