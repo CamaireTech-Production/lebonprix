@@ -1,4 +1,4 @@
-import { DollarSign, TrendingUp, Package2, Info, Receipt, Copy, Check, ExternalLink, ScanLine} from 'lucide-react';
+import { DollarSign, TrendingUp, Package2, Info, Receipt, Copy, Check, ExternalLink, ScanLine, FileBarChart} from 'lucide-react';
 import StatCard from '../components/dashboard/StatCard';
 import SalesChart from '../components/dashboard/SalesChart';
 import ActivityList from '../components/dashboard/ActivityList';
@@ -587,6 +587,14 @@ const Dashboard = () => {
               <p className="text-lg mt-1" style={{color: `${getCompanyColors().headerText}CC`}}>{t('dashboard.welcome')}</p>
             </div>
             <div className="flex gap-2">
+              <Button
+                variant="outline"
+                icon={<FileBarChart size={16} />}
+                onClick={() => navigate(`/company/${companyId}/reports?period=today`)}
+                className="bg-white/20 border-white/30 text-white hover:bg-white/30 backdrop-blur-sm"
+              >
+                {t('dashboard.viewTodayReports')}
+              </Button>
               <Button
                 variant="outline"
                 icon={<Info size={16} />}
