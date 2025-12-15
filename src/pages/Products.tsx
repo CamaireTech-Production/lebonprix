@@ -899,7 +899,7 @@ const Products = () => {
     
     try {
       // Update product info only (stock management moved to dedicated Stocks page)
-      await updateProductData(currentProduct.id, updateData);
+        await updateProductData(currentProduct.id, updateData);
       
       // Handle base64 to Firebase Storage conversion for images
       // Separate existing URLs from new File objects
@@ -2425,24 +2425,24 @@ const Products = () => {
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900">Current Stock Level</h3>
                   <p className="text-sm text-gray-600">Total available units for this product</p>
-                </div>
+              </div>
                 <div className="text-right">
                   <div className="text-3xl font-bold text-blue-600">{currentProduct?.stock ?? 0}</div>
                   <div className="text-sm text-gray-500">units</div>
-                </div>
+            </div>
               </div>
             </div>
 
             {/* Link to Stocks Page */}
             <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
               <div className="flex items-center justify-between">
-                <div>
+                    <div>
                   <h4 className="font-semibold text-emerald-900 mb-1">Manage Stock in Inventory Page</h4>
                   <p className="text-sm text-emerald-700">
                     Use the dedicated Stocks page to restock, adjust batches, record damage, and view complete stock history.
                   </p>
-                </div>
-                <Button
+                    </div>
+                    <Button
                   onClick={() => {
                     const stocksPath = isCompanyRoute && companyId 
                       ? `/company/${companyId}/products/stocks`
@@ -2453,86 +2453,86 @@ const Products = () => {
                   icon={<ExternalLink size={16} />}
                 >
                   Go to Stocks
-                </Button>
-              </div>
-            </div>
+                    </Button>
+                  </div>
+                </div>
 
             {/* Read-only Stock Information */}
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
                 <div className="bg-gray-50 p-4 rounded-lg">
                   <div className="text-sm font-medium text-gray-700 mb-1">Product Name</div>
                   <div className="text-lg font-semibold text-gray-900">{currentProduct?.name || '—'}</div>
-                </div>
-                <div className="bg-gray-50 p-4 rounded-lg">
+                        </div>
+                        <div className="bg-gray-50 p-4 rounded-lg">
                   <div className="text-sm font-medium text-gray-700 mb-1">Reference</div>
                   <div className="text-lg font-semibold text-gray-900">{currentProduct?.reference || '—'}</div>
-                </div>
-              </div>
+                              </div>
+                            </div>
 
               {/* Mini Stock History Table (last 2 changes) - Read Only */}
-              <div className="mt-6">
+             <div className="mt-6">
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="font-semibold">{t('products.actions.stockHistory')}</h4>
                   <span className="text-xs text-gray-500">Last 2 changes</span>
                 </div>
-                {(() => {
-                  const history = stockChanges.filter(sc => sc.productId === currentProduct?.id).slice(-2).reverse();
-                  if (history.length === 0) {
-                    return <span className="text-sm text-gray-500">{t('products.messages.noStockHistory')}</span>;
-                  }
-                  return (
-                    <table className="min-w-full text-sm border rounded-md overflow-hidden">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="text-left px-2 py-1">{t('products.actions.date')}</th>
-                          <th className="text-left px-2 py-1">{t('products.actions.change')}</th>
-                          <th className="text-left px-2 py-1">{t('products.actions.reason')}</th>
-                          <th className="text-left px-2 py-1">{t('products.form.step2.supplier')}</th>
-                          <th className="text-left px-2 py-1">{t('products.form.step2.paymentType')}</th>
-                          <th className="text-left px-2 py-1">{t('products.form.step2.stockCostPrice')}</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {history.map(sc => {
-                          const supplier = sc.supplierId ? suppliers.find(s => s.id === sc.supplierId) : null;
-                          return (
-                            <tr key={sc.id} className="border-b last:border-b-0">
-                              <td className="px-2 py-1">{sc.createdAt?.seconds ? new Date(sc.createdAt.seconds * 1000).toLocaleString() : ''}</td>
-                              <td className="px-2 py-1">{sc.change > 0 ? '+' : ''}{sc.change}</td>
-                              <td className="px-2 py-1">{t('products.actions.' + sc.reason)}</td>
-                              <td className="px-2 py-1">
-                                {sc.isOwnPurchase ? (
-                                  <span className="text-gray-500">{t('products.form.step2.ownPurchase')}</span>
-                                ) : supplier ? (
-                                  <span className={supplier.isDeleted ? 'text-red-500 line-through' : ''}>
-                                    {supplier.name}
-                                    {supplier.isDeleted && ' (Deleted)'}
-                                  </span>
-                                ) : (
-                                  <span className="text-gray-400">Unknown</span>
-                                )}
-                              </td>
-                              <td className="px-2 py-1">
-                                {sc.isOwnPurchase ? (
-                                  <span className="text-gray-500">-</span>
-                                ) : sc.isCredit ? (
-                                  <span className="text-red-600">{t('products.form.step2.credit')}</span>
-                                ) : (
-                                  <span className="text-green-600">{t('products.form.step2.paid')}</span>
-                                )}
-                              </td>
-                              <td className="px-2 py-1">
-                                {sc.costPrice ? `${sc.costPrice.toLocaleString()} XAF` : '-'}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  );
-                })()}
-                <div className="mt-2 text-right">
+               {(() => {
+                 const history = stockChanges.filter(sc => sc.productId === currentProduct?.id).slice(-2).reverse();
+                 if (history.length === 0) {
+                   return <span className="text-sm text-gray-500">{t('products.messages.noStockHistory')}</span>;
+                 }
+                 return (
+                   <table className="min-w-full text-sm border rounded-md overflow-hidden">
+                     <thead className="bg-gray-50">
+                       <tr>
+                         <th className="text-left px-2 py-1">{t('products.actions.date')}</th>
+                         <th className="text-left px-2 py-1">{t('products.actions.change')}</th>
+                         <th className="text-left px-2 py-1">{t('products.actions.reason')}</th>
+                         <th className="text-left px-2 py-1">{t('products.form.step2.supplier')}</th>
+                         <th className="text-left px-2 py-1">{t('products.form.step2.paymentType')}</th>
+                         <th className="text-left px-2 py-1">{t('products.form.step2.stockCostPrice')}</th>
+                       </tr>
+                     </thead>
+                     <tbody>
+                       {history.map(sc => {
+                         const supplier = sc.supplierId ? suppliers.find(s => s.id === sc.supplierId) : null;
+                         return (
+                           <tr key={sc.id} className="border-b last:border-b-0">
+                             <td className="px-2 py-1">{sc.createdAt?.seconds ? new Date(sc.createdAt.seconds * 1000).toLocaleString() : ''}</td>
+                             <td className="px-2 py-1">{sc.change > 0 ? '+' : ''}{sc.change}</td>
+                             <td className="px-2 py-1">{t('products.actions.' + sc.reason)}</td>
+                             <td className="px-2 py-1">
+                               {sc.isOwnPurchase ? (
+                                 <span className="text-gray-500">{t('products.form.step2.ownPurchase')}</span>
+                               ) : supplier ? (
+                                 <span className={supplier.isDeleted ? 'text-red-500 line-through' : ''}>
+                                   {supplier.name}
+                                   {supplier.isDeleted && ' (Deleted)'}
+                                 </span>
+                               ) : (
+                                 <span className="text-gray-400">Unknown</span>
+                               )}
+                             </td>
+                             <td className="px-2 py-1">
+                               {sc.isOwnPurchase ? (
+                                 <span className="text-gray-500">-</span>
+                               ) : sc.isCredit ? (
+                                 <span className="text-red-600">{t('products.form.step2.credit')}</span>
+                               ) : (
+                                 <span className="text-green-600">{t('products.form.step2.paid')}</span>
+                               )}
+                             </td>
+                             <td className="px-2 py-1">
+                               {sc.costPrice ? `${sc.costPrice.toLocaleString()} XAF` : '-'}
+                             </td>
+                           </tr>
+                         );
+                       })}
+                     </tbody>
+                   </table>
+                 );
+               })()}
+               <div className="mt-2 text-right">
                   <button
                     onClick={() => {
                       const stocksPath = isCompanyRoute && companyId 
@@ -2546,8 +2546,8 @@ const Products = () => {
                     {t('products.actions.viewAllHistory', 'View All History in Stocks Page')}
                   </button>
                 </div>
-              </div>
-            </div>
+               </div>
+             </div>
            </div>
         )}
         {editTab === 'pricing' && (

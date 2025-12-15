@@ -340,9 +340,9 @@ const ManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
   };
 
   const calculateNewStock = () => {
-    if (!product) return 0;
     const quantityChange = parseFloat(formData.quantityChange) || 0;
-    return product.stock + quantityChange;
+    // Use current effective stock from batches (derivedRemaining) as the base
+    return (typeof derivedRemaining === 'number' ? derivedRemaining : 0) + quantityChange;
   };
 
   if (!product) return null;
