@@ -132,18 +132,21 @@ const Stocks = () => {
   const handleRestock = (product: Product) => {
     setSelectedProduct(product);
     setSelectedBatch(null);
+    setExpandedProductId(product.id);
     setRestockModalOpen(true);
   };
 
   const handleAdjust = (product: Product, batch?: StockBatch) => {
     setSelectedProduct(product);
     setSelectedBatch(batch || null);
+    setExpandedProductId(product.id);
     setAdjustModalOpen(true);
   };
 
   const handleDamage = (product: Product, batch: StockBatch) => {
     setSelectedProduct(product);
     setSelectedBatch(batch);
+    setExpandedProductId(product.id);
     setDamageModalOpen(true);
   };
 
@@ -512,6 +515,7 @@ const Stocks = () => {
         isOpen={adjustModalOpen}
         onClose={handleModalClose}
         product={selectedProduct}
+        selectedBatch={selectedBatch}
         onSuccess={handleModalSuccess}
       />
 
@@ -519,6 +523,7 @@ const Stocks = () => {
         isOpen={damageModalOpen}
         onClose={handleModalClose}
         product={selectedProduct}
+        selectedBatch={selectedBatch}
         onSuccess={handleModalSuccess}
       />
 

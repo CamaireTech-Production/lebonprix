@@ -17,6 +17,7 @@ interface DamageAdjustmentModalProps {
   isOpen: boolean;
   onClose: () => void;
   product: Product | null;
+  selectedBatch?: StockBatch | null;
   onSuccess?: () => void;
 }
 
@@ -24,6 +25,7 @@ const DamageAdjustmentModal: React.FC<DamageAdjustmentModalProps> = ({
   isOpen,
   onClose,
   product,
+  selectedBatch: selectedBatchProp,
   onSuccess
 }) => {
   const { t } = useTranslation();
@@ -55,9 +57,24 @@ const DamageAdjustmentModal: React.FC<DamageAdjustmentModalProps> = ({
         damagedQuantity: '',
         notes: ''
       });
-      setSelectedBatch(null);
+      setSelectedBatch(selectedBatchProp ?? null);
     }
-  }, [isOpen]);
+  }, [isOpen, selectedBatchProp]);
+
+  // Preselect batch when provided
+  useEffect(() => {
+    if (!isOpen || !selectedBatchProp) return;
+    if (batches.length > 0) {
+      const match = batches.find(b => b.id === selectedBatchProp.id);
+      if (match) {
+        setSelectedBatch(match);
+        setFormData(prev => ({
+          ...prev,
+          batchId: match.id
+        }));
+      }
+    }
+  }, [isOpen, selectedBatchProp, batches]);
 
   const loadBatches = async () => {
     if (!product) return;

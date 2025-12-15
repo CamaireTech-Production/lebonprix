@@ -29,6 +29,7 @@ interface ManualAdjustmentModalProps {
   isOpen: boolean;
   onClose: () => void;
   product: Product | null;
+  selectedBatch?: StockBatch | null;
   onSuccess?: () => void;
 }
 
@@ -36,6 +37,7 @@ const ManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
   isOpen,
   onClose,
   product,
+  selectedBatch: selectedBatchProp,
   onSuccess
 }) => {
   const { t } = useTranslation();
@@ -65,6 +67,23 @@ const ManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
     }
   }, [isOpen, product, company]);
 
+  // Preselect batch when provided
+  useEffect(() => {
+    if (!isOpen || !selectedBatchProp) return;
+    // If batches already loaded, set immediately
+    if (batches.length > 0) {
+      const match = batches.find(b => b.id === selectedBatchProp.id);
+      if (match) {
+        setSelectedBatch(match);
+        setFormData(prev => ({
+          ...prev,
+          batchId: match.id,
+          newCostPrice: match.costPrice.toString()
+        }));
+      }
+    }
+  }, [isOpen, selectedBatchProp, batches]);
+
   // Reset form when modal opens/closes
   useEffect(() => {
     if (isOpen) {
@@ -74,12 +93,12 @@ const ManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
         newCostPrice: '',
         notes: ''
       });
-      setSelectedBatch(null);
+      setSelectedBatch(selectedBatchProp ?? null);
       setValidationErrors([]);
       setTempEdits([]);
       setIsEditingMode(false);
     }
-  }, [isOpen]);
+  }, [isOpen, selectedBatchProp]);
 
   const loadBatches = async () => {
     if (!product) return;
