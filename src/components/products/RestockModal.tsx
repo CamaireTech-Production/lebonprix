@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
-import { restockProduct, subscribeToSuppliers } from '../../services/firestore';
+import { subscribeToSuppliers } from '../../services/firestore';
+import { restockProduct } from '../../services/stockAdjustments';
 import type { Product, Supplier } from '../../types/models';
 import Modal from '../common/Modal';
 import Button from '../common/Button';
