@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
 import { 
-  adjustStockForDamage, 
   getProductBatchesForAdjustment 
 } from '../../services/firestore';
+import { adjustStockForDamage } from '../../services/stockAdjustments';
 import type { Product, StockBatch } from '../../types/models';
 import Modal from '../common/Modal';
 import Button from '../common/Button';
