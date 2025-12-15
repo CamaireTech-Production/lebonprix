@@ -64,6 +64,12 @@ const MobileNav = () => {
       resource: 'products' 
     },
     { 
+      name: 'Stocks', 
+      path: isCompanyRoute ? `/company/${companyId}/products/stocks` : '/products/stocks', 
+      icon: <Package2 size={20} />, 
+      resource: 'products' 
+    },
+    { 
       name: 'Categories', 
       path: isCompanyRoute ? `/company/${companyId}/categories` : '/categories', 
       icon: <Grid3X3 size={20} />, 
