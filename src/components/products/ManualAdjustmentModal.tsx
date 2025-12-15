@@ -151,12 +151,15 @@ const ManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
       errors.push('Please select a batch');
     }
 
-    if (!formData.quantityChange) {
-      errors.push('Please enter quantity change');
-    } else {
-      const quantityChange = parseFloat(formData.quantityChange);
+    // At least one of quantity change or new cost price must be provided
+    if (!formData.quantityChange && !formData.newCostPrice) {
+      errors.push('Enter a quantity change and/or a new cost price');
+    }
+
+    if (formData.quantityChange) {
+      const quantityChange = parseInt(formData.quantityChange, 10);
       if (isNaN(quantityChange)) {
-        errors.push('Quantity change must be a valid number');
+        errors.push('Quantity change must be a valid whole number');
       }
     }
 
@@ -169,7 +172,7 @@ const ManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
 
     // Validate with selected batch
     if (selectedBatch) {
-      const quantityChange = parseFloat(formData.quantityChange) || 0;
+      const quantityChange = parseInt(formData.quantityChange || '0', 10) || 0;
       const newCostPrice = parseFloat(formData.newCostPrice) || selectedBatch.costPrice;
       
       const validation = validateBatchAdjustment(selectedBatch, quantityChange, newCostPrice);
@@ -187,7 +190,7 @@ const ManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
       return;
     }
 
-    const quantityChange = parseFloat(formData.quantityChange);
+    const quantityChange = parseInt(formData.quantityChange || '0', 10) || 0;
     const newCostPrice = formData.newCostPrice ? parseFloat(formData.newCostPrice) : undefined;
 
     // Check if this batch is already in temp edits
@@ -288,7 +291,7 @@ const ManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
       return;
     }
 
-    const quantityChange = parseFloat(formData.quantityChange);
+    const quantityChange = parseInt(formData.quantityChange || '0', 10) || 0;
     const newCostPrice = formData.newCostPrice ? parseFloat(formData.newCostPrice) : undefined;
 
     setLoading(true);
