@@ -14,6 +14,7 @@ interface RestockModalProps {
   isOpen: boolean;
   onClose: () => void;
   product: Product | null;
+  batchTotals?: { remaining: number; total: number };
   onSuccess?: () => void;
 }
 
@@ -21,6 +22,7 @@ const RestockModal: React.FC<RestockModalProps> = ({
   isOpen,
   onClose,
   product,
+  batchTotals,
   onSuccess
 }) => {
   const { t } = useTranslation();
@@ -37,6 +39,8 @@ const RestockModal: React.FC<RestockModalProps> = ({
     notes: ''
   });
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const derivedRemaining = batchTotals?.remaining ?? product?.stock ?? 0;
+  const derivedTotal = batchTotals?.total;
 
   // Load suppliers
   useEffect(() => {
@@ -194,7 +198,11 @@ const RestockModal: React.FC<RestockModalProps> = ({
             </div>
             <div>
               <span className="font-medium text-gray-700">Current Stock:</span>
-              <p className="text-gray-900">{product.stock}</p>
+              <p className="text-gray-900">
+                {derivedTotal !== undefined
+                  ? `${derivedRemaining} / ${derivedTotal}`
+                  : derivedRemaining}
+              </p>
             </div>
             <div>
               <span className="font-medium text-gray-700">Selling Price:</span>

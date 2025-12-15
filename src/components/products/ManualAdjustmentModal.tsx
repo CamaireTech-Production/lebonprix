@@ -30,6 +30,7 @@ interface ManualAdjustmentModalProps {
   onClose: () => void;
   product: Product | null;
   selectedBatch?: StockBatch | null;
+  batchTotals?: { remaining: number; total: number };
   onSuccess?: () => void;
 }
 
@@ -38,6 +39,7 @@ const ManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
   onClose,
   product,
   selectedBatch: selectedBatchProp,
+  batchTotals,
   onSuccess
 }) => {
   const { t } = useTranslation();
@@ -52,6 +54,8 @@ const ManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
   // New state for temporary batch edits
   const [tempEdits, setTempEdits] = useState<TempBatchEdit[]>([]);
   const [isEditingMode, setIsEditingMode] = useState(false);
+  const derivedRemaining = batchTotals?.remaining ?? product?.stock ?? 0;
+  const derivedTotal = batchTotals?.total;
   
   const [formData, setFormData] = useState({
     batchId: '',
@@ -365,7 +369,11 @@ const ManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
             </div>
             <div>
               <span className="font-medium text-gray-700">Current Stock:</span>
-              <p className="text-gray-900">{product.stock}</p>
+              <p className="text-gray-900">
+                {derivedTotal !== undefined
+                  ? `${derivedRemaining} / ${derivedTotal}`
+                  : derivedRemaining}
+              </p>
             </div>
             <div>
               <span className="font-medium text-gray-700">Selling Price:</span>

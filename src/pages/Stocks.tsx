@@ -85,6 +85,7 @@ const Stocks = () => {
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [selectedBatch, setSelectedBatch] = useState<StockBatch | null>(null);
+  const [selectedBatchTotals, setSelectedBatchTotals] = useState<{ remaining: number; total: number } | undefined>(undefined);
 
   useEffect(() => {
     setPage(1);
@@ -132,6 +133,10 @@ const Stocks = () => {
   const handleRestock = (product: Product) => {
     setSelectedProduct(product);
     setSelectedBatch(null);
+    const productBatches = batchesByProduct.get(product.id) || [];
+    const remaining = productBatches.reduce((sum, b) => sum + (b.remainingQuantity || 0), 0);
+    const total = productBatches.reduce((sum, b) => sum + (b.quantity || 0), 0);
+    setSelectedBatchTotals(productBatches.length ? { remaining, total } : undefined);
     setExpandedProductId(product.id);
     setRestockModalOpen(true);
   };
@@ -139,6 +144,10 @@ const Stocks = () => {
   const handleAdjust = (product: Product, batch?: StockBatch) => {
     setSelectedProduct(product);
     setSelectedBatch(batch || null);
+    const productBatches = batchesByProduct.get(product.id) || [];
+    const remaining = productBatches.reduce((sum, b) => sum + (b.remainingQuantity || 0), 0);
+    const total = productBatches.reduce((sum, b) => sum + (b.quantity || 0), 0);
+    setSelectedBatchTotals(productBatches.length ? { remaining, total } : undefined);
     setExpandedProductId(product.id);
     setAdjustModalOpen(true);
   };
@@ -146,6 +155,10 @@ const Stocks = () => {
   const handleDamage = (product: Product, batch: StockBatch) => {
     setSelectedProduct(product);
     setSelectedBatch(batch);
+    const productBatches = batchesByProduct.get(product.id) || [];
+    const remaining = productBatches.reduce((sum, b) => sum + (b.remainingQuantity || 0), 0);
+    const total = productBatches.reduce((sum, b) => sum + (b.quantity || 0), 0);
+    setSelectedBatchTotals(productBatches.length ? { remaining, total } : undefined);
     setExpandedProductId(product.id);
     setDamageModalOpen(true);
   };
@@ -512,6 +525,7 @@ const Stocks = () => {
         isOpen={restockModalOpen}
         onClose={handleModalClose}
         product={selectedProduct}
+        batchTotals={selectedBatchTotals}
         onSuccess={handleModalSuccess}
       />
 
@@ -520,6 +534,7 @@ const Stocks = () => {
         onClose={handleModalClose}
         product={selectedProduct}
         selectedBatch={selectedBatch}
+        batchTotals={selectedBatchTotals}
         onSuccess={handleModalSuccess}
       />
 
@@ -528,6 +543,7 @@ const Stocks = () => {
         onClose={handleModalClose}
         product={selectedProduct}
         selectedBatch={selectedBatch}
+        batchTotals={selectedBatchTotals}
         onSuccess={handleModalSuccess}
       />
 

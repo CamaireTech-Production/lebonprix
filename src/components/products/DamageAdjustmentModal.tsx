@@ -18,6 +18,7 @@ interface DamageAdjustmentModalProps {
   onClose: () => void;
   product: Product | null;
   selectedBatch?: StockBatch | null;
+  batchTotals?: { remaining: number; total: number };
   onSuccess?: () => void;
 }
 
@@ -26,6 +27,7 @@ const DamageAdjustmentModal: React.FC<DamageAdjustmentModalProps> = ({
   onClose,
   product,
   selectedBatch: selectedBatchProp,
+  batchTotals,
   onSuccess
 }) => {
   const { t } = useTranslation();
@@ -41,6 +43,8 @@ const DamageAdjustmentModal: React.FC<DamageAdjustmentModalProps> = ({
     notes: ''
   });
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const derivedRemaining = batchTotals?.remaining ?? product?.stock ?? 0;
+  const derivedTotal = batchTotals?.total;
 
   // Load available batches when modal opens
   useEffect(() => {
@@ -216,7 +220,11 @@ const DamageAdjustmentModal: React.FC<DamageAdjustmentModalProps> = ({
             </div>
             <div>
               <span className="font-medium text-gray-700">Current Stock:</span>
-              <p className="text-gray-900">{product.stock}</p>
+              <p className="text-gray-900">
+                {derivedTotal !== undefined
+                  ? `${derivedRemaining} / ${derivedTotal}`
+                  : derivedRemaining}
+              </p>
             </div>
             <div>
               <span className="font-medium text-gray-700">Selling Price:</span>
