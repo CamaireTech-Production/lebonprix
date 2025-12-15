@@ -212,7 +212,7 @@ const RestockModal: React.FC<RestockModalProps> = ({
               label="Quantity"
               type="number"
               value={formData.quantity}
-              onChange={(value) => handleInputChange('quantity', value)}
+            onChange={(e) => handleInputChange('quantity', e.target.value)}
               placeholder="Enter quantity"
               required
               min="0.01"
@@ -223,7 +223,7 @@ const RestockModal: React.FC<RestockModalProps> = ({
               label="Cost Price per Unit"
               type="number"
               value={formData.costPrice}
-              onChange={(value) => handleInputChange('costPrice', value)}
+            onChange={(e) => handleInputChange('costPrice', e.target.value)}
               placeholder="Enter cost price"
               required
               min="0"
@@ -264,7 +264,7 @@ const RestockModal: React.FC<RestockModalProps> = ({
           <Select
             label="Supplier"
             value={formData.supplierId}
-            onChange={(value) => handleInputChange('supplierId', value)}
+            onChange={(e) => handleInputChange('supplierId', e.target.value)}
             options={getSupplierOptions()}
             disabled={formData.isOwnPurchase}
           />
@@ -273,7 +273,7 @@ const RestockModal: React.FC<RestockModalProps> = ({
           <Select
             label="Payment Type"
             value={formData.paymentType}
-            onChange={(value) => handleInputChange('paymentType', value)}
+            onChange={(e) => handleInputChange('paymentType', e.target.value)}
             options={getPaymentTypeOptions()}
             disabled={formData.isOwnPurchase}
           />

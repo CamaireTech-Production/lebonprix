@@ -282,6 +282,8 @@ const Stocks = () => {
                 const productBatches = batchesByProduct.get(product.id) || [];
                 const activeBatches = productBatches.filter((b) => b.status === 'active');
                 const depletedBatches = productBatches.filter((b) => b.status === 'depleted');
+                const batchRemaining = productBatches.reduce((sum, b) => sum + (b.remainingQuantity || 0), 0);
+                const batchTotal = productBatches.reduce((sum, b) => sum + (b.quantity || 0), 0);
                 return (
                   <div key={product.id} className="border-b border-gray-200">
                     <div className="grid grid-cols-12 items-center px-4 py-3">
@@ -304,7 +306,9 @@ const Stocks = () => {
                         {product.category || '—'}
                       </div>
                       <div className="col-span-2 text-sm text-gray-900">
-                        {formatNumber(product.stock)} units
+                        {productBatches.length > 0
+                          ? `${formatNumber(batchRemaining)} / ${formatNumber(batchTotal)} units`
+                          : `${formatNumber(product.stock)} units`}
                       </div>
                       <div className="col-span-2 text-sm text-gray-900">
                         {activeBatches.length} active / {depletedBatches.length} depleted

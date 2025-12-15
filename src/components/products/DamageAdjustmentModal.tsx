@@ -267,7 +267,7 @@ const DamageAdjustmentModal: React.FC<DamageAdjustmentModalProps> = ({
             <Select
               label="Select Batch"
               value={formData.batchId}
-              onChange={(value) => handleInputChange('batchId', value)}
+              onChange={(e) => handleInputChange('batchId', e.target.value)}
               options={getBatchOptions()}
               required
             />
@@ -313,7 +313,7 @@ const DamageAdjustmentModal: React.FC<DamageAdjustmentModalProps> = ({
             label="Damaged Quantity"
             type="number"
             value={formData.damagedQuantity}
-            onChange={(value) => handleInputChange('damagedQuantity', value)}
+            onChange={(e) => handleInputChange('damagedQuantity', e.target.value)}
             placeholder="Enter damaged quantity"
             required
             min="0.01"

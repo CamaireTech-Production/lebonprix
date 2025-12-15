@@ -483,7 +483,7 @@ const ManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
             <Select
               label="Select Batch"
               value={formData.batchId}
-              onChange={(value) => handleInputChange('batchId', value)}
+              onChange={(e) => handleInputChange('batchId', e.target.value)}
               options={getBatchOptions()}
               required={!isEditingMode}
             />
@@ -530,7 +530,7 @@ const ManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
               label="Quantity Change"
               type="number"
               value={formData.quantityChange}
-              onChange={(value) => handleInputChange('quantityChange', value)}
+            onChange={(e) => handleInputChange('quantityChange', e.target.value)}
               placeholder="+10 or -5"
               required
               step="0.01"
@@ -540,7 +540,7 @@ const ManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
               label="New Cost Price (Optional)"
               type="number"
               value={formData.newCostPrice}
-              onChange={(value) => handleInputChange('newCostPrice', value)}
+            onChange={(e) => handleInputChange('newCostPrice', e.target.value)}
               placeholder="Leave empty to keep current"
               min="0"
               step="0.01"
