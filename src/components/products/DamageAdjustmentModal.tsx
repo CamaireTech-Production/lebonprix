@@ -120,9 +120,9 @@ const DamageAdjustmentModal: React.FC<DamageAdjustmentModalProps> = ({
       errors.push('Please select a batch');
     }
 
-    const damagedQuantity = parseFloat(formData.damagedQuantity);
+    const damagedQuantity = parseInt(formData.damagedQuantity, 10);
     if (isNaN(damagedQuantity) || damagedQuantity <= 0) {
-      errors.push('Please enter a valid damaged quantity (greater than 0)');
+      errors.push('Please enter a valid damaged quantity (whole number greater than 0)');
     }
 
     if (selectedBatch && damagedQuantity > selectedBatch.remainingQuantity) {
@@ -143,7 +143,7 @@ const DamageAdjustmentModal: React.FC<DamageAdjustmentModalProps> = ({
       return;
     }
 
-    const damagedQuantity = parseFloat(formData.damagedQuantity);
+    const damagedQuantity = parseInt(formData.damagedQuantity, 10);
 
     setLoading(true);
 
@@ -180,14 +180,14 @@ const DamageAdjustmentModal: React.FC<DamageAdjustmentModalProps> = ({
 
   const calculateNewRemainingQuantity = () => {
     if (!selectedBatch) return 0;
-    const damagedQuantity = parseFloat(formData.damagedQuantity) || 0;
+    const damagedQuantity = parseInt(formData.damagedQuantity || '0', 10) || 0;
     return selectedBatch.remainingQuantity - damagedQuantity;
   };
 
   const calculateNewStock = () => {
-    if (!product) return 0;
-    const damagedQuantity = parseFloat(formData.damagedQuantity) || 0;
-    return product.stock - damagedQuantity;
+    const damagedQuantity = parseInt(formData.damagedQuantity || '0', 10) || 0;
+    const currentStock = typeof derivedRemaining === 'number' ? derivedRemaining : 0;
+    return currentStock - damagedQuantity;
   };
 
   const calculateDamagedValue = () => {
@@ -324,9 +324,9 @@ const DamageAdjustmentModal: React.FC<DamageAdjustmentModalProps> = ({
             onChange={(e) => handleInputChange('damagedQuantity', e.target.value)}
             placeholder="Enter damaged quantity"
             required
-            min="0.01"
+            min="1"
             max={selectedBatch?.remainingQuantity || undefined}
-            step="0.01"
+            step="1"
           />
 
           {/* Preview Changes */}

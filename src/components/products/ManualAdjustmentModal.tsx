@@ -2,11 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
 import { 
-  adjustStockManually, 
   getProductBatchesForAdjustment,
   validateBatchAdjustment 
 } from '../../services/firestore';
-import { adjustMultipleBatchesManually } from '../../services/stockAdjustments';
+import { adjustStockManually, adjustMultipleBatchesManually } from '../../services/stockAdjustments';
 import type { Product, StockBatch } from '../../types/models';
 import Modal from '../common/Modal';
 import Button from '../common/Button';
@@ -335,14 +334,14 @@ const ManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
 
   const calculateNewRemainingQuantity = () => {
     if (!selectedBatch) return 0;
-    const quantityChange = parseFloat(formData.quantityChange) || 0;
+    const quantityChange = parseInt(formData.quantityChange || '0', 10) || 0;
     return selectedBatch.remainingQuantity + quantityChange;
   };
 
   const calculateNewStock = () => {
-    const quantityChange = parseFloat(formData.quantityChange) || 0;
-    // Use current effective stock from batches (derivedRemaining) as the base
-    return (typeof derivedRemaining === 'number' ? derivedRemaining : 0) + quantityChange;
+    const quantityChange = parseInt(formData.quantityChange || '0', 10) || 0;
+    const baseStock = typeof derivedRemaining === 'number' ? derivedRemaining : 0;
+    return baseStock + quantityChange;
   };
 
   if (!product) return null;
@@ -538,10 +537,10 @@ const ManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
               label="Quantity Change"
               type="number"
               value={formData.quantityChange}
-            onChange={(e) => handleInputChange('quantityChange', e.target.value)}
+              onChange={(e) => handleInputChange('quantityChange', e.target.value)}
               placeholder="+10 or -5"
               required
-              step="0.01"
+              step="1"
             />
             
             <Input
