@@ -293,14 +293,19 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
       
       const totalAmount = calculateTotal();
       
-      const saleProducts: SaleProduct[] = formData.products
+      // Note: costPrice, profit, and profitMargin will be added by createSale
+      const saleProducts = formData.products
         .filter(p => p.product && p.quantity)
         .map(p => ({
           productId: p.product!.id,
           quantity: parseInt(p.quantity, 10),
           basePrice: p.product!.sellingPrice,
           negotiatedPrice: p.negotiatedPrice ? parseFloat(p.negotiatedPrice) : p.product!.sellingPrice,
-        }));
+          // These will be enriched by createSale:
+          costPrice: 0, // Placeholder - will be calculated by createSale
+          profit: 0, // Placeholder - will be calculated by createSale
+          profitMargin: 0, // Placeholder - will be calculated by createSale
+        } as SaleProduct));
       
       // Récupérer les données client AVANT de créer la vente
       const customerName = formData.customerName.trim() || t('sales.modals.add.customerInfo.divers');
@@ -332,9 +337,9 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
       const normalizedData = normalizeSaleData(rawSaleData, user.uid, company.id);
       
       // Get createdBy employee reference
-      let createdBy = null;
+      let createdBy: ReturnType<typeof getCurrentEmployeeRef> = null;
       if (user && company) {
-        let userData = null;
+        let userData: Awaited<ReturnType<typeof getUserById>> | null = null;
         if (isOwner && !currentEmployee) {
           // If owner, fetch user data to create EmployeeRef
           try {
@@ -357,7 +362,7 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
           const existing = customers.find(c => normalizePhone(c.phone) === normalizePhone(customerPhone));
           
           if (!existing) {
-            const customerData = { 
+            const customerData: Omit<Customer, 'id'> = { 
               phone: customerPhone, 
               name: customerName, 
               quarter: customerQuarter,
@@ -368,7 +373,8 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
               birthdate: formData.customerBirthdate || undefined,
               howKnown: formData.customerHowKnown || undefined,
               userId: user.uid,
-              companyId: company.id // createdAt sera ajouté automatiquement par addCustomer avec serverTimestamp()
+              companyId: company.id,
+              createdAt: new Date() // Will be replaced by serverTimestamp() in addCustomer
             };
             
             await addCustomer(customerData);
@@ -436,7 +442,7 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
       const existing = customers.find(c => normalizePhone(c.phone) === normalizePhone(formData.customerPhone));
       
       if (!existing) {
-        const data: Customer = { 
+        const data: Omit<Customer, 'id'> = { 
           phone: formData.customerPhone, 
           name: customerName, 
           quarter: customerQuarter,
@@ -448,7 +454,8 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
           birthdate: formData.customerBirthdate || undefined,
           howKnown: formData.customerHowKnown || undefined,
           userId: user.uid,
-          companyId: company.id // createdAt sera ajouté automatiquement par addCustomer avec serverTimestamp()
+          companyId: company.id,
+          createdAt: new Date() // Will be replaced by serverTimestamp() in addCustomer
         };
         await addCustomer(data);
         setFoundCustomer(data);

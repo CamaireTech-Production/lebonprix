@@ -8,11 +8,11 @@ import { useSales, useExpenses, useProducts, useStockChanges, useFinanceEntries,
 import { subscribeToAllSales } from '../services/firestore';
 import LoadingScreen from '../components/common/LoadingScreen';
 import { SkeletonStatCard, SkeletonChart, SkeletonTable, SkeletonActivityList, SkeletonObjectivesBar } from '../components/common/SkeletonLoader';
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import Modal from '../components/common/Modal';
 import Button from '../components/common/Button';
 import { useAuth } from '../contexts/AuthContext';
-import type { DashboardStats } from '../types/models';
+import type { DashboardStats, StockChange } from '../types/models';
 import { showSuccessToast, showErrorToast } from '../utils/toast';
 import { useTranslation } from 'react-i18next';
 import { getLatestCostPrice } from '../utils/productUtils';
@@ -150,13 +150,13 @@ const Dashboard = () => {
   const profit = calculateDashboardProfit(
     filteredSales || [],
     products || [],
-    stockChanges || [],
+    (stockChanges || []) as StockChange[],
     actualStartDate,
     dateRange.from
   );
   
   // Also calculate all-time profit for comparison (optional)
-  const allTimeProfit = calculateTotalProfit(filteredSales || [], products || [], stockChanges || []);
+  const allTimeProfit = calculateTotalProfit(filteredSales || [], products || [], (stockChanges || []) as StockChange[]);
 
   // 🔄 BACKGROUND DATA: Calculate expenses only when available
   // Note: Dashboard only uses expenses, not manual entries, so we pass an empty array for manual entries
@@ -180,7 +180,7 @@ const Dashboard = () => {
   };
   const totalPurchasePrice = products?.reduce((sum, product) => {
     const stockAtDate = getStockAtDate(product.id, dateRange.to);
-    const safeStockChanges = Array.isArray(stockChanges) ? stockChanges : [];
+    const safeStockChanges = Array.isArray(stockChanges) ? (stockChanges as StockChange[]) : [];
     const costPrice = getLatestCostPrice(product.id, safeStockChanges);
     if (costPrice === undefined) return sum;
     return sum + (costPrice * stockAtDate);

@@ -8,7 +8,7 @@ import { Download, Share, Printer } from 'lucide-react';
 import { generatePDF, generatePDFBlob } from '../../utils/pdf';
 import { generateInvoiceFileName } from '../../utils/fileUtils';
 import { useTranslation } from 'react-i18next';
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { showErrorToast } from '../../utils/toast';
 import CustomerAdditionalInfo from '../customers/CustomerAdditionalInfo';

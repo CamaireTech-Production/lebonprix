@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useCallback } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { Calendar, FileDown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
@@ -624,12 +624,12 @@ const Reports = () => {
       },
       growthRate: {
         value: growthRate,
-        status: growthRate > 0 ? 'good' : growthRate === 0 ? 'warning' : 'bad',
+        status: (growthRate > 0 ? 'good' : growthRate === 0 ? 'warning' : 'bad') as 'good' | 'warning' | 'bad',
         trend: undefined
       },
       roi: {
         value: roi,
-        status: roi > 20 ? 'good' : roi >= 10 ? 'warning' : 'bad',
+        status: (roi > 20 ? 'good' : roi >= 10 ? 'warning' : 'bad') as 'good' | 'warning' | 'bad',
         trend: previousPeriodData.totalCostOfGoodsSold > 0 ? {
           value: ((roi - (previousPeriodData.netProfit / previousPeriodData.totalCostOfGoodsSold * 100))),
           isPositive: roi > (previousPeriodData.netProfit / previousPeriodData.totalCostOfGoodsSold * 100)

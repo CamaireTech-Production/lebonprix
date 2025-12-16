@@ -540,12 +540,6 @@ const Finance: React.FC = () => {
       } else {
         // Create the entry in database
         await createFinanceEntry(entryData);
-        
-        // Simple solution: Manually refresh the table data after create
-        setTimeout(() => {
-          refresh();
-        }, 500); // Small delay to ensure Firestore has processed the write
-        
         showSuccessToast(t('finance.messages.addSuccess'));
       }
       handleCloseRemoveMoneyModal();

@@ -228,27 +228,27 @@ const Orders: React.FC = () => {
   };
 
   // Get status badge color
-  const getStatusBadgeColor = (status: Order['status']) => {
+  const getStatusBadgeColor = (status: Order['status']): 'success' | 'warning' | 'error' | 'info' | 'default' => {
     switch (status) {
-      case 'pending': return 'yellow';
-      case 'confirmed': return 'blue';
-      case 'preparing': return 'purple';
-      case 'ready': return 'green';
-      case 'delivered': return 'green';
-      case 'cancelled': return 'red';
-      default: return 'gray';
+      case 'pending': return 'warning';
+      case 'confirmed': return 'info';
+      case 'preparing': return 'info';
+      case 'ready': return 'success';
+      case 'delivered': return 'success';
+      case 'cancelled': return 'error';
+      default: return 'default';
     }
   };
 
   // Get payment status badge color
-  const getPaymentStatusBadgeColor = (status: Order['paymentStatus']) => {
+  const getPaymentStatusBadgeColor = (status: Order['paymentStatus']): 'success' | 'warning' | 'error' | 'info' | 'default' => {
     switch (status) {
-      case 'pending': return 'yellow';
-      case 'paid': return 'green';
-      case 'failed': return 'red';
-      case 'awaiting_payment': return 'orange';
-      case 'cancelled': return 'red';
-      default: return 'gray';
+      case 'pending': return 'warning';
+      case 'paid': return 'success';
+      case 'failed': return 'error';
+      case 'awaiting_payment': return 'warning';
+      case 'cancelled': return 'error';
+      default: return 'default';
     }
   };
 
@@ -266,14 +266,16 @@ const Orders: React.FC = () => {
   };
 
   // Format date
-  const formatDate = (date: Date) => {
+  const formatDate = (date: Date | { seconds: number; nanoseconds?: number }) => {
+    // Convert Timestamp to Date if needed
+    const dateObj = date instanceof Date ? date : new Date((date as any).seconds * 1000);
     return new Intl.DateTimeFormat('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit'
-    }).format(date);
+    }).format(dateObj);
   };
 
   // Format currency
@@ -414,11 +416,11 @@ const Orders: React.FC = () => {
                     <h3 className="font-semibold text-lg text-gray-900">
                       {order.orderNumber}
                     </h3>
-                    <Badge color={getStatusBadgeColor(order.status)} className="flex items-center gap-1">
+                    <Badge variant={getStatusBadgeColor(order.status)} className="flex items-center gap-1">
                       {getStatusIcon(order.status)}
                       <span className="capitalize">{t(`orders.status.${order.status}`)}</span>
                     </Badge>
-                    <Badge color={getPaymentStatusBadgeColor(order.paymentStatus)}>
+                    <Badge variant={getPaymentStatusBadgeColor(order.paymentStatus)}>
                       <span className="capitalize">{t(`orders.paymentStatus.${order.paymentStatus}`)}</span>
                     </Badge>
                   </div>
@@ -518,11 +520,11 @@ const Orders: React.FC = () => {
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                <Badge color={getStatusBadgeColor(selectedOrder.status)}>
+                <Badge variant={getStatusBadgeColor(selectedOrder.status)}>
                   {getStatusIcon(selectedOrder.status)}
                   <span className="ml-1 capitalize">{t(`orders.status.${selectedOrder.status}`)}</span>
                 </Badge>
-                <Badge color={getPaymentStatusBadgeColor(selectedOrder.paymentStatus)}>
+                <Badge variant={getPaymentStatusBadgeColor(selectedOrder.paymentStatus)}>
                   <span className="capitalize">{t(`orders.paymentStatus.${selectedOrder.paymentStatus}`)}</span>
                 </Badge>
                 <OrderActionsMenu

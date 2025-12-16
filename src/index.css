@@ -82,15 +82,32 @@
   font-display: swap;
 }
 
+@font-face {
+  font-family: 'Helvetica';
+  src: url('/fonts/helvetica_light.otf') format('opentype');
+  font-style: normal;
+  font-display: swap;
+}
+
+/* @font-face pour Helvetica bold désactivé - fichier manquant
+@font-face {
+  font-family: 'Helvetica bold';
+  src: url('/fonts/helvetica-bold-58712a5ead845.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+*/
 /* Classes utilitaires pour la charte graphique */
 @layer components {
   /* Typographie - Classes utilitaires pour toutes les polices */
   
   /* Tan Mon Cheri - Police titre élégante */
+  /* Inter - Police système moderne */
   .font-title {
-    font-family: 'Tan Mon Cheri', 'Playfair Display', 'Georgia', serif;
-    font-weight: 700;
-    letter-spacing: -0.02em;
+    font-family: 'Helvetica','Playfair Display', 'Georgia', serif;
+    font-weight: 500;
+    letter-spacing: -0.002rem;
   }
   
   .font-title-light {

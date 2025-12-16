@@ -19,7 +19,7 @@ import {
   deleteDoc
 } from 'firebase/firestore';
 import { db } from './firebase';
-import { logError } from '../utils/logger';
+import { logError, logWarning, devLog } from '../utils/logger';
 import { normalizePhoneNumber } from '../utils/phoneUtils';
 import type {
   Product,
@@ -601,8 +601,8 @@ export const getCategory = async (id: string, companyId: string): Promise<Catego
   const category = categorySnap.data() as Category;
   
   return {
-    id: categorySnap.id,
-    ...category
+    ...category,
+    id: categorySnap.id
   };
 };
 
@@ -1038,7 +1038,7 @@ export const softDeleteProduct = async (id: string, userId: string): Promise<voi
     // Update category product count
     if (currentProduct.category) {
       try {
-        await updateCategoryProductCount(currentProduct.category, companyId, false);
+        await updateCategoryProductCount(currentProduct.category, currentProduct.companyId, false);
       } catch (error) {
         logError('Error updating category product count after deletion', error);
         // Don't throw here as the product was deleted successfully
@@ -1712,18 +1712,19 @@ export const updateSaleDocument = async (
 // HOOKS AND UTILITIES
 // ============================================================================
 
+// NOTE: This hook is deprecated - use the one from hooks/useFirestore.ts instead
+// Keeping for backward compatibility but it requires companyId which is not available here
 export const useSales = () => {
   const [sales, setSales] = useState<Sale[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const unsubscribe = subscribeToSales((data) => {
-      setSales(data);
-      setLoading(false);
-    });
-
-    return unsubscribe;
+    // This hook cannot work without companyId - it's legacy code
+    // The proper hook is in hooks/useFirestore.ts
+    console.warn('useSales from firestore.ts is deprecated. Use the one from hooks/useFirestore.ts');
+    // eslint-disable-next-line @typescript-eslint/no-empty-function
+    return () => {};
   }, []);
 
   const addSale = async (data: Omit<Sale, 'id' | 'createdAt' | 'updatedAt'>): Promise<Sale> => {
@@ -2980,10 +2981,10 @@ export const adjustStockManually = async (
     throw new Error('Batch remaining quantity cannot be negative');
   }
   
-  const batchUpdates: Partial<StockBatch> = {
+  const batchUpdates: any = {
     remainingQuantity: newRemainingQuantity,
     status: newRemainingQuantity === 0 ? 'depleted' : 'active',
-    updatedAt: serverTimestamp() // Fix: Use serverTimestamp() instead of manual timestamp
+    updatedAt: serverTimestamp() // Firestore will convert this to Timestamp
   };
   
   if (newCostPrice !== undefined) {
@@ -3251,7 +3252,7 @@ export const createUserTag = async (
   
   // Create user tag
   const tagRef = doc(collection(db, 'userTags'));
-  const tagData = {
+  const tagData: any = {
     ...data,
     userId,
     createdAt: serverTimestamp(),
@@ -3264,12 +3265,12 @@ export const createUserTag = async (
   
   await batch.commit();
   
+  // Return ProductTag without userId and timestamps (they're stored in DB but not in type)
   return {
     id: tagRef.id,
-    ...tagData,
-    createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 },
-    updatedAt: { seconds: Date.now() / 1000, nanoseconds: 0 }
-  };
+    name: data.name,
+    variations: data.variations
+  } as ProductTag;
 };
 
 /**
@@ -3289,8 +3290,8 @@ export const updateUserTag = async (
     throw new Error('Tag not found');
   }
   
-  const tag = tagSnap.data() as ProductTag;
-  if (tag.userId !== userId) {
+  const tagData = tagSnap.data() as ProductTag & { userId?: string };
+  if (tagData.userId && tagData.userId !== userId) {
     throw new Error('Unauthorized to update this tag');
   }
   
@@ -3319,8 +3320,8 @@ export const deleteUserTag = async (tagId: string, userId: string): Promise<void
     throw new Error('Tag not found');
   }
   
-  const tag = tagSnap.data() as ProductTag;
-  if (tag.userId !== userId) {
+  const tagData = tagSnap.data() as ProductTag & { userId?: string };
+  if (tagData.userId && tagData.userId !== userId) {
     throw new Error('Unauthorized to delete this tag');
   }
   
@@ -3328,7 +3329,7 @@ export const deleteUserTag = async (tagId: string, userId: string): Promise<void
   batch.delete(tagRef);
   
   // Create audit log
-  createAuditLog(batch, 'delete', 'product', tagId, tag, userId);
+  createAuditLog(batch, 'delete', 'product', tagId, tagData, userId);
   
   await batch.commit();
 };

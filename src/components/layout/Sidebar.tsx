@@ -1,6 +1,6 @@
 import React from 'react';
 import { useLocation, Link, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, ShoppingCart, DollarSign, Package2, FileBarChart, Settings, X, Receipt, Users, Building2, Plus, ShoppingBag, UserCheck, ChevronDown, ChevronRight, Loader2, Phone, ScanLine} from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, DollarSign, Package2, FileBarChart, Settings, X, Receipt, Users, Building2, Plus, Grid3X3, ShoppingBag, UserCheck, ChevronDown, ChevronRight, Loader2, Phone, ScanLine} from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useRolePermissions } from '../../hooks/useRolePermissions';
 import UserAvatar from '../common/UserAvatar';

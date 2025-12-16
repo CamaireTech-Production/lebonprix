@@ -113,7 +113,7 @@ export const useProducts = () => {
     },
     createdBy?: import('../types/models').EmployeeRef | null
   ) => {
-    if (!user) throw new Error('User not authenticated');
+    if (!user || !company) throw new Error('User not authenticated');
     try {
       const createdProduct = await createProduct(productData, company.id, supplierInfo, createdBy);
       // Invalidate products cache when new product is added
@@ -141,7 +141,7 @@ export const useProducts = () => {
       costPrice?: number;
     }
   ) => {
-    if (!user) throw new Error('User not authenticated');
+    if (!user || !company) throw new Error('User not authenticated');
     try {
       await updateProduct(productId, data, company.id, stockReason, stockChange, supplierInfo);
       // Invalidate products cache when product is updated
@@ -157,7 +157,7 @@ export const useProducts = () => {
   };
 
   const deleteProduct = async (productId: string) => {
-    if (!user?.uid) throw new Error('User not authenticated');
+    if (!user?.uid || !company) throw new Error('User not authenticated');
     
     try {
       await deleteDoc(doc(db, 'products', productId));
@@ -219,9 +219,9 @@ export const useCategories = () => {
     if (!user || !company) throw new Error('User not authenticated');
     try {
       // Get createdBy employee reference
-      let createdBy = null;
+      let createdBy: ReturnType<typeof getCurrentEmployeeRef> = null;
       if (user && company) {
-        let userData = null;
+        let userData: Awaited<ReturnType<typeof getUserById>> | null = null;
         if (isOwner && !currentEmployee) {
           // If owner, fetch user data to create EmployeeRef
           try {
@@ -396,7 +396,7 @@ export const useSales = () => {
   };
 
   const fetchSales = async () => {
-    if (!user) return;
+    if (!user || !company) return;
     
     try {
       const salesRef = collection(db, 'sales');
@@ -442,7 +442,7 @@ export const useSales = () => {
   };
 
   const updateStatus = async (id: string, status: OrderStatus, paymentStatus: PaymentStatus) => {
-    if (!user) throw new Error('User not authenticated');
+    if (!user || !company) throw new Error('User not authenticated');
     try {
       await updateSaleStatus(id, status, paymentStatus, company.id);
       
@@ -505,7 +505,7 @@ export const useExpenses = () => {
   }, [user, company]);
 
   const addExpense = async (data: Omit<Expense, 'id' | 'createdAt' | 'updatedAt'>, createdBy?: import('../types/models').EmployeeRef | null) => {
-    if (!user) throw new Error('User not authenticated');
+    if (!user || !company) throw new Error('User not authenticated');
     try {
       const newExpense = await createExpense({ ...data, userId: user.uid, companyId: company.id }, company.id, createdBy);
       await syncFinanceEntryWithExpense(newExpense);
@@ -520,7 +520,7 @@ export const useExpenses = () => {
   };
 
   const updateExpenseData = async (id: string, data: Partial<Expense>) => {
-    if (!user) throw new Error('User not authenticated');
+    if (!user || !company) throw new Error('User not authenticated');
     try {
       await updateExpense(id, { ...data, userId: user.uid, companyId: company.id }, company.id);
       // Force sync to update localStorage
@@ -815,9 +815,9 @@ export const useSuppliers = () => {
     if (!user || !company) throw new Error('User not authenticated');
     try {
       // Get createdBy employee reference
-      let createdBy = null;
+      let createdBy: ReturnType<typeof getCurrentEmployeeRef> = null;
       if (user && company) {
-        let userData = null;
+        let userData: Awaited<ReturnType<typeof getUserById>> | null = null;
         if (isOwner && !currentEmployee) {
           // If owner, fetch user data to create EmployeeRef
           try {
@@ -837,7 +837,7 @@ export const useSuppliers = () => {
   };
 
   const updateSupplierData = async (supplierId: string, data: Partial<Supplier>) => {
-    if (!user) throw new Error('User not authenticated');
+    if (!user || !company) throw new Error('User not authenticated');
     try {
       await updateSupplier(supplierId, data, company.id);
     } catch (err) {
@@ -847,7 +847,7 @@ export const useSuppliers = () => {
   };
 
   const deleteSupplier = async (supplierId: string) => {
-    if (!user?.uid) throw new Error('User not authenticated');
+    if (!user?.uid || !company) throw new Error('User not authenticated');
     try {
       await softDeleteSupplier(supplierId, company.id);
     } catch (err) {

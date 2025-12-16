@@ -9,6 +9,7 @@ import { getUserById } from '../services/userService';
 import { validateSaleData, normalizeSaleData } from '../utils/saleUtils';
 import type { OrderStatus, Customer, Product} from '../types/models';
 import { logError } from '../utils/logger';
+import { normalizePhoneForComparison } from '../utils/phoneUtils';
 import { saveDraft as saveDraftToStorage, getDrafts, deleteDraft, type POSDraft } from '../utils/posDraftStorage';
 import { useAllStockBatches } from './useStockBatches';
 import { buildProductStockMap, getEffectiveProductStock } from '../utils/stockHelpers';
@@ -198,17 +199,14 @@ export function usePOS() {
     }));
   }, []);
 
-  // Handle customer search - use centralized normalization
-  const normalizePhone = normalizePhoneForComparison;
-
   const handleCustomerSearch = useCallback((value: string) => {
     setCustomerSearch(value);
     
-    const normalizedSearch = normalizePhone(value);
+    const normalizedSearch = normalizePhoneForComparison(value);
     if (normalizedSearch.length >= 2) {
       const matchingCustomers = customers.filter(c => {
         if (!c.phone) return false;
-        const customerPhone = normalizePhone(c.phone);
+        const customerPhone = normalizePhoneForComparison(c.phone);
         return customerPhone.includes(normalizedSearch) || normalizedSearch.includes(customerPhone);
       });
       setShowCustomerDropdown(matchingCustomers.length > 0);
@@ -375,7 +373,7 @@ export function usePOS() {
         try {
           // Only check for existing customer if phone is provided
           const existing = customerInfo.phone ? customers.find(c => 
-            c.phone && normalizePhone(c.phone) === normalizePhone(customerInfo.phone)
+            c.phone && normalizePhoneForComparison(c.phone) === normalizePhoneForComparison(customerInfo.phone)
           ) : null;
 
           if (!existing) {
@@ -523,7 +521,7 @@ export function usePOS() {
         try {
           // Only check for existing customer if phone is provided
           const existing = customerInfo.phone ? customers.find(c => 
-            c.phone && normalizePhone(c.phone) === normalizePhone(customerInfo.phone)
+            c.phone && normalizePhoneForComparison(c.phone) === normalizePhoneForComparison(customerInfo.phone)
           ) : null;
 
           if (!existing) {
