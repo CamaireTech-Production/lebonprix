@@ -300,7 +300,6 @@ export const useSales = () => {
     }
     try {
       const newSale = await createSale({ ...data, userId: user.uid, companyId: company.id }, company.id, createdBy);
-      await syncFinanceEntryWithSale(newSale);
       // Invalidate sales cache when new sale is added
       invalidateSpecificCache(company.id, 'sales');
       // Force sync to update localStorage
@@ -318,6 +317,17 @@ export const useSales = () => {
           detail: { companyId: company.id }
         }));
       }
+      
+      // Wait for syncFinanceEntryWithSale to complete
+      // syncFinanceEntryWithSale is called inside createSale but is async
+      // Small delay ensures the finance entry is created before refresh
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      // Trigger finance refresh to update balance immediately
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('finance:refresh'));
+      }
+      
       return newSale;
     } catch (err) {
       setError(err as Error);
@@ -361,6 +371,14 @@ export const useSales = () => {
         id: saleId
       };
       await syncFinanceEntryWithSale(saleForSync);
+
+      // Wait for finance entry to be updated
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      // Trigger finance refresh to update balance immediately
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('finance:refresh'));
+      }
 
       // Update local state
       updateLocalSale(saleForSync);

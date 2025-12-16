@@ -10,7 +10,8 @@ import { validateSaleData, normalizeSaleData } from '../utils/saleUtils';
 import type { OrderStatus, Customer, Product} from '../types/models';
 import { logError } from '../utils/logger';
 import { saveDraft as saveDraftToStorage, getDrafts, deleteDraft, type POSDraft } from '../utils/posDraftStorage';
-import { normalizePhoneForComparison } from '../utils/phoneUtils';
+import { useAllStockBatches } from './useStockBatches';
+import { buildProductStockMap, getEffectiveProductStock } from '../utils/stockHelpers';
 
 export interface CartItem {
   product: Product;
@@ -40,6 +41,7 @@ export function usePOS() {
   const { customers, addCustomer } = useCustomers();
   const { activeSources } = useCustomerSources();
   const { user, company, currentEmployee, isOwner } = useAuth();
+  const { batches: allBatches } = useAllStockBatches();
 
   const [state, setState] = useState<POSState>({
     cart: [],
@@ -56,14 +58,24 @@ export function usePOS() {
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const [customerSearch, setCustomerSearch] = useState('');
 
+  // Build stock map from all batches (fallback to product.stock when no batches)
+  const stockMap = useMemo(
+    () => buildProductStockMap(allBatches || []),
+    [allBatches]
+  );
+
   const searchInputRef = useRef<HTMLInputElement>(null);
   const customerInputRef = useRef<HTMLInputElement>(null);
 
-  // Filter products based on search and category
+  // Filter products based on search and category, using effective stock
   const filteredProducts = useMemo(() => {
     if (!products) return [];
     
-    let filtered = products.filter(p => p.isAvailable && p.stock > 0);
+    let filtered = products.filter(p => {
+      if (!p.isAvailable) return false;
+      const effectiveStock = getEffectiveProductStock(p, stockMap);
+      return effectiveStock > 0;
+    });
     
     // Filter by search query
     if (state.searchQuery) {
@@ -81,7 +93,7 @@ export function usePOS() {
     }
     
     return filtered;
-  }, [products, state.searchQuery, state.selectedCategory]);
+  }, [products, stockMap, state.searchQuery, state.selectedCategory]);
 
   // Calculate cart totals
   const cartTotals = useMemo(() => {
@@ -97,8 +109,9 @@ export function usePOS() {
 
   // Add product to cart
   const addToCart = useCallback((product: Product, quantity: number = 1, negotiatedPrice?: number) => {
-    if (product.stock < quantity) {
-      showWarningToast(t('pos.messages.insufficientStock', { stock: product.stock }));
+    const effectiveStock = getEffectiveProductStock(product, stockMap);
+    if (effectiveStock < quantity) {
+      showWarningToast(t('pos.messages.insufficientStock', { stock: effectiveStock }));
       return;
     }
 
@@ -107,8 +120,8 @@ export function usePOS() {
       
       if (existingItem) {
         const newQuantity = existingItem.quantity + quantity;
-        if (newQuantity > product.stock) {
-          showWarningToast(t('pos.messages.insufficientStock', { stock: product.stock }));
+        if (newQuantity > effectiveStock) {
+          showWarningToast(t('pos.messages.insufficientStock', { stock: effectiveStock }));
           return prev;
         }
         
@@ -127,7 +140,7 @@ export function usePOS() {
         };
       }
     });
-  }, [t]);
+  }, [stockMap, t]);
 
   // Remove product from cart
   const removeFromCart = useCallback((productId: string) => {
@@ -148,8 +161,9 @@ export function usePOS() {
       const item = prev.cart.find(item => item.product.id === productId);
       if (!item) return prev;
       
-      if (quantity > item.product.stock) {
-        showWarningToast(t('pos.messages.insufficientStock', { stock: item.product.stock }));
+      const effectiveStock = getEffectiveProductStock(item.product, stockMap);
+      if (quantity > effectiveStock) {
+        showWarningToast(t('pos.messages.insufficientStock', { stock: effectiveStock }));
         return prev;
       }
       
@@ -162,7 +176,7 @@ export function usePOS() {
         ),
       };
     });
-  }, [removeFromCart, t]);
+  }, [removeFromCart, stockMap, t]);
 
   // Update negotiated price
   const updateNegotiatedPrice = useCallback((productId: string, price: number | undefined) => {

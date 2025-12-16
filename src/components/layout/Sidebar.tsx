@@ -136,6 +136,7 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
       subItems: [
         { name: 'Liste', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/products` : '/products' },
         { name: 'Categories', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/categories` : '/categories' },
+        { name: 'Stocks', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/products/stocks` : '/products/stocks' },
       ]
     },
     { name: t('navigation.suppliers'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/suppliers` : '/suppliers', icon: <Users size={20} />, resource: 'suppliers' },

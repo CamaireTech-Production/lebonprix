@@ -101,6 +101,20 @@ const Finance: React.FC = () => {
   const [openDebtId, setOpenDebtId] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
+  // Listen for external refresh triggers (e.g., after sale creation) to refetch finance entries immediately
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handler = () => {
+      try {
+        refresh();
+      } catch (err) {
+        devLog('finance:refresh handler error', err);
+      }
+    };
+    window.addEventListener('finance:refresh', handler);
+    return () => window.removeEventListener('finance:refresh', handler);
+  }, [refresh]);
+
   // Pagination, sorting, and filtering state
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);

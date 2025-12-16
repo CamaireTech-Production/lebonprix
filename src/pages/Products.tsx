@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Grid, List, Plus, Search, Edit2, Upload, Trash2, CheckSquare, Square, Info, Eye, EyeOff, QrCode } from 'lucide-react';
+import { Grid, List, Plus, Search, Edit2, Upload, Trash2, CheckSquare, Square, Info, Eye, EyeOff, QrCode, ExternalLink } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate, useLocation } from 'react-router-dom';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Badge from '../components/common/Badge';
@@ -41,6 +42,12 @@ interface CsvRow {
 
 const Products = () => {
   const { t, i18n } = useTranslation();
+  const navigate = useNavigate();
+  const location = useLocation();
+  
+  // Check if we're in a company route
+  const isCompanyRoute = location.pathname.startsWith('/company/');
+  const companyId = isCompanyRoute ? location.pathname.split('/')[2] : null;
   // Use infinite scroll for products instead of limited loading
   const { 
     products: infiniteProducts, 
@@ -891,62 +898,8 @@ const Products = () => {
     }
     
     try {
-      // Handle enhanced manual adjustment and damage scenarios with batch edits
-      if ((stockReason === 'adjustment' || stockReason === 'damage') && tempBatchEdits.length > 0) {
-        // First update product info
+      // Update product info only (stock management moved to dedicated Stocks page)
         await updateProductData(currentProduct.id, updateData);
-        
-        // Then apply all batch adjustments with enhanced debt management
-        const adjustments = tempBatchEdits.map(edit => ({
-          batchId: edit.batchId,
-          quantityChange: edit.quantityChange,
-          newCostPrice: edit.newCostPrice,
-          newSupplyType: edit.newSupplyType,
-          newSupplierId: edit.newSupplierId,
-          newPaymentType: edit.newPaymentType,
-          scenario: edit.scenario,
-          notes: `${edit.scenario === 'damage' ? 'Damage' : 'Manual adjustment'} via product edit`
-        }));
-        
-        await adjustBatchWithDebtManagement(currentProduct.id, adjustments);
-        showSuccessToast(`Applied ${tempBatchEdits.length} ${stockReason === 'damage' ? 'damage records' : 'batch adjustments'}!`);
-      }
-      // Handle traditional stock adjustment if provided (restock or simple adjustment)
-      else if (stockAdjustment && parseInt(stockAdjustment) !== 0) {
-        const stockChange = parseInt(stockAdjustment);
-        const stockReasonType = stockReason as 'restock' | 'adjustment';
-        
-        // For restock, add to current stock
-        if (stockReasonType === 'restock') {
-          // Stock will be calculated in the service layer based on stockChange
-          // Don't set updateData.stock here to avoid double stock updates
-          
-          // Create stock change with supplier info
-          await updateProductData(currentProduct.id, updateData, stockReasonType, stockChange, {
-            supplierId: stockAdjustmentSupplier.supplierId || undefined,
-            isOwnPurchase: stockAdjustmentSupplier.supplyType === 'ownPurchase',
-            isCredit: stockAdjustmentSupplier.paymentType === 'credit',
-            costPrice: stockAdjustmentSupplier.costPrice ? parseFloat(stockAdjustmentSupplier.costPrice) : undefined
-          });
-          
-          // Create supplier debt if applicable (same logic as product creation)
-          if (stockAdjustmentSupplier.supplyType === 'fromSupplier' && stockAdjustmentSupplier.paymentType === 'credit' && stockAdjustmentSupplier.supplierId) {
-            const debtAmount = parseFloat(stockAdjustmentSupplier.costPrice) * stockChange;
-            const description = `Restock purchase for ${currentProduct.name} (${stockChange} units)`;
-            
-            // Note: Debt creation with batchId is now handled in updateProductData function
-            // The batchId will be included automatically
-          }
-        } else {
-          // For simple adjustment, set to new value
-          // Stock will be calculated in the service layer based on the delta
-          // Don't set updateData.stock here to avoid double stock updates
-          await updateProductData(currentProduct.id, updateData, stockReasonType, stockChange - (currentProduct.stock || 0));
-        }
-      } else {
-        // No stock adjustment, just update product info
-        await updateProductData(currentProduct.id, updateData);
-      }
       
       // Handle base64 to Firebase Storage conversion for images
       // Separate existing URLs from new File objects
@@ -2456,6 +2409,16 @@ const Products = () => {
         )}
         {editTab === 'stock' && (
           <div className="space-y-6">
+            {/* Info Box */}
+            <div className="flex items-start bg-blue-50 border-l-4 border-blue-400 p-4 rounded-md mb-4">
+              <svg className="w-5 h-5 text-blue-400 mt-0.5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M12 20a8 8 0 100-16 8 8 0 000 16z" />
+              </svg>
+              <div className="text-sm text-blue-800">
+                Stock management has been moved to the dedicated <strong>Stocks</strong> page for better organization and easier batch management.
+              </div>
+            </div>
+
             {/* Current Stock Display */}
             <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4 mb-4">
               <div className="flex items-center justify-between">
@@ -2469,612 +2432,50 @@ const Products = () => {
             </div>
               </div>
             </div>
-            {/* Stock Management Scenario Selector */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Stock Management Scenario</label>
-            <select 
-              className="block w-full rounded-md border border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm px-3 py-2" 
-              value={stockReason} 
-                onChange={e => setStockReason(e.target.value as 'restock' | 'adjustment' | 'damage')}
-            >
-                <option value="restock">📦 Restock - Add New Stock Batch</option>
-                <option value="adjustment">✏️ Manual Adjustment - Edit Existing Batch</option>
-                <option value="damage">💥 Damage - Record Physical Losses</option>
-            </select>
-            </div>
 
-            {/* Scenario Explanations */}
-            <div className="bg-blue-50 border-l-4 border-blue-400 p-4 rounded-md">
-              <div className="flex items-start">
-                <svg className="w-5 h-5 text-blue-400 mt-0.5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M12 20a8 8 0 100-16 8 8 0 000 16z" />
-                </svg>
-                <div className="text-sm text-blue-800">
-                  {stockReason === 'restock' && (
+            {/* Link to Stocks Page */}
+            <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
+              <div className="flex items-center justify-between">
                     <div>
-                      <strong>📦 Restock Scenario:</strong> Create a new stock batch by adding fresh inventory. 
-                      Specify the quantity, cost price, and purchase method (own purchase or from supplier). 
-                      If purchased from a supplier on credit, this will create a supplier debt automatically.
+                  <h4 className="font-semibold text-emerald-900 mb-1">Manage Stock in Inventory Page</h4>
+                  <p className="text-sm text-emerald-700">
+                    Use the dedicated Stocks page to restock, adjust batches, record damage, and view complete stock history.
+                  </p>
                     </div>
-                  )}
-                  {stockReason === 'adjustment' && (
-                    <div>
-                      <strong>✏️ Manual Adjustment Scenario:</strong> Edit an existing stock batch comprehensively. 
-                      You can modify stock quantity, cost price, and even the purchase details (supplier, payment method). 
-                      This will automatically adjust any related supplier debts to maintain data coherence.
-                    </div>
-                  )}
-                  {stockReason === 'damage' && (
-                    <div>
-                      <strong>💥 Damage Scenario:</strong> Record physically damaged or lost inventory. 
-                      Only the stock quantity is reduced - cost prices and supplier debts remain unchanged 
-                      since the financial obligations still exist despite physical losses.
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-            {/* Stock Value Input */}
-            {stockReason === 'restock' ? (
-              <>
-                <Input
-                  label={t('products.actions.quantityToAdd', 'Quantity to Add')}
-                  name="stockAdjustment"
-                  type="number"
-                  min={1}
-                  value={stockAdjustment}
-                  onChange={e => setStockAdjustment(e.target.value.replace(/[^0-9]/g, ''))}
-                  required
-                  helpText={t('products.form.restockHelp', 'This value will be added to your current stock.')}
-                />
-                {/* Live Preview */}
-                <div className="bg-green-50 border border-green-200 rounded-md p-3">
-                  <h4 className="text-sm font-medium text-green-800 mb-2">📦 Restock Preview</h4>
-                  <div className="grid grid-cols-3 gap-4 text-sm">
-                    <div>
-                      <span className="font-medium text-green-700">Current Total Stock:</span>
-                      <div className="text-lg font-bold text-green-900">{currentProduct?.stock ?? 0}</div>
-                    </div>
-                    <div>
-                      <span className="font-medium text-green-700">Adding:</span>
-                      <div className="text-lg font-bold text-blue-600">+{parseInt(stockAdjustment) || 0}</div>
-                    </div>
-                    <div>
-                      <span className="font-medium text-green-700">New Total Stock:</span>
-                      <div className="text-lg font-bold text-green-600">
-                        {(currentProduct?.stock ?? 0) + (parseInt(stockAdjustment) || 0)}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                {/* Supplier Section (only for restock) */}
-                <div className="space-y-4">
-            <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('products.form.step2.supplyType')}</label>
-              <select
-                name="supplyType"
-                value={stockAdjustmentSupplier.supplyType}
-                onChange={handleStockAdjustmentSupplierChange}
-                className="block w-full rounded-md border border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm px-3 py-2"
-              >
-                <option value="ownPurchase">{t('products.form.step2.ownPurchase')}</option>
-                <option value="fromSupplier">{t('products.form.step2.fromSupplier')}</option>
-              </select>
-            </div>
-            {/* Supplier and Payment Type (only for restock) */}
-            {stockAdjustmentSupplier.supplyType === 'fromSupplier' && (
-              <>
-                <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">{t('products.form.step2.supplier')}</label>
-                  <div className="flex space-x-2">
-                    <select
-                      name="supplierId"
-                      value={stockAdjustmentSupplier.supplierId}
-                      onChange={handleStockAdjustmentSupplierChange}
-                      className="flex-1 rounded-md border border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm px-3 py-2"
-                    >
-                      <option value="">{t('common.select')}</option>
-                      {suppliers.filter(s => !s.isDeleted).map(supplier => (
-                              <option key={supplier.id} value={supplier.id}>{supplier.name}</option>
-                      ))}
-                    </select>
                     <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setIsQuickAddSupplierOpen(true)}
-                    >
-                      {t('products.actions.addSupplier')}
+                  onClick={() => {
+                    const stocksPath = isCompanyRoute && companyId 
+                      ? `/company/${companyId}/products/stocks`
+                      : '/products/stocks';
+                    navigate(stocksPath);
+                    setIsEditModalOpen(false);
+                  }}
+                  icon={<ExternalLink size={16} />}
+                >
+                  Go to Stocks
                     </Button>
                   </div>
                 </div>
-                <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">{t('products.form.step2.paymentType')}</label>
-                  <select
-                    name="paymentType"
-                    value={stockAdjustmentSupplier.paymentType}
-                    onChange={handleStockAdjustmentSupplierChange}
-                    className="block w-full rounded-md border border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm px-3 py-2"
-                  >
-                    <option value="paid">{t('products.form.step2.paid')}</option>
-                    <option value="credit">{t('products.form.step2.credit')}</option>
-                  </select>
-                </div>
-              </>
-            )}
-                </div>
-              </>
-            ) : (
-              <>
-                {/* Enhanced Manual Adjustment with Batch Selection */}
-                
-                {/* Temporary Edits History */}
-                {tempBatchEdits.length > 0 && (
+
+            {/* Read-only Stock Information */}
                   <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                      <h4 className="font-medium text-gray-900">Pending Batch Adjustments</h4>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={clearAllTempBatchEdits}
-                        className="text-red-600 border-red-600 hover:bg-red-50"
-                      >
-                        Clear All
-                      </Button>
-                    </div>
-                    
-                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                      <div className="space-y-3">
-                        {tempBatchEdits.map((edit) => (
-                          <div key={edit.batchId} className="bg-white p-3 rounded border">
-                            <div className="flex justify-between items-start">
-                              <div className="flex-1">
-                                <div className="flex items-center justify-between mb-2">
-                                  <h5 className="font-medium text-gray-900">
-                                    Batch {edit.batchId.slice(-8)}
-                                  </h5>
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => removeTempBatchEdit(edit.batchId)}
-                                    className="text-red-600 border-red-600 hover:bg-red-50"
-                                  >
-                                    Remove
-                                  </Button>
-                                </div>
-                                <div className="space-y-2 text-sm">
-                                  <div className="grid grid-cols-2 gap-2">
-                                    <div>
-                                      <span className="font-medium text-gray-600">Current Stock:</span>
-                                      <span className="ml-2 text-gray-900">{edit.batch.remainingQuantity}</span>
-                                    </div>
-                                    <div>
-                                      <span className="font-medium text-gray-600">New Stock:</span>
-                                      <span className="ml-2 text-gray-900">{edit.newStock}</span>
-                                    </div>
-                                    <div>
-                                      <span className="font-medium text-gray-600">Total Quantity Change:</span>
-                                      <span className={`ml-2 ${edit.quantityChange > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                        {edit.quantityChange > 0 ? '+' : ''}{edit.quantityChange}
-                                      </span>
-                                    </div>
-                                    <div>
-                                      <span className="font-medium text-gray-600">New Remaining:</span>
-                                      <span className="ml-2 text-blue-600">
-                                        {edit.newStock} units
-                                      </span>
-                                    </div>
-                                    <div>
-                                      <span className="font-medium text-gray-600">Cost Price:</span>
-                                      <span className="ml-2 text-gray-900">
-                                        {edit.newCostPrice.toLocaleString()} XAF
-                                        {edit.scenario === 'damage' && (
-                                          <span className="text-xs text-gray-500"> (Unchanged)</span>
-                                        )}
-                                      </span>
-                                    </div>
-                                  </div>
-                                  
-                                  {/* Purchase Method Info */}
-                                  <div className="pt-2 border-t border-gray-200">
-                                    <div className="grid grid-cols-2 gap-2">
-                                      <div>
-                                        <span className="font-medium text-gray-600">Type:</span>
-                                        <span className="ml-2 text-gray-900">
-                                          {edit.newSupplyType === 'ownPurchase' ? 'Own Purchase' : 'From Supplier'}
-                                        </span>
-                                      </div>
-                                      <div>
-                                        <span className="font-medium text-gray-600">Payment:</span>
-                                        <span className="ml-2 text-gray-900">
-                                          {edit.newPaymentType === 'credit' ? 'Credit' : 'Paid'}
-                                        </span>
-                                      </div>
-                                    </div>
-                                    {edit.newSupplierId && (
-                                      <div className="mt-1">
-                                        <span className="font-medium text-gray-600">Supplier:</span>
-                                        <span className="ml-2 text-gray-900">
-                                          {suppliers.find(s => s.id === edit.newSupplierId)?.name || 'Unknown'}
-                                        </span>
-                                      </div>
-                                    )}
-                                  </div>
-
-                                  {/* Scenario Badge */}
-                                  <div className="pt-2">
-                                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                                      edit.scenario === 'damage' 
-                                        ? 'bg-red-100 text-red-800' 
-                                        : 'bg-blue-100 text-blue-800'
-                                    }`}>
-                                      {edit.scenario === 'damage' ? '💥 Damage' : '✏️ Manual Adjustment'}
-                                    </span>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Batch Selection */}
-                <div className="space-y-4">
-                  <h4 className="font-medium text-gray-900">
-                    {tempBatchEdits.length > 0 ? 'Add Another Batch' : 'Select Stock Batch to Adjust'}
-                  </h4>
-                  
-                  {loadingBatches ? (
-                    <div className="text-center py-4">
-                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
-                      <p className="mt-2 text-sm text-gray-600">Loading available batches...</p>
-                    </div>
-                  ) : availableBatches.length === 0 ? (
-                    <div className="bg-yellow-50 p-4 rounded-lg">
-                      <p className="text-sm text-yellow-800">
-                        {tempBatchEdits.length > 0 
-                          ? 'All available batches have been added to the adjustment list.'
-                          : 'No active batches found for this product. Please create a batch first.'
-                        }
-                      </p>
-                    </div>
-                  ) : (
-                    <select
-                      value={selectedBatchId}
-                      onChange={(e) => handleBatchSelection(e.target.value)}
-                      className="block w-full rounded-md border border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm px-3 py-2"
-                    >
-                      <option value="">Select a batch to adjust</option>
-                      {availableBatches.map(batch => (
-                        <option key={batch.id} value={batch.id}>
-                          Batch {batch.id.slice(-8)} - {batch.remainingQuantity} units @ {batch.costPrice.toLocaleString()} XAF
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                </div>
-
-                {/* Batch Edit Form */}
-                {selectedBatch && (
-                  <div className="space-y-4">
-                    <div className="bg-blue-50 p-4 rounded-lg">
-                      <h4 className="font-medium text-blue-900 mb-2">Selected Batch Information</h4>
-                      <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div>
-                          <span className="font-medium text-blue-700">Batch ID:</span>
-                          <p className="text-blue-900 font-mono">{selectedBatch.id}</p>
-                        </div>
-                        <div>
-                          <span className="font-medium text-blue-700">Total Quantity:</span>
-                          <p className="text-blue-900">{selectedBatch.quantity} (original)</p>
-                        </div>
-                        <div>
-                          <span className="font-medium text-blue-700">Remaining:</span>
-                          <p className="text-blue-900">{selectedBatch.remainingQuantity} units</p>
-                        </div>
-                        <div>
-                          <span className="font-medium text-blue-700">Used:</span>
-                          <p className="text-blue-900">{selectedBatch.quantity - selectedBatch.remainingQuantity} units</p>
-                        </div>
-                        <div>
-                          <span className="font-medium text-blue-700">Damaged:</span>
-                          <p className="text-blue-900">{(selectedBatch.damagedQuantity || 0)} units</p>
-                        </div>
-                        <div>
-                          <span className="font-medium text-blue-700">Current Cost Price:</span>
-                          <p className="text-blue-900">{selectedBatch.costPrice.toLocaleString()} XAF</p>
-                        </div>
-                        <div>
-                          <span className="font-medium text-blue-700">Status:</span>
-                          <p className="text-blue-900 capitalize">{selectedBatch.status}</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {stockReason === 'adjustment' ? (
-                      <div className="space-y-4">
-                        {/* Stock and Cost Price */}
                         <div className="grid grid-cols-2 gap-4">
-                          <Input
-                            label="Total Batch Quantity"
-                            type="number"
-                            min={selectedBatch ? (selectedBatch.quantity - selectedBatch.remainingQuantity).toString() : "0"}
-                            value={batchEditForm.stock}
-                            onChange={(e) => handleBatchEditFormChange('stock', e.target.value)}
-                            placeholder="Enter total batch quantity"
-                            helpText={selectedBatch ? `Minimum: ${selectedBatch.quantity - selectedBatch.remainingQuantity} (${selectedBatch.quantity - selectedBatch.remainingQuantity} already used)` : undefined}
-                            required
-                          />
-                          <Input
-                            label="New Cost Price"
-                            type="number"
-                            min="0"
-                            value={batchEditForm.costPrice}
-                            onChange={(e) => handleBatchEditFormChange('costPrice', e.target.value.replace(/[^0-9]/g, ''))}
-                            placeholder="Enter new cost price"
-                            required
-                          />
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <div className="text-sm font-medium text-gray-700 mb-1">Product Name</div>
+                  <div className="text-lg font-semibold text-gray-900">{currentProduct?.name || '—'}</div>
                         </div>
-
-                        {/* Purchase Method Section - Read Only for Manual Adjustment */}
                         <div className="bg-gray-50 p-4 rounded-lg">
-                          <h4 className="font-medium text-gray-800 mb-3">📝 Purchase Method (Preserved from Original Batch)</h4>
-                          
-                          <div className="space-y-4">
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">Purchase Type</label>
-                              <div className="block w-full rounded-md border border-gray-300 bg-gray-100 px-3 py-2 text-gray-700">
-                                {batchEditForm.supplyType === 'ownPurchase' ? 'Own Purchase' : 'From Supplier'}
+                  <div className="text-sm font-medium text-gray-700 mb-1">Reference</div>
+                  <div className="text-lg font-semibold text-gray-900">{currentProduct?.reference || '—'}</div>
                               </div>
                             </div>
 
-                            {batchEditForm.supplyType === 'fromSupplier' && (
-                              <>
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-700 mb-1">Supplier</label>
-                                  <div className="block w-full rounded-md border border-gray-300 bg-gray-100 px-3 py-2 text-gray-700">
-                                    {suppliers.find(s => s.id === batchEditForm.supplierId)?.name || 'Unknown Supplier'}
-                                  </div>
-                                </div>
-
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-700 mb-1">Payment Type</label>
-                                  <div className="block w-full rounded-md border border-gray-300 bg-gray-100 px-3 py-2 text-gray-700">
-                                    {batchEditForm.paymentType === 'credit' ? 'Credit' : 'Paid'}
-                                  </div>
-                                </div>
-                              </>
-                            )}
-                          </div>
-                          <p className="text-sm text-gray-600 mt-3">
-                            ℹ️ For manual adjustments, the original purchase method and supplier information are preserved to maintain data integrity.
-                          </p>
-                        </div>
-                      </div>
-                    ) : (
-                      /* Damage Scenario: Only quantity adjustment */
-                      <div className="space-y-4">
-                        <div className="bg-red-50 p-4 rounded-lg">
-                          <h4 className="font-medium text-red-800 mb-3">💥 Damage Recording</h4>
-                          <p className="text-sm text-red-700 mb-4">
-                            Record the quantity of damaged/lost items. Cost price and supplier debt will remain unchanged.
-                          </p>
-                          
-                          {/* Show batch supplier information for damage */}
-                          {selectedBatch.supplierId && (
-                            <div className="bg-white p-3 rounded border border-red-200 mb-4">
-                              <h5 className="font-medium text-red-800 mb-2">Batch Supplier Information</h5>
-                              <div className="grid grid-cols-2 gap-2 text-sm">
-                                <div>
-                                  <span className="font-medium text-red-700">Supplier:</span>
-                                  <span className="ml-2 text-red-900">
-                                    {suppliers.find(s => s.id === selectedBatch.supplierId)?.name || 'Unknown'}
-                                  </span>
-                                </div>
-                                <div>
-                                  <span className="font-medium text-red-700">Payment Type:</span>
-                                  <span className="ml-2 text-red-900">
-                                    {selectedBatch.isCredit ? 'Credit' : 'Paid'}
-                                  </span>
-                                </div>
-                              </div>
-                              <p className="text-xs text-red-600 mt-2">
-                                ℹ️ Supplier debt will remain unchanged as this is only a physical damage adjustment.
-                              </p>
-                            </div>
-                          )}
-                          <Input
-                            label="Damaged Quantity"
-                            type="number"
-                            min="1"
-                            max={selectedBatch.remainingQuantity.toString()}
-                            value={damageForm.damagedQuantity}
-                            onChange={(e) => handleDamageFormChange('damagedQuantity', e.target.value)}
-                            placeholder="Enter damaged quantity"
-                            required
-                            helpText={`Maximum: ${selectedBatch.remainingQuantity} units available`}
-                            error={
-                              damageForm.damagedQuantity && 
-                              (parseFloat(damageForm.damagedQuantity) > selectedBatch.remainingQuantity || parseFloat(damageForm.damagedQuantity) <= 0)
-                                ? `Invalid quantity. Must be between 1 and ${selectedBatch.remainingQuantity}`
-                                : undefined
-                            }
-                          />
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Preview Changes */}
-                    {((stockReason === 'adjustment' && batchEditForm.stock && batchEditForm.costPrice) || 
-                      (stockReason === 'damage' && damageForm.damagedQuantity)) && (
-                      <div className="bg-green-50 p-4 rounded-lg">
-                        <h4 className="font-medium text-green-800 mb-2">Preview Changes</h4>
-                        <div className="grid grid-cols-2 gap-4 text-sm">
-                          {stockReason === 'adjustment' ? (
-                            <>
-                              <div>
-                                <span className="font-medium text-green-700">Total Quantity Change:</span>
-                                <span className={`ml-2 ${(parseFloat(batchEditForm.stock) - selectedBatch.quantity) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                  {(parseFloat(batchEditForm.stock) - selectedBatch.quantity) >= 0 ? '+' : ''}
-                                  {parseFloat(batchEditForm.stock) - selectedBatch.quantity}
-                                </span>
-                              </div>
-                              <div>
-                                <span className="font-medium text-green-700">New Remaining:</span>
-                                <span className="ml-2 text-blue-600">
-                                  {parseFloat(batchEditForm.stock) - (selectedBatch.quantity - selectedBatch.remainingQuantity)} units
-                                </span>
-                              </div>
-                              <div>
-                                <span className="font-medium text-green-700">Cost Price Change:</span>
-                                <span className={`ml-2 ${(parseFloat(batchEditForm.costPrice) - selectedBatch.costPrice) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                  {(parseFloat(batchEditForm.costPrice) - selectedBatch.costPrice) >= 0 ? '+' : ''}
-                                  {(parseFloat(batchEditForm.costPrice) - selectedBatch.costPrice).toLocaleString()} XAF
-                                </span>
-                              </div>
-                              <div>
-                                <span className="font-medium text-green-700">Purchase Type:</span>
-                                <span className="ml-2 text-green-900">
-                                  {batchEditForm.supplyType === 'ownPurchase' ? 'Own Purchase' : 'From Supplier'}
-                                </span>
-                              </div>
-                              {batchEditForm.supplyType === 'fromSupplier' && (
-                                <>
-                                  <div>
-                                    <span className="font-medium text-green-700">Supplier:</span>
-                                    <span className="ml-2 text-green-900">
-                                      {suppliers.find(s => s.id === batchEditForm.supplierId)?.name || 'Unknown'}
-                                    </span>
-                                  </div>
-                                  <div>
-                                    <span className="font-medium text-green-700">Payment Type:</span>
-                                    <span className="ml-2 text-green-900">
-                                      {batchEditForm.paymentType === 'credit' ? 'Credit' : 'Paid'}
-                                    </span>
-                                  </div>
-                                </>
-                              )}
-                                <div>
-                                  <span className="font-medium text-green-700">Payment:</span>
-                                  <span className="ml-2 text-green-900">
-                                    {batchEditForm.paymentType === 'credit' ? 'Credit (Debt Impact)' : 'Paid'}
-                                  </span>
-                                </div>
-                            </>
-                          ) : (
-                            <>
-                              <div>
-                                <span className="font-medium text-green-700">Damaged Quantity:</span>
-                                <span className="ml-2 text-red-600">-{damageForm.damagedQuantity}</span>
-                              </div>
-                              <div>
-                                <span className="font-medium text-green-700">New Stock:</span>
-                                <span className="ml-2 text-green-900">
-                                  {selectedBatch.remainingQuantity - parseFloat(damageForm.damagedQuantity)}
-                                </span>
-                              </div>
-                              <div>
-                                <span className="font-medium text-green-700">Total Damaged:</span>
-                                <span className="ml-2 text-red-600">
-                                  {(selectedBatch.damagedQuantity || 0) + parseFloat(damageForm.damagedQuantity)} units
-                                </span>
-                              </div>
-                              <div className="col-span-2">
-                                <span className="font-medium text-green-700">Cost Price:</span>
-                                <span className="ml-2 text-green-900">
-                                  {selectedBatch.costPrice.toLocaleString()} XAF (Unchanged)
-                                </span>
-                              </div>
-                              {selectedBatch.supplierId && (
-                                <>
-                                  <div>
-                                    <span className="font-medium text-green-700">Supplier:</span>
-                                    <span className="ml-2 text-green-900">
-                                      {suppliers.find(s => s.id === selectedBatch.supplierId)?.name || 'Unknown'}
-                                    </span>
-                                  </div>
-                                  <div>
-                                    <span className="font-medium text-green-700">Payment Type:</span>
-                                    <span className="ml-2 text-green-900">
-                                      {selectedBatch.isCredit ? 'Credit' : 'Paid'} (Debt Unchanged)
-                                    </span>
-                                  </div>
-                                </>
-                              )}
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    <Button
-                      type="button"
-                      onClick={addTempBatchEdit}
-                      className="w-full"
-                      disabled={
-                        stockReason === 'adjustment' 
-                          ? (batchEditForm.stock === '' || batchEditForm.costPrice === '' || 
-                             (selectedBatch && batchEditForm.stock !== '' && 
-                              parseFloat(batchEditForm.stock) < (selectedBatch.quantity - selectedBatch.remainingQuantity)))
-                          : (damageForm.damagedQuantity === '' || 
-                             (selectedBatch && parseFloat(damageForm.damagedQuantity) > selectedBatch.remainingQuantity) ||
-                             parseFloat(damageForm.damagedQuantity) <= 0)
-                      }
-                    >
-                      {stockReason === 'damage' ? '💥 Record Damage & Add to List' : '✏️ Validate & Add to List'}
-                    </Button>
-                  </div>
-                )}
-
-                {/* Fallback: Simple Stock Adjustment for old flow */}
-                {availableBatches.length === 0 && tempBatchEdits.length === 0 && !loadingBatches && (
-                  <div className="space-y-4">
-                    <div className="bg-yellow-50 p-4 rounded-lg">
-                      <p className="text-sm text-yellow-800">
-                        No batches available. Using simple stock adjustment.
-                      </p>
-                    </div>
-            <Input
-                  label={t('products.actions.newTotalStock', 'New Stock Value')}
-                  name="stockAdjustment"
-              type="number"
-                  min={0}
-                  value={stockAdjustment}
-                  onChange={e => setStockAdjustment(e.target.value.replace(/[^0-9]/g, ''))}
-              required
-                  helpText={t('products.form.adjustmentHelp', 'Set the actual stock you have after counting. This will replace the current stock value.')}
-                />
-                <div className="text-sm text-gray-700 bg-gray-50 rounded-md p-2">
-                  {`Current Stock: ${currentProduct?.stock ?? 0} → New Stock: ${parseInt(stockAdjustment) || 0} (${(parseInt(stockAdjustment) || 0) - (currentProduct?.stock ?? 0) >= 0 ? '+' : ''}${(parseInt(stockAdjustment) || 0) - (currentProduct?.stock ?? 0)})`}
-          </div>
-                  </div>
-                )}
-              </>
-            )}
-            
-            {/* Cost Price Field - Only for Restock Scenario */}
-            {stockReason === 'restock' && (
-             <div className="space-y-2">
-               <Input
-                 label={t('products.form.step2.stockCostPrice')}
-                 name="costPrice"
-                 type="number"
-                 min={0}
-                 value={stockAdjustmentSupplier.costPrice}
-                  onChange={e => setStockAdjustmentSupplier(prev => ({ ...prev, costPrice: e.target.value.replace(/[^0-9]/g, '') }))}
-                 required
-                 helpText={t('products.form.step2.stockCostPriceHelp')}
-               />
-                      </div>
-                    )}
-             
-             {/* Mini Stock History Table (last 2 changes) */}
+              {/* Mini Stock History Table (last 2 changes) - Read Only */}
              <div className="mt-6">
-               <h4 className="font-semibold mb-2">{t('products.actions.stockHistory')}</h4>
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="font-semibold">{t('products.actions.stockHistory')}</h4>
+                  <span className="text-xs text-gray-500">Last 2 changes</span>
+                </div>
                {(() => {
                  const history = stockChanges.filter(sc => sc.productId === currentProduct?.id).slice(-2).reverse();
                  if (history.length === 0) {
@@ -3132,7 +2533,19 @@ const Products = () => {
                  );
                })()}
                <div className="mt-2 text-right">
-                 <span className="text-xs text-emerald-600 cursor-pointer underline">{t('products.actions.viewAllHistory', 'View All History')}</span>
+                  <button
+                    onClick={() => {
+                      const stocksPath = isCompanyRoute && companyId 
+                        ? `/company/${companyId}/products/stocks`
+                        : '/products/stocks';
+                      navigate(stocksPath);
+                      setIsEditModalOpen(false);
+                    }}
+                    className="text-xs text-emerald-600 hover:text-emerald-700 underline"
+                  >
+                    {t('products.actions.viewAllHistory', 'View All History in Stocks Page')}
+                  </button>
+                </div>
                </div>
              </div>
            </div>
