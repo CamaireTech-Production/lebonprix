@@ -14,7 +14,8 @@
     "test:coverage": "vitest --coverage",
     "test:watch": "vitest --watch",
     "test:run": "vitest run",
-    "generate:icons": "node scripts/generateIcons.js"
+    "generate:icons": "node scripts/generateIcons.js",
+    "check:stocks": "node scripts/checkStocks.js"
   },
   "dependencies": {
     "@capacitor/share": "^7.0.1",

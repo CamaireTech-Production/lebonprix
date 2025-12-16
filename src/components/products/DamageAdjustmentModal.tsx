@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
 import { 
-  adjustStockForDamage, 
   getProductBatchesForAdjustment 
 } from '../../services/firestore';
+import { adjustStockForDamage } from '../../services/stockAdjustments';
 import type { Product, StockBatch } from '../../types/models';
 import Modal from '../common/Modal';
 import Button from '../common/Button';
@@ -17,6 +17,8 @@ interface DamageAdjustmentModalProps {
   isOpen: boolean;
   onClose: () => void;
   product: Product | null;
+  selectedBatch?: StockBatch | null;
+  batchTotals?: { remaining: number; total: number };
   onSuccess?: () => void;
 }
 
@@ -24,6 +26,8 @@ const DamageAdjustmentModal: React.FC<DamageAdjustmentModalProps> = ({
   isOpen,
   onClose,
   product,
+  selectedBatch: selectedBatchProp,
+  batchTotals,
   onSuccess
 }) => {
   const { t } = useTranslation();
@@ -39,6 +43,8 @@ const DamageAdjustmentModal: React.FC<DamageAdjustmentModalProps> = ({
     notes: ''
   });
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const derivedRemaining = batchTotals?.remaining ?? product?.stock ?? 0;
+  const derivedTotal = batchTotals?.total;
 
   // Load available batches when modal opens
   useEffect(() => {
@@ -55,9 +61,24 @@ const DamageAdjustmentModal: React.FC<DamageAdjustmentModalProps> = ({
         damagedQuantity: '',
         notes: ''
       });
-      setSelectedBatch(null);
+      setSelectedBatch(selectedBatchProp ?? null);
     }
-  }, [isOpen]);
+  }, [isOpen, selectedBatchProp]);
+
+  // Preselect batch when provided
+  useEffect(() => {
+    if (!isOpen || !selectedBatchProp) return;
+    if (batches.length > 0) {
+      const match = batches.find(b => b.id === selectedBatchProp.id);
+      if (match) {
+        setSelectedBatch(match);
+        setFormData(prev => ({
+          ...prev,
+          batchId: match.id
+        }));
+      }
+    }
+  }, [isOpen, selectedBatchProp, batches]);
 
   const loadBatches = async () => {
     if (!product) return;
@@ -99,9 +120,9 @@ const DamageAdjustmentModal: React.FC<DamageAdjustmentModalProps> = ({
       errors.push('Please select a batch');
     }
 
-    const damagedQuantity = parseFloat(formData.damagedQuantity);
+    const damagedQuantity = parseInt(formData.damagedQuantity, 10);
     if (isNaN(damagedQuantity) || damagedQuantity <= 0) {
-      errors.push('Please enter a valid damaged quantity (greater than 0)');
+      errors.push('Please enter a valid damaged quantity (whole number greater than 0)');
     }
 
     if (selectedBatch && damagedQuantity > selectedBatch.remainingQuantity) {
@@ -122,7 +143,7 @@ const DamageAdjustmentModal: React.FC<DamageAdjustmentModalProps> = ({
       return;
     }
 
-    const damagedQuantity = parseFloat(formData.damagedQuantity);
+    const damagedQuantity = parseInt(formData.damagedQuantity, 10);
 
     setLoading(true);
 
@@ -159,14 +180,14 @@ const DamageAdjustmentModal: React.FC<DamageAdjustmentModalProps> = ({
 
   const calculateNewRemainingQuantity = () => {
     if (!selectedBatch) return 0;
-    const damagedQuantity = parseFloat(formData.damagedQuantity) || 0;
+    const damagedQuantity = parseInt(formData.damagedQuantity || '0', 10) || 0;
     return selectedBatch.remainingQuantity - damagedQuantity;
   };
 
   const calculateNewStock = () => {
-    if (!product) return 0;
-    const damagedQuantity = parseFloat(formData.damagedQuantity) || 0;
-    return product.stock - damagedQuantity;
+    const damagedQuantity = parseInt(formData.damagedQuantity || '0', 10) || 0;
+    const currentStock = typeof derivedRemaining === 'number' ? derivedRemaining : 0;
+    return currentStock - damagedQuantity;
   };
 
   const calculateDamagedValue = () => {
@@ -199,7 +220,11 @@ const DamageAdjustmentModal: React.FC<DamageAdjustmentModalProps> = ({
             </div>
             <div>
               <span className="font-medium text-gray-700">Current Stock:</span>
-              <p className="text-gray-900">{product.stock}</p>
+              <p className="text-gray-900">
+                {derivedTotal !== undefined
+                  ? `${derivedRemaining} / ${derivedTotal}`
+                  : derivedRemaining}
+              </p>
             </div>
             <div>
               <span className="font-medium text-gray-700">Selling Price:</span>
@@ -250,7 +275,7 @@ const DamageAdjustmentModal: React.FC<DamageAdjustmentModalProps> = ({
             <Select
               label="Select Batch"
               value={formData.batchId}
-              onChange={(value) => handleInputChange('batchId', value)}
+              onChange={(e) => handleInputChange('batchId', e.target.value)}
               options={getBatchOptions()}
               required
             />
@@ -296,12 +321,12 @@ const DamageAdjustmentModal: React.FC<DamageAdjustmentModalProps> = ({
             label="Damaged Quantity"
             type="number"
             value={formData.damagedQuantity}
-            onChange={(value) => handleInputChange('damagedQuantity', value)}
+            onChange={(e) => handleInputChange('damagedQuantity', e.target.value)}
             placeholder="Enter damaged quantity"
             required
-            min="0.01"
+            min="1"
             max={selectedBatch?.remainingQuantity || undefined}
-            step="0.01"
+            step="1"
           />
 
           {/* Preview Changes */}

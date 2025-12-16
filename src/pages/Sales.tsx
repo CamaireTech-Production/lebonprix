@@ -33,7 +33,8 @@ import Invoice from '../components/sales/Invoice';
 import { generatePDF, generatePDFBlob } from '../utils/pdf';
 import { generateInvoiceFileName } from '../utils/fileUtils';
 import { useAuth } from '../contexts/AuthContext';
-import { normalizePhoneForComparison } from '../utils/phoneUtils';
+import { useAllStockBatches } from '../hooks/useStockBatches';
+import { buildProductStockMap, getEffectiveProductStock } from '../utils/stockHelpers';
 import { useTranslation } from 'react-i18next';
 import { softDeleteSale } from '../services/firestore';
 import { formatCreatorName } from '../utils/employeeUtils';
@@ -72,6 +73,12 @@ const Sales: React.FC = () => {
   const { activeSources } = useCustomerSources();
   const { user, company } = useAuth();
   const { updateSale } = useSales();
+  const { batches: allBatches } = useAllStockBatches();
+
+  const stockMap = React.useMemo(
+    () => buildProductStockMap(allBatches || []),
+    [allBatches]
+  );
 
   // Infinite scroll for sales
   useInfiniteScroll({
@@ -222,8 +229,11 @@ const Sales: React.FC = () => {
       const quantity = parseInt(product.quantity, 10);
       if (isNaN(quantity) || quantity <= 0) {
         errors[`quantity_${index}`] = t('sales.messages.warnings.quantityInvalid');
-      } else if (quantity > product.product.stock) {
-        errors[`quantity_${index}`] = t('sales.messages.warnings.quantityExceeded', { stock: product.product.stock });
+      } else {
+        const effectiveStock = getEffectiveProductStock(product.product, stockMap);
+        if (quantity > effectiveStock) {
+          errors[`quantity_${index}`] = t('sales.messages.warnings.quantityExceeded', { stock: effectiveStock });
+        }
       }
     });
     const deliveryFee = parseFloat(formData.deliveryFee);
@@ -630,7 +640,15 @@ const Sales: React.FC = () => {
     return null;
   }
 
-  const availableProducts = products?.filter((p) => p.isAvailable && p.stock > 0) || [];
+  const availableProducts = React.useMemo(
+    () =>
+      (products || []).filter((p) => {
+        if (!p.isAvailable) return false;
+        const stock = getEffectiveProductStock(p, stockMap);
+        return stock > 0;
+      }),
+    [products, stockMap]
+  );
 
   const productOptions = availableProducts.map((product) => ({
     label: (
