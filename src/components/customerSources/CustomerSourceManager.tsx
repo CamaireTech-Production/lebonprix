@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useCustomerSources } from '../../hooks/useCustomerSources';
 import { useCustomers } from '../../hooks/useFirestore';
 import { useSales } from '../../hooks/useFirestore';
@@ -216,15 +216,3 @@ const CustomerSourceManager = () => {
 };
 
 export default CustomerSourceManager;
-
-
-
-
-
-
-<<<<<<< HEAD
-=======
-
-
-
->>>>>>> main

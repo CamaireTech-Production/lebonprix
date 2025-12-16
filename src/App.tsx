@@ -14,7 +14,6 @@ import { PWAErrorHandler } from './components/PWAErrorHandler';
 import { PWAUpdateNotification } from './components/PWAUpdateNotification';
 
 // Lazy load pages
-const Landing = lazy(() => import('./pages/Landing'));
 const Login = lazy(() => import('./pages/auth/Login'));
 const Register = lazy(() => import('./pages/auth/Register'));
 const ModeSelection = lazy(() => import('./pages/ModeSelection'));
@@ -83,9 +82,6 @@ function AppWithFAB({ isAddSaleModalOpen, setIsAddSaleModalOpen }: { isAddSaleMo
         <PWAUpdateNotification />
         
         <Routes>
-          {/* Landing Page */}
-          <Route path="/" element={<LazyPage><Landing /></LazyPage>} />
-          
           {/* Auth Routes */}
                 <Route element={<AuthLayout />}>
                   <Route path="/auth/login" element={<LazyPage><Login /></LazyPage>} />
