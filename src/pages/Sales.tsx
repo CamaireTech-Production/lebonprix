@@ -36,6 +36,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useAllStockBatches } from '../hooks/useStockBatches';
 import { buildProductStockMap, getEffectiveProductStock } from '../utils/stockHelpers';
 import { normalizePhoneForComparison } from '../utils/phoneUtils';
+import { logError } from '../utils/logger';
 import { useTranslation } from 'react-i18next';
 import { softDeleteSale } from '../services/firestore';
 import { formatCreatorName } from '../utils/employeeUtils';
@@ -632,15 +633,7 @@ const Sales: React.FC = () => {
     }
   };
 
-  if (salesLoading || productsLoading) {
-    return <LoadingScreen />;
-  }
-
-  if (salesError) {
-    showErrorToast(t('sales.messages.errors.loadSales'));
-    return null;
-  }
-
+  // Move useMemo before early returns to follow Rules of Hooks
   const availableProducts = React.useMemo(
     () =>
       (products || []).filter((p) => {
@@ -650,6 +643,15 @@ const Sales: React.FC = () => {
       }),
     [products, stockMap]
   );
+
+  if (salesLoading || productsLoading) {
+    return <LoadingScreen />;
+  }
+
+  if (salesError) {
+    showErrorToast(t('sales.messages.errors.loadSales'));
+    return null;
+  }
 
   const productOptions = availableProducts.map((product) => ({
     label: (
