@@ -1395,6 +1395,36 @@
       "deleting": "Deleting...",
       "deleteButton": "Delete Order"
     },
+    "quickActions": {
+      "menu": "Actions",
+      "markAsDelivered": "Mark as Delivered",
+      "markAsPaid": "Mark as Paid",
+      "markAsCancelled": "Mark as Cancelled",
+      "editStatus": "Edit Status",
+      "addNote": "Add Note",
+      "delete": "Delete",
+      "viewDetails": "View Details"
+    },
+    "confirmations": {
+      "markAsDelivered": {
+        "title": "Mark as Delivered",
+        "message": "Are you sure you want to mark order {{orderNumber}} as delivered?",
+        "confirm": "Yes, mark as delivered",
+        "cancel": "Cancel"
+      },
+      "markAsPaid": {
+        "title": "Mark as Paid",
+        "message": "Are you sure you want to mark order {{orderNumber}} as paid? The amount will be added to the cash register.",
+        "confirm": "Yes, mark as paid",
+        "cancel": "Cancel"
+      },
+      "markAsCancelled": {
+        "title": "Mark as Cancelled",
+        "message": "Are you sure you want to cancel order {{orderNumber}}?",
+        "confirm": "Yes, cancel",
+        "cancel": "Cancel"
+      }
+    },
     "messages": {
       "statusUpdated": "Order status updated successfully",
       "statusUpdateFailed": "Failed to update order status",
@@ -1402,7 +1432,12 @@
       "noteAddFailed": "Failed to add note",
       "orderDeleted": "Order deleted successfully",
       "orderDeleteFailed": "Failed to delete order",
-      "statsLoadFailed": "Failed to load order statistics"
+      "statsLoadFailed": "Failed to load order statistics",
+      "orderMarkedAsDelivered": "Order marked as delivered successfully",
+      "orderMarkedAsPaid": "Order marked as paid successfully. Amount added to cash register.",
+      "orderMarkedAsCancelled": "Order cancelled successfully",
+      "deliveredAtUpdated": "Delivery date updated",
+      "paymentStatusUpdateFailed": "Failed to update payment status"
     }
   },
   "invitations": {

@@ -5,6 +5,7 @@ import {
   subscribeToOrders, 
   getOrderStats, 
   updateOrderStatus, 
+  updateOrderPaymentStatus,
   addOrderNote,
   deleteOrder 
 } from '../services/orderService';
@@ -14,8 +15,6 @@ import {
   ShoppingBag, 
   Search, 
   Filter, 
-  Eye, 
-  MessageSquare, 
   CheckCircle, 
   XCircle, 
   Clock, 
@@ -26,9 +25,7 @@ import {
   Phone,
   MapPin,
   User,
-  Edit,
-  RefreshCw,
-  Trash2
+  RefreshCw
 } from 'lucide-react';
 import Button from '../components/common/Button';
 import Input from '../components/common/Input';
@@ -36,6 +33,7 @@ import Modal from '../components/common/Modal';
 import Badge from '../components/common/Badge';
 import Card from '../components/common/Card';
 import SyncIndicator from '../components/common/SyncIndicator';
+import OrderActionsMenu from '../components/orders/OrderActionsMenu';
 import { toast } from 'react-hot-toast';
 import { logError } from '../utils/logger';
 
@@ -61,6 +59,9 @@ const Orders: React.FC = () => {
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [showNoteModal, setShowNoteModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showDeliveredConfirmModal, setShowDeliveredConfirmModal] = useState(false);
+  const [showCancelledConfirmModal, setShowCancelledConfirmModal] = useState(false);
+  const [showPaidConfirmModal, setShowPaidConfirmModal] = useState(false);
   const [newStatus, setNewStatus] = useState<Order['status']>('pending');
   const [newNote, setNewNote] = useState('');
 
@@ -172,6 +173,60 @@ const Orders: React.FC = () => {
     }
   };
 
+  // Handle mark as delivered
+  const handleMarkAsDelivered = async () => {
+    if (!selectedOrder || !company) return;
+
+    try {
+      setSyncing(true);
+      await updateOrderStatus(selectedOrder.id, 'delivered', company.id);
+      toast.success(t('orders.messages.orderMarkedAsDelivered'));
+      setShowDeliveredConfirmModal(false);
+      setSelectedOrder(null);
+    } catch (error) {
+      logError('Error marking order as delivered', error);
+      toast.error(t('orders.messages.statusUpdateFailed'));
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  // Handle mark as cancelled
+  const handleMarkAsCancelled = async () => {
+    if (!selectedOrder || !company) return;
+
+    try {
+      setSyncing(true);
+      await updateOrderStatus(selectedOrder.id, 'cancelled', company.id);
+      toast.success(t('orders.messages.orderMarkedAsCancelled'));
+      setShowCancelledConfirmModal(false);
+      setSelectedOrder(null);
+    } catch (error) {
+      logError('Error marking order as cancelled', error);
+      toast.error(t('orders.messages.statusUpdateFailed'));
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  // Handle mark as paid
+  const handleMarkAsPaid = async () => {
+    if (!selectedOrder || !company) return;
+
+    try {
+      setSyncing(true);
+      await updateOrderPaymentStatus(selectedOrder.id, 'paid', company.id);
+      toast.success(t('orders.messages.orderMarkedAsPaid'));
+      setShowPaidConfirmModal(false);
+      setSelectedOrder(null);
+    } catch (error) {
+      logError('Error marking order as paid', error);
+      toast.error(t('orders.messages.paymentStatusUpdateFailed'));
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   // Get status badge color
   const getStatusBadgeColor = (status: Order['status']) => {
     switch (status) {
@@ -242,7 +297,7 @@ const Orders: React.FC = () => {
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -270,44 +325,52 @@ const Orders: React.FC = () => {
 
       {/* Stats Cards */}
       {stats && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <Card className="p-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <Card className="p-5 hover:shadow-md transition-shadow border border-gray-100">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">{t('orders.stats.totalOrders')}</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.totalOrders}</p>
+                <p className="text-sm font-medium text-gray-600 mb-1">{t('orders.stats.totalOrders')}</p>
+                <p className="text-3xl font-bold text-gray-900">{stats.totalOrders}</p>
               </div>
-              <ShoppingBag className="w-8 h-8 text-blue-500" />
+              <div className="p-3 bg-blue-50 rounded-lg">
+                <ShoppingBag className="w-6 h-6 text-blue-600" />
+              </div>
             </div>
           </Card>
           
-          <Card className="p-4">
+          <Card className="p-5 hover:shadow-md transition-shadow border border-gray-100">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">{t('orders.stats.pending')}</p>
-                <p className="text-2xl font-bold text-yellow-600">{stats.pendingOrders}</p>
+                <p className="text-sm font-medium text-gray-600 mb-1">{t('orders.stats.pending')}</p>
+                <p className="text-3xl font-bold text-yellow-600">{stats.pendingOrders}</p>
               </div>
-              <Clock className="w-8 h-8 text-yellow-500" />
+              <div className="p-3 bg-yellow-50 rounded-lg">
+                <Clock className="w-6 h-6 text-yellow-600" />
+              </div>
             </div>
           </Card>
           
-          <Card className="p-4">
+          <Card className="p-5 hover:shadow-md transition-shadow border border-gray-100">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">{t('orders.stats.completed')}</p>
-                <p className="text-2xl font-bold text-green-600">{stats.completedOrders}</p>
+                <p className="text-sm font-medium text-gray-600 mb-1">{t('orders.stats.completed')}</p>
+                <p className="text-3xl font-bold text-green-600">{stats.completedOrders}</p>
               </div>
-              <CheckCircle className="w-8 h-8 text-green-500" />
+              <div className="p-3 bg-green-50 rounded-lg">
+                <CheckCircle className="w-6 h-6 text-green-600" />
+              </div>
             </div>
           </Card>
           
-          <Card className="p-4">
+          <Card className="p-5 hover:shadow-md transition-shadow border border-gray-100">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">{t('orders.stats.totalRevenue')}</p>
+                <p className="text-sm font-medium text-gray-600 mb-1">{t('orders.stats.totalRevenue')}</p>
                 <p className="text-2xl font-bold text-gray-900">{formatCurrency(stats.totalRevenue)}</p>
               </div>
-              <DollarSign className="w-8 h-8 text-green-500" />
+              <div className="p-3 bg-emerald-50 rounded-lg">
+                <DollarSign className="w-6 h-6 text-emerald-600" />
+              </div>
             </div>
           </Card>
         </div>
@@ -317,127 +380,117 @@ const Orders: React.FC = () => {
       <div className="flex flex-col sm:flex-row gap-4 mb-6">
         <div className="flex-1">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
             <Input
               placeholder={t('orders.searchPlaceholder')}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
+              className="pl-11 h-11"
             />
           </div>
         </div>
       </div>
 
       {/* Orders List */}
-      <div className="space-y-4">
+      <div className="space-y-4 pb-[10vh]">
         {filteredOrders.length === 0 ? (
-          <Card className="p-8 text-center">
-            <ShoppingBag className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">{t('orders.noOrders')}</h3>
-            <p className="text-gray-600">
-              {searchTerm ? t('orders.noOrdersSearch') : t('orders.noOrdersMessage')}
-            </p>
+          <Card className="p-12 text-center border-2 border-dashed border-gray-200">
+            <div className="flex flex-col items-center">
+              <div className="p-4 bg-gray-50 rounded-full mb-4">
+                <ShoppingBag className="w-12 h-12 text-gray-400" />
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">{t('orders.noOrders')}</h3>
+              <p className="text-gray-600 max-w-md">
+                {searchTerm ? t('orders.noOrdersSearch') : t('orders.noOrdersMessage')}
+              </p>
+            </div>
           </Card>
         ) : (
           filteredOrders.map((order) => (
-            <Card key={order.id} className="p-4 hover:shadow-md transition-shadow">
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-4 mb-2">
-                    <h3 className="font-semibold text-gray-900">
+            <Card key={order.id} className="p-5 hover:shadow-lg transition-all duration-200 border border-gray-100">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-3 mb-3 flex-wrap">
+                    <h3 className="font-semibold text-lg text-gray-900">
                       {order.orderNumber}
                     </h3>
-                    <Badge color={getStatusBadgeColor(order.status)}>
+                    <Badge color={getStatusBadgeColor(order.status)} className="flex items-center gap-1">
                       {getStatusIcon(order.status)}
-                      <span className="ml-1 capitalize">{t(`orders.status.${order.status}`)}</span>
+                      <span className="capitalize">{t(`orders.status.${order.status}`)}</span>
                     </Badge>
                     <Badge color={getPaymentStatusBadgeColor(order.paymentStatus)}>
                       <span className="capitalize">{t(`orders.paymentStatus.${order.paymentStatus}`)}</span>
                     </Badge>
                   </div>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-3 text-sm text-gray-600">
                     <div className="flex items-center gap-2">
-                      <User className="w-4 h-4" />
-                      <span>{order.customerInfo.name}</span>
+                      <User className="w-4 h-4 flex-shrink-0" />
+                      <span className="truncate">{order.customerInfo.name}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Phone className="w-4 h-4" />
-                      <span>{order.customerInfo.phone}</span>
+                      <Phone className="w-4 h-4 flex-shrink-0" />
+                      <span className="truncate">{order.customerInfo.phone}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <MapPin className="w-4 h-4" />
-                      <span>{order.customerInfo.location}</span>
+                      <MapPin className="w-4 h-4 flex-shrink-0" />
+                      <span className="truncate">{order.customerInfo.location}</span>
                     </div>
                   </div>
                   
-                  <div className="flex items-center gap-4 mt-2 text-sm text-gray-600">
-                    <div className="flex items-center gap-1">
-                      <Calendar className="w-4 h-4" />
-                      <span>{formatDate(order.createdAt)}</span>
+                  <div className="flex flex-wrap items-center gap-3 mt-3 text-sm text-gray-600">
+                    <div className="flex items-center gap-1.5">
+                      <Calendar className="w-4 h-4 text-gray-400" />
+                      <span className="text-gray-700">{formatDate(order.createdAt)}</span>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <DollarSign className="w-4 h-4" />
-                      <span className="font-medium">{formatCurrency(order.pricing.total)}</span>
+                    <div className="flex items-center gap-1.5">
+                      <DollarSign className="w-4 h-4 text-gray-400" />
+                      <span className="font-semibold text-gray-900">{formatCurrency(order.pricing.total)}</span>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <Package className="w-4 h-4" />
-                      <span>{order.items.length} {order.items.length !== 1 ? t('orders.orderDetails.itemsPlural') : t('orders.orderDetails.items')}</span>
+                    <div className="flex items-center gap-1.5">
+                      <Package className="w-4 h-4 text-gray-400" />
+                      <span className="text-gray-700">{order.items.length} {order.items.length !== 1 ? t('orders.orderDetails.itemsPlural') : t('orders.orderDetails.items')}</span>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <User className="w-4 h-4" />
-                      <span className="text-gray-500">{t('orders.orderDetails.createdBy')}: {formatCreatorName(order.createdBy)}</span>
+                    <div className="flex items-center gap-1.5">
+                      <User className="w-4 h-4 text-gray-400" />
+                      <span className="text-gray-500 text-xs">{t('orders.orderDetails.createdBy')}: {formatCreatorName(order.createdBy)}</span>
                     </div>
                   </div>
                 </div>
                 
-                <div className="flex items-center gap-2">
-                  <Button
-                    onClick={() => {
-                      setSelectedOrder(order);
-                      setShowOrderModal(true);
-                    }}
-                    variant="outline"
-                    size="sm"
-                  >
-                    <Eye className="w-4 h-4" />
-                  </Button>
-                  
-                  <Button
-                    onClick={() => {
-                      setSelectedOrder(order);
-                      setNewStatus(order.status);
-                      setShowStatusModal(true);
-                    }}
-                    variant="outline"
-                    size="sm"
-                  >
-                    <Edit className="w-4 h-4" />
-                  </Button>
-                  
-                  <Button
-                    onClick={() => {
-                      setSelectedOrder(order);
-                      setShowNoteModal(true);
-                    }}
-                    variant="outline"
-                    size="sm"
-                  >
-                    <MessageSquare className="w-4 h-4" />
-                  </Button>
-                  
-                  <Button
-                    onClick={() => {
-                      setSelectedOrder(order);
-                      setShowDeleteModal(true);
-                    }}
-                    variant="outline"
-                    size="sm"
-                    className="text-red-600 hover:text-red-700 hover:border-red-300"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
+                <OrderActionsMenu
+                  order={order}
+                  onViewDetails={() => {
+                    setSelectedOrder(order);
+                    setShowOrderModal(true);
+                  }}
+                  onEditStatus={() => {
+                    setSelectedOrder(order);
+                    setNewStatus(order.status);
+                    setShowStatusModal(true);
+                  }}
+                  onAddNote={() => {
+                    setSelectedOrder(order);
+                    setShowNoteModal(true);
+                  }}
+                  onDelete={() => {
+                    setSelectedOrder(order);
+                    setShowDeleteModal(true);
+                  }}
+                  onMarkAsDelivered={() => {
+                    setSelectedOrder(order);
+                    setShowDeliveredConfirmModal(true);
+                  }}
+                  onMarkAsCancelled={() => {
+                    setSelectedOrder(order);
+                    setShowCancelledConfirmModal(true);
+                  }}
+                  onMarkAsPaid={() => {
+                    setSelectedOrder(order);
+                    setShowPaidConfirmModal(true);
+                  }}
+                  disabled={syncing}
+                />
               </div>
             </Card>
           ))
@@ -464,7 +517,7 @@ const Orders: React.FC = () => {
                   {t('orders.orderDetails.createdOn')} {formatDate(selectedOrder.createdAt)}
                 </p>
               </div>
-              <div className="flex gap-2">
+              <div className="flex items-center gap-2">
                 <Badge color={getStatusBadgeColor(selectedOrder.status)}>
                   {getStatusIcon(selectedOrder.status)}
                   <span className="ml-1 capitalize">{t(`orders.status.${selectedOrder.status}`)}</span>
@@ -472,6 +525,38 @@ const Orders: React.FC = () => {
                 <Badge color={getPaymentStatusBadgeColor(selectedOrder.paymentStatus)}>
                   <span className="capitalize">{t(`orders.paymentStatus.${selectedOrder.paymentStatus}`)}</span>
                 </Badge>
+                <OrderActionsMenu
+                  order={selectedOrder}
+                  onViewDetails={() => {
+                    // Already viewing details, do nothing or scroll to top
+                  }}
+                  onEditStatus={() => {
+                    setNewStatus(selectedOrder.status);
+                    setShowOrderModal(false);
+                    setShowStatusModal(true);
+                  }}
+                  onAddNote={() => {
+                    setShowOrderModal(false);
+                    setShowNoteModal(true);
+                  }}
+                  onDelete={() => {
+                    setShowOrderModal(false);
+                    setShowDeleteModal(true);
+                  }}
+                  onMarkAsDelivered={() => {
+                    setShowOrderModal(false);
+                    setShowDeliveredConfirmModal(true);
+                  }}
+                  onMarkAsCancelled={() => {
+                    setShowOrderModal(false);
+                    setShowCancelledConfirmModal(true);
+                  }}
+                  onMarkAsPaid={() => {
+                    setShowOrderModal(false);
+                    setShowPaidConfirmModal(true);
+                  }}
+                  disabled={syncing}
+                />
               </div>
             </div>
 
@@ -703,6 +788,111 @@ const Orders: React.FC = () => {
               className="bg-red-600 hover:bg-red-700 text-white"
             >
               {syncing ? t('orders.actions.deleting') : t('orders.actions.deleteButton')}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Mark as Delivered Confirmation Modal */}
+      <Modal
+        isOpen={showDeliveredConfirmModal}
+        onClose={() => {
+          setShowDeliveredConfirmModal(false);
+          setSelectedOrder(null);
+        }}
+        title={t('orders.confirmations.markAsDelivered.title')}
+      >
+        <div className="space-y-4">
+          <p className="text-gray-700">
+            {t('orders.confirmations.markAsDelivered.message', { orderNumber: selectedOrder?.orderNumber })}
+          </p>
+          
+          <div className="flex justify-end gap-2">
+            <Button
+              onClick={() => {
+                setShowDeliveredConfirmModal(false);
+                setSelectedOrder(null);
+              }}
+              variant="outline"
+            >
+              {t('orders.confirmations.markAsDelivered.cancel')}
+            </Button>
+            <Button
+              onClick={handleMarkAsDelivered}
+              disabled={syncing}
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              {syncing ? t('orders.actions.updating') : t('orders.confirmations.markAsDelivered.confirm')}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Mark as Cancelled Confirmation Modal */}
+      <Modal
+        isOpen={showCancelledConfirmModal}
+        onClose={() => {
+          setShowCancelledConfirmModal(false);
+          setSelectedOrder(null);
+        }}
+        title={t('orders.confirmations.markAsCancelled.title')}
+      >
+        <div className="space-y-4">
+          <p className="text-gray-700">
+            {t('orders.confirmations.markAsCancelled.message', { orderNumber: selectedOrder?.orderNumber })}
+          </p>
+          
+          <div className="flex justify-end gap-2">
+            <Button
+              onClick={() => {
+                setShowCancelledConfirmModal(false);
+                setSelectedOrder(null);
+              }}
+              variant="outline"
+            >
+              {t('orders.confirmations.markAsCancelled.cancel')}
+            </Button>
+            <Button
+              onClick={handleMarkAsCancelled}
+              disabled={syncing}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {syncing ? t('orders.actions.updating') : t('orders.confirmations.markAsCancelled.confirm')}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Mark as Paid Confirmation Modal */}
+      <Modal
+        isOpen={showPaidConfirmModal}
+        onClose={() => {
+          setShowPaidConfirmModal(false);
+          setSelectedOrder(null);
+        }}
+        title={t('orders.confirmations.markAsPaid.title')}
+      >
+        <div className="space-y-4">
+          <p className="text-gray-700">
+            {t('orders.confirmations.markAsPaid.message', { orderNumber: selectedOrder?.orderNumber })}
+          </p>
+          
+          <div className="flex justify-end gap-2">
+            <Button
+              onClick={() => {
+                setShowPaidConfirmModal(false);
+                setSelectedOrder(null);
+              }}
+              variant="outline"
+            >
+              {t('orders.confirmations.markAsPaid.cancel')}
+            </Button>
+            <Button
+              onClick={handleMarkAsPaid}
+              disabled={syncing}
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              {syncing ? t('orders.actions.updating') : t('orders.confirmations.markAsPaid.confirm')}
             </Button>
           </div>
         </div>

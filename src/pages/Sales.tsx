@@ -31,6 +31,7 @@ import SyncIndicator from '../components/common/SyncIndicator';
 import { showSuccessToast, showErrorToast, showWarningToast } from '../utils/toast';
 import Invoice from '../components/sales/Invoice';
 import { generatePDF, generatePDFBlob } from '../utils/pdf';
+import { generateInvoiceFileName } from '../utils/fileUtils';
 import { useAuth } from '../contexts/AuthContext';
 import { useAllStockBatches } from '../hooks/useStockBatches';
 import { buildProductStockMap, getEffectiveProductStock } from '../utils/stockHelpers';
@@ -128,7 +129,8 @@ const Sales: React.FC = () => {
 
 
 
-  const normalizePhone = (phone: string): string => phone.replace(/\D/g, '');
+  // Use centralized phone normalization for comparison
+  const normalizePhone = normalizePhoneForComparison;
 
   useEffect(() => {
     if (showCustomerDropdown && phoneInputRef.current) {
@@ -399,11 +401,15 @@ const Sales: React.FC = () => {
 
   const handleShareInvoice = async (sale: Sale): Promise<void> => {
     try {
-      const result = await generatePDFBlob(sale, products || [], company || {}, `facture-${sale.id}`);
+      const filename = generateInvoiceFileName(
+        sale.customerInfo.name,
+        company?.name || ''
+      );
+      const result = await generatePDFBlob(sale, products || [], company || {}, filename.replace('.pdf', ''));
       if (!(result instanceof Blob)) {
         throw new Error('PDF generation did not return a Blob');
       }
-      const pdfFile = new File([result], `facture-${sale.id}.pdf`, { type: 'application/pdf' });
+      const pdfFile = new File([result], filename, { type: 'application/pdf' });
       if (navigator.share) {
         try {
           await navigator.share({
@@ -417,7 +423,7 @@ const Sales: React.FC = () => {
             const url = URL.createObjectURL(result);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `facture-${sale.id}.pdf`;
+            a.download = filename;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -429,7 +435,7 @@ const Sales: React.FC = () => {
         const url = URL.createObjectURL(result);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `facture-${sale.id}.pdf`;
+        a.download = filename;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -903,7 +909,13 @@ const Sales: React.FC = () => {
               <Button
                 variant="outline"
                 icon={<Download size={16} />}
-                onClick={() => generatePDF(currentSale, products || [], company || {}, `facture-${currentSale.id}`)}
+                onClick={() => {
+                  const filename = generateInvoiceFileName(
+                    currentSale.customerInfo.name,
+                    company?.name || ''
+                  );
+                  generatePDF(currentSale, products || [], company || {}, filename.replace('.pdf', ''));
+                }}
               >
                 {t('sales.modals.link.actions.downloadPDF')}
               </Button>

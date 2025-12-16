@@ -6,12 +6,14 @@ import Button from '../common/Button';
 import type { Sale, Product, Customer } from '../../types/models';
 import { Download, Share, Printer } from 'lucide-react';
 import { generatePDF, generatePDFBlob } from '../../utils/pdf';
+import { generateInvoiceFileName } from '../../utils/fileUtils';
 import { useTranslation } from 'react-i18next';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { showErrorToast } from '../../utils/toast';
 import CustomerAdditionalInfo from '../customers/CustomerAdditionalInfo';
 import { useCustomers } from '../../hooks/useFirestore';
+import { normalizePhoneForComparison } from '../../utils/phoneUtils';
 import { useCustomerSources } from '../../hooks/useCustomerSources';
 import type { CustomerSource } from '../../types/models';
 
@@ -36,11 +38,10 @@ const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({ isOpen, onClose, sa
   useEffect(() => {
     if (sale && customers) {
       // Normaliser les numéros de téléphone pour la comparaison
-      const normalizePhone = (phone: string) => phone.replace(/\D/g, '');
-      const salePhone = normalizePhone(sale.customerInfo.phone);
+      const salePhone = normalizePhoneForComparison(sale.customerInfo.phone);
       
       const foundCustomer = customers.find(c => {
-        const customerPhone = normalizePhone(c.phone);
+        const customerPhone = normalizePhoneForComparison(c.phone);
         return customerPhone === salePhone;
       });
       
@@ -65,16 +66,24 @@ const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({ isOpen, onClose, sa
 
   const handleDownloadPDF = () => {
     if (!company) return;
-    generatePDF(sale, products, company, `facture-${sale.id}`);
+    const filename = generateInvoiceFileName(
+      sale.customerInfo.name,
+      company.name
+    );
+    generatePDF(sale, products, company, filename.replace('.pdf', ''));
   };
 
   const handleShareInvoice = async () => {
     setIsSharing(true);
     try {
       if (!company) throw new Error('No company info');
+      const filename = generateInvoiceFileName(
+        sale.customerInfo.name,
+        company.name
+      );
       // Generate PDF as Blob
-      const pdfBlob = await generatePDFBlob(sale, products, company, `facture-${sale.id}`);
-      const pdfFile = new File([pdfBlob], `facture-${sale.id}.pdf`, { type: 'application/pdf' });
+      const pdfBlob = await generatePDFBlob(sale, products, company, filename.replace('.pdf', ''));
+      const pdfFile = new File([pdfBlob], filename, { type: 'application/pdf' });
       if (navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
         await navigator.share({
           files: [pdfFile],
@@ -85,7 +94,7 @@ const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({ isOpen, onClose, sa
         alert('Sharing is not supported on this device/browser. Please download the PDF and share it manually.');
       }
     } catch (error) {
-      logError('Failed to share PDF', error);
+      console.error('Failed to share PDF', error);
       alert('Failed to share PDF.');
     } finally {
       setIsSharing(false);

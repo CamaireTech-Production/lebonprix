@@ -11,6 +11,7 @@ import { getCheckoutSettingsWithDefaults, subscribeToCheckoutSettings } from '..
 // Removed useCheckoutPersistence - using manual save approach
 import { subscribeToCinetPayConfig, isCinetPayConfigured } from '../services/cinetpayService';
 import { processCinetPayPayment, validatePaymentData, formatPhoneForCinetPay } from '../utils/cinetpayHandler';
+import { formatPhoneForWhatsApp } from '../utils/phoneUtils';
 import type { CinetPayConfig } from '../types/cinetpay';
 // import { generateWhatsAppMessage } from '../utils/whatsapp';
 import { 
@@ -479,7 +480,7 @@ const SingleCheckout: React.FC = () => {
 
   // Create WhatsApp URL
   const createWhatsAppUrl = (phone: string, message: string): string => {
-    const formattedPhone = phone.replace(/[^\d]/g, '');
+    const formattedPhone = formatPhoneForWhatsApp(phone);
     const encodedMessage = encodeURIComponent(message);
     return `https://wa.me/${formattedPhone}?text=${encodedMessage}`;
   };

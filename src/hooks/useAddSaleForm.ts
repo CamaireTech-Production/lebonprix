@@ -9,6 +9,7 @@ import { getUserById } from '../services/userService';
 import { validateSaleData, normalizeSaleData } from '../utils/saleUtils';
 import type { OrderStatus, SaleProduct, Customer, Product, Sale } from '../types/models';
 import { logError } from '../utils/logger';
+import { normalizePhoneForComparison } from '../utils/phoneUtils';
 
 export interface FormProduct {
   product: Product | null;
@@ -98,7 +99,8 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
 
 
   /* ------------------------------ Helpers ------------------------------ */
-  const normalizePhone = (phone: string) => phone.replace(/\D/g, '');
+  // Use centralized phone normalization for comparison
+  const normalizePhone = normalizePhoneForComparison;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;

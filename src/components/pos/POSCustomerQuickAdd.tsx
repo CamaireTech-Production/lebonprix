@@ -1,6 +1,7 @@
 import { User, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { Customer } from '../../types/models';
+import { normalizePhoneForComparison } from '../../utils/phoneUtils';
 
 interface POSCustomerQuickAddProps {
   customer: { name: string; phone: string; quarter?: string } | null;
@@ -26,15 +27,14 @@ export const POSCustomerQuickAdd: React.FC<POSCustomerQuickAddProps> = ({
   customerInputRef,
 }) => {
   const { t } = useTranslation();
-  const normalizePhone = (phone: string) => phone.replace(/\D/g, '');
 
   const filteredCustomers = customerSearch
     ? customers.filter(c => {
-        const normalizedSearch = normalizePhone(customerSearch);
+        const normalizedSearch = normalizePhoneForComparison(customerSearch);
         if (normalizedSearch.length >= 2 && /\d/.test(customerSearch)) {
           // Phone search
           if (!c.phone) return false;
-          const customerPhone = normalizePhone(c.phone);
+          const customerPhone = normalizePhoneForComparison(c.phone);
           return customerPhone.includes(normalizedSearch) || normalizedSearch.includes(customerPhone);
         } else if (customerSearch.length >= 2) {
           // Name search

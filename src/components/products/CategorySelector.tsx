@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { ChevronDown, Plus, Grid, Search } from 'lucide-react';
-import { useAuth } from '../../contexts/AuthContext';
 import { ImageWithSkeleton } from '../common/ImageWithSkeleton';
-import { subscribeToCategories } from '../../services/firestore';
+import { useCategories } from '../../hooks/useFirestore';
+import { showSuccessToast, showErrorToast } from '../../utils/toast';
 import type { Category } from '../../types/models';
 
 interface CategorySelectorProps {
@@ -20,27 +20,10 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
   placeholder = "Select a category",
   className = ""
 }) => {
-  const { company } = useAuth();
-  const [categories, setCategories] = useState<Category[]>([]);
+  const { categories, loading, addCategory } = useCategories();
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [loading, setLoading] = useState(true);
-
-  // Subscribe to categories
-  useEffect(() => {
-    if (!company?.id) {
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-    const unsubscribe = subscribeToCategories(company.id, (categoriesData) => {
-      setCategories(categoriesData);
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, [company?.id]);
+  const [isCreating, setIsCreating] = useState(false);
 
   // Filter categories based on search
   const filteredCategories = categories.filter(category =>
@@ -59,11 +42,40 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
   };
 
   // Handle create new category
-  const handleCreateNew = () => {
-    if (searchQuery.trim()) {
-      onChange(searchQuery.trim());
+  const handleCreateNew = async () => {
+    const categoryName = searchQuery.trim();
+    
+    if (!categoryName) return;
+    
+    // Validation : vérifier si la catégorie existe déjà (insensible à la casse)
+    const exists = categories.some(
+      cat => cat.name.toLowerCase() === categoryName.toLowerCase()
+    );
+    
+    if (exists) {
+      showErrorToast('Cette catégorie existe déjà');
+      return;
+    }
+    
+    setIsCreating(true);
+    try {
+      const newCategory = await addCategory(categoryName);
+      
+      // Sélectionner automatiquement la nouvelle catégorie
+      onChange(newCategory.name);
+      
+      // Fermer le dropdown et réinitialiser
       setIsOpen(false);
       setSearchQuery('');
+      
+      // Feedback utilisateur
+      showSuccessToast(`Catégorie "${newCategory.name}" créée avec succès`);
+    } catch (error: any) {
+      console.error('Error creating category:', error);
+      showErrorToast(error.message || 'Échec de la création de la catégorie');
+      // Garder le dropdown ouvert pour permettre une nouvelle tentative
+    } finally {
+      setIsCreating(false);
     }
   };
 
@@ -137,10 +149,22 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
                     {searchQuery.trim() && (
                       <button
                         onClick={handleCreateNew}
-                        className="flex items-center space-x-2 text-emerald-600 hover:text-emerald-700 text-sm mx-auto"
+                        disabled={isCreating}
+                        className={`flex items-center space-x-2 text-emerald-600 hover:text-emerald-700 text-sm mx-auto ${
+                          isCreating ? 'opacity-50 cursor-not-allowed' : ''
+                        }`}
                       >
-                        <Plus size={16} />
-                        <span>Create "{searchQuery.trim()}"</span>
+                        {isCreating ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-emerald-600"></div>
+                            <span>Création...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Plus size={16} />
+                            <span>Create "{searchQuery.trim()}"</span>
+                          </>
+                        )}
                       </button>
                     )}
                   </div>
@@ -200,14 +224,21 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
                 {searchQuery.trim() && !filteredCategories.some(cat => cat.name.toLowerCase() === searchQuery.toLowerCase()) && (
                   <button
                     onClick={handleCreateNew}
-                    className="w-full px-3 py-2 text-left hover:bg-gray-50 focus:outline-none focus:bg-gray-50 text-emerald-600 border-t border-gray-200"
+                    disabled={isCreating}
+                    className={`w-full px-3 py-2 text-left hover:bg-gray-50 focus:outline-none focus:bg-gray-50 text-emerald-600 border-t border-gray-200 ${
+                      isCreating ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
                   >
                     <div className="flex items-center space-x-3">
                       <div className="w-8 h-8 rounded bg-emerald-100 flex items-center justify-center flex-shrink-0">
-                        <Plus size={16} className="text-emerald-600" />
+                        {isCreating ? (
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-emerald-600"></div>
+                        ) : (
+                          <Plus size={16} className="text-emerald-600" />
+                        )}
                       </div>
                       <div className="font-medium text-sm">
-                        Create "{searchQuery.trim()}"
+                        {isCreating ? 'Création...' : `Create "${searchQuery.trim()}"`}
                       </div>
                     </div>
                   </button>

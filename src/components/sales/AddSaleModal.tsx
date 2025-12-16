@@ -12,6 +12,7 @@ import type { Sale, StockBatch } from '../../types/models';
 import SaleDetailsModal from './SaleDetailsModal';
 import { getProductStockBatches } from '../../services/firestore';
 import { showWarningToast } from '../../utils/toast';
+import LocationAutocomplete from '../common/LocationAutocomplete';
 
 const LOW_STOCK_THRESHOLD = 5;
 
@@ -151,6 +152,8 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
       const newSale = await handleAddSale();
       if (newSale) {
         setViewedSale(newSale);
+        // finance:refresh is now handled centrally in useSales().addSale()
+        // No need to trigger it here to avoid duplication
         if (onSaleAdded) {
           onSaleAdded();
         }
@@ -375,13 +378,21 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
   );
 })()}
               </div>
-              <Input
-                  label="Quarter"
-                name="customerQuarter"
-                value={formData.customerQuarter}
-                onChange={handleInputChange}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Quarter
+                </label>
+                <LocationAutocomplete
+                  value={formData.customerQuarter}
+                  onChange={(value) => {
+                    setFormData(prev => ({
+                      ...prev,
+                      customerQuarter: value
+                    }));
+                  }}
                   placeholder="Quarter (optional)"
-              />
+                />
+              </div>
             </div>
             
             {/* Customer Source Dropdown */}

@@ -198,8 +198,8 @@ export function usePOS() {
     }));
   }, []);
 
-  // Handle customer search
-  const normalizePhone = (phone: string) => phone.replace(/\D/g, '');
+  // Handle customer search - use centralized normalization
+  const normalizePhone = normalizePhoneForComparison;
 
   const handleCustomerSearch = useCallback((value: string) => {
     setCustomerSearch(value);
