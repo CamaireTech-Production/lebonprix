@@ -31,7 +31,10 @@ import SyncIndicator from '../components/common/SyncIndicator';
 import { showSuccessToast, showErrorToast, showWarningToast } from '../utils/toast';
 import Invoice from '../components/sales/Invoice';
 import { generatePDF, generatePDFBlob } from '../utils/pdf';
+import { generateInvoiceFileName } from '../utils/fileUtils';
 import { useAuth } from '../contexts/AuthContext';
+import { useAllStockBatches } from '../hooks/useStockBatches';
+import { buildProductStockMap, getEffectiveProductStock } from '../utils/stockHelpers';
 import { useTranslation } from 'react-i18next';
 import { softDeleteSale } from '../services/firestore';
 import { formatCreatorName } from '../utils/employeeUtils';
@@ -70,6 +73,12 @@ const Sales: React.FC = () => {
   const { activeSources } = useCustomerSources();
   const { user, company } = useAuth();
   const { updateSale } = useSales();
+  const { batches: allBatches } = useAllStockBatches();
+
+  const stockMap = React.useMemo(
+    () => buildProductStockMap(allBatches || []),
+    [allBatches]
+  );
 
   // Infinite scroll for sales
   useInfiniteScroll({
@@ -120,7 +129,8 @@ const Sales: React.FC = () => {
 
 
 
-  const normalizePhone = (phone: string): string => phone.replace(/\D/g, '');
+  // Use centralized phone normalization for comparison
+  const normalizePhone = normalizePhoneForComparison;
 
   useEffect(() => {
     if (showCustomerDropdown && phoneInputRef.current) {
@@ -219,8 +229,11 @@ const Sales: React.FC = () => {
       const quantity = parseInt(product.quantity, 10);
       if (isNaN(quantity) || quantity <= 0) {
         errors[`quantity_${index}`] = t('sales.messages.warnings.quantityInvalid');
-      } else if (quantity > product.product.stock) {
-        errors[`quantity_${index}`] = t('sales.messages.warnings.quantityExceeded', { stock: product.product.stock });
+      } else {
+        const effectiveStock = getEffectiveProductStock(product.product, stockMap);
+        if (quantity > effectiveStock) {
+          errors[`quantity_${index}`] = t('sales.messages.warnings.quantityExceeded', { stock: effectiveStock });
+        }
       }
     });
     const deliveryFee = parseFloat(formData.deliveryFee);
@@ -388,11 +401,15 @@ const Sales: React.FC = () => {
 
   const handleShareInvoice = async (sale: Sale): Promise<void> => {
     try {
-      const result = await generatePDFBlob(sale, products || [], company || {}, `facture-${sale.id}`);
+      const filename = generateInvoiceFileName(
+        sale.customerInfo.name,
+        company?.name || ''
+      );
+      const result = await generatePDFBlob(sale, products || [], company || {}, filename.replace('.pdf', ''));
       if (!(result instanceof Blob)) {
         throw new Error('PDF generation did not return a Blob');
       }
-      const pdfFile = new File([result], `facture-${sale.id}.pdf`, { type: 'application/pdf' });
+      const pdfFile = new File([result], filename, { type: 'application/pdf' });
       if (navigator.share) {
         try {
           await navigator.share({
@@ -406,7 +423,7 @@ const Sales: React.FC = () => {
             const url = URL.createObjectURL(result);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `facture-${sale.id}.pdf`;
+            a.download = filename;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -418,7 +435,7 @@ const Sales: React.FC = () => {
         const url = URL.createObjectURL(result);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `facture-${sale.id}.pdf`;
+        a.download = filename;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -623,7 +640,15 @@ const Sales: React.FC = () => {
     return null;
   }
 
-  const availableProducts = products?.filter((p) => p.isAvailable && p.stock > 0) || [];
+  const availableProducts = React.useMemo(
+    () =>
+      (products || []).filter((p) => {
+        if (!p.isAvailable) return false;
+        const stock = getEffectiveProductStock(p, stockMap);
+        return stock > 0;
+      }),
+    [products, stockMap]
+  );
 
   const productOptions = availableProducts.map((product) => ({
     label: (
@@ -884,7 +909,13 @@ const Sales: React.FC = () => {
               <Button
                 variant="outline"
                 icon={<Download size={16} />}
-                onClick={() => generatePDF(currentSale, products || [], company || {}, `facture-${currentSale.id}`)}
+                onClick={() => {
+                  const filename = generateInvoiceFileName(
+                    currentSale.customerInfo.name,
+                    company?.name || ''
+                  );
+                  generatePDF(currentSale, products || [], company || {}, filename.replace('.pdf', ''));
+                }}
               >
                 {t('sales.modals.link.actions.downloadPDF')}
               </Button>

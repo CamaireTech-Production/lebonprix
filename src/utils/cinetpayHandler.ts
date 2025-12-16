@@ -1,6 +1,7 @@
 import { CinetPayConfig, CinetPaySDKOptions, CinetPayCallbacks } from '../types/cinetpay';
 import { SecureEncryption, PaymentValidator } from './encryption';
 import { AuditLogger } from './auditLogger';
+import { normalizePhoneNumber } from './phoneUtils';
 
 // Declare global CinetPay object
 declare global {
@@ -438,21 +439,11 @@ export const validatePaymentData = (
 
 // Format phone number for CinetPay
 export const formatPhoneForCinetPay = (phone: string, countryCode: string = '237'): string => {
-  // Remove all non-digit characters
-  const cleaned = phone.replace(/\D/g, '');
+  // Use centralized normalization utility
+  const normalized = normalizePhoneNumber(phone, `+${countryCode}`);
   
-  // If phone starts with country code, use as is
-  if (cleaned.startsWith(countryCode)) {
-    return cleaned;
-  }
-  
-  // If phone starts with 0, replace with country code
-  if (cleaned.startsWith('0')) {
-    return countryCode + cleaned.substring(1);
-  }
-  
-  // Otherwise, prepend country code
-  return countryCode + cleaned;
+  // Return digits only (no +) for CinetPay
+  return normalized.replace(/\D/g, '');
 };
 
 // Get payment method display name

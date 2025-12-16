@@ -1,14 +1,18 @@
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { useState, useRef, useCallback, useMemo } from 'react';
 import { useSales, useProducts, useCustomers } from './useFirestore';
 import { useCustomerSources } from './useCustomerSources';
 import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { showSuccessToast, showErrorToast, showWarningToast } from '../utils/toast';
-import { getCurrentEmployeeRef } from '../utils/employeeUtils';
+import { getCurrentEmployeeRef, formatCreatorName } from '../utils/employeeUtils';
 import { getUserById } from '../services/userService';
 import { validateSaleData, normalizeSaleData } from '../utils/saleUtils';
-import type { OrderStatus, SaleProduct, Customer, Product, Sale } from '../types/models';
+import type { OrderStatus, Customer, Product} from '../types/models';
 import { logError } from '../utils/logger';
+import { normalizePhoneForComparison } from '../utils/phoneUtils';
+import { saveDraft as saveDraftToStorage, getDrafts, deleteDraft, type POSDraft } from '../utils/posDraftStorage';
+import { useAllStockBatches } from './useStockBatches';
+import { buildProductStockMap, getEffectiveProductStock } from '../utils/stockHelpers';
 
 export interface CartItem {
   product: Product;
@@ -38,6 +42,7 @@ export function usePOS() {
   const { customers, addCustomer } = useCustomers();
   const { activeSources } = useCustomerSources();
   const { user, company, currentEmployee, isOwner } = useAuth();
+  const { batches: allBatches } = useAllStockBatches();
 
   const [state, setState] = useState<POSState>({
     cart: [],
@@ -54,14 +59,24 @@ export function usePOS() {
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const [customerSearch, setCustomerSearch] = useState('');
 
+  // Build stock map from all batches (fallback to product.stock when no batches)
+  const stockMap = useMemo(
+    () => buildProductStockMap(allBatches || []),
+    [allBatches]
+  );
+
   const searchInputRef = useRef<HTMLInputElement>(null);
   const customerInputRef = useRef<HTMLInputElement>(null);
 
-  // Filter products based on search and category
+  // Filter products based on search and category, using effective stock
   const filteredProducts = useMemo(() => {
     if (!products) return [];
     
-    let filtered = products.filter(p => p.isAvailable && p.stock > 0);
+    let filtered = products.filter(p => {
+      if (!p.isAvailable) return false;
+      const effectiveStock = getEffectiveProductStock(p, stockMap);
+      return effectiveStock > 0;
+    });
     
     // Filter by search query
     if (state.searchQuery) {
@@ -79,7 +94,7 @@ export function usePOS() {
     }
     
     return filtered;
-  }, [products, state.searchQuery, state.selectedCategory]);
+  }, [products, stockMap, state.searchQuery, state.selectedCategory]);
 
   // Calculate cart totals
   const cartTotals = useMemo(() => {
@@ -94,9 +109,10 @@ export function usePOS() {
   }, [state.cart, state.deliveryFee]);
 
   // Add product to cart
-  const addToCart = useCallback((product: Product, quantity: number = 1) => {
-    if (product.stock < quantity) {
-      showWarningToast(t('pos.messages.insufficientStock', { stock: product.stock }));
+  const addToCart = useCallback((product: Product, quantity: number = 1, negotiatedPrice?: number) => {
+    const effectiveStock = getEffectiveProductStock(product, stockMap);
+    if (effectiveStock < quantity) {
+      showWarningToast(t('pos.messages.insufficientStock', { stock: effectiveStock }));
       return;
     }
 
@@ -105,8 +121,8 @@ export function usePOS() {
       
       if (existingItem) {
         const newQuantity = existingItem.quantity + quantity;
-        if (newQuantity > product.stock) {
-          showWarningToast(t('pos.messages.insufficientStock', { stock: product.stock }));
+        if (newQuantity > effectiveStock) {
+          showWarningToast(t('pos.messages.insufficientStock', { stock: effectiveStock }));
           return prev;
         }
         
@@ -114,18 +130,18 @@ export function usePOS() {
           ...prev,
           cart: prev.cart.map(item =>
             item.product.id === product.id
-              ? { ...item, quantity: newQuantity }
+              ? { ...item, quantity: newQuantity, negotiatedPrice: negotiatedPrice ?? item.negotiatedPrice }
               : item
           ),
         };
       } else {
         return {
           ...prev,
-          cart: [...prev.cart, { product, quantity, negotiatedPrice: undefined }],
+          cart: [...prev.cart, { product, quantity, negotiatedPrice }],
         };
       }
     });
-  }, [t]);
+  }, [stockMap, t]);
 
   // Remove product from cart
   const removeFromCart = useCallback((productId: string) => {
@@ -146,8 +162,9 @@ export function usePOS() {
       const item = prev.cart.find(item => item.product.id === productId);
       if (!item) return prev;
       
-      if (quantity > item.product.stock) {
-        showWarningToast(t('pos.messages.insufficientStock', { stock: item.product.stock }));
+      const effectiveStock = getEffectiveProductStock(item.product, stockMap);
+      if (quantity > effectiveStock) {
+        showWarningToast(t('pos.messages.insufficientStock', { stock: effectiveStock }));
         return prev;
       }
       
@@ -160,7 +177,7 @@ export function usePOS() {
         ),
       };
     });
-  }, [removeFromCart, t]);
+  }, [removeFromCart, stockMap, t]);
 
   // Update negotiated price
   const updateNegotiatedPrice = useCallback((productId: string, price: number | undefined) => {
@@ -182,17 +199,14 @@ export function usePOS() {
     }));
   }, []);
 
-  // Handle customer search
-  const normalizePhone = (phone: string) => phone.replace(/\D/g, '');
-
   const handleCustomerSearch = useCallback((value: string) => {
     setCustomerSearch(value);
     
-    const normalizedSearch = normalizePhone(value);
+    const normalizedSearch = normalizePhoneForComparison(value);
     if (normalizedSearch.length >= 2) {
       const matchingCustomers = customers.filter(c => {
         if (!c.phone) return false;
-        const customerPhone = normalizePhone(c.phone);
+        const customerPhone = normalizePhoneForComparison(c.phone);
         return customerPhone.includes(normalizedSearch) || normalizedSearch.includes(customerPhone);
       });
       setShowCustomerDropdown(matchingCustomers.length > 0);
@@ -271,7 +285,8 @@ export function usePOS() {
     try {
       setIsSubmitting(true);
 
-      const saleProducts: SaleProduct[] = state.cart.map(item => ({
+      // Note: saleProducts will be enriched with costPrice, profit, profitMargin by createSale
+      const saleProducts = state.cart.map(item => ({
         productId: item.product.id,
         quantity: item.quantity,
         basePrice: item.product.sellingPrice,
@@ -285,9 +300,18 @@ export function usePOS() {
         quarter: paymentData.customerQuarter || '',
         address: paymentData.customerAddress || '',
         town: paymentData.customerTown || '',
-      } : (state.customer || {
+      } : (state.customer ? {
+        name: state.customer.name,
+        phone: state.customer.phone || '',
+        quarter: state.customer.quarter || '',
+        address: '',
+        town: '',
+      } : {
         name: t('sales.modals.add.customerInfo.divers'),
         phone: '',
+        quarter: '',
+        address: '',
+        town: '',
       });
 
       // Calculate final total with discount and tax
@@ -296,8 +320,9 @@ export function usePOS() {
       const finalTotal = cartTotals.subtotal + (paymentData?.deliveryFee ?? state.deliveryFee) - discountAmount + taxAmount;
 
       // Prepare raw sale data for validation
+      // Note: products will be enriched with costPrice, profit, profitMargin by createSale
       const rawSaleData = {
-        products: saleProducts,
+        products: saleProducts as any, // Products will be enriched by createSale
         totalAmount: finalTotal,
         userId: user.uid,
         companyId: company.id,
@@ -328,9 +353,9 @@ export function usePOS() {
       const normalizedData = normalizeSaleData(rawSaleData, user.uid, company.id);
 
       // Get createdBy employee reference
-      let createdBy = null;
+      let createdBy: ReturnType<typeof getCurrentEmployeeRef> = null;
       if (user && company) {
-        let userData = null;
+        let userData: Awaited<ReturnType<typeof getUserById>> | null = null;
         if (isOwner && !currentEmployee) {
           try {
             userData = await getUserById(user.uid);
@@ -348,7 +373,7 @@ export function usePOS() {
         try {
           // Only check for existing customer if phone is provided
           const existing = customerInfo.phone ? customers.find(c => 
-            c.phone && normalizePhone(c.phone) === normalizePhone(customerInfo.phone)
+            c.phone && normalizePhoneForComparison(c.phone) === normalizePhoneForComparison(customerInfo.phone)
           ) : null;
 
           if (!existing) {
@@ -361,6 +386,7 @@ export function usePOS() {
               customerSourceId: paymentData?.customerSourceId || state.customer?.sourceId || '',
               userId: user.uid,
               companyId: company.id,
+              createdAt: new Date(),
             });
           }
         } catch (error: any) {
@@ -382,12 +408,241 @@ export function usePOS() {
       showSuccessToast(t('pos.messages.saleCompleted') + ` - ${finalTotal.toLocaleString()} XAF`);
       return newSale;
     } catch (error) {
+      console.error('Error completing sale:', error);
+      logError('Error completing sale', error);
       showErrorToast(t('sales.messages.errors.addSale'));
       return null;
     } finally {
       setIsSubmitting(false);
     }
   }, [state, cartTotals, user, company, currentEmployee, isOwner, autoSaveCustomer, customers, addSale, addCustomer, clearCart, clearCustomer, t]);
+
+  // Save draft (save without completing sale) - now uses localStorage
+  const saveDraft = useCallback(async (paymentData?: import('../components/pos/POSPaymentModal').POSPaymentData) => {
+    if (state.cart.length === 0) {
+      showWarningToast(t('pos.messages.emptyCart'));
+      return null;
+    }
+
+    if (!user?.uid) {
+      showErrorToast(t('sales.messages.errors.notLoggedIn'));
+      return null;
+    }
+
+    if (!company?.id) {
+      showErrorToast(t('sales.validation.companyIdRequired'));
+      return null;
+    }
+
+    try {
+      setIsSubmitting(true);
+
+      // Use payment data if provided, otherwise use state
+      const customerInfo = paymentData ? {
+        name: paymentData.customerName,
+        phone: paymentData.customerPhone,
+        quarter: paymentData.customerQuarter || '',
+        address: paymentData.customerAddress || '',
+        town: paymentData.customerTown || '',
+        sourceId: paymentData.customerSourceId || '',
+      } : (state.customer ? {
+        name: state.customer.name,
+        phone: state.customer.phone || '',
+        quarter: state.customer.quarter || '',
+        address: '',
+        town: '',
+        sourceId: state.customer.sourceId || '',
+      } : null);
+
+      // Calculate final total with discount and tax
+      const discountAmount = paymentData?.discountValue || 0;
+      const taxAmount = paymentData?.tax || 0;
+      const finalTotal = cartTotals.subtotal + (paymentData?.deliveryFee ?? state.deliveryFee) - discountAmount + taxAmount;
+
+      // Get createdBy employee reference for metadata
+      let createdBy: { id: string; name: string } | null = null;
+      if (user && company) {
+        let userData: Awaited<ReturnType<typeof getUserById>> | null = null;
+        if (isOwner && !currentEmployee) {
+          try {
+            userData = await getUserById(user.uid);
+          } catch (error) {
+            logError('Error fetching user data for createdBy', error);
+          }
+        }
+        const employeeRef = getCurrentEmployeeRef(currentEmployee, user, isOwner, userData);
+        if (employeeRef) {
+          createdBy = {
+            id: employeeRef.id,
+            name: formatCreatorName(employeeRef),
+          };
+        }
+      }
+
+      // Save draft to localStorage
+      const newDraft = saveDraftToStorage(
+        user.uid,
+        company.id,
+        {
+          cart: state.cart,
+          customer: customerInfo,
+          paymentData: paymentData ? {
+            paymentMethod: paymentData.paymentMethod,
+            amountReceived: paymentData.amountReceived,
+            change: paymentData.change,
+            transactionReference: paymentData.transactionReference,
+            mobileMoneyPhone: paymentData.mobileMoneyPhone,
+            customerPhone: paymentData.customerPhone,
+            customerName: paymentData.customerName,
+            customerQuarter: paymentData.customerQuarter,
+            customerSourceId: paymentData.customerSourceId,
+            customerAddress: paymentData.customerAddress,
+            customerTown: paymentData.customerTown,
+            saleDate: paymentData.saleDate,
+            deliveryFee: paymentData.deliveryFee,
+            status: paymentData.status,
+            inventoryMethod: paymentData.inventoryMethod,
+            discountType: paymentData.discountType,
+            discountValue: paymentData.discountValue,
+            promoCode: paymentData.promoCode,
+            tax: paymentData.tax,
+            notes: paymentData.notes,
+            printReceipt: paymentData.printReceipt,
+          } : {},
+          deliveryFee: paymentData?.deliveryFee ?? state.deliveryFee ?? 0,
+          subtotal: cartTotals.subtotal,
+          total: finalTotal,
+          createdBy,
+        }
+      );
+
+      // Auto-save customer if enabled (phone is optional for POS)
+      if (autoSaveCustomer && customerInfo && customerInfo.name && company?.id) {
+        try {
+          // Only check for existing customer if phone is provided
+          const existing = customerInfo.phone ? customers.find(c => 
+            c.phone && normalizePhoneForComparison(c.phone) === normalizePhoneForComparison(customerInfo.phone)
+          ) : null;
+
+          if (!existing) {
+            await addCustomer({
+              phone: customerInfo.phone || '',
+              name: customerInfo.name,
+              quarter: customerInfo.quarter || '',
+              address: customerInfo.address || '',
+              town: customerInfo.town || '',
+              customerSourceId: customerInfo.sourceId || '',
+              userId: user.uid,
+              companyId: company.id,
+              createdAt: new Date(),
+            });
+          }
+        } catch (error: any) {
+          logError('Error adding customer during draft save', error);
+        }
+      }
+
+      // DO NOT clear cart or customer - allow user to continue editing
+      // DO NOT reset search query or delivery fee
+
+      // Show success toast notification
+      showSuccessToast(t('pos.payment.draftSaved') || 'Draft saved successfully');
+      return newDraft;
+    } catch (error) {
+      showErrorToast(t('pos.payment.draftSaveError') || 'Failed to save draft');
+      return null;
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [state, cartTotals, user, company, currentEmployee, isOwner, autoSaveCustomer, customers, addCustomer, t]);
+
+  // Resume draft (load draft into cart) - now uses localStorage
+  const resumeDraft = useCallback((draft: POSDraft) => {
+    if (!draft || !draft.cart || draft.cart.length === 0) {
+      showErrorToast(t('pos.transactions.draftResumeError') || 'Draft has no products');
+      return null;
+    }
+
+    try {
+      // Clear current cart
+      clearCart();
+
+      // Load products from draft into cart
+      draft.cart.forEach((cartItem) => {
+        const product = products?.find(p => p.id === cartItem.product.id);
+        if (product && product.isAvailable) {
+          // Add product to cart with negotiated price if available
+          addToCart(product, cartItem.quantity, cartItem.negotiatedPrice);
+        } else {
+          showWarningToast(t('pos.transactions.productNotFoundInDraft') || `Product ${cartItem.product.id} not found`);
+        }
+      });
+
+      // Load customer info if available
+      if (draft.customer) {
+        // Create a temporary Customer object for selectCustomer
+        const tempCustomer: Customer = {
+          name: draft.customer.name,
+          phone: draft.customer.phone || '',
+          quarter: draft.customer.quarter,
+          address: draft.customer.address,
+          town: draft.customer.town,
+          customerSourceId: draft.customer.sourceId,
+          userId: user?.uid || '',
+          companyId: company?.id || '',
+          createdAt: new Date(),
+        };
+        selectCustomer(tempCustomer);
+      } else {
+        clearCustomer();
+      }
+
+      // Load delivery fee
+      if (draft.deliveryFee !== undefined) {
+        updateState({ deliveryFee: draft.deliveryFee });
+      }
+
+      // Return draft data for pre-filling payment modal
+      return {
+        customerName: draft.customer?.name || '',
+        customerPhone: draft.customer?.phone || '',
+        customerQuarter: draft.customer?.quarter || '',
+        customerSourceId: draft.customer?.sourceId || '',
+        customerAddress: draft.customer?.address || '',
+        customerTown: draft.customer?.town || '',
+        deliveryFee: draft.deliveryFee || 0,
+        status: draft.paymentData?.status || 'commande',
+        inventoryMethod: (draft.paymentData?.inventoryMethod || 'fifo') as 'fifo' | 'lifo',
+        saleDate: draft.paymentData?.saleDate || new Date().toISOString().slice(0, 10),
+        notes: draft.paymentData?.notes || '',
+        paymentMethod: draft.paymentData?.paymentMethod || undefined,
+        discountType: draft.paymentData?.discountType,
+        discountValue: draft.paymentData?.discountValue,
+        promoCode: draft.paymentData?.promoCode || '',
+        tax: draft.paymentData?.tax,
+      };
+    } catch (error) {
+      logError('Error resuming draft', error);
+      showErrorToast(t('pos.transactions.draftResumeError') || 'Failed to resume draft');
+      return null;
+    }
+  }, [products, clearCart, addToCart, selectCustomer, clearCustomer, updateState, t]);
+
+  // Get all drafts from localStorage
+  const getDraftsList = useCallback((): POSDraft[] => {
+    if (!user?.uid || !company?.id) {
+      return [];
+    }
+    return getDrafts(user.uid, company.id);
+  }, [user, company]);
+
+  // Delete draft from localStorage
+  const deleteDraftById = useCallback((draftId: string): boolean => {
+    if (!user?.uid || !company?.id) {
+      return false;
+    }
+    return deleteDraft(user.uid, company.id, draftId);
+  }, [user, company]);
 
   // Handle barcode scan
   const handleBarcodeScan = useCallback((productId: string) => {
@@ -440,6 +695,10 @@ export function usePOS() {
     handleCustomerSearch,
     updateState,
     completeSale,
+    saveDraft,
+    resumeDraft,
+    getDraftsList,
+    deleteDraftById,
     handleBarcodeScan,
     focusSearch,
     setAutoSaveCustomer,

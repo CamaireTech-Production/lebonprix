@@ -1,4 +1,4 @@
-import { DollarSign, TrendingUp, Package2, Info, Receipt, Copy, Check, ExternalLink, ScanLine} from 'lucide-react';
+import { DollarSign, TrendingUp, Package2, Info, Receipt, Copy, Check, ExternalLink, ScanLine, FileBarChart} from 'lucide-react';
 import StatCard from '../components/dashboard/StatCard';
 import SalesChart from '../components/dashboard/SalesChart';
 import ActivityList from '../components/dashboard/ActivityList';
@@ -8,11 +8,11 @@ import { useSales, useExpenses, useProducts, useStockChanges, useFinanceEntries,
 import { subscribeToAllSales } from '../services/firestore';
 import LoadingScreen from '../components/common/LoadingScreen';
 import { SkeletonStatCard, SkeletonChart, SkeletonTable, SkeletonActivityList, SkeletonObjectivesBar } from '../components/common/SkeletonLoader';
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import Modal from '../components/common/Modal';
 import Button from '../components/common/Button';
 import { useAuth } from '../contexts/AuthContext';
-import type { DashboardStats } from '../types/models';
+import type { DashboardStats, StockChange } from '../types/models';
 import { showSuccessToast, showErrorToast } from '../utils/toast';
 import { useTranslation } from 'react-i18next';
 import { getLatestCostPrice } from '../utils/productUtils';
@@ -20,19 +20,23 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useRolePermissions } from '../hooks/useRolePermissions';
 import {
   calculateTotalProfit,
+  calculateDashboardProfit,
   calculateTotalExpenses,
   calculateSolde,
-  calculateTotalPurchasePrice,
   calculateTotalSalesAmount,
   calculateTotalDeliveryFee,
   calculateTotalProductsSold,
   calculateTotalOrders
 } from '../utils/financialCalculations';
+import { useProfitPeriod } from '../hooks/useProfitPeriod';
+import { getPeriodStartDate, getPeriodShortLabel } from '../utils/profitPeriodUtils';
 import { differenceInDays, format, startOfWeek, endOfWeek, addDays, addWeeks, startOfMonth as startMonth, endOfMonth as endMonth, addMonths, isSameMonth, isSameDay } from 'date-fns';
 import DateRangePicker from '../components/common/DateRangePicker';
 import ObjectivesBar from '../components/objectives/ObjectivesBar';
 import ObjectivesModal from '../components/objectives/ObjectivesModal';
+import ProfitPeriodModal from '../components/dashboard/ProfitPeriodModal';
 import { combineActivities } from '../utils/activityUtils';
+import { getDeviceInfo } from '../utils/deviceDetection';
 
 const Dashboard = () => {
   const { t } = useTranslation();
@@ -57,6 +61,9 @@ const Dashboard = () => {
   const { stockChanges, loading: stockChangesLoading } = useStockChanges();
   const { entries: financeEntries, loading: financeLoading } = useFinanceEntries();
   const { auditLogs, loading: auditLogsLoading } = useAuditLogs();
+  
+  // 💰 PROFIT PERIOD: Load profit period preference
+  const { preference: profitPeriodPreference, setPeriod, clearPeriod } = useProfitPeriod();
   
   // 🎯 ESSENTIAL DATA: Only block UI for critical data (sales + products)
   const essentialDataLoading = salesLoading || productsLoading;
@@ -87,6 +94,11 @@ const Dashboard = () => {
   });
   const [showObjectivesModal, setShowObjectivesModal] = useState(false);
   const [applyDateFilter, setApplyDateFilter] = useState(true);
+  const [showProfitPeriodModal, setShowProfitPeriodModal] = useState(false);
+
+  // Détecter si on est en mode mobile ou PWA
+  const deviceInfo = getDeviceInfo();
+  const isMobileOrPWA = deviceInfo.isMobile || deviceInfo.isStandalone;
 
   // Get company colors with fallbacks - prioritize dashboard colors
   const getCompanyColors = () => {
@@ -126,7 +138,25 @@ const Dashboard = () => {
   });
 
   // Calculate financial metrics using extracted functions
-  const profit = calculateTotalProfit(filteredSales || [], products || [], stockChanges || []);
+  // 💰 PROFIT PERIOD: Calculate profit with dynamic date from periodType (Dashboard only)
+  const customDate = profitPeriodPreference?.periodStartDate 
+    ? new Date(profitPeriodPreference.periodStartDate.seconds * 1000)
+    : null;
+  
+  const actualStartDate = profitPeriodPreference?.periodType
+    ? getPeriodStartDate(profitPeriodPreference.periodType, customDate)
+    : null;
+  
+  const profit = calculateDashboardProfit(
+    filteredSales || [],
+    products || [],
+    (stockChanges || []) as StockChange[],
+    actualStartDate,
+    dateRange.from
+  );
+  
+  // Also calculate all-time profit for comparison (optional)
+  const allTimeProfit = calculateTotalProfit(filteredSales || [], products || [], (stockChanges || []) as StockChange[]);
 
   // 🔄 BACKGROUND DATA: Calculate expenses only when available
   // Note: Dashboard only uses expenses, not manual entries, so we pass an empty array for manual entries
@@ -150,7 +180,7 @@ const Dashboard = () => {
   };
   const totalPurchasePrice = products?.reduce((sum, product) => {
     const stockAtDate = getStockAtDate(product.id, dateRange.to);
-    const safeStockChanges = Array.isArray(stockChanges) ? stockChanges : [];
+    const safeStockChanges = Array.isArray(stockChanges) ? (stockChanges as StockChange[]) : [];
     const costPrice = getLatestCostPrice(product.id, safeStockChanges);
     if (costPrice === undefined) return sum;
     return sum + (costPrice * stockAtDate);
@@ -310,6 +340,32 @@ const Dashboard = () => {
     }
   };
 
+  const handleOpenCatalogue = async () => {
+    // Détecter si on est en mode PWA standalone
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
+      (window.navigator as any).standalone === true;
+    
+    // En mode PWA: utiliser le modal de partage natif
+    if (isStandalone && navigator.share) {
+      try {
+        await navigator.share({
+          title: `Catalogue - ${company?.name}`,
+          text: `Découvrez le catalogue de ${company?.name}`,
+          url: productPageUrl
+        });
+      } catch (err) {
+        // Si l'utilisateur annule (AbortError), ne rien faire
+        if ((err as Error).name !== 'AbortError') {
+          // Si erreur autre que annulation, fallback vers ouverture normale
+          window.open(productPageUrl, '_blank', 'noopener,noreferrer');
+        }
+      }
+    } else {
+      // En mode navigateur normal: ouvrir normalement
+      window.open(productPageUrl, '_blank', 'noopener,noreferrer');
+    }
+  };
+
   // 🚀 SHOW UI IMMEDIATELY: Only block for essential data
   if (essentialDataLoading) {
     return <LoadingScreen />;
@@ -348,7 +404,7 @@ const Dashboard = () => {
   );
 
   // 🎯 STAT CARDS: Show loading states for background data
-  const statCards: { title: string; value: string | number; icon: JSX.Element; type: 'products' | 'sales' | 'expenses' | 'profit' | 'orders' | 'delivery' | 'solde'; loading?: boolean; }[] = [
+  const statCards: { title: string; value: string | number; icon: JSX.Element; type: 'products' | 'sales' | 'expenses' | 'profit' | 'orders' | 'delivery' | 'solde'; loading?: boolean; periodLabel?: string; showPeriodIndicator?: boolean; onPeriodSettingsClick?: () => void; }[] = [
     { 
       title: t('dashboard.stats.solde'), 
       value: financeLoading ? '...' : `${solde.toLocaleString()} XAF`, 
@@ -361,7 +417,12 @@ const Dashboard = () => {
       value: stockChangesLoading ? '...' : `${profit.toLocaleString()} XAF`, 
       icon: <TrendingUp size={20} />, 
       type: 'profit',
-      loading: stockChangesLoading
+      loading: stockChangesLoading,
+      periodLabel: profitPeriodPreference?.periodType 
+        ? getPeriodShortLabel(profitPeriodPreference.periodType, customDate)
+        : 'All Time',
+      showPeriodIndicator: true,
+      onPeriodSettingsClick: () => setShowProfitPeriodModal(true)
     },
     { 
       title: t('dashboard.stats.expenses'), 
@@ -382,7 +443,7 @@ const Dashboard = () => {
   return (
     <div className="pb-16 md:pb-0">
       {/* Quick Actions Section - POS Button */}
-      {hasPOSAccess && companyId && (
+      {hasPOSAccess && companyId && !isMobileOrPWA && (
         <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
           <div className="flex items-center justify-between">
             <div>
@@ -441,16 +502,14 @@ const Dashboard = () => {
                   </div>
                 </div>
                 <div className="flex gap-2 sm:w-auto">
-                  <a
-                    href={productPageUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <button
+                    onClick={handleOpenCatalogue}
                     className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2"
                     style={{'--tw-ring-color': getCompanyColors().primary} as React.CSSProperties}
                   >
                     <ExternalLink className="h-4 w-4" />
                     {t('dashboard.publicProducts.open')}
-                  </a>
+                  </button>
                   <button
                     onClick={handleShareLink}
                     className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2"
@@ -530,6 +589,14 @@ const Dashboard = () => {
             <div className="flex gap-2">
               <Button
                 variant="outline"
+                icon={<FileBarChart size={16} />}
+                onClick={() => navigate(`/company/${companyId}/reports?period=today`)}
+                className="bg-white/20 border-white/30 text-white hover:bg-white/30 backdrop-blur-sm"
+              >
+                {t('dashboard.viewTodayReports')}
+              </Button>
+              <Button
+                variant="outline"
                 icon={<Info size={16} />}
                 onClick={() => setShowCalculationsModal(true)}
                 className="bg-white/20 border-white/30 text-white hover:bg-white/30 backdrop-blur-sm"
@@ -577,6 +644,17 @@ const Dashboard = () => {
           onAfterAdd={() => setApplyDateFilter(false)}
         />
       )}
+      {/* Profit Period Modal */}
+      {showProfitPeriodModal && (
+        <ProfitPeriodModal
+          isOpen={showProfitPeriodModal}
+          onClose={() => setShowProfitPeriodModal(false)}
+          currentPeriodType={profitPeriodPreference?.periodType}
+          currentCustomDate={customDate}
+          onSetPeriod={setPeriod}
+          onClearPeriod={clearPeriod}
+        />
+      )}
       {/* Stats section */}
       <div className="mb-6">
         <div className="mb-4">
@@ -595,6 +673,9 @@ const Dashboard = () => {
                 value={card.value}
                 icon={card.icon}
                 type={card.type}
+                periodLabel={card.periodLabel}
+                showPeriodIndicator={card.showPeriodIndicator}
+                onPeriodSettingsClick={card.onPeriodSettingsClick}
               />
             )
           ))}

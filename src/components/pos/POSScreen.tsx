@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { usePOS } from '../../hooks/usePOS';
 import { POSHeader } from './POSHeader';
 import { POSProductSearch } from './POSProductSearch';
@@ -44,6 +44,10 @@ export const POSScreen: React.FC = () => {
     handleCustomerSearch,
     updateState,
     completeSale,
+    saveDraft,
+    resumeDraft,
+    getDraftsList,
+    deleteDraftById,
     handleBarcodeScan,
     focusSearch,
     setAutoSaveCustomer,
@@ -65,8 +69,13 @@ export const POSScreen: React.FC = () => {
   };
 
   const handlePaymentComplete = async (paymentData: import('./POSPaymentModal').POSPaymentData) => {
-    setShowPaymentModal(false);
-    await completeSale(paymentData);
+    // Don't close modal - let it show loading and then preview
+    const sale = await completeSale(paymentData);
+    return sale; // Return sale for preview
+  };
+
+  const handleSaveDraft = async (paymentData: import('./POSPaymentModal').POSPaymentData) => {
+    await saveDraft(paymentData);
   };
 
   const companyName = company?.name || 'POS System';
@@ -83,16 +92,27 @@ export const POSScreen: React.FC = () => {
       <POSHeader companyName={companyName} />
 
       <div className="flex-1 flex overflow-hidden">
-        {/* Left Side - Recent Transactions (20%) */}
+        {/* Left Side - Recent Transactions (15%) */}
         <POSTransactionsSidebar
+          drafts={getDraftsList()}
           onTransactionClick={(sale: Sale) => {
             // Optional: Handle transaction click (e.g., show details modal)
             console.log('Transaction clicked:', sale);
           }}
+          onResumeDraft={(draft) => {
+            const paymentData = resumeDraft(draft);
+            // Open payment modal after resuming
+            if (paymentData) {
+              setShowPaymentModal(true);
+            }
+          }}
+          onDeleteDraft={(draftId) => {
+            return deleteDraftById(draftId);
+          }}
         />
 
-        {/* Middle - Cart (50%) */}
-        <div className="w-full lg:w-[50%] flex flex-col border-r border-gray-200">
+        {/* Middle - Cart (55%) */}
+        <div className="w-full lg:w-[55%] flex flex-col border-r border-gray-200">
           <div className="p-4 border-b bg-white">
             <POSCustomerQuickAdd
               customer={customer}
@@ -150,12 +170,17 @@ export const POSScreen: React.FC = () => {
       {/* Payment Modal */}
       <POSPaymentModal
         isOpen={showPaymentModal}
-        onClose={() => setShowPaymentModal(false)}
+        onClose={() => {
+          setShowPaymentModal(false);
+          // Clear cart after successful sale (when modal closes from preview)
+          // The cart will be cleared by usePOS when sale is completed
+        }}
         subtotal={cartTotals.subtotal}
         currentDeliveryFee={deliveryFee}
         cart={cart}
         currentCustomer={customer}
         onComplete={handlePaymentComplete}
+        onSaveDraft={handleSaveDraft}
         isSubmitting={isSubmitting}
       />
     </div>

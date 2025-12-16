@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ShoppingBag, X, Plus, Minus } from 'lucide-react';
+import { ShoppingBag, X, Plus, Minus, CheckCircle2 } from 'lucide-react';
 import { useCart } from '../../contexts/CartContext';
 import { useAuth } from '../../contexts/AuthContext';
+import toast from 'react-hot-toast';
 
 const placeholderImg = '/placeholder.png';
 
@@ -16,6 +17,7 @@ const FloatingCartButton: React.FC<FloatingCartButtonProps> = ({ className = '' 
   const { cart, updateCartItem, getCartItemCount, getCartTotal } = useCart();
   const { company } = useAuth();
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [showAddedAnimation, setShowAddedAnimation] = useState(false);
 
   // Get company colors with fallbacks
   const getCompanyColors = () => {
@@ -32,21 +34,71 @@ const FloatingCartButton: React.FC<FloatingCartButtonProps> = ({ className = '' 
     updateCartItem(productId, quantity, selectedColor, selectedSize);
   };
 
+  // Listen for cart item added events
+  useEffect(() => {
+    const handleCartItemAdded = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      const { product, quantity, isUpdate } = customEvent.detail;
+      
+      // Show success animation on the button
+      setShowAddedAnimation(true);
+      setTimeout(() => setShowAddedAnimation(false), 1000);
+      
+      // Show toast notification
+      const message = isUpdate 
+        ? `${product.name} mis à jour dans le panier` 
+        : `${product.name} ajouté au panier`;
+      
+      toast.success(message, {
+        duration: 2000,
+        icon: '🛒',
+        style: {
+          background: getCompanyColors().primary,
+          color: '#fff',
+        },
+      });
+      
+      // Auto-open cart drawer on mobile and tablet (always for better UX)
+      setIsCartOpen(true);
+      
+      // Optional: Auto-close after 5 seconds on mobile to not block the view
+      // User can still scroll through cart or close it manually
+      // Commented out to let user control when to close
+      // setTimeout(() => {
+      //   if (window.innerWidth < 768) {
+      //     setIsCartOpen(false);
+      //   }
+      // }, 5000);
+    };
+
+    window.addEventListener('cart:itemAdded', handleCartItemAdded);
+    return () => window.removeEventListener('cart:itemAdded', handleCartItemAdded);
+  }, [company]);
+
   return (
     <>
       {/* Floating Cart Button */}
       <div className={`fixed bottom-20 right-4 z-40 ${className}`}>
         <button
           onClick={() => setIsCartOpen(true)}
-          className="relative text-white p-4 rounded-full shadow-lg transition-all duration-200 hover:scale-105"
+          className={`relative text-white p-4 rounded-full shadow-lg transition-all duration-200 hover:scale-105 ${
+            showAddedAnimation ? 'animate-bounce scale-110' : ''
+          }`}
           style={{backgroundColor: getCompanyColors().secondary}}
           onMouseEnter={(e) => (e.target as HTMLButtonElement).style.backgroundColor = getCompanyColors().primary}
           onMouseLeave={(e) => (e.target as HTMLButtonElement).style.backgroundColor = getCompanyColors().secondary}
         >
           <ShoppingBag className="h-6 w-6" />
           {getCartItemCount() > 0 && (
-            <div className="absolute -top-2 -right-2 bg-theme-brown text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-semibold">
+            <div className={`absolute -top-2 -right-2 bg-theme-brown text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-semibold ${
+              showAddedAnimation ? 'animate-pulse' : ''
+            }`}>
               {getCartItemCount()}
+            </div>
+          )}
+          {showAddedAnimation && (
+            <div className="absolute -top-1 -right-1">
+              <CheckCircle2 className="h-5 w-5 text-green-500 bg-white rounded-full" />
             </div>
           )}
         </button>
@@ -54,12 +106,18 @@ const FloatingCartButton: React.FC<FloatingCartButtonProps> = ({ className = '' 
 
       {/* Cart Modal */}
       {isCartOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-end">
-          <div className="bg-white w-full max-h-[90vh] rounded-t-lg flex flex-col">
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-end animate-fadeIn"
+          onClick={() => setIsCartOpen(false)}
+        >
+          <div 
+            className="bg-white w-full max-h-[90vh] rounded-t-lg flex flex-col animate-slideUp"
+            onClick={(e) => e.stopPropagation()}
+          >
             {/* Cart Header */}
             <div className="flex items-center justify-between p-4 border-b border-gray-200 flex-shrink-0">
               <h3 className="text-lg font-semibold" style={{color: getCompanyColors().primary}}>
-                Cart ({getCartItemCount()})
+                Panier ({getCartItemCount()})
               </h3>
               <button
                 onClick={() => setIsCartOpen(false)}
@@ -77,8 +135,8 @@ const FloatingCartButton: React.FC<FloatingCartButtonProps> = ({ className = '' 
               {cart.length === 0 ? (
                 <div className="text-center py-12">
                   <ShoppingBag className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                  <p className="text-gray-500 text-lg">Your cart is empty</p>
-                  <p className="text-gray-400 text-sm mt-2">Add some products to get started</p>
+                  <p className="text-gray-500 text-lg">Votre panier est vide</p>
+                  <p className="text-gray-400 text-sm mt-2">Ajoutez des produits pour commencer</p>
                 </div>
               ) : (
                 <div className="p-4 space-y-4 pb-4">
@@ -142,7 +200,7 @@ const FloatingCartButton: React.FC<FloatingCartButtonProps> = ({ className = '' 
             {cart.length > 0 && (
               <div className="border-t border-gray-200 p-4 flex-shrink-0">
                 <div className="flex justify-between items-center mb-4">
-                  <span className="font-semibold" style={{color: getCompanyColors().primary}}>Total:</span>
+                  <span className="font-semibold" style={{color: getCompanyColors().primary}}>Total :</span>
                   <span className="font-bold text-lg" style={{color: getCompanyColors().secondary}}>
                     {getCartTotal().toLocaleString('fr-FR', {
                       style: 'currency',
@@ -160,7 +218,7 @@ const FloatingCartButton: React.FC<FloatingCartButtonProps> = ({ className = '' 
                   onMouseEnter={(e) => (e.target as HTMLButtonElement).style.backgroundColor = getCompanyColors().secondary}
                   onMouseLeave={(e) => (e.target as HTMLButtonElement).style.backgroundColor = getCompanyColors().primary}
                 >
-                  Checkout Now
+                  Passer la commande
                 </button>
               </div>
             )}

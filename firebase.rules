@@ -210,6 +210,15 @@ service cloud.firestore {
         allow create: if isValidEmployee();
         allow update: if isValidEmployee();
       }
+      
+      // Profit Period Preference subcollection
+      match /profitPeriodPreference/{prefId} {
+        allow read: if isAuthenticated() && isMemberOfCompany(companyId);
+        allow write: if isAuthenticated() && 
+          isMemberOfCompany(companyId) &&
+          request.resource.data.companyId == companyId &&
+          request.resource.data.updatedBy == request.auth.uid;
+      }
     }
 
     // Audit Logs

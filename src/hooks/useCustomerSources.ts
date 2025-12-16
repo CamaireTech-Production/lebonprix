@@ -86,9 +86,3 @@ export const useCustomerSources = (): UseCustomerSourcesReturn => {
     activeSources
   };
 };
-
-
-
-
-
-

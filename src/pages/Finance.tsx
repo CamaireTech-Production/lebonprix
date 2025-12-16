@@ -101,6 +101,20 @@ const Finance: React.FC = () => {
   const [openDebtId, setOpenDebtId] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
+  // Listen for external refresh triggers (e.g., after sale creation) to refetch finance entries immediately
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handler = () => {
+      try {
+        refresh();
+      } catch (err) {
+        devLog('finance:refresh handler error', err);
+      }
+    };
+    window.addEventListener('finance:refresh', handler);
+    return () => window.removeEventListener('finance:refresh', handler);
+  }, [refresh]);
+
   // Pagination, sorting, and filtering state
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
@@ -210,26 +224,11 @@ const Finance: React.FC = () => {
 
   // Calculate solde using extracted function
   const solde = useMemo<number>(() => {
-    const nonDebtEntries = filteredFinanceEntries.filter(
-      (entry: FinanceEntry) => entry.type !== 'debt' && entry.type !== 'refund' && entry.type !== 'supplier_debt' && entry.type !== 'supplier_refund'
+    return calculateSolde(
+      filteredFinanceEntries,
+      userDebt.debtEntries,
+      userDebt.refundEntries
     );
-    const nonDebtSum = nonDebtEntries.reduce((sum: number, entry: FinanceEntry) => sum + entry.amount, 0);
-    
-    // Calculate only customer debt (excluding supplier debt)
-    const customerDebt = userDebt.debtEntries
-      .filter(debt => debt.type === 'debt') // Only customer debts, not supplier debts
-      .reduce((sum: number, debt: FinanceEntry) => {
-        const linkedRefunds = userDebt.refundEntries.filter(
-          (refund: FinanceEntry) => {
-            const match = refund.refundedDebtId && String(refund.refundedDebtId) === String(debt.id);
-            return match;
-          }
-        );
-        const refundedAmount = linkedRefunds.reduce((s: number, r: FinanceEntry) => s + r.amount, 0);
-        return sum + Math.max(0, debt.amount - refundedAmount);
-      }, 0);
-    
-    return nonDebtSum + customerDebt;
   }, [filteredFinanceEntries, userDebt.debtEntries, userDebt.refundEntries]);
 
   // Filtering logic

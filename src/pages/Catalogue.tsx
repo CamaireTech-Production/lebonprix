@@ -373,7 +373,7 @@ const Catalogue = () => {
             <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-theme-brown" />
             <input
                 type="text"
-              placeholder="Search products..."
+              placeholder="Rechercher des produits..."
                 value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-12 pr-4 py-4 bg-white rounded-xl border-0 focus:outline-none text-gray-900 placeholder-gray-500 text-lg shadow-lg"
@@ -398,8 +398,8 @@ const Catalogue = () => {
                 style={selectedCategories.length === 0 ? {backgroundColor: getCompanyColors().primary} : {}}
               >
                 {selectedCategories.length === 0 
-                  ? `All (${products.length})` 
-                  : `Clear (${selectedCategories.length} selected)`
+                  ? `Tous (${products.length})` 
+                  : `Effacer (${selectedCategories.length} sélectionné${selectedCategories.length > 1 ? 's' : ''})`
                 }
               </button>
               
@@ -444,9 +444,9 @@ const Catalogue = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* New Arrival Section */}
         <div className="flex items-center justify-between mb-8">
-          <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">Products</h2>
+          <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">Produits</h2>
           <button className="text-sm sm:text-base font-medium transition-colors" style={{color: getCompanyColors().primary}} onMouseEnter={(e) => (e.target as HTMLButtonElement).style.color = getCompanyColors().tertiary} onMouseLeave={(e) => (e.target as HTMLButtonElement).style.color = getCompanyColors().primary}>
-            See all →
+            Voir tout →
                 </button>
         </div>
 
@@ -454,9 +454,9 @@ const Catalogue = () => {
       {filteredProducts.length === 0 ? (
           <div className="text-center py-16">
             <Package className="mx-auto h-16 w-16 text-gray-400" />
-            <h3 className="mt-4 text-lg font-medium text-gray-900">No products found</h3>
+            <h3 className="mt-4 text-lg font-medium text-gray-900">Aucun produit trouvé</h3>
             <p className="mt-2 text-gray-500">
-              Try adjusting your search or filters
+              Essayez d'ajuster votre recherche ou vos filtres
           </p>
         </div>
         ) : (

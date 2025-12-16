@@ -57,7 +57,7 @@ const ModeSelection: React.FC = () => {
         {/* Header */}
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            Bienvenue sur Le Bon Prix
+            Bienvenue sur Geskap
           </h1>
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
             Choisissez comment vous souhaitez continuer. Vous pourrez toujours changer de mode plus tard.

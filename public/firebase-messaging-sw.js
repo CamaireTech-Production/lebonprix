@@ -91,3 +91,13 @@ self.addEventListener('push', (event) => {
     );
   }
 });
+
+// Handle messages from the app (for update handling)
+self.addEventListener('message', (event) => {
+  console.log('[firebase-messaging-sw.js] Message received:', event.data);
+  
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    console.log('[firebase-messaging-sw.js] SKIP_WAITING received, activating new service worker');
+    self.skipWaiting();
+  }
+});

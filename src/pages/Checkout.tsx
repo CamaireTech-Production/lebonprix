@@ -12,6 +12,7 @@ import { ArrowLeft, MapPin, Phone, User, MessageSquare, CreditCard, Truck, Check
 import Button from '../components/common/Button';
 import { ImageWithSkeleton } from '../components/common/ImageWithSkeleton';
 import toast from 'react-hot-toast';
+import { formatPhoneForWhatsApp } from '../utils/phoneUtils';
 
 const Checkout = () => {
   const { companyId } = useParams<{ companyId: string }>();
@@ -297,7 +298,7 @@ const Checkout = () => {
 
   // Create WhatsApp URL
   const createWhatsAppUrl = (phone: string, message: string): string => {
-    const formattedPhone = phone.replace(/[^\d]/g, '');
+    const formattedPhone = formatPhoneForWhatsApp(phone);
     const encodedMessage = encodeURIComponent(message);
     return `https://wa.me/${formattedPhone}?text=${encodedMessage}`;
   };

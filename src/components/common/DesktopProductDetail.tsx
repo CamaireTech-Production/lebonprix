@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useCart } from '../../contexts/CartContext';
-import { getCompanyByUserId, subscribeToProducts } from '../../services/firestore';
+import { getCompanyByUserId, subscribeToProducts, getSellerSettings } from '../../services/firestore';
 import type { Company, Product } from '../../types/models';
+import type { SellerSettings } from '../../types/order';
 import { ArrowLeft, Plus, Minus, MessageCircle, ShoppingCart, ChevronLeft, ChevronRight } from 'lucide-react';
 import { ImageWithSkeleton } from './ImageWithSkeleton';
+import { formatPhoneForWhatsApp } from '../../utils/phoneUtils';
 
 const placeholderImg = '/placeholder.png';
 
@@ -27,6 +29,7 @@ const DesktopProductDetail: React.FC<DesktopProductDetailProps> = ({
   // Use passed data immediately
   const [company, setCompany] = useState<Company | null>(initialCompany);
   const [product, setProduct] = useState<Product | null>(initialProduct);
+  const [sellerSettings, setSellerSettings] = useState<SellerSettings | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -42,14 +45,15 @@ const DesktopProductDetail: React.FC<DesktopProductDetailProps> = ({
 
     const fetchFreshData = async () => {
       try {
-        const [companyData, productsData] = await Promise.all([
+        const [companyData, productsData, settingsData] = await Promise.all([
           getCompanyByUserId(companyId),
           new Promise<Product[]>((resolve) => {
             const unsubscribe = subscribeToProducts(companyId, (products) => {
               unsubscribe(); // Unsubscribe immediately after getting data
               resolve(products);
             });
-          })
+          }),
+          getSellerSettings(companyId)
         ]);
 
         const foundProduct = productsData.find(p => p.id === product?.id);
@@ -57,6 +61,11 @@ const DesktopProductDetail: React.FC<DesktopProductDetailProps> = ({
           // Only update if there are actual changes
           setProduct(prev => prev?.id === foundProduct.id ? foundProduct : prev);
           setCompany(companyData);
+        }
+        
+        // Load seller settings for WhatsApp number
+        if (settingsData) {
+          setSellerSettings(settingsData);
         }
       } catch (err) {
         console.error('Error fetching fresh data:', err);
@@ -107,30 +116,31 @@ const DesktopProductDetail: React.FC<DesktopProductDetailProps> = ({
     const selectedColor = selectedVariations['Color'] || '';
     const selectedSize = selectedVariations['Size'] || '';
     const variations = Object.entries(selectedVariations)
+      .filter(([key, value]) => value) // Only include selected variations
       .map(([key, value]) => `${key}: ${value}`)
       .join(', ');
     
-    const message = `Hello! I would like to order:
+    const message = `Bonjour! Je voudrais commander:
 
 *${product.name}*
-${variations ? `Variations: ${variations}` : ''}
-Quantity: ${quantity}
-Price: ${(product.cataloguePrice || product.sellingPrice).toLocaleString('fr-FR', {
+${variations ? `Options: ${variations}` : ''}
+Quantité: ${quantity}
+Prix unitaire: ${(product.cataloguePrice || product.sellingPrice).toLocaleString('fr-FR', {
+  style: 'currency',
+  currency: 'XAF'
+})}
+Total: ${((product.cataloguePrice || product.sellingPrice) * quantity).toLocaleString('fr-FR', {
   style: 'currency',
   currency: 'XAF'
 })}
 
-Please confirm availability and provide delivery details.`;
+Veuillez confirmer la disponibilité et fournir les détails de livraison.`;
 
-    // Clean phone number - remove all non-digits and ensure it starts with country code
-    let cleanPhone = company.phone.replace(/\D/g, '');
+    // Use seller settings WhatsApp number first, fallback to company phone
+    const whatsappNumber = sellerSettings?.whatsappNumber || company.phone;
     
-    // If phone doesn't start with country code, assume it's Cameroon (+237)
-    if (!cleanPhone.startsWith('237') && !cleanPhone.startsWith('+237')) {
-      // Remove leading zeros and add Cameroon country code
-      cleanPhone = cleanPhone.replace(/^0+/, '');
-      cleanPhone = '237' + cleanPhone;
-    }
+    // Use centralized WhatsApp formatting function
+    const cleanPhone = formatPhoneForWhatsApp(whatsappNumber);
 
     const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, '_blank');
@@ -344,7 +354,7 @@ Please confirm availability and provide delivery details.`;
                 className="w-full bg-[#183524] text-white py-4 rounded-xl font-semibold text-lg hover:bg-[#0f2418] transition-colors flex items-center justify-center space-x-2"
               >
                 <ShoppingCart className="h-5 w-5" />
-                <span>Add to Cart</span>
+                <span>Ajouter au panier</span>
               </button>
               
               <button
@@ -352,7 +362,7 @@ Please confirm availability and provide delivery details.`;
                 className="w-full bg-[#25D366] text-white py-4 rounded-xl font-semibold text-lg hover:bg-[#1da851] transition-colors flex items-center justify-center space-x-2"
               >
                 <MessageCircle className="h-5 w-5" />
-                <span>Order via WhatsApp</span>
+                <span>Commander via WhatsApp</span>
               </button>
             </div>
 

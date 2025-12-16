@@ -7,6 +7,7 @@ import type { CustomerInfo, OrderData, SellerSettings, OrderPaymentMethod, Order
 import { X, ArrowLeft, ArrowRight, ShoppingBag, User, MapPin, Phone, MessageSquare, CreditCard, Truck, CheckCircle, Clock } from 'lucide-react';
 import PhoneInput from '../common/PhoneInput';
 import toast from 'react-hot-toast';
+import { formatPhoneForWhatsApp } from '../../utils/phoneUtils';
 
 interface CheckoutModalProps {
   isOpen: boolean;
@@ -364,7 +365,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, companyI
 
   // Create WhatsApp URL
   const createWhatsAppUrl = (phone: string, message: string): string => {
-    const formattedPhone = phone.replace(/[^\d]/g, '');
+    const formattedPhone = formatPhoneForWhatsApp(phone);
     const encodedMessage = encodeURIComponent(message);
     return `https://wa.me/${formattedPhone}?text=${encodedMessage}`;
   };

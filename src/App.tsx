@@ -1,5 +1,5 @@
 import { lazy, Suspense, useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { CartProvider } from './contexts/CartContext';
 import AuthLayout from './components/layout/AuthLayout';
@@ -11,6 +11,7 @@ import LazyPage from './components/common/LazyPage';
 import { Toaster } from 'react-hot-toast';
 import Finance from './pages/Finance';
 import { PWAErrorHandler } from './components/PWAErrorHandler';
+import { PWAUpdateNotification } from './components/PWAUpdateNotification';
 
 // Lazy load pages
 const Landing = lazy(() => import('./pages/Landing'));
@@ -28,6 +29,7 @@ const ExpensesCategories = lazy(() => import('./pages/expenses/ExpensesCategorie
 const ExpensesAnalytics = lazy(() => import('./pages/expenses/ExpensesAnalytics'));
 const ExpensesReports = lazy(() => import('./pages/expenses/ExpensesReports'));
 const Products = lazy(() => import('./pages/Products'));
+const Stocks = lazy(() => import('./pages/Stocks'));
 const Categories = lazy(() => import('./pages/Categories'));
 const Suppliers = lazy(() => import('./pages/Suppliers'));
 const Contacts = lazy(() => import('./pages/Contacts'));
@@ -78,6 +80,7 @@ function AppWithFAB({ isAddSaleModalOpen, setIsAddSaleModalOpen }: { isAddSaleMo
             },
           }}
         />
+        <PWAUpdateNotification />
         
         <Routes>
           {/* Landing Page */}
@@ -130,6 +133,7 @@ function AppWithFAB({ isAddSaleModalOpen, setIsAddSaleModalOpen }: { isAddSaleMo
               <Route path="expenses/reports" element={<LazyPage><ExpensesReports /></LazyPage>} />
               <Route path="finance" element={<RoleRoute requiredResource="finance"><Finance /></RoleRoute>} />
               <Route path="products" element={<LazyPage><Products /></LazyPage>} />
+              <Route path="products/stocks" element={<LazyPage><Stocks /></LazyPage>} />
               <Route path="categories" element={<LazyPage><Categories /></LazyPage>} />
               <Route path="suppliers" element={<LazyPage><Suppliers /></LazyPage>} />
               <Route path="contacts" element={<RoleRoute requiredResource="customers"><LazyPage><Contacts /></LazyPage></RoleRoute>} />

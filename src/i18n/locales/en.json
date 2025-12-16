@@ -34,7 +34,9 @@
     "used": "Used",
     "copy": "Copy",
     "confirm": "Confirm",
-    "close": "Close"
+    "close": "Close",
+    "phone": "Phone",
+    "email": "Email"
   },
   "auth": {
     "login": "Login",
@@ -82,6 +84,7 @@
     "title": "Dashboard",
     "welcome": "Welcome back! Here's what's happening with your business today.",
     "howCalculated": "How are these calculated?",
+    "viewTodayReports": "See today's reports",
     "quickActions": "Quick Actions",
     "quickActionsDescription": "Access frequently used features quickly",
     "stats": {
@@ -103,6 +106,22 @@
       "profit": "Profit",
       "expenses": "Expenses",
       "productsSold": "Products Sold"
+    },
+    "profit": {
+      "periodSettings": "Profit Period Settings",
+      "customDate": "Custom Date",
+      "thisMonth": "This Month",
+      "last30Days": "Last 30 Days",
+      "last2Months": "Last 2 Months",
+      "last3Months": "Last 3 Months",
+      "thisQuarter": "This Quarter",
+      "thisYear": "This Year",
+      "allTime": "All Time",
+      "since": "Since",
+      "setPeriod": "Set Period Start",
+      "clearPeriod": "Clear Period",
+      "save": "Save",
+      "cancel": "Cancel"
     },
     "tooltips": {
       "grossProfit": "Total revenue minus cost of goods sold",
@@ -606,7 +625,8 @@
       "viewAllHistory": "View All History",
       "clickToUpload": "Click to upload",
       "orDragAndDrop": "or drag and drop",
-      "hideFromCatalogue": "Hide from Catalogue"
+      "hideFromCatalogue": "Hide from Catalogue",
+      "showInCatalogue": "Show in Catalogue"
     },
     "form": {
       "name": "Product Name",
@@ -925,6 +945,8 @@
       "emailAddress": "Email Address",
       "reportMail": "Email for sales reports",
       "reportMailHelp": "Email address where sales reports will be sent",
+      "reportTime": "Report reception time",
+      "reportTimeHelp": "Hour when reports will be sent (0-23h)",
       "changePassword": "Change Password",
       "currentPassword": "Current Password",
       "currentPasswordHelp": "Required only if changing password",
@@ -942,6 +964,7 @@
     "messages": {
       "settingsUpdated": "Settings updated successfully",
       "updateFailed": "Failed to update settings",
+      "reportTimeDefault": "Report time not set, default value 8h used",
       "currentPasswordRequired": "Current password is required to change password",
       "passwordsDoNotMatch": "New passwords do not match",
       "passwordTooShort": "New password must be at least 6 characters"
@@ -1373,6 +1396,36 @@
       "deleting": "Deleting...",
       "deleteButton": "Delete Order"
     },
+    "quickActions": {
+      "menu": "Actions",
+      "markAsDelivered": "Mark as Delivered",
+      "markAsPaid": "Mark as Paid",
+      "markAsCancelled": "Mark as Cancelled",
+      "editStatus": "Edit Status",
+      "addNote": "Add Note",
+      "delete": "Delete",
+      "viewDetails": "View Details"
+    },
+    "confirmations": {
+      "markAsDelivered": {
+        "title": "Mark as Delivered",
+        "message": "Are you sure you want to mark order {{orderNumber}} as delivered?",
+        "confirm": "Yes, mark as delivered",
+        "cancel": "Cancel"
+      },
+      "markAsPaid": {
+        "title": "Mark as Paid",
+        "message": "Are you sure you want to mark order {{orderNumber}} as paid? The amount will be added to the cash register.",
+        "confirm": "Yes, mark as paid",
+        "cancel": "Cancel"
+      },
+      "markAsCancelled": {
+        "title": "Mark as Cancelled",
+        "message": "Are you sure you want to cancel order {{orderNumber}}?",
+        "confirm": "Yes, cancel",
+        "cancel": "Cancel"
+      }
+    },
     "messages": {
       "statusUpdated": "Order status updated successfully",
       "statusUpdateFailed": "Failed to update order status",
@@ -1380,7 +1433,12 @@
       "noteAddFailed": "Failed to add note",
       "orderDeleted": "Order deleted successfully",
       "orderDeleteFailed": "Failed to delete order",
-      "statsLoadFailed": "Failed to load order statistics"
+      "statsLoadFailed": "Failed to load order statistics",
+      "orderMarkedAsDelivered": "Order marked as delivered successfully",
+      "orderMarkedAsPaid": "Order marked as paid successfully. Amount added to cash register.",
+      "orderMarkedAsCancelled": "Order cancelled successfully",
+      "deliveredAtUpdated": "Delivery date updated",
+      "paymentStatusUpdateFailed": "Failed to update payment status"
     }
   },
   "invitations": {
@@ -1432,6 +1490,10 @@
       "card": "Card",
       "cardDescription": "Credit/Debit card",
       "amountReceived": "Amount Received",
+      "optional": "(Optional)",
+      "exactAmount": "Exact Amount",
+      "exactAmountHint": "Leave empty if exact amount",
+      "amountReceivedHint": "Leave empty if customer pays exact amount. Enter amount only if you need to give change.",
       "change": "Change",
       "completePayment": "Complete Payment",
       "cancel": "Cancel",
@@ -1453,6 +1515,8 @@
       "statusPaid": "Paid",
       "inventoryMethod": "Inventory Method",
       "additionalOptions": "Additional Options",
+      "additionalInfo": "Additional Information",
+      "calculator": "Calculator",
       "discountAmount": "Amount (XAF)",
       "discountPercentage": "Percentage (%)",
       "notes": "Notes",
@@ -1467,6 +1531,26 @@
       "transactionReference": "Transaction Reference",
       "transactionReferencePlaceholder": "Enter transaction reference number",
       "walkInCustomer": "Walk-in Customer",
+      "saveDraft": "Save Draft",
+      "draftSaved": "Draft saved successfully",
+      "draftSaveError": "Failed to save draft",
+      "printBill": "Print Bill",
+      "printing": "Printing...",
+      "printSuccess": "Bill printed successfully",
+      "printError": "Failed to print bill. Please try again.",
+      "processingPayment": "Processing Payment...",
+      "pleaseWait": "Please wait...",
+      "invoicePreview": "Invoice Preview",
+      "invoice": "Invoice",
+      "invoiceNumber": "Invoice Number",
+      "date": "Date",
+      "product": "Product",
+      "quantity": "Quantity",
+      "unitPrice": "Unit Price",
+      "total": "Total",
+      "close": "Close",
+      "paymentMethod": "Payment Method",
+      "paymentError": "Payment failed",
       "errors": {
         "selectMethod": "Please select a payment method",
         "insufficientAmount": "Amount received is insufficient",
@@ -1493,7 +1577,26 @@
       "hourAgo": "h ago",
       "walkIn": "Walk-in",
       "product": "product",
-      "products": "products"
+      "products": "products",
+      "drafts": "Drafts",
+      "draft": "Draft",
+      "resumeDraft": "Resume Draft",
+      "noDrafts": "No drafts",
+      "deleteDraft": "Delete draft",
+      "confirmDeleteDraft": "Are you sure you want to delete this draft?",
+      "draftDeleted": "Draft deleted successfully",
+      "draftDeleteError": "Failed to delete draft",
+      "deleteWarning": "This action cannot be undone.",
+      "customer": "Customer",
+      "total": "Total",
+      "products": "Products"
+    },
+    "calculator": {
+      "title": "Calculator",
+      "apply": "Apply to Amount",
+      "clear": "Clear",
+      "clearAll": "Clear All",
+      "history": "History"
     }
   }
 } 

@@ -19,6 +19,8 @@ import {
   deleteDoc
 } from 'firebase/firestore';
 import { db } from './firebase';
+import { logError, logWarning, devLog } from '../utils/logger';
+import { normalizePhoneNumber } from '../utils/phoneUtils';
 import type {
   Product,
   Sale,
@@ -599,8 +601,8 @@ export const getCategory = async (id: string, companyId: string): Promise<Catego
   const category = categorySnap.data() as Category;
   
   return {
-    id: categorySnap.id,
-    ...category
+    ...category,
+    id: categorySnap.id
   };
 };
 
@@ -859,19 +861,20 @@ export const updateProduct = async (
   // Get userId from product for audit
   const userId = currentProduct.userId || companyId;
   
+  // Prepare update fields object (will be applied in a single batch.update)
+  const updateFields: any = {};
+  let newStock: number | undefined;
+  
   // Handle stock changes
   if (stockChange !== undefined && stockReason) {
-    const newStock = currentProduct.stock + stockChange;
+    newStock = currentProduct.stock + stockChange;
     
     if (newStock < 0) {
       throw new Error('Stock cannot be negative');
     }
     
-    // Update product stock
-    batch.update(productRef, {
-      stock: newStock,
-    updatedAt: serverTimestamp()
-    });
+    // Add stock to update fields
+    updateFields.stock = newStock;
     
     // Handle stock batch creation for restock
     if (stockChange > 0 && stockReason === 'restock' && supplierInfo?.costPrice) {
@@ -931,27 +934,34 @@ export const updateProduct = async (
       }
     } else {
       // Create stock change without batch
-    createStockChange(
-      batch,
-      id,
-      stockChange,
-      stockReason,
-      userId,
-      companyId,
-      supplierInfo?.supplierId,
-      supplierInfo?.isOwnPurchase,
-      supplierInfo?.isCredit,
-      supplierInfo?.costPrice
-    );
-  }
+      createStockChange(
+        batch,
+        id,
+        stockChange,
+        stockReason,
+        userId,
+        companyId,
+        supplierInfo?.supplierId,
+        supplierInfo?.isOwnPurchase,
+        supplierInfo?.isCredit,
+        supplierInfo?.costPrice
+      );
+    }
   }
   
-  // Update other product data
+  // Merge other product data (excluding stock if it was already set above)
   if (Object.keys(data).length > 0) {
-    batch.update(productRef, {
-      ...data,
-      updatedAt: serverTimestamp()
-    });
+    // Filter out stock from data if it's being updated via stockChange parameter
+    const { stock: _, ...dataWithoutStock } = data;
+    Object.assign(updateFields, stockChange !== undefined ? dataWithoutStock : data);
+  }
+  
+  // Add updatedAt timestamp
+  updateFields.updatedAt = serverTimestamp();
+  
+  // Perform single consolidated batch update
+  if (Object.keys(updateFields).length > 0) {
+    batch.update(productRef, updateFields);
   }
   
   // Create audit log
@@ -1028,7 +1038,7 @@ export const softDeleteProduct = async (id: string, userId: string): Promise<voi
     // Update category product count
     if (currentProduct.category) {
       try {
-        await updateCategoryProductCount(currentProduct.category, companyId, false);
+        await updateCategoryProductCount(currentProduct.category, currentProduct.companyId, false);
       } catch (error) {
         logError('Error updating category product count after deletion', error);
         // Don't throw here as the product was deleted successfully
@@ -1166,13 +1176,26 @@ export const createSale = async (
   // Handle saleDate conversion to timestamp if provided
   let normalizedCreatedAt = serverTimestamp();
   if ((data as any).saleDate && typeof (data as any).saleDate === 'string') {
-    // saleDate is ISO string, convert to Timestamp
-    const saleDateObj = new Date((data as any).saleDate);
-    if (!isNaN(saleDateObj.getTime())) {
-      normalizedCreatedAt = Timestamp.fromDate(saleDateObj);
+    const saleDateStr = (data as any).saleDate;
+    
+    // Si saleDate est seulement une date (YYYY-MM-DD), ajouter l'heure actuelle
+    if (saleDateStr.length === 10 && saleDateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      // C'est seulement une date, ajouter l'heure actuelle pour avoir un timestamp unique
+      const now = new Date();
+      const saleDateWithTime = `${saleDateStr}T${now.toTimeString().slice(0, 8)}`;
+      const saleDateObj = new Date(saleDateWithTime);
+      if (!isNaN(saleDateObj.getTime())) {
+        normalizedCreatedAt = Timestamp.fromDate(saleDateObj);
+      }
+    } else {
+      // saleDate contient déjà l'heure (ISO string complète)
+      const saleDateObj = new Date(saleDateStr);
+      if (!isNaN(saleDateObj.getTime())) {
+        normalizedCreatedAt = Timestamp.fromDate(saleDateObj);
+      }
     }
-  } else if (data.createdAt) {
-    normalizedCreatedAt = data.createdAt as any;
+  } else if ((data as any).createdAt) {
+    normalizedCreatedAt = (data as any).createdAt as any;
   }
   
   // Create sale with enhanced data and defaults
@@ -1208,12 +1231,28 @@ export const createSale = async (
   
   await batch.commit();
   
-  return {
+  // Récupérer le document sauvegardé pour obtenir les vraies valeurs de createdAt/updatedAt
+  const savedSaleDoc = await getDoc(saleRef);
+  if (!savedSaleDoc.exists()) {
+    throw new Error('Failed to retrieve saved sale');
+  }
+  
+  const savedSaleData = savedSaleDoc.data();
+  const savedSale = {
     id: saleRef.id,
     ...saleData,
-    createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 },
-    updatedAt: { seconds: Date.now() / 1000, nanoseconds: 0 }
+    createdAt: savedSaleData.createdAt || { seconds: Math.floor(Date.now() / 1000), nanoseconds: 0 },
+    updatedAt: savedSaleData.updatedAt || { seconds: Math.floor(Date.now() / 1000), nanoseconds: 0 }
   };
+
+  // Synchronize finance entry automatically; do not fail sale creation on sync error
+  try {
+    await syncFinanceEntryWithSale(savedSale as Sale);
+  } catch (syncError) {
+    logError('Error syncing finance entry with sale', syncError);
+  }
+
+  return savedSale;
   } catch (error) {
     logError('Error creating sale', error);
     throw error;
@@ -1673,18 +1712,19 @@ export const updateSaleDocument = async (
 // HOOKS AND UTILITIES
 // ============================================================================
 
+// NOTE: This hook is deprecated - use the one from hooks/useFirestore.ts instead
+// Keeping for backward compatibility but it requires companyId which is not available here
 export const useSales = () => {
   const [sales, setSales] = useState<Sale[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const unsubscribe = subscribeToSales((data) => {
-      setSales(data);
-      setLoading(false);
-    });
-
-    return unsubscribe;
+    // This hook cannot work without companyId - it's legacy code
+    // The proper hook is in hooks/useFirestore.ts
+    console.warn('useSales from firestore.ts is deprecated. Use the one from hooks/useFirestore.ts');
+    // eslint-disable-next-line @typescript-eslint/no-empty-function
+    return () => {};
   }, []);
 
   const addSale = async (data: Omit<Sale, 'id' | 'createdAt' | 'updatedAt'>): Promise<Sale> => {
@@ -1845,7 +1885,7 @@ export const deleteSale = async (saleId: string, userId: string): Promise<void> 
     throw new Error('Unauthorized to delete this sale');
   }
 
-  // Restore product stock
+  // Restore product stock AND batches
   for (const product of sale.products) {
     const productRef = doc(db, 'products', product.productId);
     const productSnap = await getDoc(productRef);
@@ -1865,6 +1905,44 @@ export const deleteSale = async (saleId: string, userId: string): Promise<void> 
       stock: productData.stock + product.quantity,
       updatedAt: serverTimestamp()
     });
+
+    // Restore batches if consumedBatches or batchLevelProfits exist
+    // This ensures stock and batches remain in sync
+    if (product.consumedBatches && product.consumedBatches.length > 0) {
+      for (const consumedBatch of product.consumedBatches) {
+        const batchRef = doc(db, 'stockBatches', consumedBatch.batchId);
+        const batchSnap = await getDoc(batchRef);
+        
+        if (batchSnap.exists()) {
+          const batchData = batchSnap.data() as StockBatch;
+          // Restore the consumed quantity to the batch
+          const restoredQuantity = batchData.remainingQuantity + consumedBatch.consumedQuantity;
+          
+          batch.update(batchRef, {
+            remainingQuantity: restoredQuantity,
+            status: restoredQuantity > 0 ? 'active' : 'depleted',
+            updatedAt: serverTimestamp()
+          });
+        }
+      }
+    } else if (product.batchLevelProfits && product.batchLevelProfits.length > 0) {
+      // Fallback: use batchLevelProfits if consumedBatches is not available
+      for (const batchProfit of product.batchLevelProfits) {
+        const batchRef = doc(db, 'stockBatches', batchProfit.batchId);
+        const batchSnap = await getDoc(batchRef);
+        
+        if (batchSnap.exists()) {
+          const batchData = batchSnap.data() as StockBatch;
+          const restoredQuantity = batchData.remainingQuantity + batchProfit.consumedQuantity;
+          
+          batch.update(batchRef, {
+            remainingQuantity: restoredQuantity,
+            status: restoredQuantity > 0 ? 'active' : 'depleted',
+            updatedAt: serverTimestamp()
+          });
+        }
+      }
+    }
   }
 
   // Soft delete the sale (set isAvailable: false)
@@ -1917,8 +1995,9 @@ export const addCustomer = async (customerData: Omit<Customer, 'id'>): Promise<C
     
     // Filtrer tous les champs undefined pour éviter l'erreur Firestore
     // Firestore ne supporte pas les valeurs undefined
+    // Normalize phone number before saving
     const dataToSave: any = {
-      phone: dataWithoutCreatedAt.phone,
+      phone: dataWithoutCreatedAt.phone ? normalizePhoneNumber(dataWithoutCreatedAt.phone) : '',
       name: dataWithoutCreatedAt.name,
       userId: dataWithoutCreatedAt.userId,
       companyId: dataWithoutCreatedAt.companyId,
@@ -2706,7 +2785,8 @@ export const correctBatchCostPrice = async (
   // Update the batch cost price
   batch.update(batchRef, {
     costPrice: newCostPrice,
-    status: 'corrected'
+    status: 'corrected',
+    updatedAt: serverTimestamp()
   });
   
   // Create a stock change record for the correction
@@ -2716,6 +2796,7 @@ export const correctBatchCostPrice = async (
     0, // No stock change
     'cost_correction',
     userId,
+    batchData.companyId, // Fix: Add companyId as 6th parameter
     batchData.supplierId,
     batchData.isOwnPurchase,
     batchData.isCredit,
@@ -2836,6 +2917,7 @@ export const restockProduct = async (
     quantity,
     'restock',
     userId,
+    currentProduct.companyId, // Fix: Add companyId as 6th parameter
     supplierId,
     isOwnPurchase,
     isCredit,
@@ -2850,6 +2932,7 @@ export const restockProduct = async (
     const debtData = {
       id: debtRef.id,
       userId,
+      companyId: currentProduct.companyId, // Fix: Add companyId to debt record
       sourceType: 'supplier',
       sourceId: supplierId,
       type: 'supplier_debt',
@@ -2898,10 +2981,10 @@ export const adjustStockManually = async (
     throw new Error('Batch remaining quantity cannot be negative');
   }
   
-  const batchUpdates: Partial<StockBatch> = {
+  const batchUpdates: any = {
     remainingQuantity: newRemainingQuantity,
     status: newRemainingQuantity === 0 ? 'depleted' : 'active',
-    updatedAt: { seconds: Date.now() / 1000, nanoseconds: 0 }
+    updatedAt: serverTimestamp() // Firestore will convert this to Timestamp
   };
   
   if (newCostPrice !== undefined) {
@@ -2938,6 +3021,7 @@ export const adjustStockManually = async (
     quantityChange,
     'manual_adjustment',
     userId,
+    batchData.companyId, // Fix: Add companyId as 6th parameter
     batchData.supplierId,
     batchData.isOwnPurchase,
     batchData.isCredit,
@@ -2954,6 +3038,7 @@ export const adjustStockManually = async (
       const debtData = {
         id: debtRef.id,
         userId,
+        companyId: currentProduct.companyId, // Fix: Add companyId to debt record
         sourceType: 'supplier',
         sourceId: batchData.supplierId,
         type: debtChange > 0 ? 'supplier_debt' : 'supplier_refund',
@@ -3033,6 +3118,7 @@ export const adjustStockForDamage = async (
     -damagedQuantity,
     'damage',
     userId,
+    batchData.companyId, // Fix: Add companyId as 6th parameter
     batchData.supplierId,
     batchData.isOwnPurchase,
     batchData.isCredit,
@@ -3166,7 +3252,7 @@ export const createUserTag = async (
   
   // Create user tag
   const tagRef = doc(collection(db, 'userTags'));
-  const tagData = {
+  const tagData: any = {
     ...data,
     userId,
     createdAt: serverTimestamp(),
@@ -3179,12 +3265,12 @@ export const createUserTag = async (
   
   await batch.commit();
   
+  // Return ProductTag without userId and timestamps (they're stored in DB but not in type)
   return {
     id: tagRef.id,
-    ...tagData,
-    createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 },
-    updatedAt: { seconds: Date.now() / 1000, nanoseconds: 0 }
-  };
+    name: data.name,
+    variations: data.variations
+  } as ProductTag;
 };
 
 /**
@@ -3204,8 +3290,8 @@ export const updateUserTag = async (
     throw new Error('Tag not found');
   }
   
-  const tag = tagSnap.data() as ProductTag;
-  if (tag.userId !== userId) {
+  const tagData = tagSnap.data() as ProductTag & { userId?: string };
+  if (tagData.userId && tagData.userId !== userId) {
     throw new Error('Unauthorized to update this tag');
   }
   
@@ -3234,8 +3320,8 @@ export const deleteUserTag = async (tagId: string, userId: string): Promise<void
     throw new Error('Tag not found');
   }
   
-  const tag = tagSnap.data() as ProductTag;
-  if (tag.userId !== userId) {
+  const tagData = tagSnap.data() as ProductTag & { userId?: string };
+  if (tagData.userId && tagData.userId !== userId) {
     throw new Error('Unauthorized to delete this tag');
   }
   
@@ -3243,7 +3329,7 @@ export const deleteUserTag = async (tagId: string, userId: string): Promise<void
   batch.delete(tagRef);
   
   // Create audit log
-  createAuditLog(batch, 'delete', 'product', tagId, tag, userId);
+  createAuditLog(batch, 'delete', 'product', tagId, tagData, userId);
   
   await batch.commit();
 };

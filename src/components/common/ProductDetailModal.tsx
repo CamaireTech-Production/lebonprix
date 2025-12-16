@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useCart } from '../../contexts/CartContext';
-import { getCompanyByUserId, subscribeToProducts } from '../../services/firestore';
+import { getCompanyByUserId, subscribeToProducts, getSellerSettings } from '../../services/firestore';
 import type { Company, Product} from '../../types/models';
-import { X, Share2, Heart, Star, Plus, Minus, ChevronRight } from 'lucide-react';
+import type { SellerSettings } from '../../types/order';
+import { X, Share2, Heart, Star, Plus, Minus, ChevronRight, MessageCircle } from 'lucide-react';
 import FloatingCartButton from './FloatingCartButton';
 import { ImageWithSkeleton } from './ImageWithSkeleton';
 import DesktopProductDetail from './DesktopProductDetail';
+import { formatPhoneForWhatsApp } from '../../utils/phoneUtils';
 
 const placeholderImg = '/placeholder.png';
 
@@ -41,6 +43,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   // Use passed data immediately
   const [company, setCompany] = useState<Company | null>(initialCompany);
   const [product, setProduct] = useState<Product | null>(initialProduct);
+  const [sellerSettings, setSellerSettings] = useState<SellerSettings | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -77,14 +80,15 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
     const fetchFreshData = async () => {
       try {
-        const [companyData, productsData] = await Promise.all([
+        const [companyData, productsData, settingsData] = await Promise.all([
           getCompanyByUserId(companyId),
           new Promise<Product[]>((resolve) => {
             const unsubscribe = subscribeToProducts(companyId, (products) => {
               unsubscribe(); // Unsubscribe immediately after getting data
               resolve(products);
             });
-          })
+          }),
+          getSellerSettings(companyId)
         ]);
 
         const foundProduct = productsData.find(p => p.id === product?.id);
@@ -92,6 +96,11 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
           // Only update if there are actual changes
           setProduct(prev => prev?.id === foundProduct.id ? foundProduct : prev);
           setCompany(companyData);
+        }
+        
+        // Load seller settings for WhatsApp number
+        if (settingsData) {
+          setSellerSettings(settingsData);
         }
       } catch (err) {
         console.error('Error fetching fresh data:', err);
@@ -122,6 +131,42 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     const selectedSize = selectedVariations['Size'] || '';
     addToCart(product, quantity, selectedColor, selectedSize);
     console.log('Added to cart:', product.name, 'Quantity:', quantity, 'Variations:', selectedVariations);
+  };
+
+  const handleWhatsAppOrder = () => {
+    if (!product || !company) return;
+    
+    const variations = Object.entries(selectedVariations)
+      .filter(([key, value]) => value) // Only include selected variations
+      .map(([key, value]) => `${key}: ${value}`)
+      .join(', ');
+    
+    const totalPrice = (product.cataloguePrice || product.sellingPrice) * quantity;
+    
+    const message = `Bonjour! Je voudrais commander:
+
+*${product.name}*
+${variations ? `Options: ${variations}` : ''}
+Quantité: ${quantity}
+Prix unitaire: ${(product.cataloguePrice || product.sellingPrice).toLocaleString('fr-FR', {
+  style: 'currency',
+  currency: 'XAF'
+})}
+Total: ${totalPrice.toLocaleString('fr-FR', {
+  style: 'currency',
+  currency: 'XAF'
+})}
+
+Veuillez confirmer la disponibilité et fournir les détails de livraison.`;
+
+    // Use seller settings WhatsApp number first, fallback to company phone
+    const whatsappNumber = sellerSettings?.whatsappNumber || company.phone;
+    
+    // Use centralized WhatsApp formatting function
+    const cleanPhone = formatPhoneForWhatsApp(whatsappNumber);
+
+    const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+    window.open(whatsappUrl, '_blank');
   };
 
   const updateQuantity = (newQuantity: number) => {
@@ -362,19 +407,27 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
         </div>
       </div>
 
-      {/* Sticky Add to Cart Button */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-6 py-4 z-20 pb-safe">
+      {/* Sticky Action Buttons */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-6 py-4 z-20 pb-safe space-y-3">
         <button
           onClick={handleAddToCart}
           className="w-full text-white py-4 rounded-xl font-semibold text-lg transition-colors shadow-lg" 
-          style={{backgroundColor: '#e2b069'}} 
-          onMouseEnter={(e) => (e.target as HTMLButtonElement).style.backgroundColor = '#d4a05a'} 
-          onMouseLeave={(e) => (e.target as HTMLButtonElement).style.backgroundColor = '#e2b069'}
+          style={{backgroundColor: '#183524'}} 
+          onMouseEnter={(e) => (e.target as HTMLButtonElement).style.backgroundColor = '#0f2418'} 
+          onMouseLeave={(e) => (e.target as HTMLButtonElement).style.backgroundColor = '#183524'}
         >
-          Add to Cart - {((product.cataloguePrice ?? 0) * quantity).toLocaleString('fr-FR', {
+          Ajouter au panier - {((product.cataloguePrice ?? 0) * quantity).toLocaleString('fr-FR', {
             style: 'currency',
             currency: 'XAF'
           })}
+        </button>
+        
+        <button
+          onClick={handleWhatsAppOrder}
+          className="w-full bg-[#25D366] text-white py-4 rounded-xl font-semibold text-lg hover:bg-[#1da851] transition-colors shadow-lg flex items-center justify-center space-x-2"
+        >
+          <MessageCircle className="h-5 w-5" />
+          <span>Commander via WhatsApp</span>
         </button>
       </div>
 

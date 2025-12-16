@@ -111,7 +111,7 @@ export interface SaleProduct {
 export interface Sale extends BaseModel {
   products: SaleProduct[];
   totalAmount: number;
-  status: 'commande' | 'under_delivery' | 'paid';
+  status: 'commande' | 'under_delivery' | 'paid' | 'draft';
   paymentStatus: 'pending' | 'paid' | 'cancelled';
   customerInfo: {
     name: string;
@@ -145,7 +145,7 @@ export interface DashboardStats extends BaseModel {
   cancelledOrders: number;
 }
 
-export type OrderStatus = 'commande' | 'under_delivery' | 'paid';
+export type OrderStatus = 'commande' | 'under_delivery' | 'paid' | 'draft';
 export type PaymentStatus = 'pending' | 'paid' | 'cancelled';
 
 export interface SaleDetails extends Sale {
@@ -189,6 +189,27 @@ export interface Objective extends BaseModel {
   endAt?: Timestamp;
   userId: string;
   isAvailable?: boolean;
+}
+
+export type ProfitPeriodType = 
+  | 'custom' 
+  | 'this_month' 
+  | 'last_30_days' 
+  | 'last_2_months' 
+  | 'last_3_months' 
+  | 'this_quarter' 
+  | 'this_year' 
+  | 'all_time';
+
+export interface ProfitPeriodPreference {
+  id: string;
+  companyId: string;
+  periodStartDate: Timestamp | null; // null for non-custom types, Date for custom
+  periodType: ProfitPeriodType; // Type of period
+  isActive: boolean;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+  updatedBy: string;
 }
 
 // Stock change event for product inventory tracking
@@ -247,8 +268,8 @@ export interface FinanceEntry {
   id: string;
   userId: string; // Legacy field - kept for audit trail
   companyId: string; // Reference to the company this finance entry belongs to
-  sourceType: 'sale' | 'expense' | 'manual' | 'supplier';
-  sourceId?: string; // saleId, expenseId, or supplierId if applicable
+  sourceType: 'sale' | 'expense' | 'manual' | 'supplier' | 'order';
+  sourceId?: string; // saleId, expenseId, orderId, or supplierId if applicable
   type: string; // e.g., "sale", "expense", "loan", "deposit", "supplier_debt", "supplier_refund", etc.
   amount: number;
   description?: string;
@@ -366,8 +387,10 @@ export interface Company extends BaseModel {
   location?: string;
   email: string;
   report_mail?: string; // Email pour les rapports de vente
+  report_time?: number; // Heure de réception des rapports (0-23)
   companyId: string; // ID du propriétaire de l'entreprise
   employees?: Record<string, CompanyEmployee>; // Mirroir de employeeRefs pour lecture rapide
   employeeCount?: number; // Nombre total d'employés
   // Nouvelle architecture: employeeRefs via sous-collection companies/{id}/employeeRefs/{firebaseUid}
 }
+

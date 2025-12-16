@@ -191,3 +191,40 @@ export const calculateTotalDebt = (
   }, 0);
 };
 
+/**
+ * Calculate dashboard profit with optional period start date
+ * 
+ * This function is used exclusively by the Dashboard to calculate profit
+ * starting from a specific period start date. It respects both the period
+ * start date and the user's selected date range filter.
+ * 
+ * @param sales - Array of sales (already filtered by date range)
+ * @param products - Array of products
+ * @param stockChanges - Array of stock changes
+ * @param periodStartDate - Optional start date for period calculation (null = all-time)
+ * @param dateRangeFrom - Start of user's selected date range
+ * @returns Total profit for the effective period
+ */
+export const calculateDashboardProfit = (
+  sales: Sale[],
+  products: Product[],
+  stockChanges: StockChange[],
+  periodStartDate: Date | null,
+  dateRangeFrom: Date
+): number => {
+  // Determine effective start date (latest of periodStartDate or dateRangeFrom)
+  const effectiveStartDate = periodStartDate 
+    ? new Date(Math.max(periodStartDate.getTime(), dateRangeFrom.getTime()))
+    : dateRangeFrom;
+  
+  // Filter sales by effective start date
+  const periodSales = sales.filter(sale => {
+    if (!sale.createdAt?.seconds) return false;
+    const saleDate = new Date(sale.createdAt.seconds * 1000);
+    return saleDate >= effectiveStartDate;
+  });
+  
+  // Use existing calculateTotalProfit function for consistency
+  return calculateTotalProfit(periodSales, products, stockChanges);
+};
+

@@ -75,7 +75,7 @@ export const sendInvitationEmail = async (emailData: InvitationEmailData): Promi
       role: emailData.role,
       invite_link: emailData.invite_link,
       expires_in_days: emailData.expires_in_days,
-      from_name: 'Le Bon Prix Team'
+      from_name: 'Geskap Team'
     };
 
     const response = await emailjs.send(
@@ -127,7 +127,7 @@ export const sendCompanyAccessNotification = async (emailData: InvitationEmailDa
       role: emailData.role,
       invite_link: emailData.invite_link,
       expires_in_days: emailData.expires_in_days,
-      from_name: 'Le Bon Prix Team',
+      from_name: 'Geskap Team',
       message_type: 'company_access'
     };
 
@@ -167,7 +167,7 @@ export const testEmailConfiguration = async (): Promise<EmailResult> => {
       role: 'staff',
       invite_link: 'https://example.com/invite/test',
       expires_in_days: 7,
-      from_name: 'Le Bon Prix Team'
+      from_name: 'Geskap Team'
     };
 
     const response = await emailjs.send(

@@ -1,6 +1,7 @@
 import { doc, setDoc, getDoc, updateDoc, arrayUnion, arrayRemove, Timestamp } from 'firebase/firestore';
 import { db } from './firebase';
 import { User, UserCompanyRef } from '../types/models';
+import { normalizePhoneNumber } from '../utils/phoneUtils';
 
 export interface UserData {
   firstname: string;
@@ -42,7 +43,8 @@ export const createUser = async (
       companies: [],
       status: 'active',
       // Ajouter seulement les champs non-undefined
-      ...(userData.phone && { phone: userData.phone }),
+      // Normalize phone number before saving
+      ...(userData.phone && { phone: normalizePhoneNumber(userData.phone) }),
       ...(userData.photoURL && { photoURL: userData.photoURL })
     };
 

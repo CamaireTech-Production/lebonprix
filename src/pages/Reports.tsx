@@ -1,6 +1,7 @@
-import { useMemo, useState, useEffect, useCallback } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { Calendar, FileDown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useSearchParams } from 'react-router-dom';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Input from '../components/common/Input';
@@ -41,6 +42,7 @@ ChartJS.register(
 
 const Reports = () => {
   const { t } = useTranslation();
+  const [searchParams] = useSearchParams();
   
   // Calculate default weekly range
   const getDefaultWeeklyRange = () => {
@@ -97,6 +99,18 @@ const Reports = () => {
   }, [products, t]);
 
   const toYMD = (d: Date) => d.toISOString().slice(0, 10);
+
+  // Handle query parameter for period=today
+  useEffect(() => {
+    const periodParam = searchParams.get('period');
+    if (periodParam === 'today') {
+      const today = new Date();
+      const todayStr = toYMD(today);
+      setStartDate(todayStr);
+      setEndDate(todayStr);
+      setPeriod('today');
+    }
+  }, [searchParams]);
 
   // Period helpers
   const startOfWeek = useCallback((d: Date) => {
@@ -610,12 +624,12 @@ const Reports = () => {
       },
       growthRate: {
         value: growthRate,
-        status: growthRate > 0 ? 'good' : growthRate === 0 ? 'warning' : 'bad',
+        status: (growthRate > 0 ? 'good' : growthRate === 0 ? 'warning' : 'bad') as 'good' | 'warning' | 'bad',
         trend: undefined
       },
       roi: {
         value: roi,
-        status: roi > 20 ? 'good' : roi >= 10 ? 'warning' : 'bad',
+        status: (roi > 20 ? 'good' : roi >= 10 ? 'warning' : 'bad') as 'good' | 'warning' | 'bad',
         trend: previousPeriodData.totalCostOfGoodsSold > 0 ? {
           value: ((roi - (previousPeriodData.netProfit / previousPeriodData.totalCostOfGoodsSold * 100))),
           isPositive: roi > (previousPeriodData.netProfit / previousPeriodData.totalCostOfGoodsSold * 100)
@@ -880,8 +894,13 @@ const Reports = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
               {t('reports.filters.period')}
+              {period === 'today' && (
+                <span className="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-600">
+                  {t('reports.filters.today')}
+                </span>
+              )}
             </label>
             <select
               className="w-full rounded-md border border-gray-300 shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"

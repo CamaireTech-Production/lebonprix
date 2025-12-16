@@ -13,7 +13,8 @@ import {
   onSnapshot, 
   serverTimestamp,
   Timestamp,
-  Unsubscribe
+  Unsubscribe,
+  arrayUnion
 } from 'firebase/firestore';
 import { 
   Order, 
@@ -29,6 +30,8 @@ import {
   OrderMetadata,
   CartItem
 } from '../types/order';
+import { logError } from '../utils/logger';
+import { createFinanceEntry, updateFinanceEntry } from './firestore';
 
 const COLLECTION_NAME = 'orders';
 
@@ -305,18 +308,97 @@ export const updateOrderStatus = async (
       status,
       timestamp: new Date(),
       userId,
-      metadata: { note }
+      metadata: note ? { note } : {} // Only include note if it exists
     };
 
-    // Update order with new status and event
-    await updateDoc(orderRef, {
+    // Prepare update data
+    const updateData: any = {
       status,
       updatedAt: serverTimestamp(),
-      timeline: [statusEvent] // This will be handled by arrayUnion in a real implementation
-    });
+      timeline: arrayUnion({
+        ...statusEvent,
+        timestamp: Timestamp.fromDate(statusEvent.timestamp) // Convert Date to Timestamp for Firestore
+      })
+    };
+
+    // If status is "delivered", set deliveredAt in deliveryInfo
+    if (status === 'delivered') {
+      const currentDeliveryInfo = order.deliveryInfo || { method: 'delivery' };
+      updateData.deliveryInfo = {
+        ...currentDeliveryInfo,
+        deliveredAt: Timestamp.fromDate(new Date()) // Convert Date to Timestamp for Firestore
+      };
+    }
+
+    // If status is "cancelled", add cancellation timestamp to metadata
+    if (status === 'cancelled') {
+      const currentMetadata = order.metadata || {};
+      updateData.metadata = {
+        ...currentMetadata,
+        cancelledAt: Timestamp.fromDate(new Date()) // Convert Date to Timestamp for Firestore
+      };
+    }
+
+    // Update order with new status and event
+    await updateDoc(orderRef, updateData);
   } catch (error) {
     logError('Error updating order status', error);
     throw error;
+  }
+};
+
+// Sync finance entry with order payment
+const syncFinanceEntryWithOrder = async (order: Order): Promise<void> => {
+  try {
+    // Only create finance entry if order is paid
+    if (order.paymentStatus !== 'paid') {
+      return;
+    }
+
+    if (!order || !order.id || !order.userId || !order.companyId) {
+      logError('syncFinanceEntryWithOrder: Invalid order object received, skipping sync');
+      return;
+    }
+
+    // Find existing finance entry for this order
+    const q = query(
+      collection(db, 'finances'), 
+      where('sourceType', '==', 'order'), 
+      where('sourceId', '==', order.id)
+    );
+    const snap = await getDocs(q);
+    
+    // Convert order createdAt to Timestamp if it's a Date
+    let orderDate: Timestamp;
+    if (order.createdAt instanceof Date) {
+      orderDate = Timestamp.fromDate(order.createdAt);
+    } else if (order.createdAt && typeof order.createdAt === 'object' && 'seconds' in order.createdAt) {
+      orderDate = order.createdAt as Timestamp;
+    } else {
+      orderDate = Timestamp.now();
+    }
+    
+    const entry: Omit<import('../types/models').FinanceEntry, 'id' | 'createdAt' | 'updatedAt'> = {
+      userId: order.userId,
+      companyId: order.companyId,
+      sourceType: 'order',
+      sourceId: order.id,
+      type: 'sale', // Use 'sale' type for orders (revenue)
+      amount: order.pricing.total,
+      description: `Order ${order.orderNumber} - ${order.customerInfo.name}`,
+      date: orderDate,
+      isDeleted: false,
+    };
+    
+    if (snap.empty) {
+      await createFinanceEntry(entry);
+    } else {
+      const docId = snap.docs[0].id;
+      await updateFinanceEntry(docId, entry);
+    }
+  } catch (error) {
+    logError('Error syncing finance entry with order', error);
+    // Don't throw - allow order update to succeed even if finance sync fails
   }
 };
 
@@ -344,6 +426,7 @@ export const updateOrderPaymentStatus = async (
     
     // Get userId from order for audit
     const userId = order.userId || companyId;
+    const previousPaymentStatus = order.paymentStatus;
     
     // Create payment update event
     const paymentEvent: OrderEvent = {
@@ -353,15 +436,29 @@ export const updateOrderPaymentStatus = async (
       timestamp: new Date(),
       userId,
       metadata: { 
-        cinetpayTransactionId,
-        cinetpayStatus 
+        ...(cinetpayTransactionId && { cinetpayTransactionId }),
+        ...(cinetpayStatus && { cinetpayStatus })
       }
     };
 
     const updateData: any = {
       paymentStatus,
-      updatedAt: serverTimestamp()
+      updatedAt: serverTimestamp(),
+      timeline: arrayUnion({
+        ...paymentEvent,
+        timestamp: Timestamp.fromDate(paymentEvent.timestamp) // Convert Date to Timestamp for Firestore
+      })
     };
+
+    // If payment status changes from awaiting_payment to paid:
+    // 1. Update order status to 'confirmed' (if current status is pending)
+    // 2. Finance entry will be created after update (see below)
+    if (previousPaymentStatus === 'awaiting_payment' && paymentStatus === 'paid') {
+      // Update order status to confirmed if it's currently pending
+      if (order.status === 'pending') {
+        updateData.status = 'confirmed';
+      }
+    }
 
     // Add CinetPay details if provided
     if (cinetpayTransactionId) {
@@ -372,6 +469,20 @@ export const updateOrderPaymentStatus = async (
     }
 
     await updateDoc(orderRef, updateData);
+
+    // Create finance entry if payment is now paid (after successful order update)
+    if (previousPaymentStatus === 'awaiting_payment' && paymentStatus === 'paid') {
+      // Get updated order data for finance sync
+      const updatedOrderSnap = await getDoc(orderRef);
+      if (updatedOrderSnap.exists()) {
+        const updatedOrder = {
+          ...order,
+          ...updatedOrderSnap.data(),
+          id: updatedOrderSnap.id
+        } as Order;
+        await syncFinanceEntryWithOrder(updatedOrder);
+      }
+    }
   } catch (error) {
     logError('Error updating payment status', error);
     throw error;
