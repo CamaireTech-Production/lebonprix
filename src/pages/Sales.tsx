@@ -35,6 +35,7 @@ import { generateInvoiceFileName } from '../utils/fileUtils';
 import { useAuth } from '../contexts/AuthContext';
 import { useAllStockBatches } from '../hooks/useStockBatches';
 import { buildProductStockMap, getEffectiveProductStock } from '../utils/stockHelpers';
+import { normalizePhoneForComparison } from '../utils/phoneUtils';
 import { useTranslation } from 'react-i18next';
 import { softDeleteSale } from '../services/firestore';
 import { formatCreatorName } from '../utils/employeeUtils';
