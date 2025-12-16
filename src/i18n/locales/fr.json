@@ -86,6 +86,7 @@
     "title": "Tableau de bord",
     "welcome": "Bienvenue ! Voici ce qui se passe dans votre entreprise aujourd'hui.",
     "howCalculated": "Comment sont calculées ces valeurs ?",
+    "viewTodayReports": "Voir les rapports d'aujourd'hui",
     "quickActions": "Actions Rapides",
     "quickActionsDescription": "Accédez rapidement aux fonctionnalités fréquemment utilisées",
     "stats": {
