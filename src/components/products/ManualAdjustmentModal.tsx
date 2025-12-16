@@ -2,11 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
 import { 
-  adjustStockManually, 
   getProductBatchesForAdjustment,
   validateBatchAdjustment 
 } from '../../services/firestore';
-import { adjustMultipleBatchesManually } from '../../services/stockAdjustments';
+import { adjustStockManually, adjustMultipleBatchesManually } from '../../services/stockAdjustments';
 import type { Product, StockBatch } from '../../types/models';
 import Modal from '../common/Modal';
 import Button from '../common/Button';
@@ -29,6 +28,8 @@ interface ManualAdjustmentModalProps {
   isOpen: boolean;
   onClose: () => void;
   product: Product | null;
+  selectedBatch?: StockBatch | null;
+  batchTotals?: { remaining: number; total: number };
   onSuccess?: () => void;
 }
 
@@ -36,6 +37,8 @@ const ManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
   isOpen,
   onClose,
   product,
+  selectedBatch: selectedBatchProp,
+  batchTotals,
   onSuccess
 }) => {
   const { t } = useTranslation();
@@ -50,6 +53,8 @@ const ManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
   // New state for temporary batch edits
   const [tempEdits, setTempEdits] = useState<TempBatchEdit[]>([]);
   const [isEditingMode, setIsEditingMode] = useState(false);
+  const derivedRemaining = batchTotals?.remaining ?? product?.stock ?? 0;
+  const derivedTotal = batchTotals?.total;
   
   const [formData, setFormData] = useState({
     batchId: '',
@@ -65,6 +70,23 @@ const ManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
     }
   }, [isOpen, product, company]);
 
+  // Preselect batch when provided
+  useEffect(() => {
+    if (!isOpen || !selectedBatchProp) return;
+    // If batches already loaded, set immediately
+    if (batches.length > 0) {
+      const match = batches.find(b => b.id === selectedBatchProp.id);
+      if (match) {
+        setSelectedBatch(match);
+        setFormData(prev => ({
+          ...prev,
+          batchId: match.id,
+          newCostPrice: match.costPrice.toString()
+        }));
+      }
+    }
+  }, [isOpen, selectedBatchProp, batches]);
+
   // Reset form when modal opens/closes
   useEffect(() => {
     if (isOpen) {
@@ -74,12 +96,12 @@ const ManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
         newCostPrice: '',
         notes: ''
       });
-      setSelectedBatch(null);
+      setSelectedBatch(selectedBatchProp ?? null);
       setValidationErrors([]);
       setTempEdits([]);
       setIsEditingMode(false);
     }
-  }, [isOpen]);
+  }, [isOpen, selectedBatchProp]);
 
   const loadBatches = async () => {
     if (!product) return;
@@ -129,12 +151,15 @@ const ManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
       errors.push('Please select a batch');
     }
 
-    if (!formData.quantityChange) {
-      errors.push('Please enter quantity change');
-    } else {
-      const quantityChange = parseFloat(formData.quantityChange);
+    // At least one of quantity change or new cost price must be provided
+    if (!formData.quantityChange && !formData.newCostPrice) {
+      errors.push('Enter a quantity change and/or a new cost price');
+    }
+
+    if (formData.quantityChange) {
+      const quantityChange = parseInt(formData.quantityChange, 10);
       if (isNaN(quantityChange)) {
-        errors.push('Quantity change must be a valid number');
+        errors.push('Quantity change must be a valid whole number');
       }
     }
 
@@ -147,7 +172,7 @@ const ManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
 
     // Validate with selected batch
     if (selectedBatch) {
-      const quantityChange = parseFloat(formData.quantityChange) || 0;
+      const quantityChange = parseInt(formData.quantityChange || '0', 10) || 0;
       const newCostPrice = parseFloat(formData.newCostPrice) || selectedBatch.costPrice;
       
       const validation = validateBatchAdjustment(selectedBatch, quantityChange, newCostPrice);
@@ -165,7 +190,7 @@ const ManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
       return;
     }
 
-    const quantityChange = parseFloat(formData.quantityChange);
+    const quantityChange = parseInt(formData.quantityChange || '0', 10) || 0;
     const newCostPrice = formData.newCostPrice ? parseFloat(formData.newCostPrice) : undefined;
 
     // Check if this batch is already in temp edits
@@ -266,7 +291,7 @@ const ManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
       return;
     }
 
-    const quantityChange = parseFloat(formData.quantityChange);
+    const quantityChange = parseInt(formData.quantityChange || '0', 10) || 0;
     const newCostPrice = formData.newCostPrice ? parseFloat(formData.newCostPrice) : undefined;
 
     setLoading(true);
@@ -312,14 +337,14 @@ const ManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
 
   const calculateNewRemainingQuantity = () => {
     if (!selectedBatch) return 0;
-    const quantityChange = parseFloat(formData.quantityChange) || 0;
+    const quantityChange = parseInt(formData.quantityChange || '0', 10) || 0;
     return selectedBatch.remainingQuantity + quantityChange;
   };
 
   const calculateNewStock = () => {
-    if (!product) return 0;
-    const quantityChange = parseFloat(formData.quantityChange) || 0;
-    return product.stock + quantityChange;
+    const quantityChange = parseInt(formData.quantityChange || '0', 10) || 0;
+    const baseStock = typeof derivedRemaining === 'number' ? derivedRemaining : 0;
+    return baseStock + quantityChange;
   };
 
   if (!product) return null;
@@ -346,7 +371,11 @@ const ManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
             </div>
             <div>
               <span className="font-medium text-gray-700">Current Stock:</span>
-              <p className="text-gray-900">{product.stock}</p>
+              <p className="text-gray-900">
+                {derivedTotal !== undefined
+                  ? `${derivedRemaining} / ${derivedTotal}`
+                  : derivedRemaining}
+              </p>
             </div>
             <div>
               <span className="font-medium text-gray-700">Selling Price:</span>
@@ -464,7 +493,7 @@ const ManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
             <Select
               label="Select Batch"
               value={formData.batchId}
-              onChange={(value) => handleInputChange('batchId', value)}
+              onChange={(e) => handleInputChange('batchId', e.target.value)}
               options={getBatchOptions()}
               required={!isEditingMode}
             />
@@ -511,17 +540,17 @@ const ManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
               label="Quantity Change"
               type="number"
               value={formData.quantityChange}
-              onChange={(value) => handleInputChange('quantityChange', value)}
+              onChange={(e) => handleInputChange('quantityChange', e.target.value)}
               placeholder="+10 or -5"
               required
-              step="0.01"
+              step="1"
             />
             
             <Input
               label="New Cost Price (Optional)"
               type="number"
               value={formData.newCostPrice}
-              onChange={(value) => handleInputChange('newCostPrice', value)}
+            onChange={(e) => handleInputChange('newCostPrice', e.target.value)}
               placeholder="Leave empty to keep current"
               min="0"
               step="0.01"

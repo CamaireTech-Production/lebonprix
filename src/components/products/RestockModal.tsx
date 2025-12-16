@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
-import { restockProduct, subscribeToSuppliers } from '../../services/firestore';
+import { subscribeToSuppliers } from '../../services/firestore';
+import { restockProduct } from '../../services/stockAdjustments';
 import type { Product, Supplier } from '../../types/models';
 import Modal from '../common/Modal';
 import Button from '../common/Button';
@@ -14,6 +15,7 @@ interface RestockModalProps {
   isOpen: boolean;
   onClose: () => void;
   product: Product | null;
+  batchTotals?: { remaining: number; total: number };
   onSuccess?: () => void;
 }
 
@@ -21,6 +23,7 @@ const RestockModal: React.FC<RestockModalProps> = ({
   isOpen,
   onClose,
   product,
+  batchTotals,
   onSuccess
 }) => {
   const { t } = useTranslation();
@@ -37,6 +40,8 @@ const RestockModal: React.FC<RestockModalProps> = ({
     notes: ''
   });
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const derivedRemaining = batchTotals?.remaining ?? product?.stock ?? 0;
+  const derivedTotal = batchTotals?.total;
 
   // Load suppliers
   useEffect(() => {
@@ -194,7 +199,11 @@ const RestockModal: React.FC<RestockModalProps> = ({
             </div>
             <div>
               <span className="font-medium text-gray-700">Current Stock:</span>
-              <p className="text-gray-900">{product.stock}</p>
+              <p className="text-gray-900">
+                {derivedTotal !== undefined
+                  ? `${derivedRemaining} / ${derivedTotal}`
+                  : derivedRemaining}
+              </p>
             </div>
             <div>
               <span className="font-medium text-gray-700">Selling Price:</span>
@@ -212,7 +221,7 @@ const RestockModal: React.FC<RestockModalProps> = ({
               label="Quantity"
               type="number"
               value={formData.quantity}
-              onChange={(value) => handleInputChange('quantity', value)}
+            onChange={(e) => handleInputChange('quantity', e.target.value)}
               placeholder="Enter quantity"
               required
               min="0.01"
@@ -223,7 +232,7 @@ const RestockModal: React.FC<RestockModalProps> = ({
               label="Cost Price per Unit"
               type="number"
               value={formData.costPrice}
-              onChange={(value) => handleInputChange('costPrice', value)}
+            onChange={(e) => handleInputChange('costPrice', e.target.value)}
               placeholder="Enter cost price"
               required
               min="0"
@@ -264,7 +273,7 @@ const RestockModal: React.FC<RestockModalProps> = ({
           <Select
             label="Supplier"
             value={formData.supplierId}
-            onChange={(value) => handleInputChange('supplierId', value)}
+            onChange={(e) => handleInputChange('supplierId', e.target.value)}
             options={getSupplierOptions()}
             disabled={formData.isOwnPurchase}
           />
@@ -273,7 +282,7 @@ const RestockModal: React.FC<RestockModalProps> = ({
           <Select
             label="Payment Type"
             value={formData.paymentType}
-            onChange={(value) => handleInputChange('paymentType', value)}
+            onChange={(e) => handleInputChange('paymentType', e.target.value)}
             options={getPaymentTypeOptions()}
             disabled={formData.isOwnPurchase}
           />
