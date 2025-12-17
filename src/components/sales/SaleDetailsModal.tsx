@@ -11,6 +11,7 @@ import { useTranslation } from 'react-i18next';
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { showErrorToast } from '../../utils/toast';
+import { formatPrice } from '../../utils/formatPrice';
 import CustomerAdditionalInfo from '../customers/CustomerAdditionalInfo';
 import { useCustomers } from '../../hooks/useFirestore';
 import { normalizePhoneForComparison } from '../../utils/phoneUtils';
@@ -437,11 +438,11 @@ const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({ isOpen, onClose, sa
                       </div>
                       <div className="text-right">
                         <p className="text-sm text-gray-500">{t('sales.modals.view.products.basePrice')}</p>
-                        <p className="font-medium text-gray-900">{product.basePrice.toLocaleString()} XAF</p>
+                        <p className="font-medium text-gray-900">{formatPrice(product.basePrice)} XAF</p>
                         {product.negotiatedPrice && (
                           <>
                             <p className="text-sm text-gray-500 mt-1">{t('sales.modals.view.products.negotiatedPrice')}</p>
-                            <p className="font-medium text-emerald-600">{product.negotiatedPrice.toLocaleString()} XAF</p>
+                            <p className="font-medium text-emerald-600">{formatPrice(product.negotiatedPrice)} XAF</p>
                           </>
                         )}
                       </div>
@@ -449,7 +450,7 @@ const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({ isOpen, onClose, sa
                     <div className="mt-2 pt-2 border-t border-gray-200">
                       <p className="text-sm text-gray-500">{t('sales.modals.view.products.productTotal')}</p>
                       <p className="font-medium text-emerald-600">
-                        {((product.negotiatedPrice || product.basePrice) * product.quantity).toLocaleString()} XAF
+                        {formatPrice((product.negotiatedPrice || product.basePrice) * product.quantity)} XAF
                       </p>
                     </div>
                   </div>
@@ -465,19 +466,19 @@ const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({ isOpen, onClose, sa
             <div className="space-y-3">
               <div className="flex justify-between">
                 <p className="text-sm text-gray-500">{t('sales.modals.view.orderSummary.subtotal')}</p>
-                <p className="text-sm text-gray-900">{sale.totalAmount.toLocaleString()} XAF</p>
+                <p className="text-sm text-gray-900">{formatPrice(sale.totalAmount)} XAF</p>
               </div>
               {(sale.deliveryFee ?? 0) > 0 && (
                 <div className="flex justify-between">
                   <p className="text-sm text-gray-500">{t('sales.modals.view.orderSummary.deliveryFee')}</p>
-                  <p className="text-sm text-gray-900">{sale.deliveryFee?.toLocaleString()} XAF</p>
+                  <p className="text-sm text-gray-900">{formatPrice(sale.deliveryFee ?? 0)} XAF</p>
                 </div>
               )}
               <div className="pt-3 border-t border-gray-200">
                 <div className="flex justify-between">
                   <p className="font-medium text-gray-900">{t('sales.modals.view.orderSummary.totalAmount')}</p>
                   <p className="font-medium text-emerald-600">
-                    {(sale.totalAmount + (sale.deliveryFee ?? 0)).toLocaleString()} XAF
+                    {formatPrice(sale.totalAmount + (sale.deliveryFee ?? 0))} XAF
                   </p>
                 </div>
               </div>

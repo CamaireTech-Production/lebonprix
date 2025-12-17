@@ -6,6 +6,7 @@ import { useCustomerSources } from '../../hooks/useCustomerSources';
 import { useProducts } from '../../hooks/useFirestore';
 import { printPOSBillDirect } from '../../utils/posPrint';
 import { showErrorToast, showSuccessToast } from '../../utils/toast';
+import { formatPrice } from '../../utils/formatPrice';
 import { POSCalculator } from './POSCalculator';
 import Select from 'react-select';
 import Input from '../common/Input';
@@ -465,22 +466,22 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
                       <tr>
                         <td style="text-align: left; padding: 2px 0;">${productName}</td>
                         <td style="text-align: right; padding: 2px 0;">${item.quantity}</td>
-                        <td style="text-align: right; padding: 2px 0;">${itemPrice.toLocaleString()}</td>
-                        <td style="text-align: right; padding: 2px 0;">${(itemPrice * item.quantity).toLocaleString()}</td>
+                        <td style="text-align: right; padding: 2px 0;">${formatPrice(itemPrice)}</td>
+                        <td style="text-align: right; padding: 2px 0;">${formatPrice(itemPrice * item.quantity)}</td>
                       </tr>
                     `;
                   }).join('')}
                 </tbody>
               </table>
               <hr style="border-top: 1px dashed #000; margin: 10px 0;">
-              <p style="text-align: right;"><strong>Sous-total:</strong> ${subtotal.toLocaleString()} XAF</p>
-              ${completedSale.deliveryFee > 0 ? `<p style="text-align: right;"><strong>Frais de livraison:</strong> ${completedSale.deliveryFee.toLocaleString()} XAF</p>` : ''}
-              ${discountAmount > 0 ? `<p style="text-align: right;"><strong>Remise:</strong> -${discountAmount.toLocaleString()} XAF</p>` : ''}
-              ${taxAmount > 0 ? `<p style="text-align: right;"><strong>Taxe:</strong> ${taxAmount.toLocaleString()} XAF</p>` : ''}
-              <h3 style="text-align: right; margin-top: 10px;">Total: ${completedSale.totalAmount?.toLocaleString() || total.toLocaleString()} XAF</h3>
-              ${paymentMethod === 'cash' && amountReceived && parseFloat(amountReceived) !== total ? `<p style="text-align: right;"><strong>Montant reçu:</strong> ${parseFloat(amountReceived).toLocaleString()} XAF</p>` : ''}
-              ${paymentMethod === 'cash' && change > 0 ? `<p style="text-align: right;"><strong>Monnaie:</strong> ${change.toLocaleString()} XAF</p>` : ''}
-              ${paymentMethod === 'cash' && (!amountReceived || parseFloat(amountReceived) === total) ? `<p style="text-align: right;"><strong>Montant:</strong> ${total.toLocaleString()} XAF (exact)</p>` : ''}
+              <p style="text-align: right;"><strong>Sous-total:</strong> ${formatPrice(subtotal)} XAF</p>
+              ${completedSale.deliveryFee > 0 ? `<p style="text-align: right;"><strong>Frais de livraison:</strong> ${formatPrice(completedSale.deliveryFee)} XAF</p>` : ''}
+              ${discountAmount > 0 ? `<p style="text-align: right;"><strong>Remise:</strong> -${formatPrice(discountAmount)} XAF</p>` : ''}
+              ${taxAmount > 0 ? `<p style="text-align: right;"><strong>Taxe:</strong> ${formatPrice(taxAmount)} XAF</p>` : ''}
+              <h3 style="text-align: right; margin-top: 10px;">Total: ${formatPrice(completedSale.totalAmount || total)} XAF</h3>
+              ${paymentMethod === 'cash' && amountReceived && parseFloat(amountReceived) !== total ? `<p style="text-align: right;"><strong>Montant reçu:</strong> ${formatPrice(parseFloat(amountReceived))} XAF</p>` : ''}
+              ${paymentMethod === 'cash' && change > 0 ? `<p style="text-align: right;"><strong>Monnaie:</strong> ${formatPrice(change)} XAF</p>` : ''}
+              ${paymentMethod === 'cash' && (!amountReceived || parseFloat(amountReceived) === total) ? `<p style="text-align: right;"><strong>Montant:</strong> ${formatPrice(total)} XAF (exact)</p>` : ''}
               <p style="text-align: right;"><strong>Méthode:</strong> ${paymentMethod === 'cash' ? 'Espèces' : paymentMethod === 'mobile_money' ? 'Mobile Money' : paymentMethod === 'card' ? 'Carte' : ''}</p>
               <hr style="border-top: 1px dashed #000; margin: 10px 0;">
               ${completedSale.notes ? `<p style="margin-top: 10px;"><strong>Notes:</strong> ${completedSale.notes}</p>` : ''}
@@ -599,8 +600,8 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
                         <tr key={index} className="border-b border-gray-200">
                           <td className="py-2 px-3">{product?.name || 'Unknown Product'}</td>
                           <td className="text-center py-2 px-3">{saleProduct.quantity}</td>
-                          <td className="text-right py-2 px-3">{unitPrice.toLocaleString()} XAF</td>
-                          <td className="text-right py-2 px-3 font-semibold">{itemTotal.toLocaleString()} XAF</td>
+                          <td className="text-right py-2 px-3">{formatPrice(unitPrice)} XAF</td>
+                          <td className="text-right py-2 px-3 font-semibold">{formatPrice(itemTotal)} XAF</td>
                         </tr>
                       );
                     })}
@@ -614,40 +615,40 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
                   <div className="w-64 space-y-2">
                     <div className="flex justify-between text-sm">
                       <span>{t('pos.payment.subtotal')}:</span>
-                      <span>{subtotal.toLocaleString()} XAF</span>
+                      <span>{formatPrice(subtotal)} XAF</span>
                     </div>
                     {completedSale.deliveryFee > 0 && (
                       <div className="flex justify-between text-sm">
                         <span>{t('pos.payment.deliveryFee')}:</span>
-                        <span>{completedSale.deliveryFee.toLocaleString()} XAF</span>
+                        <span>{formatPrice(completedSale.deliveryFee)} XAF</span>
                       </div>
                     )}
                     {discountAmount > 0 && (
                       <div className="flex justify-between text-sm text-red-600">
                         <span>{t('pos.payment.discount')}:</span>
-                        <span>-{discountAmount.toLocaleString()} XAF</span>
+                        <span>-{formatPrice(discountAmount)} XAF</span>
                       </div>
                     )}
                     {taxAmount > 0 && (
                       <div className="flex justify-between text-sm">
                         <span>{t('pos.payment.tax')}:</span>
-                        <span>{taxAmount.toLocaleString()} XAF</span>
+                        <span>{formatPrice(taxAmount)} XAF</span>
                       </div>
                     )}
                     <div className="flex justify-between text-xl font-bold pt-2 border-t border-gray-300" style={{ color: colors.primary }}>
                       <span>{t('pos.payment.totalAmount')}:</span>
-                      <span>{completedSale.totalAmount?.toLocaleString() || total.toLocaleString()} XAF</span>
+                      <span>{formatPrice(completedSale.totalAmount || total)} XAF</span>
                     </div>
                     {paymentMethod === 'cash' && amountReceived && parseFloat(amountReceived) !== total && (
                       <div className="flex justify-between text-sm pt-2">
                         <span>{t('pos.payment.amountReceived')}:</span>
-                        <span>{parseFloat(amountReceived).toLocaleString()} XAF</span>
+                        <span>{formatPrice(parseFloat(amountReceived))} XAF</span>
                       </div>
                     )}
                     {paymentMethod === 'cash' && change > 0 && (
                       <div className="flex justify-between text-sm text-green-600 font-semibold">
                         <span>{t('pos.payment.change')}:</span>
-                        <span>{change.toLocaleString()} XAF</span>
+                        <span>{formatPrice(change)} XAF</span>
                       </div>
                     )}
                     <div className="flex justify-between text-sm pt-2">
@@ -752,11 +753,11 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
                           <div className="flex-1 min-w-0">
                             <p className="font-medium text-sm truncate">{item.product.name}</p>
                             <p className="text-xs text-gray-500">
-                              {price.toLocaleString()} XAF × {item.quantity}
+                              {formatPrice(price)} XAF × {item.quantity}
                             </p>
                           </div>
                           <div className="font-semibold text-sm" style={{ color: colors.primary }}>
-                            {itemTotal.toLocaleString()} XAF
+                            {formatPrice(itemTotal)} XAF
                           </div>
                         </div>
                       );
@@ -770,22 +771,22 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-gray-600">{t('pos.payment.subtotal')}</span>
-                    <span className="font-semibold">{subtotal.toLocaleString()} XAF</span>
+                    <span className="font-semibold">{formatPrice(subtotal)} XAF</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">{t('pos.payment.deliveryFee')}</span>
-                    <span className="font-semibold">{deliveryFee.toLocaleString()} XAF</span>
+                    <span className="font-semibold">{formatPrice(deliveryFee)} XAF</span>
                   </div>
                   {discountAmount > 0 && (
                     <div className="flex justify-between">
                       <span className="text-gray-600">{t('pos.payment.discount')}</span>
-                      <span className="font-semibold text-red-600">-{discountAmount.toLocaleString()} XAF</span>
+                      <span className="font-semibold text-red-600">-{formatPrice(discountAmount)} XAF</span>
                     </div>
                   )}
                   {taxAmount > 0 && (
                     <div className="flex justify-between">
                       <span className="text-gray-600">{t('pos.payment.tax')}</span>
-                      <span className="font-semibold">{taxAmount.toLocaleString()} XAF</span>
+                      <span className="font-semibold">{formatPrice(taxAmount)} XAF</span>
                     </div>
                   )}
                 </div>
@@ -793,7 +794,7 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
                   <div className="flex justify-between items-center">
                     <div className="text-lg font-medium text-gray-700">{t('pos.payment.totalAmount')}</div>
                     <div className="text-3xl font-bold" style={{ color: colors.primary }}>
-                      {total.toLocaleString()} XAF
+                      {formatPrice(total)} XAF
                     </div>
                   </div>
                 </div>
@@ -859,7 +860,7 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
                         value={amountReceived}
                         onChange={(e) => setAmountReceived(e.target.value)}
                         min={total.toString()}
-                        placeholder={t('pos.payment.exactAmountHint') || `Laisser vide si montant exact (${total.toLocaleString()} XAF)`}
+                        placeholder={t('pos.payment.exactAmountHint') || `Laisser vide si montant exact (${formatPrice(total)} XAF)`}
                       />
                       <p className="text-xs text-gray-500 mt-1">
                         {t('pos.payment.amountReceivedHint') || 'Laissez vide si le client paie le montant exact. Entrez le montant uniquement si vous devez rendre de la monnaie.'}
@@ -868,13 +869,13 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
                     {change > 0 && (
                       <div className="p-3 bg-green-50 rounded-lg">
                         <div className="text-sm text-gray-600">{t('pos.payment.change')}</div>
-                        <div className="text-xl font-bold text-green-600">{change.toLocaleString()} XAF</div>
+                        <div className="text-xl font-bold text-green-600">{formatPrice(change)} XAF</div>
                       </div>
                     )}
                     {!amountReceived && (
                       <div className="p-3 bg-blue-50 rounded-lg">
                         <div className="text-sm text-gray-600">{t('pos.payment.exactAmount')}</div>
-                        <div className="text-lg font-semibold text-blue-600">{total.toLocaleString()} XAF</div>
+                        <div className="text-lg font-semibold text-blue-600">{formatPrice(total)} XAF</div>
                       </div>
                     )}
                   </div>

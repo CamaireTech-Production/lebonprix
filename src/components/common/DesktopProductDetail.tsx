@@ -6,6 +6,7 @@ import type { SellerSettings } from '../../types/order';
 import { ArrowLeft, Plus, Minus, MessageCircle, ShoppingCart, ChevronLeft, ChevronRight } from 'lucide-react';
 import { ImageWithSkeleton } from './ImageWithSkeleton';
 import { formatPhoneForWhatsApp } from '../../utils/phoneUtils';
+import { formatPrice } from '../../utils/formatPrice';
 
 const placeholderImg = '/placeholder.png';
 
@@ -125,14 +126,8 @@ const DesktopProductDetail: React.FC<DesktopProductDetailProps> = ({
 *${product.name}*
 ${variations ? `Options: ${variations}` : ''}
 Quantité: ${quantity}
-Prix unitaire: ${(product.cataloguePrice || product.sellingPrice).toLocaleString('fr-FR', {
-  style: 'currency',
-  currency: 'XAF'
-})}
-Total: ${((product.cataloguePrice || product.sellingPrice) * quantity).toLocaleString('fr-FR', {
-  style: 'currency',
-  currency: 'XAF'
-})}
+Prix unitaire: ${formatPrice(product.cataloguePrice || product.sellingPrice)} XAF
+Total: ${formatPrice((product.cataloguePrice || product.sellingPrice) * quantity)} XAF
 
 Veuillez confirmer la disponibilité et fournir les détails de livraison.`;
 
@@ -278,10 +273,7 @@ Veuillez confirmer la disponibilité et fournir les détails de livraison.`;
 
             {/* Price */}
             <div className="text-2xl font-semibold text-[#e2b069]">
-              {(product.cataloguePrice || product.sellingPrice).toLocaleString('fr-FR', {
-                style: 'currency',
-                currency: 'XAF'
-              })}
+              {formatPrice(product.cataloguePrice || product.sellingPrice)} XAF
             </div>
 
             {/* Stock Availability */}

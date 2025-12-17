@@ -17,6 +17,7 @@ import ObjectivesBar from '../components/objectives/ObjectivesBar';
 import ObjectivesModal from '../components/objectives/ObjectivesModal';
 import { showSuccessToast, showErrorToast } from '../utils/toast';
 import { devLog } from '../utils/logger';
+import { formatPrice } from '../utils/formatPrice';
 import type { FinanceEntry } from '../types/models';
 import {
   calculateTotalProfit,
@@ -301,28 +302,28 @@ const Finance: React.FC = () => {
   const statCards = [
     { 
       title: t('dashboard.stats.profit'), 
-      value: `${profit.toLocaleString()} XAF`, 
+      value: `${formatPrice(profit)} XAF`, 
       icon: <BarChart2 size={20} />, 
       tooltipKey: 'profit', 
       type: 'profit'
     },
     { 
       title: t('dashboard.stats.totalExpenses'), 
-      value: `${totalExpenses.toLocaleString()} XAF`, 
+      value: `${formatPrice(totalExpenses)} XAF`, 
       icon: <Receipt size={20} />, 
       tooltipKey: 'totalExpenses', 
       type: 'expenses'
     },
     { 
       title: t('dashboard.stats.deliveryFee'), 
-      value: `${totalDeliveryFee.toLocaleString()} XAF`, 
+      value: `${formatPrice(totalDeliveryFee)} XAF`, 
       icon: <DollarSign size={20} />, 
       tooltipKey: 'deliveryFee', 
       type: 'delivery'
     },
     { 
       title: t('dashboard.stats.totalSalesAmount'), 
-      value: `${totalSalesAmount.toLocaleString()} XAF`, 
+      value: `${formatPrice(totalSalesAmount)} XAF`, 
       icon: <ShoppingCart size={20} />, 
       tooltipKey: 'totalSalesAmount', 
       type: 'sales'
@@ -336,7 +337,7 @@ const Finance: React.FC = () => {
     },
     { 
       title: t('dashboard.stats.totalPurchasePrice'), 
-      value: `${totalPurchasePrice.toLocaleString()} XAF`, 
+      value: `${formatPrice(totalPurchasePrice)} XAF`, 
       icon: <DollarSign size={20} />, 
       tooltipKey: 'totalPurchasePrice', 
       type: 'products'
@@ -659,7 +660,7 @@ const Finance: React.FC = () => {
                 </div>
                 <div className="text-right">
                   <div className="text-2xl md:text-3xl font-bold text-green-900">
-                    {solde.toLocaleString()} XAF
+                    {formatPrice(solde)} XAF
                   </div>
                 </div>
               </div>
@@ -674,7 +675,7 @@ const Finance: React.FC = () => {
                 </div>
                 <div className="text-right">
                   <div className="text-2xl md:text-3xl font-bold text-red-900">
-                    {totalDebt.toLocaleString()} XAF
+                    {formatPrice(totalDebt)} XAF
                   </div>
                 </div>
               </div>
@@ -861,7 +862,7 @@ const Finance: React.FC = () => {
                         <td className="py-3 px-4 capitalize">{t(`finance.types.${entry.type}`, entry.type)}</td>
                         <td className="py-3 px-4">{entry.description || '-'}</td>
                         <td className={`py-3 px-4 font-semibold ${ entry.amount < 0 ? 'text-red-500' : 'text-green-600' }`}>
-                      {entry.amount.toLocaleString()} XAF
+                      {formatPrice(entry.amount)} XAF
                     </td>
                         <td className="py-3 px-4 capitalize">{t(`finance.sourceType.${entry.sourceType}`)}</td>
                         <td className="py-3 px-4">
@@ -927,7 +928,7 @@ const Finance: React.FC = () => {
                       </div>
                       <div className="text-right ml-4">
                         <div className={`text-lg font-bold ${ entry.amount < 0 ? 'text-red-500' : 'text-green-600' }`}>
-                          {entry.amount.toLocaleString()} XAF
+                          {formatPrice(entry.amount)} XAF
                         </div>
                         <div className="flex gap-2 mt-2">
                           {entry.sourceType === 'manual' && (
@@ -1087,13 +1088,13 @@ const Finance: React.FC = () => {
                     <option value="">{t('finance.selectDebt', 'Select a debt')}</option>
                     {userDebt.debtEntries.map(debt => (
                       <option key={debt.id} value={debt.id}>
-                        {debt.amount.toLocaleString()} XAF - {debt.description || t('finance.debtEntry', 'Debt')}
+                        {formatPrice(debt.amount)} XAF - {debt.description || t('finance.debtEntry', 'Debt')}
                       </option>
                     ))}
                   </select>
                   {selectedDebt && (
                     <div className="text-xs text-gray-600 mt-1">
-                      {t('finance.remaining', 'Remaining')}: {remainingDebt.toLocaleString()} XAF
+                      {t('finance.remaining', 'Remaining')}: {formatPrice(remainingDebt)} XAF
                     </div>
                   )}
                   {refundExceeds && (
@@ -1322,8 +1323,8 @@ const Finance: React.FC = () => {
                       <span className="ml-2 text-xs text-gray-500">{debt.createdAt?.seconds ? format(new Date(debt.createdAt.seconds * 1000), 'dd/MM/yyyy') : ''}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-red-600 font-bold">{debt.amount.toLocaleString()} XAF</span>
-                      <span className="text-xs text-gray-600">{t('finance.remaining', 'Remaining')}: <span className="font-bold">{remaining.toLocaleString()} XAF</span></span>
+                      <span className="text-red-600 font-bold">{formatPrice(debt.amount)} XAF</span>
+                      <span className="text-xs text-gray-600">{t('finance.remaining', 'Remaining')}: <span className="font-bold">{formatPrice(remaining)} XAF</span></span>
                       <button className="ml-2 text-gray-500 focus:outline-none" aria-label={t('finance.toggleRefunds', 'Toggle refunds')}>
                         {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                       </button>
@@ -1337,7 +1338,7 @@ const Finance: React.FC = () => {
                         linkedRefunds.map((refund, rIdx) => (
                           <li key={refund.id || rIdx} className="flex justify-between items-center text-green-700 py-1">
                             <span>{t('finance.refundEntry', 'Refund')}</span>
-                            <span>-{refund.amount.toLocaleString()} XAF</span>
+                            <span>-{formatPrice(refund.amount)} XAF</span>
                             <span className="text-xs text-gray-500">{refund.createdAt?.seconds ? format(new Date(refund.createdAt.seconds * 1000), 'dd/MM/yyyy') : ''}</span>
                           </li>
                         ))
