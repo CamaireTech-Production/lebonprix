@@ -5,7 +5,7 @@ import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
  * Audit logging utility for security and compliance
  */
 export class AuditLogger {
-  private static readonly COLLECTION_NAME = 'audit_logs';
+  private static readonly COLLECTION_NAME = 'auditLogs';
 
   /**
    * Log payment-related events
