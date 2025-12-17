@@ -23,6 +23,7 @@ import { logError, logWarning, devLog } from '../utils/logger';
 import { normalizePhoneNumber } from '../utils/phoneUtils';
 import type {
   Product,
+  Matiere,
   Sale,
   Expense,
   DashboardStats,
@@ -57,51 +58,78 @@ import {
 
 /**
  * Create a new stock batch
+ * Supports both products (productId) and matieres (matiereId)
  */
 export const createStockBatch = async (
-  productId: string,
+  productIdOrMatiereId: string,
   quantity: number,
   costPrice: number,
   userId: string,
+  companyId?: string, // Optional for backward compatibility
   supplierId?: string,
   isOwnPurchase?: boolean,
   isCredit?: boolean,
-  notes?: string
+  notes?: string,
+  isMatiere?: boolean // If true, use matiereId instead of productId
 ): Promise<StockBatch> => {
   // Validate input
-  const validationErrors = validateStockBatch({
-    productId,
-    quantity,
-    costPrice,
-    userId
-  });
-  
-  if (validationErrors.length > 0) {
-    throw new Error(`Validation failed: ${validationErrors.join(', ')}`);
+  if (!productIdOrMatiereId || quantity <= 0 || costPrice <= 0 || !userId) {
+    throw new Error('Invalid stock batch data');
   }
 
-  const batchData = createBatchUtil(
-    productId,
+  // If companyId not provided, fetch it from product/matiere
+  let finalCompanyId = companyId;
+  if (!finalCompanyId) {
+    if (isMatiere) {
+      const matiereRef = doc(db, 'matieres', productIdOrMatiereId);
+      const matiereSnap = await getDoc(matiereRef);
+      if (matiereSnap.exists()) {
+        finalCompanyId = matiereSnap.data().companyId;
+      }
+    } else {
+      const productRef = doc(db, 'products', productIdOrMatiereId);
+      const productSnap = await getDoc(productRef);
+      if (productSnap.exists()) {
+        finalCompanyId = productSnap.data().companyId;
+      }
+    }
+    
+    if (!finalCompanyId) {
+      throw new Error('Company ID not found for product/matiere');
+    }
+  }
+
+  const stockBatchRef = doc(collection(db, 'stockBatches'));
+  const batchData: any = {
+    id: stockBatchRef.id,
     quantity,
     costPrice,
     userId,
-    supplierId,
-    isOwnPurchase,
-    isCredit
-  );
+    companyId: finalCompanyId,
+    remainingQuantity: quantity,
+    status: 'active',
+    createdAt: serverTimestamp(),
+  };
 
-  const stockBatchRef = await addDoc(collection(db, 'stockBatches'), {
-    ...batchData,
-    notes,
-    createdAt: serverTimestamp()
-  });
+  // Set either productId or matiereId based on isMatiere flag
+  if (isMatiere) {
+    batchData.matiereId = productIdOrMatiereId;
+  } else {
+    batchData.productId = productIdOrMatiereId;
+  }
+
+  if (typeof supplierId !== 'undefined') batchData.supplierId = supplierId;
+  if (typeof isOwnPurchase !== 'undefined') batchData.isOwnPurchase = isOwnPurchase;
+  if (typeof isCredit !== 'undefined') batchData.isCredit = isCredit;
+  if (notes) batchData.notes = notes;
+
+  await setDoc(stockBatchRef, batchData);
 
   return {
     id: stockBatchRef.id,
     ...batchData,
-    ...(notes && { notes }),
     createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 }
-  };
+  } as StockBatch;
 };
 
 /**
@@ -221,10 +249,11 @@ export const updateStockBatch = async (
 
 /**
  * Create stock change record
+ * Supports both products (productId) and matieres (matiereId)
  */
 export const createStockChange = (
   batch: WriteBatch,
-  productId: string,
+  productIdOrMatiereId: string,
   change: number,
   reason: StockChange['reason'],
   userId: string,
@@ -240,17 +269,24 @@ export const createStockChange = (
     costPrice: number;
     consumedQuantity: number;
     remainingQuantity: number;
-  }>
+  }>,
+  isMatiere?: boolean // If true, use matiereId instead of productId
 ) => {
   const stockChangeRef = doc(collection(db, 'stockChanges'));
   const stockChangeData: any = {
-    productId,
     change,
     reason,
     userId,
     companyId, // Ensure companyId is set
     createdAt: serverTimestamp(),
   };
+  
+  // Set either productId or matiereId based on isMatiere flag
+  if (isMatiere) {
+    stockChangeData.matiereId = productIdOrMatiereId;
+  } else {
+    stockChangeData.productId = productIdOrMatiereId;
+  }
   
   if (typeof supplierId !== 'undefined') stockChangeData.supplierId = supplierId;
   if (typeof isOwnPurchase !== 'undefined') stockChangeData.isOwnPurchase = isOwnPurchase;
@@ -547,9 +583,9 @@ export const updateCategory = async (
 
 export const deleteCategory = async (
   id: string,
-  companyId: string
-): Promise<void> => {
-  const batch = writeBatch(db);
+  companyId: string,
+  deleteMatieres: boolean = false // If true, hard delete associated matieres
+): Promise<{ matiereCount: number; productCount: number }> => {
   const categoryRef = doc(db, 'categories', id);
   
   // Get current category data
@@ -567,21 +603,85 @@ export const deleteCategory = async (
   // Get userId from category for audit
   const userId = currentCategory.userId || companyId;
   
-  // Check if category has products
-  if (currentCategory.productCount && currentCategory.productCount > 0) {
-    throw new Error('Cannot delete category with existing products. Please move or delete products first.');
+  const matiereCount = currentCategory.matiereCount || 0;
+  const productCount = currentCategory.productCount || 0;
+  
+  // If deleteMatieres is true, delete all associated matieres
+  if (deleteMatieres && matiereCount > 0) {
+    const batch = writeBatch(db);
+    
+    // Get all matieres in this category
+    const matieresQuery = query(
+      collection(db, 'matieres'),
+      where('refCategorie', '==', currentCategory.name),
+      where('companyId', '==', companyId),
+      where('isDeleted', '!=', true)
+    );
+    const matieresSnapshot = await getDocs(matieresQuery);
+    
+    // Delete each matiere and its associated data
+    for (const matiereDoc of matieresSnapshot.docs) {
+      const matiere = matiereDoc.data() as Matiere;
+      
+      // Delete stock document
+      if (matiere.refStock) {
+        const stockRef = doc(db, 'stocks', matiere.refStock);
+        batch.delete(stockRef);
+      }
+      
+      // Delete all stock batches for this matiere
+      const batchesQuery = query(
+        collection(db, 'stockBatches'),
+        where('matiereId', '==', matiereDoc.id)
+      );
+      const batchesSnapshot = await getDocs(batchesQuery);
+      batchesSnapshot.docs.forEach(doc => batch.delete(doc.ref));
+      
+      // Delete all stock changes for this matiere
+      const stockChangesQuery = query(
+        collection(db, 'stockChanges'),
+        where('matiereId', '==', matiereDoc.id)
+      );
+      const stockChangesSnapshot = await getDocs(stockChangesQuery);
+      stockChangesSnapshot.docs.forEach(doc => batch.delete(doc.ref));
+      
+      // Delete matiere
+      batch.delete(matiereDoc.ref);
+    }
+    
+    // Soft delete category by setting isActive to false
+    batch.update(categoryRef, {
+      isActive: false,
+      updatedAt: serverTimestamp()
+    });
+    
+    // Create audit log
+    createAuditLog(batch, 'delete', 'category', id, { isActive: false, deletedMatieres: matiereCount }, userId);
+    
+    await batch.commit();
+  } else {
+    // Check if category has products or matieres
+    if (productCount > 0) {
+      throw new Error('Cannot delete category with existing products. Please move or delete products first.');
+    }
+    if (matiereCount > 0) {
+      throw new Error('Cannot delete category with existing matieres. Please delete matieres first or confirm deletion.');
+    }
+    
+    // Soft delete by setting isActive to false
+    const batch = writeBatch(db);
+    batch.update(categoryRef, {
+      isActive: false,
+      updatedAt: serverTimestamp()
+    });
+    
+    // Create audit log
+    createAuditLog(batch, 'delete', 'category', id, { isActive: false }, userId);
+    
+    await batch.commit();
   }
   
-  // Soft delete by setting isActive to false
-  batch.update(categoryRef, {
-    isActive: false,
-    updatedAt: serverTimestamp()
-  });
-  
-  // Create audit log
-  createAuditLog(batch, 'delete', 'category', id, { isActive: false }, userId);
-  
-  await batch.commit();
+  return { matiereCount, productCount };
 };
 
 export const getCategory = async (id: string, companyId: string): Promise<Category | null> => {
@@ -628,7 +728,7 @@ export const getCompanyCategories = async (companyId: string): Promise<Category[
 const createAuditLog = async (
   batch: WriteBatch,
   action: 'create' | 'update' | 'delete',
-  entityType: 'product' | 'sale' | 'expense' | 'category' | 'objective' | 'finance' | 'supplier',
+  entityType: 'product' | 'sale' | 'expense' | 'category' | 'objective' | 'finance' | 'supplier' | 'matiere',
   entityId: string,
   changes: any,
   performedBy: string
@@ -1048,6 +1148,437 @@ export const softDeleteProduct = async (id: string, userId: string): Promise<voi
     logError('Error soft deleting product', error);
     throw error;
   }
+};
+
+// ============================================================================
+// MATIERE MANAGEMENT
+// ============================================================================
+
+/**
+ * Create a new matiere (raw material)
+ */
+export const createMatiere = async (
+  data: Omit<Matiere, 'id' | 'createdAt' | 'updatedAt'>,
+  companyId: string,
+  initialStock: number = 0,
+  costPrice?: number,
+  supplierInfo?: {
+    supplierId?: string;
+    isOwnPurchase?: boolean;
+    isCredit?: boolean;
+  },
+  createdBy?: import('../types/models').EmployeeRef | null
+): Promise<Matiere> => {
+  try {
+    // Validate matiere data
+    if (!data.name || !data.refCategorie || !data.unit) {
+      throw new Error('Invalid matiere data: name, refCategorie, and unit are required');
+    }
+
+    // Validate category exists
+    const categoryQuery = query(
+      collection(db, 'categories'),
+      where('name', '==', data.refCategorie),
+      where('companyId', '==', companyId),
+      where('isActive', '==', true)
+    );
+    const categorySnapshot = await getDocs(categoryQuery);
+    
+    if (categorySnapshot.empty) {
+      throw new Error(`Category "${data.refCategorie}" not found`);
+    }
+
+    const batch = writeBatch(db);
+    
+    // Get userId from data if available
+    const userId = data.userId || companyId;
+    
+    // Create matiere document
+    const matiereRef = doc(collection(db, 'matieres'));
+    const matiereData: any = {
+      ...data,
+      companyId,
+      isDeleted: false,
+      costPrice: costPrice || 0,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    };
+    
+    // Add createdBy if provided
+    if (createdBy) {
+      matiereData.createdBy = createdBy;
+    }
+    
+    batch.set(matiereRef, matiereData);
+    
+    // Create stock document reference
+    const stockRef = doc(collection(db, 'stocks'));
+    const stockData = {
+      id: stockRef.id,
+      matiereId: matiereRef.id,
+      quantity: initialStock,
+      companyId,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    };
+    batch.set(stockRef, stockData);
+    
+    // Update matiere with refStock
+    batch.update(matiereRef, { refStock: stockRef.id });
+    
+    // Create stock batch and stock change if initial stock > 0
+    if (initialStock > 0 && costPrice && costPrice > 0) {
+      const stockBatchRef = doc(collection(db, 'stockBatches'));
+      const stockBatchData: any = {
+        id: stockBatchRef.id,
+        matiereId: matiereRef.id,
+        quantity: initialStock,
+        costPrice,
+        remainingQuantity: initialStock,
+        status: 'active',
+        userId,
+        companyId,
+        createdAt: serverTimestamp()
+      };
+      
+      if (supplierInfo?.supplierId) stockBatchData.supplierId = supplierInfo.supplierId;
+      if (supplierInfo?.isOwnPurchase !== undefined) stockBatchData.isOwnPurchase = supplierInfo.isOwnPurchase;
+      if (supplierInfo?.isCredit !== undefined) stockBatchData.isCredit = supplierInfo.isCredit;
+      
+      batch.set(stockBatchRef, stockBatchData);
+      
+      // Create stock change
+      createStockChange(
+        batch,
+        matiereRef.id,
+        initialStock,
+        'creation',
+        userId,
+        companyId,
+        supplierInfo?.supplierId,
+        supplierInfo?.isOwnPurchase,
+        supplierInfo?.isCredit,
+        costPrice,
+        stockBatchRef.id,
+        undefined,
+        undefined,
+        true // isMatiere
+      );
+      
+      // Create finance entry
+      const financeRef = doc(collection(db, 'finances'));
+      const financeData = {
+        id: financeRef.id,
+        userId,
+        companyId,
+        sourceType: 'matiere' as const,
+        sourceId: matiereRef.id,
+        type: 'matiere_purchase',
+        amount: -Math.abs(initialStock * costPrice), // Negative for expense
+        description: `Achat initial de ${initialStock} ${data.unit} de ${data.name}`,
+        date: serverTimestamp(),
+        isDeleted: false,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      };
+      batch.set(financeRef, financeData);
+      
+      // Create supplier debt if credit purchase
+      if (supplierInfo?.supplierId && supplierInfo.isCredit === true && supplierInfo.isOwnPurchase === false) {
+        const debtAmount = initialStock * costPrice;
+        const debtRef = doc(collection(db, 'finances'));
+        const debtData = {
+          id: debtRef.id,
+          userId,
+          companyId,
+          sourceType: 'supplier' as const,
+          sourceId: supplierInfo.supplierId,
+          type: 'supplier_debt',
+          amount: debtAmount,
+          description: `Achat crédit de ${initialStock} ${data.unit} de ${data.name}`,
+          date: serverTimestamp(),
+          isDeleted: false,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          supplierId: supplierInfo.supplierId,
+          batchId: stockBatchRef.id
+        };
+        batch.set(debtRef, debtData);
+      }
+    } else if (initialStock > 0) {
+      // Create stock change without batch if no cost price
+      createStockChange(
+        batch,
+        matiereRef.id,
+        initialStock,
+        'creation',
+        userId,
+        companyId,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        true // isMatiere
+      );
+    }
+    
+    // Create audit log
+    createAuditLog(batch, 'create', 'matiere', matiereRef.id, matiereData, userId);
+    
+    await batch.commit();
+    
+    // Update category matiere count after successful creation
+    try {
+      await updateCategoryMatiereCount(data.refCategorie, companyId, true);
+    } catch (error) {
+      logError('Error updating category matiere count', error);
+      // Don't throw here as the matiere was created successfully
+    }
+    
+    return {
+      id: matiereRef.id,
+      ...matiereData,
+      refStock: stockRef.id,
+      createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 },
+      updatedAt: { seconds: Date.now() / 1000, nanoseconds: 0 }
+    };
+  } catch (error) {
+    logError('Error creating matiere', error);
+    throw error;
+  }
+};
+
+/**
+ * Update an existing matiere
+ */
+export const updateMatiere = async (
+  id: string,
+  data: Partial<Matiere>,
+  companyId: string
+): Promise<void> => {
+  try {
+    const batch = writeBatch(db);
+    const matiereRef = doc(db, 'matieres', id);
+    
+    // Get current matiere data
+    const matiereSnap = await getDoc(matiereRef);
+    if (!matiereSnap.exists()) {
+      throw new Error('Matiere not found');
+    }
+    
+    const currentMatiere = matiereSnap.data() as Matiere;
+    // Verify matiere belongs to company
+    if (currentMatiere.companyId !== companyId) {
+      throw new Error('Unauthorized: Matiere belongs to different company');
+    }
+    
+    // Get userId from matiere for audit
+    const userId = currentMatiere.userId || companyId;
+    
+    // Handle category change
+    if (data.refCategorie && data.refCategorie !== currentMatiere.refCategorie) {
+      // Decrement old category count
+      try {
+        await updateCategoryMatiereCount(currentMatiere.refCategorie, companyId, false);
+      } catch (error) {
+        logError('Error updating old category matiere count', error);
+      }
+      
+      // Validate new category exists
+      const categoryQuery = query(
+        collection(db, 'categories'),
+        where('name', '==', data.refCategorie),
+        where('companyId', '==', companyId),
+        where('isActive', '==', true)
+      );
+      const categorySnapshot = await getDocs(categoryQuery);
+      
+      if (categorySnapshot.empty) {
+        throw new Error(`Category "${data.refCategorie}" not found`);
+      }
+      
+      // Increment new category count (will be done after update)
+    }
+    
+    // Update matiere data
+    const updateData = {
+      ...data,
+      updatedAt: serverTimestamp()
+    };
+    
+    batch.update(matiereRef, updateData);
+    
+    // Create audit log
+    createAuditLog(batch, 'update', 'matiere', id, updateData, userId);
+    
+    await batch.commit();
+    
+    // Update new category matiere count if category changed
+    if (data.refCategorie && data.refCategorie !== currentMatiere.refCategorie) {
+      try {
+        await updateCategoryMatiereCount(data.refCategorie, companyId, true);
+      } catch (error) {
+        logError('Error updating new category matiere count', error);
+      }
+    }
+  } catch (error) {
+    logError('Error updating matiere', error);
+    throw error;
+  }
+};
+
+/**
+ * Delete a matiere (hard delete)
+ */
+export const deleteMatiere = async (id: string, companyId: string): Promise<void> => {
+  try {
+    const batch = writeBatch(db);
+    const matiereRef = doc(db, 'matieres', id);
+    
+    // Get current matiere data
+    const matiereSnap = await getDoc(matiereRef);
+    if (!matiereSnap.exists()) {
+      throw new Error('Matiere not found');
+    }
+    
+    const currentMatiere = matiereSnap.data() as Matiere;
+    // Verify matiere belongs to company
+    if (currentMatiere.companyId !== companyId) {
+      throw new Error('Unauthorized: Matiere belongs to different company');
+    }
+    
+    // Get userId from matiere for audit
+    const userId = currentMatiere.userId || companyId;
+    
+    // Delete stock document
+    if (currentMatiere.refStock) {
+      const stockRef = doc(db, 'stocks', currentMatiere.refStock);
+      batch.delete(stockRef);
+    }
+    
+    // Delete all stock batches for this matiere
+    const batchesQuery = query(
+      collection(db, 'stockBatches'),
+      where('matiereId', '==', id)
+    );
+    const batchesSnapshot = await getDocs(batchesQuery);
+    batchesSnapshot.docs.forEach(doc => batch.delete(doc.ref));
+    
+    // Delete all stock changes for this matiere
+    const stockChangesQuery = query(
+      collection(db, 'stockChanges'),
+      where('matiereId', '==', id)
+    );
+    const stockChangesSnapshot = await getDocs(stockChangesQuery);
+    stockChangesSnapshot.docs.forEach(doc => batch.delete(doc.ref));
+    
+    // Delete matiere
+    batch.delete(matiereRef);
+    
+    // Create audit log
+    createAuditLog(batch, 'delete', 'matiere', id, currentMatiere, userId);
+    
+    await batch.commit();
+    
+    // Update category matiere count
+    if (currentMatiere.refCategorie) {
+      try {
+        await updateCategoryMatiereCount(currentMatiere.refCategorie, companyId, false);
+      } catch (error) {
+        logError('Error updating category matiere count after deletion', error);
+      }
+    }
+  } catch (error) {
+    logError('Error deleting matiere', error);
+    throw error;
+  }
+};
+
+/**
+ * Subscribe to matieres for a company
+ */
+export const subscribeToMatieres = (companyId: string, callback: (matieres: Matiere[]) => void): (() => void) => {
+  // Retirer where('isDeleted', '!=', true) pour éviter l'index composite
+  // Filtrer en mémoire comme subscribeToProducts
+  const q = query(
+    collection(db, 'matieres'),
+    where('companyId', '==', companyId),
+    orderBy('createdAt', 'desc')
+  );
+  
+  return onSnapshot(q, (snapshot) => {
+    const matieres = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    })) as Matiere[];
+    // Filtrer les matieres supprimées en mémoire (comme subscribeToProducts fait)
+    callback(matieres.filter(matiere => matiere.isDeleted !== true));
+  });
+};
+
+/**
+ * Update category matiere count
+ */
+export const updateCategoryMatiereCount = async (categoryName: string, companyId: string, increment: boolean = true): Promise<void> => {
+  if (!categoryName || !companyId) return;
+
+  try {
+    // Find the category by name and companyId
+    const q = query(
+      collection(db, 'categories'),
+      where('name', '==', categoryName),
+      where('companyId', '==', companyId),
+      where('isActive', '==', true)
+    );
+
+    const snapshot = await getDocs(q);
+    
+    if (snapshot.empty) {
+      logWarning('Category not found for company');
+      return;
+    }
+
+    const categoryDoc = snapshot.docs[0];
+    const currentCount = categoryDoc.data().matiereCount || 0;
+    const newCount = increment ? currentCount + 1 : Math.max(0, currentCount - 1);
+
+    await updateDoc(categoryDoc.ref, {
+      matiereCount: newCount,
+      updatedAt: serverTimestamp()
+    });
+
+  } catch (error) {
+    console.error('Error updating category matiere count:', error);
+  }
+};
+
+/**
+ * Create finance entry for matiere purchase
+ */
+export const createMatiereFinanceEntry = async (
+  matiereId: string,
+  quantity: number,
+  costPrice: number,
+  userId: string,
+  companyId: string,
+  description: string
+): Promise<FinanceEntry> => {
+  const entry: Omit<FinanceEntry, 'id' | 'createdAt' | 'updatedAt'> = {
+    userId,
+    companyId,
+    sourceType: 'matiere',
+    sourceId: matiereId,
+    type: 'matiere_purchase',
+    amount: -Math.abs(quantity * costPrice), // Negative for expense
+    description,
+    date: serverTimestamp(),
+    isDeleted: false,
+  };
+  
+  return createFinanceEntry(entry);
 };
 
 // ============================================================================
@@ -2756,6 +3287,133 @@ export const getProductStockInfo = async (productId: string): Promise<{
     averageCostPrice,
     batches
   };
+};
+
+/**
+ * Get all stock batches for a matiere
+ */
+export const getMatiereStockBatches = async (matiereId: string): Promise<StockBatch[]> => {
+  const q = query(
+    collection(db, 'stockBatches'),
+    where('matiereId', '==', matiereId),
+    orderBy('createdAt', 'desc')
+  );
+  
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as StockBatch[];
+};
+
+/**
+ * Get current stock value and cost information for a matiere
+ */
+export const getMatiereStockInfo = async (matiereId: string): Promise<{
+  totalStock: number;
+  totalValue: number;
+  averageCostPrice: number;
+  batches: StockBatch[];
+}> => {
+  const batches = await getMatiereStockBatches(matiereId);
+  const activeBatches = batches.filter(batch => batch.status === 'active' && batch.remainingQuantity > 0);
+  
+  let totalStock = 0;
+  let totalValue = 0;
+  
+  for (const batch of activeBatches) {
+    totalStock += batch.remainingQuantity;
+    totalValue += batch.remainingQuantity * batch.costPrice;
+  }
+  
+  const averageCostPrice = totalStock > 0 ? totalValue / totalStock : 0;
+  
+  return {
+    totalStock,
+    totalValue,
+    averageCostPrice,
+    batches
+  };
+};
+
+/**
+ * Subscribe to stock batches for a specific matiere
+ */
+export const subscribeToMatiereStockBatches = (
+  companyId: string,
+  matiereId: string,
+  callback: (batches: StockBatch[]) => void,
+  onError?: (error: Error) => void
+): (() => void) => {
+  // Retirer orderBy pour éviter l'index - trier en mémoire
+  const q = query(
+    collection(db, 'stockBatches'),
+    where('companyId', '==', companyId),
+    where('matiereId', '==', matiereId)
+  );
+  
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const batches = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as StockBatch[];
+      
+      // Sort in memory by createdAt descending
+      batches.sort((a, b) => {
+        const aTime = a.createdAt?.seconds || 0;
+        const bTime = b.createdAt?.seconds || 0;
+        return bTime - aTime;
+      });
+      
+      callback(batches);
+    },
+    (error) => {
+      if (onError) {
+        onError(new Error(error.message));
+      }
+    }
+  );
+};
+
+/**
+ * Subscribe to stock changes for a specific matiere
+ */
+export const subscribeToMatiereStockChanges = (
+  companyId: string,
+  matiereId: string,
+  callback: (changes: StockChange[]) => void,
+  onError?: (error: Error) => void
+): (() => void) => {
+  // Retirer orderBy pour éviter l'index - trier en mémoire
+  const q = query(
+    collection(db, 'stockChanges'),
+    where('companyId', '==', companyId),
+    where('matiereId', '==', matiereId),
+    limit(200)
+  );
+  
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const changes = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as StockChange[];
+      
+      // Sort in memory by createdAt descending
+      changes.sort((a, b) => {
+        const aTime = a.createdAt?.seconds || 0;
+        const bTime = b.createdAt?.seconds || 0;
+        return bTime - aTime;
+      });
+      
+      callback(changes);
+    },
+    (error) => {
+      if (onError) {
+        onError(new Error(error.message));
+      }
+    }
+  );
 };
 
 /**

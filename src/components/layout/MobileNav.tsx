@@ -1,9 +1,10 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, ShoppingCart, DollarSign, Package2, FileBarChart, Receipt, Settings, Users, Grid3X3, ShoppingBag, Loader2, Phone, ScanLine} from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, DollarSign, Package2, FileBarChart, Receipt, Settings, Users, Grid3X3, ShoppingBag, Loader2, Phone, ScanLine, Warehouse} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
 import { useRolePermissions } from '../../hooks/useRolePermissions';
+import { RESOURCES } from '../../constants/resources';
 
 const MobileNav = () => {
   const { t } = useTranslation();
@@ -81,6 +82,12 @@ const MobileNav = () => {
       path: isCompanyRoute ? `/company/${companyId}/categories` : '/categories', 
       icon: <Grid3X3 size={20} />, 
       resource: 'categories' 
+    },
+    { 
+      name: 'Magasin', 
+      path: isCompanyRoute ? `/company/${companyId}/magasin` : '/magasin', 
+      icon: <Warehouse size={20} />, 
+      resource: RESOURCES.MAGASIN 
     },
     { 
       name: t('navigation.suppliers'), 
