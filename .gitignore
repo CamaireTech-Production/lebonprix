@@ -12,6 +12,7 @@ package-lock.json
 update-migration
 firebase-export
 dist
+dev-dist
 dist-ssr
 firebase-service-account.json
 *.local
@@ -27,7 +28,6 @@ firebase-service-account.json
 *.sln
 *.sw?
 .env
-dev-dist
 __MACOSX/._.env
 
 le-bon-prix-finances-firebase-adminsdk-fbsvc-530fd9488e.json
