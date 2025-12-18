@@ -1243,10 +1243,10 @@ const Reports = () => {
                     <tr key={idx}>
                       <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{product.name}</td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{product.quantitySold}</td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{product.totalSales)} XAF</td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{product.totalCOGS)} XAF</td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{product.totalSales} XAF</td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{product.totalCOGS} XAF</td>
                       <td className={`px-4 py-3 whitespace-nowrap text-sm font-semibold ${product.grossProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                        {product.grossProfit)} XAF
+                        {product.grossProfit} XAF
                       </td>
                       <td className={`px-4 py-3 whitespace-nowrap text-sm font-semibold ${product.profitMargin >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
                         {product.profitMargin.toFixed(1)}%

@@ -70,7 +70,8 @@
     "confirmCompanyExit": "Quitter l'entreprise actuelle ?",
     "confirmCompanyExitMessage": "Vous êtes sur le point de quitter le contexte de l'entreprise actuelle pour gérer vos entreprises.",
     "confirmCompanyExitQuestion": "Êtes-vous sûr de vouloir continuer ?",
-    "currentCompany": "Entreprise actuelle"
+    "currentCompany": "Entreprise actuelle",
+    "pos": "Point de Vente"
   },
   "header": {
     "welcome": "Bienvenue",

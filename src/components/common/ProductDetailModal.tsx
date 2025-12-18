@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useCart } from '../../contexts/CartContext';
 import { getCompanyByUserId, subscribeToProducts, getSellerSettings } from '../../services/firestore';
 import type { Company, Product} from '../../types/models';
@@ -409,9 +409,6 @@ Veuillez confirmer la disponibilité et fournir les détails de livraison.`;
           onMouseLeave={(e) => (e.target as HTMLButtonElement).style.backgroundColor = '#183524'}
         >
           Ajouter au panier - {formatPrice((product.cataloguePrice ?? 0) * quantity)} XAF
-            style: 'currency',
-            currency: 'XAF'
-          })}
         </button>
         
         <button
