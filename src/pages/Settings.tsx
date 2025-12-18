@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Input from '../components/common/Input';
+import PriceInput from '../components/common/PriceInput';
 import ActivityList from '../components/dashboard/ActivityList';
 import { showSuccessToast, showErrorToast, showWarningToast } from '../utils/toast';
 import { useTranslation } from 'react-i18next';
@@ -1348,10 +1349,9 @@ const Settings = () => {
 
               {/* Delivery Fee and Currency */}
               <div className="grid grid-cols-2 gap-4">
-                <Input
+                <PriceInput
                   label="Delivery Fee"
                   name="deliveryFee"
-                  type="number"
                   value={orderingSettings?.deliveryFee ?? 0}
                   onChange={(e) => setOrderingSettings(prev => prev ? { ...prev, deliveryFee: Number(e.target.value) } : prev)}
                 />

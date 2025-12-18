@@ -6,6 +6,7 @@ import { useObjectives } from '../hooks/useObjectives';
 import { format } from 'date-fns';
 import Modal, { ModalFooter } from '../components/common/Modal';
 import CreatableSelect from '../components/common/CreatableSelect';
+import PriceInput from '../components/common/PriceInput';
 import { getFinanceEntryTypes, createFinanceEntryType, createFinanceEntry, updateFinanceEntry, softDeleteFinanceEntry, softDeleteFinanceEntryWithCascade } from '../services/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import { Timestamp } from 'firebase/firestore';
@@ -1107,19 +1108,17 @@ const Finance: React.FC = () => {
             </div>
           )}
             <div>
-              <label className="block text-sm font-medium mb-1">{t('common.amount')}</label>
-              <input
-                type="number"
+              <PriceInput
+                label={t('common.amount')}
                 name="amount"
                 value={form.amount}
                 onChange={handleFormChange}
-                className="w-full border rounded px-3 py-2"
                 placeholder={t('common.amount')}
                 required
-              {...(form.type?.value === 'refund' && form.refundedDebtId ? {
-                max: remainingDebt || undefined
-              } : {})}
-              disabled={form.type?.value === 'refund' && userDebt.debtEntries.length === 0}
+                {...(form.type?.value === 'refund' && form.refundedDebtId ? {
+                  max: remainingDebt || undefined
+                } : {})}
+                disabled={form.type?.value === 'refund' && userDebt.debtEntries.length === 0}
               />
             </div>
             <div>
@@ -1173,13 +1172,11 @@ const Finance: React.FC = () => {
           
           <div>
             <label className="block text-sm font-medium mb-1">{t('common.amount')} <span className="text-gray-500">({t('finance.enterPositive', 'Enter positive amount')})</span></label>
-            <input
-              type="number"
-              step="0.01"
-              min="0"
+            <PriceInput
               name="amount"
               value={removeMoneyForm.amount}
               onChange={(e) => setRemoveMoneyForm(f => ({ ...f, amount: e.target.value }))}
+              allowDecimals={true}
               className="w-full border rounded px-3 py-2"
               placeholder="0"
               required

@@ -6,6 +6,7 @@ import Table from '../components/common/Table';
 import Badge from '../components/common/Badge';
 import Modal, { ModalFooter } from '../components/common/Modal';
 import Input from '../components/common/Input';
+import PriceInput from '../components/common/PriceInput';
 import DateRangePicker from '../components/common/DateRangePicker';
 import { useInfiniteExpenses } from '../hooks/useInfiniteExpenses';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
@@ -953,10 +954,9 @@ const Expenses = () => {
             required
           />
           
-          <Input
+          <PriceInput
             label={t('expenses.form.amount')}
             name="amount"
-            type="number"
             value={formData.amount}
             onChange={handleInputChange}
             required
@@ -1017,10 +1017,9 @@ const Expenses = () => {
             required
           />
           
-          <Input
+          <PriceInput
             label={t('expenses.form.amount')}
             name="amount"
-            type="number"
             value={formData.amount}
             onChange={handleInputChange}
             required

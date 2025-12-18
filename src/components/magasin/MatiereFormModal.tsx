@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Upload, Trash2, Image as ImageIcon } from 'lucide-react';
 import Modal, { ModalFooter } from '../common/Modal';
 import Input from '../common/Input';
+import PriceInput from '../common/PriceInput';
 import MatiereCategorySelector from './MatiereCategorySelector';
 import UnitSelector from './UnitSelector';
 import { useMatieres } from '../../hooks/useMatieres';
@@ -324,15 +325,13 @@ const MatiereFormModal: React.FC<MatiereFormModalProps> = ({
         </div>
 
         {/* Cost Price */}
-        <Input
+        <PriceInput
           label="Prix d'achat (XAF)"
           name="costPrice"
-          type="number"
           value={formData.costPrice}
           onChange={handleInputChange}
           placeholder="0"
-          min="0"
-          step="0.01"
+          allowDecimals={true}
         />
 
         {/* Initial Stock (only in create mode) */}

@@ -6,6 +6,7 @@ import Button from '../components/common/Button';
 import Badge from '../components/common/Badge';
 import Modal, { ModalFooter } from '../components/common/Modal';
 import Input from '../components/common/Input';
+import PriceInput from '../components/common/PriceInput';
 import Textarea from '../components/common/Textarea';
 import Table from '../components/common/Table';
 import { useSuppliers, useFinanceEntries } from '../hooks/useFirestore';
@@ -537,10 +538,9 @@ const Suppliers = () => {
             </div>
           )}
           
-          <Input
+          <PriceInput
             label={t('suppliers.refund.amount')}
             name="amount"
-            type="number"
             value={refundData.amount}
             onChange={handleRefundInputChange}
             required

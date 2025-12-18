@@ -7,6 +7,7 @@ import Button from '../components/common/Button';
 import Badge from '../components/common/Badge';
 import Modal, { ModalFooter } from '../components/common/Modal';
 import Input from '../components/common/Input';
+import PriceInput from '../components/common/PriceInput';
 import { useProducts, useStockChanges, useCategories, useSuppliers } from '../hooks/useFirestore';
 import { useInfiniteProducts } from '../hooks/useInfiniteProducts';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
@@ -255,15 +256,11 @@ const Products = () => {
     setStep1Data(prev => ({ ...prev, [name]: value }));
   };
   
-  const handleStep2InputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleStep2InputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement> | { target: { name: string; value: string } }) => {
     const { name, value } = e.target;
     
-    // Filter out decimals for price fields
-    const filteredValue = ['stockCostPrice', 'sellingPrice', 'cataloguePrice'].includes(name) 
-      ? value.replace(/[^0-9]/g, '') 
-      : value;
-    
-    setStep2Data(prev => ({ ...prev, [name]: filteredValue }));
+    // PriceInput handles formatting, so we can use the value directly
+    setStep2Data(prev => ({ ...prev, [name]: value }));
   };
   
   const handleQuickSupplierInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -2158,28 +2155,25 @@ const Products = () => {
               )}
               
               {/* These price fields are ALWAYS visible */}
-              <Input
+              <PriceInput
                 label={t('products.form.step2.stockCostPrice')}
                 name="stockCostPrice"
-                type="number"
                 value={step2Data.stockCostPrice}
                 onChange={handleStep2InputChange}
                 helpText={t('products.form.step2.stockCostPriceHelp')}
                 required
               />
-              <Input
+              <PriceInput
                 label={t('products.form.step2.sellingPrice')}
                 name="sellingPrice"
-                type="number"
                 value={step2Data.sellingPrice}
                 onChange={handleStep2InputChange}
                 helpText={t('products.form.step2.sellingPriceHelp')}
                 required
               />
-              <Input
+              <PriceInput
                 label={t('products.form.step2.cataloguePrice')}
                 name="cataloguePrice"
-                type="number"
                 value={step2Data.cataloguePrice}
                 onChange={handleStep2InputChange}
                 helpText={t('products.form.step2.cataloguePriceHelp')}
@@ -2561,24 +2555,20 @@ const Products = () => {
               </div>
             </div>
             {/* Selling Price */}
-            <Input
+            <PriceInput
               label={t('products.form.step2.sellingPrice')}
               name="sellingPrice"
-              type="number"
-              min={0}
               value={editPrices.sellingPrice}
-              onChange={e => setEditPrices(p => ({ ...p, sellingPrice: e.target.value.replace(/[^0-9]/g, '') }))}
+              onChange={e => setEditPrices(p => ({ ...p, sellingPrice: e.target.value }))}
               required
               helpText={t('products.form.sellingPriceHelp', 'Required: The price at which you sell this product.')}
             />
             {/* Catalogue Price */}
-            <Input
+            <PriceInput
               label={t('products.form.step2.cataloguePrice')}
               name="cataloguePrice"
-              type="number"
-              min={0}
               value={editPrices.cataloguePrice}
-              onChange={e => setEditPrices(p => ({ ...p, cataloguePrice: e.target.value.replace(/[^0-9]/g, '') }))}
+              onChange={e => setEditPrices(p => ({ ...p, cataloguePrice: e.target.value }))}
               helpText={t('products.form.cataloguePriceHelp', 'Optional: Used for reference or promotions.')}
             />
             {/* Profit/Cost Info */}

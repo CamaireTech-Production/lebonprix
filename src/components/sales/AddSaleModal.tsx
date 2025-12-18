@@ -1,6 +1,7 @@
 import { useAddSaleForm } from '../../hooks/useAddSaleForm';
 import Modal, { ModalFooter } from '../common/Modal';
 import Input from '../common/Input';
+import PriceInput from '../common/PriceInput';
 import Button from '../common/Button';
 import Select from 'react-select';
 import { Plus, Trash2, Info, ChevronDown, ChevronUp} from 'lucide-react';
@@ -593,9 +594,9 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                           required
                           helpText={`Cannot exceed ${product.product.stock}`}
                         />
-                        <Input
+                        <PriceInput
                           label="Negotiated Price"
-                          type="number"
+                          name={`negotiatedPrice-${index}`}
                           value={product.negotiatedPrice}
                           onChange={(e) => onProductInputChange(index, 'negotiatedPrice', e.target.value)}
                           // helpText="Enter the negotiated price (can exceed standard price)"
@@ -706,9 +707,9 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                         required
                           helpText={`Cannot exceed ${product.product.stock}`}
                       />
-                      <Input
+                      <PriceInput
                           label="Negotiated Price"
-                        type="number"
+                        name={`negotiatedPrice-${index}`}
                         value={product.negotiatedPrice}
                         onChange={(e) => onProductInputChange(index, 'negotiatedPrice', e.target.value)}
                           // helpText="Enter the negotiated price (can exceed standard price)"
@@ -746,10 +747,9 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
           </div>
           {/* Delivery Fee and Status */}
           <div className="grid grid-cols-2 gap-4">
-            <Input
+            <PriceInput
                 label="Delivery Fee"
               name="deliveryFee"
-              type="number"
               value={formData.deliveryFee}
               onChange={handleInputChange}
             />

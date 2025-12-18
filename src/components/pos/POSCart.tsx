@@ -2,6 +2,7 @@ import { Plus, Minus, Trash2, ShoppingCart, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ImageWithSkeleton } from '../common/ImageWithSkeleton';
 import { formatPrice } from '../../utils/formatPrice';
+import PriceInput from '../common/PriceInput';
 import type { CartItem } from '../../hooks/usePOS';
 
 interface POSCartProps {
@@ -105,15 +106,15 @@ export const POSCart: React.FC<POSCartProps> = ({
 
                     {/* Negotiated Price Input */}
                     {item.negotiatedPrice !== undefined && (
-                      <input
-                        type="number"
-                        value={item.negotiatedPrice}
+                      <PriceInput
+                        name={`negotiatedPrice-${item.product.id}`}
+                        value={item.negotiatedPrice.toString()}
                         onChange={(e) => {
                           const value = parseFloat(e.target.value);
-                          onUpdateNegotiatedPrice(item.product.id, isNaN(value) ? undefined : value);
+                          onUpdateNegotiatedPrice(item.product.id, isNaN(value) || e.target.value === '' ? undefined : value);
                         }}
                         placeholder="Negotiated price"
-                        className="w-full px-2 py-1 text-xs border border-gray-300 rounded mb-2"
+                        className="w-full px-2 py-1 text-xs mb-2"
                       />
                     )}
                   </div>
@@ -142,12 +143,11 @@ export const POSCart: React.FC<POSCartProps> = ({
           {/* Delivery Fee */}
           <div className="flex items-center justify-between">
             <label className="text-sm text-gray-700">{t('pos.cart.deliveryFee')}:</label>
-            <input
-              type="number"
-              value={deliveryFee}
+            <PriceInput
+              name="deliveryFee"
+              value={deliveryFee.toString()}
               onChange={(e) => onDeliveryFeeChange(parseFloat(e.target.value) || 0)}
-              className="w-24 px-2 py-1 text-sm border border-gray-300 rounded text-right"
-              min="0"
+              className="w-24 px-2 py-1 text-sm text-right"
             />
           </div>
 

@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../../contexts/AuthContext';
 import Modal, { ModalFooter } from '../../../components/common/Modal';
 import Input from '../../../components/common/Input';
+import PriceInput from '../../../components/common/PriceInput';
 import CreatableSelect from '../../../components/common/CreatableSelect';
 import { createExpense, updateExpense, syncFinanceEntryWithExpense } from '../../../services/firestore';
 import { showSuccessToast, showErrorToast, showWarningToast } from '../../../utils/toast';
@@ -247,10 +248,9 @@ const ExpenseFormModal = ({ isOpen, mode, expense, onClose, onSuccess }: Expense
           required
         />
         
-        <Input
+        <PriceInput
           label={t('expenses.form.amount')}
           name="amount"
-          type="number"
           value={formData.amount}
           onChange={handleInputChange}
           required

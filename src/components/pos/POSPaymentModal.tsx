@@ -10,6 +10,7 @@ import { formatPrice } from '../../utils/formatPrice';
 import { POSCalculator } from './POSCalculator';
 import Select from 'react-select';
 import Input from '../common/Input';
+import PriceInput from '../common/PriceInput';
 import { ImageWithSkeleton } from '../common/ImageWithSkeleton';
 import type { OrderStatus } from '../../types/models';
 import type { CartItem } from '../../hooks/usePOS';
@@ -854,12 +855,11 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
                 {paymentMethod === 'cash' && (
                   <div className="mt-4 space-y-3">
                     <div>
-                      <Input
+                      <PriceInput
                         label={t('pos.payment.amountReceived') + ' ' + t('pos.payment.optional')}
-                        type="number"
+                        name="amountReceived"
                         value={amountReceived}
                         onChange={(e) => setAmountReceived(e.target.value)}
-                        min={total.toString()}
                         placeholder={t('pos.payment.exactAmountHint') || `Laisser vide si montant exact (${formatPrice(total)} XAF)`}
                       />
                       <p className="text-xs text-gray-500 mt-1">
@@ -1088,13 +1088,13 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
                   <option value="amount">{t('pos.payment.discountAmount')}</option>
                   <option value="percentage">{t('pos.payment.discountPercentage')}</option>
                 </select>
-                <Input
-                  type="number"
+                <PriceInput
+                  name="discountValue"
                   value={discountValue}
                   onChange={(e) => setDiscountValue(e.target.value)}
                   placeholder={discountType === 'amount' ? 'XAF' : '%'}
-                  min="0"
                   className="flex-1"
+                  allowDecimals={discountType === 'percentage'}
                 />
               </div>
             </div>
@@ -1131,11 +1131,10 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
                               <Truck size={16} className="inline mr-2" />
                               {t('pos.payment.deliveryFee')}
                             </label>
-                            <Input
-                              type="number"
+                            <PriceInput
+                              name="deliveryFee"
                               value={deliveryFee.toString()}
                               onChange={(e) => setDeliveryFee(parseFloat(e.target.value) || 0)}
-                              min="0"
                             />
                           </div>
                           <div>
@@ -1194,12 +1193,11 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                           {t('pos.payment.tax')}
                         </label>
-                        <Input
-                          type="number"
+                        <PriceInput
+                          name="tax"
                           value={tax}
                           onChange={(e) => setTax(e.target.value)}
                           placeholder="XAF"
-                          min="0"
                         />
                       </div>
                       <div>

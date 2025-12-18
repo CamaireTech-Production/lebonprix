@@ -17,6 +17,7 @@ import {
 import Select from 'react-select';
 import Modal, { ModalFooter } from '../components/common/Modal';
 import Input from '../components/common/Input';
+import PriceInput from '../components/common/PriceInput';
 import Badge from '../components/common/Badge';
 import Button from '../components/common/Button';
 import Card from '../components/common/Card';
@@ -1112,9 +1113,9 @@ const Sales: React.FC = () => {
                         required
                         helpText={t('sales.modals.edit.products.cannotExceed', { value: product.product.stock })}
                       />
-                      <Input
+                      <PriceInput
                         label={t('sales.modals.edit.products.negotiatedPrice')}
-                        type="number"
+                        name={`negotiatedPrice-${index}`}
                         value={product.negotiatedPrice}
                         onChange={(e) => handleProductInputChange(index, 'negotiatedPrice', e.target.value)}
                       />
@@ -1141,10 +1142,9 @@ const Sales: React.FC = () => {
             )}
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <Input
+            <PriceInput
               label={t('sales.modals.edit.delivery.fee')}
               name="deliveryFee"
-              type="number"
               value={formData.deliveryFee}
               onChange={handleInputChange}
             />
