@@ -10,6 +10,7 @@ import type { Product, StockBatch } from '../../types/models';
 import Modal from '../common/Modal';
 import Button from '../common/Button';
 import Input from '../common/Input';
+import PriceInput from '../common/PriceInput';
 import Select from '../common/Select';
 import { formatCostPrice } from '../../utils/inventoryManagement';
 import { showSuccessToast, showErrorToast } from '../../utils/toast';
@@ -546,14 +547,13 @@ const ManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
               step="1"
             />
             
-            <Input
+            <PriceInput
               label="New Cost Price (Optional)"
-              type="number"
+              name="newCostPrice"
               value={formData.newCostPrice}
-            onChange={(e) => handleInputChange('newCostPrice', e.target.value)}
+              onChange={(e) => handleInputChange('newCostPrice', e.target.value)}
               placeholder="Leave empty to keep current"
-              min="0"
-              step="0.01"
+              allowDecimals={true}
             />
           </div>
 

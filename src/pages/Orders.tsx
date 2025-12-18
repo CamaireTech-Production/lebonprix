@@ -10,6 +10,7 @@ import {
   deleteOrder 
 } from '../services/orderService';
 import { formatCreatorName } from '../utils/employeeUtils';
+import { formatPrice } from '../utils/formatPrice';
 import { Order, OrderFilters, OrderStats } from '../types/order';
 import { 
   ShoppingBag, 
@@ -278,14 +279,6 @@ const Orders: React.FC = () => {
     }).format(dateObj);
   };
 
-  // Format currency
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('fr-FR', {
-      style: 'currency',
-      currency: 'XAF',
-      minimumFractionDigits: 0
-    }).format(amount);
-  };
 
   if (loading) {
     return (
@@ -368,7 +361,7 @@ const Orders: React.FC = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600 mb-1">{t('orders.stats.totalRevenue')}</p>
-                <p className="text-2xl font-bold text-gray-900">{formatCurrency(stats.totalRevenue)}</p>
+                <p className="text-2xl font-bold text-gray-900">{formatPrice(stats.totalRevenue)} XAF</p>
               </div>
               <div className="p-3 bg-emerald-50 rounded-lg">
                 <DollarSign className="w-6 h-6 text-emerald-600" />
@@ -447,7 +440,7 @@ const Orders: React.FC = () => {
                     </div>
                     <div className="flex items-center gap-1.5">
                       <DollarSign className="w-4 h-4 text-gray-400" />
-                      <span className="font-semibold text-gray-900">{formatCurrency(order.pricing.total)}</span>
+                      <span className="font-semibold text-gray-900">{formatPrice(order.pricing.total)} XAF</span>
                     </div>
                     <div className="flex items-center gap-1.5">
                       <Package className="w-4 h-4 text-gray-400" />
@@ -613,7 +606,7 @@ const Orders: React.FC = () => {
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="font-medium">{formatCurrency(item.price)}</p>
+                      <p className="font-medium">{formatPrice(item.price)} XAF</p>
                       <p className="text-sm text-gray-600">{t('orders.orderDetails.qty')}: {item.quantity}</p>
                     </div>
                   </div>
@@ -627,27 +620,27 @@ const Orders: React.FC = () => {
               <div className="space-y-2 p-4 bg-gray-50 rounded-lg">
                 <div className="flex justify-between">
                   <span>{t('orders.orderDetails.subtotal')}:</span>
-                  <span>{formatCurrency(selectedOrder.pricing.subtotal)}</span>
+                  <span>{formatPrice(selectedOrder.pricing.subtotal)} XAF</span>
                 </div>
                 <div className="flex justify-between">
                   <span>{t('orders.orderDetails.deliveryFee')}:</span>
-                  <span>{formatCurrency(selectedOrder.pricing.deliveryFee)}</span>
+                  <span>{formatPrice(selectedOrder.pricing.deliveryFee)} XAF</span>
                 </div>
                 {selectedOrder.pricing.tax && selectedOrder.pricing.tax > 0 && (
                   <div className="flex justify-between">
                     <span>{t('orders.orderDetails.tax')}:</span>
-                    <span>{formatCurrency(selectedOrder.pricing.tax)}</span>
+                    <span>{formatPrice(selectedOrder.pricing.tax)} XAF</span>
                   </div>
                 )}
                 {selectedOrder.pricing.discount && selectedOrder.pricing.discount > 0 && (
                   <div className="flex justify-between text-green-600">
                     <span>{t('orders.orderDetails.discount')}:</span>
-                    <span>-{formatCurrency(selectedOrder.pricing.discount)}</span>
+                    <span>-{formatPrice(selectedOrder.pricing.discount)} XAF</span>
                   </div>
                 )}
                 <div className="flex justify-between font-bold text-lg border-t pt-2">
                   <span>{t('orders.orderDetails.total')}:</span>
-                  <span>{formatCurrency(selectedOrder.pricing.total)}</span>
+                  <span>{formatPrice(selectedOrder.pricing.total)} XAF</span>
                 </div>
               </div>
             </div>

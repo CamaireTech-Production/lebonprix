@@ -1,5 +1,6 @@
 import React from 'react';
 import { X, AlertTriangle, CreditCard, DollarSign } from 'lucide-react';
+import { formatPrice } from '../../utils/formatPrice';
 
 interface AmountTooLowModalProps {
   isOpen: boolean;
@@ -20,14 +21,6 @@ export const AmountTooLowModal: React.FC<AmountTooLowModalProps> = ({
 }) => {
   if (!isOpen) return null;
 
-  const formatAmount = (amount: number) => {
-    return new Intl.NumberFormat('fr-FR', {
-      style: 'currency',
-      currency: currency,
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount);
-  };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -60,7 +53,7 @@ export const AmountTooLowModal: React.FC<AmountTooLowModalProps> = ({
                 <DollarSign className="h-5 w-5 text-gray-600" />
                 <div>
                   <p className="text-sm font-medium text-gray-700">Your Order Total</p>
-                  <p className="text-2xl font-bold text-gray-900">{formatAmount(currentAmount)}</p>
+                  <p className="text-2xl font-bold text-gray-900">{formatPrice(currentAmount)} {currency}</p>
                 </div>
               </div>
             </div>
@@ -71,7 +64,7 @@ export const AmountTooLowModal: React.FC<AmountTooLowModalProps> = ({
                 <CreditCard className="h-5 w-5 text-red-600" />
                 <div>
                   <p className="text-sm font-medium text-red-700">Minimum Required</p>
-                  <p className="text-2xl font-bold text-red-900">{formatAmount(minimumAmount)}</p>
+                  <p className="text-2xl font-bold text-red-900">{formatPrice(minimumAmount)} {currency}</p>
                 </div>
               </div>
             </div>
@@ -83,7 +76,7 @@ export const AmountTooLowModal: React.FC<AmountTooLowModalProps> = ({
                 <div>
                   <p className="text-sm font-medium text-blue-900">Payment Method Limitation</p>
                   <p className="text-sm text-blue-700 mt-1">
-                    Online payments require a minimum amount of {formatAmount(minimumAmount)}. 
+                    Online payments require a minimum amount of {formatPrice(minimumAmount)} {currency}. 
                     You can either add more items to your cart or choose "Pay Onsite" instead.
                   </p>
                 </div>

@@ -7,6 +7,7 @@ import Button from '../components/common/Button';
 import Badge from '../components/common/Badge';
 import Modal, { ModalFooter } from '../components/common/Modal';
 import Input from '../components/common/Input';
+import PriceInput from '../components/common/PriceInput';
 import { useProducts, useStockChanges, useCategories, useSuppliers } from '../hooks/useFirestore';
 import { useInfiniteProducts } from '../hooks/useInfiniteProducts';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
@@ -26,6 +27,7 @@ import type { Product, ProductTag} from '../types/models';
 import type { ParseResult } from 'papaparse';
 import { getLatestCostPrice} from '../utils/productUtils';
 import { formatCreatorName } from '../utils/employeeUtils';
+import { formatPrice } from '../utils/formatPrice';
 import { 
   getProductBatchesForAdjustment,
   adjustBatchWithDebtManagement
@@ -254,15 +256,11 @@ const Products = () => {
     setStep1Data(prev => ({ ...prev, [name]: value }));
   };
   
-  const handleStep2InputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleStep2InputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement> | { target: { name: string; value: string } }) => {
     const { name, value } = e.target;
     
-    // Filter out decimals for price fields
-    const filteredValue = ['stockCostPrice', 'sellingPrice', 'cataloguePrice'].includes(name) 
-      ? value.replace(/[^0-9]/g, '') 
-      : value;
-    
-    setStep2Data(prev => ({ ...prev, [name]: filteredValue }));
+    // PriceInput handles formatting, so we can use the value directly
+    setStep2Data(prev => ({ ...prev, [name]: value }));
   };
   
   const handleQuickSupplierInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -675,7 +673,7 @@ const Products = () => {
       };
 
       setTempBatchEdits(prev => [...prev, newEdit]);
-      showSuccessToast(`Manual adjustment added: ${quantityChange >= 0 ? '+' : ''}${quantityChange} units @ ${parseFloat(batchEditForm.costPrice).toLocaleString()} XAF`);
+      showSuccessToast(`Manual adjustment added: ${quantityChange >= 0 ? '+' : ''}${quantityChange} units @ ${formatPrice(parseFloat(batchEditForm.costPrice))} XAF`);
 
     } else if (stockReason === 'damage') {
       if (!damageForm.damagedQuantity) {
@@ -1645,7 +1643,7 @@ const Products = () => {
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">{t('products.table.columns.sellingPrice')}:</span>
-                      <span className="text-emerald-600 font-medium">{product.sellingPrice.toLocaleString()} XAF</span>
+                      <span className="text-emerald-600 font-medium">{formatPrice(product.sellingPrice)} XAF</span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">{t('products.table.columns.stock')}:</span>
@@ -2157,28 +2155,25 @@ const Products = () => {
               )}
               
               {/* These price fields are ALWAYS visible */}
-              <Input
+              <PriceInput
                 label={t('products.form.step2.stockCostPrice')}
                 name="stockCostPrice"
-                type="number"
                 value={step2Data.stockCostPrice}
                 onChange={handleStep2InputChange}
                 helpText={t('products.form.step2.stockCostPriceHelp')}
                 required
               />
-              <Input
+              <PriceInput
                 label={t('products.form.step2.sellingPrice')}
                 name="sellingPrice"
-                type="number"
                 value={step2Data.sellingPrice}
                 onChange={handleStep2InputChange}
                 helpText={t('products.form.step2.sellingPriceHelp')}
                 required
               />
-              <Input
+              <PriceInput
                 label={t('products.form.step2.cataloguePrice')}
                 name="cataloguePrice"
-                type="number"
                 value={step2Data.cataloguePrice}
                 onChange={handleStep2InputChange}
                 helpText={t('products.form.step2.cataloguePriceHelp')}
@@ -2523,7 +2518,7 @@ const Products = () => {
                                )}
                              </td>
                              <td className="px-2 py-1">
-                               {sc.costPrice ? `${sc.costPrice.toLocaleString()} XAF` : '-'}
+                               {sc.costPrice ? `${formatPrice(sc.costPrice)} XAF` : '-'}
                              </td>
                            </tr>
                          );
@@ -2560,24 +2555,20 @@ const Products = () => {
               </div>
             </div>
             {/* Selling Price */}
-            <Input
+            <PriceInput
               label={t('products.form.step2.sellingPrice')}
               name="sellingPrice"
-              type="number"
-              min={0}
               value={editPrices.sellingPrice}
-              onChange={e => setEditPrices(p => ({ ...p, sellingPrice: e.target.value.replace(/[^0-9]/g, '') }))}
+              onChange={e => setEditPrices(p => ({ ...p, sellingPrice: e.target.value }))}
               required
               helpText={t('products.form.sellingPriceHelp', 'Required: The price at which you sell this product.')}
             />
             {/* Catalogue Price */}
-            <Input
+            <PriceInput
               label={t('products.form.step2.cataloguePrice')}
               name="cataloguePrice"
-              type="number"
-              min={0}
               value={editPrices.cataloguePrice}
-              onChange={e => setEditPrices(p => ({ ...p, cataloguePrice: e.target.value.replace(/[^0-9]/g, '') }))}
+              onChange={e => setEditPrices(p => ({ ...p, cataloguePrice: e.target.value }))}
               helpText={t('products.form.cataloguePriceHelp', 'Optional: Used for reference or promotions.')}
             />
             {/* Profit/Cost Info */}
@@ -2586,7 +2577,7 @@ const Products = () => {
                 {t('products.form.latestCostPrice', 'Latest Cost Price')}: {(getLatestCostPrice(currentProduct?.id || '', Array.isArray(stockChanges) ? stockChanges : []) ?? 0)} XAF
               </div>
               <div className="text-sm text-gray-700">
-                {t('products.form.profitPerUnit', 'Profit per unit')}: {editPrices.sellingPrice && getLatestCostPrice(currentProduct?.id || '', Array.isArray(stockChanges) ? stockChanges : []) !== undefined ? (parseFloat(editPrices.sellingPrice) - (getLatestCostPrice(currentProduct?.id || '', Array.isArray(stockChanges) ? stockChanges : []) ?? 0)).toLocaleString() : '-'} XAF
+                {t('products.form.profitPerUnit', 'Profit per unit')}: {editPrices.sellingPrice && getLatestCostPrice(currentProduct?.id || '', Array.isArray(stockChanges) ? stockChanges : []) !== undefined ? formatPrice(parseFloat(editPrices.sellingPrice) - (getLatestCostPrice(currentProduct?.id || '', Array.isArray(stockChanges) ? stockChanges : []) ?? 0)) : '-'} XAF
               </div>
               {editPrices.sellingPrice && getLatestCostPrice(currentProduct?.id || '', Array.isArray(stockChanges) ? stockChanges : []) !== undefined && parseFloat(editPrices.sellingPrice) < (getLatestCostPrice(currentProduct?.id || '', Array.isArray(stockChanges) ? stockChanges : []) ?? 0) && (
                 <div className="flex items-center bg-red-50 border-l-4 border-red-400 p-2 rounded-md mt-2">
@@ -2978,17 +2969,17 @@ const Products = () => {
                 <div className="space-y-3">
                   <div>
                     <label className="block text-sm font-medium text-gray-700">{t('products.form.step2.sellingPrice')}</label>
-                    <p className="mt-1 text-sm font-semibold text-emerald-600">{detailProduct?.sellingPrice?.toLocaleString()} XAF</p>
+                    <p className="mt-1 text-sm font-semibold text-emerald-600">{formatPrice(detailProduct?.sellingPrice ?? 0)} XAF</p>
                   </div>
                   {detailProduct?.cataloguePrice && (
                     <div>
                       <label className="block text-sm font-medium text-gray-700">{t('products.form.step2.cataloguePrice')}</label>
-                      <p className="mt-1 text-sm text-gray-900">{detailProduct.cataloguePrice.toLocaleString()} XAF</p>
+                      <p className="mt-1 text-sm text-gray-900">{formatPrice(detailProduct.cataloguePrice)} XAF</p>
                     </div>
                   )}
                   <div>
                     <label className="block text-sm font-medium text-gray-700">{t('products.form.latestCostPrice', 'Latest Cost Price')}</label>
-                    <p className="mt-1 text-sm text-gray-900">{getLatestCostPrice(detailProduct?.id || '', Array.isArray(stockChanges) ? stockChanges : [])?.toLocaleString() || '0'} XAF</p>
+                    <p className="mt-1 text-sm text-gray-900">{formatPrice(getLatestCostPrice(detailProduct?.id || '', Array.isArray(stockChanges) ? stockChanges : []) ?? 0)} XAF</p>
                   </div>
                 </div>
               </div>
@@ -3010,7 +3001,7 @@ const Products = () => {
                   <label className="block text-sm font-medium text-gray-700">{t('products.detailTabs.profitPerUnit', 'Profit per Unit')}</label>
                   <p className="mt-1 text-sm font-semibold text-emerald-600">
                     {detailProduct && getLatestCostPrice(detailProduct.id, Array.isArray(stockChanges) ? stockChanges : []) !== undefined
-? (detailProduct.sellingPrice - (getLatestCostPrice(detailProduct.id, Array.isArray(stockChanges) ? stockChanges : []) || 0)).toLocaleString()
+? formatPrice(detailProduct.sellingPrice - (getLatestCostPrice(detailProduct.id, Array.isArray(stockChanges) ? stockChanges : []) || 0))
                       : '-'
                     } XAF
                   </p>
@@ -3019,7 +3010,7 @@ const Products = () => {
                   <label className="block text-sm font-medium text-gray-700">{t('products.detailTabs.totalValue', 'Total Stock Value')}</label>
                   <p className="mt-1 text-sm text-gray-900">
                     {detailProduct && getLatestCostPrice(detailProduct.id, Array.isArray(stockChanges) ? stockChanges : []) !== undefined
-? ((getLatestCostPrice(detailProduct.id, Array.isArray(stockChanges) ? stockChanges : []) || 0) * detailProduct.stock).toLocaleString()
+? formatPrice((getLatestCostPrice(detailProduct.id, Array.isArray(stockChanges) ? stockChanges : []) || 0) * detailProduct.stock)
                       : '0'
                     } XAF
                   </p>
@@ -3288,7 +3279,7 @@ const Products = () => {
                                 )}
                               </td>
                               <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                                {stockChange.costPrice ? stockChange.costPrice.toLocaleString() : '-'} XAF
+                                {stockChange.costPrice ? formatPrice(stockChange.costPrice) : '-'} XAF
                               </td>
                             </tr>
                           );

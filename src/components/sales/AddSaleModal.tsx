@@ -1,6 +1,7 @@
 import { useAddSaleForm } from '../../hooks/useAddSaleForm';
 import Modal, { ModalFooter } from '../common/Modal';
 import Input from '../common/Input';
+import PriceInput from '../common/PriceInput';
 import Button from '../common/Button';
 import Select from 'react-select';
 import { Plus, Trash2, Info, ChevronDown, ChevronUp} from 'lucide-react';
@@ -8,6 +9,7 @@ import { ImageWithSkeleton } from '../common/ImageWithSkeleton';
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { logError } from '../../utils/logger';
+import { formatPrice } from '../../utils/formatPrice';
 import type { Sale, StockBatch } from '../../types/models';
 import SaleDetailsModal from './SaleDetailsModal';
 import { getProductStockBatches } from '../../services/firestore';
@@ -138,7 +140,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
         <div>
           <div className="font-medium">{product.name}</div>
           <div className="text-sm text-gray-500">
-            {product.stock} in stock - {product.sellingPrice.toLocaleString()} XAF
+            {product.stock} in stock - {formatPrice(product.sellingPrice)} XAF
           </div>
         </div>
       </div>
@@ -177,7 +179,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
     }
 
     const batchInfo = stockInfo.batches.map(batch => 
-      `${batch.remainingQuantity} at ${batch.costPrice.toLocaleString()} XAF`
+      `${batch.remainingQuantity} at ${formatPrice(batch.costPrice)} XAF`
     ).join(', ');
 
     return `${stockInfo.totalStock} units total (${batchInfo})`;
@@ -541,7 +543,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                         <div className="flex-1">
                           <p className="font-medium">{product.product.name}</p>
                           <p className="text-sm text-gray-500">
-                            {product.product.stock} in stock - {product.product.sellingPrice.toLocaleString()} XAF
+                            {product.product.stock} in stock - {formatPrice(product.product.sellingPrice)} XAF
                           </p>
                         </div>
                         <button
@@ -570,7 +572,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                                 {formatStockBatchInfo(stockInfo)}
                                 {stockInfo.averageCostPrice > 0 && (
                                   <div className="mt-1 text-xs text-blue-600">
-                                    Average cost: {stockInfo.averageCostPrice.toLocaleString()} XAF
+                                    Average cost: {formatPrice(stockInfo.averageCostPrice)} XAF
                                   </div>
                                 )}
                               </div>
@@ -592,9 +594,9 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                           required
                           helpText={`Cannot exceed ${product.product.stock}`}
                         />
-                        <Input
+                        <PriceInput
                           label="Negotiated Price"
-                          type="number"
+                          name={`negotiatedPrice-${index}`}
                           value={product.negotiatedPrice}
                           onChange={(e) => onProductInputChange(index, 'negotiatedPrice', e.target.value)}
                           // helpText="Enter the negotiated price (can exceed standard price)"
@@ -604,7 +606,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                       {product.quantity && (
                         <div className="p-3 bg-blue-50 rounded-md">
                           <span className="text-sm font-medium text-blue-700">Product Total:</span>
-                          <span className="ml-2 text-blue-900">{calculateProductTotal(product).toLocaleString()} XAF</span>
+                          <span className="ml-2 text-blue-900">{formatPrice(calculateProductTotal(product))} XAF</span>
                         </div>
                       )}
                     </div>
@@ -657,7 +659,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                     <div className="grid grid-cols-2 gap-4 p-3 bg-gray-50 rounded-md">
                       <div>
                           <span className="text-sm font-medium text-gray-700">Standard Price:</span>
-                        <span className="ml-2">{product.product.sellingPrice.toLocaleString()} XAF</span>
+                        <span className="ml-2">{formatPrice(product.product.sellingPrice)} XAF</span>
                       </div>
                       <div>
                           <span className="text-sm font-medium text-gray-700">Available Stock:</span>
@@ -705,9 +707,9 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                         required
                           helpText={`Cannot exceed ${product.product.stock}`}
                       />
-                      <Input
+                      <PriceInput
                           label="Negotiated Price"
-                        type="number"
+                        name={`negotiatedPrice-${index}`}
                         value={product.negotiatedPrice}
                         onChange={(e) => onProductInputChange(index, 'negotiatedPrice', e.target.value)}
                           // helpText="Enter the negotiated price (can exceed standard price)"
@@ -717,7 +719,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                     {product.quantity && (
                         <div className="p-3 bg-blue-50 rounded-md">
                           <span className="text-sm font-medium text-blue-700">Product Total:</span>
-                          <span className="ml-2 text-blue-900">{calculateProductTotal(product).toLocaleString()} XAF</span>
+                          <span className="ml-2 text-blue-900">{formatPrice(calculateProductTotal(product))} XAF</span>
                       </div>
                     )}
                   </>
@@ -728,7 +730,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
             {formData.products.some(p => p.quantity) && (
                 <div className="p-4 bg-green-50 rounded-md">
                   <span className="text-lg font-medium text-green-700">Total Amount:</span>
-                  <span className="ml-2 text-green-900 text-lg">{calculateTotal().toLocaleString()} XAF</span>
+                  <span className="ml-2 text-green-900 text-lg">{formatPrice(calculateTotal())} XAF</span>
               </div>
             )}
           </div>
@@ -745,10 +747,9 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
           </div>
           {/* Delivery Fee and Status */}
           <div className="grid grid-cols-2 gap-4">
-            <Input
+            <PriceInput
                 label="Delivery Fee"
               name="deliveryFee"
-              type="number"
               value={formData.deliveryFee}
               onChange={handleInputChange}
             />
@@ -854,7 +855,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-sm truncate">{product.name}</p>
                       <p className="text-sm text-gray-500">
-                            {product.stock} in stock - {product.sellingPrice.toLocaleString()} XAF
+                            {product.stock} in stock - {formatPrice(product.sellingPrice)} XAF
                       </p>
                     </div>
                   </div>
@@ -875,7 +876,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
             {formData.products.some(p => p.quantity) && (
                 <div className="mt-6 p-4 bg-green-50 rounded-md">
                   <span className="text-lg font-medium text-green-700">Total Amount:</span>
-                  <span className="ml-2 text-green-900 text-lg">{calculateTotal().toLocaleString()} XAF</span>
+                  <span className="ml-2 text-green-900 text-lg">{formatPrice(calculateTotal())} XAF</span>
               </div>
             )}
           </div>

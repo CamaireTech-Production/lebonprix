@@ -1,6 +1,6 @@
 import React from 'react';
 import { useLocation, Link, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, ShoppingCart, DollarSign, Package2, FileBarChart, Settings, X, Receipt, Users, Building2, Plus, Grid3X3, ShoppingBag, UserCheck, ChevronDown, ChevronRight, Loader2, Phone, ScanLine} from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, DollarSign, Package2, FileBarChart, Settings, X, Receipt, Users, Building2, Plus, Grid3X3, ShoppingBag, UserCheck, ChevronDown, ChevronRight, Loader2, Phone, ScanLine, Warehouse} from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useRolePermissions } from '../../hooks/useRolePermissions';
 import UserAvatar from '../common/UserAvatar';
@@ -8,6 +8,7 @@ import DownloadAppButton from '../common/DownloadAppButton';
 import { useTranslation } from 'react-i18next';
 import CreateCompanyModal from '../modals/CreateCompanyModal';
 import Modal, { ModalFooter } from '../common/Modal';
+import { RESOURCES } from '../../constants/resources';
 
 interface SidebarProps {
   onClose: () => void;
@@ -26,6 +27,7 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
   const [expensesMenuExpanded, setExpensesMenuExpanded] = React.useState(false);
   const [contactsMenuExpanded, setContactsMenuExpanded] = React.useState(false);
   const [productsMenuExpanded, setProductsMenuExpanded] = React.useState(false);
+  const [magasinMenuExpanded, setMagasinMenuExpanded] = React.useState(false);
   
   // Vérifier si on doit afficher le loader pour le template
   const isActualOwner = isOwner || effectiveRole === 'owner';
@@ -61,6 +63,11 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
   // Check if products menu should be expanded (if on any products/categories sub-route)
   React.useEffect(() => {
     setProductsMenuExpanded(location.pathname.includes('/products') || location.pathname.includes('/categories'));
+  }, [location.pathname]);
+
+  // Check if magasin menu should be expanded (if on any magasin sub-route)
+  React.useEffect(() => {
+    setMagasinMenuExpanded(location.pathname.includes('/magasin'));
   }, [location.pathname]);
 
   const handleCreateCompany = () => {
@@ -137,6 +144,17 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
         { name: 'Liste', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/products` : '/products' },
         { name: 'Categories', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/categories` : '/categories' },
         { name: 'Stocks', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/products/stocks` : '/products/stocks' },
+      ]
+    },
+    { 
+      name: 'Magasin', 
+      path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/magasin` : '/magasin', 
+      icon: <Warehouse size={20} />, 
+      resource: RESOURCES.MAGASIN,
+      subItems: [
+        { name: 'Matières', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/magasin/matieres` : '/magasin/matieres' },
+        { name: 'Catégories', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/magasin/categories` : '/magasin/categories' },
+        { name: 'Stocks', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/magasin/stocks` : '/magasin/stocks' },
       ]
     },
     { name: t('navigation.suppliers'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/suppliers` : '/suppliers', icon: <Users size={20} />, resource: 'suppliers' },
@@ -253,7 +271,8 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
             const isExpensesItem = item.name === 'Expenses';
             const isContactsItem = item.name === 'Contacts';
             const isProductsItem = item.name === t('navigation.products');
-            const isExpanded = (isExpensesItem && expensesMenuExpanded) || (isContactsItem && contactsMenuExpanded) || (isProductsItem && productsMenuExpanded);
+            const isMagasinItem = item.name === 'Magasin';
+            const isExpanded = (isExpensesItem && expensesMenuExpanded) || (isContactsItem && contactsMenuExpanded) || (isProductsItem && productsMenuExpanded) || (isMagasinItem && magasinMenuExpanded);
             
             return (
               <li key={item.path}>
@@ -268,11 +287,13 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
                           setContactsMenuExpanded(!contactsMenuExpanded);
                         } else if (isProductsItem) {
                           setProductsMenuExpanded(!productsMenuExpanded);
+                        } else if (isMagasinItem) {
+                          setMagasinMenuExpanded(!magasinMenuExpanded);
                         }
                       }}
-                      className={`
+                        className={`
                         w-full flex items-center justify-between px-3 py-2 text-sm font-medium rounded-md transition-colors
-                        ${isActive(item.path) || (isExpensesItem && location.pathname.includes('/expenses')) || (isContactsItem && location.pathname.includes('/contacts')) || (isProductsItem && (location.pathname.includes('/products') || location.pathname.includes('/categories')))
+                        ${isActive(item.path) || (isExpensesItem && location.pathname.includes('/expenses')) || (isContactsItem && location.pathname.includes('/contacts')) || (isProductsItem && (location.pathname.includes('/products') || location.pathname.includes('/categories'))) || (isMagasinItem && location.pathname.includes('/magasin'))
                           ? 'bg-emerald-50 text-emerald-600'
                           : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'}
                       `}

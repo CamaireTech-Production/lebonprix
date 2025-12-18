@@ -1,7 +1,28 @@
-import { doc, setDoc, getDoc, updateDoc, arrayUnion, arrayRemove, Timestamp } from 'firebase/firestore';
+import { doc, setDoc, getDoc, getDocFromCache, updateDoc, arrayUnion, arrayRemove, Timestamp, DocumentReference } from 'firebase/firestore';
 import { db } from './firebase';
 import { User, UserCompanyRef } from '../types/models';
 import { normalizePhoneNumber } from '../utils/phoneUtils';
+
+const isOfflineFirestoreError = (error: any) => {
+  if (!error) return false;
+  const message = typeof error.message === 'string' ? error.message.toLowerCase() : '';
+  return error.code === 'unavailable' || message.includes('offline');
+};
+
+const getDocWithCache = async <T = unknown>(ref: DocumentReference<T>) => {
+  try {
+    return await getDoc(ref);
+  } catch (error: any) {
+    if (isOfflineFirestoreError(error)) {
+      try {
+        return await getDocFromCache(ref);
+      } catch (cacheError) {
+        console.warn('Firestore cache miss for', ref.path, cacheError);
+      }
+    }
+    throw error;
+  }
+};
 
 export interface UserData {
   firstname: string;
@@ -85,7 +106,7 @@ export const createUser = async (
  */
 export const getUserById = async (userId: string): Promise<User | null> => {
   try {
-    const userDoc = await getDoc(doc(db, 'users', userId));
+    const userDoc = await getDocWithCache(doc(db, 'users', userId));
     
     if (userDoc.exists()) {
       return { id: userDoc.id, ...userDoc.data() } as User;

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import Modal from '../common/Modal';
 import Input from '../common/Input';
+import PriceInput from '../common/PriceInput';
 import Textarea from '../common/Textarea';
 import Select from '../common/Select';
 import Button from '../common/Button';
@@ -105,7 +106,7 @@ const ObjectiveForm: React.FC<ObjectiveFormProps> = ({ isOpen, onClose, objectiv
       <div className="space-y-5">
         <Input label={t('objectives.title')} name="title" value={formData.title} onChange={handleChange} required />
         <Textarea label={t('objectives.description')} name="description" value={formData.description} onChange={handleChange} />
-        <Input label={t('objectives.target')} name="targetAmount" type="number" value={formData.targetAmount} onChange={handleChange} required />
+        <PriceInput label={t('objectives.target')} name="targetAmount" value={formData.targetAmount} onChange={handleChange} required />
         <div className="space-y-4">
           <Select
             label={t('objectives.metric')}

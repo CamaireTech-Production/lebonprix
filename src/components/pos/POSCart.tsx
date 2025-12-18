@@ -1,6 +1,8 @@
 import { Plus, Minus, Trash2, ShoppingCart, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ImageWithSkeleton } from '../common/ImageWithSkeleton';
+import { formatPrice } from '../../utils/formatPrice';
+import PriceInput from '../common/PriceInput';
 import type { CartItem } from '../../hooks/usePOS';
 
 interface POSCartProps {
@@ -81,7 +83,7 @@ export const POSCart: React.FC<POSCartProps> = ({
                   <div className="flex-1 min-w-0">
                     <div className="font-medium text-sm mb-1">{item.product.name}</div>
                     <div className="text-xs text-gray-600 mb-2">
-                      {price.toLocaleString()} XAF × {item.quantity}
+                      {formatPrice(price)} XAF × {item.quantity}
                     </div>
                     
                     {/* Quantity Controls */}
@@ -104,15 +106,15 @@ export const POSCart: React.FC<POSCartProps> = ({
 
                     {/* Negotiated Price Input */}
                     {item.negotiatedPrice !== undefined && (
-                      <input
-                        type="number"
-                        value={item.negotiatedPrice}
+                      <PriceInput
+                        name={`negotiatedPrice-${item.product.id}`}
+                        value={item.negotiatedPrice.toString()}
                         onChange={(e) => {
                           const value = parseFloat(e.target.value);
-                          onUpdateNegotiatedPrice(item.product.id, isNaN(value) ? undefined : value);
+                          onUpdateNegotiatedPrice(item.product.id, isNaN(value) || e.target.value === '' ? undefined : value);
                         }}
                         placeholder="Negotiated price"
-                        className="w-full px-2 py-1 text-xs border border-gray-300 rounded mb-2"
+                        className="w-full px-2 py-1 text-xs mb-2"
                       />
                     )}
                   </div>
@@ -125,7 +127,7 @@ export const POSCart: React.FC<POSCartProps> = ({
                       <Trash2 size={16} />
                     </button>
                     <div className="text-sm font-semibold text-emerald-600">
-                      {itemTotal.toLocaleString()} XAF
+                      {formatPrice(itemTotal)} XAF
                     </div>
                   </div>
                 </div>
@@ -141,12 +143,11 @@ export const POSCart: React.FC<POSCartProps> = ({
           {/* Delivery Fee */}
           <div className="flex items-center justify-between">
             <label className="text-sm text-gray-700">{t('pos.cart.deliveryFee')}:</label>
-            <input
-              type="number"
-              value={deliveryFee}
+            <PriceInput
+              name="deliveryFee"
+              value={deliveryFee.toString()}
               onChange={(e) => onDeliveryFeeChange(parseFloat(e.target.value) || 0)}
-              className="w-24 px-2 py-1 text-sm border border-gray-300 rounded text-right"
-              min="0"
+              className="w-24 px-2 py-1 text-sm text-right"
             />
           </div>
 
@@ -154,17 +155,17 @@ export const POSCart: React.FC<POSCartProps> = ({
           <div className="space-y-1">
             <div className="flex justify-between text-sm">
               <span className="text-gray-600">{t('pos.cart.subtotal')}:</span>
-              <span className="font-medium">{subtotal.toLocaleString()} XAF</span>
+              <span className="font-medium">{formatPrice(subtotal)} XAF</span>
             </div>
             {deliveryFee > 0 && (
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">{t('pos.cart.deliveryFee')}:</span>
-                <span className="font-medium">{deliveryFee.toLocaleString()} XAF</span>
+                <span className="font-medium">{formatPrice(deliveryFee)} XAF</span>
               </div>
             )}
             <div className="flex justify-between text-lg font-bold border-t pt-2">
               <span>{t('pos.cart.total')}:</span>
-              <span className="text-emerald-600">{total.toLocaleString()} XAF</span>
+              <span className="text-emerald-600">{formatPrice(total)} XAF</span>
             </div>
           </div>
 

@@ -27,6 +27,7 @@ import QuickReportsBar from '../components/reports/QuickReportsBar';
 import SavedReportsManager, { SavedReport } from '../components/reports/SavedReportsManager';
 import { useAuth } from '../contexts/AuthContext';
 import { logWarning } from '../utils/logger';
+import { formatPrice } from '../utils/formatPrice';
 
 // Register Chart.js components
 ChartJS.register(
@@ -954,14 +955,14 @@ const Reports = () => {
         <Card className="bg-emerald-50 border border-emerald-100">
           <div className="text-center">
             <p className="text-sm font-medium text-emerald-700">{t('reports.summary.totalSales')}</p>
-            <p className="mt-1 text-3xl font-semibold text-emerald-900">{totalSales.toLocaleString()} XAF</p>
+            <p className="mt-1 text-3xl font-semibold text-emerald-900">{formatPrice(totalSales)} XAF</p>
             <p className="mt-1 text-sm text-emerald-600">
               <span className="font-medium">{filteredSales.length}</span> {t('reports.summary.orders')}
             </p>
             <ComparisonIndicator 
               current={totalSales} 
               previous={previousPeriodData.totalSales}
-              formatValue={(v) => `${v.toLocaleString()} XAF`}
+              formatValue={(v) => `${formatPrice(v)} XAF`}
             />
           </div>
         </Card>
@@ -969,14 +970,14 @@ const Reports = () => {
         <Card className="bg-amber-50 border border-amber-100">
           <div className="text-center">
             <p className="text-sm font-medium text-amber-700">{t('reports.summary.costOfGoodsSold')}</p>
-            <p className="mt-1 text-3xl font-semibold text-amber-900">{totalCostOfGoodsSold.toLocaleString()} XAF</p>
+            <p className="mt-1 text-3xl font-semibold text-amber-900">{formatPrice(totalCostOfGoodsSold)} XAF</p>
             <p className="mt-1 text-sm text-amber-600">
               <span className="font-medium">{(totalSales > 0 ? Math.round(((totalCostOfGoodsSold) / totalSales) * 100) : 0)}%</span> {t('reports.summary.ofSales')}
             </p>
             <ComparisonIndicator 
               current={totalCostOfGoodsSold} 
               previous={previousPeriodData.totalCostOfGoodsSold}
-              formatValue={(v) => `${v.toLocaleString()} XAF`}
+              formatValue={(v) => `${formatPrice(v)} XAF`}
             />
           </div>
         </Card>
@@ -984,14 +985,14 @@ const Reports = () => {
         <Card className="bg-red-50 border border-red-100">
           <div className="text-center">
             <p className="text-sm font-medium text-red-700">{t('reports.summary.totalExpenses')}</p>
-            <p className="mt-1 text-3xl font-semibold text-red-900">{totalExpenses.toLocaleString()} XAF</p>
+            <p className="mt-1 text-3xl font-semibold text-red-900">{formatPrice(totalExpenses)} XAF</p>
             <p className="mt-1 text-sm text-red-600">
               <span className="font-medium">{filteredExpenses.length}</span> {t('reports.summary.entries')}
             </p>
             <ComparisonIndicator 
               current={totalExpenses} 
               previous={previousPeriodData.totalExpenses}
-              formatValue={(v) => `${v.toLocaleString()} XAF`}
+              formatValue={(v) => `${formatPrice(v)} XAF`}
             />
           </div>
         </Card>
@@ -999,14 +1000,14 @@ const Reports = () => {
         <Card className="bg-indigo-50 border border-indigo-100">
           <div className="text-center">
             <p className="text-sm font-medium text-indigo-700">{t('reports.summary.netProfit')}</p>
-            <p className="mt-1 text-3xl font-semibold text-indigo-900">{netProfit.toLocaleString()} XAF</p>
+            <p className="mt-1 text-3xl font-semibold text-indigo-900">{formatPrice(netProfit)} XAF</p>
             <p className="mt-1 text-sm text-indigo-600">
               <span className="font-medium">{(totalSales > 0 ? Math.round(((netProfit) / totalSales) * 100) : 0)}%</span> {t('reports.summary.margin')}
             </p>
             <ComparisonIndicator 
               current={netProfit} 
               previous={previousPeriodData.netProfit}
-              formatValue={(v) => `${v.toLocaleString()} XAF`}
+              formatValue={(v) => `${formatPrice(v)} XAF`}
             />
           </div>
         </Card>
@@ -1113,10 +1114,10 @@ const Reports = () => {
                       {product.customersCount}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {product.totalSales.toLocaleString()} XAF
+                      {formatPrice(product.totalSales)} XAF
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
-                      {product.cumulativeSales.toLocaleString()} XAF
+                      {formatPrice(product.cumulativeSales)} XAF
                     </td>
                   </tr>
                 ))}
@@ -1151,13 +1152,13 @@ const Reports = () => {
                       {customer.name}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {customer.sales.toLocaleString()} XAF
+                      {formatPrice(customer.sales)} XAF
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {customer.orders}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
-                      {customer.cumulativeSales.toLocaleString()} XAF
+                      {formatPrice(customer.cumulativeSales)} XAF
                     </td>
                   </tr>
                 ))}
@@ -1204,8 +1205,8 @@ const Reports = () => {
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{dateStr}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{ex.description}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{ex.category}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{ex.amount.toLocaleString()} XAF</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">{cumulative.toLocaleString()} XAF</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatPrice(ex.amount)} XAF</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">{formatPrice(cumulative)} XAF</td>
                       </tr>
                     );
                   });
@@ -1242,10 +1243,10 @@ const Reports = () => {
                     <tr key={idx}>
                       <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{product.name}</td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{product.quantitySold}</td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{product.totalSales.toLocaleString()} XAF</td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{product.totalCOGS.toLocaleString()} XAF</td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{product.totalSales} XAF</td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{product.totalCOGS} XAF</td>
                       <td className={`px-4 py-3 whitespace-nowrap text-sm font-semibold ${product.grossProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                        {product.grossProfit.toLocaleString()} XAF
+                        {product.grossProfit} XAF
                       </td>
                       <td className={`px-4 py-3 whitespace-nowrap text-sm font-semibold ${product.profitMargin >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
                         {product.profitMargin.toFixed(1)}%
@@ -1292,7 +1293,7 @@ const Reports = () => {
                             const value = context.parsed || 0;
                             const total = context.dataset.data.reduce((a: number, b: number) => a + b, 0);
                             const percentage = ((value / total) * 100).toFixed(1);
-                            return `${label}: ${value.toLocaleString()} XAF (${percentage}%)`;
+                            return `${label}: ${value)} XAF (${percentage}%)`;
                           }
                         }
                       }
@@ -1315,10 +1316,10 @@ const Reports = () => {
                     {expenseCategoryAnalysis.map((exp, idx) => (
                       <tr key={idx}>
                         <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{exp.category}</td>
-                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{exp.amount.toLocaleString()} XAF</td>
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{exp.amount)} XAF</td>
                         <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{exp.percentage.toFixed(1)}%</td>
                         <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{exp.count}</td>
-                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{exp.average.toLocaleString()} XAF</td>
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{exp.average)} XAF</td>
                       </tr>
                     ))}
                   </tbody>
@@ -1371,11 +1372,11 @@ const Reports = () => {
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-600">{t('reports.customerSourceStats.revenue')}:</span>
-                        <span className="font-semibold">{sourceRevenue.toLocaleString()} XAF</span>
+                        <span className="font-semibold">{sourceRevenue)} XAF</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-600">{t('reports.customerSourceStats.profit')}:</span>
-                        <span className="font-semibold text-emerald-600">{sourceProfit.toLocaleString()} XAF</span>
+                        <span className="font-semibold text-emerald-600">{sourceProfit)} XAF</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-600">{t('reports.customerSourceStats.customers')}:</span>
@@ -1439,8 +1440,8 @@ const Reports = () => {
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{sourceSales.length}</td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{sourceCustomers}</td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{sourceRevenue.toLocaleString()} XAF</td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-emerald-600 font-semibold">{sourceProfit.toLocaleString()} XAF</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{sourceRevenue)} XAF</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-emerald-600 font-semibold">{sourceProfit)} XAF</td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{profitMargin.toFixed(1)}%</td>
                       </tr>
                     );
@@ -1472,8 +1473,8 @@ const Reports = () => {
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{noSourceSales.length}</td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{noSourceCustomers}</td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{noSourceRevenue.toLocaleString()} XAF</td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-emerald-600 font-semibold">{noSourceProfit.toLocaleString()} XAF</td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{noSourceRevenue)} XAF</td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-emerald-600 font-semibold">{noSourceProfit)} XAF</td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{noSourceProfitMargin.toFixed(1)}%</td>
                         </tr>
                       );
@@ -1500,7 +1501,7 @@ const Reports = () => {
           </div>
           <div className="text-center">
             <p className="text-sm font-medium text-gray-700">{t('reports.customerMetrics.averageBasket')}</p>
-            <p className="mt-1 text-2xl font-semibold text-gray-900">{customerMetrics.averageBasket.toLocaleString()} XAF</p>
+            <p className="mt-1 text-2xl font-semibold text-gray-900">{customerMetrics.averageBasket)} XAF</p>
           </div>
           <div className="text-center">
             <p className="text-sm font-medium text-gray-700">{t('reports.customerMetrics.repeatCustomers')}</p>

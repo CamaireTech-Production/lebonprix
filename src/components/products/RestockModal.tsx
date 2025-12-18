@@ -7,6 +7,7 @@ import type { Product, Supplier } from '../../types/models';
 import Modal from '../common/Modal';
 import Button from '../common/Button';
 import Input from '../common/Input';
+import PriceInput from '../common/PriceInput';
 import Select from '../common/Select';
 import { formatCostPrice } from '../../utils/inventoryManagement';
 import { showSuccessToast, showErrorToast } from '../../utils/toast';
@@ -228,15 +229,14 @@ const RestockModal: React.FC<RestockModalProps> = ({
               step="0.01"
             />
             
-            <Input
+            <PriceInput
               label="Cost Price per Unit"
-              type="number"
+              name="costPrice"
               value={formData.costPrice}
-            onChange={(e) => handleInputChange('costPrice', e.target.value)}
+              onChange={(e) => handleInputChange('costPrice', e.target.value)}
               placeholder="Enter cost price"
               required
-              min="0"
-              step="0.01"
+              allowDecimals={true}
             />
           </div>
 

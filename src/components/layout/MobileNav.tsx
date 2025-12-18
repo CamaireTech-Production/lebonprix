@@ -1,9 +1,10 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, ShoppingCart, DollarSign, Package2, FileBarChart, Receipt, Settings, Users, Grid3X3, ShoppingBag, Loader2, Phone, ScanLine} from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, DollarSign, Package2, FileBarChart, Receipt, Settings, Users, ShoppingBag, Loader2, Phone, ScanLine, Warehouse, Building2, UserCheck} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
 import { useRolePermissions } from '../../hooks/useRolePermissions';
+import { RESOURCES } from '../../constants/resources';
 
 const MobileNav = () => {
   const { t } = useTranslation();
@@ -33,7 +34,17 @@ const MobileNav = () => {
     return location.pathname === path;
   };
 
+  // Navigation items matching the Sidebar main menu items (excluding subItems)
   const navigationItems = [
+    // Mes Entreprises (only in company route)
+    ...(isCompanyRoute ? [
+      { 
+        name: 'Mes Entreprises', 
+        path: '/companies', 
+        icon: <Building2 size={20} />, 
+        resource: 'dashboard' 
+      }
+    ] : []),
     { 
       name: t('navigation.dashboard'), 
       path: isCompanyRoute ? `/company/${companyId}/dashboard` : '/', 
@@ -59,10 +70,16 @@ const MobileNav = () => {
       resource: 'orders' 
     },
     { 
-      name: t('navigation.expenses'), 
+      name: 'Expenses', 
       path: isCompanyRoute ? `/company/${companyId}/expenses` : '/expenses', 
       icon: <Receipt size={20} />, 
       resource: 'expenses' 
+    },
+    { 
+      name: 'Finance', 
+      path: isCompanyRoute ? `/company/${companyId}/finance` : '/finance', 
+      icon: <DollarSign size={20} />, 
+      resource: 'finance' 
     },
     { 
       name: t('navigation.products'), 
@@ -71,16 +88,10 @@ const MobileNav = () => {
       resource: 'products' 
     },
     { 
-      name: 'Stocks', 
-      path: isCompanyRoute ? `/company/${companyId}/products/stocks` : '/products/stocks', 
-      icon: <Package2 size={20} />, 
-      resource: 'products' 
-    },
-    { 
-      name: 'Categories', 
-      path: isCompanyRoute ? `/company/${companyId}/categories` : '/categories', 
-      icon: <Grid3X3 size={20} />, 
-      resource: 'categories' 
+      name: 'Magasin', 
+      path: isCompanyRoute ? `/company/${companyId}/magasin` : '/magasin', 
+      icon: <Warehouse size={20} />, 
+      resource: RESOURCES.MAGASIN 
     },
     { 
       name: t('navigation.suppliers'), 
@@ -95,22 +106,16 @@ const MobileNav = () => {
       resource: 'customers' 
     },
     { 
-      name: 'Sources', 
-      path: isCompanyRoute ? `/company/${companyId}/contacts/sources` : '/contacts/sources', 
-      icon: <Phone size={20} />, 
-      resource: 'customers' 
+      name: 'HR Management', 
+      path: isCompanyRoute ? `/company/${companyId}/hr` : '/hr', 
+      icon: <UserCheck size={20} />, 
+      resource: 'hr' 
     },
     { 
       name: t('navigation.reports'), 
       path: isCompanyRoute ? `/company/${companyId}/reports` : '/reports', 
       icon: <FileBarChart size={20} />, 
       resource: 'reports' 
-    },
-    { 
-      name: t('navigation.finance'), 
-      path: isCompanyRoute ? `/company/${companyId}/finance` : '/finance', 
-      icon: <DollarSign size={20} />, 
-      resource: 'finance' 
     },
     { 
       name: t('navigation.settings'), 

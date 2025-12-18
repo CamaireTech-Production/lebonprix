@@ -6,6 +6,7 @@ import Input from '../../components/common/Input';
 import { FirebaseError } from 'firebase/app';
 import LoadingScreen from '../../components/common/LoadingScreen';
 import { signUpUser } from '../../services/authService';
+import { showErrorToast, showSuccessToast } from '../../utils/toast';
 
 const Register = () => {
   // User form state only
@@ -16,7 +17,6 @@ const Register = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [agreeTerms, setAgreeTerms] = useState(false);
-  const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   
   const { currentUser, loading, signOut, signIn } = useAuth();
@@ -91,7 +91,11 @@ const Register = () => {
     }
     
     if (errors.length > 0) {
-      setError(errors.join('\n'));
+      // Combine all errors into one clear message
+      const errorMessage = errors.length === 1 
+        ? errors[0] 
+        : `Veuillez corriger les erreurs suivantes :\n${errors.map((err, idx) => `${idx + 1}. ${err}`).join('\n')}`;
+      showErrorToast(errorMessage);
       return false;
     }
     
@@ -106,7 +110,6 @@ const Register = () => {
     }
     
     try {
-      setError('');
       setIsLoading(true);
 
       const userData = {
@@ -120,33 +123,34 @@ const Register = () => {
       // Connexion automatique après inscription
       await signIn(email, password);
       
+      // Show success message
+      showSuccessToast('Compte créé avec succès ! Redirection en cours...');
+      
       // Redirection vers la page de sélection de mode
       navigate('/mode-selection');
     } catch (err) {
       if (err instanceof FirebaseError) {
         switch (err.code) {
           case 'auth/email-already-in-use':
-            setError(
-              'Cette adresse email est déjà utilisée. ' +
-              'Veuillez vous connecter si vous avez déjà un compte, ' +
-              'ou utiliser une autre adresse email.'
+            showErrorToast(
+              'Cette adresse email est déjà utilisée. Veuillez vous connecter si vous avez déjà un compte, ou utiliser une autre adresse email.'
             );
             break;
           case 'auth/invalid-email':
-            setError('L\'adresse email n\'est pas valide');
+            showErrorToast('L\'adresse email n\'est pas valide. Veuillez vérifier votre email.');
             break;
           case 'auth/operation-not-allowed':
-            setError('L\'inscription par email n\'est pas activée. Veuillez contacter le support.');
+            showErrorToast('L\'inscription par email n\'est pas activée. Veuillez contacter le support.');
             break;
           case 'auth/weak-password':
-            setError('Le mot de passe est trop faible. Veuillez utiliser un mot de passe plus fort.');
+            showErrorToast('Le mot de passe est trop faible. Veuillez utiliser un mot de passe plus fort.');
             break;
           default:
-            setError('Une erreur est survenue lors de la création du compte. Veuillez réessayer.');
+            showErrorToast('Une erreur est survenue lors de la création du compte. Veuillez réessayer.');
             console.error('Registration error:', err);
         }
       } else {
-        setError('Une erreur inattendue est survenue. Veuillez réessayer.');
+        showErrorToast('Une erreur inattendue est survenue. Veuillez réessayer.');
         console.error('Unexpected error:', err);
       }
     } finally {
@@ -157,24 +161,6 @@ const Register = () => {
   return (
     <div>
       <h2 className="text-2xl font-bold text-gray-900 mb-6">Créer votre compte</h2>
-      
-      {error && (
-        <div className="bg-red-50 text-red-800 p-4 rounded-md mb-4">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <div className="ml-3">
-              <h3 className="text-sm font-medium text-red-800">Erreur d'inscription</h3>
-              <div className="mt-2 text-sm text-red-700 whitespace-pre-line">
-                {error}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
       
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Personal Information Section */}

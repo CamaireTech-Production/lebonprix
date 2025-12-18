@@ -17,6 +17,7 @@ import {
 import Select from 'react-select';
 import Modal, { ModalFooter } from '../components/common/Modal';
 import Input from '../components/common/Input';
+import PriceInput from '../components/common/PriceInput';
 import Badge from '../components/common/Badge';
 import Button from '../components/common/Button';
 import Card from '../components/common/Card';
@@ -25,6 +26,7 @@ import { useProducts, useCustomers, useSales } from '../hooks/useFirestore';
 import { useCustomerSources } from '../hooks/useCustomerSources';
 import { useInfiniteSales } from '../hooks/useInfiniteSales';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
+import { formatPrice } from '../utils/formatPrice';
 import type { Product, OrderStatus, Sale, SaleProduct, Customer } from '../types/models';
 import LoadingScreen from '../components/common/LoadingScreen';
 import SyncIndicator from '../components/common/SyncIndicator';
@@ -481,10 +483,10 @@ const Sales: React.FC = () => {
           </td>
           <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">{sp.quantity}</td>
           <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">
-            {sp.basePrice.toLocaleString()} XAF
+            {formatPrice(sp.basePrice)} XAF
           </td>
           <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">
-            {sp.negotiatedPrice ? sp.negotiatedPrice.toLocaleString() : '-'} XAF
+            {sp.negotiatedPrice ? formatPrice(sp.negotiatedPrice) : '-'} XAF
           </td>
           <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">
             {product ? product.reference : '-'}
@@ -513,7 +515,7 @@ const Sales: React.FC = () => {
           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
             {sale.customerInfo.name}
             <div className="text-xs text-gray-600 mt-1">
-              Profit: {saleProfit.toLocaleString()} XAF
+              Profit: {formatPrice(saleProfit)} XAF
             </div>
           </td>
           <td className="px-6 py-4 whitespace-nowrap text-sm">
@@ -528,7 +530,7 @@ const Sales: React.FC = () => {
             })}
           </td>
           <td className="px-6 py-4 whitespace-nowrap text-sm">
-            {sale.totalAmount.toLocaleString()} XAF
+            {formatPrice(sale.totalAmount)} XAF
           </td>
           <td className="px-6 py-4 whitespace-nowrap text-sm">
             {sale.createdAt && typeof sale.createdAt.seconds === 'number'
@@ -667,7 +669,7 @@ const Sales: React.FC = () => {
         <div>
           <div className="font-medium">{product.name}</div>
           <div className="text-sm text-gray-500">
-            {product.stock} {t('sales.modals.add.products.inStock')} - {product.sellingPrice.toLocaleString()} XAF
+            {product.stock} {t('sales.modals.add.products.inStock')} - {formatPrice(product.sellingPrice)} XAF
           </div>
         </div>
       </div>
@@ -727,7 +729,7 @@ const Sales: React.FC = () => {
           <h1 className="text-2xl font-semibold text-gray-900">{t('sales.title')}</h1>
           <p className="text-gray-600">{t('sales.subtitle')}</p>
           <p className="text-gray-800 mt-2 font-medium">
-            {t('sales.overallProfit', { defaultValue: 'Total Profit:' })} {overallTotalProfit.toLocaleString()} XAF
+            {t('sales.overallProfit', { defaultValue: 'Total Profit:' })} {formatPrice(overallTotalProfit)} XAF
           </p>
         </div>
 
@@ -905,7 +907,7 @@ const Sales: React.FC = () => {
                 {t('sales.modals.link.success.customer')}: {currentSale.customerInfo.name}
               </p>
               <p className="text-sm text-emerald-600">
-                {t('sales.modals.link.success.totalAmount')}: {currentSale.totalAmount.toLocaleString()} XAF
+                {t('sales.modals.link.success.totalAmount')}: {formatPrice(currentSale.totalAmount)} XAF
               </p>
             </div>
             <div className="flex justify-end space-x-2 sticky top-0 bg-white z-10 py-2">
@@ -1091,7 +1093,7 @@ const Sales: React.FC = () => {
                         <span className="text-sm font-medium text-gray-700">
                           {t('sales.modals.edit.products.standardPrice')}:
                         </span>
-                        <span className="ml-2">{product.product.sellingPrice.toLocaleString()} XAF</span>
+                        <span className="ml-2">{formatPrice(product.product.sellingPrice)} XAF</span>
                       </div>
                       <div>
                         <span className="text-sm font-medium text-gray-700">
@@ -1111,9 +1113,9 @@ const Sales: React.FC = () => {
                         required
                         helpText={t('sales.modals.edit.products.cannotExceed', { value: product.product.stock })}
                       />
-                      <Input
+                      <PriceInput
                         label={t('sales.modals.edit.products.negotiatedPrice')}
-                        type="number"
+                        name={`negotiatedPrice-${index}`}
                         value={product.negotiatedPrice}
                         onChange={(e) => handleProductInputChange(index, 'negotiatedPrice', e.target.value)}
                       />
@@ -1123,7 +1125,7 @@ const Sales: React.FC = () => {
                         <span className="text-sm font-medium text-blue-700">
                           {t('sales.modals.edit.products.productTotal')}:
                         </span>
-                        <span className="ml-2 text-blue-900">{calculateProductTotal(product).toLocaleString()} XAF</span>
+                        <span className="ml-2 text-blue-900">{formatPrice(calculateProductTotal(product))} XAF</span>
                       </div>
                     )}
                   </>
@@ -1135,15 +1137,14 @@ const Sales: React.FC = () => {
                 <span className="text-lg font-medium text-emerald-700">
                   {t('sales.modals.edit.products.totalAmount')}:
                 </span>
-                <span className="ml-2 text-emerald-900 text-lg">{calculateTotal().toLocaleString()} XAF</span>
+                <span className="ml-2 text-emerald-900 text-lg">{formatPrice(calculateTotal())} XAF</span>
               </div>
             )}
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <Input
+            <PriceInput
               label={t('sales.modals.edit.delivery.fee')}
               name="deliveryFee"
-              type="number"
               value={formData.deliveryFee}
               onChange={handleInputChange}
             />
@@ -1184,7 +1185,7 @@ const Sales: React.FC = () => {
           <p className="text-gray-700">
             {t('sales.modals.delete.message', {
               customerName: currentSale?.customerInfo.name,
-              amount: currentSale?.totalAmount.toLocaleString(),
+              amount: formatPrice(currentSale?.totalAmount ?? 0),
             })}
           </p>
           <div className="bg-red-50 p-4 rounded-md">

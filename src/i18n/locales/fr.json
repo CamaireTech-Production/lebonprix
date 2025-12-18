@@ -70,7 +70,8 @@
     "confirmCompanyExit": "Quitter l'entreprise actuelle ?",
     "confirmCompanyExitMessage": "Vous êtes sur le point de quitter le contexte de l'entreprise actuelle pour gérer vos entreprises.",
     "confirmCompanyExitQuestion": "Êtes-vous sûr de vouloir continuer ?",
-    "currentCompany": "Entreprise actuelle"
+    "currentCompany": "Entreprise actuelle",
+    "pos": "Point de Vente"
   },
   "header": {
     "welcome": "Bienvenue",
@@ -173,7 +174,7 @@
       "totalSalesAmount": {
         "title": "Montant total des ventes",
         "description": "Le revenu total de toutes les ventes, y compris les prix négociés.",
-        "formule": "Formule : Σ(Montant de la vente) pour chaque vente",
+        "formula": "Formule : Σ(Montant de la vente) pour chaque vente",
         "note": "Note : Si un produit a été vendu à un prix négocié, ce prix est utilisé au lieu du prix de vente standard."
       },
       "deliveryFee": {

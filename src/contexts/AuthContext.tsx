@@ -8,7 +8,7 @@ import {
   onAuthStateChanged,
   updatePassword
 } from 'firebase/auth';
-import { doc, getDoc, updateDoc, Timestamp, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, getDocFromCache, updateDoc, Timestamp, onSnapshot, type DocumentReference } from 'firebase/firestore';
 import type { Company, UserRole, UserCompanyRef, CompanyEmployee } from '../types/models';
 import { ensureDefaultFinanceEntryTypes } from '../services/firestore';
 import CompanyManager from '../services/storage/CompanyManager';
@@ -40,6 +40,27 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
+
+const isOfflineFirestoreError = (error: any) => {
+  if (!error) return false;
+  const message = typeof error.message === 'string' ? error.message.toLowerCase() : '';
+  return error.code === 'unavailable' || message.includes('offline');
+};
+
+const getDocWithCache = async <T = unknown>(ref: DocumentReference<T>) => {
+  try {
+    return await getDoc(ref);
+  } catch (error: any) {
+    if (isOfflineFirestoreError(error)) {
+      try {
+        return await getDocFromCache(ref);
+      } catch (cacheError) {
+        logError('Firestore cache miss', cacheError);
+      }
+    }
+    throw error;
+  }
+};
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
@@ -369,7 +390,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     
     // 3. FALLBACK: No localStorage data, fetch from Firebase
     try {
-      const companyDoc = await getDoc(doc(db, 'companies', userId));
+      const companyDoc = await getDocWithCache(doc(db, 'companies', userId));
       
       if (companyDoc.exists()) {
         const companyData = { id: companyDoc.id, ...companyDoc.data() } as Company;
@@ -394,7 +415,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   // Charger les données d'une entreprise spécifique
   const loadCompanyData = async (companyId: string, userId: string) => {
     try {
-      const companyDoc = await getDoc(doc(db, 'companies', companyId));
+      const companyDoc = await getDocWithCache(doc(db, 'companies', companyId));
       
       if (companyDoc.exists()) {
         const companyData = { id: companyDoc.id, ...companyDoc.data() } as Company;
@@ -431,7 +452,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       }
       
       // 2. Check users[].companies[] for employee roles (new system)
-      const userDocForRole = await getDoc(doc(db, 'users', userId));
+      const userDocForRole = await getDocWithCache(doc(db, 'users', userId));
       if (userDocForRole.exists()) {
         const userData = userDocForRole.data();
         const userCompanyRef = userData.companies?.find((c: UserCompanyRef) => c.companyId === companyData.id);
@@ -483,7 +504,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       }
       
       // 4. Si pas d'employé, chercher dans users/{uid} pour le rôle
-      const userDocForFallback = await getDoc(doc(db, 'users', userId));
+      const userDocForFallback = await getDocWithCache(doc(db, 'users', userId));
       if (userDocForFallback.exists()) {
         const userData = userDocForFallback.data();
         const role = userData.role as UserRole;

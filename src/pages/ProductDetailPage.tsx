@@ -3,6 +3,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
 import { getCompanyByUserId, subscribeToProducts, getSellerSettings } from '../services/firestore';
+import { formatPrice } from '../utils/formatPrice';
 import type { Company, Product } from '../types/models';
 import type { SellerSettings } from '../types/order';
 import { ArrowLeft, Share2, Plus, Minus, ShoppingCart, Camera, QrCode, MessageCircle } from 'lucide-react';
@@ -13,6 +14,7 @@ import BarcodeScanner from '../components/products/BarcodeScanner';
 import Button from '../components/common/Button';
 import { showSuccessToast, showErrorToast } from '../utils/toast';
 import { formatPhoneForWhatsApp } from '../utils/phoneUtils';
+import { formatPrice } from '../utils/formatPrice';
 
 const placeholderImg = '/placeholder.png';
 
@@ -147,14 +149,8 @@ const ProductDetailPage = () => {
 *${product.name}*
 ${variations ? `Options: ${variations}` : ''}
 Quantité: ${quantity}
-Prix unitaire: ${displayPrice.toLocaleString('fr-FR', {
-  style: 'currency',
-  currency: 'XAF'
-})}
-Total: ${totalPrice.toLocaleString('fr-FR', {
-  style: 'currency',
-  currency: 'XAF'
-})}
+Prix unitaire: ${formatPrice(displayPrice)} XAF
+Total: ${formatPrice(totalPrice)} XAF
 
 Veuillez confirmer la disponibilité et fournir les détails de livraison.`;
 
@@ -302,11 +298,11 @@ Veuillez confirmer la disponibilité et fournir les détails de livraison.`;
         <div className="flex items-center justify-between">
           <div>
             <p className="text-3xl font-bold" style={{ color: colors.primary }}>
-              {displayPrice.toLocaleString('fr-FR')} FCFA
+              {formatPrice(displayPrice)} FCFA
             </p>
             {product.cataloguePrice && product.cataloguePrice !== product.sellingPrice && (
               <p className="text-sm text-gray-500 line-through">
-                {product.sellingPrice.toLocaleString('fr-FR')} FCFA
+                {formatPrice(product.sellingPrice)} FCFA
               </p>
             )}
           </div>
