@@ -28,6 +28,7 @@ export const showSuccessToast = (message: string): string => {
 export const showErrorToast = (message: string): string => {
   return toast.error(message, {
     ...defaultOptions,
+    duration: 10000, // 10 seconds for error toasts
     icon: '❌',
     style: {
       ...defaultOptions.style,

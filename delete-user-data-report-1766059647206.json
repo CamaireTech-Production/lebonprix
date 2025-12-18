@@ -1,0 +1,116 @@
+{
+  "startTime": "2025-12-18T12:07:04.762Z",
+  "email": "ayahgrp@outlook.fr",
+  "userId": "4Up4mA4gcSWHip4G5I2mKWwgh493",
+  "companyIds": [
+    "company_1765909593165_usrzgre38"
+  ],
+  "collections": [
+    {
+      "name": "products",
+      "count": 3,
+      "errors": []
+    },
+    {
+      "name": "sales",
+      "count": 7,
+      "errors": []
+    },
+    {
+      "name": "orders",
+      "count": 0,
+      "errors": []
+    },
+    {
+      "name": "expenses",
+      "count": 2,
+      "errors": []
+    },
+    {
+      "name": "finances",
+      "count": 9,
+      "errors": []
+    },
+    {
+      "name": "suppliers",
+      "count": 0,
+      "errors": []
+    },
+    {
+      "name": "customers",
+      "count": 9,
+      "errors": []
+    },
+    {
+      "name": "categories",
+      "count": 5,
+      "errors": []
+    },
+    {
+      "name": "stockBatches",
+      "count": 5,
+      "errors": []
+    },
+    {
+      "name": "stockChanges",
+      "count": 15,
+      "errors": []
+    },
+    {
+      "name": "objectives",
+      "count": 1,
+      "errors": []
+    },
+    {
+      "name": "financeEntries",
+      "count": 0,
+      "errors": []
+    },
+    {
+      "name": "financeEntryTypes",
+      "count": 0,
+      "errors": []
+    },
+    {
+      "name": "expenseTypes",
+      "count": 2,
+      "errors": []
+    },
+    {
+      "name": "customerSources",
+      "count": 3,
+      "errors": []
+    },
+    {
+      "name": "invitations",
+      "count": 0,
+      "errors": []
+    },
+    {
+      "name": "checkout_settings",
+      "count": 1,
+      "errors": []
+    },
+    {
+      "name": "cinetpay_configs",
+      "count": 1,
+      "errors": []
+    },
+    {
+      "name": "sellerSettings",
+      "count": 0,
+      "errors": []
+    },
+    {
+      "name": "auditLogs",
+      "count": 0,
+      "errors": []
+    }
+  ],
+  "totalDeleted": 63,
+  "totalErrors": 0,
+  "endTime": "2025-12-18T12:07:27.206Z",
+  "duration": 22444,
+  "success": true,
+  "dryRun": false
+}

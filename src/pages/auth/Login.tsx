@@ -6,12 +6,12 @@ import Input from '../../components/common/Input';
 import LoadingScreen from '../../components/common/LoadingScreen';
 import { LoginPWAInstallButton } from '../../components/LoginPWAInstallButton';
 import { getUserSession, hasActiveSession } from '../../utils/userSession';
+import { showErrorToast, showSuccessToast } from '../../utils/toast';
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
-  const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   
@@ -72,15 +72,17 @@ const Login = () => {
     }
     
     if (!email || !password) {
-      setError('Please enter both email and password');
+      showErrorToast('Veuillez entrer votre email et votre mot de passe');
       return;
     }
     
     try {
-      setError('');
       setIsLoading(true);
       
       await signIn(email, password);
+      
+      // Show success message
+      showSuccessToast('Connexion réussie ! Redirection en cours...');
       
       // signIn completed successfully, but user state might not be updated yet
       // Keep loading state true until user is set (handled by useEffect above)
@@ -94,26 +96,26 @@ const Login = () => {
       
       // Show user-friendly error messages
       if (err.message && err.message.includes('déjà en cours')) {
-        setError(err.message);
+        showErrorToast(err.message);
       } else if (err.code) {
         const errorMessages: Record<string, string> = {
-          'auth/user-not-found': 'Invalid Email or Password',
-          'auth/wrong-password': 'Invalid Email or Password',
-          'auth/invalid-credential': 'Invalid Email or Password',
-          'auth/invalid-login-credentials': 'Invalid Email or Password',
-          'auth/invalid-email': 'Format d\'email invalide',
-          'auth/user-disabled': 'Compte utilisateur désactivé. Contactez l\'administrateur.',
-          'auth/network-request-failed': 'Erreur réseau. Vérifiez votre connexion internet.',
+          'auth/user-not-found': 'Email ou mot de passe incorrect. Veuillez vérifier vos identifiants.',
+          'auth/wrong-password': 'Email ou mot de passe incorrect. Veuillez vérifier vos identifiants.',
+          'auth/invalid-credential': 'Email ou mot de passe incorrect. Veuillez vérifier vos identifiants.',
+          'auth/invalid-login-credentials': 'Email ou mot de passe incorrect. Veuillez vérifier vos identifiants.',
+          'auth/invalid-email': 'Format d\'email invalide. Veuillez vérifier votre adresse email.',
+          'auth/user-disabled': 'Compte utilisateur désactivé. Veuillez contacter l\'administrateur.',
+          'auth/network-request-failed': 'Erreur réseau. Veuillez vérifier votre connexion internet et réessayer.',
           'auth/too-many-requests': 'Trop de tentatives de connexion. Veuillez réessayer plus tard.',
-          'auth/operation-not-allowed': 'Méthode de connexion non autorisée.',
+          'auth/operation-not-allowed': 'Méthode de connexion non autorisée. Veuillez contacter le support.',
           'auth/email-already-in-use': 'Cet email est déjà utilisé.',
         };
         // Use a default message for credentials errors
-        const errorMessage = errorMessages[err.code] || 'Invalid Email or Password. Veuillez vérifier vos identifiants et réessayer.';
-        setError(errorMessage);
+        const errorMessage = errorMessages[err.code] || 'Email ou mot de passe incorrect. Veuillez vérifier vos identifiants et réessayer.';
+        showErrorToast(errorMessage);
       } else {
         // Generic error - default to credentials error message
-        setError(err.message || 'Invalid Email or Password. Veuillez vérifier vos identifiants.');
+        showErrorToast(err.message || 'Email ou mot de passe incorrect. Veuillez vérifier vos identifiants.');
       }
     }
   };
@@ -121,12 +123,6 @@ const Login = () => {
   return (
     <div>
       <h2 className="text-2xl font-bold text-gray-900 mb-6">Sign in to your account</h2>
-      
-      {error && (
-        <div className="bg-red-50 text-red-800 p-3 rounded-md mb-4 text-sm">
-          {error}
-        </div>
-      )}
       
       <form onSubmit={handleSubmit}>
         <div className="space-y-4">
