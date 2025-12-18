@@ -8,6 +8,7 @@ import FloatingCartButton from './FloatingCartButton';
 import { ImageWithSkeleton } from './ImageWithSkeleton';
 import DesktopProductDetail from './DesktopProductDetail';
 import { formatPhoneForWhatsApp } from '../../utils/phoneUtils';
+import { formatPrice } from '../../utils/formatPrice';
 
 const placeholderImg = '/placeholder.png';
 
@@ -148,14 +149,8 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 *${product.name}*
 ${variations ? `Options: ${variations}` : ''}
 Quantité: ${quantity}
-Prix unitaire: ${(product.cataloguePrice || product.sellingPrice).toLocaleString('fr-FR', {
-  style: 'currency',
-  currency: 'XAF'
-})}
-Total: ${totalPrice.toLocaleString('fr-FR', {
-  style: 'currency',
-  currency: 'XAF'
-})}
+Prix unitaire: ${formatPrice(product.cataloguePrice || product.sellingPrice)} XAF
+Total: ${formatPrice(totalPrice)} XAF
 
 Veuillez confirmer la disponibilité et fournir les détails de livraison.`;
 
@@ -347,10 +342,7 @@ Veuillez confirmer la disponibilité et fournir les détails de livraison.`;
                 <h1 className="text-xl font-bold text-gray-900 mb-2">{product.name}</h1>
                 <div className="flex items-center space-x-3">
                   <span className="text-lg font-bold text-gray-900">
-                    {(product.cataloguePrice ?? 0).toLocaleString('fr-FR', {
-                      style: 'currency',
-                      currency: 'XAF'
-                    })}
+                    {formatPrice(product.cataloguePrice ?? 0)} XAF
                   </span>
                   <div className="flex items-center space-x-1">
                     <Star className="h-4 w-4 text-yellow-400 fill-current" />
@@ -416,7 +408,7 @@ Veuillez confirmer la disponibilité et fournir les détails de livraison.`;
           onMouseEnter={(e) => (e.target as HTMLButtonElement).style.backgroundColor = '#0f2418'} 
           onMouseLeave={(e) => (e.target as HTMLButtonElement).style.backgroundColor = '#183524'}
         >
-          Ajouter au panier - {((product.cataloguePrice ?? 0) * quantity).toLocaleString('fr-FR', {
+          Ajouter au panier - {formatPrice((product.cataloguePrice ?? 0) * quantity)} XAF
             style: 'currency',
             currency: 'XAF'
           })}

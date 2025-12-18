@@ -48,6 +48,7 @@ export interface Category extends BaseModel {
   image?: string; // Firebase Storage URL or base64
   imagePath?: string; // Storage path for deletion
   productCount?: number;
+  matiereCount?: number; // Count of matieres in this category
   isActive?: boolean; // For soft delete capability
   userId: string; // Owner of the category
 }
@@ -71,6 +72,20 @@ export interface Product extends BaseModel {
   tags?: ProductTag[]; // Dynamic product tags for variations
   description?: string; // Product description for catalogue
   barCode?: string; // EAN-13 barcode for product identification
+}
+
+export interface Matiere extends BaseModel {
+  name: string;
+  description?: string;
+  images?: string[]; // Firebase Storage URLs
+  imagePaths?: string[]; // Storage paths for deletion
+  refCategorie: string; // Category name (not ID)
+  refStock: string; // Reference to stock document ID
+  unit: string; // Unit of measurement (from units.ts)
+  costPrice: number; // Last purchase price
+  companyId: string;
+  createdBy?: EmployeeRef;
+  isDeleted?: boolean;
 }
 
 export interface ProductTag {
@@ -212,10 +227,11 @@ export interface ProfitPeriodPreference {
   updatedBy: string;
 }
 
-// Stock change event for product inventory tracking
+// Stock change event for product/matiere inventory tracking
 export interface StockChange {
   id: string;
-  productId: string;
+  productId?: string; // Optional: for products
+  matiereId?: string; // Optional: for matieres (one of productId or matiereId must be set)
   change: number; // + for restock, - for sale, etc.
   reason: 'sale' | 'restock' | 'adjustment' | 'creation' | 'cost_correction' | 'damage' | 'manual_adjustment';
   supplierId?: string; // Reference to supplier if applicable
@@ -239,7 +255,8 @@ export interface StockChange {
 // Stock batch for FIFO inventory tracking (NEW!)
 export interface StockBatch {
   id: string;
-  productId: string;
+  productId?: string; // Optional: for products
+  matiereId?: string; // Optional: for matieres (one of productId or matiereId must be set)
   quantity: number; // Total quantity in this batch
   costPrice: number; // Cost per unit for this batch
   supplierId?: string; // Reference to supplier if applicable
@@ -268,9 +285,9 @@ export interface FinanceEntry {
   id: string;
   userId: string; // Legacy field - kept for audit trail
   companyId: string; // Reference to the company this finance entry belongs to
-  sourceType: 'sale' | 'expense' | 'manual' | 'supplier' | 'order';
-  sourceId?: string; // saleId, expenseId, orderId, or supplierId if applicable
-  type: string; // e.g., "sale", "expense", "loan", "deposit", "supplier_debt", "supplier_refund", etc.
+  sourceType: 'sale' | 'expense' | 'manual' | 'supplier' | 'order' | 'matiere';
+  sourceId?: string; // saleId, expenseId, orderId, supplierId, or matiereId if applicable
+  type: string; // e.g., "sale", "expense", "loan", "deposit", "supplier_debt", "supplier_refund", "matiere_purchase", etc.
   amount: number;
   description?: string;
   date: Timestamp;

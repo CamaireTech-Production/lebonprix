@@ -341,17 +341,40 @@ const Categories = () => {
   const handleDeleteCategory = async () => {
     if (!user || !company || !currentCategory) return;
 
+    // Check if category has matieres or products
+    const matiereCount = currentCategory.matiereCount || 0;
+    const productCount = currentCategory.productCount || 0;
+    
+    // If category has matieres, show confirmation
+    if (matiereCount > 0) {
+      const confirmed = window.confirm(
+        `Cette catégorie contient ${matiereCount} matière${matiereCount > 1 ? 's' : ''}. ` +
+        `Toutes les matières associées seront supprimées définitivement. ` +
+        `Êtes-vous sûr de vouloir continuer ?`
+      );
+      
+      if (!confirmed) {
+        return;
+      }
+    }
+
     setIsDeleting(true);
     try {
-      await deleteCategory(currentCategory.id, company.id);
+      await deleteCategory(currentCategory.id, company.id, matiereCount > 0);
       
       setIsDeleteModalOpen(false);
       setCurrentCategory(null);
       showSuccessToast('Category deleted successfully');
     } catch (error) {
       console.error('Error deleting category:', error);
-      if (error instanceof Error && error.message.includes('existing products')) {
-        showErrorToast('Cannot delete category with existing products. Please move or delete products first.');
+      if (error instanceof Error) {
+        if (error.message.includes('existing products')) {
+          showErrorToast('Cannot delete category with existing products. Please move or delete products first.');
+        } else if (error.message.includes('existing matieres')) {
+          showErrorToast('Cannot delete category with existing matieres. Please delete matieres first or confirm deletion.');
+        } else {
+          showErrorToast(`Failed to delete category: ${error.message}`);
+        }
       } else {
         showErrorToast('Failed to delete category');
       }
@@ -499,9 +522,14 @@ const Categories = () => {
                       </p>
                     )}
                     <div className="mt-auto">
-                      <Badge variant="info" className="mb-3">
-                        {category.productCount || 0} products
-                      </Badge>
+                      <div className="flex gap-2 mb-3">
+                        <Badge variant="info">
+                          {category.productCount || 0} produits
+                        </Badge>
+                        <Badge variant="info">
+                          {category.matiereCount || 0} matières
+                        </Badge>
+                      </div>
                       <div className="text-xs text-gray-400 mb-3">
                         Créé par: {formatCreatorName(category.createdBy)}
                       </div>
@@ -555,9 +583,14 @@ const Categories = () => {
                         {category.description}
                       </p>
                     )}
-                    <Badge variant="info" className="mb-2">
-                      {category.productCount || 0} products
-                    </Badge>
+                    <div className="flex gap-2 mb-2">
+                      <Badge variant="info">
+                        {category.productCount || 0} produits
+                      </Badge>
+                      <Badge variant="info">
+                        {category.matiereCount || 0} matières
+                      </Badge>
+                    </div>
                     <div className="text-xs text-gray-400">
                       Créé par: {formatCreatorName(category.createdBy)}
                     </div>
@@ -804,9 +837,23 @@ const Categories = () => {
           <p className="text-gray-600">
             Are you sure you want to delete the category <strong>"{currentCategory?.name}"</strong>?
           </p>
-          <p className="text-sm text-red-600">
-            This action cannot be undone. If this category has products, you'll need to move or delete them first.
-          </p>
+          {currentCategory && (currentCategory.matiereCount || 0) > 0 && (
+            <p className="text-red-600 font-medium">
+              Attention: Cette catégorie contient {currentCategory.matiereCount} matière{(currentCategory.matiereCount || 0) > 1 ? 's' : ''}. 
+              Toutes les matières seront supprimées définitivement.
+            </p>
+          )}
+          {currentCategory && (currentCategory.productCount || 0) > 0 && (
+            <p className="text-red-600 font-medium">
+              Attention: Cette catégorie contient {currentCategory.productCount} produit{(currentCategory.productCount || 0) > 1 ? 's' : ''}. 
+              Vous devrez déplacer ou supprimer les produits d'abord.
+            </p>
+          )}
+          {currentCategory && (currentCategory.matiereCount || 0) === 0 && (currentCategory.productCount || 0) === 0 && (
+            <p className="text-sm text-gray-500">
+              This action cannot be undone.
+            </p>
+          )}
         </div>
 
         footer={

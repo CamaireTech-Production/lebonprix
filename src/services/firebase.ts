@@ -1,7 +1,7 @@
 // src/services/firebase.ts
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
 const firebaseConfig = {
@@ -18,10 +18,16 @@ const app = initializeApp(firebaseConfig);
 
 // Initialize services
 const auth = getAuth(app);
-const db = getFirestore(app);
+// Active cache persistant multi-onglets pour la résilience offline
+const db = initializeFirestore(app, {
+  localCache: persistentLocalCache({
+    tabManager: persistentMultipleTabManager()
+  })
+});
 const storage = getStorage(app);
 
-export { auth, db, storage, getFirestore };
+export { auth, db, storage };
+export { getFirestore } from "firebase/firestore";
 
 interface ImportMetaEnv {
   VITE_FIREBASE_API_KEY: string;

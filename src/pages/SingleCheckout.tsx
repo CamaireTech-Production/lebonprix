@@ -7,6 +7,7 @@ import { createOrder } from '../services/orderService';
 import { getCompanyByUserId, getSellerSettings } from '../services/firestore';
 import { getCurrentEmployeeRef } from '../utils/employeeUtils';
 import { getUserById } from '../services/userService';
+import { formatPrice } from '../utils/formatPrice';
 import { getCheckoutSettingsWithDefaults, subscribeToCheckoutSettings } from '../services/checkoutSettingsService';
 // Removed useCheckoutPersistence - using manual save approach
 import { subscribeToCinetPayConfig, isCinetPayConfigured } from '../services/cinetpayService';
@@ -436,28 +437,16 @@ const SingleCheckout: React.FC = () => {
     message += `📋 Détails:\n`;
     order.items.forEach(item => {
       const itemTotal = item.price * item.quantity;
-      message += `- ${item.name} x ${item.quantity} = ${itemTotal.toLocaleString('fr-FR', {
-        style: 'currency',
-        currency: 'XAF'
-      })}\n`;
+      message += `- ${item.name} x ${item.quantity} = ${formatPrice(itemTotal)} XAF\n`;
     });
     
-    message += `\n💰 Total: ${order.pricing.subtotal.toLocaleString('fr-FR', {
-      style: 'currency',
-      currency: 'XAF'
-    })}\n`;
+    message += `\n💰 Total: ${formatPrice(order.pricing.subtotal)} XAF\n`;
     
     if (order.pricing.deliveryFee > 0) {
-      message += `🚚 Frais de livraison: ${order.pricing.deliveryFee.toLocaleString('fr-FR', {
-        style: 'currency',
-        currency: 'XAF'
-      })}\n`;
+      message += `🚚 Frais de livraison: ${formatPrice(order.pricing.deliveryFee)} XAF\n`;
     }
     
-    message += `💳 Total final: ${order.pricing.total.toLocaleString('fr-FR', {
-      style: 'currency',
-      currency: 'XAF'
-    })}\n\n`;
+    message += `💳 Total final: ${formatPrice(order.pricing.total)} XAF\n\n`;
     
     // Customer information
     message += `👤 Client: ${order.customerInfo.name}\n`;
@@ -1064,7 +1053,7 @@ const SingleCheckout: React.FC = () => {
                       </div>
                     </div>
                     <span className="font-semibold text-gray-900">
-                      {deliveryFee > 0 ? `${deliveryFee.toLocaleString('fr-FR', { style: 'currency', currency: 'XAF' })}` : 'À confirmer après commande'}
+                      {deliveryFee > 0 ? `${formatPrice(deliveryFee)} XAF` : 'À confirmer après commande'}
                     </span>
                     </div>
                   </div>
@@ -1437,10 +1426,7 @@ const SingleCheckout: React.FC = () => {
                         {item.selectedSize && `${item.selectedSize}`}
                       </p>
                       <p className="text-sm font-medium text-emerald-600">
-                        {(item.price * item.quantity).toLocaleString('fr-FR', {
-                          style: 'currency',
-                          currency: 'XAF'
-                        })}
+                        {formatPrice(item.price * item.quantity)} XAF
                       </p>
                     </div>
                   </div>
@@ -1471,29 +1457,20 @@ const SingleCheckout: React.FC = () => {
                 <div className="flex justify-between">
                   <span className="text-gray-600">{t('checkout.orderSummaryDetails.subtotal')}</span>
                   <span className="font-medium">
-                    {subtotal.toLocaleString('fr-FR', {
-                      style: 'currency',
-                      currency: 'XAF'
-                    })}
+                    {formatPrice(subtotal)} XAF
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Livraison</span>
                   <span className="font-medium">
-                    {deliveryFee > 0 ? deliveryFee.toLocaleString('fr-FR', {
-                      style: 'currency',
-                      currency: 'XAF'
-                    }) : 'À confirmer'}
+                    {deliveryFee > 0 ? `${formatPrice(deliveryFee)} XAF` : 'À confirmer'}
                   </span>
                 </div>
                 <div className="border-t border-gray-200 pt-3">
                   <div className="flex justify-between text-lg font-bold">
                     <span>{t('checkout.orderSummaryDetails.total')}</span>
                     <span className="text-emerald-600">
-                      {finalTotal.toLocaleString('fr-FR', {
-                        style: 'currency',
-                        currency: 'XAF'
-                      })}
+                      {formatPrice(finalTotal)} XAF
                     </span>
                   </div>
                 </div>

@@ -15,7 +15,7 @@ export const useStockBatches = (productId?: string) => {
   const [batches, setBatches] = useState<StockBatch[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { user } = useAuth();
+  const { user, company } = useAuth();
 
   useEffect(() => {
     if (!productId) {
@@ -70,6 +70,7 @@ export const useStockBatches = (productId?: string) => {
         quantity,
         costPrice,
         user.uid,
+        company?.id, // Pass companyId
         supplierId,
         isOwnPurchase,
         isCredit,

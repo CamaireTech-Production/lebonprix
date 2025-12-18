@@ -108,7 +108,18 @@ export default defineConfig(({ mode }) => {
               }
             },
             {
-              urlPattern: /^https:\/\/.*\.googleapis\.com\/.*/i,
+              // Ne jamais mettre en cache les flux Firestore (Listen/channel)
+              urlPattern: /^https:\/\/firestore\.googleapis\.com\/.*/i,
+              handler: 'NetworkOnly',
+              options: {
+                cacheName: 'firestore-bypass'
+              }
+            },
+            {
+              // Autres endpoints googleapis restent en NetworkFirst
+              urlPattern: ({ url }) =>
+                url.hostname.endsWith('googleapis.com') &&
+                url.hostname !== 'firestore.googleapis.com',
               handler: 'NetworkFirst',
               options: {
                 cacheName: 'google-apis-cache',
