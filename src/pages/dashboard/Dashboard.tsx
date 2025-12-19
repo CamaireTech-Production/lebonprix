@@ -10,11 +10,9 @@ import { useAuth } from '@contexts/AuthContext';
 import type { StockChange, Sale, SaleProduct } from '../../types/models';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
 import { useTranslation } from 'react-i18next';
-import { getLatestCostPrice } from '@utils/business/productUtils';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useRolePermissions } from '@hooks/business/useRolePermissions';
 import {
-  calculateTotalProfit,
   calculateDashboardProfit,
   calculateTotalExpenses,
   calculateSolde,

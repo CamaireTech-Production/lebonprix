@@ -8,8 +8,8 @@ import { showErrorToast } from '@utils/core/toast';
 import { formatDistanceToNow } from 'date-fns';
 import { Timestamp } from 'firebase/firestore';
 import { CheckCircle, XCircle, Clock, Building2, User } from 'lucide-react';
-import type { Invitation } from '@types/models';
-import type { PermissionTemplate } from '@types/permissions';
+import type { Invitation } from '../../types/models';
+import type { PermissionTemplate } from '../../types/permissions';
 
 export default function InviteActivate() {
   const { inviteId } = useParams();
@@ -38,8 +38,10 @@ export default function InviteActivate() {
         expiresAt = invite.expiresAt.toDate();
       } else if (invite.expiresAt && typeof invite.expiresAt === 'object' && 'toDate' in invite.expiresAt) {
         expiresAt = (invite.expiresAt as Timestamp).toDate();
+      } else if (invite.expiresAt && typeof invite.expiresAt === 'object' && 'seconds' in invite.expiresAt) {
+        expiresAt = new Date((invite.expiresAt as Timestamp).seconds * 1000);
       } else {
-        expiresAt = new Date(invite.expiresAt as number);
+        expiresAt = new Date((invite.expiresAt as unknown as number));
       }
       if (now > expiresAt) {
         setError('This invitation has expired');
@@ -210,7 +212,9 @@ export default function InviteActivate() {
                   Expires {formatDistanceToNow(
                     invitation.expiresAt instanceof Timestamp 
                       ? invitation.expiresAt.toDate() 
-                      : new Date(invitation.expiresAt as number), 
+                      : (invitation.expiresAt && typeof invitation.expiresAt === 'object' && 'seconds' in invitation.expiresAt)
+                      ? new Date((invitation.expiresAt as Timestamp).seconds * 1000)
+                      : new Date((invitation.expiresAt as unknown as number)), 
                     { addSuffix: true }
                   )}
                 </p>

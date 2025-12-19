@@ -2,7 +2,7 @@ import { useParams } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { getCompanyByUserId } from '@services/firestore/firestore';
 import { getSaleDetails, subscribeToSaleUpdates } from '@services/firestore/sales/saleService';
-import type { SaleDetails, Company } from '@types/models';
+import type { SaleDetails, Company } from '../../types/models';
 import { LoadingScreen, Card, Badge } from '@components/common';
 import { useProducts } from '@hooks/data/useFirestore';
 import { CheckCircle, Circle } from 'lucide-react';

@@ -13,7 +13,7 @@ import { getCheckoutSettingsWithDefaults, subscribeToCheckoutSettings } from '@s
 import { subscribeToCinetPayConfig, isCinetPayConfigured } from '@services/payment/cinetpayService';
 import { processCinetPayPayment, validatePaymentData, formatPhoneForCinetPay } from '@utils/core/cinetpayHandler';
 import { formatPhoneForWhatsApp } from '@utils/core/phoneUtils';
-import type { CinetPayConfig } from '@types/cinetpay';
+import type { CinetPayConfig } from '../../types/cinetpay';
 // import { generateWhatsAppMessage } from '@utils/whatsapp';
 import { 
   CreditCard, 
@@ -29,8 +29,8 @@ import {
 import { PhoneInput, ImageWithSkeleton, AmountTooLowModal } from '@components/common';
 import SaveStatusIndicator from '@components/checkout/SaveStatusIndicator';
 import { toast } from 'react-hot-toast';
-import type { Order, CustomerInfo, PaymentMethodType } from '@types/order';
-import type { CheckoutSettings } from '@types/checkoutSettings';
+import type { Order, CustomerInfo, PaymentMethodType } from '../../types/order';
+import type { CheckoutSettings } from '../../types/checkoutSettings';
 
 interface Company {
   id: string;

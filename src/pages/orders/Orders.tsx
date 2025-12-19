@@ -11,7 +11,7 @@ import {
 } from '@services/firestore/orders/orderService';
 import { formatCreatorName } from '@utils/business/employeeUtils';
 import { formatPrice } from '@utils/formatting/formatPrice';
-import { Order, OrderFilters, OrderStats } from '@types/order';
+import { Order, OrderFilters, OrderStats } from '../../types/order';
 import { 
   ShoppingBag, 
   Search, 

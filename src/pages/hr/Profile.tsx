@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@contexts/AuthContext';
 import { Card, Button, Input } from '@components/common';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
-import { useTranslation } from 'react-i18next';
 import { User, Building2, Mail, Phone, Calendar, Briefcase, Save } from 'lucide-react';
 import { getUserById, updateUser } from '@services/utilities/userService';
 import type { User as UserType } from '../../types/models';
