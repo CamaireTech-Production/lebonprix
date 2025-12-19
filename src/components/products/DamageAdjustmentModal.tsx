@@ -4,7 +4,7 @@ import { useAuth } from '@contexts/AuthContext';
 import { 
   getProductBatchesForAdjustment 
 } from '@services/firestore/stock/stockService';
-import { adjustStockForDamage } from '@services/firestore/stockAdjustments';
+import { adjustStockForDamage } from '@services/firestore/stock/stockAdjustments';
 import type { Product, StockBatch } from '../../types/models';
 import { Modal, Button, Input, Select } from '@components/common';
 import { formatCostPrice } from '@utils/inventory/inventoryManagement';

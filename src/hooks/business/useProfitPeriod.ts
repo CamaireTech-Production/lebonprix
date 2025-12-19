@@ -2,11 +2,10 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@contexts/AuthContext';
 import type { ProfitPeriodPreference, ProfitPeriodType } from '../../types/models';
 import {
-  getProfitPeriodPreference,
   saveProfitPeriodPreference,
   clearProfitPeriodPreference,
   subscribeToProfitPeriodPreference
-} from '@services/firestore/profitPeriodService';
+} from '@services/firestore/finance/profitPeriodService';
 import { Timestamp } from 'firebase/firestore';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
 
@@ -71,7 +70,7 @@ export const useProfitPeriod = (): UseProfitPeriodReturn => {
         ? Timestamp.fromDate(customDate)
         : null;
 
-      await saveProfitPeriodPreference(company.id, user.id, {
+      await saveProfitPeriodPreference(company.id, user.uid, {
         periodType,
         periodStartDate: timestampDate,
         isActive: periodType !== 'all_time',
@@ -101,7 +100,7 @@ export const useProfitPeriod = (): UseProfitPeriodReturn => {
 
     try {
       setError(null);
-      await clearProfitPeriodPreference(company.id, user.id);
+      await clearProfitPeriodPreference(company.id, user.uid);
       showSuccessToast('Profit period cleared. Showing all-time profit.');
     } catch (err) {
       const error = err as Error;

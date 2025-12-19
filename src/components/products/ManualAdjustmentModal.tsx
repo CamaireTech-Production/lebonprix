@@ -5,7 +5,7 @@ import {
   getProductBatchesForAdjustment,
   validateBatchAdjustment 
 } from '@services/firestore/stock/stockService';
-import { adjustStockManually, adjustMultipleBatchesManually } from '@services/firestore/stockAdjustments';
+import { adjustStockManually, adjustMultipleBatchesManually } from '@services/firestore/stock/stockAdjustments';
 import type { Product, StockBatch } from '../../types/models';
 import { Modal, Button, Input, PriceInput, Select } from '@components/common';
 import { formatCostPrice } from '@utils/inventory/inventoryManagement';

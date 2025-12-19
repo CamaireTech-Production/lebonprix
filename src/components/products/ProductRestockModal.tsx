@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@contexts/AuthContext';
 import { subscribeToSuppliers } from '@services/firestore/suppliers/supplierService';
-import { restockProduct } from '@services/firestore/stockAdjustments';
+import { restockProduct } from '@services/firestore/stock/stockAdjustments';
 import type { Product, Supplier } from '../../types/models';
 import { Modal, Button, Input, PriceInput, Select } from '@components/common';
 import { formatCostPrice } from '@utils/inventory/inventoryManagement';
