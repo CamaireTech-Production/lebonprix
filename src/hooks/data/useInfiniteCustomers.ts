@@ -3,9 +3,9 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '@contexts/AuthContext';
 import { query, collection, where, orderBy, limit, startAfter, getDocs, DocumentSnapshot } from 'firebase/firestore';
 import { db } from '@services/core/firebase';
-import type { Customer, Sale } from '../types/models';
+import type { Customer, Sale } from '@types/models';
 
-interface CustomerWithPurchaseCount extends Customer {
+export interface CustomerWithPurchaseCount extends Customer {
   purchaseCount: number;
 }
 

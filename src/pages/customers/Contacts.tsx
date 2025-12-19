@@ -1,16 +1,14 @@
 import React, { useState, useMemo } from 'react';
 import { Plus, Edit2, Trash2, MapPin, Calendar, User, Search } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
 import { Card, Button, Badge, Modal, Input, Textarea, Table, LoadingScreen } from '@components/common';
 import { useInfiniteCustomers } from '@hooks/data/useInfiniteCustomers';
 import { useInfiniteScroll } from '@hooks/data/useInfiniteScroll';
 import { useCustomers } from '@hooks/data/useFirestore';
 import { useAuth } from '@contexts/AuthContext';
 import { showSuccessToast, showErrorToast, showWarningToast } from '@utils/core/toast';
-import type { Customer } from '../types/models';
+import type { Customer } from '../../types/models';
 
 const Contacts = () => {
-  const { t } = useTranslation();
   const { 
     customers, 
     loading, 
@@ -18,9 +16,7 @@ const Contacts = () => {
     hasMore,
     error, 
     loadMore,
-    refresh,
-    sortBy,
-    setSortBy
+    refresh
   } = useInfiniteCustomers();
   const { addCustomer, updateCustomer, deleteCustomer } = useCustomers();
   const { user, company } = useAuth();
@@ -61,15 +57,16 @@ const Contacts = () => {
     if (!searchQuery) return customers;
     
     const query = searchQuery.toLowerCase();
-    return customers.filter(customer => 
-      customer.name?.toLowerCase().includes(query) ||
-      customer.phone?.toLowerCase().includes(query) ||
-      customer.firstName?.toLowerCase().includes(query) ||
-      customer.lastName?.toLowerCase().includes(query) ||
-      customer.quarter?.toLowerCase().includes(query) ||
-      customer.town?.toLowerCase().includes(query) ||
-      customer.address?.toLowerCase().includes(query)
-    );
+    return customers.filter(customer => {
+      const c = customer as Customer & { purchaseCount: number };
+      return c.name?.toLowerCase().includes(query) ||
+        c.phone?.toLowerCase().includes(query) ||
+        c.firstName?.toLowerCase().includes(query) ||
+        c.lastName?.toLowerCase().includes(query) ||
+        c.quarter?.toLowerCase().includes(query) ||
+        c.town?.toLowerCase().includes(query) ||
+        c.address?.toLowerCase().includes(query);
+    });
   }, [customers, searchQuery]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -210,34 +207,35 @@ const Contacts = () => {
   }
 
   const tableData = filteredCustomers.map(customer => {
-    const fullName = customer.firstName && customer.lastName 
-      ? `${customer.firstName} ${customer.lastName}`
-      : customer.name || 'Sans nom';
+    const customerAsCustomer = customer as Customer & { purchaseCount: number };
+    const fullName = customerAsCustomer.firstName && customerAsCustomer.lastName 
+      ? `${customerAsCustomer.firstName} ${customerAsCustomer.lastName}`
+      : customerAsCustomer.name || 'Sans nom';
     
     return {
-      id: customer.id,
+      id: customerAsCustomer.id,
       name: fullName,
-      phone: customer.phone,
+      phone: customerAsCustomer.phone,
       purchaseCount: (
         <Badge variant={customer.purchaseCount > 0 ? 'success' : 'info'}>
           {customer.purchaseCount || 0} {customer.purchaseCount === 1 ? 'achat' : 'achats'}
         </Badge>
       ),
-      location: customer.town || customer.quarter || '-',
-      address: customer.address || '-',
-      birthdate: customer.birthdate || '-',
-      howKnown: customer.howKnown || '-',
+      location: customerAsCustomer.town || customerAsCustomer.quarter || '-',
+      address: customerAsCustomer.address || '-',
+      birthdate: customerAsCustomer.birthdate || '-',
+      howKnown: customerAsCustomer.howKnown || '-',
       actions: (
         <div className="flex space-x-2">
           <button
-            onClick={() => openEditModal(customer)}
+            onClick={() => openEditModal(customerAsCustomer)}
             className="text-indigo-600 hover:text-indigo-900"
             title="Modifier"
           >
             <Edit2 size={16} />
           </button>
           <button
-            onClick={() => openDeleteModal(customer)}
+            onClick={() => openDeleteModal(customerAsCustomer)}
             className="text-red-600 hover:text-red-900"
             title="Supprimer"
           >
@@ -292,7 +290,7 @@ const Contacts = () => {
             <div>
               <p className="text-sm text-gray-600">Avec adresse</p>
               <p className="text-2xl font-bold text-gray-900">
-                {customers.filter(c => c.address || c.town).length}
+                {customers.filter(c => (c as Customer).address || (c as Customer).town).length}
               </p>
             </div>
             <MapPin className="text-green-500" size={32} />
@@ -303,7 +301,7 @@ const Contacts = () => {
             <div>
               <p className="text-sm text-gray-600">Avec date de naissance</p>
               <p className="text-2xl font-bold text-gray-900">
-                {customers.filter(c => c.birthdate).length}
+                {customers.filter(c => (c as Customer).birthdate).length}
               </p>
             </div>
             <Calendar className="text-purple-500" size={32} />

@@ -14,7 +14,7 @@ import ObjectivesModal from '@components/objectives/ObjectivesModal';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
 import { devLog } from '@utils/core/logger';
 import { formatPrice } from '@utils/formatting/formatPrice';
-import type { FinanceEntry } from '@types/models';
+import type { FinanceEntry } from '../../types/models';
 import {
   calculateTotalProfit,
   calculateTotalExpenses,
