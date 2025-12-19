@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import JsBarcode from 'jsbarcode';
 import QRCode from 'react-qr-code';
 import type { Product } from '../../types/models';
-import { formatEAN13 } from '../../services/barcodeService';
+import { formatEAN13 } from '@services/utilities/barcodeService';
 
 interface BarcodeGeneratorProps {
   product: Product;

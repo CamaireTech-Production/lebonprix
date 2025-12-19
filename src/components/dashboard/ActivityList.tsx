@@ -1,9 +1,8 @@
 import { formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import Card from '../common/Card';
-import Badge from '../common/Badge';
+import { Card, Badge } from '@components/common';
 import { useTranslation } from 'react-i18next';
-import { Activity } from '../../utils/activityUtils';
+import { Activity } from '@utils/business/activityUtils';
 
 interface ActivityListProps {
   activities: Activity[];

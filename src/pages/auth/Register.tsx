@@ -1,12 +1,10 @@
 import { useState, FormEvent, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext';
-import Button from '../../components/common/Button';
-import Input from '../../components/common/Input';
+import { useAuth } from '@contexts/AuthContext';
+import { Button, Input, LoadingScreen } from '@components/common';
 import { FirebaseError } from 'firebase/app';
-import LoadingScreen from '../../components/common/LoadingScreen';
-import { signUpUser } from '../../services/authService';
-import { showErrorToast, showSuccessToast } from '../../utils/toast';
+import { signUpUser } from '@services/auth/authService';
+import { showErrorToast, showSuccessToast } from '@utils/core/toast';
 
 const Register = () => {
   // User form state only

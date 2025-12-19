@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useCart } from '../../contexts/CartContext';
-import { getCompanyByUserId, subscribeToProducts, getSellerSettings } from '../../services/firestore';
+import { getCompanyByUserId, getSellerSettings } from '@services/firestore/firestore';
+import { subscribeToProducts } from '@services/firestore/products/productService';
 import type { Company, Product } from '../../types/models';
 import type { SellerSettings } from '../../types/order';
 import { ArrowLeft, Plus, Minus, MessageCircle, ShoppingCart, ChevronLeft, ChevronRight } from 'lucide-react';
-import { ImageWithSkeleton } from './ImageWithSkeleton';
-import { formatPhoneForWhatsApp } from '../../utils/phoneUtils';
-import { formatPrice } from '../../utils/formatPrice';
+import { ImageWithSkeleton } from '@components/common';
+import { formatPhoneForWhatsApp } from '@utils/core/phoneUtils';
+import { formatPrice } from '@utils/formatting/formatPrice';
 
 const placeholderImg = '/placeholder.png';
 

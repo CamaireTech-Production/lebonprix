@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useCart } from '../../contexts/CartContext';
-import { getCompanyByUserId, subscribeToProducts, getSellerSettings } from '../../services/firestore';
+import { getCompanyByUserId, getSellerSettings } from '@services/firestore/firestore';
+import { subscribeToProducts } from '@services/firestore/products/productService';
 import type { Company, Product} from '../../types/models';
 import type { SellerSettings } from '../../types/order';
 import { X, Share2, Heart, Star, Plus, Minus, ChevronRight, MessageCircle } from 'lucide-react';
-import FloatingCartButton from './FloatingCartButton';
-import { ImageWithSkeleton } from './ImageWithSkeleton';
+import { FloatingCartButton, ImageWithSkeleton } from '@components/common';
 import DesktopProductDetail from './DesktopProductDetail';
-import { formatPhoneForWhatsApp } from '../../utils/phoneUtils';
-import { formatPrice } from '../../utils/formatPrice';
+import { formatPhoneForWhatsApp } from '@utils/core/phoneUtils';
+import { formatPrice } from '@utils/formatting/formatPrice';
 
 const placeholderImg = '/placeholder.png';
 

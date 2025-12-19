@@ -1,7 +1,7 @@
 import React from 'react';
 import { Package } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { ImageWithSkeleton } from '../common/ImageWithSkeleton';
+import ImageWithSkeleton from '../common/ImageWithSkeleton';
 import type { Product } from '../../types/models';
 
 interface POSProductGridProps {

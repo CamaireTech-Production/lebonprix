@@ -1,9 +1,8 @@
 import { Plus, Minus, Trash2, ShoppingCart, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { ImageWithSkeleton } from '../common/ImageWithSkeleton';
-import { formatPrice } from '../../utils/formatPrice';
-import PriceInput from '../common/PriceInput';
-import type { CartItem } from '../../hooks/usePOS';
+import { ImageWithSkeleton, PriceInput } from '@components/common';
+import { formatPrice } from '@utils/formatting/formatPrice';
+import type { CartItem } from '@hooks/forms/usePOS';
 
 interface POSCartProps {
   cart: CartItem[];

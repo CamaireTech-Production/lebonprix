@@ -1,19 +1,14 @@
 import { useState, useMemo } from 'react';
 import { Plus, Search, Edit2, Trash2, Package, Grid3X3 } from 'lucide-react';
-import Card from '../../components/common/Card';
-import Button from '../../components/common/Button';
-import Input from '../../components/common/Input';
-import Badge from '../../components/common/Badge';
-import Modal, { ModalFooter } from '../../components/common/Modal';
-import { useMatieres } from '../../hooks/useMatieres';
-import { useCategories } from '../../hooks/useFirestore';
+import { Card, Button, Input, Badge, Modal, ModalFooter, ImageWithSkeleton } from '@components/common';
+import { useMatieres } from '@hooks/business/useMatieres';
+import { useCategories } from '@hooks/data/useFirestore';
 import MatiereFormModal from '../../components/magasin/MatiereFormModal';
-import { showSuccessToast, showErrorToast } from '../../utils/toast';
-import { ImageWithSkeleton } from '../../components/common/ImageWithSkeleton';
+import { showSuccessToast, showErrorToast } from '@utils/core/toast';
 import type { Matiere } from '../../types/models';
 
 const Matieres = () => {
-  const { matieres, loading, error, addMatiere, updateMatiereData, deleteMatiereData } = useMatieres();
+  const { matieres, loading, error, deleteMatiereData } = useMatieres();
   const { categories } = useCategories();
   
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -340,7 +335,7 @@ const Matieres = () => {
             }}
             onConfirm={handleDelete}
             confirmText="Supprimer"
-            confirmVariant="danger"
+            isDanger
           />
         }
       >

@@ -1,17 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '@contexts/AuthContext';
 import { 
   getProductBatchesForAdjustment 
-} from '../../services/firestore';
-import { adjustStockForDamage } from '../../services/stockAdjustments';
+} from '@services/firestore/stock/stockService';
+import { adjustStockForDamage } from '@services/firestore/stock/stockAdjustments';
 import type { Product, StockBatch } from '../../types/models';
-import Modal from '../common/Modal';
-import Button from '../common/Button';
-import Input from '../common/Input';
-import Select from '../common/Select';
-import { formatCostPrice } from '../../utils/inventoryManagement';
-import { showSuccessToast, showErrorToast } from '../../utils/toast';
+import { Modal, Button, Input, Select } from '@components/common';
+import { formatCostPrice } from '@utils/inventory/inventoryManagement';
+import { showSuccessToast, showErrorToast } from '@utils/core/toast';
 
 interface DamageAdjustmentModalProps {
   isOpen: boolean;

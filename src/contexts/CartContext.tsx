@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
 import type { Product } from '../types/models';
-import { loadCartData, saveCheckoutData, clearCheckoutData } from '../utils/checkoutPersistence';
+import { loadCartData, saveCheckoutData, clearCheckoutData } from '@utils/storage/checkoutPersistence';
 
 // Cart item interface (following the documentation structure)
 interface CartItem {

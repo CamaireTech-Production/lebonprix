@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ChevronDown, Search } from 'lucide-react';
-import { UNITS, searchUnits, type Unit } from '../../utils/units';
+import { UNITS, searchUnits, type Unit } from '@utils/core/units';
 
 interface UnitSelectorProps {
   value: string;

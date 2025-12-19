@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { X, Camera } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { showErrorToast, showSuccessToast } from '../../utils/toast';
+import { showErrorToast, showSuccessToast } from '@utils/core/toast';
 
 interface BarcodeScannerProps {
   isOpen: boolean;
