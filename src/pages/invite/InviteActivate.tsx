@@ -6,9 +6,10 @@ import { getInvitation, acceptInvitation, rejectInvitation } from '@services/fir
 import { getTemplateById } from '@services/firestore/employees/permissionTemplateService';
 import { showErrorToast } from '@utils/core/toast';
 import { formatDistanceToNow } from 'date-fns';
+import { Timestamp } from 'firebase/firestore';
 import { CheckCircle, XCircle, Clock, Building2, User } from 'lucide-react';
-import type { Invitation } from '../types/models';
-import type { PermissionTemplate } from '../types/permissions';
+import type { Invitation } from '@types/models';
+import type { PermissionTemplate } from '@types/permissions';
 
 export default function InviteActivate() {
   const { inviteId } = useParams();
@@ -32,7 +33,14 @@ export default function InviteActivate() {
       
       // Check if invitation is expired
       const now = new Date();
-      const expiresAt = (invite.expiresAt as any).toDate();
+      let expiresAt: Date;
+      if (invite.expiresAt instanceof Timestamp) {
+        expiresAt = invite.expiresAt.toDate();
+      } else if (invite.expiresAt && typeof invite.expiresAt === 'object' && 'toDate' in invite.expiresAt) {
+        expiresAt = (invite.expiresAt as Timestamp).toDate();
+      } else {
+        expiresAt = new Date(invite.expiresAt as number);
+      }
       if (now > expiresAt) {
         setError('This invitation has expired');
         return;
@@ -56,9 +64,9 @@ export default function InviteActivate() {
           // Template is optional for display, so don't fail the whole invitation
         }
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error loading invitation:', error);
-      setError(error.message || 'Failed to load invitation');
+      setError(error instanceof Error ? error.message : 'Failed to load invitation');
     } finally {
       setLoading(false);
     }
@@ -89,9 +97,9 @@ export default function InviteActivate() {
       
       // Redirect to company dashboard
       navigate(`/company/${invitation.companyId}/dashboard`);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error accepting invitation:', error);
-      showErrorToast(error.message || 'Failed to accept invitation');
+      showErrorToast(error instanceof Error ? error.message : 'Failed to accept invitation');
     } finally {
       setProcessing(false);
     }
@@ -106,7 +114,7 @@ export default function InviteActivate() {
     try {
       await rejectInvitation(invitation.id);
       navigate('/auth/login');
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error rejecting invitation:', error);
       showErrorToast('Failed to reject invitation');
     } finally {
@@ -199,7 +207,12 @@ export default function InviteActivate() {
               <Clock className="h-5 w-5 text-gray-400 mr-3" />
               <div>
                 <p className="text-sm font-medium text-gray-900">
-                  Expires {formatDistanceToNow((invitation.expiresAt as any).toDate(), { addSuffix: true })}
+                  Expires {formatDistanceToNow(
+                    invitation.expiresAt instanceof Timestamp 
+                      ? invitation.expiresAt.toDate() 
+                      : new Date(invitation.expiresAt as number), 
+                    { addSuffix: true }
+                  )}
                 </p>
                 <p className="text-xs text-gray-500">Invitation Valid Until</p>
               </div>

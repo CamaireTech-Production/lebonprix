@@ -1,5 +1,4 @@
-import React from 'react';
-import CustomerSourceManager from '../components/customerSources/CustomerSourceManager';
+import CustomerSourceManager from '../../components/customerSources/CustomerSourceManager';
 
 const CustomerSources = () => {
   return (

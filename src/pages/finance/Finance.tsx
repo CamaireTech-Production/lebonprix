@@ -9,12 +9,12 @@ import { useAuth } from '@contexts/AuthContext';
 import { Timestamp } from 'firebase/firestore';
 import { Edit2, Trash2, BarChart2, Receipt, DollarSign, ShoppingCart, Info, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Loader2} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import ObjectivesBar from '../../components/objectives/ObjectivesBar';
-import ObjectivesModal from '../../components/objectives/ObjectivesModal';
+import ObjectivesBar from '@components/objectives/ObjectivesBar';
+import ObjectivesModal from '@components/objectives/ObjectivesModal';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
 import { devLog } from '@utils/core/logger';
 import { formatPrice } from '@utils/formatting/formatPrice';
-import type { FinanceEntry } from '../../types/models';
+import type { FinanceEntry } from '@types/models';
 import {
   calculateTotalProfit,
   calculateTotalExpenses,
@@ -27,12 +27,6 @@ import {
 } from '@utils/calculations/financialCalculations';
 // Removed skeleton loaders and sync indicator imports - back to original approach
 
-type CustomerDebt = {
-  phone: string;
-  name: string;
-  debt: number;
-  entries: FinanceEntry[];
-};
 
 const Finance: React.FC = () => {
   const { t } = useTranslation();
@@ -92,7 +86,6 @@ const Finance: React.FC = () => {
   const [showCalculationsModal, setShowCalculationsModal] = useState(false);
   const [showObjectivesModal, setShowObjectivesModal] = useState(false);
   const [applyDateFilter, setApplyDateFilter] = useState(true);
-  const [] = useState<CustomerDebt | null>(null);
   const [showDebtHistoryModal, setShowDebtHistoryModal] = useState(false);
   // Add openDebtId state at the top of the component
   const [openDebtId, setOpenDebtId] = useState<string | null>(null);
@@ -498,7 +491,7 @@ const Finance: React.FC = () => {
     return option;
   };
 
-  const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | { target: { name: string; value: string } }) => {
     setForm(f => ({ ...f, [e.target.name]: e.target.value }));
   };
 

@@ -1,4 +1,4 @@
-import { DollarSign, TrendingUp, Package2, Info, Receipt, Copy, Check, ExternalLink, ScanLine, FileBarChart} from 'lucide-react';
+import { DollarSign, TrendingUp, Package2, Info, Receipt, Copy, Check, ExternalLink, ScanLine, FileBarChart } from 'lucide-react';
 import StatCard from '../../components/dashboard/StatCard';
 import SalesChart from '../../components/dashboard/SalesChart';
 import ActivityList from '../../components/dashboard/ActivityList';
@@ -7,7 +7,7 @@ import { useSales, useExpenses, useProducts, useStockChanges, useFinanceEntries,
 import { subscribeToAllSales } from '@services/firestore/sales/saleService';
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@contexts/AuthContext';
-import type { DashboardStats, StockChange } from '../../types/models';
+import type { DashboardStats, StockChange, Sale } from '../../types/models';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
 import { useTranslation } from 'react-i18next';
 import { getLatestCostPrice } from '@utils/business/productUtils';
@@ -42,7 +42,7 @@ const Dashboard = () => {
   const { products, loading: productsLoading } = useProducts();
   
   // 🔄 BACKGROUND LOADING: Load all sales in background after initial render
-  const [allSales, setAllSales] = useState<any[]>([]);
+  const [allSales, setAllSales] = useState<Sale[]>([]);
   const [loadingAllSales, setLoadingAllSales] = useState(false);
   const { user, company, isOwner, effectiveRole } = useAuth();
   const { canAccess } = useRolePermissions(company?.id);
@@ -79,7 +79,6 @@ const Dashboard = () => {
     };
   }, [user, company, essentialDataLoading]);
   const [showCalculationsModal, setShowCalculationsModal] = useState(false);
-  const [] = useState<Partial<DashboardStats>>({});
   const [copied, setCopied] = useState(false);
   const [copied2, setCopied2] = useState(false);
   const [dateRange, setDateRange] = useState({
@@ -169,8 +168,8 @@ const Dashboard = () => {
   const getStockAtDate = (productId: string, date: Date) => {
     // Sum all stock changes for this product up to and including the date
     return stockChanges
-      .filter((sc: any) => sc.productId === productId && sc.createdAt?.seconds && new Date(sc.createdAt.seconds * 1000) <= date)
-      .reduce((sum: number, sc: any) => sum + sc.change, 0);
+      .filter((sc: StockChange) => sc.productId === productId && sc.createdAt?.seconds && new Date(sc.createdAt.seconds * 1000) <= date)
+      .reduce((sum: number, sc: StockChange) => sum + sc.change, 0);
   };
   const totalPurchasePrice = products?.reduce((sum, product) => {
     const stockAtDate = getStockAtDate(product.id, dateRange.to);
@@ -337,7 +336,7 @@ const Dashboard = () => {
   const handleOpenCatalogue = async () => {
     // Détecter si on est en mode PWA standalone
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
-      (window.navigator as any).standalone === true;
+      ('standalone' in window.navigator && (window.navigator as { standalone?: boolean }).standalone === true);
     
     // En mode PWA: utiliser le modal de partage natif
     if (isStandalone && navigator.share) {
@@ -371,10 +370,11 @@ const Dashboard = () => {
     : combineActivities(filteredSales, filteredExpenses, auditLogs, t);
 
   // Table columns for best selling products
+  type BestSellingProduct = { name: string; quantity: number; sales: number };
   const bestProductColumns = [
-    { header: t('dashboard.bestSellingProducts.product'), accessor: (row: any) => row.name },
-    { header: t('dashboard.bestSellingProducts.quantitySold'), accessor: (row: any) => row.quantity },
-    { header: t('dashboard.bestSellingProducts.totalSales'), accessor: (row: any) => `${row.sales.toLocaleString()} XAF` },
+    { header: t('dashboard.bestSellingProducts.product'), accessor: (row: BestSellingProduct) => row.name },
+    { header: t('dashboard.bestSellingProducts.quantitySold'), accessor: (row: BestSellingProduct) => row.quantity },
+    { header: t('dashboard.bestSellingProducts.totalSales'), accessor: (row: BestSellingProduct) => `${row.sales.toLocaleString()} XAF` },
   ];
 
   // Total products sold (sum of all product quantities in filteredSales)

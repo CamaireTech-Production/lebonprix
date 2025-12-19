@@ -39,7 +39,6 @@ const ExpensesList = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [currentExpense, setCurrentExpense] = useState<Expense | null>(null);
   const [expenseToDelete, setExpenseToDelete] = useState<Expense | null>(null);
-  const [deleteLoadingId, setDeleteLoadingId] = useState<string | null>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>({
@@ -180,8 +179,6 @@ const ExpensesList = () => {
           expenses={filteredExpenses}
           onEdit={handleEdit}
           onDelete={handleDelete}
-          deleteLoading={!!deleteLoadingId}
-          deleteLoadingId={deleteLoadingId || undefined}
         />
         
         {/* Infinite Scroll Loading Indicator */}

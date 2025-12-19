@@ -3,10 +3,12 @@ import { useState } from 'react';
 import { Edit2, Trash2 } from 'lucide-react';
 import { Card, Badge, Modal, ModalFooter, Input } from '@components/common';
 import { useExpenseCategories } from '@hooks/business/useExpenseCategories';
+import { useAuth } from '@contexts/AuthContext';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
 import type { ExpenseType } from '../../types/models';
 
 const ExpensesCategories = () => {
+  const { company } = useAuth();
   const {
     expenseTypesList,
     categoryUsageCounts,
@@ -60,11 +62,11 @@ const ExpensesCategories = () => {
   };
 
   const handleConfirmDeleteCategory = async () => {
-    if (!currentCategory) return;
+    if (!currentCategory || !company?.id) return;
     
     setCategoryDeleteLoading(true);
     try {
-      await deleteCategory(currentCategory.id, currentCategory.companyId);
+      await deleteCategory(currentCategory.id, company.id);
       showSuccessToast('Category deleted successfully');
       setIsDeleteCategoryModalOpen(false);
       setCurrentCategory(null);

@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@contexts/AuthContext';
-import { useCart } from '../../contexts/CartContext';
+import { useCart } from '@contexts/CartContext';
 import { getCompanyByUserId } from '@services/firestore/firestore';
 import { createOrder } from '@services/firestore/orders/orderService';
 import { getCurrentEmployeeRef } from '@utils/business/employeeUtils';
 import { getUserById } from '@services/utilities/userService';
 import { formatPrice } from '@utils/formatting/formatPrice';
-import type { Company } from '../../types/models';
-import type { CustomerInfo, OrderData, OrderPaymentMethod, OrderPricing, DeliveryInfo, Order } from '../../types/order';
+import type { Company } from '@types/models';
+import type { CustomerInfo, OrderData, OrderPaymentMethod, OrderPricing, DeliveryInfo, Order } from '@types/order';
 import { ArrowLeft, MapPin, Phone, User, MessageSquare, CreditCard, Truck, CheckCircle, Clock } from 'lucide-react';
 import { Button, ImageWithSkeleton } from '@components/common';
 import toast from 'react-hot-toast';
@@ -17,9 +17,9 @@ import { formatPhoneForWhatsApp } from '@utils/core/phoneUtils';
 const Checkout = () => {
   const { companyId } = useParams<{ companyId: string }>();
   const navigate = useNavigate();
-  const { user, company: authCompany, currentEmployee, isOwner } = useAuth();
+  const { user, company, currentEmployee, isOwner } = useAuth();
   const { cart, getCartTotal, clearCart } = useCart();
-  const [company, setCompany] = useState<Company | null>(null);
+  const [companyData, setCompanyData] = useState<Company | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
@@ -49,8 +49,8 @@ const Checkout = () => {
       }
 
       try {
-        const companyData = await getCompanyByUserId(companyId);
-        setCompany(companyData);
+        const fetchedCompany = await getCompanyByUserId(companyId);
+        setCompanyData(fetchedCompany);
       } catch (err) {
         console.error('Error fetching company:', err);
       } finally {
@@ -188,13 +188,13 @@ const Checkout = () => {
           paymentMethod,
           deliveryInfo,
           metadata: {
-            source: 'checkout',
+            source: 'catalogue',
             deviceInfo: {
-              type: 'web',
+              type: 'desktop',
               os: navigator.platform,
               browser: navigator.userAgent
             },
-            createdBy
+            createdBy: createdBy || undefined
           }
         }
       );
@@ -218,8 +218,8 @@ const Checkout = () => {
           timestamp: new Date()
         };
 
-        const message = generateOrderMessage(orderData, company, order.orderNumber);
-        const whatsappUrl = createWhatsAppUrl(company?.phone || '', message);
+        const message = generateOrderMessage(orderData, companyData, order.orderNumber);
+        const whatsappUrl = createWhatsAppUrl(companyData?.phone || '', message);
         
         // Clear cart
         clearCart();

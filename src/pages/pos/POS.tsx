@@ -1,4 +1,4 @@
-import { POSScreen } from '../components/pos/POSScreen';
+import { POSScreen } from '../../components/pos/POSScreen';
 import { LoadingScreen } from '@components/common';
 import { useAuth } from '@contexts/AuthContext';
 import { useEffect } from 'react';

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@contexts/AuthContext';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { storage } from '@services/firebase';
+import { storage } from '@services/core/firebase';
 import { Card, Button } from '@components/common';
 import { Building2, Upload, ArrowLeft } from 'lucide-react';
 import { showWarningToast } from '@utils/core/toast';
@@ -118,7 +118,7 @@ export default function CreateCompany() {
       }
       
       // Import the correct createCompany function
-      const { createCompany } = await import('@services/company/companyService');
+      const { createCompany } = await import('@services/firestore/companies/companyService');
       
       // Create company using the standardized function
       const company = await createCompany(currentUser.uid, {

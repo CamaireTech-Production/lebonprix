@@ -8,7 +8,6 @@ import { useExpenseCategories } from '@hooks/business/useExpenseCategories';
 import ExpenseFilters from './shared/ExpenseFilters';
 import ExpenseTable from './shared/ExpenseTable';
 import { showSuccessToast, showWarningToast } from '@utils/core/toast';
-import type { Expense } from '../../types/models';
 
 const ExpensesReports = () => {
   const { t } = useTranslation();

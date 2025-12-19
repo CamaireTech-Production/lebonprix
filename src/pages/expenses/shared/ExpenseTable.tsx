@@ -14,7 +14,7 @@ interface ExpenseTableProps {
   deleteLoadingId?: string;
 }
 
-const ExpenseTable = ({ expenses, onEdit, onDelete, loading, deleteLoading, deleteLoadingId }: ExpenseTableProps) => {
+const ExpenseTable = ({ expenses, onEdit, onDelete, deleteLoading, deleteLoadingId }: ExpenseTableProps) => {
   const { t } = useTranslation();
 
   const columns = [

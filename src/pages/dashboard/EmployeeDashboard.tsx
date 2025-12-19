@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@contexts/AuthContext';
 import { Building2, Plus, Users, Crown, Shield, User, Settings, LogOut } from 'lucide-react';
 import { Button, Card, LoadingScreen } from '@components/common';
-import { UserCompanyRef } from '../types/models';
+import { UserCompanyRef } from '../../types/models';
+import { showErrorToast } from '@utils/core/toast';
 
 interface CompanyCardProps {
   company: UserCompanyRef;
@@ -123,7 +124,7 @@ const EmployeeDashboard: React.FC = () => {
       await selectCompany(companyId);
       navigate(`/company/${companyId}/dashboard`);
     } catch (error) {
-      console.error('Error selecting company:', error);
+      showErrorToast(error instanceof Error ? error.message : 'Erreur lors de la sélection de l\'entreprise');
       setSelectedCompanyId(null);
     } finally {
       setIsLoading(false);
@@ -147,7 +148,7 @@ const EmployeeDashboard: React.FC = () => {
       await signOut();
       navigate('/auth/login');
     } catch (error) {
-      console.error('Error signing out:', error);
+      showErrorToast(error instanceof Error ? error.message : 'Erreur lors de la déconnexion');
       setIsLoggingOut(false);
     }
   };

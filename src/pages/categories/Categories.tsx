@@ -3,12 +3,12 @@ import { Plus, Search, Edit2, Trash2, Grid, List, Upload, X } from 'lucide-react
 // import { useTranslation } from 'react-i18next';
 import { Card, Button, Badge, Modal, Input, ImageWithSkeleton, LoadingScreen, SyncIndicator } from '@components/common';
 import { useAuth } from '@contexts/AuthContext';
-import { FirebaseStorageService } from '@services/firebaseStorageService';
+import { FirebaseStorageService } from '@services/core/firebaseStorage';
 import { getCurrentEmployeeRef, formatCreatorName } from '@utils/business/employeeUtils';
 import { getUserById } from '@services/utilities/userService';
 import { showSuccessToast, showErrorToast, showWarningToast } from '@utils/core/toast';
 import imageCompression from 'browser-image-compression';
-import type { Category } from '../types/models';
+import type { Category } from '../../types/models';
 import { 
   createCategory, 
   updateCategory, 
@@ -133,9 +133,9 @@ const Categories = () => {
         image: URL.createObjectURL(compressedFile) // For preview only
       }));
       setIsUploadingImage(false);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error compressing image:', error);
-      showErrorToast(`Error processing image: ${error.message || 'Unknown error'}`);
+      showErrorToast(`Error processing image: ${error instanceof Error ? error.message : 'Unknown error'}`);
       setIsUploadingImage(false);
     }
   };
@@ -220,13 +220,13 @@ const Categories = () => {
             imagePath = uploadResult.path;
             console.log('Image uploaded successfully:', { imageUrl, imagePath });
           }
-        } catch (error: any) {
+        } catch (error) {
           console.error('Error uploading image:', error);
           // Log detailed error information
-          if (error.code) {
-            console.error('Firebase Storage error code:', error.code);
-          }
-          if (error.message) {
+          if (error instanceof Error) {
+            if ('code' in error) {
+              console.error('Firebase Storage error code:', (error as any).code);
+            }
             console.error('Error message:', error.message);
           }
           // Continue without image - don't block category creation
@@ -265,9 +265,9 @@ const Categories = () => {
       setIsAddModalOpen(false);
       resetForm();
       showSuccessToast('Category created successfully');
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error creating category:', error);
-      if (error.message) {
+      if (error instanceof Error) {
         showErrorToast(`Failed to create category: ${error.message}`);
       } else {
         showErrorToast('Failed to create category');
@@ -336,7 +336,6 @@ const Categories = () => {
 
     // Check if category has matieres or products
     const matiereCount = currentCategory.matiereCount || 0;
-    const productCount = currentCategory.productCount || 0;
     
     // If category has matieres, show confirmation
     if (matiereCount > 0) {

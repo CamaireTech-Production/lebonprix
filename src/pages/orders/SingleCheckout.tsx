@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { useCart } from '../contexts/CartContext';
+import { useCart } from '@contexts/CartContext';
 import { useAuth } from '@contexts/AuthContext';
-import { createOrder } from '@services/firestore/orderService';
+import { createOrder } from '@services/firestore/orders/orderService';
 import { getCompanyByUserId, getSellerSettings } from '@services/firestore/firestore';
 import { getCurrentEmployeeRef } from '@utils/business/employeeUtils';
 import { getUserById } from '@services/utilities/userService';
@@ -13,8 +13,8 @@ import { getCheckoutSettingsWithDefaults, subscribeToCheckoutSettings } from '@s
 import { subscribeToCinetPayConfig, isCinetPayConfigured } from '@services/payment/cinetpayService';
 import { processCinetPayPayment, validatePaymentData, formatPhoneForCinetPay } from '@utils/core/cinetpayHandler';
 import { formatPhoneForWhatsApp } from '@utils/core/phoneUtils';
-import type { CinetPayConfig } from '../types/cinetpay';
-// import { generateWhatsAppMessage } from '../utils/whatsapp';
+import type { CinetPayConfig } from '@types/cinetpay';
+// import { generateWhatsAppMessage } from '@utils/whatsapp';
 import { 
   CreditCard, 
   Truck, 
@@ -26,13 +26,11 @@ import {
   RotateCcw,
   HelpCircle
 } from 'lucide-react';
-import PhoneInput from '../components/common/PhoneInput';
-import { ImageWithSkeleton } from '../components/common/ImageWithSkeleton';
-import SaveStatusIndicator from '../components/checkout/SaveStatusIndicator';
-import AmountTooLowModal from '../components/common/AmountTooLowModal';
+import { PhoneInput, ImageWithSkeleton, AmountTooLowModal } from '@components/common';
+import SaveStatusIndicator from '@components/checkout/SaveStatusIndicator';
 import { toast } from 'react-hot-toast';
-import type { Order, CustomerInfo, PaymentMethodType } from '../types/order';
-import type { CheckoutSettings } from '../types/checkoutSettings';
+import type { Order, CustomerInfo, PaymentMethodType } from '@types/order';
+import type { CheckoutSettings } from '@types/checkoutSettings';
 
 interface Company {
   id: string;
@@ -632,7 +630,7 @@ const SingleCheckout: React.FC = () => {
               metadata: {
                 source: 'catalogue',
                 userId: user?.uid, // Include userId in metadata for audit
-                createdBy,
+                createdBy: createdBy || undefined,
                 deviceInfo: {
                   type: 'desktop',
                   os: navigator.platform,
@@ -700,7 +698,7 @@ const SingleCheckout: React.FC = () => {
             metadata: {
               source: 'catalogue',
               userId: user?.uid, // Include userId in metadata for audit
-              createdBy,
+              createdBy: createdBy || undefined,
               deviceInfo: {
                 type: 'desktop',
                 os: navigator.platform,

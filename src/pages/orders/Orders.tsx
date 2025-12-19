@@ -8,10 +8,10 @@ import {
   updateOrderPaymentStatus,
   addOrderNote,
   deleteOrder 
-} from '@services/firestore/orderService';
+} from '@services/firestore/orders/orderService';
 import { formatCreatorName } from '@utils/business/employeeUtils';
 import { formatPrice } from '@utils/formatting/formatPrice';
-import { Order, OrderFilters, OrderStats } from '../types/order';
+import { Order, OrderFilters, OrderStats } from '@types/order';
 import { 
   ShoppingBag, 
   Search, 
@@ -28,13 +28,8 @@ import {
   User,
   RefreshCw
 } from 'lucide-react';
-import Button from '../components/common/Button';
-import Input from '../components/common/Input';
-import Modal from '../components/common/Modal';
-import Badge from '../components/common/Badge';
-import Card from '../components/common/Card';
-import SyncIndicator from '../components/common/SyncIndicator';
-import OrderActionsMenu from '../components/orders/OrderActionsMenu';
+import { Button, Input, Modal, Badge, Card, SyncIndicator } from '@components/common';
+import OrderActionsMenu from '@components/orders/OrderActionsMenu';
 import { toast } from 'react-hot-toast';
 import { logError } from '@utils/core/logger';
 

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, Building2, ArrowRight } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '@contexts/AuthContext';
 
 const ModeSelection: React.FC = () => {
   const [selectedMode, setSelectedMode] = useState<'employee' | 'company' | null>(null);
@@ -38,7 +38,7 @@ const ModeSelection: React.FC = () => {
     }
 
     // Chercher une entreprise où l'utilisateur est owner ou admin
-    const ownerOrAdminCompany = userCompanies.find((company: import('../types/models').UserCompanyRef) => 
+    const ownerOrAdminCompany = userCompanies.find((company) => 
       company.role === 'owner' || company.role === 'admin'
     );
 

@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import LoadingScreen from '../../components/common/LoadingScreen';
+import { LoadingScreen } from '@components/common';
 
 /**
  * CompanySelection Component - Redirects to new Employee Dashboard
