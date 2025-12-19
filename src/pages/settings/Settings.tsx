@@ -436,7 +436,18 @@ const Settings = () => {
   // Checkout settings handlers
   const handleCheckoutSettingsUpdate = (updates: CheckoutSettingsUpdate) => {
     if (!checkoutSettings) return;
-    setCheckoutSettings(prev => prev ? { ...prev, ...updates } : null);
+    setCheckoutSettings(prev => {
+      if (!prev) return null;
+      const merged = { ...prev, ...updates };
+      // Ensure enabledPaymentMethods is properly merged
+      if (updates.enabledPaymentMethods) {
+        merged.enabledPaymentMethods = {
+          ...prev.enabledPaymentMethods,
+          ...updates.enabledPaymentMethods
+        };
+      }
+      return merged as CheckoutSettings;
+    });
   };
 
   const handleSaveCheckoutSettings = async () => {
@@ -476,7 +487,19 @@ const Settings = () => {
   // CinetPay settings handlers
   const handleCinetpayConfigUpdate = (updates: CinetPayConfigUpdate) => {
     if (!cinetpayConfig) return;
-    setCinetpayConfig(prev => prev ? { ...prev, ...updates } : null);
+    setCinetpayConfig(prev => {
+      if (!prev) return null;
+      const merged = { ...prev, ...updates };
+      // Ensure enabledChannels is properly merged with all required boolean values
+      if (updates.enabledChannels) {
+        merged.enabledChannels = {
+          mobileMoney: updates.enabledChannels.mobileMoney ?? prev.enabledChannels.mobileMoney,
+          creditCard: updates.enabledChannels.creditCard ?? prev.enabledChannels.creditCard,
+          wallet: updates.enabledChannels.wallet ?? prev.enabledChannels.wallet
+        };
+      }
+      return merged as CinetPayConfig;
+    });
   };
 
   const handleSaveCinetpayConfig = async () => {

@@ -4,10 +4,10 @@ import { Button, Input, Modal, LoadingScreen } from '@components/common';
 import { useInfiniteProducts } from '@hooks/data/useInfiniteProducts';
 import { useAllStockBatches } from '@hooks/business/useStockBatches';
 import { useStockChanges, useSuppliers } from '@hooks/data/useFirestore';
-import ProductRestockModal from '../components/products/ProductRestockModal';
-import ManualAdjustmentModal from '../components/products/ManualAdjustmentModal';
-import DamageAdjustmentModal from '../components/products/DamageAdjustmentModal';
-import type { Product, StockBatch } from '../types/models';
+import ProductRestockModal from '../../components/products/ProductRestockModal';
+import ManualAdjustmentModal from '../../components/products/ManualAdjustmentModal';
+import DamageAdjustmentModal from '../../components/products/DamageAdjustmentModal';
+import type { Product, StockBatch, StockChange } from '../../types/models';
 
 const PAGE_SIZES = [10, 20, 50];
 
@@ -112,9 +112,10 @@ const Stocks = () => {
   const batchesByProduct = useMemo(() => {
     const map = new Map<string, StockBatch[]>();
     batches.forEach((batch) => {
-      const arr = map.get(batch.productId) || [];
+      const productId = batch.productId || '';
+      const arr = map.get(productId) || [];
       arr.push(batch);
-      map.set(batch.productId, arr);
+      map.set(productId, arr);
     });
     return map;
   }, [batches]);
@@ -134,18 +135,18 @@ const Stocks = () => {
     const remaining = productBatches.reduce((sum, b) => sum + (b.remainingQuantity || 0), 0);
     const total = productBatches.reduce((sum, b) => sum + (b.quantity || 0), 0);
     setSelectedBatchTotals(productBatches.length ? { remaining, total } : undefined);
-    setExpandedProductId(product.id);
+    setExpandedProductId(product.id || '');
     setRestockModalOpen(true);
   };
 
   const handleAdjust = (product: Product, batch?: StockBatch) => {
     setSelectedProduct(product);
     setSelectedBatch(batch || null);
-    const productBatches = batchesByProduct.get(product.id) || [];
+    const productBatches = batchesByProduct.get(product.id || '') || [];
     const remaining = productBatches.reduce((sum, b) => sum + (b.remainingQuantity || 0), 0);
     const total = productBatches.reduce((sum, b) => sum + (b.quantity || 0), 0);
     setSelectedBatchTotals(productBatches.length ? { remaining, total } : undefined);
-    setExpandedProductId(product.id);
+    setExpandedProductId(product.id || '');
     setAdjustModalOpen(true);
   };
 
@@ -156,7 +157,7 @@ const Stocks = () => {
     const remaining = productBatches.reduce((sum, b) => sum + (b.remainingQuantity || 0), 0);
     const total = productBatches.reduce((sum, b) => sum + (b.quantity || 0), 0);
     setSelectedBatchTotals(productBatches.length ? { remaining, total } : undefined);
-    setExpandedProductId(product.id);
+    setExpandedProductId(product.id || '');
     setDamageModalOpen(true);
   };
 
@@ -187,8 +188,8 @@ const Stocks = () => {
   const productStockChanges = useMemo(() => {
     if (!selectedProduct) return [];
     return stockChanges
-      .filter((sc: any) => sc.productId === selectedProduct.id)
-      .sort((a: any, b: any) => {
+      .filter((sc: StockChange) => sc.productId === selectedProduct.id)
+      .sort((a: StockChange, b: StockChange) => {
         const dateA = a.createdAt?.seconds || 0;
         const dateB = b.createdAt?.seconds || 0;
         return dateB - dateA; // Newest first

@@ -57,7 +57,8 @@ import type {
   PaymentStatus,
   Customer,
   FinanceEntry,
-  Supplier
+  Supplier,
+  StockChange
 } from '../types/models';
 import { Timestamp } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
@@ -595,7 +596,7 @@ export const useDashboardStats = () => {
 // Stock Changes Hook with Caching
 export const useStockChanges = () => {
   const { user, company } = useAuth();
-  const [stockChanges, setStockChanges] = useState<unknown[]>([]);
+  const [stockChanges, setStockChanges] = useState<StockChange[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -604,7 +605,7 @@ export const useStockChanges = () => {
     const cacheKey = cacheKeys.stockChanges(company.id);
     
     // Check cache first
-    const cachedStockChanges = dataCache.get<unknown[]>(cacheKey);
+    const cachedStockChanges = dataCache.get<StockChange[]>(cacheKey);
     if (cachedStockChanges) {
       setStockChanges(cachedStockChanges);
       setLoading(false);

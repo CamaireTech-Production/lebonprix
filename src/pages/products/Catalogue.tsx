@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@contexts/AuthContext';
-import { useCart } from '../contexts/CartContext';
+import { useCart } from '../../contexts/CartContext';
 import { getCompanyByUserId } from '@services/firestore/firestore';
 import { subscribeToProducts } from '@services/firestore/products/productService';
 import { subscribeToCategories } from '@services/firestore/categories/categoryService';
-import type { Company, Product, Category } from '../types/models';
+import type { Company, Product, Category } from '../../types/models';
 import { Search, Package, AlertCircle, MapPin, Plus, Heart, Phone } from 'lucide-react';
 import { Button, FloatingCartButton, ProductDetailModal, ImageWithSkeleton, LanguageSwitcher } from '@components/common';
 

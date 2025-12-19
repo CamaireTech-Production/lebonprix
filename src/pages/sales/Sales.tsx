@@ -21,9 +21,9 @@ import { useCustomerSources } from '@hooks/business/useCustomerSources';
 import { useInfiniteSales } from '@hooks/data/useInfiniteSales';
 import { useInfiniteScroll } from '@hooks/data/useInfiniteScroll';
 import { formatPrice } from '@utils/formatting/formatPrice';
-import type { Product, OrderStatus, Sale, SaleProduct, Customer } from '../types/models';
+import type { Product, OrderStatus, Sale, SaleProduct, Customer } from '../../types/models';
 import { showSuccessToast, showErrorToast, showWarningToast } from '@utils/core/toast';
-import Invoice from '../components/sales/Invoice';
+import Invoice from '../../components/sales/Invoice';
 import { generatePDF, generatePDFBlob } from '@utils/core/pdf';
 import { generateInvoiceFileName } from '@utils/core/fileUtils';
 import { useAuth } from '@contexts/AuthContext';
@@ -35,9 +35,9 @@ import { useTranslation } from 'react-i18next';
 import { softDeleteSale } from '@services/firestore/sales/saleService';
 import { formatCreatorName } from '@utils/business/employeeUtils';
 import { createPortal } from 'react-dom';
-import AddSaleModal from '../components/sales/AddSaleModal';
-import SaleDetailsModal from '../components/sales/SaleDetailsModal';
-import ProfitDetailsModal from '../components/sales/ProfitDetailsModal';
+import AddSaleModal from '../../components/sales/AddSaleModal';
+import SaleDetailsModal from '../../components/sales/SaleDetailsModal';
+import ProfitDetailsModal from '../../components/sales/ProfitDetailsModal';
 import { format } from 'date-fns';
 
 interface FormProduct {
@@ -96,8 +96,6 @@ const Sales: React.FC = () => {
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
   const [shareableLink] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showAllProducts] = useState(false);
-  const [productSearchQuery] = useState('');
   const [customerSearch, setCustomerSearch] = useState('');
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const [expandedSaleId, setExpandedSaleId] = useState<string | null>(null);
@@ -139,7 +137,7 @@ const Sales: React.FC = () => {
     }
   }, [showCustomerDropdown, formData.customerPhone]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>): void => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement> | { target: { name: string; value: string } }): void => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
@@ -253,13 +251,13 @@ const Sales: React.FC = () => {
 
   // Helper: Compute profit per sale
   const computeSaleProfit = (sale: Sale): number => {
-    return sale.products.reduce((sum, sp) => {
+    return sale.products.reduce((sum: number, sp: SaleProduct) => {
       const unitSalePrice = sp.negotiatedPrice ?? sp.basePrice;
       if (sp.batchLevelProfits && sp.batchLevelProfits.length > 0) {
         return (
           sum +
           sp.batchLevelProfits.reduce(
-            (batchSum, batch) => batchSum + (unitSalePrice - batch.costPrice) * batch.consumedQuantity,
+            (batchSum: number, batch: { costPrice: number; consumedQuantity: number }) => batchSum + (unitSalePrice - batch.costPrice) * batch.consumedQuantity,
             0,
           )
         );
@@ -375,7 +373,7 @@ const Sales: React.FC = () => {
       customerSourceId: sale.customerSourceId || '',
       status: sale.status,
       deliveryFee: sale.deliveryFee?.toString() || '',
-      products: sale.products.map((p) => {
+      products: sale.products.map((p: SaleProduct) => {
         const product = products?.find((prod) => prod.id === p.productId);
         return {
           product: product || null,
@@ -466,7 +464,7 @@ const Sales: React.FC = () => {
   };
 
   const getProductDetails = (sale: Sale) => {
-    return sale.products.map((sp, idx) => {
+    return sale.products.map((sp: SaleProduct, idx: number) => {
       const product = products?.find((p) => p.id === sp.productId);
       return (
         <tr key={sp.productId + idx} className="bg-gray-50">

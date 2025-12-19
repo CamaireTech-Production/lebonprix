@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@contexts/AuthContext';
-import { useCart } from '../contexts/CartContext';
+import { useCart } from '../../contexts/CartContext';
 import { getCompanyByUserId } from '@services/firestore/firestore';
 import { subscribeToProducts } from '@services/firestore/products/productService';
-import type { Company, Product } from '../types/models';
+import type { Company, Product } from '../../types/models';
 import { ArrowLeft, Share2, Heart, Star, Plus, Minus, ChevronRight } from 'lucide-react';
 import { FloatingCartButton, ImageWithSkeleton } from '@components/common';
 
@@ -21,7 +21,7 @@ const ProductDetail = () => {
   const passedProduct = location.state?.product as Product | undefined;
   const passedCompany = location.state?.company as Company | undefined;
   
-  const [company, setCompany] = useState<Company | null>(passedCompany || null);
+  const [, setCompany] = useState<Company | null>(passedCompany || null);
   const [product, setProduct] = useState<Product | null>(passedProduct || null);
   const [loading, setLoading] = useState(!passedProduct); // No loading if data passed
   const [error, setError] = useState<string | null>(null);
@@ -67,9 +67,9 @@ const ProductDetail = () => {
       try {
         // Silent background fetch to ensure data freshness
         const [companyData, productsData] = await Promise.all([
-          getCompanyByUserId(companyId),
+          getCompanyByUserId(companyId || ''),
           new Promise<Product[]>((resolve) => {
-            const unsubscribe = subscribeToProducts(companyId, (products) => {
+            const unsubscribe = subscribeToProducts(companyId || '', (products) => {
               unsubscribe(); // Unsubscribe immediately after getting data
               resolve(products);
             });
@@ -79,7 +79,7 @@ const ProductDetail = () => {
         const foundProduct = productsData.find(p => p.id === productId);
         if (foundProduct) {
           // Only update if there are actual changes to avoid unnecessary re-renders
-          setProduct(prev => prev?.id === foundProduct.id ? foundProduct : prev);
+          setProduct((prev: Product | null) => prev?.id === foundProduct.id ? foundProduct : prev);
           setCompany(companyData);
         }
       } catch (err) {
@@ -90,9 +90,9 @@ const ProductDetail = () => {
 
     const fetchFromFirebase = async () => {
       const [companyData, productsData] = await Promise.all([
-        getCompanyByUserId(companyId),
+        getCompanyByUserId(companyId || ''),
         new Promise<Product[]>((resolve) => {
-          const unsubscribe = subscribeToProducts(companyId, (products) => {
+          const unsubscribe = subscribeToProducts(companyId || '', (products) => {
             unsubscribe(); // Unsubscribe immediately after getting data
             resolve(products);
           });

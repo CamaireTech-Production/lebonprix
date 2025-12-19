@@ -1,17 +1,16 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { useAuth } from '@contexts/AuthContext';
-import { useCart } from '../contexts/CartContext';
+import { useCart } from '../../contexts/CartContext';
 import { getCompanyByUserId, getSellerSettings } from '@services/firestore/firestore';
 import { subscribeToProducts } from '@services/firestore/products/productService';
 import { formatPrice } from '@utils/formatting/formatPrice';
-import type { Company, Product } from '../types/models';
-import type { SellerSettings } from '../types/order';
+import type { Company, Product } from '../../types/models';
+import type { SellerSettings } from '../../types/order';
 import { ArrowLeft, Share2, Plus, Minus, ShoppingCart, Camera, QrCode, MessageCircle } from 'lucide-react';
 import { FloatingCartButton, ImageWithSkeleton, Button } from '@components/common';
-import BarcodeGenerator from '../components/products/BarcodeGenerator';
-import BarcodeScanner from '../components/products/BarcodeScanner';
-import { showSuccessToast, showErrorToast } from '@utils/core/toast';
+import BarcodeGenerator from '../../components/products/BarcodeGenerator';
+import BarcodeScanner from '../../components/products/BarcodeScanner';
+import { showSuccessToast } from '@utils/core/toast';
 import { formatPhoneForWhatsApp } from '@utils/core/phoneUtils';
 
 const placeholderImg = '/placeholder.png';
@@ -36,15 +35,14 @@ const ProductDetailPage = () => {
   // Product detail state
   const [quantity, setQuantity] = useState(1);
   const [selectedVariations, setSelectedVariations] = useState<Record<string, string>>({});
-  const [isFavorite, setIsFavorite] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showBarcodeGenerator, setShowBarcodeGenerator] = useState(false);
   const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
   const [barcodeMode, setBarcodeMode] = useState<'buy' | 'view'>('view');
 
   // Extract available colors and sizes from product variations
-  const availableColors = product?.tags?.find(tag => tag.name === 'Color')?.variations?.map(v => v.name) || [];
-  const availableSizes = product?.tags?.find(tag => tag.name === 'Size')?.variations?.map(v => v.name) || [];
+  const availableColors = product?.tags?.find((tag: { name: string; variations?: Array<{ name: string }> }) => tag.name === 'Color')?.variations?.map((v: { name: string }) => v.name) || [];
+  const availableSizes = product?.tags?.find((tag: { name: string; variations?: Array<{ name: string }> }) => tag.name === 'Size')?.variations?.map((v: { name: string }) => v.name) || [];
 
   // Load company and product data
   useEffect(() => {
@@ -136,7 +134,7 @@ const ProductDetailPage = () => {
     if (!product || !company) return;
     
     const variations = Object.entries(selectedVariations)
-      .filter(([key, value]) => value) // Only include selected variations
+      .filter(([_key, value]) => value) // Only include selected variations
       .map(([key, value]) => `${key}: ${value}`)
       .join(', ');
     
@@ -254,7 +252,7 @@ Veuillez confirmer la disponibilité et fournir les détails de livraison.`;
       {/* Product Images */}
       <div className="relative bg-white">
         <div className="overflow-x-auto snap-x snap-mandatory flex" style={{ scrollbarWidth: 'none' }}>
-          {images.map((image, index) => (
+          {images.map((image: string, index: number) => (
             <div
               key={index}
               className="w-full flex-shrink-0 snap-center"
@@ -271,7 +269,7 @@ Veuillez confirmer la disponibilité et fournir les détails de livraison.`;
         {/* Image indicators */}
         {images.length > 1 && (
           <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2">
-            {images.map((_, index) => (
+            {images.map((_: string, index: number) => (
               <button
                 key={index}
                 onClick={() => setCurrentImageIndex(index)}
@@ -311,7 +309,7 @@ Veuillez confirmer la disponibilité et fournir les détails de livraison.`;
           <div>
             <p className="text-sm font-medium text-gray-700 mb-2">Couleur</p>
             <div className="flex flex-wrap gap-2">
-              {availableColors.map((color) => (
+              {availableColors.map((color: string) => (
                 <button
                   key={color}
                   onClick={() => setSelectedVariations(prev => ({ ...prev, Color: color }))}
@@ -332,7 +330,7 @@ Veuillez confirmer la disponibilité et fournir les détails de livraison.`;
           <div>
             <p className="text-sm font-medium text-gray-700 mb-2">Taille</p>
             <div className="flex flex-wrap gap-2">
-              {availableSizes.map((size) => (
+              {availableSizes.map((size: string) => (
                 <button
                   key={size}
                   onClick={() => setSelectedVariations(prev => ({ ...prev, Size: size }))}

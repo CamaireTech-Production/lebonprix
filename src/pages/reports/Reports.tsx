@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useCallback } from 'react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 import { Calendar, FileDown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
@@ -18,11 +18,11 @@ import {
 } from 'chart.js';
 import { useProducts, useSales, useExpenses, useCategories } from '@hooks/data/useFirestore';
 import { useCustomerSources } from '@hooks/business/useCustomerSources';
-import type { Timestamp, Product, Sale, Expense } from '../types/models';
-import ComparisonIndicator from '../components/reports/ComparisonIndicator';
-import KPICard from '../components/reports/KPICard';
-import QuickReportsBar from '../components/reports/QuickReportsBar';
-import SavedReportsManager, { SavedReport } from '../components/reports/SavedReportsManager';
+import type { Timestamp, Product, Sale, Expense } from '../../types/models';
+import ComparisonIndicator from '../../components/reports/ComparisonIndicator';
+import KPICard from '../../components/reports/KPICard';
+import QuickReportsBar from '../../components/reports/QuickReportsBar';
+import SavedReportsManager, { SavedReport } from '../../components/reports/SavedReportsManager';
 import { useAuth } from '@contexts/AuthContext';
 import { logWarning } from '@utils/core/logger';
 import { formatPrice } from '@utils/formatting/formatPrice';
@@ -244,7 +244,7 @@ const Reports = () => {
     // Filter by category if selected
     if (selectedCategory !== 'all') {
       byDate = byDate.filter(sale => 
-        sale.products.some(sp => {
+        sale.products.some((sp: { productId: string }) => {
           const product = products.find(p => p.id === sp.productId);
           return product?.category === selectedCategory;
         })
@@ -253,7 +253,7 @@ const Reports = () => {
     
     // Filter by product if selected
     if (selectedProduct !== 'all') {
-      byDate = byDate.filter(sale => sale.products.some(sp => sp.productId === selectedProduct));
+      byDate = byDate.filter(sale => sale.products.some((sp: { productId: string }) => sp.productId === selectedProduct));
     }
     
     return byDate;
@@ -321,7 +321,7 @@ const Reports = () => {
         salesByDay[key] += s.totalAmount || 0;
         
         // Calculate cost of goods sold for this sale
-        const costOfGoodsSold = s.products.reduce((sum, saleProduct) => {
+        const costOfGoodsSold = s.products.reduce((sum: number, saleProduct: { costPrice?: number; quantity: number; productId: string }) => {
           // Use costPrice from saleProduct (historical price at time of sale)
           const costPrice = saleProduct.costPrice ?? 
             products.find(p => p.id === saleProduct.productId)?.costPrice ?? 0;
@@ -491,7 +491,7 @@ const Reports = () => {
   // Calculate total cost of goods sold
   const totalCostOfGoodsSold = useMemo(() => {
     return filteredSales.reduce((sum, sale) => {
-      return sum + sale.products.reduce((productSum, saleProduct) => {
+      return sum + sale.products.reduce((productSum: number, saleProduct: { costPrice?: number; quantity: number; productId: string }) => {
         // Use costPrice from saleProduct (historical price at time of sale)
         const costPrice = saleProduct.costPrice ?? 
           products.find(p => p.id === saleProduct.productId)?.costPrice ?? 0;
@@ -522,14 +522,14 @@ const Reports = () => {
     let filteredPreviousSales = previousSales;
     if (selectedCategory !== 'all') {
       filteredPreviousSales = filteredPreviousSales.filter(sale => 
-        sale.products.some(sp => {
+        sale.products.some((sp: { productId: string }) => {
           const product = products.find(p => p.id === sp.productId);
           return product?.category === selectedCategory;
         })
       );
     }
     if (selectedProduct !== 'all') {
-      filteredPreviousSales = filteredPreviousSales.filter(sale => sale.products.some(sp => sp.productId === selectedProduct));
+      filteredPreviousSales = filteredPreviousSales.filter(sale => sale.products.some((sp: { productId: string }) => sp.productId === selectedProduct));
     }
 
     const previousExpenses = expenses.filter(e => e.isAvailable !== false && previousInRange(toDate(e.createdAt)));
@@ -538,7 +538,7 @@ const Reports = () => {
     const prevTotalExpenses = previousExpenses.reduce((sum, e) => sum + (e.amount || 0), 0);
     
     const prevTotalCostOfGoodsSold = filteredPreviousSales.reduce((sum, sale) => {
-      return sum + sale.products.reduce((productSum, saleProduct) => {
+      return sum + sale.products.reduce((productSum: number, saleProduct: { costPrice?: number; quantity: number; productId: string }) => {
         const costPrice = saleProduct.costPrice ?? 
           products.find(p => p.id === saleProduct.productId)?.costPrice ?? 0;
         return productSum + (costPrice * saleProduct.quantity);
@@ -1314,10 +1314,10 @@ const Reports = () => {
                     {expenseCategoryAnalysis.map((exp, idx) => (
                       <tr key={idx}>
                         <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{exp.category}</td>
-                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{exp.amount)} XAF</td>
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{exp.amount.toLocaleString()} XAF</td>
                         <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{exp.percentage.toFixed(1)}%</td>
                         <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{exp.count}</td>
-                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{exp.average)} XAF</td>
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{exp.average.toLocaleString()} XAF</td>
                       </tr>
                     ))}
                   </tbody>
@@ -1338,11 +1338,11 @@ const Reports = () => {
                 const sourceSales = filteredSales.filter(s => s.customerSourceId === source.id);
                 const sourceRevenue = sourceSales.reduce((sum, s) => sum + (s.totalAmount || 0), 0);
                 const sourceProfit = sourceSales.reduce((sum, sale) => {
-                  return sum + sale.products.reduce((productSum, sp) => {
+                  return sum + sale.products.reduce((productSum: number, sp: { negotiatedPrice?: number; basePrice: number; costPrice: number; quantity: number; batchLevelProfits?: Array<{ costPrice: number; consumedQuantity: number }> }) => {
                     const unitSalePrice = sp.negotiatedPrice ?? sp.basePrice;
                     if (sp.batchLevelProfits && sp.batchLevelProfits.length > 0) {
                       return productSum + sp.batchLevelProfits.reduce(
-                        (batchSum, batch) => batchSum + (unitSalePrice - batch.costPrice) * batch.consumedQuantity,
+                        (batchSum: number, batch: { costPrice: number; consumedQuantity: number }) => batchSum + (unitSalePrice - batch.costPrice) * batch.consumedQuantity,
                         0
                       );
                     }
@@ -1370,11 +1370,11 @@ const Reports = () => {
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-600">{t('reports.customerSourceStats.revenue')}:</span>
-                        <span className="font-semibold">{sourceRevenue)} XAF</span>
+                        <span className="font-semibold">{sourceRevenue.toLocaleString()} XAF</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-600">{t('reports.customerSourceStats.profit')}:</span>
-                        <span className="font-semibold text-emerald-600">{sourceProfit)} XAF</span>
+                        <span className="font-semibold text-emerald-600">{sourceProfit.toLocaleString()} XAF</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-600">{t('reports.customerSourceStats.customers')}:</span>
@@ -1421,7 +1421,6 @@ const Reports = () => {
                     }, 0);
                     const sourceCustomers = new Set(sourceSales.map(s => s.customerInfo.phone)).size;
                     const profitMargin = sourceRevenue > 0 ? (sourceProfit / sourceRevenue) * 100 : 0;
-                    const avgBasket = sourceSales.length > 0 ? sourceRevenue / sourceSales.length : 0;
 
                     return (
                       <tr key={source.id}>
@@ -1438,8 +1437,8 @@ const Reports = () => {
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{sourceSales.length}</td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{sourceCustomers}</td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{sourceRevenue)} XAF</td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-emerald-600 font-semibold">{sourceProfit)} XAF</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{sourceRevenue.toLocaleString()} XAF</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-emerald-600 font-semibold">{sourceProfit.toLocaleString()} XAF</td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{profitMargin.toFixed(1)}%</td>
                       </tr>
                     );
@@ -1471,8 +1470,8 @@ const Reports = () => {
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{noSourceSales.length}</td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{noSourceCustomers}</td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{noSourceRevenue)} XAF</td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-emerald-600 font-semibold">{noSourceProfit)} XAF</td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{noSourceRevenue.toLocaleString()} XAF</td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-emerald-600 font-semibold">{noSourceProfit.toLocaleString()} XAF</td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{noSourceProfitMargin.toFixed(1)}%</td>
                         </tr>
                       );
@@ -1499,7 +1498,7 @@ const Reports = () => {
           </div>
           <div className="text-center">
             <p className="text-sm font-medium text-gray-700">{t('reports.customerMetrics.averageBasket')}</p>
-            <p className="mt-1 text-2xl font-semibold text-gray-900">{customerMetrics.averageBasket)} XAF</p>
+            <p className="mt-1 text-2xl font-semibold text-gray-900">{customerMetrics.averageBasket.toLocaleString()} XAF</p>
           </div>
           <div className="text-center">
             <p className="text-sm font-medium text-gray-700">{t('reports.customerMetrics.repeatCustomers')}</p>
