@@ -1095,7 +1095,7 @@ const SingleCheckout: React.FC = () => {
                           Numéro MTN Mobile Money *
                         </label>
                         <input
-                          type="text"
+                          type="tel"
                           value={paymentFormData.mtnNumber}
                           onChange={(e) => handlePaymentFormChange('mtnNumber', e.target.value)}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
@@ -1135,7 +1135,7 @@ const SingleCheckout: React.FC = () => {
                               Numéro Orange Money *
                             </label>
                             <input
-                              type="text"
+                              type="tel"
                               value={paymentFormData.orangeNumber}
                               onChange={(e) => handlePaymentFormChange('orangeNumber', e.target.value)}
                               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-gray-500"

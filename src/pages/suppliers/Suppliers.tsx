@@ -427,6 +427,7 @@ const Suppliers = () => {
           <Input
             label={t('suppliers.form.contact')}
             name="contact"
+            type="tel"
             value={formData.contact}
             onChange={handleInputChange}
             required
@@ -467,6 +468,7 @@ const Suppliers = () => {
           <Input
             label={t('suppliers.form.contact')}
             name="contact"
+            type="tel"
             value={formData.contact}
             onChange={handleInputChange}
             required
