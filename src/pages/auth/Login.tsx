@@ -1,12 +1,10 @@
 import React, { useState, FormEvent, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext';
-import Button from '../../components/common/Button';
-import Input from '../../components/common/Input';
-import LoadingScreen from '../../components/common/LoadingScreen';
-import { LoginPWAInstallButton } from '../../components/LoginPWAInstallButton';
-import { getUserSession, hasActiveSession } from '../../utils/userSession';
-import { showErrorToast, showSuccessToast } from '../../utils/toast';
+import { useAuth } from '@contexts/AuthContext';
+import { Button, Input, LoadingScreen } from '@components/common';
+import { LoginPWAInstallButton } from '@components/pwa';
+import { getUserSession, hasActiveSession } from '@utils/storage/userSession';
+import { showErrorToast, showSuccessToast } from '@utils/core/toast';
 
 const Login = () => {
   const [email, setEmail] = useState('');

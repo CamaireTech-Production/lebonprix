@@ -4,7 +4,7 @@ import { LayoutDashboard, ShoppingCart, DollarSign, Package2, FileBarChart, Sett
 import { useAuth } from '../../contexts/AuthContext';
 import { useRolePermissions } from '../../hooks/useRolePermissions';
 import UserAvatar from '../common/UserAvatar';
-import DownloadAppButton from '../common/DownloadAppButton';
+import { DownloadAppButton } from '../pwa';
 import { useTranslation } from 'react-i18next';
 import CreateCompanyModal from '../modals/CreateCompanyModal';
 import Modal, { ModalFooter } from '../common/Modal';

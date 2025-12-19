@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
-import { NavigationService } from '../../services/navigationService';
+import { useAuth } from '@contexts/AuthContext';
+import { NavigationService } from '@services/utilities/navigationService';
 
 /**
  * Composant de test pour vérifier le NavigationService

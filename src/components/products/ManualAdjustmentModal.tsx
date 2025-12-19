@@ -1,19 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '@contexts/AuthContext';
 import { 
   getProductBatchesForAdjustment,
   validateBatchAdjustment 
-} from '../../services/firestore';
-import { adjustStockManually, adjustMultipleBatchesManually } from '../../services/stockAdjustments';
+} from '@services/firestore/stock/stockService';
+import { adjustStockManually, adjustMultipleBatchesManually } from '@services/firestore/stockAdjustments';
 import type { Product, StockBatch } from '../../types/models';
-import Modal from '../common/Modal';
-import Button from '../common/Button';
-import Input from '../common/Input';
-import PriceInput from '../common/PriceInput';
-import Select from '../common/Select';
-import { formatCostPrice } from '../../utils/inventoryManagement';
-import { showSuccessToast, showErrorToast } from '../../utils/toast';
+import { Modal, Button, Input, PriceInput, Select } from '@components/common';
+import { formatCostPrice } from '@utils/inventory/inventoryManagement';
+import { showSuccessToast, showErrorToast } from '@utils/core/toast';
 
 // Type for temporary batch edits
 interface TempBatchEdit {
@@ -259,6 +255,7 @@ const ManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
       }));
 
       // Execute bulk adjustment in a single transaction
+      if (!company) return;
       await adjustMultipleBatchesManually(product.id, adjustments, company.id);
 
       showSuccessToast(`Successfully applied ${tempEdits.length} batch adjustments!`);
@@ -303,7 +300,7 @@ const ManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
         selectedBatch.id,
         quantityChange,
         newCostPrice,
-        company.id,
+        company?.id || '',
         formData.notes || undefined
       );
 

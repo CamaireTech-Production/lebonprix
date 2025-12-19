@@ -1,15 +1,9 @@
 import React, { useState } from 'react';
-import Modal from '../common/Modal';
-import Input from '../common/Input';
-import PriceInput from '../common/PriceInput';
-import Textarea from '../common/Textarea';
-import Select from '../common/Select';
-import Button from '../common/Button';
-import DateRangePicker from '../common/DateRangePicker';
+import { Modal, Input, PriceInput, Textarea, Select, Button, DateRangePicker } from '@components/common';
 import { useTranslation } from 'react-i18next';
 import { Objective } from '../../types/models';
-import { useObjectives } from '../../hooks/useObjectives';
-import { showSuccessToast, showErrorToast } from '../../utils/toast';
+import { useObjectives } from '@hooks/business/useObjectives';
+import { showSuccessToast, showErrorToast } from '@utils/core/toast';
 
 interface ObjectiveFormProps {
   isOpen: boolean;
@@ -31,7 +25,10 @@ const ObjectiveForm: React.FC<ObjectiveFormProps> = ({ isOpen, onClose, objectiv
     targetAmount: objective?.targetAmount?.toString() || '',
     periodType: objective?.periodType || 'predefined',
     predefined: objective?.predefined || 'this_month',
-    customRange: objective?.startAt ? { from: objective.startAt.toDate(), to: objective.endAt.toDate() } : null,
+    customRange: objective?.startAt && objective?.endAt ? { 
+      from: objective.startAt instanceof Date ? objective.startAt : objective.startAt.toDate(), 
+      to: objective.endAt instanceof Date ? objective.endAt : objective.endAt.toDate() 
+    } : null,
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {

@@ -2,17 +2,14 @@
 import { useState, useMemo } from 'react';
 import { Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import Card from '../../components/common/Card';
-import Button from '../../components/common/Button';
-import { useInfiniteExpenses } from '../../hooks/useInfiniteExpenses';
-import { useInfiniteScroll } from '../../hooks/useInfiniteScroll';
-import { useExpenseStats } from '../../hooks/useExpenseStats';
+import { Card, Button, SyncIndicator, LoadingScreen } from '@components/common';
+import { useInfiniteExpenses } from '@hooks/data/useInfiniteExpenses';
+import { useInfiniteScroll } from '@hooks/data/useInfiniteScroll';
+import { useExpenseStats } from '@hooks/business/useExpenseStats';
 import ExpenseFilters from './shared/ExpenseFilters';
 import ExpenseTable from './shared/ExpenseTable';
 import ExpenseFormModal from './shared/ExpenseFormModal';
 import ExpenseDeleteModal from './shared/ExpenseDeleteModal';
-import SyncIndicator from '../../components/common/SyncIndicator';
-import LoadingScreen from '../../components/common/LoadingScreen';
 import type { Expense } from '../../types/models';
 
 const ExpensesList = () => {

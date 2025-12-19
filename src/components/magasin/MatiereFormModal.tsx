@@ -1,17 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { X, Upload, Trash2, Image as ImageIcon } from 'lucide-react';
-import Modal, { ModalFooter } from '../common/Modal';
-import Input from '../common/Input';
-import PriceInput from '../common/PriceInput';
+import { Modal, ModalFooter, Input, PriceInput, ImageWithSkeleton } from '@components/common';
 import MatiereCategorySelector from './MatiereCategorySelector';
 import UnitSelector from './UnitSelector';
-import { useMatieres } from '../../hooks/useMatieres';
-import { useSuppliers } from '../../hooks/useFirestore';
-import { useAuth } from '../../contexts/AuthContext';
-import { showSuccessToast, showErrorToast } from '../../utils/toast';
-import { FirebaseStorageService } from '../../services/firebaseStorageService';
-import imageCompression from 'browser-image-compression';
-import { ImageWithSkeleton } from '../common/ImageWithSkeleton';
+import { useMatieres } from '@hooks/business/useMatieres';
+import { useSuppliers } from '@hooks/data/useFirestore';
+import { useAuth } from '@contexts/AuthContext';
+import { showSuccessToast, showErrorToast } from '@utils/core/toast';
+import { FirebaseStorageService } from '@services/firebaseStorageService';
+import { compressImage } from '@utils/core/imageCompression';
 import type { Matiere } from '../../types/models';
 
 interface MatiereFormModalProps {
@@ -105,7 +102,7 @@ const MatiereFormModal: React.FC<MatiereFormModalProps> = ({
         fileType: 'image/jpeg'
       };
 
-      const compressedFile = await imageCompression(file, options);
+      const compressedFile = await compressImage(file, options);
       
       if (compressedFile instanceof File) {
         return compressedFile;

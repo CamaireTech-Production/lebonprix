@@ -1,7 +1,7 @@
 import { ArrowLeft, Clock, X } from 'lucide-react';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '@contexts/AuthContext';
 import { useNavigate, useParams } from 'react-router-dom';
-import { formatCreatorName } from '../../utils/employeeUtils';
+import { formatCreatorName } from '@utils/business/employeeUtils';
 import { useState, useEffect } from 'react';
 
 interface POSHeaderProps {

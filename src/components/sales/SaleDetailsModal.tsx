@@ -1,21 +1,18 @@
-import Modal, { ModalFooter } from '../common/Modal';
+import { Modal, ModalFooter, Card, Badge, Button } from '@components/common';
 import Invoice from './Invoice';
-import Card from '../common/Card';
-import Badge from '../common/Badge';
-import Button from '../common/Button';
 import type { Sale, Product, Customer } from '../../types/models';
 import { Download, Share, Printer } from 'lucide-react';
-import { generatePDF, generatePDFBlob } from '../../utils/pdf';
-import { generateInvoiceFileName } from '../../utils/fileUtils';
+import { generatePDF, generatePDFBlob } from '@utils/core/pdf';
+import { generateInvoiceFileName } from '@utils/core/fileUtils';
 import { useTranslation } from 'react-i18next';
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
-import { showErrorToast } from '../../utils/toast';
-import { formatPrice } from '../../utils/formatPrice';
+import { useAuth } from '@contexts/AuthContext';
+import { showErrorToast } from '@utils/core/toast';
+import { formatPrice } from '@utils/formatting/formatPrice';
 import CustomerAdditionalInfo from '../customers/CustomerAdditionalInfo';
-import { useCustomers } from '../../hooks/useFirestore';
-import { normalizePhoneForComparison } from '../../utils/phoneUtils';
-import { useCustomerSources } from '../../hooks/useCustomerSources';
+import { useCustomers } from '@hooks/data/useFirestore';
+import { normalizePhoneForComparison } from '@utils/core/phoneUtils';
+import { useCustomerSources } from '@hooks/business/useCustomerSources';
 import type { CustomerSource } from '../../types/models';
 
 interface SaleDetailsModalProps {

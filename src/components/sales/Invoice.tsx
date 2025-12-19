@@ -1,9 +1,9 @@
 import { Sale, Product } from '../../types/models';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '@contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
-import { formatPrice } from '../../utils/formatPrice';
+import { formatPrice } from '@utils/formatting/formatPrice';
 
 interface InvoiceProps {
   sale: Sale;

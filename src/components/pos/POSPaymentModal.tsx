@@ -1,19 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, CreditCard, Smartphone, DollarSign, ChevronDown, ChevronUp, User, Calendar, Truck, Percent, Printer, Receipt } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useAuth } from '../../contexts/AuthContext';
-import { useCustomerSources } from '../../hooks/useCustomerSources';
-import { useProducts } from '../../hooks/useFirestore';
-import { printPOSBillDirect } from '../../utils/posPrint';
-import { showErrorToast, showSuccessToast } from '../../utils/toast';
-import { formatPrice } from '../../utils/formatPrice';
+import { useAuth } from '@contexts/AuthContext';
+import { useCustomerSources } from '@hooks/business/useCustomerSources';
+import { useProducts } from '@hooks/data/useFirestore';
+import { printPOSBillDirect } from '@utils/pos/posPrint';
+import { showErrorToast, showSuccessToast } from '@utils/core/toast';
+import { formatPrice } from '@utils/formatting/formatPrice';
 import { POSCalculator } from './POSCalculator';
 import Select from 'react-select';
-import Input from '../common/Input';
-import PriceInput from '../common/PriceInput';
-import { ImageWithSkeleton } from '../common/ImageWithSkeleton';
+import { Input, PriceInput, ImageWithSkeleton } from '@components/common';
 import type { OrderStatus } from '../../types/models';
-import type { CartItem } from '../../hooks/usePOS';
+import type { CartItem } from '@hooks/forms/usePOS';
 
 export interface POSPaymentData {
   // Payment

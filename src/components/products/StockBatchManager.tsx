@@ -1,15 +1,10 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Plus, Edit2, Eye, Info } from 'lucide-react';
-import Card from '../common/Card';
-import Button from '../common/Button';
-import Input from '../common/Input';
-import PriceInput from '../common/PriceInput';
-import Modal, { ModalFooter } from '../common/Modal';
-import Badge from '../common/Badge';
-import { useStockBatches } from '../../hooks/useStockBatches';
-import { formatCostPrice, formatStockQuantity, getBatchStatusText, getBatchStatusColor } from '../../utils/inventoryManagement';
-import { showSuccessToast, showErrorToast } from '../../utils/toast';
+import { Card, Button, Input, PriceInput, Modal, ModalFooter, Badge } from '@components/common';
+import { useStockBatches } from '@hooks/business/useStockBatches';
+import { formatCostPrice, formatStockQuantity, getBatchStatusText, getBatchStatusColor } from '@utils/inventory/inventoryManagement';
+import { showSuccessToast, showErrorToast } from '@utils/core/toast';
 import type { StockBatch } from '../../types/models';
 
 interface StockBatchManagerProps {

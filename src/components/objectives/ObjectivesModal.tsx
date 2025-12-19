@@ -1,12 +1,11 @@
 import React, { useMemo, useState } from 'react';
-import Modal from '../common/Modal';
+import { Modal, Button } from '@components/common';
 import ObjectiveItem from './ObjectiveItem';
-import { useObjectives } from '../../hooks/useObjectives';
+import { useObjectives } from '@hooks/business/useObjectives';
 import { Objective } from '../../types/models';
-import Button from '../common/Button';
 import ObjectiveForm from './ObjectiveForm';
 import { useTranslation } from 'react-i18next';
-import { showSuccessToast, showErrorToast } from '../../utils/toast';
+import { showSuccessToast, showErrorToast } from '@utils/core/toast';
 
 interface ObjectivesModalProps {
   isOpen: boolean;
@@ -22,7 +21,7 @@ interface ObjectivesModalProps {
   stockChanges?: any[];
 }
 
-import { getLatestCostPrice } from '../../utils/productUtils';
+import { getLatestCostPrice } from '@utils/business/productUtils';
 
 const ObjectivesModal: React.FC<ObjectivesModalProps> = ({ isOpen, onClose, stats, dateRange, metricsOptions, applyDateFilter, sales, expenses, products, onAfterAdd, stockChanges = [] }) => {
   const { t } = useTranslation();

@@ -1,12 +1,9 @@
 // src/pages/expenses/ExpensesCategories.tsx
 import { useState } from 'react';
 import { Edit2, Trash2 } from 'lucide-react';
-import Card from '../../components/common/Card';
-import Badge from '../../components/common/Badge';
-import Modal, { ModalFooter } from '../../components/common/Modal';
-import Input from '../../components/common/Input';
-import { useExpenseCategories } from '../../hooks/useExpenseCategories';
-import { showSuccessToast, showErrorToast } from '../../utils/toast';
+import { Card, Badge, Modal, ModalFooter, Input } from '@components/common';
+import { useExpenseCategories } from '@hooks/business/useExpenseCategories';
+import { showSuccessToast, showErrorToast } from '@utils/core/toast';
 import type { ExpenseType } from '../../types/models';
 
 const ExpensesCategories = () => {

@@ -2,13 +2,12 @@
 import { useState, useMemo } from 'react';
 import { FileDown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import Card from '../../components/common/Card';
-import Button from '../../components/common/Button';
-import { useInfiniteExpenses } from '../../hooks/useInfiniteExpenses';
-import { useExpenseCategories } from '../../hooks/useExpenseCategories';
+import { Card, Button } from '@components/common';
+import { useInfiniteExpenses } from '@hooks/data/useInfiniteExpenses';
+import { useExpenseCategories } from '@hooks/business/useExpenseCategories';
 import ExpenseFilters from './shared/ExpenseFilters';
 import ExpenseTable from './shared/ExpenseTable';
-import { showSuccessToast, showWarningToast } from '../../utils/toast';
+import { showSuccessToast, showWarningToast } from '@utils/core/toast';
 import type { Expense } from '../../types/models';
 
 const ExpensesReports = () => {

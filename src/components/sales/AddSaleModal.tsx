@@ -1,20 +1,15 @@
-import { useAddSaleForm } from '../../hooks/useAddSaleForm';
-import Modal, { ModalFooter } from '../common/Modal';
-import Input from '../common/Input';
-import PriceInput from '../common/PriceInput';
-import Button from '../common/Button';
+import { useAddSaleForm } from '@hooks/forms/useAddSaleForm';
+import { Modal, ModalFooter, Input, PriceInput, Button, ImageWithSkeleton, LocationAutocomplete } from '@components/common';
 import Select from 'react-select';
 import { Plus, Trash2, Info, ChevronDown, ChevronUp} from 'lucide-react';
-import { ImageWithSkeleton } from '../common/ImageWithSkeleton';
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { logError } from '../../utils/logger';
-import { formatPrice } from '../../utils/formatPrice';
+import { logError } from '@utils/core/logger';
+import { formatPrice } from '@utils/formatting/formatPrice';
 import type { Sale, StockBatch } from '../../types/models';
 import SaleDetailsModal from './SaleDetailsModal';
-import { getProductStockBatches } from '../../services/firestore';
-import { showWarningToast } from '../../utils/toast';
-import LocationAutocomplete from '../common/LocationAutocomplete';
+import { getProductStockBatches } from '@services/firestore/stock/stockService';
+import { showWarningToast } from '@utils/core/toast';
 
 const LOW_STOCK_THRESHOLD = 5;
 

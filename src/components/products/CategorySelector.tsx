@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { ChevronDown, Plus, Grid, Search } from 'lucide-react';
-import { ImageWithSkeleton } from '../common/ImageWithSkeleton';
-import { useCategories } from '../../hooks/useFirestore';
-import { showSuccessToast, showErrorToast } from '../../utils/toast';
+import { ImageWithSkeleton } from '@components/common';
+import { useCategories } from '@hooks/data/useFirestore';
+import { showSuccessToast, showErrorToast } from '@utils/core/toast';
 import type { Category } from '../../types/models';
 
 interface CategorySelectorProps {

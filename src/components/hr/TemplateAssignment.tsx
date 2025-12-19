@@ -1,17 +1,16 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
-import Card from '../common/Card';
-import Button from '../common/Button';
+import { useAuth } from '@contexts/AuthContext';
+import { Card, Button } from '@components/common';
 import { Check, X, Eye } from 'lucide-react';
 import { 
   getCompanyTemplates, 
   getTemplateById
-} from '../../services/permissionTemplateService';
+} from '@services/firestore/employees/permissionTemplateService';
 import { PermissionTemplate } from '../../types/permissions';
 import { doc, updateDoc, getDoc, FieldValue } from 'firebase/firestore';
-import { db } from '../../services/firebase';
-import { updateEmployeeRole } from '../../services/employeeRefService';
-import { showSuccessToast, showErrorToast } from '../../utils/toast';
+import { db } from '@services/firebase';
+import { updateEmployeeRole } from '@services/firestore/employees/employeeRefService';
+import { showSuccessToast, showErrorToast } from '@utils/core/toast';
 
 interface TemplateAssignmentProps {
   userId: string;

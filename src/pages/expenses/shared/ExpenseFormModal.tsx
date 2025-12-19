@@ -1,17 +1,14 @@
 // src/pages/expenses/shared/ExpenseFormModal.tsx
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useAuth } from '../../../contexts/AuthContext';
-import Modal, { ModalFooter } from '../../../components/common/Modal';
-import Input from '../../../components/common/Input';
-import PriceInput from '../../../components/common/PriceInput';
-import CreatableSelect from '../../../components/common/CreatableSelect';
-import { createExpense, updateExpense, syncFinanceEntryWithExpense } from '../../../services/firestore';
-import { showSuccessToast, showErrorToast, showWarningToast } from '../../../utils/toast';
-import { logError, logWarning } from '../../../utils/logger';
-import { useExpenseCategories } from '../../../hooks/useExpenseCategories';
-import { getUserById } from '../../../services/userService';
-import { getCurrentEmployeeRef } from '../../../utils/employeeUtils';
+import { useAuth } from '@contexts/AuthContext';
+import { Modal, ModalFooter, Input, PriceInput, CreatableSelect } from '@components/common';
+import { createExpense, updateExpense, syncFinanceEntryWithExpense } from '@services/firestore/expenses/expenseService';
+import { showSuccessToast, showErrorToast, showWarningToast } from '@utils/core/toast';
+import { logError, logWarning } from '@utils/core/logger';
+import { useExpenseCategories } from '@hooks/business/useExpenseCategories';
+import { getUserById } from '@services/utilities/userService';
+import { getCurrentEmployeeRef } from '@utils/business/employeeUtils';
 import type { Expense} from '../../../types/models';
 
 interface ExpenseFormModalProps {
