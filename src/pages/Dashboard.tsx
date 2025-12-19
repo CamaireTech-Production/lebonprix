@@ -1,4 +1,4 @@
-import { DollarSign, TrendingUp, Package2, Info, Receipt, Copy, Check, ExternalLink, ScanLine, FileBarChart} from 'lucide-react';
+import { DollarSign, TrendingUp, Package2, Info, Receipt, ScanLine, FileBarChart} from 'lucide-react';
 import StatCard from '../components/dashboard/StatCard';
 import SalesChart from '../components/dashboard/SalesChart';
 import ActivityList from '../components/dashboard/ActivityList';
@@ -86,8 +86,6 @@ const Dashboard = () => {
   }, [user, company, essentialDataLoading]);
   const [showCalculationsModal, setShowCalculationsModal] = useState(false);
   const [] = useState<Partial<DashboardStats>>({});
-  const [copied, setCopied] = useState(false);
-  const [copied2, setCopied2] = useState(false);
   const [dateRange, setDateRange] = useState({
     from: new Date(2025, 0, 1), // January 1st, 2025
     to: new Date(), // Current date
@@ -277,95 +275,6 @@ const Dashboard = () => {
 
   const chartData = processChartData();
 
-  // Generate the company's catalogue page URL
-  const productPageUrl = company ? `${window.location.origin}/catalogue/${encodeURIComponent(company.name.toLowerCase().replace(/\s+/g, '-'))}/${company.companyId || company.id}` : '';
-  const sitePage  = company ? company.website : false;
-
-  const handleCopyLink = async () => {
-    try {
-      await navigator.clipboard.writeText(productPageUrl);
-      setCopied(true);
-      showSuccessToast('Lien copié avec succès!');
-      setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      showErrorToast('Erreur lors de la copie du lien');
-    }
-  };
-
-  const handleCopyLink2 = async () => {
-    try {
-      await navigator.clipboard.writeText(sitePage || '');
-      setCopied2(true);
-      showSuccessToast('Lien copié avec succès!');
-      setTimeout(() => setCopied2(false), 2000);
-    } catch (err) {
-      showErrorToast('Erreur lors de la copie du lien');
-    }
-  };
-
-  const handleShareLink2 = async () => {
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: `Site web de ${company?.name}`,
-          text: `Découvrez le site web de ${company?.name}`,
-          url: sitePage || ''
-        });
-      } catch (err) {
-        if ((err as Error).name !== 'AbortError') {
-          showErrorToast('Erreur lors du partage');
-        }
-      }
-    } else {
-      // Fallback to copy if Web Share API is not available
-      handleCopyLink2();
-    }
-  };
-  const handleShareLink = async () => {
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: `Produits de ${company?.name}`,
-          text: `Découvrez les produits de ${company?.name}`,
-          url: productPageUrl
-        });
-      } catch (err) {
-        if ((err as Error).name !== 'AbortError') {
-          showErrorToast('Erreur lors du partage');
-        }
-      }
-    } else {
-      // Fallback to copy if Web Share API is not available
-      handleCopyLink();
-    }
-  };
-
-  const handleOpenCatalogue = async () => {
-    // Détecter si on est en mode PWA standalone
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
-      (window.navigator as any).standalone === true;
-    
-    // En mode PWA: utiliser le modal de partage natif
-    if (isStandalone && navigator.share) {
-      try {
-        await navigator.share({
-          title: `Catalogue - ${company?.name}`,
-          text: `Découvrez le catalogue de ${company?.name}`,
-          url: productPageUrl
-        });
-      } catch (err) {
-        // Si l'utilisateur annule (AbortError), ne rien faire
-        if ((err as Error).name !== 'AbortError') {
-          // Si erreur autre que annulation, fallback vers ouverture normale
-          window.open(productPageUrl, '_blank', 'noopener,noreferrer');
-        }
-      }
-    } else {
-      // En mode navigateur normal: ouvrir normalement
-      window.open(productPageUrl, '_blank', 'noopener,noreferrer');
-    }
-  };
-
   // 🚀 SHOW UI IMMEDIATELY: Only block for essential data
   if (essentialDataLoading) {
     return <LoadingScreen />;
@@ -442,141 +351,8 @@ const Dashboard = () => {
 
   return (
     <div className="pb-16 md:pb-0">
-      {/* Quick Actions Section - POS Button */}
-      {hasPOSAccess && companyId && !isMobileOrPWA && (
-        <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-lg font-semibold mb-1" style={{color: getCompanyColors().primary}}>
-                {t('dashboard.quickActions')}
-              </h3>
-              <p className="text-sm text-gray-600">
-                {t('dashboard.quickActionsDescription')}
-              </p>
-            </div>
-            <Button
-              onClick={() => navigate(`/company/${companyId}/pos`)}
-              icon={<ScanLine size={20} />}
-              className="ml-4"
-            >
-              {t('navigation.pos')}
-            </Button>
-          </div>
-        </div>
-      )}
-      
-      {/* Company Products Link Section */}
-      {company && (
-        <div className="bg-white rounded-lg shadow-sm p-6 mt-6">
-          <div className="flex flex-col gap-4">
-            <div>
-              <h2 className="text-lg font-semibold mb-1" style={{color: getCompanyColors().primary}}>
-                {t('dashboard.publicProducts.title')}
-              </h2>
-              <p className="text-sm text-gray-600">
-                {t('dashboard.publicProducts.description')}
-              </p>
-            </div>
-            <div className="flex flex-col gap-4">
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="flex-grow">
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={productPageUrl}
-                      readOnly
-                      className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:border-gray-300 bg-gray-50 text-sm"
-                      style={{'--tw-ring-color': getCompanyColors().primary} as React.CSSProperties}
-                    />
-                    <button
-                      onClick={handleCopyLink}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                      title={t('dashboard.publicProducts.copyLink')}
-                    >
-                      {copied ? (
-                        <Check className="h-5 w-5" style={{color: getCompanyColors().primary}} />
-                      ) : (
-                        <Copy className="h-5 w-5" />
-                      )}
-                    </button>
-                  </div>
-                </div>
-                <div className="flex gap-2 sm:w-auto">
-                  <button
-                    onClick={handleOpenCatalogue}
-                    className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2"
-                    style={{'--tw-ring-color': getCompanyColors().primary} as React.CSSProperties}
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                    {t('dashboard.publicProducts.open')}
-                  </button>
-                  <button
-                    onClick={handleShareLink}
-                    className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2"
-                    style={{'--tw-ring-color': getCompanyColors().primary} as React.CSSProperties}
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                    {t('dashboard.publicProducts.share')}
-                  </button>
-                </div>
-              </div>
-            </div>
-            {sitePage && 
-            
-
-            <div className="flex flex-col gap-4">
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="flex-grow">
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={sitePage}
-                    readOnly
-                    className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:border-gray-300 bg-gray-50 text-sm"
-                    style={{'--tw-ring-color': getCompanyColors().primary} as React.CSSProperties}
-                  />
-                  <button
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                    onClick={handleCopyLink2}
-                    title={t('dashboard.publicProducts.copyLink')}
-                  >
-                    {copied2 ? (
-                      <Check className="h-5 w-5" style={{color: getCompanyColors().primary}} />
-                    ) : (
-                      <Copy className="h-5 w-5" />
-                    )}
-                  </button>
-                </div>
-              </div>
-              <div className="flex gap-2 sm:w-auto">
-                <a
-                  href={sitePage}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2"
-                  style={{'--tw-ring-color': getCompanyColors().primary} as React.CSSProperties}
-                >
-                  <ExternalLink className="h-4 w-4" />
-                  {t('dashboard.publicProducts.open')}
-                </a>
-                <button
-                  onClick={handleShareLink2}
-                  className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2"
-                  style={{'--tw-ring-color': getCompanyColors().primary} as React.CSSProperties}
-                >
-                  <ExternalLink className="h-4 w-4" />
-                  {t('dashboard.publicProducts.share')}
-                </button>
-              </div>
-            </div>
-          </div>
-
-            }
-          </div>
-        </div>
-      )}
-      {/* Dashboard Header with Company Colors */}
-      <div className="mb-6 mt-6 rounded-lg overflow-hidden" style={{
+      {/* Dashboard Header with Company Colors - First Item */}
+      <div className="mb-6 rounded-lg overflow-hidden" style={{
         background: `linear-gradient(135deg, ${getCompanyColors().primary} 0%, ${getCompanyColors().secondary} 50%, ${getCompanyColors().tertiary} 100%)`,
         color: getCompanyColors().headerText
       }}>
@@ -589,14 +365,6 @@ const Dashboard = () => {
             <div className="flex gap-2">
               <Button
                 variant="outline"
-                icon={<FileBarChart size={16} />}
-                onClick={() => navigate(`/company/${companyId}/reports?period=today`)}
-                className="bg-white/20 border-white/30 text-white hover:bg-white/30 backdrop-blur-sm"
-              >
-                {t('dashboard.viewTodayReports')}
-              </Button>
-              <Button
-                variant="outline"
                 icon={<Info size={16} />}
                 onClick={() => setShowCalculationsModal(true)}
                 className="bg-white/20 border-white/30 text-white hover:bg-white/30 backdrop-blur-sm"
@@ -607,11 +375,36 @@ const Dashboard = () => {
           </div>
         </div>
       </div>
-      <div className="mb-6 flex">
-        <div className="max-w-md w-full">
-          <DateRangePicker onChange={setDateRange} className="w-full" />
+
+      {/* Quick Actions Section - Report of the Day and Period Filter */}
+      {companyId && (
+        <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
+          <div className="flex flex-col gap-4">
+            <div>
+              <h3 className="text-lg font-semibold mb-1" style={{color: getCompanyColors().primary}}>
+                {t('dashboard.quickActions')}
+              </h3>
+              <p className="text-sm text-gray-600">
+                {t('dashboard.quickActionsDescription')}
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              {/* Period Filter - Left */}
+              <div className="flex-1 sm:max-w-md w-full">
+                <DateRangePicker onChange={setDateRange} className="w-full" />
+              </div>
+              {/* Report of the Day Button - Right */}
+              <Button
+                onClick={() => navigate(`/company/${companyId}/reports?period=today`)}
+                icon={<FileBarChart size={20} />}
+                variant="outline"
+              >
+                {t('dashboard.viewTodayReports')}
+              </Button>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
       {/* Objectives global bar */}
       {(expensesLoading || stockChangesLoading) ? (
         <SkeletonObjectivesBar />

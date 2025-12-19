@@ -943,6 +943,7 @@
       "location": "Location",
       "locationHelp": "Optional",
       "emailAddress": "Email Address",
+      "emailDisabledHelp": "Email cannot be changed as it is used for critical operations and reports.",
       "reportMail": "Email for sales reports",
       "reportMailHelp": "Email address where sales reports will be sent",
       "reportTime": "Report reception time",

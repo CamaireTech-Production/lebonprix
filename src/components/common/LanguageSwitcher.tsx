@@ -59,15 +59,15 @@ const LanguageSwitcher = ({ variant = 'light' }: LanguageSwitcherProps) => {
                   setIsOpen(false);
                 }}
                 className={`
-                  flex items-center w-full px-4 py-2 text-sm text-black
+                  flex items-center w-full px-4 py-2 text-sm
                   ${i18n.language === lang.code 
-                    ? 'bg-gray-100 text-black' 
-                    : 'text-black hover:bg-gray-50 hover:text-black'}
+                    ? 'bg-gray-100 text-gray-900 font-medium' 
+                    : 'text-gray-700 hover:bg-gray-50'}
                 `}
                 role="menuitem"
               >
-                <span className="text-base mr-2">{lang.flag}</span>
-                {lang.name}
+                <span className="text-base mr-3 flex-shrink-0">{lang.flag}</span>
+                <span className="flex-1 text-left">{lang.name}</span>
               </button>
             ))}
           </div>

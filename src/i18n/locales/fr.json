@@ -814,6 +814,7 @@
       "location": "Localisation",
       "locationHelp": "Optionnel",
       "emailAddress": "Adresse e-mail",
+      "emailDisabledHelp": "L'email ne peut pas être modifié car il est utilisé pour des opérations critiques et les rapports.",
       "reportMail": "Email pour les rapports de vente",
       "reportMailHelp": "Adresse email vers laquelle les rapports de vente seront envoyés",
       "reportTime": "Heure de réception des rapports",

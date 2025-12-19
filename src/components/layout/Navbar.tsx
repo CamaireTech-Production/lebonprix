@@ -100,11 +100,11 @@ const Navbar = ({ onMenuClick, isSelectionMode }: NavbarProps) => {
           {hasPOSAccess && isCompanyRoute && !isSelectionMode && (
             <Link
               to={`/company/${companyId}/pos`}
-              className="flex items-center space-x-2 px-3 py-2 rounded-md transition-colors hover:bg-gray-100 text-gray-700 hover:text-gray-900"
+              className="flex items-center space-x-2 px-3 py-2 rounded-md transition-colors bg-red-600 hover:bg-red-700 text-white font-medium"
               title={t('navigation.pos')}
             >
               <ScanLine size={18} />
-              <span className="hidden sm:inline text-sm font-medium">{t('navigation.pos')}</span>
+              <span className="hidden sm:inline text-sm">{t('navigation.pos')}</span>
             </Link>
           )}
           
