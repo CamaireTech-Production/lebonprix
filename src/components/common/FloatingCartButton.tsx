@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { ShoppingBag, X, Plus, Minus, CheckCircle2 } from 'lucide-react';
 import { useCart } from '../../contexts/CartContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -12,7 +12,6 @@ interface FloatingCartButtonProps {
 }
 
 const FloatingCartButton: React.FC<FloatingCartButtonProps> = ({ className = '' }) => {
-  const { companyId } = useParams<{ companyId: string }>();
   const navigate = useNavigate();
   const { cart, updateCartItem, getCartItemCount, getCartTotal } = useCart();
   const { company } = useAuth();
@@ -25,20 +24,19 @@ const FloatingCartButton: React.FC<FloatingCartButtonProps> = ({ className = '' 
       primary: company?.catalogueColors?.primary || company?.primaryColor || '#183524',
       secondary: company?.catalogueColors?.secondary || company?.secondaryColor || '#e2b069',
       tertiary: company?.catalogueColors?.tertiary || company?.tertiaryColor || '#2a4a3a',
-      headerText: company?.catalogueColors?.headerText || '#ffffff',
     };
     return colors;
   };
 
-  const handleUpdateQuantity = (productId: string, quantity: number, selectedColor?: string, selectedSize?: string) => {
-    updateCartItem(productId, quantity, selectedColor, selectedSize);
+  const handleUpdateQuantity = (productId: string, newQuantity: number, selectedColor?: string, selectedSize?: string) => {
+    updateCartItem(productId, newQuantity, selectedColor, selectedSize);
   };
 
-  // Listen for cart item added events
+      // Listen for cart item added events
   useEffect(() => {
     const handleCartItemAdded = (event: Event) => {
       const customEvent = event as CustomEvent;
-      const { product, quantity, isUpdate } = customEvent.detail;
+      const { product, isUpdate } = customEvent.detail;
       
       // Show success animation on the button
       setShowAddedAnimation(true);

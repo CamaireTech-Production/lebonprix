@@ -5,6 +5,3 @@ export * from './install';
 // Status components
 export * from './status';
 
-// Debug components
-export * from './debug';
-

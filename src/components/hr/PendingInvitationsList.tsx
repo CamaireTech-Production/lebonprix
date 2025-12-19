@@ -155,7 +155,7 @@ const PendingInvitationsList = ({ invitations, onInvitationCancelled }: PendingI
                       <span className="flex items-center">
                         <Clock className="h-4 w-4 mr-1" />
                         <span>
-                          {expired ? 'Expired' : `Expires ${formatDistanceToNow(invitation.expiresAt instanceof Date ? invitation.expiresAt : invitation.expiresAt.toDate(), { addSuffix: true })}`}
+                          {expired ? 'Expired' : `Expires ${formatDistanceToNow(invitation.expiresAt instanceof Date ? invitation.expiresAt : (invitation.expiresAt as any).toDate?.() || new Date((invitation.expiresAt as any).seconds * 1000), { addSuffix: true })}`}
                         </span>
                       </span>
                     </div>

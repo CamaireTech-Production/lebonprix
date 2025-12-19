@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Upload, Trash2, Image as ImageIcon } from 'lucide-react';
+import { Upload, Trash2 } from 'lucide-react';
 import { Modal, ModalFooter, Input, PriceInput, ImageWithSkeleton } from '@components/common';
 import MatiereCategorySelector from './MatiereCategorySelector';
 import UnitSelector from './UnitSelector';
@@ -7,8 +7,8 @@ import { useMatieres } from '@hooks/business/useMatieres';
 import { useSuppliers } from '@hooks/data/useFirestore';
 import { useAuth } from '@contexts/AuthContext';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
-import { FirebaseStorageService } from '@services/firebaseStorageService';
-import { compressImage } from '@utils/core/imageCompression';
+import { FirebaseStorageService } from '@services/core/firebaseStorage';
+import { compressImage as compressImageUtil } from '@utils/core/imageCompression';
 import type { Matiere } from '../../types/models';
 
 interface MatiereFormModalProps {
@@ -102,7 +102,7 @@ const MatiereFormModal: React.FC<MatiereFormModalProps> = ({
         fileType: 'image/jpeg'
       };
 
-      const compressedFile = await compressImage(file, options);
+      const compressedFile = await compressImageUtil(file, options);
       
       if (compressedFile instanceof File) {
         return compressedFile;
@@ -194,8 +194,8 @@ const MatiereFormModal: React.FC<MatiereFormModalProps> = ({
           tempId
         );
         
-        imageUrls = uploadResults.map(result => result.url);
-        imagePaths = uploadResults.map(result => result.path);
+        imageUrls = uploadResults.map((result: { url: string }) => result.url);
+        imagePaths = uploadResults.map((result: { path: string }) => result.path);
       }
 
       // Combine existing URLs with new ones
@@ -326,7 +326,7 @@ const MatiereFormModal: React.FC<MatiereFormModalProps> = ({
           label="Prix d'achat (XAF)"
           name="costPrice"
           value={formData.costPrice}
-          onChange={handleInputChange}
+          onChange={(e) => handleInputChange({ target: { name: 'costPrice', value: e.target.value } } as any)}
           placeholder="0"
           allowDecimals={true}
         />

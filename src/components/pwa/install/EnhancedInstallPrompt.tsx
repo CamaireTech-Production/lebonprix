@@ -35,7 +35,7 @@ export const EnhancedInstallPrompt: React.FC = () => {
       const status = {
         hasServiceWorker: 'serviceWorker' in navigator,
         hasManifest: !!document.querySelector('link[rel="manifest"]'),
-        isHTTPS: location.protocol === 'https:' || location.hostname === 'localhost',
+        isHTTPS: window.location.protocol === 'https:' || window.location.hostname === 'localhost',
         isInstallable: false,
         errors: [] as string[]
       };

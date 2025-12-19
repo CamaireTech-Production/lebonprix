@@ -1,7 +1,6 @@
 import { ArrowLeft, Clock, X } from 'lucide-react';
 import { useAuth } from '@contexts/AuthContext';
 import { useNavigate, useParams } from 'react-router-dom';
-import { formatCreatorName } from '@utils/business/employeeUtils';
 import { useState, useEffect } from 'react';
 
 interface POSHeaderProps {
@@ -38,7 +37,7 @@ export const POSHeader: React.FC<POSHeaderProps> = ({ companyName }) => {
   const cashierName = currentEmployee
     ? `${currentEmployee.firstname} ${currentEmployee.lastname}`
     : isOwner && user
-    ? formatCreatorName(user)
+    ? `${user.displayName || user.email || 'Owner'}`
     : 'Unknown';
 
   const handleBackToDashboard = () => {

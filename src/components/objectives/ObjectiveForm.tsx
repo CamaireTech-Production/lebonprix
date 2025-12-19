@@ -26,12 +26,12 @@ const ObjectiveForm: React.FC<ObjectiveFormProps> = ({ isOpen, onClose, objectiv
     periodType: objective?.periodType || 'predefined',
     predefined: objective?.predefined || 'this_month',
     customRange: objective?.startAt && objective?.endAt ? { 
-      from: objective.startAt instanceof Date ? objective.startAt : objective.startAt.toDate(), 
-      to: objective.endAt instanceof Date ? objective.endAt : objective.endAt.toDate() 
+      from: objective.startAt instanceof Date ? objective.startAt : (objective.startAt as any).toDate?.() || new Date((objective.startAt as any).seconds * 1000), 
+      to: objective.endAt instanceof Date ? objective.endAt : (objective.endAt as any).toDate?.() || new Date((objective.endAt as any).seconds * 1000) 
     } : null,
   });
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | { target: { name: string; value: string } }) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 

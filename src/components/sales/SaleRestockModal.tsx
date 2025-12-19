@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
 import { restockProduct, subscribeToSuppliers } from '../../services/firestore';
 import type { Product, Supplier } from '../../types/models';
@@ -8,7 +7,7 @@ import Button from '../common/Button';
 import Input from '../common/Input';
 import PriceInput from '../common/PriceInput';
 import Select from '../common/Select';
-import { formatCostPrice } from '../../utils/inventoryManagement';
+import { formatCostPrice } from '../../utils/inventory/inventoryManagement';
 
 interface RestockModalProps {
   isOpen: boolean;
@@ -23,8 +22,7 @@ const SaleRestockModal: React.FC<RestockModalProps> = ({
   product,
   onSuccess
 }) => {
-  const { t } = useTranslation();
-  const { user } = useAuth();
+  const { user, company } = useAuth();
   
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(false);
@@ -39,11 +37,11 @@ const SaleRestockModal: React.FC<RestockModalProps> = ({
 
   // Load suppliers
   useEffect(() => {
-    if (isOpen && user?.uid) {
-      const unsubscribe = subscribeToSuppliers(setSuppliers);
+    if (isOpen && user?.uid && company?.id) {
+      const unsubscribe = subscribeToSuppliers(company.id, setSuppliers);
       return unsubscribe;
     }
-  }, [isOpen, user?.uid]);
+  }, [isOpen, user?.uid, company?.id]);
 
   // Reset form when modal opens/closes
   useEffect(() => {
@@ -166,8 +164,9 @@ const SaleRestockModal: React.FC<RestockModalProps> = ({
             <Input
               label="Quantity"
               type="number"
+              name="quantity"
               value={formData.quantity}
-              onChange={(value) => handleInputChange('quantity', value)}
+              onChange={(e) => handleInputChange('quantity', e.target.value)}
               placeholder="Enter quantity"
               required
               min="0.01"
@@ -201,7 +200,7 @@ const SaleRestockModal: React.FC<RestockModalProps> = ({
           <Select
             label="Supplier"
             value={formData.supplierId}
-            onChange={(value) => handleInputChange('supplierId', value)}
+            onChange={(e) => handleInputChange('supplierId', e.target.value)}
             options={getSupplierOptions()}
           />
 

@@ -23,7 +23,7 @@ interface ObjectivesModalProps {
 
 import { getLatestCostPrice } from '@utils/business/productUtils';
 
-const ObjectivesModal: React.FC<ObjectivesModalProps> = ({ isOpen, onClose, stats, dateRange, metricsOptions, applyDateFilter, sales, expenses, products, onAfterAdd, stockChanges = [] }) => {
+const ObjectivesModal: React.FC<ObjectivesModalProps> = ({ isOpen, onClose, dateRange, metricsOptions, applyDateFilter, sales, expenses, products, onAfterAdd, stockChanges = [] }) => {
   const { t } = useTranslation();
   const { objectives, deleteObjective } = useObjectives();
   const [editingObjective, setEditingObjective] = useState<Objective | null>(null);

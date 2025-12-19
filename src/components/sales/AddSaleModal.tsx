@@ -35,10 +35,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
     isSubmitting,
     autoSaveCustomer,
     setAutoSaveCustomer,
-    foundCustomer,
-    isSavingCustomer,
     showCustomerDropdown,
-    setShowCustomerDropdown,
     customerSearch,
 
     phoneInputRef,
@@ -56,7 +53,6 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
     calculateProductTotal,
     calculateTotal,
     handleAddSale,
-    handleSaveCustomer,
     handleSelectCustomer,
   } = useAddSaleForm();
 
@@ -746,7 +742,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                 label="Delivery Fee"
               name="deliveryFee"
               value={formData.deliveryFee}
-              onChange={handleInputChange}
+              onChange={(e) => handleInputChange({ target: { name: e.target.name, value: e.target.value } } as any)}
             />
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -756,7 +752,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                 name="status"
                 className="w-full rounded-md border border-gray-300 shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                 value={formData.status}
-                onChange={handleInputChange}
+                onChange={(e) => handleInputChange({ target: { name: e.target.name, value: e.target.value } } as any)}
               >
                   <option value="commande">Commande</option>
                   <option value="under_delivery">Under Delivery</option>
