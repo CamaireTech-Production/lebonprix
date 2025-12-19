@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { SectionContainer } from './SectionContainer';
-import { ImageWithSkeleton } from '../common/ImageWithSkeleton';
+import ImageWithSkeleton from '../common/ImageWithSkeleton';
 
 export const POSSoftwareCarouselSection: React.FC = () => {
   const [currentSlide, setCurrentSlide] = useState(0);

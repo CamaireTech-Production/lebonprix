@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ImageWithSkeleton } from '../common/ImageWithSkeleton';
+import ImageWithSkeleton from '../common/ImageWithSkeleton';
 
 interface UseCaseCardProps {
   title: string;

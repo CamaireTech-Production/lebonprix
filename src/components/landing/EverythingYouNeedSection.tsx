@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { SectionContainer } from './SectionContainer';
-import { ImageWithSkeleton } from '../common/ImageWithSkeleton';
+import ImageWithSkeleton from '../common/ImageWithSkeleton';
 import { Plus, Minus } from 'lucide-react';
 
 export const EverythingYouNeedSection: React.FC = () => {

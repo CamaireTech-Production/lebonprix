@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ImageWithSkeleton } from '../common/ImageWithSkeleton';
+import ImageWithSkeleton from '../common/ImageWithSkeleton';
 import { ArrowRight } from 'lucide-react';
 
 interface ResourceCardProps {
