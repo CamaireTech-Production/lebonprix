@@ -2,7 +2,7 @@ import React from 'react';
 import { useLocation, Link, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, ShoppingCart, DollarSign, Package2, FileBarChart, Settings, X, Receipt, Users, Building2, Plus, Grid3X3, ShoppingBag, UserCheck, ChevronDown, ChevronRight, Loader2, Phone, ScanLine, Warehouse} from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import { useRolePermissions } from '../../hooks/useRolePermissions';
+import { useRolePermissions } from '../../hooks/business/useRolePermissions';
 import UserAvatar from '../common/UserAvatar';
 import { DownloadAppButton } from '../pwa';
 import { useTranslation } from 'react-i18next';

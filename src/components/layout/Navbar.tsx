@@ -7,7 +7,7 @@ import LanguageSwitcher from '../common/LanguageSwitcher';
 import { DownloadAppButton } from '../pwa';
 import { PWAStatusIndicator } from '../pwa';
 import { useTranslation } from 'react-i18next';
-import { useRolePermissions } from '../../hooks/useRolePermissions';
+import { useRolePermissions } from '../../hooks/business/useRolePermissions';
 
 interface NavbarProps {
   onMenuClick: () => void;

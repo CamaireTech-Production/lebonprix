@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { RefreshCw, X } from 'lucide-react';
 import { usePWA } from '../../../hooks/usePWA';
-import { showSuccessToast } from '../../../utils/toast';
+import { showSuccessToast } from '../../../utils/core/toast';
 
 export const UpdateNotification: React.FC = () => {
   const { hasUpdate, updateApp } = usePWA();

@@ -61,9 +61,9 @@ import type {
   StockChange
 } from '../types/models';
 import { Timestamp } from 'firebase/firestore';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { doc, getDoc, deleteDoc, collection, query, where, orderBy, getDocs, onSnapshot } from 'firebase/firestore';
-import { db } from '@services/firebase';
+import { db } from '@services/core/firebase';
 
 // Utility to deeply remove undefined fields from an object
 function removeUndefined(obj: unknown): unknown {

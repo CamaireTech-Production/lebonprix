@@ -5,7 +5,7 @@ import {
   createCustomerSource,
   updateCustomerSource,
   deleteCustomerSource
-} from '@services/firestore/customerSourceService';
+} from '@services/firestore/customers/customerSourceService';
 import type { CustomerSource } from '../../types/models';
 
 interface UseCustomerSourcesReturn {

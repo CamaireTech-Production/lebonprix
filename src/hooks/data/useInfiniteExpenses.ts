@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@contexts/AuthContext';
 import { query, collection, where, orderBy, limit, startAfter, getDocs, DocumentSnapshot } from 'firebase/firestore';
-import { db } from '@services/firebase';
+import { db } from '@services/core/firebase';
 import ExpensesManager from '@services/storage/ExpensesManager';
 import BackgroundSyncService from '@services/utilities/backgroundSync';
 import type { Expense } from '../types/models';

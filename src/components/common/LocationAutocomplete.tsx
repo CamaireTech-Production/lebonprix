@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Select, { components, MenuProps, GroupBase, OptionProps } from 'react-select';
-import { useLocationSearch, type LocationOption } from '../../hooks/useLocationSearch';
+import { useLocationSearch, type LocationOption } from '../../hooks/business/useLocationSearch';
 
 interface LocationAutocompleteProps {
   value: string;

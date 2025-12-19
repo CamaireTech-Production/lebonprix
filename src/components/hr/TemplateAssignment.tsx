@@ -8,7 +8,7 @@ import {
 } from '@services/firestore/employees/permissionTemplateService';
 import { PermissionTemplate } from '../../types/permissions';
 import { doc, updateDoc, getDoc, FieldValue } from 'firebase/firestore';
-import { db } from '@services/firebase';
+import { db } from '@services/core/firebase';
 import { updateEmployeeRole } from '@services/firestore/employees/employeeRefService';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
 

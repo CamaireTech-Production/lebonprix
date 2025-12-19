@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@contexts/AuthContext';
 import { query, collection, where, orderBy, limit, startAfter, getDocs, DocumentSnapshot } from 'firebase/firestore';
-import { db } from '@services/firebase';
+import { db } from '@services/core/firebase';
 import { devLog, logError } from '@utils/core/logger';
 import ProductsManager from '@services/storage/ProductsManager';
 import BackgroundSyncService from '@services/utilities/backgroundSync';
