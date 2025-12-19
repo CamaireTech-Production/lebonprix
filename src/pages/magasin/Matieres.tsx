@@ -8,7 +8,7 @@ import { showSuccessToast, showErrorToast } from '@utils/core/toast';
 import type { Matiere } from '../../types/models';
 
 const Matieres = () => {
-  const { matieres, loading, error, addMatiere, updateMatiereData, deleteMatiereData } = useMatieres();
+  const { matieres, loading, error, deleteMatiereData } = useMatieres();
   const { categories } = useCategories();
   
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -335,7 +335,7 @@ const Matieres = () => {
             }}
             onConfirm={handleDelete}
             confirmText="Supprimer"
-            confirmVariant="danger"
+            isDanger
           />
         }
       >

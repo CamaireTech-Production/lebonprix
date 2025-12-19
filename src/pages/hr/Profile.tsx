@@ -8,7 +8,6 @@ import { getUserById, updateUser } from '@services/utilities/userService';
 import type { User as UserType } from '../../types/models';
 
 const Profile = () => {
-  const { t } = useTranslation();
   const { user, company, isOwner, currentEmployee, updateCompany: updateCompanyContext } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -25,7 +24,7 @@ const Profile = () => {
   // Determine if we're showing employee profile or company profile
   // Un utilisateur est owner si isOwner est true
   const isActualOwner = isOwner;
-  const isEmployeeProfile = !isActualOwner && currentEmployee;
+  const isEmployeeProfile = !isActualOwner && !!currentEmployee;
 
   useEffect(() => {
     const loadProfileData = async () => {
@@ -216,14 +215,17 @@ const Profile = () => {
                 <Phone className="h-4 w-4 inline mr-1" />
                 Téléphone
               </label>
-              <Input
-                name="phone"
-                type="tel"
-                value={formData.phone}
-                onChange={handleInputChange}
-                placeholder="+237 6XX XXX XXX"
-                icon={<Phone className="h-5 w-5" />}
-              />
+              <div className="relative">
+                <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <Input
+                  name="phone"
+                  type="tel"
+                  value={formData.phone}
+                  onChange={handleInputChange}
+                  placeholder="+237 6XX XXX XXX"
+                  className="pl-10"
+                />
+              </div>
             </div>
           </div>
 

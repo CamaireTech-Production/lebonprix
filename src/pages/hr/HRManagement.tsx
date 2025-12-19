@@ -2,17 +2,17 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@contexts/AuthContext';
 import { useRolePermissions } from '@hooks/business/useRolePermissions';
 import { Card, LoadingScreen } from '@components/common';
-import InviteEmployeeForm from '../components/hr/InviteEmployeeForm';
-import PendingInvitationsList from '../components/hr/PendingInvitationsList';
-import TeamOverview from '../components/hr/TeamOverview';
-import PermissionTemplateManager from '../components/hr/PermissionTemplateManager';
+import InviteEmployeeForm from '@components/hr/InviteEmployeeForm';
+import PendingInvitationsList from '@components/hr/PendingInvitationsList';
+import TeamOverview from '@components/hr/TeamOverview';
+import PermissionTemplateManager from '@components/hr/PermissionTemplateManager';
 import { getPendingInvitations } from '@services/firestore/employees/invitationService';
 import { getCompanyEmployees } from '@services/firestore/employees/employeeRefService';
 import { convertEmployeeRefToUserCompanyRef, getOwnerUserCompanyRef } from '@services/firestore/employees/employeeDisplayService';
 import { doc, getDoc } from 'firebase/firestore';
-import { db } from '@services/firebase';
+import { db } from '@services/core/firebase';
 import { logError } from '@utils/core/logger';
-import type { Invitation, UserCompanyRef } from '../types/models';
+import type { Invitation, UserCompanyRef } from '../../types/models';
 
 const HRManagement = () => {
   const { company, user, effectiveRole, isOwner } = useAuth();

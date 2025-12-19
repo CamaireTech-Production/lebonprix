@@ -3,14 +3,14 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Card, Input, Button } from '@components/common';
 import { showErrorToast, showSuccessToast } from '@utils/core/toast';
 import { getCompanyById } from '@services/firestore/companies/companyPublic';
-import type { Company, CompanyEmployee } from '../types/models';
+import type { Company, CompanyEmployee } from '../../types/models';
 import { useAuth } from '@contexts/AuthContext';
 
 export default function EmployeeLogin() {
-  const { companyName, companyId, loginLink } = useParams();
+  const { companyId, loginLink } = useParams();
   const navigate = useNavigate();
   const { signIn } = useAuth();
-  const [company, setCompany] = useState<Company | null>(null);
+  const [, setCompany] = useState<Company | null>(null);
   const [loading, setLoading] = useState(true);
   const [password, setPassword] = useState('');
   const [employee, setEmployee] = useState<CompanyEmployee | null>(null);

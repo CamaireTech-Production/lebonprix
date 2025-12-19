@@ -7,7 +7,7 @@ import { useSales, useExpenses, useProducts, useStockChanges, useFinanceEntries,
 import { subscribeToAllSales } from '@services/firestore/sales/saleService';
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@contexts/AuthContext';
-import type { DashboardStats, StockChange, Sale } from '../../types/models';
+import type { StockChange, Sale, SaleProduct } from '../../types/models';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
 import { useTranslation } from 'react-i18next';
 import { getLatestCostPrice } from '@utils/business/productUtils';
@@ -147,9 +147,6 @@ const Dashboard = () => {
     actualStartDate,
     dateRange.from
   );
-  
-  // Also calculate all-time profit for comparison (optional)
-  const allTimeProfit = calculateTotalProfit(filteredSales || [], products || [], (stockChanges || []) as StockChange[]);
 
   // 🔄 BACKGROUND DATA: Calculate expenses only when available
   // Note: Dashboard only uses expenses, not manual entries, so we pass an empty array for manual entries
@@ -164,25 +161,10 @@ const Dashboard = () => {
   // Total sales amount
   const totalSalesAmount = calculateTotalSalesAmount(filteredSales || []);
 
-  // Calculate total purchase price for all products in stock as of the end of the selected period
-  const getStockAtDate = (productId: string, date: Date) => {
-    // Sum all stock changes for this product up to and including the date
-    return stockChanges
-      .filter((sc: StockChange) => sc.productId === productId && sc.createdAt?.seconds && new Date(sc.createdAt.seconds * 1000) <= date)
-      .reduce((sum: number, sc: StockChange) => sum + sc.change, 0);
-  };
-  const totalPurchasePrice = products?.reduce((sum, product) => {
-    const stockAtDate = getStockAtDate(product.id, dateRange.to);
-    const safeStockChanges = Array.isArray(stockChanges) ? (stockChanges as StockChange[]) : [];
-    const costPrice = getLatestCostPrice(product.id, safeStockChanges);
-    if (costPrice === undefined) return sum;
-    return sum + (costPrice * stockAtDate);
-  }, 0) || 0;
-
   // Best selling products (by quantity sold)
   const productSalesMap: Record<string, { name: string; quantity: number; sales: number }> = {};
   filteredSales?.forEach(sale => {
-    sale.products.forEach(product => {
+    sale.products.forEach((product: SaleProduct) => {
       const productData = products?.find(p => p.id === product.productId);
       if (!productData) return;
       if (!productSalesMap[product.productId]) {
