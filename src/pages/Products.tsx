@@ -2882,6 +2882,7 @@ const Products = () => {
           <Input
             label={t('suppliers.form.contact')}
             name="contact"
+            type="tel"
             value={quickSupplierData.contact}
             onChange={handleQuickSupplierInputChange}
             required

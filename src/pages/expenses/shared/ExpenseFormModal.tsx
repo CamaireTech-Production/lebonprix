@@ -36,38 +36,40 @@ const ExpenseFormModal = ({ isOpen, mode, expense, onClose, onSuccess }: Expense
   const [selectedType, setSelectedType] = useState<{ label: string; value: string } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Load expense data when editing
+  // Load expense data when editing or reset when opening in add mode
   useEffect(() => {
-    if (mode === 'edit' && expense) {
-      // Convert date to string format for input
-      let dateValue = new Date().toISOString().split('T')[0];
-      if (expense.date?.seconds) {
-        dateValue = new Date(expense.date.seconds * 1000).toISOString().split('T')[0];
-      } else if (expense.createdAt?.seconds) {
-        dateValue = new Date(expense.createdAt.seconds * 1000).toISOString().split('T')[0];
+    if (isOpen) {
+      if (mode === 'edit' && expense) {
+        // Convert date to string format for input
+        let dateValue = new Date().toISOString().split('T')[0];
+        if (expense.date?.seconds) {
+          dateValue = new Date(expense.date.seconds * 1000).toISOString().split('T')[0];
+        } else if (expense.createdAt?.seconds) {
+          dateValue = new Date(expense.createdAt.seconds * 1000).toISOString().split('T')[0];
+        }
+        
+        setFormData({
+          description: expense.description,
+          amount: expense.amount.toString(),
+          category: expense.category,
+          date: dateValue,
+        });
+        setSelectedType({ 
+          label: t(`expenses.categories.${expense.category}`, expense.category), 
+          value: expense.category 
+        });
+      } else {
+        // Reset form for add mode
+        setFormData({
+          description: '',
+          amount: '',
+          category: 'transportation',
+          date: new Date().toISOString().split('T')[0],
+        });
+        setSelectedType(null);
       }
-      
-      setFormData({
-        description: expense.description,
-        amount: expense.amount.toString(),
-        category: expense.category,
-        date: dateValue,
-      });
-      setSelectedType({ 
-        label: t(`expenses.categories.${expense.category}`, expense.category), 
-        value: expense.category 
-      });
-    } else {
-      // Reset form for add mode
-      setFormData({
-        description: '',
-        amount: '',
-        category: 'transportation',
-        date: new Date().toISOString().split('T')[0],
-      });
-      setSelectedType(null);
     }
-  }, [mode, expense, t]);
+  }, [isOpen, mode, expense, t]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -172,8 +174,8 @@ const ExpenseFormModal = ({ isOpen, mode, expense, onClose, onSuccess }: Expense
         }
         
         await syncFinanceEntryWithExpense(newExpense);
-        onSuccess(newExpense);
         resetForm();
+        onSuccess(newExpense);
         showSuccessToast(t('expenses.messages.addSuccess'));
       } else {
         // Edit mode
@@ -212,7 +214,7 @@ const ExpenseFormModal = ({ isOpen, mode, expense, onClose, onSuccess }: Expense
         }
       }
       
-      onClose();
+      handleClose();
     } catch (err) {
       logError(`Failed to ${mode} expense`, err);
       showErrorToast(
@@ -225,14 +227,22 @@ const ExpenseFormModal = ({ isOpen, mode, expense, onClose, onSuccess }: Expense
     }
   };
 
+  const handleClose = () => {
+    // Reset form when closing
+    if (mode === 'add') {
+      resetForm();
+    }
+    onClose();
+  };
+
   return (
     <Modal
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={handleClose}
       title={mode === 'add' ? t('expenses.modals.add.title') : t('expenses.modals.edit.title')}
       footer={
         <ModalFooter 
-          onCancel={onClose}
+          onCancel={handleClose}
           onConfirm={handleSubmit}
           confirmText={mode === 'add' ? t('expenses.modals.add.confirm') : t('expenses.modals.edit.confirm')}
           isLoading={isSubmitting}

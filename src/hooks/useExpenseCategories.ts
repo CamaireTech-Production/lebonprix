@@ -110,7 +110,7 @@ export const useExpenseCategories = (): UseExpenseCategoriesReturn => {
       isDefault: false,
       userId: user.uid,
       companyId: company.id
-    } as any);
+    });
     
     // Refresh the lists
     await Promise.all([
