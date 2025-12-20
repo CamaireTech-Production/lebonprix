@@ -13,7 +13,6 @@ import type { SellerSettings, PaymentMethod } from '../../types/order';
 import type { CheckoutSettings, CheckoutSettingsUpdate } from '../../types/checkoutSettings';
 import type { CinetPayConfig, CinetPayConfigUpdate } from '../../types/cinetpay';
 import PaymentMethodModal from '../../components/settings/PaymentMethodModal';
-import i18n from '../../i18n/config';
 import { combineActivities } from '@utils/business/activityUtils';
 import { Plus, Copy, Check, ExternalLink, CreditCard, Truck, ShoppingBag, Save, RotateCcw, Eye, Trash2 } from 'lucide-react';
 
@@ -25,7 +24,7 @@ function normalizeWebsite(raw: string): string | undefined {
 }
 
 const Settings = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [activeTab, setActiveTab] = useState('colors');
   const { company, updateCompany, updateUserPassword, user, isOwner, effectiveRole } = useAuth();
   
