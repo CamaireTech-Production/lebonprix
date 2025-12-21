@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ChevronDown, Plus, Grid, Search } from 'lucide-react';
 import { ImageWithSkeleton } from '@components/common';
-import { useCategories } from '@hooks/data/useFirestore';
+import { useProductCategories } from '@hooks/data/useFirestore';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
 import type { Category } from '../../types/models';
 
@@ -20,7 +20,7 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
   placeholder = "Select a category",
   className = ""
 }) => {
-  const { categories, loading, addCategory } = useCategories();
+  const { categories, loading, addCategory } = useProductCategories();
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isCreating, setIsCreating] = useState(false);
@@ -59,7 +59,7 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
     
     setIsCreating(true);
     try {
-      const newCategory = await addCategory(categoryName);
+      const newCategory = await addCategory(categoryName, 'product');
       
       // Sélectionner automatiquement la nouvelle catégorie
       onChange(newCategory.name);

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ChevronDown, Plus, Grid, Search } from 'lucide-react';
 import { ImageWithSkeleton } from '@components/common';
-import { useCategories } from '@hooks/data/useFirestore';
+import { useMatiereCategories } from '@hooks/data/useFirestore';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
 import type { Category } from '../../types/models';
 
@@ -20,15 +20,13 @@ const MatiereCategorySelector: React.FC<MatiereCategorySelectorProps> = ({
   placeholder = "Sélectionner une catégorie",
   className = ""
 }) => {
-  const { categories, loading, addCategory } = useCategories();
+  const { categories, loading, addCategory } = useMatiereCategories();
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isCreating, setIsCreating] = useState(false);
 
-  // Filter categories: only show those with matiereCount > 0
-  const availableCategories = categories.filter(category => 
-    (category.matiereCount ?? 0) > 0
-  );
+  // Categories are already filtered by type: 'matiere' from useMatiereCategories
+  const availableCategories = categories;
 
   // Filter categories based on search
   const filteredCategories = availableCategories.filter(category =>
@@ -64,7 +62,7 @@ const MatiereCategorySelector: React.FC<MatiereCategorySelectorProps> = ({
     
     setIsCreating(true);
     try {
-      const newCategory = await addCategory(categoryName);
+      const newCategory = await addCategory(categoryName, 'matiere');
       
       // Sélectionner automatiquement la nouvelle catégorie
       onChange(newCategory.name);

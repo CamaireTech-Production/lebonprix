@@ -13,8 +13,7 @@ import {
   createCategory, 
   updateCategory, 
   deleteCategory, 
-  subscribeToCategories,
-  recalculateCategoryProductCounts
+  subscribeToCategories
 } from '@services/firestore/categories/categoryService';
 
 const Categories = () => {
@@ -44,6 +43,7 @@ const Categories = () => {
     image: '',
     imagePath: '',
     compressedImageFile: null as File | null,
+    type: 'product' as 'product' | 'matiere',
   });
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   
@@ -62,7 +62,7 @@ const Categories = () => {
       setLoading(false);
       setSyncing(false);
       setError(null);
-    });
+    }, 'product'); // Always show product categories only
 
     return () => unsubscribe();
   }, [user, company]);
@@ -81,6 +81,7 @@ const Categories = () => {
       image: '',
       imagePath: '',
       compressedImageFile: null,
+      type: 'product', // Always product for product categories page
     });
     setCurrentCategory(null);
   };
@@ -166,6 +167,7 @@ const Categories = () => {
       image: category.image || '',
       imagePath: category.imagePath || '',
       compressedImageFile: null,
+      type: category.type || 'product',
     });
     setIsEditModalOpen(true);
   };
@@ -255,6 +257,7 @@ const Categories = () => {
         description: formData.description.trim() || '',
         image: imageUrl,
         imagePath: imagePath,
+        type: 'product' as const, // Always product for product categories page
         userId: user.uid,
         companyId: company.id,
       };
@@ -375,21 +378,6 @@ const Categories = () => {
     }
   };
 
-  // Handle recalculate category counts
-  const handleRecalculateCounts = async () => {
-    if (!user || !company) return;
-    
-    setSyncing(true);
-    try {
-      await recalculateCategoryProductCounts(company.id);
-      showSuccessToast('Category product counts recalculated successfully');
-    } catch (error) {
-      console.error('Error recalculating category counts:', error);
-      showErrorToast('Failed to recalculate category counts');
-    } finally {
-      setSyncing(false);
-    }
-  };
 
   if (loading) {
     return <LoadingScreen />;
@@ -413,14 +401,6 @@ const Categories = () => {
         </div>
         <div className="flex items-center gap-3">
           <SyncIndicator isSyncing={syncing} />
-          <Button 
-            onClick={handleRecalculateCounts} 
-            variant="outline"
-            disabled={syncing}
-            isLoading={syncing}
-          >
-            Recalculate Counts
-          </Button>
           <Button onClick={openAddModal} icon={<Plus size={20} />}>
             Add Category
           </Button>
@@ -514,13 +494,20 @@ const Categories = () => {
                       </p>
                     )}
                     <div className="mt-auto">
-                      <div className="flex gap-2 mb-3">
-                        <Badge variant="info">
-                          {category.productCount || 0} produits
+                      <div className="flex gap-2 mb-3 flex-wrap">
+                        <Badge variant={category.type === 'product' ? 'success' : 'warning'}>
+                          {category.type === 'product' ? 'Product' : 'Matiere'}
                         </Badge>
-                        <Badge variant="info">
-                          {category.matiereCount || 0} matières
-                        </Badge>
+                        {category.type === 'product' && (
+                          <Badge variant="info">
+                            {category.productCount || 0} produits
+                          </Badge>
+                        )}
+                        {category.type === 'matiere' && (
+                          <Badge variant="info">
+                            {category.matiereCount || 0} matières
+                          </Badge>
+                        )}
                       </div>
                       <div className="text-xs text-gray-400 mb-3">
                         Créé par: {formatCreatorName(category.createdBy)}

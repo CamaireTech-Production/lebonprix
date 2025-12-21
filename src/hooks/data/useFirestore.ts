@@ -200,8 +200,8 @@ export const useProducts = () => {
   };
 };
 
-// Categories Hook with Caching
-export const useCategories = () => {
+// Categories Hook with Caching (backward compatible, supports optional type filter)
+export const useCategories = (type?: 'product' | 'matiere') => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -210,7 +210,7 @@ export const useCategories = () => {
   useEffect(() => {
     if (!user || !company) return;
     
-    const cacheKey = cacheKeys.categories(company.id);
+    const cacheKey = type ? cacheKeys.categories(company.id, type) : cacheKeys.categories(company.id);
     
     // Check cache first
     const cachedCategories = dataCache.get<Category[]>(cacheKey);
@@ -225,12 +225,12 @@ export const useCategories = () => {
       
       // Cache the data for 10 minutes (categories change rarely)
       dataCache.set(cacheKey, data, 10 * 60 * 1000);
-    });
+    }, type);
 
     return () => unsubscribe();
-  }, [user, company]);
+  }, [user, company, type]);
 
-  const addCategory = async (name: string) => {
+  const addCategory = async (name: string, categoryType?: 'product' | 'matiere') => {
     if (!user || !company) throw new Error('User not authenticated');
     try {
       // Get createdBy employee reference
@@ -248,7 +248,15 @@ export const useCategories = () => {
         createdBy = getCurrentEmployeeRef(currentEmployee, user, isOwner, userData);
       }
       
-      const category = await createCategory({ name, userId: user.uid, companyId: company.id }, company.id, createdBy);
+      // Use provided type, or fallback to hook type, or default to 'product' for backward compatibility
+      const finalType = categoryType || type || 'product';
+      
+      const category = await createCategory({ 
+        name, 
+        type: finalType,
+        userId: user.uid, 
+        companyId: company.id 
+      }, company.id, createdBy);
       return category;
     } catch (err) {
       setError(err as Error);
@@ -257,6 +265,16 @@ export const useCategories = () => {
   };
 
   return { categories, loading, error, addCategory };
+};
+
+// Product Categories Hook - queries only product categories
+export const useProductCategories = () => {
+  return useCategories('product');
+};
+
+// Matiere Categories Hook - queries only matiere categories
+export const useMatiereCategories = () => {
+  return useCategories('matiere');
 };
 
 // Sales Hook with localStorage + Background Sync

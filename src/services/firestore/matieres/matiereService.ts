@@ -64,6 +64,7 @@ export const createMatiere = async (
       collection(db, 'categories'),
       where('name', '==', data.refCategorie),
       where('companyId', '==', companyId),
+      where('type', '==', 'matiere'),
       where('isActive', '==', true)
     );
     const categorySnapshot = await getDocs(categoryQuery);
@@ -254,6 +255,7 @@ export const updateMatiere = async (
         collection(db, 'categories'),
         where('name', '==', data.refCategorie),
         where('companyId', '==', companyId),
+        where('type', '==', 'matiere'),
         where('isActive', '==', true)
       );
       const categorySnapshot = await getDocs(categoryQuery);
@@ -354,6 +356,7 @@ export const updateCategoryMatiereCount = async (categoryName: string, companyId
       collection(db, 'categories'),
       where('name', '==', categoryName),
       where('companyId', '==', companyId),
+      where('type', '==', 'matiere'),
       where('isActive', '==', true)
     );
 
