@@ -1,10 +1,11 @@
 import React, { useState, FormEvent, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@contexts/AuthContext';
 import { Button, Input, LoadingScreen } from '@components/common';
 import { LoginPWAInstallButton } from '@components/pwa';
 import { getUserSession, hasActiveSession } from '@utils/storage/userSession';
 import { showErrorToast, showSuccessToast } from '@utils/core/toast';
+import { acceptInvitation, getInvitation } from '@services/firestore/employees/invitationService';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -12,6 +13,8 @@ const Login = () => {
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const inviteId = searchParams.get('invite');
   
   const { loading, signIn, user, companyLoading } = useAuth();
 
@@ -45,17 +48,42 @@ const Login = () => {
   }, [loading, navigate]);
 
   // Watch for user authentication state and company verification completion
+  // Also handle invitation acceptance if invite parameter is present
   useEffect(() => {
-    if (user && isLoading) {
-      // Wait for company verification to complete before stopping loading
-      // This ensures the button shows loading during the entire auth process including company verification
-      if (companyLoading === false) {
-        // Company verification is complete, stop loading
-        setIsLoading(false);
-      }
-      // If companyLoading is still true, this effect will re-run when companyLoading becomes false
+    if (user && isLoading && companyLoading === false) {
+      // Company verification is complete, handle invitation if present
+      const handleInvitationAndRedirect = async () => {
+        try {
+          if (inviteId && user.uid) {
+            // Get invitation first to get companyId
+            const invitation = await getInvitation(inviteId);
+            if (!invitation) {
+              throw new Error('Invitation not found');
+            }
+            
+            // Accept invitation after successful login
+            await acceptInvitation(inviteId, user.uid);
+            showSuccessToast('Invitation acceptée avec succès !');
+            
+            // Redirect directly to the company dashboard
+            navigate(`/company/${invitation.companyId}/dashboard`);
+            setIsLoading(false);
+            return;
+          }
+          
+          // No invitation, proceed with normal redirect
+          setIsLoading(false);
+        } catch (error) {
+          console.error('Error accepting invitation:', error);
+          showErrorToast('Erreur lors de l\'acceptation de l\'invitation. Vous pouvez toujours accéder à votre compte.');
+          setIsLoading(false);
+          // Still redirect normally even if invitation fails
+        }
+      };
+      
+      handleInvitationAndRedirect();
     }
-  }, [user, isLoading, companyLoading]);
+  }, [user, isLoading, companyLoading, inviteId, navigate]);
 
   if (loading) {
     return <LoadingScreen />;
@@ -121,6 +149,13 @@ const Login = () => {
   return (
     <div>
       <h2 className="text-2xl font-bold text-gray-900 mb-6">Sign in to your account</h2>
+      {inviteId && (
+        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+          <p className="text-sm text-blue-800">
+            📧 You have a pending invitation. Sign in to accept it and join the company.
+          </p>
+        </div>
+      )}
       
       <form onSubmit={handleSubmit}>
         <div className="space-y-4">

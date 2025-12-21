@@ -1,25 +1,30 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Card, Button, LoadingScreen } from '@components/common';
-import { useAuth } from '@contexts/AuthContext';
-import { getInvitation, acceptInvitation, rejectInvitation } from '@services/firestore/employees/invitationService';
-import { getTemplateById } from '@services/firestore/employees/permissionTemplateService';
-import { showErrorToast } from '@utils/core/toast';
-import { formatDistanceToNow } from 'date-fns';
-import { Timestamp } from 'firebase/firestore';
-import { CheckCircle, XCircle, Clock, Building2, User } from 'lucide-react';
-import type { Invitation } from '../../types/models';
-import type { PermissionTemplate } from '../../types/permissions';
 
+/**
+ * InviteActivate - Legacy redirect page
+ * 
+ * This page is kept for backward compatibility with old invitation links.
+ * New invitations redirect directly to the login page with invite parameter.
+ * 
+ * This page simply redirects to the login page with the invite parameter.
+ */
 export default function InviteActivate() {
   const { inviteId } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const [invitation, setInvitation] = useState<Invitation | null>(null);
-  const [template, setTemplate] = useState<PermissionTemplate | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [processing, setProcessing] = useState(false);
-  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (inviteId) {
+      // Redirect to login page with invite parameter
+      navigate(`/auth/login?invite=${inviteId}`, { replace: true });
+    } else {
+      // Invalid invite ID, redirect to login
+      navigate('/auth/login', { replace: true });
+    }
+  }, [inviteId, navigate]);
+
+  // Show nothing while redirecting
+  return null;
 
   const loadInvitation = useCallback(async () => {
     try {
