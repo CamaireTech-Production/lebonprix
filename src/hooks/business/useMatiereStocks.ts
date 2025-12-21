@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { onSnapshot, query, where, orderBy, collection, getDoc, doc } from 'firebase/firestore';
+import { onSnapshot, query, where, orderBy, collection } from 'firebase/firestore';
 import { db } from '@services/core/firebase';
 import { useAuth } from '@contexts/AuthContext';
 import { useMatieres } from '@hooks/business/useMatieres';
@@ -22,7 +22,6 @@ export const useMatiereStocks = () => {
   const { matieres } = useMatieres();
   const [batches, setBatches] = useState<StockBatch[]>([]);
   const [stockChanges, setStockChanges] = useState<StockChange[]>([]);
-  const [stocks, setStocks] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,25 +36,20 @@ export const useMatiereStocks = () => {
     setLoading(true);
     setError(null);
 
-    // Firestore doesn't support != null queries well, so we fetch all batches and filter
-    // Retirer orderBy pour éviter l'index - trier en mémoire
+    // Query only matiere batches using type filter
     const q = query(
       collection(db, 'stockBatches'),
-      where('companyId', '==', company.id)
+      where('companyId', '==', company.id),
+      where('type', '==', 'matiere')
     );
 
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
-        const allBatches = snapshot.docs.map(doc => ({
+        const matiereBatches = snapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
         })) as StockBatch[];
-        
-        // Filter to only matiere batches (those with matiereId and no productId)
-        const matiereBatches = allBatches.filter(batch => 
-          batch.matiereId && !batch.productId
-        );
         
         // Sort in memory by createdAt descending
         matiereBatches.sort((a, b) => {
@@ -84,25 +78,20 @@ export const useMatiereStocks = () => {
       return;
     }
 
-    // Firestore doesn't support != null queries well, so we fetch all changes and filter
-    // Retirer orderBy pour éviter l'index - trier en mémoire
+    // Query only matiere stock changes using type filter
     const q = query(
       collection(db, 'stockChanges'),
-      where('companyId', '==', company.id)
+      where('companyId', '==', company.id),
+      where('type', '==', 'matiere')
     );
 
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
-        const allChanges = snapshot.docs.map(doc => ({
+        const matiereChanges = snapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
         })) as StockChange[];
-        
-        // Filter to only matiere changes (those with matiereId and no productId)
-        const matiereChanges = allChanges.filter(change => 
-          change.matiereId && !change.productId
-        );
         
         // Sort in memory by createdAt descending
         matiereChanges.sort((a, b) => {
@@ -121,51 +110,14 @@ export const useMatiereStocks = () => {
     return unsubscribe;
   }, [company?.id]);
 
-  // Load stock quantities from stocks collection
-  useEffect(() => {
-    if (!matieres.length) {
-      setStocks({});
-      return;
-    }
-
-    const loadStocks = async () => {
-      const stocksMap: Record<string, number> = {};
-      
-      for (const matiere of matieres) {
-        if (matiere.refStock) {
-          try {
-            const stockDoc = await getDoc(doc(db, 'stocks', matiere.refStock));
-            if (stockDoc.exists()) {
-              const stockData = stockDoc.data();
-              stocksMap[matiere.id] = stockData.quantity || 0;
-            } else {
-              stocksMap[matiere.id] = 0;
-            }
-          } catch (err) {
-            logError(`Error loading stock for matiere ${matiere.id}`, err);
-            stocksMap[matiere.id] = 0;
-          }
-        } else {
-          stocksMap[matiere.id] = 0;
-        }
-      }
-      
-      setStocks(stocksMap);
-    };
-
-    loadStocks();
-  }, [matieres]);
-
-  // Combine matieres with stock info
+  // Combine matieres with stock info (calculate stock from batches only - single source of truth)
   const matiereStocks = useMemo<MatiereStockInfo[]>(() => {
     return matieres.map(matiere => {
       const matiereBatches = batches.filter(b => b.matiereId === matiere.id);
       const matiereStockChanges = stockChanges.filter(sc => sc.matiereId === matiere.id);
-      const currentStock = stocks[matiere.id] || 0;
       
-      // Calculate stock from batches if available
-      const calculatedStock = matiereBatches.reduce((sum, b) => sum + (b.remainingQuantity || 0), 0);
-      const effectiveStock = calculatedStock > 0 ? calculatedStock : currentStock;
+      // Calculate stock ONLY from batches (single source of truth, like products)
+      const effectiveStock = matiereBatches.reduce((sum, b) => sum + (b.remainingQuantity || 0), 0);
 
       return {
         matiereId: matiere.id,
@@ -178,7 +130,7 @@ export const useMatiereStocks = () => {
         stockChanges: matiereStockChanges
       };
     });
-  }, [matieres, batches, stockChanges, stocks]);
+  }, [matieres, batches, stockChanges]);
 
   return {
     matiereStocks,

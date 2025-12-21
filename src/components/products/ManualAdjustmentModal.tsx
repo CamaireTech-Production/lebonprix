@@ -15,8 +15,8 @@ import { showSuccessToast, showErrorToast } from '@utils/core/toast';
 interface TempBatchEdit {
   batchId: string;
   batch: StockBatch;
-  quantityChange: number;
-  newCostPrice?: number;
+  quantityChange?: number; // undefined means no quantity change
+  newCostPrice?: number; // undefined means no price change
   notes?: string;
   timestamp: Date;
 }
@@ -55,7 +55,7 @@ const ManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
   
   const [formData, setFormData] = useState({
     batchId: '',
-    quantityChange: '',
+    newStock: '',
     newCostPrice: '',
     notes: ''
   });
@@ -89,7 +89,7 @@ const ManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
     if (isOpen) {
       setFormData({
         batchId: '',
-        quantityChange: '',
+        newStock: '',
         newCostPrice: '',
         notes: ''
       });
@@ -148,32 +148,49 @@ const ManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
       errors.push('Please select a batch');
     }
 
-    // At least one of quantity change or new cost price must be provided
-    if (!formData.quantityChange && !formData.newCostPrice) {
-      errors.push('Enter a quantity change and/or a new cost price');
+    // At least one of new stock or new cost price must be provided
+    const hasNewStock = formData.newStock.trim() !== '';
+    const hasNewCostPrice = formData.newCostPrice.trim() !== '';
+    
+    if (!hasNewStock && !hasNewCostPrice) {
+      errors.push('Enter a new stock quantity and/or a new cost price');
     }
 
-    if (formData.quantityChange) {
-      const quantityChange = parseInt(formData.quantityChange, 10);
-      if (isNaN(quantityChange)) {
-        errors.push('Quantity change must be a valid whole number');
+    // Validate new stock only if provided
+    if (hasNewStock) {
+      // Check if input contains decimal point
+      if (formData.newStock.includes('.')) {
+        errors.push('New stock must be a whole number (no decimals)');
+      } else {
+        const newStock = parseInt(formData.newStock, 10);
+        if (isNaN(newStock) || newStock < 0) {
+          errors.push('New stock must be a valid whole number greater than or equal to 0');
+        }
       }
     }
 
-    if (formData.newCostPrice) {
+    // Validate new cost price only if provided
+    if (hasNewCostPrice) {
       const newCostPrice = parseFloat(formData.newCostPrice);
       if (isNaN(newCostPrice) || newCostPrice < 0) {
         errors.push('New cost price must be a valid positive number');
       }
     }
 
-    // Validate with selected batch
+    // Validate with selected batch - only validate fields that are being changed
     if (selectedBatch) {
-      const quantityChange = parseInt(formData.quantityChange || '0', 10) || 0;
-      const newCostPrice = parseFloat(formData.newCostPrice) || selectedBatch.costPrice;
+      const newCostPrice = hasNewCostPrice ? parseFloat(formData.newCostPrice) : selectedBatch.costPrice;
       
-      const validation = validateBatchAdjustment(selectedBatch, quantityChange, newCostPrice);
-      errors.push(...validation.errors);
+      // Only validate quantity change if it's being modified
+      if (hasNewStock && !formData.newStock.includes('.')) {
+        const newStock = parseInt(formData.newStock, 10);
+        if (!isNaN(newStock) && newStock >= 0) {
+          const quantityChange = newStock - selectedBatch.remainingQuantity;
+          const validation = validateBatchAdjustment(selectedBatch, quantityChange, newCostPrice);
+          errors.push(...validation.errors);
+        }
+      }
+      // If only price is being changed, we don't need to validate quantity constraints
     }
 
     setValidationErrors(errors);
@@ -187,8 +204,22 @@ const ManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
       return;
     }
 
-    const quantityChange = parseInt(formData.quantityChange || '0', 10) || 0;
-    const newCostPrice = formData.newCostPrice ? parseFloat(formData.newCostPrice) : undefined;
+    // Treat empty string as undefined (no change), only parse if value is provided
+    let quantityChange: number | undefined = undefined;
+    if (formData.newStock.trim() !== '') {
+      if (formData.newStock.includes('.')) {
+        showErrorToast('New stock must be a whole number (no decimals)');
+        return;
+      }
+      const newStock = parseInt(formData.newStock, 10);
+      if (!isNaN(newStock) && newStock >= 0) {
+        quantityChange = newStock - selectedBatch.remainingQuantity;
+      }
+    }
+    
+    const newCostPrice = formData.newCostPrice.trim() !== '' 
+      ? parseFloat(formData.newCostPrice) 
+      : undefined;
 
     // Check if this batch is already in temp edits
     const existingEditIndex = tempEdits.findIndex(edit => edit.batchId === selectedBatch.id);
@@ -217,7 +248,7 @@ const ManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
     // Reset form for next batch
     setFormData({
       batchId: '',
-      quantityChange: '',
+      newStock: '',
       newCostPrice: '',
       notes: ''
     });
@@ -289,8 +320,28 @@ const ManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
       return;
     }
 
-    const quantityChange = parseInt(formData.quantityChange || '0', 10) || 0;
-    const newCostPrice = formData.newCostPrice ? parseFloat(formData.newCostPrice) : undefined;
+    // Calculate quantity change from new stock value
+    let quantityChange: number | undefined = undefined;
+    if (formData.newStock.trim() !== '') {
+      // Check if input contains decimal point
+      if (formData.newStock.includes('.')) {
+        showErrorToast('New stock must be a whole number (no decimals)');
+        return;
+      }
+      
+      const newStock = parseInt(formData.newStock, 10);
+      if (isNaN(newStock) || newStock < 0) {
+        showErrorToast('Invalid new stock value. Must be a whole number greater than or equal to 0.');
+        return;
+      }
+      
+      // Calculate quantity change: newStock - currentBatchStock
+      quantityChange = newStock - selectedBatch.remainingQuantity;
+    }
+    
+    const newCostPrice = formData.newCostPrice.trim() !== '' 
+      ? parseFloat(formData.newCostPrice) 
+      : undefined;
 
     setLoading(true);
 
@@ -328,21 +379,20 @@ const ManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
       { value: '', label: 'Select a batch to adjust' },
       ...availableBatches.map(batch => ({
         value: batch.id,
-        label: `Batch ${batch.id.slice(-8)} - ${batch.remainingQuantity} units @ ${formatCostPrice(batch.costPrice)}`
+        label: `Batch ${batch.id.slice(-8)} - ${batch.remainingQuantity} @ ${formatCostPrice(batch.costPrice)}`
       }))
     ];
   };
 
-  const calculateNewRemainingQuantity = () => {
-    if (!selectedBatch) return 0;
-    const quantityChange = parseInt(formData.quantityChange || '0', 10) || 0;
-    return selectedBatch.remainingQuantity + quantityChange;
-  };
-
-  const calculateNewStock = () => {
-    const quantityChange = parseInt(formData.quantityChange || '0', 10) || 0;
+  const calculateNewProductStock = () => {
+    if (!selectedBatch || !formData.newStock) return derivedRemaining;
+    const newStock = parseInt(formData.newStock, 10);
+    if (isNaN(newStock)) return derivedRemaining;
+    
+    // Calculate the difference in batch stock
+    const batchDifference = newStock - selectedBatch.remainingQuantity;
     const baseStock = typeof derivedRemaining === 'number' ? derivedRemaining : 0;
-    return baseStock + quantityChange;
+    return baseStock + batchDifference;
   };
 
   if (!product) return null;
@@ -372,7 +422,7 @@ const ManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
               <p className="text-gray-900">
                 {derivedTotal !== undefined
                   ? `${derivedRemaining} / ${derivedTotal}`
-                  : derivedRemaining}
+                  : `${derivedRemaining}`}
               </p>
             </div>
             <div>
@@ -431,21 +481,21 @@ const ManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
                         </div>
                         <div className="grid grid-cols-2 gap-2 text-sm">
                           <div>
-                            <span className="font-medium text-gray-600">Quantity Change:</span>
-                            <span className={`ml-2 ${edit.quantityChange > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                              {edit.quantityChange > 0 ? '+' : ''}{edit.quantityChange}
+                            <span className="font-medium text-gray-600">New Stock Quantity:</span>
+                            <span className="ml-2 text-gray-900">
+                              {edit.quantityChange !== undefined
+                                ? (edit.batch.remainingQuantity + edit.quantityChange).toLocaleString()
+                                : `${edit.batch.remainingQuantity.toLocaleString()} (unchanged)`
+                              }
                             </span>
                           </div>
                           <div>
                             <span className="font-medium text-gray-600">New Cost Price:</span>
                             <span className="ml-2 text-gray-900">
-                              {edit.newCostPrice ? formatCostPrice(edit.newCostPrice) : formatCostPrice(edit.batch.costPrice)}
-                            </span>
-                          </div>
-                          <div className="col-span-2">
-                            <span className="font-medium text-gray-600">New Quantity:</span>
-                            <span className="ml-2 text-gray-900">
-                              {edit.batch.remainingQuantity + edit.quantityChange}
+                              {edit.newCostPrice 
+                                ? formatCostPrice(edit.newCostPrice)
+                                : `${formatCostPrice(edit.batch.costPrice)} (unchanged)`
+                              }
                             </span>
                           </div>
                           {edit.notes && (
@@ -498,49 +548,27 @@ const ManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
           )}
         </div>
 
-        {/* Selected Batch Information */}
-        {selectedBatch && (
-          <div className="bg-blue-50 p-4 rounded-lg">
-            <h3 className="text-lg font-medium text-blue-900 mb-2">Selected Batch Information</h3>
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <span className="font-medium text-blue-700">Batch ID:</span>
-                <p className="text-blue-900 font-mono">{selectedBatch.id}</p>
-              </div>
-              <div>
-                <span className="font-medium text-blue-700">Remaining Quantity:</span>
-                <p className="text-blue-900">{selectedBatch.remainingQuantity}</p>
-              </div>
-              <div>
-                <span className="font-medium text-blue-700">Current Cost Price:</span>
-                <p className="text-blue-900">{formatCostPrice(selectedBatch.costPrice)}</p>
-              </div>
-              <div>
-                <span className="font-medium text-blue-700">Status:</span>
-                <p className="text-blue-900 capitalize">{selectedBatch.status}</p>
-              </div>
-              {selectedBatch.supplierId && (
-                <div className="col-span-2">
-                  <span className="font-medium text-blue-700">Supplier:</span>
-                  <p className="text-blue-900">{selectedBatch.supplierId}</p>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
         {/* Adjustment Details */}
         <div className="space-y-4">
           <h3 className="text-lg font-medium text-gray-900">Adjustment Details</h3>
           
+          {selectedBatch && (
+            <div className="bg-gray-50 p-3 rounded-lg mb-4">
+              <p className="text-sm text-gray-600">
+                Current batch stock: <span className="font-medium text-gray-900">{selectedBatch.remainingQuantity}</span>
+              </p>
+            </div>
+          )}
+          
           <div className="grid grid-cols-2 gap-4">
             <Input
-              label="Quantity Change"
+              label="New Stock Quantity (Optional)"
               type="number"
-              value={formData.quantityChange}
-              onChange={(e) => handleInputChange('quantityChange', e.target.value)}
-              placeholder="+10 or -5"
-              required
+              value={formData.newStock}
+              onChange={(e) => handleInputChange('newStock', e.target.value)}
+              placeholder={selectedBatch ? `Enter new stock (current: ${selectedBatch.remainingQuantity})` : "Enter new stock"}
+              helpText="Leave empty if you only want to change the price"
+              min="0"
               step="1"
             />
             
@@ -549,33 +577,44 @@ const ManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
               name="newCostPrice"
               value={formData.newCostPrice}
               onChange={(e) => handleInputChange('newCostPrice', e.target.value)}
-              placeholder="Leave empty to keep current"
+              placeholder="Leave empty to keep current price"
+              helpText="Leave empty if you only want to change the quantity"
               allowDecimals={true}
             />
           </div>
 
           {/* Preview Changes */}
-          {selectedBatch && formData.quantityChange && (
+          {selectedBatch && (formData.newStock.trim() !== '' || formData.newCostPrice.trim() !== '') && (
             <div className="bg-green-50 p-4 rounded-lg">
               <h4 className="text-md font-medium text-green-800 mb-2">Preview Changes</h4>
               <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="font-medium text-green-700">New Batch Quantity:</span>
-                  <p className="text-green-900">{calculateNewRemainingQuantity()}</p>
-                </div>
-                <div>
-                  <span className="font-medium text-green-700">New Product Stock:</span>
-                  <p className="text-green-900">{calculateNewStock()}</p>
-                </div>
-                <div>
+                {formData.newStock.trim() !== '' && !formData.newStock.includes('.') && !isNaN(parseInt(formData.newStock, 10)) && parseInt(formData.newStock, 10) >= 0 && (
+                  <>
+                    <div>
+                      <span className="font-medium text-green-700">New Batch Quantity:</span>
+                      <p className="text-green-900">{parseInt(formData.newStock, 10).toLocaleString()}</p>
+                    </div>
+                    <div>
+                      <span className="font-medium text-green-700">New Product Stock:</span>
+                      <p className="text-green-900">{calculateNewProductStock().toLocaleString()}</p>
+                    </div>
+                  </>
+                )}
+                <div className={formData.newStock.trim() === '' ? 'col-span-2' : ''}>
                   <span className="font-medium text-green-700">New Cost Price:</span>
                   <p className="text-green-900">
-                    {formData.newCostPrice 
+                    {formData.newCostPrice.trim() !== '' 
                       ? formatCostPrice(parseFloat(formData.newCostPrice))
-                      : formatCostPrice(selectedBatch.costPrice)
+                      : formatCostPrice(selectedBatch.costPrice) + ' (unchanged)'
                     }
                   </p>
                 </div>
+                {formData.newStock.trim() === '' && (
+                  <div className="col-span-2">
+                    <span className="font-medium text-green-700">Batch Quantity:</span>
+                    <p className="text-green-900">{selectedBatch.remainingQuantity} (unchanged)</p>
+                  </div>
+                )}
               </div>
             </div>
           )}

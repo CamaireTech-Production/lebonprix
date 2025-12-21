@@ -37,15 +37,20 @@ export const createStockBatch = async (
   isOwnPurchase?: boolean,
   isCredit?: boolean,
   notes?: string,
-  isMatiere?: boolean
+  type: 'product' | 'matiere' = 'product' // Default to product for backward compatibility
 ): Promise<StockBatch> => {
   if (!productIdOrMatiereId || quantity <= 0 || costPrice <= 0 || !userId) {
     throw new Error('Invalid stock batch data');
   }
 
+  // Validate type field
+  if (type !== 'product' && type !== 'matiere') {
+    throw new Error('Type must be either "product" or "matiere"');
+  }
+
   let finalCompanyId = companyId;
   if (!finalCompanyId) {
-    if (isMatiere) {
+    if (type === 'matiere') {
       const matiereRef = doc(db, 'matieres', productIdOrMatiereId);
       const matiereSnap = await getDoc(matiereRef);
       if (matiereSnap.exists()) {
@@ -67,6 +72,7 @@ export const createStockBatch = async (
   const stockBatchRef = doc(collection(db, 'stockBatches'));
   const batchData: any = {
     id: stockBatchRef.id,
+    type, // Set type field
     quantity,
     costPrice,
     userId,
@@ -76,7 +82,8 @@ export const createStockBatch = async (
     createdAt: serverTimestamp(),
   };
 
-  if (isMatiere) {
+  // Set the appropriate ID field based on type
+  if (type === 'matiere') {
     batchData.matiereId = productIdOrMatiereId;
   } else {
     batchData.productId = productIdOrMatiereId;
@@ -96,14 +103,26 @@ export const createStockBatch = async (
   } as StockBatch;
 };
 
-export const getAvailableStockBatches = async (productId: string): Promise<StockBatch[]> => {
-  const q = query(
-    collection(db, 'stockBatches'),
-    where('productId', '==', productId),
+export const getAvailableStockBatches = async (
+  productIdOrMatiereId: string,
+  type: 'product' | 'matiere' = 'product'
+): Promise<StockBatch[]> => {
+  const constraints: any[] = [
+    where('type', '==', type),
     where('remainingQuantity', '>', 0),
     where('status', '==', 'active'),
-    orderBy('createdAt', 'asc')
-  );
+  ];
+
+  // Add the appropriate ID filter based on type
+  if (type === 'matiere') {
+    constraints.push(where('matiereId', '==', productIdOrMatiereId));
+  } else {
+    constraints.push(where('productId', '==', productIdOrMatiereId));
+  }
+
+  constraints.push(orderBy('createdAt', 'asc'));
+
+  const q = query(collection(db, 'stockBatches'), ...constraints);
   
   const snapshot = await getDocs(q);
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as StockBatch[];
@@ -111,14 +130,15 @@ export const getAvailableStockBatches = async (productId: string): Promise<Stock
 
 export const consumeStockFromBatches = async (
   batch: WriteBatch,
-  productId: string,
+  productIdOrMatiereId: string,
   quantity: number,
-  method: InventoryMethod = 'FIFO'
+  method: InventoryMethod = 'FIFO',
+  type: 'product' | 'matiere' = 'product'
 ): Promise<InventoryResult> => {
-  const availableBatches = await getAvailableStockBatches(productId);
+  const availableBatches = await getAvailableStockBatches(productIdOrMatiereId, type);
   
   if (availableBatches.length === 0) {
-    throw new Error(`No available stock batches found for product ${productId}`);
+    throw new Error(`No available stock batches found for ${type} ${productIdOrMatiereId}`);
   }
 
   const sortedBatches = availableBatches.sort((a, b) => {
@@ -164,7 +184,7 @@ export const consumeStockFromBatches = async (
   }
 
   if (remainingQuantity > 0) {
-    throw new Error(`Insufficient stock available for product ${productId}. Need ${quantity}, available ${quantity - remainingQuantity}`);
+    throw new Error(`Insufficient stock available for ${type} ${productIdOrMatiereId}. Need ${quantity}, available ${quantity - remainingQuantity}`);
   }
 
   const averageCostPrice = totalConsumedQuantity > 0 ? totalCost / totalConsumedQuantity : 0;
@@ -211,6 +231,7 @@ export const createStockChange = (
   reason: StockChange['reason'],
   userId: string,
   companyId: string,
+  type: 'product' | 'matiere' = 'product', // Default to product for backward compatibility
   supplierId?: string,
   isOwnPurchase?: boolean,
   isCredit?: boolean,
@@ -222,11 +243,16 @@ export const createStockChange = (
     costPrice: number;
     consumedQuantity: number;
     remainingQuantity: number;
-  }>,
-  isMatiere?: boolean
+  }>
 ) => {
+  // Validate type field
+  if (type !== 'product' && type !== 'matiere') {
+    throw new Error('Type must be either "product" or "matiere"');
+  }
+
   const stockChangeRef = doc(collection(db, 'stockChanges'));
   const stockChangeData: any = {
+    type, // Set type field
     change,
     reason,
     userId,
@@ -234,7 +260,8 @@ export const createStockChange = (
     createdAt: serverTimestamp(),
   };
   
-  if (isMatiere) {
+  // Set the appropriate ID field based on type
+  if (type === 'matiere') {
     stockChangeData.matiereId = productIdOrMatiereId;
   } else {
     stockChangeData.productId = productIdOrMatiereId;
@@ -252,13 +279,24 @@ export const createStockChange = (
   return stockChangeRef.id;
 };
 
-export const subscribeToStockChanges = (companyId: string, callback: (stockChanges: StockChange[]) => void): (() => void) => {
-  const q = query(
-    collection(db, 'stockChanges'),
+export const subscribeToStockChanges = (
+  companyId: string,
+  callback: (stockChanges: StockChange[]) => void,
+  type?: 'product' | 'matiere'
+): (() => void) => {
+  const constraints: any[] = [
     where('companyId', '==', companyId),
-    orderBy('createdAt', 'desc'),
-    limit(200)
-  );
+  ];
+
+  // Add type filter if provided
+  if (type) {
+    constraints.push(where('type', '==', type));
+  }
+
+  constraints.push(orderBy('createdAt', 'desc'));
+  constraints.push(limit(200));
+
+  const q = query(collection(db, 'stockChanges'), ...constraints);
   
   return onSnapshot(q, (snapshot) => {
     const stockChanges = snapshot.docs.map(doc => ({
@@ -287,6 +325,7 @@ export const deleteStockChange = async (stockChangeId: string): Promise<void> =>
 export const getProductStockBatches = async (productId: string): Promise<StockBatch[]> => {
   const q = query(
     collection(db, 'stockBatches'),
+    where('type', '==', 'product'),
     where('productId', '==', productId),
     orderBy('createdAt', 'desc')
   );
@@ -325,6 +364,7 @@ export const getProductStockInfo = async (productId: string): Promise<{
 export const getMatiereStockBatches = async (matiereId: string): Promise<StockBatch[]> => {
   const q = query(
     collection(db, 'stockBatches'),
+    where('type', '==', 'matiere'),
     where('matiereId', '==', matiereId),
     orderBy('createdAt', 'desc')
   );
@@ -369,6 +409,7 @@ export const subscribeToMatiereStockBatches = (
   const q = query(
     collection(db, 'stockBatches'),
     where('companyId', '==', companyId),
+    where('type', '==', 'matiere'),
     where('matiereId', '==', matiereId)
   );
   
@@ -405,6 +446,7 @@ export const subscribeToMatiereStockChanges = (
   const q = query(
     collection(db, 'stockChanges'),
     where('companyId', '==', companyId),
+    where('type', '==', 'matiere'),
     where('matiereId', '==', matiereId),
     limit(200)
   );
@@ -461,11 +503,12 @@ export const correctBatchCostPrice = async (
   
   createStockChange(
     batch,
-    batchData.productId || '',
+    batchData.productId || batchData.matiereId || '',
     0,
     'cost_correction',
     userId,
     batchData.companyId,
+    batchData.type || 'product', // Use batch type or default to product
     batchData.supplierId,
     batchData.isOwnPurchase,
     batchData.isCredit,
@@ -476,17 +519,26 @@ export const correctBatchCostPrice = async (
   await batch.commit();
 };
 
-export const getStockBatchStats = async (userId: string): Promise<{
+export const getStockBatchStats = async (
+  userId: string,
+  type?: 'product' | 'matiere'
+): Promise<{
   totalBatches: number;
   activeBatches: number;
   depletedBatches: number;
   totalStockValue: number;
   averageCostPrice: number;
 }> => {
-  const q = query(
-    collection(db, 'stockBatches'),
-    where('userId', '==', userId)
-  );
+  const constraints: any[] = [
+    where('userId', '==', userId),
+  ];
+
+  // Add type filter if provided
+  if (type) {
+    constraints.push(where('type', '==', type));
+  }
+
+  const q = query(collection(db, 'stockBatches'), ...constraints);
   
   const snapshot = await getDocs(q);
   const batches = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as StockBatch[];
@@ -517,6 +569,7 @@ export const getProductBatchesForAdjustment = async (productId: string): Promise
   const batchesSnapshot = await getDocs(
     query(
       collection(db, 'stockBatches'),
+      where('type', '==', 'product'),
       where('productId', '==', productId),
       where('status', 'in', ['active', 'corrected']),
       orderBy('createdAt', 'desc')
@@ -573,6 +626,7 @@ export const getProductAdjustmentHistory = async (productId: string): Promise<St
   const stockChangesSnapshot = await getDocs(
     query(
       collection(db, 'stockChanges'),
+      where('type', '==', 'product'),
       where('productId', '==', productId),
       where('reason', 'in', ['restock', 'manual_adjustment', 'damage']),
       orderBy('createdAt', 'desc')

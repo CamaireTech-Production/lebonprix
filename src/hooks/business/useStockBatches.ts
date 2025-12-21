@@ -29,6 +29,7 @@ export const useStockBatches = (productId?: string) => {
 
     const q = query(
       collection(db, 'stockBatches'),
+      where('type', '==', 'product'),
       where('productId', '==', productId),
       orderBy('createdAt', 'asc')
     );
@@ -74,7 +75,8 @@ export const useStockBatches = (productId?: string) => {
         supplierId,
         isOwnPurchase,
         isCredit,
-        notes
+        notes,
+        'product' // Set type to product
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create stock batch');
@@ -156,7 +158,7 @@ export const useStockBatchStats = () => {
   return { stats, loading, error };
 };
 
-export const useAllStockBatches = () => {
+export const useAllStockBatches = (type?: 'product' | 'matiere') => {
   const [batches, setBatches] = useState<StockBatch[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -172,11 +174,18 @@ export const useAllStockBatches = () => {
     setLoading(true);
     setError(null);
 
-    const q = query(
-      collection(db, 'stockBatches'),
+    const constraints: any[] = [
       where('userId', '==', user.uid),
-      orderBy('createdAt', 'desc')
-    );
+    ];
+
+    // Add type filter if provided
+    if (type) {
+      constraints.push(where('type', '==', type));
+    }
+
+    constraints.push(orderBy('createdAt', 'desc'));
+
+    const q = query(collection(db, 'stockBatches'), ...constraints);
 
     const unsubscribe = onSnapshot(
       q,
@@ -196,7 +205,7 @@ export const useAllStockBatches = () => {
     );
 
     return unsubscribe;
-  }, [user?.uid]);
+  }, [user?.uid, type]);
 
   return { batches, loading, error };
 }; 

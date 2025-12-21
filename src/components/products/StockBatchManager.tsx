@@ -278,6 +278,8 @@ const StockBatchManager: React.FC<StockBatchManagerProps> = ({ productId, produc
               onChange={(e) => setAddBatchForm(prev => ({ ...prev, quantity: e.target.value }))}
               placeholder="0"
               required
+              min="1"
+              step="1"
             />
             <PriceInput
               label={t('products.stockBatch.costPrice')}

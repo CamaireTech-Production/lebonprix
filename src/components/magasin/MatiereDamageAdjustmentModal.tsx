@@ -1,34 +1,29 @@
 import React, { useState, useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
 import { useAuth } from '@contexts/AuthContext';
-import { 
-  getProductBatchesForAdjustment 
-} from '@services/firestore/stock/stockService';
-import { adjustStockForDamage } from '@services/firestore/stock/stockAdjustments';
-import type { Product, StockBatch } from '../../types/models';
+import { getMatiereBatchesForAdjustment } from '@services/firestore/stock/stockAdjustments';
+import { adjustMatiereStockForDamage } from '@services/firestore/stock/stockAdjustments';
+import type { Matiere, StockBatch } from '../../types/models';
 import { Modal, Button, Input, Select } from '@components/common';
-import { formatCostPrice } from '@utils/inventory/inventoryManagement';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
 
 interface DamageAdjustmentModalProps {
   isOpen: boolean;
   onClose: () => void;
-  product: Product | null;
+  matiere: Matiere | null;
   selectedBatch?: StockBatch | null;
   batchTotals?: { remaining: number; total: number };
   onSuccess?: () => void;
 }
 
-const DamageAdjustmentModal: React.FC<DamageAdjustmentModalProps> = ({
+const MatiereDamageAdjustmentModal: React.FC<DamageAdjustmentModalProps> = ({
   isOpen,
   onClose,
-  product,
+  matiere,
   selectedBatch: selectedBatchProp,
   batchTotals,
   onSuccess
 }) => {
-  const { t } = useTranslation();
-  const { user, company } = useAuth();
+  const { company } = useAuth();
   
   const [batches, setBatches] = useState<StockBatch[]>([]);
   const [loading, setLoading] = useState(false);
@@ -40,15 +35,15 @@ const DamageAdjustmentModal: React.FC<DamageAdjustmentModalProps> = ({
     notes: ''
   });
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
-  const derivedRemaining = batchTotals?.remaining ?? product?.stock ?? 0;
+  const derivedRemaining = batchTotals?.remaining ?? 0;
   const derivedTotal = batchTotals?.total;
 
   // Load available batches when modal opens
   useEffect(() => {
-    if (isOpen && product && company) {
+    if (isOpen && matiere && company) {
       loadBatches();
     }
-  }, [isOpen, product, company]);
+  }, [isOpen, matiere, company]);
 
   // Reset form when modal opens/closes
   useEffect(() => {
@@ -78,15 +73,15 @@ const DamageAdjustmentModal: React.FC<DamageAdjustmentModalProps> = ({
   }, [isOpen, selectedBatchProp, batches]);
 
   const loadBatches = async () => {
-    if (!product) return;
+    if (!matiere) return;
     
     setLoadingBatches(true);
     try {
-      const availableBatches = await getProductBatchesForAdjustment(product.id);
+      const availableBatches = await getMatiereBatchesForAdjustment(matiere.id);
       setBatches(availableBatches);
     } catch (error) {
       console.error('Error loading batches:', error);
-      alert('Error loading available batches');
+      showErrorToast('Error loading available batches');
     } finally {
       setLoadingBatches(false);
     }
@@ -123,7 +118,7 @@ const DamageAdjustmentModal: React.FC<DamageAdjustmentModalProps> = ({
     }
 
     if (selectedBatch && damagedQuantity > selectedBatch.remainingQuantity) {
-      errors.push(`Damaged quantity cannot exceed remaining batch quantity (${selectedBatch.remainingQuantity})`);
+      errors.push(`Damaged quantity cannot exceed remaining batch quantity (${selectedBatch.remainingQuantity} ${matiere?.unit || ''})`);
     }
 
     return errors;
@@ -132,7 +127,7 @@ const DamageAdjustmentModal: React.FC<DamageAdjustmentModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!product || !company || !selectedBatch) return;
+    if (!matiere || !company || !selectedBatch) return;
 
     const errors = validateForm();
     if (errors.length > 0) {
@@ -145,8 +140,8 @@ const DamageAdjustmentModal: React.FC<DamageAdjustmentModalProps> = ({
     setLoading(true);
 
     try {
-      await adjustStockForDamage(
-        product.id,
+      await adjustMatiereStockForDamage(
+        matiere.id,
         selectedBatch.id,
         damagedQuantity,
         company.id,
@@ -170,7 +165,7 @@ const DamageAdjustmentModal: React.FC<DamageAdjustmentModalProps> = ({
       { value: '', label: 'Select a batch to record damage' },
       ...batches.map(batch => ({
         value: batch.id,
-        label: `Batch ${batch.id.slice(-8)} - ${batch.remainingQuantity} units @ ${formatCostPrice(batch.costPrice)}`
+        label: `Batch ${batch.id.slice(-8)} - ${batch.remainingQuantity} ${matiere?.unit || ''}`
       }))
     ];
   };
@@ -187,45 +182,40 @@ const DamageAdjustmentModal: React.FC<DamageAdjustmentModalProps> = ({
     return currentStock - damagedQuantity;
   };
 
-  const calculateDamagedValue = () => {
-    if (!selectedBatch) return 0;
-    const damagedQuantity = parseInt(formData.damagedQuantity, 10) || 0;
-    return damagedQuantity * selectedBatch.costPrice;
-  };
 
-  if (!product) return null;
+  if (!matiere) return null;
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={`Damage Adjustment - ${product.name}`}
+      title={`Damage Adjustment - ${matiere.name}`}
       size="lg"
     >
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Product Information */}
+        {/* Matiere Information */}
         <div className="bg-gray-50 p-4 rounded-lg">
-          <h3 className="text-lg font-medium text-gray-900 mb-2">Product Information</h3>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">Matiere Information</h3>
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
               <span className="font-medium text-gray-700">Name:</span>
-              <p className="text-gray-900">{product.name}</p>
+              <p className="text-gray-900">{matiere.name}</p>
             </div>
             <div>
-              <span className="font-medium text-gray-700">Reference:</span>
-              <p className="text-gray-900">{product.reference}</p>
+              <span className="font-medium text-gray-700">Unit:</span>
+              <p className="text-gray-900">{matiere.unit}</p>
             </div>
             <div>
               <span className="font-medium text-gray-700">Current Stock:</span>
               <p className="text-gray-900">
                 {derivedTotal !== undefined
-                  ? `${derivedRemaining} / ${derivedTotal}`
-                  : derivedRemaining}
+                  ? `${derivedRemaining} / ${derivedTotal} ${matiere.unit}`
+                  : `${derivedRemaining} ${matiere.unit}`}
               </p>
             </div>
             <div>
-              <span className="font-medium text-gray-700">Selling Price:</span>
-              <p className="text-gray-900">{formatCostPrice(product.sellingPrice)}</p>
+              <span className="font-medium text-gray-700">Category:</span>
+              <p className="text-gray-900">{matiere.refCategorie || '—'}</p>
             </div>
           </div>
         </div>
@@ -265,7 +255,7 @@ const DamageAdjustmentModal: React.FC<DamageAdjustmentModalProps> = ({
           ) : batches.length === 0 ? (
             <div className="bg-yellow-50 p-4 rounded-lg">
               <p className="text-sm text-yellow-800">
-                No active batches found for this product. Please create a batch first.
+                No active batches found for this matiere. Please create a batch first.
               </p>
             </div>
           ) : (
@@ -290,22 +280,12 @@ const DamageAdjustmentModal: React.FC<DamageAdjustmentModalProps> = ({
               </div>
               <div>
                 <span className="font-medium text-blue-700">Remaining Quantity:</span>
-                <p className="text-blue-900">{selectedBatch.remainingQuantity}</p>
-              </div>
-              <div>
-                <span className="font-medium text-blue-700">Cost Price:</span>
-                <p className="text-blue-900">{formatCostPrice(selectedBatch.costPrice)}</p>
+                <p className="text-blue-900">{selectedBatch.remainingQuantity} {matiere.unit}</p>
               </div>
               <div>
                 <span className="font-medium text-blue-700">Status:</span>
                 <p className="text-blue-900 capitalize">{selectedBatch.status}</p>
               </div>
-              {selectedBatch.supplierId && (
-                <div className="col-span-2">
-                  <span className="font-medium text-blue-700">Supplier:</span>
-                  <p className="text-blue-900">{selectedBatch.supplierId}</p>
-                </div>
-              )}
             </div>
           </div>
         )}
@@ -315,15 +295,15 @@ const DamageAdjustmentModal: React.FC<DamageAdjustmentModalProps> = ({
           <h3 className="text-lg font-medium text-gray-900">Damage Details</h3>
           
           <Input
-            label="Damaged Quantity"
+            label={`Damaged Quantity (${matiere.unit})`}
             type="number"
             value={formData.damagedQuantity}
             onChange={(e) => handleInputChange('damagedQuantity', e.target.value)}
             placeholder="Enter damaged quantity"
             required
             min="1"
-            max={selectedBatch?.remainingQuantity || undefined}
             step="1"
+            max={selectedBatch?.remainingQuantity || undefined}
           />
 
           {/* Preview Changes */}
@@ -333,15 +313,11 @@ const DamageAdjustmentModal: React.FC<DamageAdjustmentModalProps> = ({
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <span className="font-medium text-red-700">New Batch Quantity:</span>
-                  <p className="text-red-900">{calculateNewRemainingQuantity()}</p>
+                  <p className="text-red-900">{calculateNewRemainingQuantity()} {matiere.unit}</p>
                 </div>
                 <div>
-                  <span className="font-medium text-red-700">New Product Stock:</span>
-                  <p className="text-red-900">{calculateNewStock()}</p>
-                </div>
-                <div>
-                  <span className="font-medium text-red-700">Damaged Value:</span>
-                  <p className="text-red-900">{formatCostPrice(calculateDamagedValue())}</p>
+                  <span className="font-medium text-red-700">New Matiere Stock:</span>
+                  <p className="text-red-900">{calculateNewStock()} {matiere.unit}</p>
                 </div>
                 <div>
                   <span className="font-medium text-red-700">Supplier Debt:</span>
@@ -349,23 +325,23 @@ const DamageAdjustmentModal: React.FC<DamageAdjustmentModalProps> = ({
                 </div>
               </div>
             </div>
-                     )}
-         </div>
+          )}
+        </div>
 
-         {/* Validation Errors */}
-         {validationErrors.length > 0 && (
-           <div className="bg-red-50 border border-red-200 p-4 rounded-lg">
-             <h4 className="text-md font-medium text-red-800 mb-2">Validation Errors</h4>
-             <ul className="list-disc list-inside space-y-1">
-               {validationErrors.map((error, index) => (
-                 <li key={index} className="text-sm text-red-700">{error}</li>
-               ))}
-             </ul>
-           </div>
-         )}
+        {/* Validation Errors */}
+        {validationErrors.length > 0 && (
+          <div className="bg-red-50 border border-red-200 p-4 rounded-lg">
+            <h4 className="text-md font-medium text-red-800 mb-2">Validation Errors</h4>
+            <ul className="list-disc list-inside space-y-1">
+              {validationErrors.map((error, index) => (
+                <li key={index} className="text-sm text-red-700">{error}</li>
+              ))}
+            </ul>
+          </div>
+        )}
 
-         {/* Notes */}
-         <div>
+        {/* Notes */}
+        <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Damage Notes (Optional)
           </label>
@@ -392,8 +368,10 @@ const DamageAdjustmentModal: React.FC<DamageAdjustmentModalProps> = ({
             type="submit"
             disabled={loading || !selectedBatch}
             className="bg-red-600 hover:bg-red-700 focus:ring-red-500"
+            isLoading={loading}
+            loadingText="Recording..."
           >
-            {loading ? 'Recording...' : 'Record Damage'}
+            Record Damage
           </Button>
         </div>
       </form>
@@ -401,4 +379,5 @@ const DamageAdjustmentModal: React.FC<DamageAdjustmentModalProps> = ({
   );
 };
 
-export default DamageAdjustmentModal; 
+export default MatiereDamageAdjustmentModal;
+

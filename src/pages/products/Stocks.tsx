@@ -66,8 +66,8 @@ const formatNumber = (value: number | undefined) =>
 
 const Stocks = () => {
   const { products, loading, loadingMore, hasMore, loadMore, refresh, error: productsError } = useInfiniteProducts();
-  const { batches, loading: batchesLoading, error: batchesError } = useAllStockBatches();
-  const { stockChanges } = useStockChanges();
+  const { batches, loading: batchesLoading, error: batchesError } = useAllStockBatches('product');
+  const { stockChanges } = useStockChanges('product');
   const { suppliers } = useSuppliers();
 
   const [expandedProductId, setExpandedProductId] = useState<string | null>(null);

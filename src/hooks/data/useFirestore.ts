@@ -612,7 +612,7 @@ export const useDashboardStats = () => {
 };
 
 // Stock Changes Hook with Caching
-export const useStockChanges = () => {
+export const useStockChanges = (type?: 'product' | 'matiere') => {
   const { user, company } = useAuth();
   const [stockChanges, setStockChanges] = useState<StockChange[]>([]);
   const [loading, setLoading] = useState(true);
@@ -625,19 +625,27 @@ export const useStockChanges = () => {
     // Check cache first
     const cachedStockChanges = dataCache.get<StockChange[]>(cacheKey);
     if (cachedStockChanges) {
-      setStockChanges(cachedStockChanges);
+      // Filter by type if provided
+      const filtered = type 
+        ? cachedStockChanges.filter(sc => sc.type === type)
+        : cachedStockChanges;
+      setStockChanges(filtered);
       setLoading(false);
     }
     
     const unsubscribe = subscribeToStockChanges(company.id, (data) => {
-      setStockChanges(data);
+      // Filter by type if provided
+      const filtered = type 
+        ? data.filter(sc => sc.type === type)
+        : data;
+      setStockChanges(filtered);
       setLoading(false);
       
       // Cache the data for 3 minutes (stock changes frequently)
       dataCache.set(cacheKey, data, 3 * 60 * 1000);
-    });
+    }, type);
     return () => unsubscribe();
-  }, [user, company]);
+  }, [user, company, type]);
 
   return { stockChanges, loading };
 };

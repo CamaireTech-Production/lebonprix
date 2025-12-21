@@ -93,23 +93,12 @@ export const createMatiere = async (
     
     batch.set(matiereRef, matiereData);
     
-    const stockRef = doc(collection(db, 'stocks'));
-    const stockData = {
-      id: stockRef.id,
-      matiereId: matiereRef.id,
-      quantity: initialStock,
-      companyId,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
-    };
-    batch.set(stockRef, stockData);
-    
-    batch.update(matiereRef, { refStock: stockRef.id });
-    
+    // Create stock batch if initial stock provided (batches are the single source of truth)
     if (initialStock > 0 && costPrice && costPrice > 0) {
       const stockBatchRef = doc(collection(db, 'stockBatches'));
       const stockBatchData: any = {
         id: stockBatchRef.id,
+        type: 'matiere' as const, // Always matiere for matiere batches
         matiereId: matiereRef.id,
         quantity: initialStock,
         costPrice,
@@ -133,14 +122,14 @@ export const createMatiere = async (
         'creation',
         userId,
         companyId,
+        'matiere', // Set type to matiere
         supplierInfo?.supplierId,
         supplierInfo?.isOwnPurchase,
         supplierInfo?.isCredit,
         costPrice,
         stockBatchRef.id,
         undefined,
-        undefined,
-        true
+        undefined
       );
       
       const financeRef = doc(collection(db, 'finances'));
@@ -189,14 +178,13 @@ export const createMatiere = async (
         'creation',
         userId,
         companyId,
+        'matiere', // Set type to matiere
         undefined,
         undefined,
         undefined,
         undefined,
         undefined,
-        undefined,
-        undefined,
-        true
+        undefined
       );
     }
     
@@ -213,7 +201,6 @@ export const createMatiere = async (
     return {
       id: matiereRef.id,
       ...matiereData,
-      refStock: stockRef.id,
       createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 },
       updatedAt: { seconds: Date.now() / 1000, nanoseconds: 0 }
     };
@@ -306,13 +293,10 @@ export const deleteMatiere = async (id: string, companyId: string): Promise<void
     
     const userId = currentMatiere.userId || companyId;
     
-    if (currentMatiere.refStock) {
-      const stockRef = doc(db, 'stocks', currentMatiere.refStock);
-      batch.delete(stockRef);
-    }
-    
+    // Delete all related stock batches (batches are the single source of truth)
     const batchesQuery = query(
       collection(db, 'stockBatches'),
+      where('type', '==', 'matiere'),
       where('matiereId', '==', id)
     );
     const batchesSnapshot = await getDocs(batchesQuery);
@@ -320,6 +304,7 @@ export const deleteMatiere = async (id: string, companyId: string): Promise<void
     
     const stockChangesQuery = query(
       collection(db, 'stockChanges'),
+      where('type', '==', 'matiere'),
       where('matiereId', '==', id)
     );
     const stockChangesSnapshot = await getDocs(stockChangesQuery);
