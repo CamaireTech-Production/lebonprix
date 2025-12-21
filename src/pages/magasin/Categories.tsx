@@ -565,6 +565,24 @@ const MagasinCategories = () => {
         onClose={() => setIsAddModalOpen(false)}
         title="Add Matiere Category"
         size="md"
+        footer={
+          <div className="flex justify-end space-x-3">
+            <Button
+              variant="outline"
+              onClick={() => setIsAddModalOpen(false)}
+              disabled={isSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleAddCategory}
+              disabled={isSubmitting || !formData.name.trim()}
+              isLoading={isSubmitting}
+            >
+              Create Category
+            </Button>
+          </div>
+        }
       >
         <div className="space-y-4">
           <Input
@@ -641,25 +659,6 @@ const MagasinCategories = () => {
             )}
           </div>
         </div>
-
-        footer={
-          <div className="flex justify-end space-x-3">
-            <Button
-              variant="outline"
-              onClick={() => setIsAddModalOpen(false)}
-              disabled={isSubmitting}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleAddCategory}
-              disabled={isSubmitting || !formData.name.trim()}
-              isLoading={isSubmitting}
-            >
-              Create Category
-            </Button>
-          </div>
-        }
       </Modal>
 
       {/* Edit Category Modal */}
@@ -668,6 +667,24 @@ const MagasinCategories = () => {
         onClose={() => setIsEditModalOpen(false)}
         title="Edit Matiere Category"
         size="md"
+        footer={
+          <div className="flex justify-end space-x-3">
+            <Button
+              variant="outline"
+              onClick={() => setIsEditModalOpen(false)}
+              disabled={isSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleEditCategory}
+              disabled={isSubmitting || !formData.name.trim()}
+              isLoading={isSubmitting}
+            >
+              Update Category
+            </Button>
+          </div>
+        }
       >
         <div className="space-y-4">
           <Input
@@ -756,25 +773,6 @@ const MagasinCategories = () => {
             )}
           </div>
         </div>
-
-        footer={
-          <div className="flex justify-end space-x-3">
-            <Button
-              variant="outline"
-              onClick={() => setIsEditModalOpen(false)}
-              disabled={isSubmitting}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleEditCategory}
-              disabled={isSubmitting || !formData.name.trim()}
-              isLoading={isSubmitting}
-            >
-              Update Category
-            </Button>
-          </div>
-        }
       </Modal>
 
       {/* Delete Category Modal */}
@@ -783,21 +781,6 @@ const MagasinCategories = () => {
         onClose={() => setIsDeleteModalOpen(false)}
         title="Delete Category"
         size="md"
-      >
-        <div className="space-y-4">
-          <p className="text-gray-700">
-            Are you sure you want to delete the category <strong>"{currentCategory?.name}"</strong>?
-          </p>
-          {currentCategory && (currentCategory.matiereCount || 0) > 0 && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-              <p className="text-sm text-yellow-800">
-                ⚠️ This category contains {currentCategory.matiereCount} matiere(s). 
-                All associated matieres will be permanently deleted.
-              </p>
-            </div>
-          )}
-        </div>
-
         footer={
           <div className="flex justify-end space-x-3">
             <Button
@@ -817,6 +800,20 @@ const MagasinCategories = () => {
             </Button>
           </div>
         }
+      >
+        <div className="space-y-4">
+          <p className="text-gray-700">
+            Are you sure you want to delete the category <strong>"{currentCategory?.name}"</strong>?
+          </p>
+          {currentCategory && (currentCategory.matiereCount || 0) > 0 && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <p className="text-sm text-yellow-800">
+                ⚠️ This category contains {currentCategory.matiereCount} matiere(s). 
+                All associated matieres will be permanently deleted.
+              </p>
+            </div>
+          )}
+        </div>
       </Modal>
     </div>
   );

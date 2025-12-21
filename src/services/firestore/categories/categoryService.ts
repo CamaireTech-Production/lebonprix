@@ -169,16 +169,21 @@ export const createCategory = async (
     throw new Error('Category type is required and must be either "product" or "matiere"');
   }
   
+  // Build category data object, only including relevant count field
   const categoryData: any = {
     ...data,
     companyId, // Ensure companyId is set
     isActive: data.isActive !== false, // Default to true
-    // Initialize counts based on type
-    productCount: data.type === 'product' ? 0 : undefined,
-    matiereCount: data.type === 'matiere' ? 0 : undefined,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   };
+  
+  // Initialize counts based on type (only include the relevant one)
+  if (data.type === 'product') {
+    categoryData.productCount = 0;
+  } else if (data.type === 'matiere') {
+    categoryData.matiereCount = 0;
+  }
   
   // Add createdBy if provided
   if (createdBy) {
