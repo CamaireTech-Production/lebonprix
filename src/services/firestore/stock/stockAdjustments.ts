@@ -354,6 +354,12 @@ export const adjustMatiereStockManually = async (
     updatedAt: serverTimestamp()
   };
   
+  // If new remaining quantity exceeds original quantity, update original quantity too
+  // This ensures the display shows correct values (e.g., 30/30 instead of 30/23)
+  if (newRemainingQuantity > batchData.quantity) {
+    batchUpdates.quantity = newRemainingQuantity;
+  }
+  
   if (notes) {
     batchUpdates.notes = notes;
   }

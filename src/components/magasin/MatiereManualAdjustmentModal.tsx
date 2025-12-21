@@ -23,7 +23,7 @@ const MatiereManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
   batchTotals,
   onSuccess
 }) => {
-  const { company } = useAuth();
+  const { company, user } = useAuth();
   
   const [batches, setBatches] = useState<StockBatch[]>([]);
   const [loading, setLoading] = useState(false);
@@ -35,7 +35,7 @@ const MatiereManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
   
   const [formData, setFormData] = useState({
     batchId: '',
-    quantityChange: '',
+    newStock: '',
     notes: ''
   });
 
@@ -67,7 +67,7 @@ const MatiereManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
     if (isOpen) {
       setFormData({
         batchId: '',
-        quantityChange: '',
+        newStock: '',
         notes: ''
       });
       setSelectedBatch(selectedBatchProp ?? null);
@@ -115,24 +115,31 @@ const MatiereManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
       errors.push('Please select a batch');
     }
 
-    // Quantity change is required
-    if (!formData.quantityChange) {
-      errors.push('Enter a quantity change');
+    // New stock value is required
+    if (!formData.newStock) {
+      errors.push('Enter the new stock quantity');
     }
 
-    if (formData.quantityChange) {
-      const quantityChange = parseInt(formData.quantityChange, 10);
-      if (isNaN(quantityChange)) {
-        errors.push('Quantity change must be a valid whole number');
+    if (formData.newStock) {
+      // Check if input contains decimal point
+      if (formData.newStock.includes('.')) {
+        errors.push('New stock must be a whole number (no decimals)');
+      } else {
+        const newStock = parseInt(formData.newStock, 10);
+        if (isNaN(newStock) || newStock < 0) {
+          errors.push('New stock must be a valid whole number greater than or equal to 0');
+        }
       }
     }
 
     // Validate with selected batch (no cost price validation for matieres)
-    if (selectedBatch) {
-      const quantityChange = parseInt(formData.quantityChange || '0', 10) || 0;
-      
-      const validation = validateBatchAdjustment(selectedBatch, quantityChange, undefined);
-      errors.push(...validation.errors);
+    if (selectedBatch && formData.newStock && !formData.newStock.includes('.')) {
+      const newStock = parseInt(formData.newStock, 10);
+      if (!isNaN(newStock) && newStock >= 0) {
+        const quantityChange = newStock - selectedBatch.remainingQuantity;
+        const validation = validateBatchAdjustment(selectedBatch, quantityChange, undefined);
+        errors.push(...validation.errors);
+      }
     }
 
     setValidationErrors(errors);
@@ -149,7 +156,20 @@ const MatiereManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
       return;
     }
 
-    const quantityChange = parseInt(formData.quantityChange || '0', 10) || 0;
+    // Check if input contains decimal point
+    if (formData.newStock.includes('.')) {
+      showErrorToast('New stock must be a whole number (no decimals)');
+      return;
+    }
+
+    const newStock = parseInt(formData.newStock, 10);
+    if (isNaN(newStock) || newStock < 0) {
+      showErrorToast('Invalid new stock value. Must be a whole number greater than or equal to 0.');
+      return;
+    }
+
+    // Calculate quantity change: newStock - currentBatchStock
+    const quantityChange = newStock - selectedBatch.remainingQuantity;
 
     setLoading(true);
 
@@ -179,21 +199,20 @@ const MatiereManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
       { value: '', label: 'Select a batch to adjust' },
       ...batches.map(batch => ({
         value: batch.id,
-        label: `Batch ${batch.id.slice(-8)} - ${batch.remainingQuantity} ${matiere?.unit || ''}`
+        label: `Batch ${batch.id.slice(-8)} - ${batch.remainingQuantity}`
       }))
     ];
   };
 
-  const calculateNewRemainingQuantity = () => {
-    if (!selectedBatch) return 0;
-    const quantityChange = parseInt(formData.quantityChange || '0', 10) || 0;
-    return selectedBatch.remainingQuantity + quantityChange;
-  };
-
-  const calculateNewStock = () => {
-    const quantityChange = parseInt(formData.quantityChange || '0', 10) || 0;
+  const calculateNewMatiereStock = () => {
+    if (!selectedBatch || !formData.newStock) return derivedRemaining;
+    const newStock = parseInt(formData.newStock, 10);
+    if (isNaN(newStock)) return derivedRemaining;
+    
+    // Calculate the difference in batch stock
+    const batchDifference = newStock - selectedBatch.remainingQuantity;
     const baseStock = typeof derivedRemaining === 'number' ? derivedRemaining : 0;
-    return baseStock + quantityChange;
+    return baseStock + batchDifference;
   };
 
   if (!matiere) return null;
@@ -222,8 +241,8 @@ const MatiereManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
               <span className="font-medium text-gray-700">Current Stock:</span>
               <p className="text-gray-900">
                 {derivedTotal !== undefined
-                  ? `${derivedRemaining} / ${derivedTotal} ${matiere.unit}`
-                  : `${derivedRemaining} ${matiere.unit}`}
+                  ? `${derivedRemaining} / ${derivedTotal}`
+                  : `${derivedRemaining}`}
               </p>
             </div>
             <div>
@@ -259,55 +278,50 @@ const MatiereManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
           )}
         </div>
 
-        {/* Selected Batch Information */}
-        {selectedBatch && (
-          <div className="bg-blue-50 p-4 rounded-lg">
-            <h3 className="text-lg font-medium text-blue-900 mb-2">Selected Batch Information</h3>
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <span className="font-medium text-blue-700">Batch ID:</span>
-                <p className="text-blue-900 font-mono">{selectedBatch.id}</p>
-              </div>
-              <div>
-                <span className="font-medium text-blue-700">Remaining Quantity:</span>
-                <p className="text-blue-900">{selectedBatch.remainingQuantity} {matiere.unit}</p>
-              </div>
-              <div>
-                <span className="font-medium text-blue-700">Status:</span>
-                <p className="text-blue-900 capitalize">{selectedBatch.status}</p>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Adjustment Details */}
         <div className="space-y-4">
           <h3 className="text-lg font-medium text-gray-900">Adjustment Details</h3>
           
+          {selectedBatch && (
+            <div className="bg-gray-50 p-3 rounded-lg mb-4">
+              <p className="text-sm text-gray-600">
+                Current batch stock: <span className="font-medium text-gray-900">{selectedBatch.remainingQuantity}</span>
+                <span className="ml-1 text-gray-500">({matiere.unit})</span>
+              </p>
+            </div>
+          )}
+          
           <Input
-            label={`Quantity Change (${matiere.unit})`}
+            label={`New Stock Quantity`}
             type="number"
-            value={formData.quantityChange}
-            onChange={(e) => handleInputChange('quantityChange', e.target.value)}
-            placeholder="+10 or -5"
+            value={formData.newStock}
+            onChange={(e) => handleInputChange('newStock', e.target.value)}
+            placeholder={selectedBatch ? `Enter new stock (current: ${selectedBatch.remainingQuantity})` : "Enter new stock"}
             required
+            min="0"
             step="1"
           />
+          <p className="text-xs text-gray-500 mt-1">
+            Unit: {matiere.unit}
+          </p>
 
           {/* Preview Changes */}
-          {selectedBatch && formData.quantityChange && (
+          {selectedBatch && formData.newStock && !formData.newStock.includes('.') && !isNaN(parseInt(formData.newStock, 10)) && parseInt(formData.newStock, 10) >= 0 && (
             <div className="bg-green-50 p-4 rounded-lg">
               <h4 className="text-md font-medium text-green-800 mb-2">Preview Changes</h4>
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <span className="font-medium text-green-700">New Batch Quantity:</span>
-                  <p className="text-green-900">{calculateNewRemainingQuantity()} {matiere.unit}</p>
+                  <p className="text-green-900">{parseInt(formData.newStock, 10).toLocaleString()}</p>
                 </div>
                 <div>
                   <span className="font-medium text-green-700">New Matiere Stock:</span>
-                  <p className="text-green-900">{calculateNewStock()} {matiere.unit}</p>
+                  <p className="text-green-900">{Math.round(calculateNewMatiereStock()).toLocaleString()}</p>
                 </div>
               </div>
+              <p className="text-xs text-gray-600 mt-2">
+                Unit: {matiere.unit}
+              </p>
             </div>
           )}
         </div>

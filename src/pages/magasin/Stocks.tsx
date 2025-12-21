@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ChevronRight, ChevronDown, RefreshCcw, Package, AlertCircle, Search } from 'lucide-react';
+import { ChevronRight, ChevronDown, Package, AlertCircle, Search } from 'lucide-react';
 import { Button, Input, Modal, LoadingScreen } from '@components/common';
 import { useMatieres } from '@hooks/business/useMatieres';
 import { useAllStockBatches } from '@hooks/business/useStockBatches';
@@ -65,7 +65,7 @@ const formatNumber = (value: number | undefined) =>
   typeof value === 'number' ? value.toLocaleString() : '-';
 
 const Stocks = () => {
-  const { matieres, loading, refresh, error: matieresError } = useMatieres();
+  const { matieres, loading, error: matieresError } = useMatieres();
   const { batches, loading: batchesLoading, error: batchesError } = useAllStockBatches('matiere');
   const { stockChanges } = useStockChanges('matiere');
 
@@ -93,7 +93,7 @@ const Stocks = () => {
     return matieres.filter(
       (m) =>
         m.name.toLowerCase().includes(query) ||
-        (m.reference && m.reference.toLowerCase().includes(query))
+        (m.description && m.description.toLowerCase().includes(query))
     );
   }, [matieres, search]);
 
@@ -159,7 +159,8 @@ const Stocks = () => {
   };
 
   const handleModalSuccess = () => {
-    refresh();
+    // Note: useMatieres uses real-time subscription, so data updates automatically
+    // No need to manually refresh
     setRestockModalOpen(false);
     setAdjustModalOpen(false);
     setDamageModalOpen(false);
@@ -208,9 +209,6 @@ const Stocks = () => {
               <Button variant="outline" onClick={() => window.location.reload()}>
                 Reload Page
               </Button>
-              <Button onClick={refresh} icon={<RefreshCcw size={16} />}>
-                Retry
-              </Button>
             </div>
           </div>
         </div>
@@ -227,11 +225,7 @@ const Stocks = () => {
             Manage matiere inventory with batch visibility.
           </p>
         </div>
-        <div className="flex items-center space-x-2">
-          <Button variant="outline" onClick={refresh} icon={<RefreshCcw size={16} />} disabled={loading}>
-            Refresh
-          </Button>
-        </div>
+        {/* Refresh button removed - data updates automatically via Firestore subscription */}
       </div>
 
       <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
@@ -303,15 +297,25 @@ const Stocks = () => {
                       </button>
                       <div className="col-span-3">
                         <div className="font-medium text-gray-900">{matiere.name}</div>
-                        <div className="text-xs text-gray-500">{matiere.reference || '—'}</div>
+                        {matiere.description && (
+                          <div className="text-xs text-gray-500">{matiere.description}</div>
+                        )}
                       </div>
                       <div className="col-span-2 text-sm text-gray-700">
                         {matiere.refCategorie || '—'}
                       </div>
                       <div className="col-span-2 text-sm text-gray-900">
                         {matiereBatches.length > 0
-                          ? `${formatNumber(batchRemaining)} / ${formatNumber(batchTotal)} ${matiere.unit}`
-                          : `0 ${matiere.unit}`}
+                          ? (
+                              <>
+                                {formatNumber(batchRemaining)} / {formatNumber(batchTotal)}
+                              </>
+                            )
+                          : (
+                              <>
+                                0
+                              </>
+                            )}
                       </div>
                       <div className="col-span-2 text-sm text-gray-900">
                         {activeBatches.length} active / {depletedBatches.length} depleted
@@ -366,7 +370,7 @@ const Stocks = () => {
                                       {batch.id}
                                     </td>
                                     <td className="py-3 pr-4">
-                                      {formatNumber(batch.remainingQuantity)} / {formatNumber(batch.quantity)} {matiere.unit}
+                                      {formatNumber(batch.remainingQuantity)} / {formatNumber(batch.quantity)}
                                     </td>
                                     <td className="py-3 pr-4 capitalize">{batch.status}</td>
                                     <td className="py-3 pr-4 text-right space-x-3">
@@ -566,7 +570,8 @@ const Stocks = () => {
                         <td className={`px-4 py-2 font-medium ${
                           change.change > 0 ? 'text-green-600' : 'text-red-600'
                         }`}>
-                          {change.change > 0 ? '+' : ''}{change.change} {selectedMatiere?.unit || ''}
+                          {change.change > 0 ? '+' : ''}{change.change}
+                          <span className="ml-1 text-xs text-gray-500">({selectedMatiere?.unit || ''})</span>
                         </td>
                         <td className="px-4 py-2 text-gray-700 capitalize">{change.reason}</td>
                       </tr>
