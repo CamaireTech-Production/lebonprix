@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { auth, db } from '../services/firebase';
+import { auth, db } from '@services/core/firebase';
 import { 
   User as FirebaseUser, 
   signInWithEmailAndPassword, 
@@ -10,15 +10,15 @@ import {
 } from 'firebase/auth';
 import { doc, getDoc, getDocFromCache, updateDoc, Timestamp, onSnapshot, type DocumentReference } from 'firebase/firestore';
 import type { Company, UserRole, UserCompanyRef, CompanyEmployee } from '../types/models';
-import { ensureDefaultFinanceEntryTypes } from '../services/firestore';
-import CompanyManager from '../services/storage/CompanyManager';
-import FinanceTypesManager from '../services/storage/FinanceTypesManager';
-import BackgroundSyncService from '../services/backgroundSync';
-import { saveCompanyToCache, getCompanyFromCache, clearCompanyCache } from '../utils/companyCache';
-import { getUserById, updateUserLastLogin, createUser } from '../services/userService';
-import { saveUserSession, getUserSession, clearUserSession} from '../utils/userSession';
-import { clearUserDataOnLogout } from '../utils/logoutCleanup';
-import { logError } from '../utils/logger';
+import { ensureDefaultFinanceEntryTypes } from '@services/firestore/finance/financeService';
+import CompanyManager from '@services/storage/CompanyManager';
+import FinanceTypesManager from '@services/storage/FinanceTypesManager';
+import BackgroundSyncService from '@services/utilities/backgroundSync';
+import { saveCompanyToCache, getCompanyFromCache, clearCompanyCache } from '@utils/storage/companyCache';
+import { getUserById, updateUserLastLogin, createUser } from '@services/utilities/userService';
+import { saveUserSession, getUserSession, clearUserSession} from '@utils/storage/userSession';
+import { clearUserDataOnLogout } from '@utils/core/logoutCleanup';
+import { logError, logWarning } from '@utils/core/logger';
 
 interface AuthContextType {
   user: FirebaseUser | null;

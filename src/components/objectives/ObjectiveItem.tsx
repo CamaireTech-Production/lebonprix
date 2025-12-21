@@ -1,12 +1,11 @@
 import React from 'react';
-import ProgressBar from '../common/ProgressBar';
-import Button from '../common/Button';
+import { ProgressBar, Button } from '@components/common';
 import { ChevronDown, Pencil, Trash2 } from 'lucide-react';
 import { Objective } from '../../types/models';
 import { useTranslation } from 'react-i18next';
 import { format, differenceInCalendarDays, endOfMonth, endOfYear } from 'date-fns';
-import { useObjectives } from '../../hooks/useObjectives';
-import { showSuccessToast, showErrorToast } from '../../utils/toast';
+import { useObjectives } from '@hooks/business/useObjectives';
+import { showSuccessToast, showErrorToast } from '@utils/core/toast';
 
 interface ObjectiveItemProps {
   objective: Objective & { progress: number; currentValue?: number };
@@ -52,7 +51,13 @@ const ObjectiveItem: React.FC<ObjectiveItemProps> = ({ objective, onEdit, onDele
       dueDate = endOfMonth(new Date());
     }
   } else if (objective.endAt) {
-    dueDate = objective.endAt.toDate ? objective.endAt.toDate() : new Date(objective.endAt);
+    if (objective.endAt instanceof Date) {
+      dueDate = objective.endAt;
+    } else if (typeof (objective.endAt as any).toDate === 'function') {
+      dueDate = (objective.endAt as any).toDate();
+    } else {
+      dueDate = new Date(objective.endAt as any);
+    }
   }
   let remainingDays: number | null = null;
   if (dueDate) {
@@ -119,7 +124,17 @@ const ObjectiveItem: React.FC<ObjectiveItemProps> = ({ objective, onEdit, onDele
                     ? t('dateRanges.thisYear')
                     : t('dateRanges.thisMonth'))
                 : (objective.startAt && objective.endAt
-                    ? `${format(objective.startAt.toDate ? objective.startAt.toDate() : new Date(objective.startAt), 'dd/MM/yyyy')} - ${format(objective.endAt.toDate ? objective.endAt.toDate() : new Date(objective.endAt), 'dd/MM/yyyy')}`
+                    ? `${format(
+                        objective.startAt instanceof Date 
+                          ? objective.startAt 
+                          : (typeof (objective.startAt as any).toDate === 'function' ? (objective.startAt as any).toDate() : new Date(objective.startAt as any)), 
+                        'dd/MM/yyyy'
+                      )} - ${format(
+                        objective.endAt instanceof Date 
+                          ? objective.endAt 
+                          : (typeof (objective.endAt as any).toDate === 'function' ? (objective.endAt as any).toDate() : new Date(objective.endAt as any)), 
+                        'dd/MM/yyyy'
+                      )}`
                     : t('objectives.noPeriod'))
             }</span>
           </div>

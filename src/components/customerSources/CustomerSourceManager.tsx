@@ -1,16 +1,11 @@
 import React, { useState, useMemo } from 'react';
-import { useCustomerSources } from '../../hooks/useCustomerSources';
-import { useCustomers } from '../../hooks/useFirestore';
-import { useSales } from '../../hooks/useFirestore';
-import Card from '../common/Card';
-import Button from '../common/Button';
-import Table from '../common/Table';
-import LoadingScreen from '../common/LoadingScreen';
+import { useCustomerSources } from '@hooks/business/useCustomerSources';
+import { useCustomers, useSales } from '@hooks/data/useFirestore';
+import { Card, Button, Table, LoadingScreen, Badge } from '@components/common';
 import { Plus, Edit2, Trash2, Power, PowerOff } from 'lucide-react';
-import { showSuccessToast, showErrorToast, showWarningToast } from '../../utils/toast';
+import { showSuccessToast, showErrorToast, showWarningToast } from '@utils/core/toast';
 import CustomerSourceForm from './CustomerSourceForm';
 import type { CustomerSource } from '../../types/models';
-import Badge from '../common/Badge';
 
 const CustomerSourceManager = () => {
   const { sources, loading, addSource, updateSource, deleteSource } = useCustomerSources();

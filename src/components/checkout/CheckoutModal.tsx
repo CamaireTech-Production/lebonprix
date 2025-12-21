@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useCart } from '../../contexts/CartContext';
-import { getCompanyByUserId, getSellerSettings } from '../../services/firestore';
-import { createOrder } from '../../services/orderService';
-import { formatPrice } from '../../utils/formatPrice';
+import { getCompanyByUserId, getSellerSettings } from '@services/firestore/firestore';
+import { createOrder } from '@services/firestore/orders/orderService';
+import { formatPrice } from '@utils/formatting/formatPrice';
 import type { Company } from '../../types/models';
 import type { CustomerInfo, OrderData, SellerSettings, OrderPaymentMethod, OrderPricing, DeliveryInfo, Order } from '../../types/order';
 import { X, ArrowLeft, ArrowRight, ShoppingBag, User, MapPin, Phone, MessageSquare, CreditCard, Truck, CheckCircle, Clock } from 'lucide-react';
-import PhoneInput from '../common/PhoneInput';
+import { PhoneInput } from '@components/common';
 import toast from 'react-hot-toast';
-import { formatPhoneForWhatsApp } from '../../utils/phoneUtils';
+import { formatPhoneForWhatsApp } from '@utils/core/phoneUtils';
 
 interface CheckoutModalProps {
   isOpen: boolean;
@@ -36,7 +36,6 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, companyI
 
   // Payment method selection state
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<OrderPaymentMethod | null>(null);
-  const [showPaymentSelection, setShowPaymentSelection] = useState(false);
   const [orderCreated, setOrderCreated] = useState(false);
   const [createdOrder, setCreatedOrder] = useState<Order | null>(null);
 
@@ -180,7 +179,6 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, companyI
       if (isValid) {
         console.log('Moving to payment selection');
         setCurrentStep(3);
-        setShowPaymentSelection(true);
       } else {
         console.log('Form validation failed, errors:', errors);
       }
@@ -236,9 +234,9 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, companyI
           paymentMethod,
           deliveryInfo,
           metadata: {
-            source: 'checkout_modal',
+            source: 'catalogue',
             deviceInfo: {
-              type: 'web',
+              type: 'desktop',
               os: navigator.platform,
               browser: navigator.userAgent
             }

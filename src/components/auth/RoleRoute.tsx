@@ -1,9 +1,9 @@
 import React, { useEffect, useRef } from 'react';
 import { Navigate, useParams } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext';
-import { useRolePermissions } from '../../hooks/useRolePermissions';
-import LoadingScreen from '../common/LoadingScreen';
-import { showErrorToast } from '../../utils/toast';
+import { useAuth } from '@contexts/AuthContext';
+import { useRolePermissions } from '@hooks/business/useRolePermissions';
+import { LoadingScreen } from '@components/common';
+import { showErrorToast } from '@utils/core/toast';
 
 interface RoleRouteProps {
   children: React.ReactNode;

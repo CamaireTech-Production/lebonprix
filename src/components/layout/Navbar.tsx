@@ -4,10 +4,10 @@ import { Menu, Bell, Search, User, Settings, LogOut, Users, ScanLine } from 'luc
 import { useAuth } from '../../contexts/AuthContext';
 import UserAvatar from '../common/UserAvatar';
 import LanguageSwitcher from '../common/LanguageSwitcher';
-import DownloadAppButton from '../common/DownloadAppButton';
-import { PWAStatusIndicator } from '../PWAStatusIndicator';
+import { DownloadAppButton } from '../pwa';
+import { PWAStatusIndicator } from '../pwa';
 import { useTranslation } from 'react-i18next';
-import { useRolePermissions } from '../../hooks/useRolePermissions';
+import { useRolePermissions } from '../../hooks/business/useRolePermissions';
 
 interface NavbarProps {
   onMenuClick: () => void;

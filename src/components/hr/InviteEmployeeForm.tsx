@@ -1,12 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import Card from '../common/Card';
-import Button from '../common/Button';
-import Input from '../common/Input';
-import { getUserByEmail, createInvitation, sendInvitationEmailToUser, handleExistingUserInvitation, getInvitationLink } from '../../services/invitationService';
-import { getCompanyTemplates } from '../../services/permissionTemplateService';
+import { Card, Button, Input } from '@components/common';
+import { getUserByEmail, createInvitation, sendInvitationEmailToUser, handleExistingUserInvitation, getInvitationLink } from '@services/firestore/employees/invitationService';
+import { getCompanyTemplates } from '@services/firestore/employees/permissionTemplateService';
 import { PermissionTemplate } from '../../types/permissions';
-import { showErrorToast, showSuccessToast } from '../../utils/toast';
+import { showErrorToast, showSuccessToast } from '@utils/core/toast';
 import { Copy, X } from 'lucide-react';
 import type { Invitation } from '../../types/models';
 

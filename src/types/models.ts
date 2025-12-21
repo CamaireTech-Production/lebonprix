@@ -308,11 +308,13 @@ export interface FinanceEntryType {
 }
 
 export interface ExpenseType {
-  id: string;
-  name: string;
-  userId?: string; // undefined for default/global types
-  isDefault: boolean;
-  createdAt: Timestamp;
+  id: string;                    // Document ID (auto-generated)
+  name: string;                  // Category name (e.g., "transportation", "purchase")
+  userId?: string;               // User ID who created it (optional, undefined for defaults)
+  companyId?: string;            // Company ID (optional, undefined for default types)
+  isDefault: boolean;            // true for system defaults, false for custom
+  createdAt: Timestamp;          // Firestore timestamp
+  updatedAt?: Timestamp;         // Firestore timestamp (set when updated)
 }
 
 // Employee invitation system types

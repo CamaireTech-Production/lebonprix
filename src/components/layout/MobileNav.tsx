@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { LayoutDashboard, ShoppingCart, DollarSign, Package2, FileBarChart, Receipt, Settings, Users, ShoppingBag, Loader2, Phone, ScanLine, Warehouse, Building2, UserCheck} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
-import { useRolePermissions } from '../../hooks/useRolePermissions';
+import { useRolePermissions } from '../../hooks/business/useRolePermissions';
 import { RESOURCES } from '../../constants/resources';
 
 const MobileNav = () => {

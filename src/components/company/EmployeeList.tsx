@@ -5,7 +5,7 @@ import {
   getEmployeeCount,
   detectEmployeeInconsistencies,
   repairEmployeeSync 
-} from '../../services/employeeDisplayService';
+} from '@services/firestore/employees/employeeDisplayService';
 import { CompanyEmployee } from '../../types/models';
 
 interface EmployeeListProps {

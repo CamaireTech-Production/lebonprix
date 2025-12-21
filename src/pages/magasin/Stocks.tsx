@@ -1,15 +1,9 @@
 import { useState, useMemo } from 'react';
 import { Search, RefreshCcw, AlertTriangle, ChevronDown, ChevronUp, Package } from 'lucide-react';
-import Card from '../../components/common/Card';
-import Button from '../../components/common/Button';
-import Input from '../../components/common/Input';
-import Badge from '../../components/common/Badge';
-import { useMatiereStocks } from '../../hooks/useMatiereStocks';
-import { useCategories } from '../../hooks/useFirestore';
-import { showSuccessToast, showErrorToast } from '../../utils/toast';
-import LoadingScreen from '../../components/common/LoadingScreen';
-import { ImageWithSkeleton } from '../../components/common/ImageWithSkeleton';
-import { useMatieres } from '../../hooks/useMatieres';
+import { Card, Button, Input, Badge, LoadingScreen, ImageWithSkeleton } from '@components/common';
+import { useMatiereStocks } from '@hooks/business/useMatiereStocks';
+import { useCategories } from '@hooks/data/useFirestore';
+import { useMatieres } from '@hooks/business/useMatieres';
 
 const Stocks = () => {
   const { matiereStocks, loading, error } = useMatiereStocks();

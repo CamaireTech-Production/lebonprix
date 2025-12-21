@@ -1,5 +1,5 @@
 // src/services/storage/SalesManager.ts
-import LocalStorageService from '../localStorageService';
+import LocalStorageService from '@services/utilities/localStorageService';
 import type { Sale } from '../../types/models';
 
 class SalesManager {

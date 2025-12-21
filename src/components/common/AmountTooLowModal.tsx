@@ -1,6 +1,6 @@
 import React from 'react';
 import { X, AlertTriangle, CreditCard, DollarSign } from 'lucide-react';
-import { formatPrice } from '../../utils/formatPrice';
+import { formatPrice } from '@utils/formatting/formatPrice';
 
 interface AmountTooLowModalProps {
   isOpen: boolean;

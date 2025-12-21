@@ -1,7 +1,6 @@
 import React, { useMemo } from 'react';
-import Button from '../common/Button';
-import ProgressBar from '../common/ProgressBar';
-import { useObjectives } from '../../hooks/useObjectives';
+import { Button, ProgressBar } from '@components/common';
+import { useObjectives } from '@hooks/business/useObjectives';
 import { useTranslation } from 'react-i18next';
 import { Plus, List } from 'lucide-react';
 import { differenceInCalendarDays, startOfDay, endOfDay, isWithinInterval } from 'date-fns';
@@ -19,7 +18,7 @@ interface ObjectivesBarProps {
   stockChanges: any[];
 }
 
-import { getLatestCostPrice } from '../../utils/productUtils';
+import { getLatestCostPrice } from '@utils/business/productUtils';
 
 const ObjectivesBar: React.FC<ObjectivesBarProps> = ({ onAdd, onView, dateRange, applyDateFilter, onToggleFilter, sales, expenses, products, stockChanges }) => {
   const { t } = useTranslation();
