@@ -99,7 +99,7 @@ const ObjectivesBar: React.FC<ObjectivesBarProps> = ({ onAdd, onView, dateRange,
     const active = objectives.filter(o => o.isAvailable !== false);
     if (!applyDateFilter) return active;
     return active.filter(isOverlapping);
-  }, [objectives, dateRange, applyDateFilter]);
+  }, [objectives, dateRange, applyDateFilter, isOverlapping]);
 
   const objectivesWithProgress = useMemo(() => {
     return filteredObjectives.map(obj => {
@@ -107,7 +107,7 @@ const ObjectivesBar: React.FC<ObjectivesBarProps> = ({ onAdd, onView, dateRange,
       const pct = obj.targetAmount ? Math.max(0, Math.min(100, (current / obj.targetAmount) * 100)) : 0;
       return { ...obj, progress: Math.round(pct), currentValue: current } as any;
     });
-  }, [filteredObjectives, sales, expenses, products]);
+  }, [filteredObjectives, sales, expenses, products, stockChanges]);
 
   const averageProgress = useMemo(() => {
     if (!objectivesWithProgress.length) return 0;
