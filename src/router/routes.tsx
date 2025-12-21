@@ -15,7 +15,6 @@ const Dashboard = lazy(() => import('../pages/dashboard/Dashboard'));
 const Sales = lazy(() => import('../pages/sales/Sales'));
 const POS = lazy(() => import('../pages/pos/POS'));
 const Orders = lazy(() => import('../pages/orders/Orders'));
-const Expenses = lazy(() => import('../pages/expenses/Expenses'));
 const ExpensesList = lazy(() => import('../pages/expenses/ExpensesList'));
 const ExpensesCategories = lazy(() => import('../pages/expenses/ExpensesCategories'));
 const ExpensesAnalytics = lazy(() => import('../pages/expenses/ExpensesAnalytics'));
