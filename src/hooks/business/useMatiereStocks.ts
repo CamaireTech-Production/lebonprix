@@ -37,25 +37,20 @@ export const useMatiereStocks = () => {
     setLoading(true);
     setError(null);
 
-    // Firestore doesn't support != null queries well, so we fetch all batches and filter
-    // Retirer orderBy pour éviter l'index - trier en mémoire
+    // Query only matiere batches using type filter
     const q = query(
       collection(db, 'stockBatches'),
-      where('companyId', '==', company.id)
+      where('companyId', '==', company.id),
+      where('type', '==', 'matiere')
     );
 
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
-        const allBatches = snapshot.docs.map(doc => ({
+        const matiereBatches = snapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
         })) as StockBatch[];
-        
-        // Filter to only matiere batches (those with matiereId and no productId)
-        const matiereBatches = allBatches.filter(batch => 
-          batch.matiereId && !batch.productId
-        );
         
         // Sort in memory by createdAt descending
         matiereBatches.sort((a, b) => {
@@ -84,25 +79,20 @@ export const useMatiereStocks = () => {
       return;
     }
 
-    // Firestore doesn't support != null queries well, so we fetch all changes and filter
-    // Retirer orderBy pour éviter l'index - trier en mémoire
+    // Query only matiere stock changes using type filter
     const q = query(
       collection(db, 'stockChanges'),
-      where('companyId', '==', company.id)
+      where('companyId', '==', company.id),
+      where('type', '==', 'matiere')
     );
 
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
-        const allChanges = snapshot.docs.map(doc => ({
+        const matiereChanges = snapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
         })) as StockChange[];
-        
-        // Filter to only matiere changes (those with matiereId and no productId)
-        const matiereChanges = allChanges.filter(change => 
-          change.matiereId && !change.productId
-        );
         
         // Sort in memory by createdAt descending
         matiereChanges.sort((a, b) => {

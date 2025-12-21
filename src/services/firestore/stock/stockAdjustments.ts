@@ -47,6 +47,7 @@ export const restockProduct = async (
   const stockBatchRef = doc(collection(db, 'stockBatches'));
   const stockBatchData = {
     id: stockBatchRef.id,
+    type: 'product' as const, // Always product for product restock
     productId,
     quantity,
     costPrice,
@@ -71,6 +72,7 @@ export const restockProduct = async (
   const stockChangeRef = doc(collection(db, 'stockChanges'));
   const stockChangeData = {
     id: stockChangeRef.id,
+    type: 'product' as const, // Always product for product restock
     productId,
     change: quantity,
     reason: 'restock' as StockChange['reason'],
@@ -184,6 +186,7 @@ export const adjustStockManually = async (
   const stockChangeRef = doc(collection(db, 'stockChanges'));
   const stockChangeData = {
     id: stockChangeRef.id,
+    type: batchData.type || 'product', // Use batch type or default to product
     productId,
     change: quantityChange,
     reason: 'manual_adjustment' as StockChange['reason'],
@@ -294,6 +297,7 @@ export const adjustStockForDamage = async (
   const stockChangeRef = doc(collection(db, 'stockChanges'));
   const stockChangeData = {
     id: stockChangeRef.id,
+    type: batchData.type || 'product', // Use batch type or default to product
     productId,
     change: -damagedQuantity,
     reason: 'damage' as StockChange['reason'],
@@ -320,6 +324,7 @@ export const getProductBatchesForAdjustment = async (productId: string): Promise
   const batchesSnapshot = await getDocs(
     query(
       collection(db, 'stockBatches'),
+      where('type', '==', 'product'),
       where('productId', '==', productId),
       where('status', 'in', ['active', 'corrected']),
       orderBy('createdAt', 'desc')
@@ -410,6 +415,7 @@ export const adjustMultipleBatchesManually = async (
     const stockChangeRef = doc(collection(db, 'stockChanges'));
     const stockChangeData = {
       id: stockChangeRef.id,
+      type: batchData.type || 'product', // Use batch type or default to product
       productId,
       change: adjustment.quantityChange,
       reason: 'manual_adjustment' as StockChange['reason'],
@@ -419,7 +425,8 @@ export const adjustMultipleBatchesManually = async (
       costPrice: adjustment.newCostPrice || batchData.costPrice,
       batchId: adjustment.batchId,
       createdAt: serverTimestamp(),
-      userId
+      userId,
+      companyId // Ensure companyId is set
     };
     stockChanges.push({ ref: stockChangeRef, data: stockChangeData });
     
@@ -580,6 +587,7 @@ export const adjustBatchWithDebtManagement = async (
     const stockChangeRef = doc(collection(db, 'stockChanges'));
     const stockChangeData = {
       id: stockChangeRef.id,
+      type: batchData.type || 'product', // Use batch type or default to product
       productId,
       change: adjustment.quantityChange,
       reason: adjustment.scenario === 'damage' ? 'damage' : 'manual_adjustment',
@@ -589,7 +597,8 @@ export const adjustBatchWithDebtManagement = async (
       costPrice: finalCostPrice,
       batchId: adjustment.batchId,
       createdAt: serverTimestamp(),
-      userId
+      userId,
+      companyId // Ensure companyId is set
     };
     stockChanges.push({ ref: stockChangeRef, data: stockChangeData });
     

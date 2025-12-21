@@ -96,6 +96,7 @@ export const createMatiere = async (
     const stockRef = doc(collection(db, 'stocks'));
     const stockData = {
       id: stockRef.id,
+      type: 'matiere' as const, // Always matiere for matiere stocks
       matiereId: matiereRef.id,
       quantity: initialStock,
       companyId,
@@ -110,6 +111,7 @@ export const createMatiere = async (
       const stockBatchRef = doc(collection(db, 'stockBatches'));
       const stockBatchData: any = {
         id: stockBatchRef.id,
+        type: 'matiere' as const, // Always matiere for matiere batches
         matiereId: matiereRef.id,
         quantity: initialStock,
         costPrice,
@@ -133,14 +135,14 @@ export const createMatiere = async (
         'creation',
         userId,
         companyId,
+        'matiere', // Set type to matiere
         supplierInfo?.supplierId,
         supplierInfo?.isOwnPurchase,
         supplierInfo?.isCredit,
         costPrice,
         stockBatchRef.id,
         undefined,
-        undefined,
-        true
+        undefined
       );
       
       const financeRef = doc(collection(db, 'finances'));
@@ -189,14 +191,13 @@ export const createMatiere = async (
         'creation',
         userId,
         companyId,
+        'matiere', // Set type to matiere
         undefined,
         undefined,
         undefined,
         undefined,
         undefined,
-        undefined,
-        undefined,
-        true
+        undefined
       );
     }
     
@@ -313,6 +314,7 @@ export const deleteMatiere = async (id: string, companyId: string): Promise<void
     
     const batchesQuery = query(
       collection(db, 'stockBatches'),
+      where('type', '==', 'matiere'),
       where('matiereId', '==', id)
     );
     const batchesSnapshot = await getDocs(batchesQuery);
@@ -320,6 +322,7 @@ export const deleteMatiere = async (id: string, companyId: string): Promise<void
     
     const stockChangesQuery = query(
       collection(db, 'stockChanges'),
+      where('type', '==', 'matiere'),
       where('matiereId', '==', id)
     );
     const stockChangesSnapshot = await getDocs(stockChangesQuery);

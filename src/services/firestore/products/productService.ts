@@ -23,6 +23,7 @@ import { updateCategoryProductCount } from '../categories/categoryService';
 const createStockChange = (batch: WriteBatch, productId: string, change: number, reason: any, userId: string, companyId: string, supplierId?: string, isOwnPurchase?: boolean, isCredit?: boolean, costPrice?: number, batchId?: string) => {
   const stockChangeRef = doc(collection(db, 'stockChanges'));
   const stockChangeData: any = {
+    type: 'product' as const, // Always product for product stock changes
     change,
     reason,
     userId,
@@ -130,6 +131,7 @@ export const createProduct = async (
         const stockBatchRef = doc(collection(db, 'stockBatches'));
         const stockBatchData = {
           id: stockBatchRef.id,
+          type: 'product' as const, // Always product for product batches
           productId: productRef.id,
           quantity: data.stock,
           costPrice: supplierInfo.costPrice,
@@ -276,6 +278,7 @@ export const updateProduct = async (
         const stockBatchRef = doc(collection(db, 'stockBatches'));
         const stockBatchData = {
           id: stockBatchRef.id,
+          type: 'product' as const, // Always product for product batches
           productId: id,
           quantity: stockChange,
           costPrice: supplierInfo.costPrice,

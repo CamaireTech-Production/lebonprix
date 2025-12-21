@@ -26,6 +26,7 @@ import { createAuditLog } from '../shared';
 const getAvailableStockBatches = async (productId: string): Promise<StockBatch[]> => {
   const q = query(
     collection(db, 'stockBatches'),
+    where('type', '==', 'product'),
     where('productId', '==', productId),
     where('remainingQuantity', '>', 0),
     where('status', '==', 'active'),
@@ -126,6 +127,7 @@ const createStockChange = (
 ) => {
   const stockChangeRef = doc(collection(db, 'stockChanges'));
   const stockChangeData: any = {
+    type: 'product' as const, // Always product for sales
     change,
     reason,
     userId,

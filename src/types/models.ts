@@ -228,11 +228,24 @@ export interface ProfitPeriodPreference {
   updatedBy: string;
 }
 
+// Stock document for tracking current quantity
+export interface Stock {
+  id: string;
+  type: 'product' | 'matiere'; // Stock type: either product or matiere, never both
+  productId?: string; // Only if type === 'product'
+  matiereId?: string; // Only if type === 'matiere'
+  quantity: number;
+  companyId: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
 // Stock change event for product/matiere inventory tracking
 export interface StockChange {
   id: string;
-  productId?: string; // Optional: for products
-  matiereId?: string; // Optional: for matieres (one of productId or matiereId must be set)
+  type: 'product' | 'matiere'; // Stock type: either product or matiere, never both
+  productId?: string; // Only if type === 'product'
+  matiereId?: string; // Only if type === 'matiere'
   change: number; // + for restock, - for sale, etc.
   reason: 'sale' | 'restock' | 'adjustment' | 'creation' | 'cost_correction' | 'damage' | 'manual_adjustment';
   supplierId?: string; // Reference to supplier if applicable
@@ -256,8 +269,9 @@ export interface StockChange {
 // Stock batch for FIFO inventory tracking (NEW!)
 export interface StockBatch {
   id: string;
-  productId?: string; // Optional: for products
-  matiereId?: string; // Optional: for matieres (one of productId or matiereId must be set)
+  type: 'product' | 'matiere'; // Stock type: either product or matiere, never both
+  productId?: string; // Only if type === 'product'
+  matiereId?: string; // Only if type === 'matiere'
   quantity: number; // Total quantity in this batch
   costPrice: number; // Cost per unit for this batch
   supplierId?: string; // Reference to supplier if applicable
