@@ -147,3 +147,4 @@ No param      → French (default)
 
 🇫🇷 **Le catalogue est maintenant en français par défaut!**
 
+

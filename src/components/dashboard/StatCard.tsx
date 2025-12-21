@@ -13,6 +13,7 @@ interface StatCardProps {
     value: number;
     isPositive: boolean;
   };
+  trendData?: number[]; // Array of values for mini line graph
   tooltipKey?: string;
   type: 'sales' | 'expenses' | 'profit' | 'products' | 'orders' | 'delivery' | 'solde';
   className?: string;
@@ -21,7 +22,7 @@ interface StatCardProps {
   onPeriodSettingsClick?: () => void;
 }
 
-const StatCard = ({ title, value, icon, trend, tooltipKey, type, className = '', periodLabel, showPeriodIndicator, onPeriodSettingsClick }: StatCardProps) => {
+const StatCard = ({ title, value, icon, trend, trendData, tooltipKey, type, className = '', periodLabel, showPeriodIndicator, onPeriodSettingsClick }: StatCardProps) => {
   const { t } = useTranslation();
   const { company } = useAuth();
   const [showTooltip, setShowTooltip] = useState(false);
@@ -168,6 +169,54 @@ const StatCard = ({ title, value, icon, trend, tooltipKey, type, className = '',
     );
   };
 
+  // Mini Line Graph Component
+  const MiniLineGraph = ({ data, color }: { data: number[]; color: string }) => {
+    if (data.length === 0) return null;
+    
+    const maxValue = Math.max(...data, 1);
+    const minValue = Math.min(...data, 0);
+    const range = maxValue - minValue || 1;
+    
+    const width = 100;
+    const height = 40;
+    const padding = 4;
+    const graphWidth = width - padding * 2;
+    const graphHeight = height - padding * 2;
+    
+    const points = data.map((value, index) => {
+      const x = padding + (index / (data.length - 1 || 1)) * graphWidth;
+      const y = padding + graphHeight - ((value - minValue) / range) * graphHeight;
+      return { x, y };
+    });
+    
+    const pathData = points.map((point, index) => 
+      `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`
+    ).join(' ');
+    
+    return (
+      <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} className="overflow-visible">
+        <defs>
+          <linearGradient id={`gradient-${type}`} x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor={color} stopOpacity="0.3" />
+            <stop offset="100%" stopColor={color} stopOpacity="0.05" />
+          </linearGradient>
+        </defs>
+        <path
+          d={`${pathData} L ${points[points.length - 1].x} ${height - padding} L ${padding} ${height - padding} Z`}
+          fill={`url(#gradient-${type})`}
+        />
+        <path
+          d={pathData}
+          fill="none"
+          stroke={color}
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    );
+  };
+
   return (
     <Card className={`${className} relative`}>
       <div className="flex items-start">
@@ -226,6 +275,12 @@ const StatCard = ({ title, value, icon, trend, tooltipKey, type, className = '',
           <div className="w-5 h-5 sm:w-6 sm:h-6">{icon}</div>
         </div>
       </div>
+      {/* Mini Line Graph */}
+      {trendData && trendData.length > 0 && (
+        <div className="mt-4 h-12 w-full">
+          <MiniLineGraph data={trendData} color={getCompanyColors().primary} />
+        </div>
+      )}
       {showPeriodIndicator && type === 'profit' && onPeriodSettingsClick && (
         <div className="mt-3 pt-3 border-t border-gray-200">
           <button

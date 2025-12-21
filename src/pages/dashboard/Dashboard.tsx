@@ -1,28 +1,39 @@
-import { DollarSign, TrendingUp, Package2, Info, Receipt, FileBarChart } from 'lucide-react';
+import { DollarSign, TrendingUp, Info, Receipt, FileBarChart, Users } from 'lucide-react';
 import StatCard from '../../components/dashboard/StatCard';
-import SalesChart from '../../components/dashboard/SalesChart';
-import ActivityList from '../../components/dashboard/ActivityList';
-import { Table, Card, LoadingScreen, SkeletonStatCard, SkeletonChart, SkeletonTable, SkeletonActivityList, SkeletonObjectivesBar, Modal, Button, DateRangePicker } from '@components/common';
+import DonutChart from '../../components/dashboard/DonutChart';
+import TopSales from '../../components/dashboard/TopSales';
+import BestClients from '../../components/dashboard/BestClients';
+import BestProductsList from '../../components/dashboard/BestProductsList';
+import LatestOrdersTable from '../../components/dashboard/LatestOrdersTable';
+import { LoadingScreen, SkeletonStatCard, SkeletonChart, SkeletonTable, SkeletonObjectivesBar, Modal, Button, DateRangePicker } from '@components/common';
 import { useSales, useExpenses, useProducts, useStockChanges, useFinanceEntries, useAuditLogs } from '@hooks/data/useFirestore';
 import { subscribeToAllSales } from '@services/firestore/sales/saleService';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@contexts/AuthContext';
 import type { StockChange, Sale, SaleProduct } from '../../types/models';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useRolePermissions } from '@hooks/business/useRolePermissions';
+import { useCustomerSources } from '@hooks/business/useCustomerSources';
 import {
   calculateDashboardProfit,
+  calculateTotalProfit,
   calculateTotalExpenses,
   calculateSolde,
   calculateTotalSalesAmount,
   calculateTotalDeliveryFee,
   calculateTotalProductsSold,
-  calculateTotalOrders
+  calculateTotalOrders,
+  calculateNewOrders,
+  calculateNewClients,
+  calculateSalesBySource,
+  calculateSalesByCategory,
+  calculateExpensesByCategory,
+  calculateTrendData
 } from '@utils/calculations/financialCalculations';
 import { useProfitPeriod } from '@hooks/business/useProfitPeriod';
-import { getPeriodStartDate, getPeriodShortLabel } from '@utils/calculations/profitPeriodUtils';
+import { getPeriodStartDate} from '@utils/calculations/profitPeriodUtils';
 import { differenceInDays, format, startOfWeek, endOfWeek, addDays, addWeeks, startOfMonth as startMonth, endOfMonth as endMonth, addMonths, isSameMonth, isSameDay } from 'date-fns';
 import ObjectivesBar from '../../components/objectives/ObjectivesBar';
 import ObjectivesModal from '../../components/objectives/ObjectivesModal';
@@ -53,6 +64,7 @@ const Dashboard = () => {
   const { stockChanges, loading: stockChangesLoading } = useStockChanges();
   const { entries: financeEntries, loading: financeLoading } = useFinanceEntries();
   const { auditLogs, loading: auditLogsLoading } = useAuditLogs();
+  const { sources } = useCustomerSources();
   
   // 💰 PROFIT PERIOD: Load profit period preference
   const { preference: profitPeriodPreference, setPeriod, clearPeriod } = useProfitPeriod();
@@ -80,7 +92,7 @@ const Dashboard = () => {
   const [copied, setCopied] = useState(false);
   const [copied2, setCopied2] = useState(false);
   const [dateRange, setDateRange] = useState({
-    from: new Date(2025, 0, 1), // January 1st, 2025
+    from: startMonth(new Date()), // Start of current month
     to: new Date(), // Current date
   });
   const [showObjectivesModal, setShowObjectivesModal] = useState(false);
@@ -110,12 +122,15 @@ const Dashboard = () => {
     { value: 'totalSalesCount', label: t('dashboard.stats.totalSalesCount') },
   ];
 
+  // Use dateRange directly
+  const periodDates = dateRange;
+
   // 🎯 SMART SALES FILTERING: Use all sales when available, recent sales for immediate display
   const salesDataToUse = allSales.length > 0 ? allSales : sales;
   const filteredSales = salesDataToUse?.filter(sale => {
     if (!sale.createdAt?.seconds) return false;
     const saleDate = new Date(sale.createdAt.seconds * 1000);
-    return saleDate >= dateRange.from && saleDate <= dateRange.to;
+    return saleDate >= periodDates.from && saleDate <= periodDates.to;
   });
 
   // Filter out soft-deleted expenses and apply date range filter
@@ -125,11 +140,12 @@ const Dashboard = () => {
     // Then apply date range filter
     if (!expense.createdAt?.seconds) return false;
     const expenseDate = new Date(expense.createdAt.seconds * 1000);
-    return expenseDate >= dateRange.from && expenseDate <= dateRange.to;
+    return expenseDate >= periodDates.from && expenseDate <= periodDates.to;
   });
 
   // Calculate financial metrics using extracted functions
-  // 💰 PROFIT PERIOD: Calculate profit with dynamic date from periodType (Dashboard only)
+  // 💰 PROFIT: Use same calculation as Finance.tsx (calculateTotalProfit) for consistency
+  // Only use calculateDashboardProfit if user has set a profit period preference
   const customDate = profitPeriodPreference?.periodStartDate 
     ? new Date(profitPeriodPreference.periodStartDate.seconds * 1000)
     : null;
@@ -138,13 +154,20 @@ const Dashboard = () => {
     ? getPeriodStartDate(profitPeriodPreference.periodType, customDate)
     : null;
   
-  const profit = calculateDashboardProfit(
-    filteredSales || [],
-    products || [],
-    (stockChanges || []) as StockChange[],
-    actualStartDate,
-    dateRange.from
-  );
+  // Use calculateTotalProfit (same as Finance.tsx) if no period preference, otherwise use calculateDashboardProfit
+  const profit = actualStartDate
+    ? calculateDashboardProfit(
+        filteredSales || [],
+        products || [],
+        (stockChanges || []) as StockChange[],
+        actualStartDate,
+        dateRange.from
+      )
+    : calculateTotalProfit(
+        filteredSales || [],
+        products || [],
+        (stockChanges || []) as StockChange[]
+      );
 
   // 🔄 BACKGROUND DATA: Calculate expenses only when available
   // Note: Dashboard only uses expenses, not manual entries, so we pass an empty array for manual entries
@@ -159,20 +182,144 @@ const Dashboard = () => {
   // Total sales amount
   const totalSalesAmount = calculateTotalSalesAmount(filteredSales || []);
 
+  // Calculate previous period for trend comparisons (same duration, shifted back)
+  const periodDuration = differenceInDays(periodDates.to, periodDates.from);
+  const previousPeriodStart = new Date(periodDates.from);
+  previousPeriodStart.setDate(previousPeriodStart.getDate() - periodDuration - 1);
+  const previousPeriodEnd = new Date(periodDates.from);
+  previousPeriodEnd.setDate(previousPeriodEnd.getDate() - 1);
+
+  const previousPeriodSales = salesDataToUse?.filter(sale => {
+    if (!sale.createdAt?.seconds) return false;
+    const saleDate = new Date(sale.createdAt.seconds * 1000);
+    return saleDate >= previousPeriodStart && saleDate <= previousPeriodEnd;
+  }) || [];
+
+  // Calculate unique clients count
+  const uniqueClientsCount = useMemo(() => {
+    const clientPhones = new Set<string>();
+    filteredSales?.forEach(sale => {
+      const phone = sale.customerInfo?.phone;
+      if (phone) {
+        clientPhones.add(phone);
+      }
+    });
+    return clientPhones.size;
+  }, [filteredSales]);
+
+  // Calculate new metrics
+  const newOrdersData = calculateNewOrders(filteredSales || [], previousPeriodSales);
+  const newClientsData = calculateNewClients(filteredSales || [], previousPeriodSales);
+  
+  // Calculate sales by product category
+  const salesByCategoryData = useMemo(() => 
+    calculateSalesByCategory(filteredSales || [], products || []),
+    [filteredSales, products]
+  );
+
+  // Calculate expenses by category
+  const expensesByCategoryData = useMemo(() => 
+    calculateExpensesByCategory(filteredExpenses || []),
+    [filteredExpenses]
+  );
+
+  // Top sales (highest value sales)
+  const topSalesData = useMemo(() => {
+    return [...(filteredSales || [])]
+      .sort((a, b) => b.totalAmount - a.totalAmount)
+      .slice(0, 5);
+  }, [filteredSales]);
+  
+  const salesBySourceData = useMemo(() => 
+    calculateSalesBySource(filteredSales || [], sources.map(s => ({ id: s.id, name: s.name }))),
+    [filteredSales, sources]
+  );
+
+  // Calculate trend data for mini graphs (last 7 days)
+  const salesTrendData = useMemo(() => 
+    calculateTrendData(filteredSales || [], 7),
+    [filteredSales]
+  );
+
+  // Calculate best clients
+  const bestClientsData = useMemo(() => {
+    const clientMap: Record<string, { name: string; phone: string; orders: number; totalSpent: number }> = {};
+    
+    filteredSales?.forEach(sale => {
+      const phone = sale.customerInfo?.phone;
+      if (!phone) return;
+      
+      if (!clientMap[phone]) {
+        clientMap[phone] = {
+          name: sale.customerInfo?.name || 'Aucun client',
+          phone,
+          orders: 0,
+          totalSpent: 0
+        };
+      }
+      
+      clientMap[phone].orders += 1;
+      clientMap[phone].totalSpent += sale.totalAmount;
+    });
+    
+    return Object.values(clientMap)
+      .sort((a, b) => b.totalSpent - a.totalSpent)
+      .slice(0, 5)
+      .map(client => ({
+        initials: client.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase(),
+        name: client.name,
+        orders: client.orders,
+        totalSpent: client.totalSpent
+      }));
+  }, [filteredSales]);
+
+  // Latest orders (most recent 5)
+  const latestOrders = useMemo(() => {
+    return [...(filteredSales || [])]
+      .sort((a, b) => {
+        const aTime = a.createdAt?.seconds || 0;
+        const bTime = b.createdAt?.seconds || 0;
+        return bTime - aTime;
+      })
+      .slice(0, 5);
+  }, [filteredSales]);
+
   // Best selling products (by quantity sold)
-  const productSalesMap: Record<string, { name: string; quantity: number; sales: number }> = {};
+  const productSalesMap = useMemo(() => {
+    const map: Record<string, { name: string; quantity: number; sales: number }> = {};
   filteredSales?.forEach(sale => {
     sale.products.forEach((product: SaleProduct) => {
       const productData = products?.find(p => p.id === product.productId);
       if (!productData) return;
-      if (!productSalesMap[product.productId]) {
-        productSalesMap[product.productId] = { name: productData.name, quantity: 0, sales: 0 };
+        if (!map[product.productId]) {
+          map[product.productId] = { name: productData.name, quantity: 0, sales: 0 };
       }
-      productSalesMap[product.productId].quantity += product.quantity;
-      productSalesMap[product.productId].sales += (product.negotiatedPrice || product.basePrice) * product.quantity;
+        map[product.productId].quantity += product.quantity;
+        map[product.productId].sales += (product.negotiatedPrice || product.basePrice) * product.quantity;
     });
   });
-  const bestSellingProducts = Object.values(productSalesMap).sort((a, b) => b.quantity - a.quantity).slice(0, 5);
+    return map;
+  }, [filteredSales, products]);
+
+  const bestSellingProducts = useMemo(() => 
+    Object.values(productSalesMap).sort((a, b) => b.quantity - a.quantity).slice(0, 5),
+    [productSalesMap]
+  );
+
+  // Best selling products for list (with product IDs)
+  const bestProductsListData = useMemo(() => {
+    return Object.entries(productSalesMap)
+      .map(([productId, data]) => ({
+        productId,
+        name: data.name,
+        orders: filteredSales?.filter(sale => 
+          sale.products.some((p: SaleProduct) => p.productId === productId)
+        ).length || 0,
+        revenue: data.sales
+      }))
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 3);
+  }, [productSalesMap, filteredSales]);
 
   // Process sales and expenses data for the chart
   const processChartData = () => {
@@ -377,40 +524,144 @@ const Dashboard = () => {
     []  // No refund entries for Dashboard calculation
   );
 
-  // 🎯 STAT CARDS: Show loading states for background data
-  const statCards: { title: string; value: string | number; icon: JSX.Element; type: 'products' | 'sales' | 'expenses' | 'profit' | 'orders' | 'delivery' | 'solde'; loading?: boolean; periodLabel?: string; showPeriodIndicator?: boolean; onPeriodSettingsClick?: () => void; }[] = [
+  // Calculate previous period unique clients for trend
+  const previousPeriodClients = useMemo(() => {
+    const clientPhones = new Set<string>();
+    previousPeriodSales?.forEach(sale => {
+      const phone = sale.customerInfo?.phone;
+      if (phone) {
+        clientPhones.add(phone);
+      }
+    });
+    return clientPhones.size;
+  }, [previousPeriodSales]);
+
+  const clientsTrend = useMemo(() => {
+    const trendValue = previousPeriodClients > 0 
+      ? ((uniqueClientsCount - previousPeriodClients) / previousPeriodClients) * 100
+      : uniqueClientsCount > 0 ? 100 : 0;
+    return {
+      value: parseFloat(Math.abs(trendValue).toFixed(1)),
+      isPositive: trendValue >= 0
+    };
+  }, [uniqueClientsCount, previousPeriodClients]);
+
+  // Get period label based on date range
+  const getPeriodLabel = () => {
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+    const monthStart = startMonth(new Date());
+    const yearStart = new Date(today.getFullYear(), 0, 1);
+    const last30Days = new Date(today);
+    last30Days.setDate(last30Days.getDate() - 30);
+    last30Days.setHours(0, 0, 0, 0);
+    
+    if (periodDates.from.getTime() === monthStart.getTime() && periodDates.to.getTime() === today.getTime()) {
+      return t('dashboard.period.thisMonth', { defaultValue: 'Ce mois' });
+    } else if (periodDates.from.getTime() === yearStart.getTime() && periodDates.to.getTime() === today.getTime()) {
+      return t('dashboard.period.thisYear', { defaultValue: 'Cette année' });
+    } else if (periodDates.from.getTime() === last30Days.getTime() && periodDates.to.getTime() === today.getTime()) {
+      return t('dashboard.period.last30Days', { defaultValue: '30 derniers jours' });
+    } else {
+      return `${format(periodDates.from, 'dd MMM')} - ${format(periodDates.to, 'dd MMM yyyy')}`;
+    }
+  };
+
+  // 🎯 STAT CARDS: 4 KPI Cards with trends and mini graphs
+  const statCards: { 
+    title: string; 
+    value: string | number; 
+    icon: JSX.Element; 
+    type: 'products' | 'sales' | 'expenses' | 'profit' | 'orders' | 'delivery' | 'solde'; 
+    loading?: boolean; 
+    trend?: { value: number; isPositive: boolean };
+    trendData?: number[];
+    periodLabel?: string;
+  }[] = [
     { 
-      title: t('dashboard.stats.solde'), 
-      value: financeLoading ? '...' : `${solde.toLocaleString()} XAF`, 
+      title: t('dashboard.stats.totalSalesAmount', { defaultValue: 'Ventes totales' }), 
+      value: `${totalSalesAmount.toLocaleString()} FCFA`, 
       icon: <DollarSign size={20} />, 
-      type: 'solde',
-      loading: financeLoading
+      type: 'sales',
+      loading: salesLoading,
+      trend: (() => {
+        const previousSalesAmount = calculateTotalSalesAmount(previousPeriodSales);
+        const trendValue = previousSalesAmount > 0 
+          ? ((totalSalesAmount - previousSalesAmount) / previousSalesAmount) * 100
+          : totalSalesAmount > 0 ? 100 : 0;
+        return {
+          value: parseFloat(Math.abs(trendValue).toFixed(1)),
+          isPositive: trendValue >= 0
+        };
+      })(),
+      trendData: salesTrendData,
+      periodLabel: getPeriodLabel()
     },
     { 
-      title: t('dashboard.stats.profit'), 
-      value: stockChangesLoading ? '...' : `${profit.toLocaleString()} XAF`, 
+      title: t('dashboard.stats.profit', { defaultValue: 'Profit' }), 
+      value: `${profit.toLocaleString()} FCFA`, 
       icon: <TrendingUp size={20} />, 
       type: 'profit',
-      loading: stockChangesLoading,
-      periodLabel: profitPeriodPreference?.periodType 
-        ? getPeriodShortLabel(profitPeriodPreference.periodType, customDate)
-        : 'All Time',
-      showPeriodIndicator: true,
-      onPeriodSettingsClick: () => setShowProfitPeriodModal(true)
+      loading: salesLoading || stockChangesLoading,
+      trend: (() => {
+        const previousProfit = actualStartDate
+          ? calculateDashboardProfit(
+              previousPeriodSales,
+              products || [],
+              (stockChanges || []) as StockChange[],
+              actualStartDate,
+              previousPeriodStart
+            )
+          : calculateTotalProfit(
+              previousPeriodSales,
+              products || [],
+              (stockChanges || []) as StockChange[]
+            );
+        const trendValue = previousProfit > 0 
+          ? ((profit - previousProfit) / previousProfit) * 100
+          : profit > 0 ? 100 : 0;
+        return {
+          value: parseFloat(Math.abs(trendValue).toFixed(1)),
+          isPositive: trendValue >= 0
+        };
+      })(),
+      trendData: salesTrendData,
+      periodLabel: getPeriodLabel()
     },
     { 
-      title: t('dashboard.stats.expenses'), 
-      value: expensesLoading ? '...' : `${totalExpenses.toLocaleString()} XAF`, 
+      title: t('dashboard.stats.totalExpenses', { defaultValue: 'Dépenses totales' }), 
+      value: `${totalExpenses.toLocaleString()} FCFA`, 
       icon: <Receipt size={20} />, 
       type: 'expenses',
-      loading: expensesLoading
+      loading: expensesLoading,
+      trend: (() => {
+        const previousExpenses = expenses?.filter(expense => {
+          if (expense.isAvailable === false) return false;
+          if (!expense.createdAt?.seconds) return false;
+          const expenseDate = new Date(expense.createdAt.seconds * 1000);
+          return expenseDate >= previousPeriodStart && expenseDate <= previousPeriodEnd;
+        }) || [];
+        const previousExpensesAmount = calculateTotalExpenses(previousExpenses, []);
+        const trendValue = previousExpensesAmount > 0 
+          ? ((totalExpenses - previousExpensesAmount) / previousExpensesAmount) * 100
+          : totalExpenses > 0 ? 100 : 0;
+        return {
+          value: parseFloat(Math.abs(trendValue).toFixed(1)),
+          isPositive: trendValue <= 0 // Negative is good for expenses
+        };
+      })(),
+      trendData: salesTrendData,
+      periodLabel: getPeriodLabel()
     },
     { 
-      title: t('dashboard.stats.productsSold'), 
-      value: totalProductsSold, 
-      icon: <Package2 size={20} />, 
-      type: 'products',
-      loading: false // Products already loaded
+      title: t('dashboard.stats.clients', { defaultValue: 'Clients' }), 
+      value: uniqueClientsCount, 
+      icon: <Users size={20} />, 
+      type: 'sales',
+      loading: salesLoading,
+      trend: clientsTrend,
+      trendData: salesTrendData,
+      periodLabel: getPeriodLabel()
     },
   ];
 
@@ -430,46 +681,25 @@ const Dashboard = () => {
             <div className="flex gap-2">
               <Button
                 variant="outline"
+                icon={<FileBarChart size={16} />}
+                onClick={() => navigate(`/company/${companyId}/reports?period=today`)}
+                className="bg-white/20 border-white/30 text-white hover:bg-white/30 backdrop-blur-sm"
+              >
+                {t('dashboard.viewTodayReports')}
+              </Button>
+              <Button
+                variant="outline"
                 icon={<Info size={16} />}
                 onClick={() => setShowCalculationsModal(true)}
                 className="bg-white/20 border-white/30 text-white hover:bg-white/30 backdrop-blur-sm"
               >
-                {t('dashboard.howCalculated')}
+                {t('dashboard.guide', { defaultValue: 'Guide' })}
               </Button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Quick Actions Section - Report of the Day and Period Filter */}
-      {companyId && (
-        <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
-          <div className="flex flex-col gap-4">
-            <div>
-              <h3 className="text-lg font-semibold mb-1" style={{color: getCompanyColors().primary}}>
-                {t('dashboard.quickActions')}
-              </h3>
-              <p className="text-sm text-gray-600">
-                {t('dashboard.quickActionsDescription')}
-              </p>
-            </div>
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              {/* Period Filter - Left */}
-              <div className="flex-1 sm:max-w-md w-full">
-                <DateRangePicker onChange={setDateRange} className="w-full" />
-              </div>
-              {/* Report of the Day Button - Right */}
-              <Button
-                onClick={() => navigate(`/company/${companyId}/reports?period=today`)}
-                icon={<FileBarChart size={20} />}
-                variant="outline"
-              >
-                {t('dashboard.viewTodayReports')}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
       {/* Objectives global bar */}
       {(expensesLoading || stockChangesLoading) ? (
         <SkeletonObjectivesBar />
@@ -502,6 +732,16 @@ const Dashboard = () => {
           onAfterAdd={() => setApplyDateFilter(false)}
         />
       )}
+
+      {/* Period Filter - DateRangePicker with horizontal layout */}
+      <div className="mb-6">
+        <DateRangePicker 
+          onChange={(range) => {
+            setDateRange(range);
+          }}
+          className="w-full" 
+        />
+      </div>
       {/* Profit Period Modal */}
       {showProfitPeriodModal && (
         <ProfitPeriodModal
@@ -520,7 +760,7 @@ const Dashboard = () => {
             {t('dashboard.stats.title')}
           </h3>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {statCards.map((card, index) => (
             card.loading ? (
               <SkeletonStatCard key={`skeleton-${index}`} />
@@ -531,9 +771,9 @@ const Dashboard = () => {
                 value={card.value}
                 icon={card.icon}
                 type={card.type}
+                trend={card.trend}
+                trendData={card.trendData}
                 periodLabel={card.periodLabel}
-                showPeriodIndicator={card.showPeriodIndicator}
-                onPeriodSettingsClick={card.onPeriodSettingsClick}
               />
             )
           ))}
@@ -560,54 +800,124 @@ const Dashboard = () => {
           </div>
         </div>
       )}
-      {/* Chart section */}
-      <div className="mb-6">
-        <div className="mb-4">
-          <h3 className="text-lg font-semibold" style={{color: getCompanyColors().primary}}>
-            {t('dashboard.salesChart.title')}
-          </h3>
-        </div>
+      {/* Charts and Sidebar Section - 2 Column Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        {/* Left Column - Donut Charts */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Sales by Product Category Chart */}
+          {(salesLoading || productsLoading) ? (
+            <SkeletonChart />
+          ) : (
+            <DonutChart
+              title={t('dashboard.salesByCategory.title', { defaultValue: 'Ventes par catégorie de produits' })}
+              data={salesByCategoryData.map(item => ({
+                label: item.category,
+                value: item.amount
+              }))}
+              periodFilter={
+                <select 
+                  className="text-sm border border-gray-300 rounded-md px-2 py-1"
+                  defaultValue="thisYear"
+                >
+                  <option value="thisYear">{t('dashboard.period.thisYear', { defaultValue: 'Cette année' })}</option>
+                  <option value="thisMonth">{t('dashboard.period.thisMonth', { defaultValue: 'Ce mois' })}</option>
+                  <option value="last30Days">{t('dashboard.period.last30Days', { defaultValue: '30 derniers jours' })}</option>
+                </select>
+              }
+            />
+          )}
+
+          {/* Expenses by Category Chart */}
         {expensesLoading ? (
           <SkeletonChart />
         ) : (
-          <SalesChart
-            labels={chartData.labels}
-            salesData={chartData.salesData}
-            expensesData={chartData.expensesData}
+            <DonutChart
+              title={t('dashboard.expensesByCategory.title', { defaultValue: 'Dépenses par catégorie' })}
+              data={expensesByCategoryData.map(item => ({
+                label: item.category,
+                value: item.amount
+              }))}
+              periodFilter={
+                <select 
+                  className="text-sm border border-gray-300 rounded-md px-2 py-1"
+                  defaultValue="thisYear"
+                >
+                  <option value="thisYear">{t('dashboard.period.thisYear', { defaultValue: 'Cette année' })}</option>
+                  <option value="thisMonth">{t('dashboard.period.thisMonth', { defaultValue: 'Ce mois' })}</option>
+                  <option value="last30Days">{t('dashboard.period.last30Days', { defaultValue: '30 derniers jours' })}</option>
+                </select>
+              }
+            />
+          )}
+
+          {/* Sales by Source Chart */}
+          {salesLoading ? (
+            <SkeletonChart />
+          ) : (
+            <DonutChart
+              title={t('dashboard.salesBySource.title', { defaultValue: 'Ventes par source' })}
+              data={salesBySourceData.map(item => ({
+                label: item.source,
+                value: item.amount
+              }))}
+              periodFilter={
+                <select 
+                  className="text-sm border border-gray-300 rounded-md px-2 py-1"
+                  defaultValue="thisYear"
+                >
+                  <option value="thisYear">{t('dashboard.period.thisYear', { defaultValue: 'Cette année' })}</option>
+                  <option value="thisMonth">{t('dashboard.period.thisMonth', { defaultValue: 'Ce mois' })}</option>
+                  <option value="last30Days">{t('dashboard.period.last30Days', { defaultValue: '30 derniers jours' })}</option>
+                </select>
+              }
           />
         )}
       </div>
-      {/* Best Selling Products Table */}
-      <div className="mb-6">
+
+        {/* Right Column - Sidebar */}
+        <div className="space-y-6">
+          {/* Top Sales */}
+          <TopSales
+            sales={topSalesData}
+            onViewMore={() => navigate(`/company/${companyId}/sales`)}
+          />
+
+          {/* Best Clients */}
+          <BestClients
+            clients={bestClientsData}
+            onViewMore={() => navigate(`/company/${companyId}/contacts`)}
+          />
+
+          {/* Best Products */}
+          <BestProductsList
+            products={bestProductsListData}
+            allProducts={products || []}
+            onViewAll={() => navigate(`/company/${companyId}/products`)}
+          />
+        </div>
+      </div>
+
+      {/* Bottom Section - Latest Orders and Best Products */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        {/* Latest Orders Table */}
         {(salesLoading || loadingAllSales) ? (
           <SkeletonTable rows={5} />
         ) : (
-          <Card title={t('dashboard.bestSellingProducts.title')}>
-            <div className="mb-4">
-              <h3 className="text-lg font-semibold" style={{color: getCompanyColors().primary}}>
-                {t('dashboard.bestSellingProducts.title')}
-              </h3>
-            </div>
-            <Table
-              data={bestSellingProducts}
-              columns={bestProductColumns}
-              keyExtractor={row => row.name}
-              emptyMessage={t('dashboard.bestSellingProducts.noData')}
-            />
-          </Card>
+          <LatestOrdersTable
+            orders={latestOrders}
+            onOrderClick={(order: Sale) => navigate(`/company/${companyId}/sales?orderId=${order.id}`)}
+          />
         )}
-      </div>
-      {/* Activity section */}
-      <div>
-        <div className="mb-4">
-          <h3 className="text-lg font-semibold" style={{color: getCompanyColors().primary}}>
-            {t('dashboard.recentActivity.title')}
-          </h3>
-        </div>
-        {(expensesLoading || auditLogsLoading) ? (
-          <SkeletonActivityList />
+
+        {/* Best Products List */}
+        {(salesLoading || loadingAllSales) ? (
+          <SkeletonTable rows={3} />
         ) : (
-          <ActivityList activities={recentActivities} />
+          <BestProductsList
+            products={bestProductsListData}
+            allProducts={products || []}
+            onViewAll={() => navigate(`/company/${companyId}/products`)}
+          />
         )}
       </div>
       {/* Calculations Explanation Modal */}

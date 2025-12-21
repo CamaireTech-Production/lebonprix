@@ -228,3 +228,214 @@ export const calculateDashboardProfit = (
   return calculateTotalProfit(periodSales, products, stockChanges);
 };
 
+/**
+ * Calculate new orders count and trend
+ * 
+ * @param currentPeriodSales - Sales in current period
+ * @param previousPeriodSales - Sales in previous period
+ * @returns Object with count and percentage change
+ */
+export const calculateNewOrders = (
+  currentPeriodSales: Sale[],
+  previousPeriodSales: Sale[]
+): { count: number; trend: number } => {
+  const currentCount = currentPeriodSales.length;
+  const previousCount = previousPeriodSales.length;
+  const trend = previousCount > 0 
+    ? ((currentCount - previousCount) / previousCount) * 100 
+    : currentCount > 0 ? 100 : 0;
+  
+  return { count: currentCount, trend };
+};
+
+/**
+ * Calculate new clients count and trend
+ * 
+ * @param currentPeriodSales - Sales in current period
+ * @param previousPeriodSales - Sales in previous period
+ * @returns Object with count and percentage change
+ */
+export const calculateNewClients = (
+  currentPeriodSales: Sale[],
+  previousPeriodSales: Sale[]
+): { count: number; trend: number } => {
+  // Get unique customers by phone number
+  const currentClients = new Set(
+    currentPeriodSales
+      .map(sale => sale.customerInfo?.phone)
+      .filter(Boolean) as string[]
+  );
+  const previousClients = new Set(
+    previousPeriodSales
+      .map(sale => sale.customerInfo?.phone)
+      .filter(Boolean) as string[]
+  );
+  
+  // New clients are those in current period but not in previous
+  const newClientsSet = new Set(
+    Array.from(currentClients).filter(phone => !previousClients.has(phone))
+  );
+  
+  const currentCount = newClientsSet.size;
+  const previousCount = previousClients.size;
+  const trend = previousCount > 0 
+    ? ((currentCount - previousCount) / previousCount) * 100 
+    : currentCount > 0 ? 100 : 0;
+  
+  return { count: currentCount, trend };
+};
+
+/**
+ * Calculate sales by store/location
+ * 
+ * @param sales - Array of sales
+ * @returns Array of { store: string; amount: number; count: number }
+ */
+export const calculateSalesByStore = (
+  sales: Sale[]
+): Array<{ store: string; amount: number; count: number }> => {
+  const storeMap: Record<string, { amount: number; count: number }> = {};
+  
+  sales.forEach(sale => {
+    // Use location from customerInfo or default to "Boutique Principale"
+    const store = sale.customerInfo?.quarter || 'Boutique Principale';
+    
+    if (!storeMap[store]) {
+      storeMap[store] = { amount: 0, count: 0 };
+    }
+    
+    storeMap[store].amount += sale.totalAmount;
+    storeMap[store].count += 1;
+  });
+  
+  return Object.entries(storeMap)
+    .map(([store, data]) => ({ store, ...data }))
+    .sort((a, b) => b.amount - a.amount);
+};
+
+/**
+ * Calculate sales by customer source
+ * 
+ * @param sales - Array of sales
+ * @param sources - Array of customer sources (for mapping IDs to names)
+ * @returns Array of { source: string; amount: number; count: number }
+ */
+export const calculateSalesBySource = (
+  sales: Sale[],
+  sources: Array<{ id: string; name: string }> = []
+): Array<{ source: string; amount: number; count: number }> => {
+  const sourceMap: Record<string, { amount: number; count: number }> = {};
+  
+  sales.forEach(sale => {
+    const sourceId = sale.customerSourceId || 'OTHER';
+    const sourceName = sources.find(s => s.id === sourceId)?.name || sourceId;
+    
+    if (!sourceMap[sourceName]) {
+      sourceMap[sourceName] = { amount: 0, count: 0 };
+    }
+    
+    sourceMap[sourceName].amount += sale.totalAmount;
+    sourceMap[sourceName].count += 1;
+  });
+  
+  return Object.entries(sourceMap)
+    .map(([source, data]) => ({ source, ...data }))
+    .sort((a, b) => b.amount - a.amount);
+};
+
+/**
+ * Calculate trend data for mini line graph
+ * 
+ * @param sales - Array of sales
+ * @param periodDays - Number of days to show in trend
+ * @returns Array of daily values for the trend line
+ */
+export const calculateTrendData = (
+  sales: Sale[],
+  periodDays: number = 7
+): number[] => {
+  const today = new Date();
+  today.setHours(23, 59, 59, 999);
+  const startDate = new Date(today);
+  startDate.setDate(startDate.getDate() - periodDays);
+  startDate.setHours(0, 0, 0, 0);
+  
+  const dailyData: number[] = [];
+  
+  for (let i = 0; i < periodDays; i++) {
+    const date = new Date(startDate);
+    date.setDate(date.getDate() + i);
+    
+    const daySales = sales.filter(sale => {
+      if (!sale.createdAt?.seconds) return false;
+      const saleDate = new Date(sale.createdAt.seconds * 1000);
+      return saleDate >= date && saleDate < new Date(date.getTime() + 24 * 60 * 60 * 1000);
+    });
+    
+    const dayTotal = daySales.reduce((sum, sale) => sum + sale.totalAmount, 0);
+    dailyData.push(dayTotal);
+  }
+  
+  return dailyData;
+};
+
+/**
+ * Calculate sales by product category
+ * 
+ * @param sales - Array of sales
+ * @param products - Array of products (to get category information)
+ * @returns Array of { category: string; amount: number; count: number }
+ */
+export const calculateSalesByCategory = (
+  sales: Sale[],
+  products: Product[]
+): Array<{ category: string; amount: number; count: number }> => {
+  const categoryMap: Record<string, { amount: number; count: number }> = {};
+  
+  sales.forEach(sale => {
+    sale.products.forEach(product => {
+      const productData = products.find(p => p.id === product.productId);
+      const category = productData?.category || 'Non catégorisé';
+      
+      if (!categoryMap[category]) {
+        categoryMap[category] = { amount: 0, count: 0 };
+      }
+      
+      const productAmount = (product.negotiatedPrice || product.basePrice) * product.quantity;
+      categoryMap[category].amount += productAmount;
+      categoryMap[category].count += product.quantity;
+    });
+  });
+  
+  return Object.entries(categoryMap)
+    .map(([category, data]) => ({ category, ...data }))
+    .sort((a, b) => b.amount - a.amount);
+};
+
+/**
+ * Calculate expenses by category
+ * 
+ * @param expenses - Array of expenses
+ * @returns Array of { category: string; amount: number; count: number }
+ */
+export const calculateExpensesByCategory = (
+  expenses: Expense[]
+): Array<{ category: string; amount: number; count: number }> => {
+  const categoryMap: Record<string, { amount: number; count: number }> = {};
+  
+  expenses.forEach(expense => {
+    const category = expense.category || 'Non catégorisé';
+    
+    if (!categoryMap[category]) {
+      categoryMap[category] = { amount: 0, count: 0 };
+    }
+    
+    categoryMap[category].amount += expense.amount;
+    categoryMap[category].count += 1;
+  });
+  
+  return Object.entries(categoryMap)
+    .map(([category, data]) => ({ category, ...data }))
+    .sort((a, b) => b.amount - a.amount);
+};
+

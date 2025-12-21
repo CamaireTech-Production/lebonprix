@@ -105,7 +105,8 @@
       "solde": "Balance",
       "profit": "Profit",
       "expenses": "Expenses",
-      "productsSold": "Products Sold"
+      "productsSold": "Products Sold",
+      "clients": "Clients"
     },
     "profit": {
       "periodSettings": "Profit Period Settings",
@@ -148,6 +149,21 @@
       "quantitySold": "Quantity Sold",
       "totalSales": "Total Sales",
       "noData": "No sales data available"
+    },
+    "salesByCategory": {
+      "title": "Sales by Product Category"
+    },
+    "expensesByCategory": {
+      "title": "Expenses by Category"
+    },
+    "salesBySource": {
+      "title": "Sales by Source"
+    },
+    "period": {
+      "thisYear": "This Year",
+      "thisMonth": "This Month",
+      "last30Days": "Last 30 Days",
+      "custom": "Custom"
     },
     "calculations": {
       "title": "Dashboard Calculations Explained",
@@ -943,7 +959,6 @@
       "location": "Location",
       "locationHelp": "Optional",
       "emailAddress": "Email Address",
-      "emailDisabledHelp": "Email cannot be changed as it is used for critical operations and reports.",
       "reportMail": "Email for sales reports",
       "reportMailHelp": "Email address where sales reports will be sent",
       "reportTime": "Report reception time",
