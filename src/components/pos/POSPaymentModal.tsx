@@ -398,7 +398,9 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
       printIframe.style.border = 'none';
       printIframe.style.left = '-9999px';
       
-      document.body.appendChild(printIframe);
+      if (document.body) {
+        document.body.appendChild(printIframe);
+      }
       
       // Flag to ensure we only print once
       let hasPrinted = false;

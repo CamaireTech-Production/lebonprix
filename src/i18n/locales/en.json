@@ -159,6 +159,9 @@
     "salesBySource": {
       "title": "Sales by Source"
     },
+    "salesByPaymentStatus": {
+      "title": "Sales by Payment Status"
+    },
     "period": {
       "thisYear": "This Year",
       "thisMonth": "This Month",

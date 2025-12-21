@@ -439,3 +439,31 @@ export const calculateExpensesByCategory = (
     .sort((a, b) => b.amount - a.amount);
 };
 
+/**
+ * Calculate sales by payment status
+ * 
+ * @param sales - Array of sales
+ * @returns Array of { status: string; amount: number; count: number }
+ */
+export const calculateSalesByPaymentStatus = (
+  sales: Sale[]
+): Array<{ status: string; amount: number; count: number }> => {
+  const statusMap: Record<string, { amount: number; count: number }> = {};
+  
+  sales.forEach(sale => {
+    const status = sale.paymentStatus || 'pending';
+    const statusLabel = status === 'paid' ? 'Payé' : status === 'pending' ? 'En attente' : 'Annulé';
+    
+    if (!statusMap[statusLabel]) {
+      statusMap[statusLabel] = { amount: 0, count: 0 };
+    }
+    
+    statusMap[statusLabel].amount += sale.totalAmount;
+    statusMap[statusLabel].count += 1;
+  });
+  
+  return Object.entries(statusMap)
+    .map(([status, data]) => ({ status, ...data }))
+    .sort((a, b) => b.amount - a.amount);
+};
+

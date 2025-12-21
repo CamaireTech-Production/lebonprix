@@ -162,6 +162,9 @@
     "salesBySource": {
       "title": "Ventes par source"
     },
+    "salesByPaymentStatus": {
+      "title": "Ventes par statut de paiement"
+    },
     "period": {
       "thisYear": "Cette année",
       "thisMonth": "Ce mois",

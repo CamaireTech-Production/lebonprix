@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { useAuth } from '../../contexts/AuthContext';
+import { useCompanyColors } from '@hooks/business/useCompanyColors';
 import Card from '../common/Card';
 import { format } from 'date-fns';
 import type { Sale } from '../../types/models';
@@ -12,13 +12,7 @@ interface LatestOrdersTableProps {
 
 const LatestOrdersTable = ({ orders, onOrderClick, className = '' }: LatestOrdersTableProps) => {
   const { t } = useTranslation();
-  const { company } = useAuth();
-
-  const getCompanyColors = () => {
-    return {
-      primary: company?.dashboardColors?.primary || company?.primaryColor || '#183524',
-    };
-  };
+  const colors = useCompanyColors();
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -45,7 +39,7 @@ const LatestOrdersTable = ({ orders, onOrderClick, className = '' }: LatestOrder
 
   return (
     <Card className={className}>
-      <h3 className="text-lg font-semibold mb-4" style={{color: getCompanyColors().primary}}>
+      <h3 className="text-lg font-semibold mb-4" style={{color: colors.primary}}>
         {t('dashboard.latestOrders.title', { defaultValue: 'Dernières commandes' })}
       </h3>
       {orders.length === 0 ? (

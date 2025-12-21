@@ -8,7 +8,7 @@ import {
 } from 'chart.js';
 import Card from '../common/Card';
 import { useTranslation } from 'react-i18next';
-import { useAuth } from '../../contexts/AuthContext';
+import { useCompanyColors } from '@hooks/business/useCompanyColors';
 
 // Register Chart.js components
 ChartJS.register(ArcElement, Tooltip, Legend);
@@ -26,19 +26,9 @@ interface DonutChartProps {
   className?: string;
 }
 
-const DonutChart = ({ title, data, colors, periodFilter, className = '' }: DonutChartProps) => {
+const DonutChart = ({ title, data, colors: chartColors, periodFilter, className = '' }: DonutChartProps) => {
   const { t, i18n } = useTranslation();
-  const { company } = useAuth();
-
-  // Get company colors with fallbacks
-  const getCompanyColors = () => {
-    const colors = {
-      primary: company?.dashboardColors?.primary || company?.primaryColor || '#183524',
-      secondary: company?.dashboardColors?.secondary || company?.secondaryColor || '#e2b069',
-      tertiary: company?.dashboardColors?.tertiary || company?.tertiaryColor || '#2a4a3a'
-    };
-    return colors;
-  };
+  const companyColors = useCompanyColors();
 
   // Default color palette
   const defaultColors = [
@@ -54,13 +44,13 @@ const DonutChart = ({ title, data, colors, periodFilter, className = '' }: Donut
     '#A855F7', // purple
   ];
 
-  const chartColors = colors || defaultColors;
+  const colors = chartColors || defaultColors;
 
   const chartData = {
     labels: data.map(item => item.label),
     datasets: [{
       data: data.map(item => item.value),
-      backgroundColor: chartColors.slice(0, data.length),
+      backgroundColor: colors.slice(0, data.length),
       borderColor: '#fff',
       borderWidth: 2,
     }]
@@ -102,7 +92,7 @@ const DonutChart = ({ title, data, colors, periodFilter, className = '' }: Donut
   return (
     <Card className={className}>
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold" style={{color: getCompanyColors().primary}}>
+        <h3 className="text-lg font-semibold" style={{color: companyColors.primary}}>
           {title}
         </h3>
         {periodFilter}

@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import Card from '../common/Card';
 import { Info, Settings } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useAuth } from '../../contexts/AuthContext';
+import { useCompanyColors } from '@hooks/business/useCompanyColors';
 
 interface StatCardProps {
   title: string;
@@ -24,22 +24,12 @@ interface StatCardProps {
 
 const StatCard = ({ title, value, icon, trend, trendData, tooltipKey, type, className = '', periodLabel, showPeriodIndicator, onPeriodSettingsClick }: StatCardProps) => {
   const { t } = useTranslation();
-  const { company } = useAuth();
+  const colors = useCompanyColors();
   const [showTooltip, setShowTooltip] = useState(false);
   const [showValueTooltip, setShowValueTooltip] = useState(false);
   const [tooltipPosition, setTooltipPosition] = useState({ top: 0, left: 0, placement: 'top' as 'top' | 'bottom' });
   const triggerRef = useRef<HTMLDivElement>(null);
   const valueRef = useRef<HTMLParagraphElement>(null);
-
-  // Get company colors with fallbacks - prioritize dashboard colors
-  const getCompanyColors = () => {
-    const colors = {
-      primary: company?.dashboardColors?.primary || company?.primaryColor || '#183524',
-      secondary: company?.dashboardColors?.secondary || company?.secondaryColor || '#e2b069',
-      tertiary: company?.dashboardColors?.tertiary || company?.tertiaryColor || '#2a4a3a'
-    };
-    return colors;
-  };
 
   // Handle tooltip positioning
   useEffect(() => {
@@ -99,7 +89,7 @@ const StatCard = ({ title, value, icon, trend, trendData, tooltipKey, type, clas
 
   // Determine icon color based on the type using company colors
   const getIconColor = (type: StatCardProps['type']) => {
-    const colors = getCompanyColors();
+    // colors already available from hook
     switch (type) {
       case 'sales':
         return { backgroundColor: `${colors.primary}20`, color: colors.primary };
@@ -120,6 +110,7 @@ const StatCard = ({ title, value, icon, trend, trendData, tooltipKey, type, clas
 
   const renderTooltip = () => {
     if (!showTooltip || !tooltipKey) return null;
+    if (typeof document === 'undefined' || !document.body) return null;
 
     // Get translation for the tooltip
     const translationKey = `dashboard.tooltips.${tooltipKey}`;
@@ -152,6 +143,8 @@ const StatCard = ({ title, value, icon, trend, trendData, tooltipKey, type, clas
 
   const renderValueTooltip = () => {
     if (!showValueTooltip) return null;
+    if (typeof document === 'undefined' || !document.body) return null;
+    
     return createPortal(
       <div
         className="fixed z-[9999] px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-xl border border-gray-700 transition-opacity duration-200"
@@ -239,7 +232,7 @@ const StatCard = ({ title, value, icon, trend, trendData, tooltipKey, type, clas
           <p
             ref={valueRef}
             className="mt-1 text-lg sm:text-xl md:text-2xl font-semibold truncate cursor-pointer"
-            style={{color: getCompanyColors().primary}}
+            style={{color: colors.primary}}
             tabIndex={0}
             onMouseEnter={() => setShowValueTooltip(true)}
             onMouseLeave={() => setShowValueTooltip(false)}
@@ -254,7 +247,7 @@ const StatCard = ({ title, value, icon, trend, trendData, tooltipKey, type, clas
             <div className="mt-1 flex items-center">
               <span
                 className="text-xs sm:text-sm font-medium"
-                style={{color: trend.isPositive ? getCompanyColors().secondary : '#ef4444'}}
+                style={{color: trend.isPositive ? colors.secondary : '#ef4444'}}
               >
                 {trend.isPositive ? '+' : ''}{trend.value}%
               </span>
@@ -278,7 +271,7 @@ const StatCard = ({ title, value, icon, trend, trendData, tooltipKey, type, clas
       {/* Mini Line Graph */}
       {trendData && trendData.length > 0 && (
         <div className="mt-4 h-12 w-full">
-          <MiniLineGraph data={trendData} color={getCompanyColors().primary} />
+          <MiniLineGraph data={trendData} color={colors.primary} />
         </div>
       )}
       {showPeriodIndicator && type === 'profit' && onPeriodSettingsClick && (
@@ -287,14 +280,14 @@ const StatCard = ({ title, value, icon, trend, trendData, tooltipKey, type, clas
             onClick={onPeriodSettingsClick}
             className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-md transition-colors"
             style={{
-              backgroundColor: `${getCompanyColors().primary}10`,
-              color: getCompanyColors().primary,
+              backgroundColor: `${colors.primary}10`,
+              color: colors.primary,
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = `${getCompanyColors().primary}20`;
+              e.currentTarget.style.backgroundColor = `${colors.primary}20`;
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = `${getCompanyColors().primary}10`;
+              e.currentTarget.style.backgroundColor = `${colors.primary}10`;
             }}
           >
             <Settings size={16} />

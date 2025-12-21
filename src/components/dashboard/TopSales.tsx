@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { useAuth } from '../../contexts/AuthContext';
+import { useCompanyColors } from '@hooks/business/useCompanyColors';
 import Card from '../common/Card';
 import { ExternalLink } from 'lucide-react';
 import { format } from 'date-fns';
@@ -13,13 +13,7 @@ interface TopSalesProps {
 
 const TopSales = ({ sales, onViewMore, className = '' }: TopSalesProps) => {
   const { t } = useTranslation();
-  const { company } = useAuth();
-
-  const getCompanyColors = () => {
-    return {
-      primary: company?.dashboardColors?.primary || company?.primaryColor || '#183524',
-    };
-  };
+  const colors = useCompanyColors();
 
   const formatDate = (timestamp: any) => {
     if (!timestamp?.seconds) return '-';
@@ -30,7 +24,7 @@ const TopSales = ({ sales, onViewMore, className = '' }: TopSalesProps) => {
   return (
     <Card className={className}>
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold" style={{color: getCompanyColors().primary}}>
+        <h3 className="text-lg font-semibold" style={{color: colors.primary}}>
           {t('dashboard.topSales.title', { defaultValue: 'Meilleures ventes' })}
         </h3>
         {onViewMore && (
@@ -60,7 +54,7 @@ const TopSales = ({ sales, onViewMore, className = '' }: TopSalesProps) => {
                 </p>
               </div>
               <div className="text-right ml-3">
-                <p className="text-sm font-semibold" style={{color: getCompanyColors().primary}}>
+                <p className="text-sm font-semibold" style={{color: colors.primary}}>
                   {sale.totalAmount.toLocaleString()} FCFA
                 </p>
               </div>
