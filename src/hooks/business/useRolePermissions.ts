@@ -149,15 +149,6 @@ export function useRolePermissions(companyId?: string) {
       const canAccessHR = canAccess(RESOURCES.HR);
       const canAccessSettings = canAccess(RESOURCES.SETTINGS);
 
-      console.log('🔐 [useRolePermissions] Permissions vides (pas de template):', {
-        hasTemplate: false,
-        templateLoading,
-        canView: emptyPermissions.canView,
-        canAccessFinance,
-        canAccessHR,
-        canAccessSettings
-      });
-
       return {
         systemRole: 'staff' as SystemRole, // Default systemRole, mais permissions vides
         permissions: emptyPermissions,

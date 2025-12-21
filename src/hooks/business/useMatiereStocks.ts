@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { onSnapshot, query, where, orderBy, collection, getDoc, doc } from 'firebase/firestore';
+import { onSnapshot, query, where, orderBy, collection } from 'firebase/firestore';
 import { db } from '@services/core/firebase';
 import { useAuth } from '@contexts/AuthContext';
 import { useMatieres } from '@hooks/business/useMatieres';
@@ -22,7 +22,6 @@ export const useMatiereStocks = () => {
   const { matieres } = useMatieres();
   const [batches, setBatches] = useState<StockBatch[]>([]);
   const [stockChanges, setStockChanges] = useState<StockChange[]>([]);
-  const [stocks, setStocks] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -111,51 +110,14 @@ export const useMatiereStocks = () => {
     return unsubscribe;
   }, [company?.id]);
 
-  // Load stock quantities from stocks collection
-  useEffect(() => {
-    if (!matieres.length) {
-      setStocks({});
-      return;
-    }
-
-    const loadStocks = async () => {
-      const stocksMap: Record<string, number> = {};
-      
-      for (const matiere of matieres) {
-        if (matiere.refStock) {
-          try {
-            const stockDoc = await getDoc(doc(db, 'stocks', matiere.refStock));
-            if (stockDoc.exists()) {
-              const stockData = stockDoc.data();
-              stocksMap[matiere.id] = stockData.quantity || 0;
-            } else {
-              stocksMap[matiere.id] = 0;
-            }
-          } catch (err) {
-            logError(`Error loading stock for matiere ${matiere.id}`, err);
-            stocksMap[matiere.id] = 0;
-          }
-        } else {
-          stocksMap[matiere.id] = 0;
-        }
-      }
-      
-      setStocks(stocksMap);
-    };
-
-    loadStocks();
-  }, [matieres]);
-
-  // Combine matieres with stock info
+  // Combine matieres with stock info (calculate stock from batches only - single source of truth)
   const matiereStocks = useMemo<MatiereStockInfo[]>(() => {
     return matieres.map(matiere => {
       const matiereBatches = batches.filter(b => b.matiereId === matiere.id);
       const matiereStockChanges = stockChanges.filter(sc => sc.matiereId === matiere.id);
-      const currentStock = stocks[matiere.id] || 0;
       
-      // Calculate stock from batches if available
-      const calculatedStock = matiereBatches.reduce((sum, b) => sum + (b.remainingQuantity || 0), 0);
-      const effectiveStock = calculatedStock > 0 ? calculatedStock : currentStock;
+      // Calculate stock ONLY from batches (single source of truth, like products)
+      const effectiveStock = matiereBatches.reduce((sum, b) => sum + (b.remainingQuantity || 0), 0);
 
       return {
         matiereId: matiere.id,
@@ -168,7 +130,7 @@ export const useMatiereStocks = () => {
         stockChanges: matiereStockChanges
       };
     });
-  }, [matieres, batches, stockChanges, stocks]);
+  }, [matieres, batches, stockChanges]);
 
   return {
     matiereStocks,

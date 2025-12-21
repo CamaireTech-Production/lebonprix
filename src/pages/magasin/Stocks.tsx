@@ -1,275 +1,585 @@
-import { useState, useMemo } from 'react';
-import { Search, RefreshCcw, AlertTriangle, ChevronDown, ChevronUp, Package } from 'lucide-react';
-import { Card, Button, Input, Badge, LoadingScreen, ImageWithSkeleton } from '@components/common';
-import { useMatiereStocks } from '@hooks/business/useMatiereStocks';
-import { useCategories } from '@hooks/data/useFirestore';
+import { useEffect, useMemo, useState } from 'react';
+import { ChevronRight, ChevronDown, RefreshCcw, Package, AlertCircle, Search } from 'lucide-react';
+import { Button, Input, Modal, LoadingScreen } from '@components/common';
 import { useMatieres } from '@hooks/business/useMatieres';
+import { useAllStockBatches } from '@hooks/business/useStockBatches';
+import { useStockChanges } from '@hooks/data/useFirestore';
+import MatiereRestockModal from '../../components/magasin/MatiereRestockModal';
+import MatiereManualAdjustmentModal from '../../components/magasin/MatiereManualAdjustmentModal';
+import MatiereDamageAdjustmentModal from '../../components/magasin/MatiereDamageAdjustmentModal';
+import type { Matiere, StockBatch, StockChange } from '../../types/models';
+
+const PAGE_SIZES = [10, 20, 50];
+
+// Skeleton row matching the actual table grid structure
+const SkeletonRow = () => (
+  <div className="animate-pulse border-b border-gray-200">
+    <div className="grid grid-cols-12 items-center px-4 py-3">
+      <div className="col-span-1">
+        <div className="w-4 h-4 bg-gray-200 rounded" />
+      </div>
+      <div className="col-span-3">
+        <div className="h-4 bg-gray-200 rounded w-3/4 mb-1" />
+        <div className="h-3 bg-gray-200 rounded w-1/2" />
+      </div>
+      <div className="col-span-2">
+        <div className="h-4 bg-gray-200 rounded w-2/3" />
+      </div>
+      <div className="col-span-2">
+        <div className="h-4 bg-gray-200 rounded w-1/2" />
+      </div>
+      <div className="col-span-2">
+        <div className="h-4 bg-gray-200 rounded w-2/3" />
+      </div>
+      <div className="col-span-2 flex justify-end space-x-2">
+        <div className="h-7 w-16 bg-gray-200 rounded" />
+        <div className="h-7 w-20 bg-gray-200 rounded" />
+      </div>
+    </div>
+  </div>
+);
+
+// Skeleton for expanded batch table
+const SkeletonExpanded = () => (
+  <div className="animate-pulse bg-gray-50 px-10 py-4">
+    <div className="overflow-x-auto">
+      <div className="min-w-[720px]">
+        <div className="grid grid-cols-7 gap-4 mb-3">
+          {[1, 2, 3, 4, 5, 6, 7].map((col) => (
+            <div key={col} className="h-3 bg-gray-200 rounded" />
+          ))}
+        </div>
+        {[1, 2, 3].map((key) => (
+          <div key={key} className="grid grid-cols-7 gap-4 py-2 border-b border-gray-200">
+            {[1, 2, 3, 4, 5, 6, 7].map((col) => (
+              <div key={col} className="h-3 bg-gray-200 rounded" />
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+);
+
+const formatNumber = (value: number | undefined) =>
+  typeof value === 'number' ? value.toLocaleString() : '-';
 
 const Stocks = () => {
-  const { matiereStocks, loading, error } = useMatiereStocks();
-  const { matieres } = useMatieres();
-  const { categories } = useCategories();
-  const [search, setSearch] = useState('');
+  const { matieres, loading, refresh, error: matieresError } = useMatieres();
+  const { batches, loading: batchesLoading, error: batchesError } = useAllStockBatches('matiere');
+  const { stockChanges } = useStockChanges('matiere');
+
   const [expandedMatiereId, setExpandedMatiereId] = useState<string | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(PAGE_SIZES[0]);
+  
+  // Modal states
+  const [restockModalOpen, setRestockModalOpen] = useState(false);
+  const [adjustModalOpen, setAdjustModalOpen] = useState(false);
+  const [damageModalOpen, setDamageModalOpen] = useState(false);
+  const [historyModalOpen, setHistoryModalOpen] = useState(false);
+  const [selectedMatiere, setSelectedMatiere] = useState<Matiere | null>(null);
+  const [selectedBatch, setSelectedBatch] = useState<StockBatch | null>(null);
+  const [selectedBatchTotals, setSelectedBatchTotals] = useState<{ remaining: number; total: number } | undefined>(undefined);
 
-  // Filter matiere stocks
-  const filteredMatiereStocks = useMemo(() => {
-    let filtered = matiereStocks;
+  useEffect(() => {
+    setPage(1);
+  }, [search]);
 
-    // Filter by search
-    if (search.trim()) {
-      const query = search.toLowerCase();
-      filtered = filtered.filter(ms =>
-        ms.matiereName.toLowerCase().includes(query) ||
-        ms.category.toLowerCase().includes(query)
-      );
-    }
+  const filteredMatieres = useMemo(() => {
+    if (!search.trim()) return matieres;
+    const query = search.toLowerCase();
+    return matieres.filter(
+      (m) =>
+        m.name.toLowerCase().includes(query) ||
+        (m.reference && m.reference.toLowerCase().includes(query))
+    );
+  }, [matieres, search]);
 
-    // Filter by category
-    if (selectedCategory !== 'All') {
-      filtered = filtered.filter(ms => ms.category === selectedCategory);
-    }
-
-    return filtered;
-  }, [matiereStocks, search, selectedCategory]);
-
-  // Get unique categories
-  const availableCategories = useMemo(() => {
-    const cats = ['All', ...new Set(matiereStocks.map(ms => ms.category).filter(Boolean))];
-    return cats;
-  }, [matiereStocks]);
+  const totalPages = Math.max(1, Math.ceil(filteredMatieres.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const paginatedMatieres = filteredMatieres.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
 
   const handleExpand = (matiereId: string) => {
-    setExpandedMatiereId(prev => (prev === matiereId ? null : matiereId));
+    setExpandedMatiereId((prev) => (prev === matiereId ? null : matiereId));
   };
 
-  const getCategoryName = (categoryName: string) => {
-    const category = categories.find(c => c.name === categoryName);
-    return category?.name || categoryName;
+  const batchesByMatiere = useMemo(() => {
+    const map = new Map<string, StockBatch[]>();
+    batches.forEach((batch) => {
+      const matiereId = batch.matiereId || '';
+      const arr = map.get(matiereId) || [];
+      arr.push(batch);
+      map.set(matiereId, arr);
+    });
+    return map;
+  }, [batches]);
+
+
+  const handleRestock = (matiere: Matiere) => {
+    setSelectedMatiere(matiere);
+    setSelectedBatch(null);
+    const matiereBatches = batchesByMatiere.get(matiere.id) || [];
+    const remaining = matiereBatches.reduce((sum, b) => sum + (b.remainingQuantity || 0), 0);
+    const total = matiereBatches.reduce((sum, b) => sum + (b.quantity || 0), 0);
+    setSelectedBatchTotals(matiereBatches.length ? { remaining, total } : undefined);
+    setExpandedMatiereId(matiere.id || '');
+    setRestockModalOpen(true);
   };
 
-  const getMatiere = (matiereId: string) => {
-    return matieres.find(m => m.id === matiereId);
+  const handleAdjust = (matiere: Matiere, batch?: StockBatch) => {
+    setSelectedMatiere(matiere);
+    setSelectedBatch(batch || null);
+    const matiereBatches = batchesByMatiere.get(matiere.id || '') || [];
+    const remaining = matiereBatches.reduce((sum, b) => sum + (b.remainingQuantity || 0), 0);
+    const total = matiereBatches.reduce((sum, b) => sum + (b.quantity || 0), 0);
+    setSelectedBatchTotals(matiereBatches.length ? { remaining, total } : undefined);
+    setExpandedMatiereId(matiere.id || '');
+    setAdjustModalOpen(true);
   };
 
-  // Check for low stock (threshold: 10 units)
-  const lowStockThreshold = 10;
-  const lowStockMatieres = filteredMatiereStocks.filter(ms => ms.currentStock <= lowStockThreshold);
+  const handleDamage = (matiere: Matiere, batch: StockBatch) => {
+    setSelectedMatiere(matiere);
+    setSelectedBatch(batch);
+    const matiereBatches = batchesByMatiere.get(matiere.id) || [];
+    const remaining = matiereBatches.reduce((sum, b) => sum + (b.remainingQuantity || 0), 0);
+    const total = matiereBatches.reduce((sum, b) => sum + (b.quantity || 0), 0);
+    setSelectedBatchTotals(matiereBatches.length ? { remaining, total } : undefined);
+    setExpandedMatiereId(matiere.id || '');
+    setDamageModalOpen(true);
+  };
 
-  if (loading && matiereStocks.length === 0) {
+  const handleHistory = (matiere: Matiere) => {
+    setSelectedMatiere(matiere);
+    setHistoryModalOpen(true);
+  };
+
+  const handleModalSuccess = () => {
+    refresh();
+    setRestockModalOpen(false);
+    setAdjustModalOpen(false);
+    setDamageModalOpen(false);
+    setHistoryModalOpen(false);
+    setSelectedMatiere(null);
+    setSelectedBatch(null);
+  };
+
+  const handleModalClose = () => {
+    setRestockModalOpen(false);
+    setAdjustModalOpen(false);
+    setDamageModalOpen(false);
+    setHistoryModalOpen(false);
+    setSelectedMatiere(null);
+    setSelectedBatch(null);
+  };
+
+  const matiereStockChanges = useMemo(() => {
+    if (!selectedMatiere) return [];
+    return stockChanges
+      .filter((sc: StockChange) => sc.matiereId === selectedMatiere.id)
+      .sort((a: StockChange, b: StockChange) => {
+        const dateA = a.createdAt?.seconds || 0;
+        const dateB = b.createdAt?.seconds || 0;
+        return dateB - dateA; // Newest first
+      });
+  }, [stockChanges, selectedMatiere]);
+
+  // Show loading screen on initial load
+  if (loading && matieres.length === 0) {
     return <LoadingScreen />;
   }
 
-  if (error) {
+  // Show error state
+  if (matieresError) {
     return (
-      <Card>
-        <div className="text-center py-12 text-red-600">
-          <p>Erreur lors du chargement des stocks: {error}</p>
+      <div className="p-4">
+        <div className="bg-white border border-red-200 rounded-lg shadow-sm p-8">
+          <div className="flex flex-col items-center justify-center text-center">
+            <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">Error Loading Matieres</h2>
+            <p className="text-gray-600 mb-4 max-w-md">
+              {matieresError.message || 'Failed to load matieres. Please try again.'}
+            </p>
+            <div className="flex space-x-3">
+              <Button variant="outline" onClick={() => window.location.reload()}>
+                Reload Page
+              </Button>
+              <Button onClick={refresh} icon={<RefreshCcw size={16} />}>
+                Retry
+              </Button>
+            </div>
+          </div>
         </div>
-      </Card>
+      </div>
     );
   }
 
   return (
-    <div>
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-4">
+    <div className="p-4 space-y-4">
+      <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-gray-900">Stocks des matières</h2>
-          <p className="text-gray-600">Gérer les stocks de vos matières premières</p>
+          <h1 className="text-2xl font-semibold text-gray-900">Matiere Stocks</h1>
+          <p className="text-sm text-gray-600">
+            Manage matiere inventory with batch visibility.
+          </p>
         </div>
-        <Button variant="outline" icon={<RefreshCcw size={16} />}>
-          Actualiser
-        </Button>
-      </div>
-
-      {/* Low Stock Alert */}
-      {lowStockMatieres.length > 0 && (
-        <Card className="mb-6 bg-yellow-50 border-yellow-200">
-          <div className="flex items-center space-x-3">
-            <AlertTriangle className="text-yellow-600" size={20} />
-            <div className="flex-1">
-              <p className="text-sm font-medium text-yellow-800">
-                {lowStockMatieres.length} matière{lowStockMatieres.length > 1 ? 's' : ''} en stock faible
-              </p>
-              <p className="text-xs text-yellow-600 mt-1">
-                Stock inférieur ou égal à {lowStockThreshold} unités
-              </p>
-            </div>
-          </div>
-        </Card>
-      )}
-
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4 mb-6">
-        <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-          <Input
-            placeholder="Rechercher une matière..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-        <div className="sm:w-48">
-          <select
-            value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-          >
-            {availableCategories.map(cat => (
-              <option key={cat} value={cat}>
-                {cat === 'All' ? 'Toutes les catégories' : cat}
-              </option>
-            ))}
-          </select>
+        <div className="flex items-center space-x-2">
+          <Button variant="outline" onClick={refresh} icon={<RefreshCcw size={16} />} disabled={loading}>
+            Refresh
+          </Button>
         </div>
       </div>
 
-      {/* Matiere Stocks List */}
-      {filteredMatiereStocks.length === 0 ? (
-        <Card>
-          <div className="text-center py-12">
-            <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
-              <Package className="text-gray-400" size={32} />
-            </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              {search || selectedCategory !== 'All' ? 'Aucune matière trouvée' : 'Aucune matière'}
-            </h3>
-            <p className="text-gray-500">
-              {search || selectedCategory !== 'All'
-                ? 'Essayez de modifier vos critères de recherche'
-                : 'Ajoutez des matières pour voir leurs stocks ici'}
-            </p>
+      <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+        <div className="px-4 py-3 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="w-full sm:w-80">
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search matieres by name or reference"
+              name="search"
+            />
           </div>
-        </Card>
-      ) : (
-        <div className="space-y-4">
-          {filteredMatiereStocks.map(ms => {
-            const matiere = getMatiere(ms.matiereId);
-            const isExpanded = expandedMatiereId === ms.matiereId;
-            const isLowStock = ms.currentStock <= lowStockThreshold;
+          <div className="flex items-center space-x-2">
+            <label className="text-sm text-gray-600">Rows per page</label>
+            <select
+              className="rounded-md border border-gray-300 px-2 py-1 text-sm"
+              value={pageSize}
+              onChange={(e) => {
+                setPageSize(Number(e.target.value));
+                setPage(1);
+              }}
+            >
+              {PAGE_SIZES.map((size) => (
+                <option key={size} value={size}>
+                  {size}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
 
-            return (
-              <Card key={ms.matiereId} className={isLowStock ? 'border-yellow-300 bg-yellow-50' : ''}>
-                <div className="flex items-start space-x-4">
-                  {/* Matiere Image */}
-                  {matiere && matiere.images && matiere.images.length > 0 && (
-                    <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
-                      <ImageWithSkeleton
-                        src={matiere.images[0]}
-                        alt={matiere.name}
-                        className="w-full h-full object-cover"
-                        placeholder="/placeholder.png"
-                      />
-                    </div>
-                  )}
+        <div className="overflow-x-auto">
+          <div className="min-w-[960px]">
+            <div className="grid grid-cols-12 px-4 py-2 text-xs font-semibold text-gray-600 border-b border-gray-200 bg-gray-50">
+              <div className="col-span-1" />
+              <div className="col-span-3">Matiere</div>
+              <div className="col-span-2">Category</div>
+              <div className="col-span-2">Stock</div>
+              <div className="col-span-2">Batches</div>
+              <div className="col-span-2 text-right">Actions</div>
+            </div>
 
-                  {/* Matiere Info */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-gray-900 mb-1">
-                          {ms.matiereName}
-                        </h3>
-                        <div className="flex flex-wrap gap-2 mb-2">
-                          <Badge variant="info">
-                            {getCategoryName(ms.category)}
-                          </Badge>
-                          <Badge variant={isLowStock ? 'warning' : 'success'}>
-                            Stock: {ms.currentStock.toLocaleString()} {ms.unit}
-                          </Badge>
-                        </div>
-                        <div className="text-sm text-gray-600">
-                          Prix d'achat: {ms.costPrice.toLocaleString()} XAF / {ms.unit}
-                        </div>
-                      </div>
-
-                      {/* Expand Button */}
+            {loading && paginatedMatieres.length === 0 ? (
+              <>
+                {Array.from({ length: pageSize }).map((_, idx) => (
+                  <SkeletonRow key={`skeleton-${idx}`} />
+                ))}
+              </>
+            ) : (
+              paginatedMatieres.map((matiere) => {
+                const matiereBatches = batchesByMatiere.get(matiere.id) || [];
+                const activeBatches = matiereBatches.filter((b) => b.status === 'active');
+                const depletedBatches = matiereBatches.filter((b) => b.status === 'depleted');
+                const batchRemaining = matiereBatches.reduce((sum, b) => sum + (b.remainingQuantity || 0), 0);
+                const batchTotal = matiereBatches.reduce((sum, b) => sum + (b.quantity || 0), 0);
+                return (
+                  <div key={matiere.id} className="border-b border-gray-200">
+                    <div className="grid grid-cols-12 items-center px-4 py-3">
                       <button
-                        onClick={() => handleExpand(ms.matiereId)}
-                        className="text-gray-400 hover:text-gray-600"
+                        onClick={() => handleExpand(matiere.id)}
+                        className="col-span-1 text-gray-500 hover:text-gray-700"
+                        aria-label="Toggle batches"
                       >
-                        {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                        {expandedMatiereId === matiere.id ? (
+                          <ChevronDown size={18} />
+                        ) : (
+                          <ChevronRight size={18} />
+                        )}
                       </button>
+                      <div className="col-span-3">
+                        <div className="font-medium text-gray-900">{matiere.name}</div>
+                        <div className="text-xs text-gray-500">{matiere.reference || '—'}</div>
+                      </div>
+                      <div className="col-span-2 text-sm text-gray-700">
+                        {matiere.refCategorie || '—'}
+                      </div>
+                      <div className="col-span-2 text-sm text-gray-900">
+                        {matiereBatches.length > 0
+                          ? `${formatNumber(batchRemaining)} / ${formatNumber(batchTotal)} ${matiere.unit}`
+                          : `0 ${matiere.unit}`}
+                      </div>
+                      <div className="col-span-2 text-sm text-gray-900">
+                        {activeBatches.length} active / {depletedBatches.length} depleted
+                      </div>
+                      <div className="col-span-2 flex justify-end space-x-2">
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => handleHistory(matiere)}
+                        >
+                          History
+                        </Button>
+                        <Button 
+                          size="sm"
+                          onClick={() => handleRestock(matiere)}
+                        >
+                          Restock
+                        </Button>
+                      </div>
                     </div>
 
-                    {/* Expanded Details */}
-                    {isExpanded && (
-                      <div className="mt-4 pt-4 border-t border-gray-200">
-                        <div className="space-y-3">
-                          {/* Batches */}
-                          {ms.batches.length > 0 && (
-                            <div>
-                              <h4 className="text-sm font-medium text-gray-700 mb-2">
-                                Lots ({ms.batches.length})
-                              </h4>
-                              <div className="space-y-2">
-                                {ms.batches.map(batch => (
-                                  <div key={batch.id} className="bg-gray-50 p-3 rounded-md text-sm">
-                                    <div className="flex justify-between items-center">
-                                      <div>
-                                        <span className="font-medium">
-                                          {batch.remainingQuantity} / {batch.quantity} {ms.unit}
+                    {expandedMatiereId === matiere.id && (
+                      <div className="bg-gray-50 px-10 py-5">
+                        {batchesLoading ? (
+                          <SkeletonExpanded />
+                        ) : batchesError ? (
+                          <div className="flex items-center space-x-2 text-sm text-red-600">
+                            <AlertCircle size={16} />
+                            <span>Error loading batches. Please try again.</span>
+                          </div>
+                        ) : matiereBatches.length === 0 ? (
+                          <div className="flex flex-col items-center py-6">
+                            <Package className="h-8 w-8 text-gray-400 mb-2" />
+                            <p className="text-sm text-gray-600">No batches found for this matiere.</p>
+                            <p className="text-xs text-gray-500 mt-1">Create a batch by restocking this matiere.</p>
+                          </div>
+                        ) : (
+                          <div className="overflow-x-auto">
+                            <table className="w-full min-w-[960px] table-fixed text-sm text-left text-gray-700">
+                              <thead>
+                                <tr className="text-xs uppercase text-gray-500 border-b bg-white/60">
+                                  <th className="py-3 pr-4 w-52">Batch ID</th>
+                                  <th className="py-3 pr-4 w-40">Remaining / Total</th>
+                                  <th className="py-3 pr-4 w-28">Status</th>
+                                  <th className="py-3 pr-4 text-right w-48">Actions</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {matiereBatches.map((batch) => (
+                                  <tr key={batch.id} className="border-b last:border-b-0 bg-white">
+                                    <td className="py-3 pr-4 font-mono text-xs text-gray-700 break-all">
+                                      {batch.id}
+                                    </td>
+                                    <td className="py-3 pr-4">
+                                      {formatNumber(batch.remainingQuantity)} / {formatNumber(batch.quantity)} {matiere.unit}
+                                    </td>
+                                    <td className="py-3 pr-4 capitalize">{batch.status}</td>
+                                    <td className="py-3 pr-4 text-right space-x-3">
+                                      {batch.status === 'active' ? (
+                                        <>
+                                          <Button 
+                                            size="sm" 
+                                            variant="outline"
+                                            className="px-3 py-1.5 text-sm"
+                                            onClick={() => handleAdjust(matiere, batch)}
+                                          >
+                                            Adjust
+                                          </Button>
+                                          {batch.remainingQuantity > 0 && (
+                                            <Button 
+                                              size="sm" 
+                                              variant="outline"
+                                              className="px-3 py-1.5 text-sm"
+                                              onClick={() => handleDamage(matiere, batch)}
+                                            >
+                                              Damage
+                                            </Button>
+                                          )}
+                                        </>
+                                      ) : (
+                                        <span className="inline-flex items-center justify-end text-xs text-gray-500">
+                                          No actions (depleted)
                                         </span>
-                                        <span className="text-gray-500 ml-2">
-                                          @ {batch.costPrice.toLocaleString()} XAF
-                                        </span>
-                                      </div>
-                                      <Badge variant={batch.status === 'active' ? 'success' : 'info'}>
-                                        {batch.status}
-                                      </Badge>
-                                    </div>
-                                    {batch.createdAt && (
-                                      <div className="text-xs text-gray-500 mt-1">
-                                        Créé le: {new Date(batch.createdAt.seconds * 1000).toLocaleDateString()}
-                                      </div>
-                                    )}
-                                  </div>
+                                      )}
+                                    </td>
+                                  </tr>
                                 ))}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Recent Stock Changes */}
-                          {ms.stockChanges.length > 0 && (
-                            <div>
-                              <h4 className="text-sm font-medium text-gray-700 mb-2">
-                                Historique récent ({ms.stockChanges.slice(0, 5).length})
-                              </h4>
-                              <div className="space-y-1">
-                                {ms.stockChanges.slice(0, 5).map(change => (
-                                  <div key={change.id} className="text-sm text-gray-600 flex justify-between">
-                                    <span>
-                                      {change.reason === 'restock' && 'Réapprovisionnement'}
-                                      {change.reason === 'adjustment' && 'Ajustement'}
-                                      {change.reason === 'creation' && 'Création'}
-                                      {change.reason === 'damage' && 'Dommage'}
-                                      {change.reason === 'manual_adjustment' && 'Ajustement manuel'}
-                                      {!['restock', 'adjustment', 'creation', 'damage', 'manual_adjustment'].includes(change.reason) && change.reason}
-                                    </span>
-                                    <span className={change.change > 0 ? 'text-green-600' : 'text-red-600'}>
-                                      {change.change > 0 ? '+' : ''}{change.change} {ms.unit}
-                                    </span>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
-                </div>
-              </Card>
-            );
-          })}
+                );
+              })
+            )}
+
+            {!loading && filteredMatieres.length === 0 && (
+              <div className="px-4 py-12 text-center">
+                {search.trim() ? (
+                  <div className="flex flex-col items-center">
+                    <Search className="h-12 w-12 text-gray-400 mb-4" />
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">No matieres found</h3>
+                    <p className="text-sm text-gray-600 mb-4 max-w-md">
+                      No matieres match your search "{search}". Try adjusting your search terms.
+                    </p>
+                    <Button variant="outline" onClick={() => setSearch('')}>
+                      Clear Search
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center">
+                    <Package className="h-12 w-12 text-gray-400 mb-4" />
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">No matieres yet</h3>
+                    <p className="text-sm text-gray-600 mb-4 max-w-md">
+                      Start by adding matieres to your inventory. Once matieres are added, they will appear here with their stock information.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
-      )}
+
+        {filteredMatieres.length > 0 && (
+          <div className="px-4 py-3 border-t border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-sm text-gray-700">
+            <div className="flex items-center space-x-2">
+              <span>
+                Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, filteredMatieres.length)} of {filteredMatieres.length} matieres
+              </span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1 || loading}
+              >
+                Previous
+              </Button>
+              <div className="flex items-center space-x-1">
+                <span className="text-gray-600">Page</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={totalPages}
+                  value={currentPage}
+                  onChange={(e) => {
+                    const pageNum = parseInt(e.target.value);
+                    if (!isNaN(pageNum) && pageNum >= 1 && pageNum <= totalPages) {
+                      setPage(pageNum);
+                    }
+                  }}
+                  className="w-16 px-2 py-1 text-sm border border-gray-300 rounded text-center"
+                />
+                <span className="text-gray-600">of {totalPages}</span>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages || loading}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Stock Operation Modals */}
+      <MatiereRestockModal
+        isOpen={restockModalOpen}
+        onClose={handleModalClose}
+        matiere={selectedMatiere}
+        batchTotals={selectedBatchTotals}
+        onSuccess={handleModalSuccess}
+      />
+
+      <MatiereManualAdjustmentModal
+        isOpen={adjustModalOpen}
+        onClose={handleModalClose}
+        matiere={selectedMatiere}
+        selectedBatch={selectedBatch}
+        batchTotals={selectedBatchTotals}
+        onSuccess={handleModalSuccess}
+      />
+
+      <MatiereDamageAdjustmentModal
+        isOpen={damageModalOpen}
+        onClose={handleModalClose}
+        matiere={selectedMatiere}
+        selectedBatch={selectedBatch}
+        batchTotals={selectedBatchTotals}
+        onSuccess={handleModalSuccess}
+      />
+
+      {/* Stock History Modal */}
+      <Modal
+        isOpen={historyModalOpen}
+        onClose={handleModalClose}
+        title={`Stock History - ${selectedMatiere?.name || ''}`}
+        size="lg"
+      >
+        <div className="space-y-4">
+          {selectedMatiere && (
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="font-medium text-gray-700">Matiere:</span>
+                  <p className="text-gray-900">{selectedMatiere.name}</p>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-700">Current Stock:</span>
+                  <p className="text-gray-900">
+                    {batchesByMatiere.get(selectedMatiere.id)?.reduce((sum, b) => sum + (b.remainingQuantity || 0), 0) || 0} {selectedMatiere.unit}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="text-left px-4 py-2 text-xs font-semibold text-gray-600">Date</th>
+                  <th className="text-left px-4 py-2 text-xs font-semibold text-gray-600">Change</th>
+                  <th className="text-left px-4 py-2 text-xs font-semibold text-gray-600">Reason</th>
+                  <th className="text-left px-4 py-2 text-xs font-semibold text-gray-600">Supplier</th>
+                  <th className="text-left px-4 py-2 text-xs font-semibold text-gray-600">Payment</th>
+                  <th className="text-left px-4 py-2 text-xs font-semibold text-gray-600">Cost Price</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {matiereStockChanges.length === 0 ? (
+                  <tr>
+                    <td colSpan={3} className="px-4 py-8 text-center text-gray-500">
+                      No stock history found for this matiere.
+                    </td>
+                  </tr>
+                ) : (
+                  matiereStockChanges.map((change: any) => {
+                    return (
+                      <tr key={change.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-2 text-gray-700">
+                          {change.createdAt?.seconds
+                            ? new Date(change.createdAt.seconds * 1000).toLocaleString()
+                            : '—'}
+                        </td>
+                        <td className={`px-4 py-2 font-medium ${
+                          change.change > 0 ? 'text-green-600' : 'text-red-600'
+                        }`}>
+                          {change.change > 0 ? '+' : ''}{change.change} {selectedMatiere?.unit || ''}
+                        </td>
+                        <td className="px-4 py-2 text-gray-700 capitalize">{change.reason}</td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };
 
 export default Stocks;
-

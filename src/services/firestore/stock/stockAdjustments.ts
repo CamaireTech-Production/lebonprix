@@ -10,7 +10,8 @@ import {
   serverTimestamp
 } from 'firebase/firestore';
 import { db } from '../../core/firebase';
-import type { Product, StockBatch, StockChange } from '../../../types/models';
+import type { Product, Matiere, StockBatch, StockChange } from '../../../types/models';
+import { createStockChange } from './stockService';
 
 /**
  * Enhanced restock with new cost price and batch creation
@@ -114,13 +115,207 @@ export const restockProduct = async (
 };
 
 /**
+ * Restock matiere - Add new stock (simplified, no cost price, supplier, or payment tracking)
+ */
+export const restockMatiere = async (
+  matiereId: string,
+  quantity: number,
+  companyId: string,
+  notes?: string
+): Promise<void> => {
+  const batch = writeBatch(db);
+  
+  // Get matiere to verify companyId and get userId
+  const matiereRef = doc(db, 'matieres', matiereId);
+  const matiereSnap = await getDoc(matiereRef);
+  if (!matiereSnap.exists()) {
+    throw new Error('Matiere not found');
+  }
+  
+  const currentMatiere = matiereSnap.data() as Matiere;
+  // Verify matiere belongs to company
+  if (currentMatiere.companyId !== companyId) {
+    throw new Error('Unauthorized to update this matiere');
+  }
+  
+  // Get userId from matiere for audit
+  const userId = currentMatiere.userId || companyId;
+  
+  // Create new stock batch (no cost price, supplier, or payment info for matieres)
+  const stockBatchRef = doc(collection(db, 'stockBatches'));
+  const stockBatchData = {
+    id: stockBatchRef.id,
+    type: 'matiere' as const, // Always matiere for matiere restock
+    matiereId,
+    quantity,
+    costPrice: 0, // Set to 0 for matieres (not tracked)
+    createdAt: serverTimestamp(),
+    userId,
+    companyId, // Ensure companyId is set
+    remainingQuantity: quantity,
+    status: 'active',
+    ...(notes && { notes })
+  };
+  batch.set(stockBatchRef, stockBatchData);
+  
+  // Create stock change record (no supplier, payment, or cost price for matieres)
+  createStockChange(
+    batch,
+    matiereId,
+    quantity,
+    'restock',
+    userId,
+    companyId,
+    'matiere', // Set type to matiere
+    undefined, // No supplier for matieres
+    undefined, // No own purchase flag for matieres
+    undefined, // No credit flag for matieres
+    undefined, // No cost price for matieres
+    stockBatchRef.id
+  );
+  
+  await batch.commit();
+};
+
+/**
  * Manual adjustment with batch selection and cost price modification
+ * quantityChange can be undefined to only update price without changing quantity
  */
 export const adjustStockManually = async (
   productId: string,
   batchId: string,
-  quantityChange: number,
+  quantityChange: number | undefined,
   newCostPrice: number | undefined,
+  companyId: string,
+  notes?: string
+): Promise<void> => {
+  const batch = writeBatch(db);
+  
+  // At least one of quantityChange or newCostPrice must be provided
+  if (quantityChange === undefined && newCostPrice === undefined) {
+    throw new Error('At least one of quantityChange or newCostPrice must be provided');
+  }
+  
+  // Get batch details
+  const batchRef = doc(db, 'stockBatches', batchId);
+  const batchSnap = await getDoc(batchRef);
+  if (!batchSnap.exists()) {
+    throw new Error('Stock batch not found');
+  }
+  
+  const batchData = batchSnap.data() as StockBatch;
+  // Verify batch belongs to company
+  if (batchData.companyId !== companyId) {
+    throw new Error('Unauthorized: Batch belongs to different company');
+  }
+  
+  // Verify batch type matches
+  if (batchData.type !== 'product' || !batchData.productId || batchData.productId !== productId) {
+    throw new Error('Batch does not belong to this product');
+  }
+  
+  // Get userId from batch for audit
+  const userId = batchData.userId || companyId;
+  
+  // Update batch - only update quantity if quantityChange is provided
+  const batchUpdates: any = {
+    updatedAt: serverTimestamp()
+  };
+  
+  if (quantityChange !== undefined) {
+    const newRemainingQuantity = batchData.remainingQuantity + quantityChange;
+    if (newRemainingQuantity < 0) {
+      throw new Error('Batch remaining quantity cannot be negative');
+    }
+    batchUpdates.remainingQuantity = newRemainingQuantity;
+    batchUpdates.status = newRemainingQuantity === 0 ? 'depleted' : 'active';
+  }
+  
+  if (newCostPrice !== undefined) {
+    batchUpdates.costPrice = newCostPrice;
+  }
+  
+  if (notes) {
+    batchUpdates.notes = notes;
+  }
+  
+  batch.update(batchRef, batchUpdates);
+  
+  // Update product stock only if quantity is being changed
+  if (quantityChange !== undefined) {
+    const productRef = doc(db, 'products', productId);
+    const productSnap = await getDoc(productRef);
+    if (!productSnap.exists()) {
+      throw new Error('Product not found');
+    }
+    
+    const currentProduct = productSnap.data() as Product;
+    // Verify product belongs to company
+    if (currentProduct.companyId !== companyId) {
+      throw new Error('Unauthorized: Product belongs to different company');
+    }
+    
+    batch.update(productRef, {
+      stock: currentProduct.stock + quantityChange,
+      updatedAt: serverTimestamp()
+    });
+    
+    // Create stock change record only if quantity changed
+    const stockChangeRef = doc(collection(db, 'stockChanges'));
+    const stockChangeData = {
+      id: stockChangeRef.id,
+      type: batchData.type || 'product', // Use batch type or default to product
+      productId,
+      change: quantityChange,
+      reason: 'manual_adjustment' as StockChange['reason'],
+      ...(batchData.supplierId && { supplierId: batchData.supplierId }),
+      ...(batchData.isOwnPurchase !== undefined && { isOwnPurchase: batchData.isOwnPurchase }),
+      ...(batchData.isCredit !== undefined && { isCredit: batchData.isCredit }),
+      costPrice: newCostPrice || batchData.costPrice,
+      batchId,
+      createdAt: serverTimestamp(),
+      userId,
+      companyId // Ensure companyId is set
+    };
+    batch.set(stockChangeRef, stockChangeData);
+    
+    // Handle supplier debt adjustment for credit purchases (only if quantity changed)
+    if (batchData.supplierId && batchData.isCredit && !batchData.isOwnPurchase) {
+      const debtChange = quantityChange * (newCostPrice || batchData.costPrice);
+      
+      if (debtChange !== 0) {
+        const debtRef = doc(collection(db, 'finances'));
+        const debtData = {
+          id: debtRef.id,
+          userId,
+          companyId, // Ensure companyId is set
+          sourceType: 'supplier',
+          sourceId: batchData.supplierId,
+          type: debtChange > 0 ? 'supplier_debt' : 'supplier_refund',
+          amount: Math.abs(debtChange),
+          description: `Stock adjustment: ${quantityChange > 0 ? '+' : ''}${quantityChange} units of product ${currentProduct.name}`,
+          date: serverTimestamp(),
+          isDeleted: false,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          supplierId: batchData.supplierId,
+          batchId
+        };
+        batch.set(debtRef, debtData);
+      }
+    }
+  }
+  
+  await batch.commit();
+};
+
+/**
+ * Manual adjustment for matiere stock (simplified, no cost price adjustment)
+ */
+export const adjustMatiereStockManually = async (
+  matiereId: string,
+  batchId: string,
+  quantityChange: number,
   companyId: string,
   notes?: string
 ): Promise<void> => {
@@ -139,10 +334,15 @@ export const adjustStockManually = async (
     throw new Error('Unauthorized: Batch belongs to different company');
   }
   
+  // Verify batch type matches
+  if (batchData.type !== 'matiere' || !batchData.matiereId || batchData.matiereId !== matiereId) {
+    throw new Error('Batch does not belong to this matiere');
+  }
+  
   // Get userId from batch for audit
   const userId = batchData.userId || companyId;
   
-  // Update batch
+  // Update batch (only quantity, no cost price adjustment for matieres)
   const newRemainingQuantity = batchData.remainingQuantity + quantityChange;
   if (newRemainingQuantity < 0) {
     throw new Error('Batch remaining quantity cannot be negative');
@@ -154,78 +354,42 @@ export const adjustStockManually = async (
     updatedAt: serverTimestamp()
   };
   
-  if (newCostPrice !== undefined) {
-    batchUpdates.costPrice = newCostPrice;
-  }
-  
   if (notes) {
     batchUpdates.notes = notes;
   }
   
   batch.update(batchRef, batchUpdates);
   
-  // Update product stock
-  const productRef = doc(db, 'products', productId);
-  const productSnap = await getDoc(productRef);
-  if (!productSnap.exists()) {
-    throw new Error('Product not found');
+  // Get matiere for name/unit in descriptions
+  const matiereRef = doc(db, 'matieres', matiereId);
+  const matiereSnap = await getDoc(matiereRef);
+  if (!matiereSnap.exists()) {
+    throw new Error('Matiere not found');
   }
   
-  const currentProduct = productSnap.data() as Product;
-  // Verify product belongs to company
-  if (currentProduct.companyId !== companyId) {
-    throw new Error('Unauthorized: Product belongs to different company');
+  const currentMatiere = matiereSnap.data() as Matiere;
+  // Verify matiere belongs to company
+  if (currentMatiere.companyId !== companyId) {
+    throw new Error('Unauthorized: Matiere belongs to different company');
   }
   
-  batch.update(productRef, {
-    stock: currentProduct.stock + quantityChange,
-    updatedAt: serverTimestamp()
-  });
-  
-  // Create stock change record
-  const stockChangeRef = doc(collection(db, 'stockChanges'));
-  const stockChangeData = {
-    id: stockChangeRef.id,
-    type: batchData.type || 'product', // Use batch type or default to product
-    productId,
-    change: quantityChange,
-    reason: 'manual_adjustment' as StockChange['reason'],
-    ...(batchData.supplierId && { supplierId: batchData.supplierId }),
-    ...(batchData.isOwnPurchase !== undefined && { isOwnPurchase: batchData.isOwnPurchase }),
-    ...(batchData.isCredit !== undefined && { isCredit: batchData.isCredit }),
-    costPrice: newCostPrice || batchData.costPrice,
-    batchId,
-    createdAt: serverTimestamp(),
+  // Create stock change record (no supplier, payment, or cost price for matieres)
+  createStockChange(
+    batch,
+    matiereId,
+    quantityChange,
+    'manual_adjustment',
     userId,
-    companyId // Ensure companyId is set
-  };
-  batch.set(stockChangeRef, stockChangeData);
+    companyId,
+    'matiere', // Set type to matiere
+    undefined, // No supplier for matieres
+    undefined, // No own purchase flag for matieres
+    undefined, // No credit flag for matieres
+    undefined, // No cost price for matieres
+    batchId
+  );
   
-  // Handle supplier debt adjustment for credit purchases
-  if (batchData.supplierId && batchData.isCredit && !batchData.isOwnPurchase) {
-    const debtChange = quantityChange * (newCostPrice || batchData.costPrice);
-    
-    if (debtChange !== 0) {
-      const debtRef = doc(collection(db, 'finances'));
-      const debtData = {
-        id: debtRef.id,
-        userId,
-        companyId, // Ensure companyId is set
-        sourceType: 'supplier',
-        sourceId: batchData.supplierId,
-        type: debtChange > 0 ? 'supplier_debt' : 'supplier_refund',
-        amount: Math.abs(debtChange),
-        description: `Stock adjustment: ${quantityChange > 0 ? '+' : ''}${quantityChange} units of product ${currentProduct.name}`,
-        date: serverTimestamp(),
-        isDeleted: false,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        supplierId: batchData.supplierId,
-        batchId
-      };
-      batch.set(debtRef, debtData);
-    }
-  }
+  // No supplier debt adjustments for matieres
   
   await batch.commit();
 };
@@ -253,6 +417,11 @@ export const adjustStockForDamage = async (
   // Verify batch belongs to company
   if (batchData.companyId !== companyId) {
     throw new Error('Unauthorized: Batch belongs to different company');
+  }
+  
+  // Verify batch type matches
+  if (batchData.type !== 'product' || !batchData.productId || batchData.productId !== productId) {
+    throw new Error('Batch does not belong to this product');
   }
   
   // Get userId from batch for audit
@@ -318,6 +487,77 @@ export const adjustStockForDamage = async (
 };
 
 /**
+ * Damage adjustment for matiere - reduces stock without affecting supplier debt
+ */
+export const adjustMatiereStockForDamage = async (
+  matiereId: string,
+  batchId: string,
+  damagedQuantity: number,
+  companyId: string,
+  notes?: string
+): Promise<void> => {
+  const batch = writeBatch(db);
+  
+  // Get batch details
+  const batchRef = doc(db, 'stockBatches', batchId);
+  const batchSnap = await getDoc(batchRef);
+  if (!batchSnap.exists()) {
+    throw new Error('Stock batch not found');
+  }
+  
+  const batchData = batchSnap.data() as StockBatch;
+  // Verify batch belongs to company
+  if (batchData.companyId !== companyId) {
+    throw new Error('Unauthorized: Batch belongs to different company');
+  }
+  
+  // Verify batch type matches
+  if (batchData.type !== 'matiere' || !batchData.matiereId || batchData.matiereId !== matiereId) {
+    throw new Error('Batch does not belong to this matiere');
+  }
+  
+  // Get userId from batch for audit
+  const userId = batchData.userId || companyId;
+  
+  // Update batch
+  const newRemainingQuantity = batchData.remainingQuantity - damagedQuantity;
+  if (newRemainingQuantity < 0) {
+    throw new Error('Batch remaining quantity cannot be negative');
+  }
+  
+  // Calculate total damaged quantity (existing + new)
+  const totalDamagedQuantity = (batchData.damagedQuantity || 0) + damagedQuantity;
+  
+  batch.update(batchRef, {
+    remainingQuantity: newRemainingQuantity,
+    damagedQuantity: totalDamagedQuantity,
+    status: newRemainingQuantity === 0 ? 'depleted' : 'active',
+    updatedAt: serverTimestamp(),
+    ...(notes && { notes })
+  });
+  
+  // Create stock change record for damage (no supplier, payment, or cost price for matieres)
+  createStockChange(
+    batch,
+    matiereId,
+    -damagedQuantity,
+    'damage',
+    userId,
+    companyId,
+    'matiere', // Set type to matiere
+    undefined, // No supplier for matieres
+    undefined, // No own purchase flag for matieres
+    undefined, // No credit flag for matieres
+    undefined, // No cost price for matieres
+    batchId
+  );
+  
+  // Note: No supplier debt adjustment for damage - debt remains unchanged
+  
+  await batch.commit();
+};
+
+/**
  * Get available batches for a product (for adjustment selection)
  */
 export const getProductBatchesForAdjustment = async (productId: string): Promise<StockBatch[]> => {
@@ -338,19 +578,46 @@ export const getProductBatchesForAdjustment = async (productId: string): Promise
 };
 
 /**
+ * Get available batches for a matiere (for adjustment selection)
+ */
+export const getMatiereBatchesForAdjustment = async (matiereId: string): Promise<StockBatch[]> => {
+  const batchesSnapshot = await getDocs(
+    query(
+      collection(db, 'stockBatches'),
+      where('type', '==', 'matiere'),
+      where('matiereId', '==', matiereId),
+      where('status', 'in', ['active', 'corrected']),
+      orderBy('createdAt', 'desc')
+    )
+  );
+  
+  return batchesSnapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data()
+  })) as StockBatch[];
+};
+
+/**
  * Bulk adjustment for multiple batches in a single transaction
+ * quantityChange can be undefined to only update price without changing quantity
  */
 export const adjustMultipleBatchesManually = async (
   productId: string,
   adjustments: Array<{
     batchId: string;
-    quantityChange: number;
+    quantityChange?: number; // undefined means no quantity change
     newCostPrice?: number;
     notes?: string;
   }>,
   companyId: string
 ): Promise<void> => {
   const batch = writeBatch(db);
+  
+  // Validate that at least one adjustment has a change
+  const hasAnyChange = adjustments.some(adj => adj.quantityChange !== undefined || adj.newCostPrice !== undefined);
+  if (!hasAnyChange) {
+    throw new Error('At least one adjustment must have quantityChange or newCostPrice');
+  }
   
   // Get product details first
   const productRef = doc(db, 'products', productId);
@@ -375,6 +642,11 @@ export const adjustMultipleBatchesManually = async (
   
   // Process each adjustment
   for (const adjustment of adjustments) {
+    // At least one of quantityChange or newCostPrice must be provided for each adjustment
+    if (adjustment.quantityChange === undefined && adjustment.newCostPrice === undefined) {
+      continue; // Skip adjustments with no changes
+    }
+    
     // Get batch details
     const batchRef = doc(db, 'stockBatches', adjustment.batchId);
     const batchSnap = await getDoc(batchRef);
@@ -388,17 +660,20 @@ export const adjustMultipleBatchesManually = async (
       throw new Error(`Unauthorized: Batch ${adjustment.batchId} belongs to different company`);
     }
     
-    // Update batch
-    const newRemainingQuantity = batchData.remainingQuantity + adjustment.quantityChange;
-    if (newRemainingQuantity < 0) {
-      throw new Error(`Batch ${adjustment.batchId} remaining quantity cannot be negative`);
-    }
-    
+    // Update batch - only update quantity if quantityChange is provided
     const batchUpdates_item: any = {
-      remainingQuantity: newRemainingQuantity,
-      status: newRemainingQuantity === 0 ? 'depleted' : 'active',
       updatedAt: serverTimestamp()
     };
+    
+    if (adjustment.quantityChange !== undefined) {
+      const newRemainingQuantity = batchData.remainingQuantity + adjustment.quantityChange;
+      if (newRemainingQuantity < 0) {
+        throw new Error(`Batch ${adjustment.batchId} remaining quantity cannot be negative`);
+      }
+      batchUpdates_item.remainingQuantity = newRemainingQuantity;
+      batchUpdates_item.status = newRemainingQuantity === 0 ? 'depleted' : 'active';
+      totalStockChange += adjustment.quantityChange;
+    }
     
     if (adjustment.newCostPrice !== undefined) {
       batchUpdates_item.costPrice = adjustment.newCostPrice;
@@ -409,48 +684,50 @@ export const adjustMultipleBatchesManually = async (
     }
     
     batchUpdates.push({ ref: batchRef, updates: batchUpdates_item });
-    totalStockChange += adjustment.quantityChange;
     
-    // Create stock change record
-    const stockChangeRef = doc(collection(db, 'stockChanges'));
-    const stockChangeData = {
-      id: stockChangeRef.id,
-      type: batchData.type || 'product', // Use batch type or default to product
-      productId,
-      change: adjustment.quantityChange,
-      reason: 'manual_adjustment' as StockChange['reason'],
-      ...(batchData.supplierId && { supplierId: batchData.supplierId }),
-      ...(batchData.isOwnPurchase !== undefined && { isOwnPurchase: batchData.isOwnPurchase }),
-      ...(batchData.isCredit !== undefined && { isCredit: batchData.isCredit }),
-      costPrice: adjustment.newCostPrice || batchData.costPrice,
-      batchId: adjustment.batchId,
-      createdAt: serverTimestamp(),
-      userId,
-      companyId // Ensure companyId is set
-    };
-    stockChanges.push({ ref: stockChangeRef, data: stockChangeData });
-    
-    // Handle supplier debt adjustment for credit purchases
-    if (batchData.supplierId && batchData.isCredit && !batchData.isOwnPurchase) {
-      const debtChange = adjustment.quantityChange * (adjustment.newCostPrice || batchData.costPrice);
+    // Create stock change record only if quantity changed
+    if (adjustment.quantityChange !== undefined) {
+      const stockChangeRef = doc(collection(db, 'stockChanges'));
+      const stockChangeData = {
+        id: stockChangeRef.id,
+        type: batchData.type || 'product', // Use batch type or default to product
+        productId,
+        change: adjustment.quantityChange,
+        reason: 'manual_adjustment' as StockChange['reason'],
+        ...(batchData.supplierId && { supplierId: batchData.supplierId }),
+        ...(batchData.isOwnPurchase !== undefined && { isOwnPurchase: batchData.isOwnPurchase }),
+        ...(batchData.isCredit !== undefined && { isCredit: batchData.isCredit }),
+        costPrice: adjustment.newCostPrice || batchData.costPrice,
+        batchId: adjustment.batchId,
+        createdAt: serverTimestamp(),
+        userId,
+        companyId // Ensure companyId is set
+      };
+      stockChanges.push({ ref: stockChangeRef, data: stockChangeData });
       
-      if (debtChange !== 0) {
-        const debtRef = doc(collection(db, 'finances'));
-        const debtData = {
-          id: debtRef.id,
-          userId,
-          sourceType: 'supplier',
-          sourceId: batchData.supplierId,
-          type: debtChange > 0 ? 'supplier_debt' : 'supplier_refund',
-          amount: Math.abs(debtChange),
-          description: `Bulk stock adjustment: ${adjustment.quantityChange > 0 ? '+' : ''}${adjustment.quantityChange} units of product ${currentProduct.name}`,
-          date: serverTimestamp(),
-          isDeleted: false,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-          supplierId: batchData.supplierId
-        };
-        financeEntries.push({ ref: debtRef, data: debtData });
+      // Handle supplier debt adjustment for credit purchases (only if quantity changed)
+      if (batchData.supplierId && batchData.isCredit && !batchData.isOwnPurchase) {
+        const debtChange = adjustment.quantityChange * (adjustment.newCostPrice || batchData.costPrice);
+        
+        if (debtChange !== 0) {
+          const debtRef = doc(collection(db, 'finances'));
+          const debtData = {
+            id: debtRef.id,
+            userId,
+            companyId,
+            sourceType: 'supplier',
+            sourceId: batchData.supplierId,
+            type: debtChange > 0 ? 'supplier_debt' : 'supplier_refund',
+            amount: Math.abs(debtChange),
+            description: `Bulk stock adjustment: ${adjustment.quantityChange > 0 ? '+' : ''}${adjustment.quantityChange} units of product ${currentProduct.name}`,
+            date: serverTimestamp(),
+            isDeleted: false,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+            supplierId: batchData.supplierId
+          };
+          financeEntries.push({ ref: debtRef, data: debtData });
+        }
       }
     }
   }
@@ -460,11 +737,13 @@ export const adjustMultipleBatchesManually = async (
     batch.update(ref, updates);
   });
   
-  // Update product total stock
-  batch.update(productRef, {
-    stock: currentProduct.stock + totalStockChange,
-    updatedAt: serverTimestamp()
-  });
+  // Update product total stock only if there were quantity changes
+  if (totalStockChange !== 0) {
+    batch.update(productRef, {
+      stock: currentProduct.stock + totalStockChange,
+      updatedAt: serverTimestamp()
+    });
+  }
   
   // Add all stock changes
   stockChanges.forEach(({ ref, data }) => {
@@ -759,6 +1038,7 @@ const handleBatchDebtManagement = async (
         const refundData = {
           id: refundRef.id,
           userId,
+          companyId,
           sourceType: 'supplier',
           sourceId: newSupplierId,
           type: 'supplier_refund',
@@ -785,6 +1065,7 @@ const handleBatchDebtManagement = async (
       const newDebtData = {
         id: newDebtRef.id,
         userId,
+        companyId,
         sourceType: 'supplier',
         sourceId: newSupplierId,
         type: 'supplier_debt',
