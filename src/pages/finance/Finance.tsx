@@ -141,7 +141,18 @@ const Finance: React.FC = () => {
   // Use Firestore entries directly - real-time updates via onSnapshot
   const effectiveEntries = entries;
 
+  // ✅ All-time finance entries (for solde calculation - always shows total balance)
+  // Only filters out soft-deleted entries, no date filtering
+  const allTimeFinanceEntries = useMemo(() => {
+    return effectiveEntries.filter(entry => {
+      // Skip deleted entries only
+      if (entry.isDeleted === true) return false;
+      return true;
+    });
+  }, [effectiveEntries]);
+
   // Filter finance entries by date range and not soft deleted (including supplier entries)
+  // Used for displaying entries in the table and other period-based calculations
   const filteredFinanceEntries = useMemo(() => {
     const filtered = effectiveEntries.filter(entry => {
       // Skip deleted entries
@@ -179,13 +190,17 @@ const Finance: React.FC = () => {
   }, [effectiveEntries, dateRange]);
 
   // Group all debt and refund entries (including supplier debts) for the current user.
+  // ✅ FIX: Use allTimeFinanceEntries for solde calculation (all-time balance)
+  // - No date filtering (solde is cumulative)
+  // - Excludes soft-deleted entries
   const userDebt = useMemo<{
     debtEntries: FinanceEntry[];
     refundEntries: FinanceEntry[];
   }>(() => {
     let debtEntries: FinanceEntry[] = [];
     let refundEntries: FinanceEntry[] = [];
-    effectiveEntries.forEach((entry: FinanceEntry) => {
+    // ✅ Use allTimeFinanceEntries for solde (all-time balance, not period-based)
+    allTimeFinanceEntries.forEach((entry: FinanceEntry) => {
       if (entry.type === 'debt' || entry.type === 'supplier_debt') {
         debtEntries.push(entry);
       } else if (entry.type === 'refund' || entry.type === 'supplier_refund') {
@@ -196,7 +211,7 @@ const Finance: React.FC = () => {
       debtEntries,
       refundEntries
     };
-  }, [effectiveEntries]);
+  }, [allTimeFinanceEntries]);
 
   // Calculate total remaining debt (sum of each debt minus its refunds)
   const totalDebt = useMemo<number>(() => {
@@ -212,14 +227,15 @@ const Finance: React.FC = () => {
     }, 0);
   }, [userDebt.debtEntries, userDebt.refundEntries]);
 
-  // Calculate solde using extracted function
+  // ✅ Calculate solde using all-time entries (always shows total balance, not period-based)
+  // Solde is a cumulative balance, so it should always include all entries regardless of date filter
   const solde = useMemo<number>(() => {
     return calculateSolde(
-      filteredFinanceEntries,
-      userDebt.debtEntries,
-      userDebt.refundEntries
+      allTimeFinanceEntries,  // ✅ All-time entries (no date filter)
+      userDebt.debtEntries,   // ✅ All-time debts
+      userDebt.refundEntries  // ✅ All-time refunds
     );
-  }, [filteredFinanceEntries, userDebt.debtEntries, userDebt.refundEntries]);
+  }, [allTimeFinanceEntries, userDebt.debtEntries, userDebt.refundEntries]);
 
   // Filtering logic
   const filteredAndSearchedEntries = useMemo(() => {

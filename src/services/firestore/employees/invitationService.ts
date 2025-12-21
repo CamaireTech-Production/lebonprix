@@ -208,11 +208,12 @@ export const createInvitation = async (
 
 /**
  * Generate invitation link URL
+ * Redirects to login page with invite parameter for seamless authentication flow
  * @param invitationId - Invitation ID
- * @returns Full invitation link URL
+ * @returns Full invitation link URL pointing to login page
  */
 export const getInvitationLink = (invitationId: string): string => {
-  return `${window.location.origin}/invite/${invitationId}`;
+  return `${window.location.origin}/auth/login?invite=${invitationId}`;
 };
 
 /**

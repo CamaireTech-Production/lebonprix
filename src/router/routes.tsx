@@ -15,7 +15,6 @@ const Dashboard = lazy(() => import('../pages/dashboard/Dashboard'));
 const Sales = lazy(() => import('../pages/sales/Sales'));
 const POS = lazy(() => import('../pages/pos/POS'));
 const Orders = lazy(() => import('../pages/orders/Orders'));
-const Expenses = lazy(() => import('../pages/expenses/Expenses'));
 const ExpensesList = lazy(() => import('../pages/expenses/ExpensesList'));
 const ExpensesCategories = lazy(() => import('../pages/expenses/ExpensesCategories'));
 const ExpensesAnalytics = lazy(() => import('../pages/expenses/ExpensesAnalytics'));
@@ -38,7 +37,6 @@ const Catalogue = lazy(() => import('../pages/products/Catalogue'));
 const SingleCheckout = lazy(() => import('../pages/orders/SingleCheckout'));
 const ProductDetailPage = lazy(() => import('../pages/products/ProductDetailPage'));
 const InviteActivate = lazy(() => import('../pages/invite/InviteActivate'));
-const EmployeeLogin = lazy(() => import('../pages/hr/EmployeeLogin'));
 const CreateCompany = lazy(() => import('../pages/company/CreateCompany'));
 const CompanySelection = lazy(() => import('../pages/company/CompanySelection'));
 const HRManagement = lazy(() => import('../pages/hr/HRManagement'));
@@ -66,10 +64,8 @@ export const AppRoutes: React.FC<AppRoutesProps> = ({ isAddSaleModalOpen, setIsA
       <Route path="/catalogue/:companyName/:companyId" element={<LazyPage><Catalogue /></LazyPage>} />
       <Route path="/catalogue/:companyName/:companyId/product/:productId" element={<LazyPage><ProductDetailPage /></LazyPage>} />
       <Route path="/checkout" element={<LazyPage><SingleCheckout /></LazyPage>} />
-      {/* Public Invite Activation Route */}
+      {/* Public Invite Activation Route - Redirects to login for backward compatibility */}
       <Route path="/invite/:inviteId" element={<LazyPage><InviteActivate /></LazyPage>} />
-      {/* Public Employee Login Route */}
-      <Route path="/employee-login/:companyName/:companyId/:loginLink" element={<LazyPage><EmployeeLogin /></LazyPage>} />
       
       {/* Protected Routes */}
       <Route element={<ProtectedRoute />}>

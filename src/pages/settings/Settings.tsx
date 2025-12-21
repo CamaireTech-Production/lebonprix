@@ -1094,14 +1094,20 @@ const Settings = () => {
                       onChange={handleInputChange}
                       helpText={t('settings.account.locationHelp')}
                     />
-                    <Input
-                      label={t('settings.account.emailAddress')}
-                      name="email"
-                      type="email"
-                      value={formData.email}
-                      onChange={handleInputChange}
-                      required
-                    />
+                    <div>
+                      <Input
+                        label={t('settings.account.emailAddress')}
+                        name="email"
+                        type="email"
+                        value={formData.email}
+                        onChange={handleInputChange}
+                        required
+                        disabled
+                      />
+                      <p className="mt-1 text-xs text-gray-500">
+                        {t('settings.account.emailDisabledHelp') || 'Email cannot be changed as it is used for critical operations and reports.'}
+                      </p>
+                    </div>
                     {(isOwner || effectiveRole !== 'vendeur') && (
                       <Input
                         label={t('settings.account.reportMail')}

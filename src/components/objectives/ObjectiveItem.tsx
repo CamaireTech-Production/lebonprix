@@ -79,11 +79,16 @@ const ObjectiveItem: React.FC<ObjectiveItemProps> = ({ objective, onEdit, onDele
     <div className="border rounded-lg overflow-hidden bg-white">
       <button
         onClick={onToggle}
-        className="w-full flex items-center justify-between p-3 hover:bg-gray-50"
+        className={`w-full flex items-center justify-between p-3 hover:bg-gray-50 ${objective.isAvailable === false ? 'opacity-60 bg-gray-50' : ''}`}
       >
         <div className="flex flex-col gap-1 text-left w-full">
           <div className="flex items-center gap-2">
             <span className="font-medium text-gray-900">{objective.title}</span>
+            {objective.isAvailable === false && (
+              <span className="ml-2 px-2 py-0.5 rounded-full text-xs font-semibold inline-block bg-gray-200 text-gray-700 border border-gray-300">
+                {t('objectives.disabled', 'Désactivé')}
+              </span>
+            )}
             {remainingDays !== null && (
               <span
                 className={`ml-2 px-2 py-0.5 rounded-full text-xs font-semibold inline-block ${remainingDays < 0 ? 'bg-red-100 text-red-700 border border-red-200' : remainingDays <= 3 ? 'bg-orange-100 text-orange-700 border border-orange-200' : remainingDays <= 7 ? 'bg-yellow-100 text-yellow-800 border border-yellow-200' : 'bg-green-100 text-green-700 border border-green-200'}`}

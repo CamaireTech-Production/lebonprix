@@ -75,7 +75,11 @@ export const initializeCinetPay = (): Promise<boolean> => {
         console.error('Failed to load CinetPay script');
         reject(new Error('Failed to load CinetPay script'));
       };
-      document.head.appendChild(script);
+      if (typeof document !== 'undefined' && document.head) {
+        document.head.appendChild(script);
+      } else {
+        reject(new Error('Document head is not available'));
+      }
     }
 
     // Check if script is loaded but CinetPay object not available yet

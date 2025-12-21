@@ -168,7 +168,7 @@ const OrderActionsMenu: React.FC<OrderActionsMenuProps> = ({
           <MoreVertical className="w-4 h-4" />
         </button>
       </div>
-      {typeof document !== 'undefined' && createPortal(menuContent, document.body)}
+      {(typeof document !== 'undefined' && document.body) && createPortal(menuContent, document.body)}
     </>
   );
 };

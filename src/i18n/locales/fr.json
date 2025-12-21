@@ -87,6 +87,7 @@
     "title": "Tableau de bord",
     "welcome": "Bienvenue ! Voici ce qui se passe dans votre entreprise aujourd'hui.",
     "howCalculated": "Comment sont calculées ces valeurs ?",
+    "guide": "Guide",
     "viewTodayReports": "Voir les rapports d'aujourd'hui",
     "quickActions": "Actions Rapides",
     "quickActionsDescription": "Accédez rapidement aux fonctionnalités fréquemment utilisées",
@@ -108,7 +109,8 @@
       "solde": "Solde",
       "profit": "Profit",
       "expenses": "Dépenses",
-      "productsSold": "Produits vendus"
+      "productsSold": "Produits vendus",
+      "clients": "Clients"
     },
     "profit": {
       "periodSettings": "Paramètres de période de profit",
@@ -150,6 +152,24 @@
       "quantitySold": "Quantité vendue",
       "totalSales": "Ventes totales",
       "noData": "Aucune donnée de vente disponible"
+    },
+    "salesByCategory": {
+      "title": "Ventes par catégorie de produits"
+    },
+    "expensesByCategory": {
+      "title": "Dépenses par catégorie"
+    },
+    "salesBySource": {
+      "title": "Ventes par source"
+    },
+    "salesByPaymentStatus": {
+      "title": "Ventes par statut de paiement"
+    },
+    "period": {
+      "thisYear": "Cette année",
+      "thisMonth": "Ce mois",
+      "last30Days": "30 derniers jours",
+      "custom": "Personnalisé"
     },
     "calculations": {
       "title": "Explication des calculs du tableau de bord",
@@ -814,6 +834,7 @@
       "location": "Localisation",
       "locationHelp": "Optionnel",
       "emailAddress": "Adresse e-mail",
+      "emailDisabledHelp": "L'email ne peut pas être modifié car il est utilisé pour des opérations critiques et les rapports.",
       "reportMail": "Email pour les rapports de vente",
       "reportMailHelp": "Adresse email vers laquelle les rapports de vente seront envoyés",
       "reportTime": "Heure de réception des rapports",

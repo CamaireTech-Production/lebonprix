@@ -286,3 +286,4 @@ Orange Mobile Money number...       → Le numéro Orange Mobile Money est requi
 **Language**: French  
 **File**: src/pages/SingleCheckout.tsx
 
+

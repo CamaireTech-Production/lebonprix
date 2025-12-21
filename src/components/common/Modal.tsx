@@ -67,7 +67,7 @@ const Modal = ({ isOpen, onClose, title, children, footer, size = 'md', closeBut
   );
 
   // Render modal as a portal to document.body to ensure it's full screen
-  return typeof document !== 'undefined' 
+  return (typeof document !== 'undefined' && document.body)
     ? createPortal(modalContent, document.body)
     : modalContent;
 };
