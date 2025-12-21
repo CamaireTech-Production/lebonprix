@@ -229,6 +229,12 @@ export const adjustStockManually = async (
     }
     batchUpdates.remainingQuantity = newRemainingQuantity;
     batchUpdates.status = newRemainingQuantity === 0 ? 'depleted' : 'active';
+    
+    // If new remaining quantity exceeds original quantity, update original quantity too
+    // This ensures the display shows correct values (e.g., 30/30 instead of 30/23)
+    if (newRemainingQuantity > batchData.quantity) {
+      batchUpdates.quantity = newRemainingQuantity;
+    }
   }
   
   if (newCostPrice !== undefined) {
@@ -678,6 +684,12 @@ export const adjustMultipleBatchesManually = async (
       }
       batchUpdates_item.remainingQuantity = newRemainingQuantity;
       batchUpdates_item.status = newRemainingQuantity === 0 ? 'depleted' : 'active';
+      
+      // If new remaining quantity exceeds original quantity, update original quantity too
+      if (newRemainingQuantity > batchData.quantity) {
+        batchUpdates_item.quantity = newRemainingQuantity;
+      }
+      
       totalStockChange += adjustment.quantityChange;
     }
     
