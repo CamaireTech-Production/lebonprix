@@ -13,8 +13,7 @@ import {
   createCategory, 
   updateCategory, 
   deleteCategory, 
-  subscribeToCategories,
-  recalculateCategoryProductCounts
+  subscribeToCategories
 } from '@services/firestore/categories/categoryService';
 
 const Categories = () => {
@@ -30,6 +29,7 @@ const Categories = () => {
   // UI state
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [searchQuery, setSearchQuery] = useState('');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'product' | 'matiere'>('all');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -44,6 +44,7 @@ const Categories = () => {
     image: '',
     imagePath: '',
     compressedImageFile: null as File | null,
+    type: 'product' as 'product' | 'matiere',
   });
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   
@@ -62,10 +63,10 @@ const Categories = () => {
       setLoading(false);
       setSyncing(false);
       setError(null);
-    });
+    }, typeFilter !== 'all' ? typeFilter : undefined);
 
     return () => unsubscribe();
-  }, [user, company]);
+  }, [user, company, typeFilter]);
 
   // Filter categories based on search
   const filteredCategories = categories.filter(category =>
@@ -166,6 +167,7 @@ const Categories = () => {
       image: category.image || '',
       imagePath: category.imagePath || '',
       compressedImageFile: null,
+      type: category.type || 'product',
     });
     setIsEditModalOpen(true);
   };
@@ -255,6 +257,7 @@ const Categories = () => {
         description: formData.description.trim() || '',
         image: imageUrl,
         imagePath: imagePath,
+        type: formData.type,
         userId: user.uid,
         companyId: company.id,
       };
@@ -375,21 +378,6 @@ const Categories = () => {
     }
   };
 
-  // Handle recalculate category counts
-  const handleRecalculateCounts = async () => {
-    if (!user || !company) return;
-    
-    setSyncing(true);
-    try {
-      await recalculateCategoryProductCounts(company.id);
-      showSuccessToast('Category product counts recalculated successfully');
-    } catch (error) {
-      console.error('Error recalculating category counts:', error);
-      showErrorToast('Failed to recalculate category counts');
-    } finally {
-      setSyncing(false);
-    }
-  };
 
   if (loading) {
     return <LoadingScreen />;
@@ -413,14 +401,6 @@ const Categories = () => {
         </div>
         <div className="flex items-center gap-3">
           <SyncIndicator isSyncing={syncing} />
-          <Button 
-            onClick={handleRecalculateCounts} 
-            variant="outline"
-            disabled={syncing}
-            isLoading={syncing}
-          >
-            Recalculate Counts
-          </Button>
           <Button onClick={openAddModal} icon={<Plus size={20} />}>
             Add Category
           </Button>
@@ -439,6 +419,15 @@ const Categories = () => {
           />
         </div>
         <div className="flex items-center gap-2">
+          <select
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value as 'all' | 'product' | 'matiere')}
+            className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+          >
+            <option value="all">All Types</option>
+            <option value="product">Products</option>
+            <option value="matiere">Matieres</option>
+          </select>
           <button
             onClick={() => setViewMode('grid')}
             className={`p-2 rounded-lg ${viewMode === 'grid' ? 'bg-emerald-100 text-emerald-600' : 'text-gray-400 hover:text-gray-600'}`}
@@ -514,13 +503,20 @@ const Categories = () => {
                       </p>
                     )}
                     <div className="mt-auto">
-                      <div className="flex gap-2 mb-3">
-                        <Badge variant="info">
-                          {category.productCount || 0} produits
+                      <div className="flex gap-2 mb-3 flex-wrap">
+                        <Badge variant={category.type === 'product' ? 'success' : 'warning'}>
+                          {category.type === 'product' ? 'Product' : 'Matiere'}
                         </Badge>
-                        <Badge variant="info">
-                          {category.matiereCount || 0} matières
-                        </Badge>
+                        {category.type === 'product' && (
+                          <Badge variant="info">
+                            {category.productCount || 0} produits
+                          </Badge>
+                        )}
+                        {category.type === 'matiere' && (
+                          <Badge variant="info">
+                            {category.matiereCount || 0} matières
+                          </Badge>
+                        )}
                       </div>
                       <div className="text-xs text-gray-400 mb-3">
                         Créé par: {formatCreatorName(category.createdBy)}
@@ -628,6 +624,22 @@ const Categories = () => {
             placeholder="Enter category name"
             required
           />
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Category Type *
+            </label>
+            <select
+              name="type"
+              value={formData.type}
+              onChange={(e) => setFormData({ ...formData, type: e.target.value as 'product' | 'matiere' })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+              required
+            >
+              <option value="product">Product</option>
+              <option value="matiere">Matiere</option>
+            </select>
+          </div>
           
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -731,6 +743,26 @@ const Categories = () => {
             placeholder="Enter category name"
             required
           />
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Category Type *
+            </label>
+            <select
+              name="type"
+              value={formData.type}
+              onChange={(e) => setFormData({ ...formData, type: e.target.value as 'product' | 'matiere' })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+              required
+              disabled={!!currentCategory} // Prevent changing type when editing
+            >
+              <option value="product">Product</option>
+              <option value="matiere">Matiere</option>
+            </select>
+            {currentCategory && (
+              <p className="text-xs text-gray-500 mt-1">Category type cannot be changed after creation</p>
+            )}
+          </div>
           
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">

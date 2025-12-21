@@ -47,6 +47,7 @@ export interface Category extends BaseModel {
   description?: string;
   image?: string; // Firebase Storage URL or base64
   imagePath?: string; // Storage path for deletion
+  type: 'product' | 'matiere'; // Category type: either product or matiere, never both
   productCount?: number;
   matiereCount?: number; // Count of matieres in this category
   isActive?: boolean; // For soft delete capability

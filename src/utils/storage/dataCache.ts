@@ -108,7 +108,8 @@ export const cacheKeys = {
   expenses: (companyId: string) => `expenses_${companyId}`,
   stockChanges: (companyId: string) => `stockChanges_${companyId}`,
   suppliers: (companyId: string) => `suppliers_${companyId}`,
-  categories: (companyId: string) => `categories_${companyId}`,
+  categories: (companyId: string, type?: 'product' | 'matiere') => 
+    type ? `categories_${companyId}_${type}` : `categories_${companyId}`,
   company: (companyId: string) => `company_${companyId}`,
   dashboard: (companyId: string) => `dashboard_${companyId}`,
   searchProducts: (companyId: string, query: string, category: string) => 

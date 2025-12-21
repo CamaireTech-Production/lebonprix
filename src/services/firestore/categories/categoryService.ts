@@ -22,14 +22,25 @@ import { createAuditLog } from '../shared';
 // CATEGORY SUBSCRIPTIONS
 // ============================================================================
 
-export const subscribeToCategories = (companyId: string, callback: (categories: Category[]) => void): (() => void) => {
-  const q = query(
-    collection(db, 'categories'),
+export const subscribeToCategories = (
+  companyId: string, 
+  callback: (categories: Category[]) => void,
+  type?: 'product' | 'matiere'
+): (() => void) => {
+  const constraints: any[] = [
     where('companyId', '==', companyId),
     where('isActive', '==', true), // Only get active categories
-    orderBy('name', 'asc'),
-    limit(100) // Increased limit for categories
-  );
+  ];
+
+  // Add type filter if provided
+  if (type) {
+    constraints.push(where('type', '==', type));
+  }
+
+  constraints.push(orderBy('name', 'asc'));
+  constraints.push(limit(100)); // Increased limit for categories
+
+  const q = query(collection(db, 'categories'), ...constraints);
 
   return onSnapshot(q, (snapshot) => {
     const categories = snapshot.docs.map(doc => ({
@@ -49,11 +60,12 @@ export const updateCategoryProductCount = async (categoryName: string, companyId
   if (!categoryName || !companyId) return;
 
   try {
-    // Find the category by name and companyId
+    // Find the category by name, companyId, and type (product)
     const q = query(
       collection(db, 'categories'),
       where('name', '==', categoryName),
       where('companyId', '==', companyId),
+      where('type', '==', 'product'),
       where('isActive', '==', true)
     );
 
@@ -78,13 +90,14 @@ export const updateCategoryProductCount = async (categoryName: string, companyId
   }
 };
 
-// Utility function to recalculate all category product counts
+// Utility function to recalculate all category product counts (only for product type categories)
 export const recalculateCategoryProductCounts = async (companyId: string): Promise<void> => {
   try {
-    // Get all categories for the company
+    // Get only product type categories for the company
     const categoriesQuery = query(
       collection(db, 'categories'),
       where('companyId', '==', companyId),
+      where('type', '==', 'product'),
       where('isActive', '==', true)
     );
 
@@ -116,7 +129,7 @@ export const recalculateCategoryProductCounts = async (companyId: string): Promi
       }
     });
 
-    // Update each category with the correct count
+    // Update each product category with the correct count
     const batch = writeBatch(db);
     categories.forEach(category => {
       const correctCount = categoryCounts[category.name] || 0;
@@ -150,12 +163,19 @@ export const createCategory = async (
   if (!data.name || data.name.trim() === '') {
     throw new Error('Category name is required');
   }
+
+  // Validate type field
+  if (!data.type || (data.type !== 'product' && data.type !== 'matiere')) {
+    throw new Error('Category type is required and must be either "product" or "matiere"');
+  }
   
   const categoryData: any = {
     ...data,
     companyId, // Ensure companyId is set
     isActive: data.isActive !== false, // Default to true
-    productCount: 0, // Initialize with 0 products
+    // Initialize counts based on type
+    productCount: data.type === 'product' ? 0 : undefined,
+    matiereCount: data.type === 'matiere' ? 0 : undefined,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   };
@@ -202,12 +222,18 @@ export const updateCategory = async (
     throw new Error('Unauthorized: Category belongs to different company');
   }
   
+  // Prevent type changes - type is immutable after creation
+  if (data.type && data.type !== currentData.type) {
+    throw new Error('Category type cannot be changed after creation');
+  }
+  
   // Get userId from category for audit
   const userId = currentData.userId || companyId;
   
-  // Update category data
+  // Update category data (exclude type from updates)
+  const { type, ...updateDataWithoutType } = data;
   const updateData = {
-    ...data,
+    ...updateDataWithoutType,
     updatedAt: serverTimestamp()
   };
   
@@ -345,13 +371,20 @@ export const getCategory = async (id: string, companyId: string): Promise<Catego
   } as Category;
 };
 
-export const getCompanyCategories = async (companyId: string): Promise<Category[]> => {
-  const q = query(
-    collection(db, 'categories'),
+export const getCompanyCategories = async (companyId: string, type?: 'product' | 'matiere'): Promise<Category[]> => {
+  const constraints: any[] = [
     where('companyId', '==', companyId),
     where('isActive', '==', true),
-    orderBy('name', 'asc')
-  );
+  ];
+
+  // Add type filter if provided
+  if (type) {
+    constraints.push(where('type', '==', type));
+  }
+
+  constraints.push(orderBy('name', 'asc'));
+
+  const q = query(collection(db, 'categories'), ...constraints);
   
   const snapshot = await getDocs(q);
   return snapshot.docs.map(doc => ({
