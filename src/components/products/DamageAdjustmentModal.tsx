@@ -189,7 +189,7 @@ const DamageAdjustmentModal: React.FC<DamageAdjustmentModalProps> = ({
 
   const calculateDamagedValue = () => {
     if (!selectedBatch) return 0;
-    const damagedQuantity = parseFloat(formData.damagedQuantity) || 0;
+    const damagedQuantity = parseInt(formData.damagedQuantity, 10) || 0;
     return damagedQuantity * selectedBatch.costPrice;
   };
 

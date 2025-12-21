@@ -1097,6 +1097,7 @@ const Sales: React.FC = () => {
                         label={t('sales.modals.edit.products.quantity')}
                         type="number"
                         min="1"
+                        step="1"
                         max={product.product.stock.toString()}
                         value={product.quantity}
                         onChange={(e) => handleProductInputChange(index, 'quantity', e.target.value)}

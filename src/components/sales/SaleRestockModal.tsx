@@ -69,11 +69,11 @@ const SaleRestockModal: React.FC<RestockModalProps> = ({
     
     if (!product || !user?.uid) return;
 
-    const quantity = parseFloat(formData.quantity);
+    const quantity = parseInt(formData.quantity, 10);
     const costPrice = parseFloat(formData.costPrice);
 
     if (isNaN(quantity) || quantity <= 0) {
-      alert('Please enter a valid quantity');
+      alert('Please enter a valid quantity (whole number greater than 0)');
       return;
     }
 
@@ -108,7 +108,7 @@ const SaleRestockModal: React.FC<RestockModalProps> = ({
   };
 
   const calculateTotalCost = () => {
-    const quantity = parseFloat(formData.quantity) || 0;
+    const quantity = parseInt(formData.quantity, 10) || 0;
     const costPrice = parseFloat(formData.costPrice) || 0;
     return quantity * costPrice;
   };
@@ -169,8 +169,8 @@ const SaleRestockModal: React.FC<RestockModalProps> = ({
               onChange={(e) => handleInputChange('quantity', e.target.value)}
               placeholder="Enter quantity"
               required
-              min="0.01"
-              step="0.01"
+              min="1"
+              step="1"
             />
             
             <PriceInput

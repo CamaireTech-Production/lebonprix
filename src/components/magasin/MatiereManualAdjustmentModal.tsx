@@ -121,15 +121,15 @@ const MatiereManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
     }
 
     if (formData.quantityChange) {
-      const quantityChange = parseFloat(formData.quantityChange);
+      const quantityChange = parseInt(formData.quantityChange, 10);
       if (isNaN(quantityChange)) {
-        errors.push('Quantity change must be a valid number');
+        errors.push('Quantity change must be a valid whole number');
       }
     }
 
     // Validate with selected batch (no cost price validation for matieres)
     if (selectedBatch) {
-      const quantityChange = parseFloat(formData.quantityChange || '0') || 0;
+      const quantityChange = parseInt(formData.quantityChange || '0', 10) || 0;
       
       const validation = validateBatchAdjustment(selectedBatch, quantityChange, undefined);
       errors.push(...validation.errors);
@@ -149,7 +149,7 @@ const MatiereManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
       return;
     }
 
-    const quantityChange = parseFloat(formData.quantityChange || '0') || 0;
+    const quantityChange = parseInt(formData.quantityChange || '0', 10) || 0;
 
     setLoading(true);
 
@@ -186,12 +186,12 @@ const MatiereManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
 
   const calculateNewRemainingQuantity = () => {
     if (!selectedBatch) return 0;
-    const quantityChange = parseFloat(formData.quantityChange || '0') || 0;
+    const quantityChange = parseInt(formData.quantityChange || '0', 10) || 0;
     return selectedBatch.remainingQuantity + quantityChange;
   };
 
   const calculateNewStock = () => {
-    const quantityChange = parseFloat(formData.quantityChange || '0') || 0;
+    const quantityChange = parseInt(formData.quantityChange || '0', 10) || 0;
     const baseStock = typeof derivedRemaining === 'number' ? derivedRemaining : 0;
     return baseStock + quantityChange;
   };
@@ -291,7 +291,7 @@ const MatiereManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
             onChange={(e) => handleInputChange('quantityChange', e.target.value)}
             placeholder="+10 or -5"
             required
-            step="0.01"
+            step="1"
           />
 
           {/* Preview Changes */}
@@ -352,8 +352,10 @@ const MatiereManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
           <Button
             type="submit"
             disabled={loading || validationErrors.length > 0 || !selectedBatch}
+            isLoading={loading}
+            loadingText="Processing..."
           >
-            {loading ? 'Processing...' : 'Adjust Stock'}
+            Adjust Stock
           </Button>
         </div>
       </form>

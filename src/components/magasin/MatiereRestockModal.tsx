@@ -57,9 +57,9 @@ const MatiereRestockModal: React.FC<RestockModalProps> = ({
     const errors: string[] = [];
     
     // Validate quantity
-    const quantity = parseFloat(formData.quantity);
+    const quantity = parseInt(formData.quantity, 10);
     if (isNaN(quantity) || quantity <= 0) {
-      errors.push('Please enter a valid quantity (greater than 0)');
+      errors.push('Please enter a valid quantity (whole number greater than 0)');
     }
     
     return errors;
@@ -77,7 +77,7 @@ const MatiereRestockModal: React.FC<RestockModalProps> = ({
       return;
     }
 
-    const quantity = parseFloat(formData.quantity);
+    const quantity = parseInt(formData.quantity, 10);
 
     setLoading(true);
 
@@ -149,8 +149,8 @@ const MatiereRestockModal: React.FC<RestockModalProps> = ({
             onChange={(e) => handleInputChange('quantity', e.target.value)}
             placeholder="Enter quantity"
             required
-            min="0.01"
-            step="0.01"
+            min="1"
+            step="1"
           />
         </div>
 
@@ -193,8 +193,10 @@ const MatiereRestockModal: React.FC<RestockModalProps> = ({
           <Button
             type="submit"
             disabled={loading}
+            isLoading={loading}
+            loadingText="Restocking..."
           >
-            {loading ? 'Restocking...' : 'Restock Matiere'}
+            Restock Matiere
           </Button>
         </div>
       </form>

@@ -692,6 +692,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                           label="Quantity"
                         type="number"
                         min="1"
+                        step="1"
                         max={product.product.stock.toString()}
                         value={product.quantity}
                         onChange={(e) => onProductInputChange(index, 'quantity', e.target.value)}
