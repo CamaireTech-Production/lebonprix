@@ -1,7 +1,8 @@
 // Create Production Modal - Multi-step wizard
 import React, { useState, useMemo } from 'react';
 import { X, ChevronLeft, ChevronRight, Plus, Trash2, Loader2, CheckCircle2 } from 'lucide-react';
-import { Modal, ModalFooter, Button, LoadingScreen } from '@components/common';
+import { Modal, Button, LoadingScreen } from '@components/common';
+import ImageWithSkeleton from '@components/common/ImageWithSkeleton';
 import { useAuth } from '@contexts/AuthContext';
 import { useProductions, useProductionFlows, useProductionFlowSteps, useProductionCategories } from '@hooks/data/useFirestore';
 import { useMatieres } from '@hooks/business/useMatieres';
@@ -138,7 +139,17 @@ const CreateProductionModal: React.FC<CreateProductionModalProps> = ({
   };
 
   const handleRemoveImage = (idx: number) => {
-    setStep1Data(prev => ({ ...prev, images: prev.images.filter((_, i) => i !== idx) }));
+    setStep1Data(prev => {
+      // Clean up object URL before removing
+      const imgToRemove = prev.images[idx];
+      if (imgToRemove instanceof File || (imgToRemove && typeof imgToRemove === 'object' && 'type' in imgToRemove)) {
+        const url = imgToRemove instanceof File 
+          ? URL.createObjectURL(imgToRemove) 
+          : URL.createObjectURL(imgToRemove as Blob);
+        URL.revokeObjectURL(url);
+      }
+      return { ...prev, images: prev.images.filter((_, i) => i !== idx) };
+    });
   };
 
   // Add material
@@ -291,7 +302,44 @@ const CreateProductionModal: React.FC<CreateProductionModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       title="Nouvelle Production"
-      size="large"
+      size="lg"
+      footer={
+        <div className="flex justify-between w-full">
+          <Button
+            variant="outline"
+            onClick={currentStep === 1 ? onClose : prevStep}
+            disabled={isSubmitting || isUploadingImages}
+          >
+            {currentStep === 1 ? 'Annuler' : (
+              <span className="flex items-center gap-2">
+                <ChevronLeft size={16} />
+                Précédent
+              </span>
+            )}
+          </Button>
+          <div className="flex gap-3">
+            {currentStep < 4 ? (
+              <Button
+                onClick={nextStep}
+                disabled={isSubmitting || isUploadingImages}
+              >
+                <span className="flex items-center gap-2">
+                  Suivant
+                  <ChevronRight size={16} />
+                </span>
+              </Button>
+            ) : (
+              <Button
+                onClick={handleSubmit}
+                isLoading={isSubmitting || isUploadingImages}
+                disabled={isSubmitting || isUploadingImages}
+              >
+                Créer la production
+              </Button>
+            )}
+          </div>
+        </div>
+      }
     >
       {/* Progress Steps */}
       <div className="mb-6">
@@ -426,21 +474,39 @@ const CreateProductionModal: React.FC<CreateProductionModalProps> = ({
               </div>
               {step1Data.images.length > 0 && (
                 <div className="mt-4 grid grid-cols-4 gap-4">
-                  {step1Data.images.map((img, idx) => (
-                    <div key={idx} className="relative group">
-                      <img
-                        src={img instanceof File ? URL.createObjectURL(img) : img}
-                        alt={`Preview ${idx + 1}`}
-                        className="w-full h-24 object-cover rounded-md"
-                      />
-                      <button
-                        onClick={() => handleRemoveImage(idx)}
-                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <X size={12} />
-                      </button>
-                    </div>
-                  ))}
+                  {step1Data.images.map((img, idx) => {
+                    // Handle both File objects and existing URLs
+                    let imageSrc: string;
+                    if (img instanceof File) {
+                      imageSrc = URL.createObjectURL(img);
+                    } else if (typeof img === 'string') {
+                      imageSrc = img;
+                    } else if (img && typeof img === 'object' && 'type' in img) {
+                      // Handle Blob objects (convert to object URL)
+                      imageSrc = URL.createObjectURL(img as Blob);
+                    } else {
+                      console.warn('Invalid image object:', img);
+                      imageSrc = '/placeholder.png';
+                    }
+                    
+                    return (
+                      <div key={idx} className="relative w-full h-24 rounded-md overflow-hidden group">
+                        <ImageWithSkeleton
+                          src={imageSrc}
+                          alt={`Preview ${idx + 1}`}
+                          className="w-full h-full object-cover"
+                          placeholder="/placeholder.png"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveImage(idx)}
+                          className="absolute top-1 right-1 bg-white bg-opacity-80 rounded-full p-1 text-red-600 hover:text-red-800 shadow opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -496,10 +562,15 @@ const CreateProductionModal: React.FC<CreateProductionModalProps> = ({
                           key={step.id}
                           className="flex items-center space-x-2 text-sm"
                         >
-                          <div
-                            className="w-4 h-4 rounded-full"
-                            style={{ backgroundColor: step.color || '#3B82F6' }}
-                          />
+                          {step.image ? (
+                            <img
+                              src={step.image}
+                              alt={step.name}
+                              className="w-5 h-5 object-cover rounded"
+                            />
+                          ) : (
+                            <div className="w-5 h-5 bg-gray-200 rounded" />
+                          )}
                           <span className="text-gray-700">
                             {idx + 1}. {step.name}
                           </span>
@@ -696,48 +767,6 @@ const CreateProductionModal: React.FC<CreateProductionModalProps> = ({
         )}
       </div>
 
-      {/* Footer */}
-      <ModalFooter>
-        <div className="flex justify-between w-full">
-          <Button
-            variant="secondary"
-            onClick={currentStep === 1 ? onClose : prevStep}
-            disabled={isSubmitting}
-          >
-            {currentStep === 1 ? 'Annuler' : (
-              <>
-                <ChevronLeft size={16} className="mr-1" />
-                Précédent
-              </>
-            )}
-          </Button>
-          <div className="flex space-x-2">
-            {currentStep < 4 ? (
-              <Button
-                onClick={nextStep}
-                disabled={isSubmitting}
-              >
-                Suivant
-                <ChevronRight size={16} className="ml-1" />
-              </Button>
-            ) : (
-              <Button
-                onClick={handleSubmit}
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 size={16} className="animate-spin mr-2" />
-                    Création...
-                  </>
-                ) : (
-                  'Créer la production'
-                )}
-              </Button>
-            )}
-          </div>
-        </div>
-      </ModalFooter>
     </Modal>
   );
 };

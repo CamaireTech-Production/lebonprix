@@ -116,21 +116,20 @@ export const createProduction = async (
       productionData.createdBy = createdBy;
     }
 
-    const productionRef = doc(collection(db, COLLECTION_NAME));
-    batch.set(productionRef, productionData);
-
-    // Create initial state change
+    // Create initial state change (use Timestamp.now() instead of serverTimestamp() for arrayUnion)
     const initialStateChange: ProductionStateChange = {
       id: `state-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       toStepId: data.currentStepId,
       toStepName: '', // Will be populated when reading
       changedBy: data.userId || companyId,
-      timestamp: serverTimestamp() as any
+      timestamp: Timestamp.now()
     };
 
-    batch.update(productionRef, {
-      stateHistory: arrayUnion(initialStateChange)
-    });
+    // Include initial state change in production data
+    productionData.stateHistory = [initialStateChange];
+
+    const productionRef = doc(collection(db, COLLECTION_NAME));
+    batch.set(productionRef, productionData);
 
     // Update category count if categoryId provided
     if (data.categoryId) {
@@ -309,7 +308,7 @@ export const changeProductionState = async (
       toStepId: newStepId,
       toStepName: newStep.name,
       changedBy: userId,
-      timestamp: serverTimestamp() as any,
+      timestamp: Timestamp.now(), // Use Timestamp.now() instead of serverTimestamp() for arrayUnion
       note
     };
 
@@ -599,7 +598,7 @@ export const publishProduction = async (
       fromStepName: '', // Will be populated when reading
       toStepName: 'Publié',
       changedBy: userId,
-      timestamp: serverTimestamp() as any,
+      timestamp: Timestamp.now(), // Use Timestamp.now() instead of serverTimestamp() for arrayUnion
       note: 'Production publiée en produit'
     };
 

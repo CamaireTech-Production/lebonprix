@@ -277,6 +277,15 @@
         "objectiveDeleted": "Objectif supprimé"
       }
     },
+    "latestOrders": {
+      "title": "Dernières commandes",
+      "reference": "Référence",
+      "date": "Date",
+      "status": "Statut",
+      "client": "Client",
+      "noData": "Aucune commande récente",
+      "noClient": "Aucun client"
+    },
     "makeSale": "Faire une vente"
   },
   "dateRanges": {
@@ -1372,7 +1381,8 @@
       "preparing": "En Préparation",
       "ready": "Prête",
       "delivered": "Livrée",
-      "cancelled": "Annulée"
+      "cancelled": "Annulée",
+      "commande": "Commande"
     },
     "paymentStatus": {
       "pending": "En Attente",

@@ -272,6 +272,15 @@
         "objectiveDeleted": "Objective deleted"
       }
     },
+    "latestOrders": {
+      "title": "Latest Orders",
+      "reference": "Reference",
+      "date": "Date",
+      "status": "Status",
+      "client": "Client",
+      "noData": "No recent orders",
+      "noClient": "No client"
+    },
     "makeSale": "Make a Sale"
   },
   "dateRanges": {
@@ -1367,7 +1376,8 @@
       "preparing": "Preparing",
       "ready": "Ready",
       "delivered": "Delivered",
-      "cancelled": "Cancelled"
+      "cancelled": "Cancelled",
+      "commande": "Order"
     },
     "paymentStatus": {
       "pending": "Pending",
