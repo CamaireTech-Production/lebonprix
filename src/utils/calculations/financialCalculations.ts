@@ -66,6 +66,9 @@ export const calculateTotalExpenses = (
  * 
  * Solde = sum of all non-debt/refund/supplier_debt/supplier_refund entries + customer debt only
  * 
+ * NOTE: supplier_debt and supplier_refund are excluded because they are now tracked
+ * separately in the supplier_debts collection and do not affect the financial balance.
+ * 
  * @param financeEntries - Array of all finance entries
  * @param debtEntries - Array of debt entries (for customer debt calculation)
  * @param refundEntries - Array of refund entries (for customer debt calculation)
@@ -76,13 +79,13 @@ export const calculateSolde = (
   debtEntries: FinanceEntry[],
   refundEntries: FinanceEntry[]
 ): number => {
-  // Sum of all non-debt entries
+  // Sum of all non-debt entries (excludes supplier_debt and supplier_refund)
   const nonDebtEntries = financeEntries.filter(
     (entry) => 
       entry.type !== 'debt' && 
       entry.type !== 'refund' && 
-      entry.type !== 'supplier_debt' && 
-      entry.type !== 'supplier_refund'
+      entry.type !== 'supplier_debt' &&  // Excluded: tracked in supplier_debts collection
+      entry.type !== 'supplier_refund'   // Excluded: tracked in supplier_debts collection
   );
   const nonDebtSum = nonDebtEntries.reduce((sum, entry) => sum + entry.amount, 0);
   
@@ -172,18 +175,25 @@ export const calculateTotalOrders = (sales: Sale[]): number => {
 /**
  * Calculate total debt (debt minus refunds)
  * 
- * Total debt = sum of (debt amount - linked refund amounts) for all debts
+ * Total debt = sum of (debt amount - linked refund amounts) for all customer debts
  * 
- * @param debtEntries - Array of all debt entries (debt + supplier_debt)
- * @param refundEntries - Array of all refund entries (refund + supplier_refund)
- * @returns Total outstanding debt
+ * NOTE: supplier_debt and supplier_refund are excluded because they are now tracked
+ * separately in the supplier_debts collection.
+ * 
+ * @param debtEntries - Array of customer debt entries (excludes supplier_debt)
+ * @param refundEntries - Array of customer refund entries (excludes supplier_refund)
+ * @returns Total outstanding customer debt
  */
 export const calculateTotalDebt = (
   debtEntries: FinanceEntry[],
   refundEntries: FinanceEntry[]
 ): number => {
-  return debtEntries.reduce((sum, debt) => {
-    const linkedRefunds = refundEntries.filter(
+  // Filter out supplier debts/refunds if any are passed in
+  const customerDebts = debtEntries.filter(d => d.type === 'debt');
+  const customerRefunds = refundEntries.filter(r => r.type === 'refund');
+  
+  return customerDebts.reduce((sum, debt) => {
+    const linkedRefunds = customerRefunds.filter(
       refund => refund.refundedDebtId && String(refund.refundedDebtId) === String(debt.id)
     );
     const refundedAmount = linkedRefunds.reduce((s, r) => s + r.amount, 0);

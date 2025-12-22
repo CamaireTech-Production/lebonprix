@@ -128,8 +128,9 @@ export const useFinancialData = (dateRange: { from: Date; to: Date } = { from: n
     const solde = calculateSolde(filteredFinanceEntries, [], []);
     
     // Calculate total debt (all debt entries, not date-filtered as debt is ongoing)
-    const debtEntries = financeEntries.filter(entry => entry.type === 'debt' || entry.type === 'supplier_debt');
-    const refundEntries = financeEntries.filter(entry => entry.type === 'refund' || entry.type === 'supplier_refund');
+    // Only include customer debts/refunds, exclude supplier debts/refunds (tracked separately)
+    const debtEntries = financeEntries.filter(entry => entry.type === 'debt');
+    const refundEntries = financeEntries.filter(entry => entry.type === 'refund');
     const totalDebt = calculateTotalDebt(debtEntries, refundEntries);
     
     // Update calculations
