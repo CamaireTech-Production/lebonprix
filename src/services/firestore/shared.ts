@@ -13,7 +13,7 @@ import { db } from '../core/firebase';
 export const createAuditLog = async (
   batch: WriteBatch,
   action: 'create' | 'update' | 'delete',
-  entityType: 'product' | 'sale' | 'expense' | 'category' | 'objective' | 'finance' | 'supplier' | 'matiere',
+  entityType: 'product' | 'sale' | 'expense' | 'category' | 'objective' | 'finance' | 'supplier' | 'matiere' | 'productionFlowStep' | 'productionFlow' | 'productionCategory' | 'productionCharge' | 'production',
   entityId: string,
   changes: any,
   performedBy: string

@@ -88,6 +88,12 @@ const MobileNav = () => {
       resource: 'products' 
     },
     { 
+      name: 'Productions', 
+      path: isCompanyRoute ? `/company/${companyId}/productions` : '/productions', 
+      icon: <Factory size={20} />, 
+      resource: 'products' 
+    },
+    { 
       name: 'Magasin', 
       path: isCompanyRoute ? `/company/${companyId}/magasin` : '/magasin', 
       icon: <Warehouse size={20} />, 
