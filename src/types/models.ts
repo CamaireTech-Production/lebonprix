@@ -296,6 +296,33 @@ export interface Supplier extends BaseModel {
   isDeleted?: boolean;
 }
 
+/**
+ * Supplier Debt Entry - Individual transaction record
+ * Part of the entries array in SupplierDebt
+ */
+export interface SupplierDebtEntry {
+  id: string;
+  type: 'debt' | 'refund';
+  amount: number;
+  description: string;
+  batchId?: string; // Link to stock batch if applicable (for debt entries from stock purchases)
+  refundedDebtId?: string; // For refunds, links to the original debt entry ID (from finance entry)
+  createdAt: Timestamp;
+}
+
+/**
+ * Supplier Debt - Main debt tracking document
+ * One document per supplier per company
+ * Tracks total debt, refunds, and outstanding amount
+ */
+export interface SupplierDebt extends BaseModel {
+  supplierId: string;
+  totalDebt: number; // Sum of all debt entries
+  totalRefunded: number; // Sum of all refund entries
+  outstanding: number; // totalDebt - totalRefunded (calculated field)
+  entries: SupplierDebtEntry[]; // History of all debt/refund transactions
+}
+
 export interface FinanceEntry {
   id: string;
   userId: string; // Legacy field - kept for audit trail

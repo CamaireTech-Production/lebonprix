@@ -17,6 +17,7 @@ import { logError } from '@utils/core/logger';
 import type { Product, Sale } from '../../../types/models';
 import { createAuditLog } from '../shared';
 import { updateCategoryProductCount } from '../categories/categoryService';
+import { addSupplierDebt } from '../suppliers/supplierDebtService';
 
 // Import createStockChange from firestore.ts temporarily (will be moved to stock/ later)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -161,28 +162,7 @@ export const createProduct = async (
           stockBatchRef.id
         );
         
-        // Create supplier debt if credit purchase
-        if (supplierInfo.supplierId && supplierInfo.isCredit === true && supplierInfo.isOwnPurchase === false) {
-          const debtAmount = data.stock * supplierInfo.costPrice;
-          const debtRef = doc(collection(db, 'finances'));
-          const debtData = {
-            id: debtRef.id,
-            userId,
-            companyId,
-            sourceType: 'supplier',
-            sourceId: supplierInfo.supplierId,
-            type: 'supplier_debt',
-            amount: debtAmount,
-            description: `Initial stock purchase for ${data.name} (${data.stock} units)`,
-            date: serverTimestamp(),
-            isDeleted: false,
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-            supplierId: supplierInfo.supplierId,
-            batchId: stockBatchRef.id
-          };
-          batch.set(debtRef, debtData);
-        }
+        // Note: Supplier debt will be created after batch commit (see below)
       } else {
         // Create stock change without batch (legacy mode)
         createStockChange(
@@ -208,6 +188,23 @@ export const createProduct = async (
     } catch (error) {
       logError('Batch commit failed', error);
       throw error;
+    }
+    
+    // Create supplier debt if credit purchase (after batch commit)
+    if (supplierInfo?.supplierId && supplierInfo.isCredit === true && supplierInfo.isOwnPurchase === false && stockBatchRef) {
+      try {
+        const debtAmount = data.stock * supplierInfo.costPrice;
+        await addSupplierDebt(
+          supplierInfo.supplierId,
+          debtAmount,
+          `Initial stock purchase for ${data.name} (${data.stock} units)`,
+          companyId,
+          stockBatchRef.id
+        );
+      } catch (error) {
+        logError('Error creating supplier debt after product creation', error);
+        // Don't throw - product was created successfully, debt can be fixed manually
+      }
     }
     
     // Update category product count after successful product creation

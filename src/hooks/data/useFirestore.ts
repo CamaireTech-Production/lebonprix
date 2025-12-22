@@ -38,6 +38,13 @@ import {
   updateSupplier,
   softDeleteSupplier
 } from '@services/firestore/suppliers/supplierService';
+import {
+  subscribeToSupplierDebts,
+  subscribeToSupplierDebt,
+  addSupplierDebt,
+  addSupplierRefund,
+  getSupplierDebt
+} from '@services/firestore/suppliers/supplierDebtService';
 import { subscribeToStockChanges } from '@services/firestore/stock/stockService';
 import { dataCache, cacheKeys, invalidateSpecificCache } from '@utils/storage/dataCache';
 import { logError } from '@utils/core/logger';
@@ -58,7 +65,8 @@ import type {
   Customer,
   FinanceEntry,
   Supplier,
-  StockChange
+  StockChange,
+  SupplierDebt
 } from '../types/models';
 import { Timestamp } from 'firebase/firestore';
 import { useAuth } from '../../contexts/AuthContext';
@@ -904,6 +912,120 @@ export const useSuppliers = () => {
     addSupplier,
     updateSupplier: updateSupplierData,
     deleteSupplier
+  };
+};
+
+// Supplier Debts Hook with Caching
+export const useSupplierDebts = () => {
+  const [debts, setDebts] = useState<SupplierDebt[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+  const { user, company } = useAuth();
+
+  useEffect(() => {
+    if (!user || !company) return;
+    
+    const cacheKey = `supplier_debts_${company.id}`;
+    
+    // Check cache first
+    const cachedDebts = dataCache.get<SupplierDebt[]>(cacheKey);
+    if (cachedDebts) {
+      setDebts(cachedDebts);
+      setLoading(false);
+    }
+    
+    const unsubscribe = subscribeToSupplierDebts(company.id, (data) => {
+      setDebts(data);
+      setLoading(false);
+      
+      // Cache the data for 5 minutes
+      dataCache.set(cacheKey, data, 5 * 60 * 1000);
+    });
+
+    return () => unsubscribe();
+  }, [user, company]);
+
+  const addDebt = async (
+    supplierId: string,
+    amount: number,
+    description: string,
+    batchId?: string
+  ) => {
+    if (!user || !company) throw new Error('User not authenticated');
+    try {
+      await addSupplierDebt(supplierId, amount, description, company.id, batchId);
+      // Invalidate cache
+      invalidateSpecificCache(`supplier_debts_${company.id}`);
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
+  };
+
+  const addRefund = async (
+    supplierId: string,
+    amount: number,
+    description: string,
+    refundedDebtId?: string
+  ) => {
+    if (!user || !company) throw new Error('User not authenticated');
+    try {
+      await addSupplierRefund(supplierId, amount, description, company.id, refundedDebtId);
+      // Invalidate cache
+      invalidateSpecificCache(`supplier_debts_${company.id}`);
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
+  };
+
+  const getDebt = async (supplierId: string) => {
+    if (!user || !company) throw new Error('User not authenticated');
+    try {
+      return await getSupplierDebt(supplierId, company.id);
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
+  };
+
+  return {
+    debts,
+    loading,
+    error,
+    addDebt,
+    addRefund,
+    getDebt
+  };
+};
+
+// Hook to get debt for a specific supplier
+export const useSupplierDebt = (supplierId: string | null) => {
+  const [debt, setDebt] = useState<SupplierDebt | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+  const { user, company } = useAuth();
+
+  useEffect(() => {
+    if (!user || !company || !supplierId) {
+      setDebt(null);
+      setLoading(false);
+      return;
+    }
+    
+    setLoading(true);
+    const unsubscribe = subscribeToSupplierDebt(supplierId, company.id, (data) => {
+      setDebt(data);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [user, company, supplierId]);
+
+  return {
+    debt,
+    loading,
+    error
   };
 };
 

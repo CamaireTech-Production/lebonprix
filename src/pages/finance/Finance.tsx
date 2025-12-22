@@ -189,10 +189,11 @@ const Finance: React.FC = () => {
     return filtered;
   }, [effectiveEntries, dateRange]);
 
-  // Group all debt and refund entries (including supplier debts) for the current user.
+  // Group all debt and refund entries (EXCLUDING supplier debts) for the current user.
   // ✅ FIX: Use allTimeFinanceEntries for solde calculation (all-time balance)
   // - No date filtering (solde is cumulative)
   // - Excludes soft-deleted entries
+  // - Excludes supplier_debt and supplier_refund (tracked separately in supplier_debts collection)
   const userDebt = useMemo<{
     debtEntries: FinanceEntry[];
     refundEntries: FinanceEntry[];
@@ -201,11 +202,13 @@ const Finance: React.FC = () => {
     let refundEntries: FinanceEntry[] = [];
     // ✅ Use allTimeFinanceEntries for solde (all-time balance, not period-based)
     allTimeFinanceEntries.forEach((entry: FinanceEntry) => {
-      if (entry.type === 'debt' || entry.type === 'supplier_debt') {
+      // Only include customer debts/refunds, exclude supplier debts/refunds
+      if (entry.type === 'debt') {
         debtEntries.push(entry);
-      } else if (entry.type === 'refund' || entry.type === 'supplier_refund') {
+      } else if (entry.type === 'refund') {
         refundEntries.push(entry);
       }
+      // supplier_debt and supplier_refund are excluded - they're tracked in supplier_debts collection
     });
     return {
       debtEntries,

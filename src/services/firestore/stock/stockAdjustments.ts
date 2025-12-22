@@ -12,6 +12,8 @@ import {
 import { db } from '../../core/firebase';
 import type { Product, Matiere, StockBatch, StockChange } from '../../../types/models';
 import { createStockChange } from './stockService';
+import { addSupplierDebt, addSupplierRefund, updateSupplierDebtEntry, removeSupplierDebtEntry, getSupplierDebt } from '../suppliers/supplierDebtService';
+import { logError } from '@utils/core/logger';
 
 /**
  * Enhanced restock with new cost price and batch creation
@@ -88,30 +90,24 @@ export const restockProduct = async (
   };
   batch.set(stockChangeRef, stockChangeData);
   
-  // Create supplier debt if credit purchase
-  if (supplierId && isCredit && !isOwnPurchase) {
-    const debtAmount = quantity * costPrice;
-    const debtRef = doc(collection(db, 'finances'));
-    const debtData = {
-      id: debtRef.id,
-      userId,
-      companyId, // Ensure companyId is set
-      sourceType: 'supplier',
-      sourceId: supplierId,
-      type: 'supplier_debt',
-      amount: debtAmount,
-      description: `Credit purchase for ${quantity} units of product ${currentProduct.name}`,
-      date: serverTimestamp(),
-      isDeleted: false,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-      supplierId,
-      batchId: stockBatchRef.id
-    };
-    batch.set(debtRef, debtData);
-  }
-  
   await batch.commit();
+  
+  // Create supplier debt if credit purchase (after batch commit)
+  if (supplierId && isCredit && !isOwnPurchase && stockBatchRef) {
+    try {
+      const debtAmount = quantity * costPrice;
+      await addSupplierDebt(
+        supplierId,
+        debtAmount,
+        `Credit purchase for ${quantity} units of product ${currentProduct.name}`,
+        companyId,
+        stockBatchRef.id
+      );
+    } catch (error) {
+      logError('Error creating supplier debt after restock', error);
+      // Don't throw - stock was restocked successfully, debt can be fixed manually
+    }
+  }
 };
 
 /**
@@ -311,34 +307,44 @@ export const adjustStockManually = async (
     };
     batch.set(stockChangeRef, stockChangeData);
     
-    // Handle supplier debt adjustment for credit purchases (only if quantity changed)
-    if (batchData.supplierId && batchData.isCredit && !batchData.isOwnPurchase) {
-      const debtChange = quantityChange * (newCostPrice || batchData.costPrice);
-      
-      if (debtChange !== 0) {
-        const debtRef = doc(collection(db, 'finances'));
-        const debtData = {
-          id: debtRef.id,
-          userId,
-          companyId, // Ensure companyId is set
-          sourceType: 'supplier',
-          sourceId: batchData.supplierId,
-          type: debtChange > 0 ? 'supplier_debt' : 'supplier_refund',
-          amount: Math.abs(debtChange),
-          description: `Stock adjustment: ${quantityChange > 0 ? '+' : ''}${quantityChange} units of product ${currentProduct.name}`,
-          date: serverTimestamp(),
-          isDeleted: false,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-          supplierId: batchData.supplierId,
-          batchId
-        };
-        batch.set(debtRef, debtData);
-      }
-    }
+    // Note: Supplier debt adjustment will be handled after batch commit (see below)
   }
   
   await batch.commit();
+  
+  // Handle supplier debt adjustment for credit purchases (after batch commit)
+  if (batchData.supplierId && batchData.isCredit && !batchData.isOwnPurchase) {
+    try {
+      const debtChange = quantityChange * (newCostPrice || batchData.costPrice);
+      
+      if (debtChange > 0) {
+        // Increase debt
+        await addSupplierDebt(
+          batchData.supplierId,
+          Math.abs(debtChange),
+          `Stock adjustment: +${quantityChange} units of product ${currentProduct.name}`,
+          companyId,
+          batchId
+        );
+      } else if (debtChange < 0) {
+        // Decrease debt (refund)
+        // First check if there's outstanding debt
+        const supplierDebt = await getSupplierDebt(batchData.supplierId, companyId);
+        if (supplierDebt && supplierDebt.outstanding > 0) {
+          const refundAmount = Math.min(Math.abs(debtChange), supplierDebt.outstanding);
+          await addSupplierRefund(
+            batchData.supplierId,
+            refundAmount,
+            `Stock adjustment: ${quantityChange} units of product ${currentProduct.name}`,
+            companyId
+          );
+        }
+      }
+    } catch (error) {
+      logError('Error adjusting supplier debt after stock adjustment', error);
+      // Don't throw - stock was adjusted successfully, debt can be fixed manually
+    }
+  }
 };
 
 /**
@@ -749,30 +755,7 @@ export const adjustMultipleBatchesManually = async (
       };
       stockChanges.push({ ref: stockChangeRef, data: stockChangeData });
       
-      // Handle supplier debt adjustment for credit purchases (only if quantity changed)
-      if (batchData.supplierId && batchData.isCredit && !batchData.isOwnPurchase) {
-        const debtChange = adjustment.quantityChange * (adjustment.newCostPrice || batchData.costPrice);
-        
-        if (debtChange !== 0) {
-          const debtRef = doc(collection(db, 'finances'));
-          const debtData = {
-            id: debtRef.id,
-            userId,
-            companyId,
-            sourceType: 'supplier',
-            sourceId: batchData.supplierId,
-            type: debtChange > 0 ? 'supplier_debt' : 'supplier_refund',
-            amount: Math.abs(debtChange),
-            description: `Bulk stock adjustment: ${adjustment.quantityChange > 0 ? '+' : ''}${adjustment.quantityChange} units of product ${currentProduct.name}`,
-            date: serverTimestamp(),
-            isDeleted: false,
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-            supplierId: batchData.supplierId
-          };
-          financeEntries.push({ ref: debtRef, data: debtData });
-        }
-      }
+      // Note: Supplier debt adjustment will be handled after batch commit (see below)
     }
   }
   
@@ -794,13 +777,49 @@ export const adjustMultipleBatchesManually = async (
     batch.set(ref, data);
   });
   
-  // Add all finance entries
-  financeEntries.forEach(({ ref, data }) => {
-    batch.set(ref, data);
-  });
-  
   // Commit all changes in a single transaction
   await batch.commit();
+  
+  // Handle supplier debt adjustments after batch commit
+  for (const adjustment of adjustments) {
+    // Get batch details again (after commit)
+    const batchRef = doc(db, 'stockBatches', adjustment.batchId);
+    const batchSnap = await getDoc(batchRef);
+    if (!batchSnap.exists()) continue;
+    
+    const batchData = batchSnap.data() as StockBatch;
+    if (batchData.supplierId && batchData.isCredit && !batchData.isOwnPurchase && adjustment.quantityChange !== undefined) {
+      try {
+        const debtChange = adjustment.quantityChange * (adjustment.newCostPrice || batchData.costPrice);
+        
+        if (debtChange > 0) {
+          // Increase debt
+          await addSupplierDebt(
+            batchData.supplierId,
+            Math.abs(debtChange),
+            `Bulk stock adjustment: +${adjustment.quantityChange} units of product ${currentProduct.name}`,
+            companyId,
+            adjustment.batchId
+          );
+        } else if (debtChange < 0) {
+          // Decrease debt (refund)
+          const supplierDebt = await getSupplierDebt(batchData.supplierId, companyId);
+          if (supplierDebt && supplierDebt.outstanding > 0) {
+            const refundAmount = Math.min(Math.abs(debtChange), supplierDebt.outstanding);
+            await addSupplierRefund(
+              batchData.supplierId,
+              refundAmount,
+              `Bulk stock adjustment: ${adjustment.quantityChange} units of product ${currentProduct.name}`,
+              companyId
+            );
+          }
+        }
+      } catch (error) {
+        logError(`Error adjusting supplier debt for batch ${adjustment.batchId}`, error);
+        // Don't throw - stock was adjusted successfully, debt can be fixed manually
+      }
+    }
+  }
 };
 
 /**
@@ -925,18 +944,7 @@ export const adjustBatchWithDebtManagement = async (
     };
     stockChanges.push({ ref: stockChangeRef, data: stockChangeData });
     
-    // Handle debt management for manual adjustments
-    if (adjustment.scenario !== 'damage') {
-      await handleBatchDebtManagement(
-        batch,
-        batchData,
-        adjustment,
-        newRemainingQuantity,
-        finalCostPrice,
-        currentProduct,
-        companyId
-      );
-    }
+    // Note: Debt management will be handled after batch commit (see below)
     // For damage scenario: debts remain unchanged as specified
   }
   
@@ -956,13 +964,27 @@ export const adjustBatchWithDebtManagement = async (
     batch.set(ref, data);
   });
   
-  // Add all finance entries
-  financeEntries.forEach(({ ref, data }) => {
-    batch.set(ref, data);
-  });
-  
   // Commit all changes in a single transaction
   await batch.commit();
+  
+  // Handle supplier debt management after batch commit (only for non-damage scenarios)
+  for (const adjustment of adjustments) {
+    if (adjustment.scenario === 'damage') {
+      continue; // For damage scenario: debts remain unchanged
+    }
+    
+    const batchRef = doc(db, 'stockBatches', adjustment.batchId);
+    const batchSnap = await getDoc(batchRef);
+    if (!batchSnap.exists()) continue;
+    
+    const batchData = batchSnap.data() as StockBatch;
+    await handleBatchDebtManagement(
+      batchData,
+      adjustment,
+      currentProduct,
+      companyId
+    );
+  }
 }; 
 
 /**
@@ -971,9 +993,10 @@ export const adjustBatchWithDebtManagement = async (
  * 1. Own purchase → Supplier credit: Create new debt
  * 2. Supplier credit → Supplier credit: Update existing debt
  * 3. Supplier credit → Own purchase: Delete debt and refunds
+ * 
+ * NOTE: This function is called AFTER the batch commits, so it uses the new supplier debt service
  */
 const handleBatchDebtManagement = async (
-  batch: any,
   batchData: StockBatch,
   adjustment: {
     batchId: string;
@@ -985,146 +1008,113 @@ const handleBatchDebtManagement = async (
     scenario: 'adjustment' | 'damage';
     notes?: string;
   },
-  newRemainingQuantity: number,
-  finalCostPrice: number,
   currentProduct: Product,
   companyId: string
 ): Promise<void> => {
-  
-  // Get userId for audit
-  const userId = batchData.userId || companyId;
-  
-  // Determine the new supplier ID
-  const newSupplierId = adjustment.newSupplierId;
-  
-  // Find existing debt and refund entries for this specific batch
-  let existingDebts: any[] = [];
-  let existingRefunds: any[] = [];
-  
-  // Get debts/refunds for this specific batch
-  const batchDebtQuery = query(
-    collection(db, 'finances'),
-    where('companyId', '==', companyId),
-    where('sourceType', '==', 'supplier'),
-    where('batchId', '==', adjustment.batchId),
-    where('type', '==', 'supplier_debt'),
-    where('isDeleted', '==', false)
-  );
-  
-  const batchRefundQuery = query(
-    collection(db, 'finances'),
-    where('companyId', '==', companyId),
-    where('sourceType', '==', 'supplier'),
-    where('batchId', '==', adjustment.batchId),
-    where('type', '==', 'supplier_refund'),
-    where('isDeleted', '==', false)
-  );
-  
-  const [batchDebtSnapshot, batchRefundSnapshot] = await Promise.all([
-    getDocs(batchDebtQuery),
-    getDocs(batchRefundQuery)
-  ]);
-  
-  existingDebts = batchDebtSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-  existingRefunds = batchRefundSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-  
-  // Calculate current net debt (debt - refunds)
-  const totalDebt = existingDebts.reduce((sum, debt) => sum + debt.amount, 0);
-  const totalRefunds = existingRefunds.reduce((sum, refund) => sum + refund.amount, 0);
-  const currentNetDebt = totalDebt - totalRefunds;
-  
-  // Scenario 3: Changing to own purchase or paid supplier
-  if (adjustment.newSupplyType === 'ownPurchase' || 
-      (adjustment.newSupplyType === 'fromSupplier' && adjustment.newPaymentType === 'paid')) {
+  try {
+    // Get the batch again to get updated remaining quantity
+    const batchRef = doc(db, 'stockBatches', adjustment.batchId);
+    const batchSnap = await getDoc(batchRef);
+    if (!batchSnap.exists()) return;
     
-    // Soft delete all existing debt and refund entries for this batch
-    existingDebts.forEach(debt => {
-      const debtRef = doc(db, 'finances', debt.id);
-      batch.update(debtRef, { 
-        isDeleted: true, 
-        updatedAt: serverTimestamp(),
-        description: `Debt deleted due to manual adjustment - batch ${adjustment.batchId}`
-      });
-    });
+    const updatedBatchData = batchSnap.data() as StockBatch;
+    const newRemainingQuantity = updatedBatchData.remainingQuantity;
+    const finalCostPrice = adjustment.newCostPrice || updatedBatchData.costPrice;
+    const newSupplierId = adjustment.newSupplierId;
     
-    existingRefunds.forEach(refund => {
-      const refundRef = doc(db, 'finances', refund.id);
-      batch.update(refundRef, { 
-        isDeleted: true, 
-        updatedAt: serverTimestamp(),
-        description: `Refund deleted due to manual adjustment - batch ${adjustment.batchId}`
-      });
-    });
+    // Get supplier debt for the old supplier (if exists)
+    const oldSupplierId = batchData.supplierId;
+    const oldSupplierDebt = oldSupplierId ? await getSupplierDebt(oldSupplierId, companyId) : null;
     
-    console.log(`Scenario 3: Deleted ${existingDebts.length} debts and ${existingRefunds.length} refunds for batch ${adjustment.batchId}`);
+    // Find entries related to this batch
+    const batchDebtEntries = oldSupplierDebt?.entries.filter(e => e.batchId === adjustment.batchId && e.type === 'debt') || [];
+    const batchRefundEntries = oldSupplierDebt?.entries.filter(e => e.batchId === adjustment.batchId && e.type === 'refund') || [];
     
-  } else if (adjustment.newSupplyType === 'fromSupplier' && adjustment.newPaymentType === 'credit') {
-    // Scenarios 1 & 2: Changing to credit supplier
+    // Calculate current net debt for this batch
+    const batchDebtAmount = batchDebtEntries.reduce((sum, e) => sum + e.amount, 0);
+    const batchRefundAmount = batchRefundEntries.reduce((sum, e) => sum + e.amount, 0);
+    const currentBatchNetDebt = batchDebtAmount - batchRefundAmount;
     
-    // Calculate new debt amount based on new remaining quantity
-    const newDebtAmount = newRemainingQuantity * finalCostPrice;
-    
-    // Since we're now working with batch-specific debts, we should have at most one debt per batch
-    if (existingDebts.length > 0) {
-      // Scenario 2: Update existing debt entry (same supplier, different qty/cost)
-      const existingDebt = existingDebts[0]; // Should be only one debt per batch
-      const debtRef = doc(db, 'finances', existingDebt.id);
-      batch.update(debtRef, { 
-        amount: newDebtAmount,
-        updatedAt: serverTimestamp(),
-        description: `Manual adjustment debt update for batch ${adjustment.batchId} - Product: ${currentProduct.name}`
-      });
+    // Scenario 3: Changing to own purchase or paid supplier
+    if (adjustment.newSupplyType === 'ownPurchase' || 
+        (adjustment.newSupplyType === 'fromSupplier' && adjustment.newPaymentType === 'paid')) {
       
-      // If new debt is less than current net debt, create a refund for the difference
-      if (newDebtAmount < currentNetDebt) {
-        const refundAmount = currentNetDebt - newDebtAmount;
-        const refundRef = doc(collection(db, 'finances'));
-        const refundData = {
-          id: refundRef.id,
-          userId,
-          companyId,
-          sourceType: 'supplier',
-          sourceId: newSupplierId,
-          type: 'supplier_refund',
-          amount: refundAmount,
-          description: `Manual adjustment refund for batch ${adjustment.batchId} - Product: ${currentProduct.name}`,
-          date: serverTimestamp(),
-          isDeleted: false,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-          supplierId: newSupplierId,
-          refundedDebtId: existingDebt.id,
-          batchId: adjustment.batchId
-        };
-        batch.set(refundRef, refundData);
+      // Remove all debt entries for this batch
+      if (oldSupplierId && batchDebtEntries.length > 0) {
+        for (const entry of batchDebtEntries) {
+          await removeSupplierDebtEntry(oldSupplierId, entry.id, companyId);
+        }
+        // If there were refunds, we need to adjust them too
+        // For simplicity, we'll create a new debt entry to offset the refunds
+        if (batchRefundAmount > 0) {
+          await addSupplierDebt(
+            oldSupplierId,
+            batchRefundAmount,
+            `Debt adjustment: Removing batch ${adjustment.batchId} refunds`,
+            companyId,
+            adjustment.batchId
+          );
+        }
       }
       
-      console.log(`Scenario 2: Updated existing debt from ${currentNetDebt} to ${newDebtAmount} for batch ${adjustment.batchId}`);
+      console.log(`Scenario 3: Removed debts for batch ${adjustment.batchId}`);
       
-    } else {
-      // Scenario 1: Create new debt entry (own purchase to supplier credit)
+    } else if (adjustment.newSupplyType === 'fromSupplier' && adjustment.newPaymentType === 'credit' && newSupplierId) {
+      // Scenarios 1 & 2: Changing to credit supplier
       
-      // Create new debt entry
-      const newDebtRef = doc(collection(db, 'finances'));
-      const newDebtData = {
-        id: newDebtRef.id,
-        userId,
-        companyId,
-        sourceType: 'supplier',
-        sourceId: newSupplierId,
-        type: 'supplier_debt',
-        amount: newDebtAmount,
-        description: `Manual adjustment debt creation for batch ${adjustment.batchId} - Product: ${currentProduct.name}`,
-        date: serverTimestamp(),
-        isDeleted: false,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        supplierId: newSupplierId,
-        batchId: adjustment.batchId
-      };
-      batch.set(newDebtRef, newDebtData);
+      // Calculate new debt amount based on new remaining quantity
+      const newDebtAmount = newRemainingQuantity * finalCostPrice;
       
-      console.log(`Scenario 1: Created new debt of ${newDebtAmount} for batch ${adjustment.batchId}`);
+      if (oldSupplierId && batchDebtEntries.length > 0) {
+        // Scenario 2: Update existing debt (same or different supplier)
+        // Remove old entries for this batch
+        for (const entry of [...batchDebtEntries, ...batchRefundEntries]) {
+          await removeSupplierDebtEntry(oldSupplierId, entry.id, companyId);
+        }
+        
+        // If supplier changed, we need to handle the old supplier separately
+        if (oldSupplierId !== newSupplierId) {
+          // Old supplier: create refund for the removed debt
+          if (currentBatchNetDebt > 0) {
+            await addSupplierRefund(
+              oldSupplierId,
+              currentBatchNetDebt,
+              `Batch ${adjustment.batchId} transferred to another supplier`,
+              companyId
+            );
+          }
+        }
+        
+        // Create new debt entry for new supplier (or same supplier with new amount)
+        if (newDebtAmount > 0) {
+          await addSupplierDebt(
+            newSupplierId,
+            newDebtAmount,
+            `Manual adjustment debt for batch ${adjustment.batchId} - Product: ${currentProduct.name}`,
+            companyId,
+            adjustment.batchId
+          );
+        }
+        
+        console.log(`Scenario 2: Updated debt from ${currentBatchNetDebt} to ${newDebtAmount} for batch ${adjustment.batchId}`);
+        
+      } else {
+        // Scenario 1: Create new debt entry (own purchase to supplier credit)
+        if (newDebtAmount > 0) {
+          await addSupplierDebt(
+            newSupplierId,
+            newDebtAmount,
+            `Manual adjustment debt creation for batch ${adjustment.batchId} - Product: ${currentProduct.name}`,
+            companyId,
+            adjustment.batchId
+          );
+        }
+        
+        console.log(`Scenario 1: Created new debt of ${newDebtAmount} for batch ${adjustment.batchId}`);
+      }
     }
+  } catch (error) {
+    logError(`Error handling batch debt management for batch ${adjustment.batchId}`, error);
+    // Don't throw - stock was adjusted successfully, debt can be fixed manually
   }
 };

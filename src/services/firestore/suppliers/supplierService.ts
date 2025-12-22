@@ -16,6 +16,7 @@ import {
 import { db } from '../../core/firebase';
 import type { Supplier, FinanceEntry } from '../../../types/models';
 import { createAuditLog } from '../shared';
+import { addSupplierRefund, getSupplierDebt } from './supplierDebtService';
 
 // Temporary import from firestore.ts - will be moved to finance/ later
 const createFinanceEntry = async (entry: Omit<FinanceEntry, 'id' | 'createdAt' | 'updatedAt'>): Promise<FinanceEntry> => {
@@ -139,16 +140,9 @@ export const softDeleteSupplier = async (
   
   const userId = supplier.userId || companyId;
   
-  const q = query(
-    collection(db, 'finances'),
-    where('companyId', '==', companyId),
-    where('type', '==', 'supplier_debt'),
-    where('supplierId', '==', id),
-    where('isDeleted', '==', false)
-  );
-  const debtSnap = await getDocs(q);
-  
-  if (!debtSnap.empty) {
+  // Check for outstanding debts using the new supplier debt service
+  const supplierDebt = await getSupplierDebt(id, companyId);
+  if (supplierDebt && supplierDebt.outstanding > 0) {
     throw new Error('Cannot delete supplier with outstanding debts');
   }
   
@@ -166,55 +160,26 @@ export const softDeleteSupplier = async (
 // SUPPLIER FINANCE OPERATIONS
 // ============================================================================
 
-export const createSupplierDebt = async (
-  supplierId: string,
-  amount: number,
-  description: string,
-  companyId: string,
-  batchId?: string
-): Promise<FinanceEntry> => {
-  const userId = companyId;
-  
-  const entry: Omit<FinanceEntry, 'id' | 'createdAt' | 'updatedAt'> = {
-    userId,
-    companyId,
-    sourceType: 'supplier',
-    sourceId: supplierId,
-    type: 'supplier_debt',
-    amount: amount,
-    description,
-    date: Timestamp.now(),
-    isDeleted: false,
-    supplierId,
-    ...(batchId && { batchId })
-  };
-  
-  return await createFinanceEntry(entry);
-};
-
+/**
+ * Create supplier refund using the new supplier debt service
+ * This replaces the old finance entry-based refund system
+ * 
+ * NOTE: createSupplierDebt has been removed - use addSupplierDebt from supplierDebtService instead
+ */
 export const createSupplierRefund = async (
   supplierId: string,
   amount: number,
   description: string,
   refundedDebtId: string,
   companyId: string
-): Promise<FinanceEntry> => {
-  const userId = companyId;
-  
-  const entry: Omit<FinanceEntry, 'id' | 'createdAt' | 'updatedAt'> = {
-    userId,
-    companyId,
-    sourceType: 'supplier',
-    sourceId: supplierId,
-    type: 'supplier_refund',
-    amount: -Math.abs(amount),
-    description,
-    date: Timestamp.now(),
-    isDeleted: false,
+): Promise<void> => {
+  // Use the new supplier debt service instead of creating finance entries
+  await addSupplierRefund(
     supplierId,
+    amount,
+    description,
+    companyId,
     refundedDebtId
-  };
-  
-  return await createFinanceEntry(entry);
+  );
 };
 

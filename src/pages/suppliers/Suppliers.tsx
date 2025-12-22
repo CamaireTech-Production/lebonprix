@@ -2,19 +2,20 @@ import React, { useState, useMemo } from 'react';
 import { Plus, Edit2, Trash2, Eye, DollarSign } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Card, Button, Badge, Modal, ModalFooter, Input, PriceInput, Textarea, Table, LoadingScreen } from '@components/common';
-import { useSuppliers, useFinanceEntries } from '@hooks/data/useFirestore';
+import { useSuppliers, useSupplierDebts, useFinanceEntries } from '@hooks/data/useFirestore';
 import { createSupplierRefund } from '@services/firestore/suppliers/supplierService';
 import { useAuth } from '@contexts/AuthContext';
 import { showSuccessToast, showErrorToast, showWarningToast } from '@utils/core/toast';
 import { formatCreatorName } from '@utils/business/employeeUtils';
-import type { Supplier, FinanceEntry } from '../../types/models';
+import type { Supplier, SupplierDebt } from '../../types/models';
 import StatCard from '../../components/dashboard/StatCard';
 import { calculateSolde } from '@utils/calculations/financialCalculations';
 
 const Suppliers = () => {
   const { t } = useTranslation();
   const { suppliers, loading, error, addSupplier, updateSupplier, deleteSupplier } = useSuppliers();
-  const { entries } = useFinanceEntries();
+  const { debts: supplierDebtsList, loading: debtsLoading } = useSupplierDebts();
+  const { entries: financeEntries } = useFinanceEntries();
   const { user, company } = useAuth();
 
   // Modal states
@@ -42,37 +43,20 @@ const Suppliers = () => {
   // Filter states
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Calculate supplier debts
+  // Map supplier debts by supplierId for easy lookup
   const supplierDebts = useMemo(() => {
-    const debts: Record<string, { total: number; outstanding: number; entries: FinanceEntry[] }> = {};
+    const debtsMap: Record<string, SupplierDebt> = {};
     
-    entries.forEach((entry: FinanceEntry) => {
-      if (entry.type === 'supplier_debt' && entry.supplierId) {
-        if (!debts[entry.supplierId]) {
-          debts[entry.supplierId] = { total: 0, outstanding: 0, entries: [] };
-        }
-        debts[entry.supplierId].total += entry.amount;
-        debts[entry.supplierId].entries.push(entry);
-      } else if (entry.type === 'supplier_refund' && entry.supplierId) {
-        if (!debts[entry.supplierId]) {
-          debts[entry.supplierId] = { total: 0, outstanding: 0, entries: [] };
-        }
-        debts[entry.supplierId].outstanding -= entry.amount;
-        debts[entry.supplierId].entries.push(entry);
-      }
+    supplierDebtsList.forEach((debt: SupplierDebt) => {
+      debtsMap[debt.supplierId] = debt;
     });
 
-    // Calculate outstanding amounts
-    Object.keys(debts).forEach(supplierId => {
-      debts[supplierId].outstanding = Math.max(0, debts[supplierId].total + debts[supplierId].outstanding);
-    });
-
-    return debts;
-  }, [entries]);
+    return debtsMap;
+  }, [supplierDebtsList]);
 
   // Calculate total supplier debt
   const totalSupplierDebt = useMemo(() => {
-    return Object.values(supplierDebts).reduce((sum, debt) => sum + debt.outstanding, 0);
+    return Object.values(supplierDebts).reduce((sum, debt) => sum + (debt.outstanding || 0), 0);
   }, [supplierDebts]);
 
   // Filter suppliers
@@ -224,27 +208,22 @@ const Suppliers = () => {
     }
 
     const supplierDebt = supplierDebts[currentSupplier.id];
-    if (!supplierDebt || refundAmount > supplierDebt.outstanding) {
+    if (!supplierDebt || refundAmount > (supplierDebt.outstanding || 0)) {
       showErrorToast(t('suppliers.refund.refundExceeds'));
       return;
     }
 
     setIsSubmitting(true);
     try {
-      // Find the debt entry to refund
-      const debtEntries = supplierDebts[currentSupplier.id]?.entries.filter(e => e.type === 'supplier_debt') || [];
-      if (debtEntries.length === 0) {
-        throw new Error('No debt found to refund');
-      }
-      
-      // For now, refund the first debt entry (in a real app, you might want to let user choose)
-      const debtToRefund = debtEntries[0];
+      // Find the first debt entry to link the refund to (optional, for tracking)
+      const debtEntries = supplierDebt.entries?.filter(e => e.type === 'debt') || [];
+      const debtToRefundId = debtEntries.length > 0 ? debtEntries[0].id : undefined;
       
       await createSupplierRefund(
         currentSupplier.id,
         refundAmount,
         refundData.description,
-        debtToRefund.id,
+        debtToRefundId || '',
         company.id
       );
       setIsRefundModalOpen(false);
@@ -257,7 +236,7 @@ const Suppliers = () => {
     }
   };
 
-  if (loading) {
+  if (loading || debtsLoading) {
     return <LoadingScreen />;
   }
 
@@ -267,14 +246,16 @@ const Suppliers = () => {
   }
 
   const tableData = filteredSuppliers.map(supplier => {
-    const debt = supplierDebts[supplier.id] || { total: 0, outstanding: 0, entries: [] };
+    const debt = supplierDebts[supplier.id];
+    const totalDebt = debt?.totalDebt || 0;
+    const outstandingDebt = debt?.outstanding || 0;
     return {
       id: supplier.id,
       name: supplier.name,
       contact: supplier.contact,
       location: supplier.location || '-',
-      totalDebt: debt.total.toLocaleString(),
-      outstandingDebt: debt.outstanding.toLocaleString(),
+      totalDebt: totalDebt.toLocaleString(),
+      outstandingDebt: outstandingDebt.toLocaleString(),
       createdBy: formatCreatorName(supplier.createdBy),
       actions: (
         <div className="flex space-x-2">
@@ -287,7 +268,7 @@ const Suppliers = () => {
           >
             {t('suppliers.actions.viewDebtHistory')}
           </Button>
-          {debt.outstanding > 0 && (
+          {outstandingDebt > 0 && (
             <Button
               icon={<DollarSign size={16} />}
               variant="outline"
@@ -355,9 +336,12 @@ const Suppliers = () => {
           <StatCard
             title={t('dashboard.stats.solde')}
             value={(() => {
-              // Calculate solde using extracted function
-              // Note: Suppliers page only uses non-debt entries, so we pass empty arrays for debt/refund
-              const solde = calculateSolde(entries, [], []);
+              // Calculate solde - supplier debts are excluded in calculateSolde function
+              // Filter out supplier_debt and supplier_refund entries (they're already excluded in calculateSolde, but being explicit)
+              const nonSupplierEntries = financeEntries.filter(
+                e => e.type !== 'supplier_debt' && e.type !== 'supplier_refund'
+              );
+              const solde = calculateSolde(nonSupplierEntries, [], []);
               return solde.toLocaleString() + ' XAF';
             })()}
             icon={<DollarSign size={24} />}
@@ -566,7 +550,7 @@ const Suppliers = () => {
                 <div>
                   <span className="text-gray-600">{t('suppliers.debtHistory.total')}: </span>
                   <span className="font-semibold">
-                    {(supplierDebts[currentSupplier.id]?.total || 0).toLocaleString()} XAF
+                    {(supplierDebts[currentSupplier.id]?.totalDebt || 0).toLocaleString()} XAF
                   </span>
                 </div>
                 <div>
@@ -579,18 +563,18 @@ const Suppliers = () => {
             </div>
 
             <div className="max-h-96 overflow-y-auto">
-              {supplierDebts[currentSupplier.id]?.entries.length > 0 ? (
+              {supplierDebts[currentSupplier.id]?.entries && supplierDebts[currentSupplier.id].entries.length > 0 ? (
                 <div className="space-y-2">
                   {supplierDebts[currentSupplier.id].entries
-                    .sort((a, b) => b.createdAt.seconds - a.createdAt.seconds)
+                    .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
                     .map((entry) => (
                       <div key={entry.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                         <div className="flex-1">
                           <div className="flex items-center space-x-2">
                             <Badge 
-                              variant={entry.type === 'supplier_debt' ? 'error' : 'success'}
+                              variant={entry.type === 'debt' ? 'error' : 'success'}
                             >
-                              {entry.type === 'supplier_debt' 
+                              {entry.type === 'debt' 
                                 ? t('suppliers.debtHistory.debtEntry')
                                 : t('suppliers.debtHistory.refundEntry')
                               }
@@ -604,7 +588,10 @@ const Suppliers = () => {
                           )}
                         </div>
                         <div className="text-sm text-gray-500">
-                          {new Date(entry.createdAt.seconds * 1000).toLocaleDateString()}
+                          {entry.createdAt?.seconds 
+                            ? new Date(entry.createdAt.seconds * 1000).toLocaleDateString()
+                            : '-'
+                          }
                         </div>
                       </div>
                     ))}
