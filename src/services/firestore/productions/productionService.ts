@@ -473,7 +473,7 @@ export const publishProduction = async (
     description?: string;
     barCode?: string;
     isVisible: boolean;
-    costPrice: number;
+    costPrice: number; // This is the validated cost price
   },
   companyId: string,
   userId: string
@@ -487,10 +487,6 @@ export const publishProduction = async (
 
     if (production.isClosed) {
       throw new Error('Production is already closed');
-    }
-
-    if (!production.isCostValidated) {
-      throw new Error('Production cost must be validated before publishing');
     }
 
     // Validate stock availability
@@ -636,6 +632,8 @@ export const publishProduction = async (
       isClosed: true,
       isPublished: true,
       publishedProductId: product.id,
+      validatedCostPrice: productData.costPrice, // Validate cost with the provided value
+      isCostValidated: true, // Mark as validated
       closedAt: serverTimestamp(),
       closedBy: userId,
       catalogData: {

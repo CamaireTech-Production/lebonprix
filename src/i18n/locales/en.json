@@ -1108,7 +1108,8 @@
       "editSupplier": "Edit Supplier",
       "deleteSupplier": "Delete Supplier",
       "viewDebtHistory": "View Debt History",
-      "addRefund": "Add Refund"
+      "addRefund": "Add Refund",
+      "addDebt": "Add Debt"
     },
     "form": {
       "name": "Supplier Name",
@@ -1174,6 +1175,16 @@
       "refundExceeds": "Refund amount exceeds remaining debt!",
       "success": "Refund added successfully",
       "error": "Failed to add refund"
+    },
+    "debt": {
+      "addTitle": "Add Debt",
+      "addButton": "Add Debt",
+      "supplier": "Supplier",
+      "amount": "Debt Amount",
+      "description": "Description",
+      "descriptionPlaceholder": "Reason for debt (e.g., Purchase of goods, Loan, etc.)",
+      "addSuccess": "Debt added successfully",
+      "addError": "Error adding debt"
     }
   },
   "checkout": {

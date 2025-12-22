@@ -3,6 +3,7 @@ import { Plus, Edit2, Trash2, Eye, DollarSign } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Card, Button, Badge, Modal, ModalFooter, Input, PriceInput, Textarea, Table, LoadingScreen } from '@components/common';
 import { useSuppliers, useSupplierDebts, useFinanceEntries } from '@hooks/data/useFirestore';
+import { addSupplierDebt } from '@services/firestore/suppliers/supplierDebtService';
 import { createSupplierRefund } from '@services/firestore/suppliers/supplierService';
 import { useAuth } from '@contexts/AuthContext';
 import { showSuccessToast, showErrorToast, showWarningToast } from '@utils/core/toast';
@@ -24,6 +25,7 @@ const Suppliers = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isRefundModalOpen, setIsRefundModalOpen] = useState(false);
   const [isDebtHistoryModalOpen, setIsDebtHistoryModalOpen] = useState(false);
+  const [isAddDebtModalOpen, setIsAddDebtModalOpen] = useState(false);
   
   // Form states
   const [currentSupplier, setCurrentSupplier] = useState<Supplier | null>(null);
@@ -36,6 +38,12 @@ const Suppliers = () => {
 
   // Refund form state
   const [refundData, setRefundData] = useState({
+    amount: '',
+    description: ''
+  });
+
+  // Debt form state
+  const [debtData, setDebtData] = useState({
     amount: '',
     description: ''
   });
@@ -78,6 +86,11 @@ const Suppliers = () => {
     setRefundData(prev => ({ ...prev, [name]: value }));
   };
 
+  const handleDebtInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | { target: { name: string; value: string } }) => {
+    const { name, value } = e.target;
+    setDebtData(prev => ({ ...prev, [name]: value }));
+  };
+
   const resetForm = () => {
     setFormData({
       name: '',
@@ -88,6 +101,13 @@ const Suppliers = () => {
 
   const resetRefundForm = () => {
     setRefundData({
+      amount: '',
+      description: ''
+    });
+  };
+
+  const resetDebtForm = () => {
+    setDebtData({
       amount: '',
       description: ''
     });
@@ -122,6 +142,12 @@ const Suppliers = () => {
   const openDebtHistoryModal = (supplier: Supplier) => {
     setCurrentSupplier(supplier);
     setIsDebtHistoryModalOpen(true);
+  };
+
+  const openAddDebtModal = (supplier: Supplier) => {
+    setCurrentSupplier(supplier);
+    resetDebtForm();
+    setIsAddDebtModalOpen(true);
   };
 
   const handleAddSupplier = async () => {
@@ -189,6 +215,37 @@ const Suppliers = () => {
       } else {
         showErrorToast(t('suppliers.messages.errors.deleteSupplier'));
       }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleAddDebt = async () => {
+    if (!currentSupplier || !user?.uid || !company?.id) return;
+    if (!debtData.amount || !debtData.description) {
+      showWarningToast(t('suppliers.messages.warnings.requiredFields'));
+      return;
+    }
+
+    const debtAmount = parseFloat(debtData.amount);
+    if (isNaN(debtAmount) || debtAmount <= 0) {
+      showWarningToast(t('suppliers.messages.warnings.requiredFields'));
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await addSupplierDebt(
+        currentSupplier.id,
+        debtAmount,
+        debtData.description,
+        company.id
+      );
+      setIsAddDebtModalOpen(false);
+      resetDebtForm();
+      showSuccessToast(t('suppliers.debt.addSuccess') || 'Dette ajoutée avec succès');
+    } catch (err) {
+      showErrorToast(t('suppliers.debt.addError') || 'Erreur lors de l\'ajout de la dette');
     } finally {
       setIsSubmitting(false);
     }
@@ -267,6 +324,15 @@ const Suppliers = () => {
             title={t('suppliers.actions.viewDebtHistory')}
           >
             {t('suppliers.actions.viewDebtHistory')}
+          </Button>
+          <Button
+            icon={<DollarSign size={16} />}
+            variant="outline"
+            size="sm"
+            onClick={() => openAddDebtModal(supplier)}
+            title={t('suppliers.actions.addDebt') || 'Ajouter une dette'}
+          >
+            {t('suppliers.actions.addDebt') || 'Ajouter dette'}
           </Button>
           {outstandingDebt > 0 && (
             <Button
@@ -531,6 +597,60 @@ const Suppliers = () => {
             onChange={handleRefundInputChange}
             required
             rows={3}
+          />
+        </div>
+      </Modal>
+
+      {/* Add Debt Modal */}
+      <Modal
+        isOpen={isAddDebtModalOpen}
+        onClose={() => setIsAddDebtModalOpen(false)}
+        title={t('suppliers.debt.addTitle') || 'Ajouter une dette'}
+        footer={
+          <ModalFooter 
+            onCancel={() => setIsAddDebtModalOpen(false)}
+            onConfirm={handleAddDebt}
+            confirmText={t('suppliers.debt.addButton') || 'Ajouter la dette'}
+            isLoading={isSubmitting}
+          />
+        }
+      >
+        <div className="space-y-4">
+          {currentSupplier && (
+            <div className="bg-gray-50 p-3 rounded-lg">
+              <p className="text-sm text-gray-600">
+                {t('suppliers.debt.supplier') || 'Fournisseur'}: 
+                <span className="font-semibold ml-1">
+                  {currentSupplier.name}
+                </span>
+              </p>
+              {supplierDebts[currentSupplier.id] && (
+                <p className="text-sm text-gray-600 mt-1">
+                  {t('suppliers.debtHistory.remaining') || 'Dette actuelle'}: 
+                  <span className="font-semibold ml-1">
+                    {(supplierDebts[currentSupplier.id]?.outstanding || 0).toLocaleString()} XAF
+                  </span>
+                </p>
+              )}
+            </div>
+          )}
+          
+          <PriceInput
+            label={t('suppliers.debt.amount') || 'Montant de la dette'}
+            name="amount"
+            value={debtData.amount}
+            onChange={handleDebtInputChange}
+            required
+          />
+          
+          <Textarea
+            label={t('suppliers.debt.description') || 'Description'}
+            name="description"
+            value={debtData.description}
+            onChange={handleDebtInputChange}
+            required
+            rows={3}
+            placeholder={t('suppliers.debt.descriptionPlaceholder') || 'Raison de la dette (ex: Achat de marchandises, Prêt, etc.)'}
           />
         </div>
       </Modal>

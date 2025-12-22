@@ -1,7 +1,7 @@
 // Publish Production Modal - Convert production to product
 import React, { useState, useEffect, useMemo } from 'react';
-import { Loader2, AlertTriangle } from 'lucide-react';
-import { Modal, ModalFooter, Button, PriceInput } from '@components/common';
+import { AlertTriangle } from 'lucide-react';
+import { Modal, ModalFooter, PriceInput } from '@components/common';
 import { useAuth } from '@contexts/AuthContext';
 import { useCategories } from '@hooks/data/useFirestore';
 import { useMatiereStocks } from '@hooks/business/useMatiereStocks';
@@ -33,7 +33,8 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
     cataloguePrice: '',
     description: '',
     barCode: '',
-    isVisible: true
+    isVisible: true,
+    validatedCostPrice: '' // Add cost validation field
   });
 
   // Stock validation
@@ -67,7 +68,8 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
         cataloguePrice: '',
         description: production.description || '',
         barCode: '',
-        isVisible: true
+        isVisible: true,
+        validatedCostPrice: (production.validatedCostPrice || production.calculatedCostPrice || 0).toString()
       });
     }
   }, [isOpen, production]);
@@ -90,8 +92,8 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
       return;
     }
 
-    if (!production.isCostValidated) {
-      showWarningToast('Veuillez d\'abord valider le coût de la production');
+    if (!formData.validatedCostPrice || parseFloat(formData.validatedCostPrice) < 0) {
+      showWarningToast('Veuillez entrer un coût validé valide');
       return;
     }
 
@@ -110,7 +112,7 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
           description: formData.description.trim() || undefined,
           barCode: formData.barCode.trim() || undefined,
           isVisible: formData.isVisible,
-          costPrice: production.validatedCostPrice || production.calculatedCostPrice || 0
+          costPrice: parseFloat(formData.validatedCostPrice)
         },
         company.id,
         user.uid
@@ -134,7 +136,17 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       title="Publier la production"
-      size="large"
+      size="lg"
+      footer={
+        <ModalFooter
+          onCancel={onClose}
+          onConfirm={handleSubmit}
+          cancelText="Annuler"
+          confirmText={isSubmitting ? 'Publication...' : 'Publier'}
+          isLoading={isSubmitting}
+          disabled={isSubmitting || !stockValidation.isValid || !formData.validatedCostPrice || parseFloat(formData.validatedCostPrice) < 0 || !formData.name.trim() || !formData.sellingPrice || parseFloat(formData.sellingPrice) < 0}
+        />
+      }
     >
       <div className="space-y-6">
         {/* Stock Validation Warning */}
@@ -156,13 +168,26 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
           </div>
         )}
 
-        {/* Cost Info */}
-        <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
+        {/* Cost Validation Section */}
+        <div className="bg-blue-50 border border-blue-200 rounded-md p-4 space-y-3">
           <div className="flex justify-between items-center">
-            <span className="text-sm font-medium text-blue-900">Coût validé:</span>
+            <span className="text-sm font-medium text-blue-900">Coût calculé:</span>
             <span className="text-lg font-semibold text-blue-900">
-              {formatPrice(production.validatedCostPrice || production.calculatedCostPrice || 0)}
+              {formatPrice(production.calculatedCostPrice || 0)}
             </span>
+          </div>
+          <div>
+            <PriceInput
+              label="Coût validé (XAF) *"
+              name="validatedCostPrice"
+              value={formData.validatedCostPrice}
+              onChange={(e) => setFormData({ ...formData, validatedCostPrice: e.target.value })}
+              allowDecimals={false}
+              placeholder="0"
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              Vous pouvez valider le coût calculé ou le modifier selon vos besoins
+            </p>
           </div>
         </div>
 
@@ -293,31 +318,6 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
           </div>
         )}
       </div>
-
-      <ModalFooter>
-        <div className="flex justify-end space-x-3 w-full">
-          <Button
-            variant="secondary"
-            onClick={onClose}
-            disabled={isSubmitting}
-          >
-            Annuler
-          </Button>
-          <Button
-            onClick={handleSubmit}
-            disabled={isSubmitting || !stockValidation.isValid || !production.isCostValidated}
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2 size={16} className="animate-spin mr-2" />
-                Publication...
-              </>
-            ) : (
-              'Publier'
-            )}
-          </Button>
-        </div>
-      </ModalFooter>
     </Modal>
   );
 };

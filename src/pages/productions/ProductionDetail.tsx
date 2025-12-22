@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Edit2, Loader2, CheckCircle2, XCircle } from 'lucide-react';
-import { Button, LoadingScreen, Badge, PriceInput } from '@components/common';
+import { Button, LoadingScreen, Badge } from '@components/common';
 import { useProductions, useProductionFlows, useProductionFlowSteps, useProductionCategories, useProductionCharges } from '@hooks/data/useFirestore';
 import { useMatiereStocks } from '@hooks/business/useMatiereStocks';
 import { formatPrice } from '@utils/formatting/formatPrice';
@@ -34,9 +34,6 @@ const ProductionDetail: React.FC = () => {
   const [isChangingState, setIsChangingState] = useState(false);
   const [isChargeModalOpen, setIsChargeModalOpen] = useState(false);
   const [editingCharge, setEditingCharge] = useState<ProductionCharge | null>(null);
-  const [isValidatingCost, setIsValidatingCost] = useState(false);
-  const [isValidatingCostLoading, setIsValidatingCostLoading] = useState(false);
-  const [validatedCostPrice, setValidatedCostPrice] = useState('');
   const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [deletingChargeId, setDeletingChargeId] = useState<string | null>(null);
@@ -65,6 +62,17 @@ const ProductionDetail: React.FC = () => {
     if (!production) return null;
     return flowSteps.find(s => s.id === production.currentStepId) || null;
   }, [flowSteps, production]);
+
+  // Format seconds to h:min:sec format
+  const formatTime = (totalSeconds: number): string => {
+    if (totalSeconds <= 0) return '0:00:00';
+    
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = Math.floor(totalSeconds % 60);
+    
+    return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  };
 
   const getStatusBadge = (status: string) => {
     const statusConfig: Record<string, { label: string; className: string }> = {
@@ -170,14 +178,12 @@ const ProductionDetail: React.FC = () => {
                 >
                   Changer l'état
                 </Button>
-                {production.isCostValidated && (
-                  <Button
-                    icon={<Package size={16} />}
-                    onClick={() => setIsPublishModalOpen(true)}
-                  >
-                    Publier
-                  </Button>
-                )}
+                <Button
+                  icon={<Package size={16} />}
+                  onClick={() => setIsPublishModalOpen(true)}
+                >
+                  Publier
+                </Button>
               </>
             )}
             <Button
@@ -299,12 +305,11 @@ const ProductionDetail: React.FC = () => {
               <div className="text-sm text-blue-600 mb-1">Temps moyen par étape</div>
               <div className="text-2xl font-bold text-blue-900">
                 {production.stateHistory.length > 1
-                  ? `${Math.round(
+                  ? formatTime(
                       ((production.stateHistory[production.stateHistory.length - 1]?.timestamp?.seconds || 0) -
                         (production.stateHistory[0]?.timestamp?.seconds || 0)) /
-                        3600 /
                         production.stateHistory.length
-                    )}h`
+                    )
                   : '-'}
               </div>
             </div>
@@ -428,52 +433,6 @@ const ProductionDetail: React.FC = () => {
                 </div>
               </div>
             </div>
-
-            {/* Cost Validation */}
-            {!isClosed && (
-              <div className="mt-6 border-t border-gray-200 pt-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Validation du coût</h3>
-                {production.isCostValidated ? (
-                  <div className="bg-green-50 border border-green-200 rounded-md p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-green-900">
-                          Coût validé: {formatPrice(production.validatedCostPrice || 0)}
-                        </p>
-                        <p className="text-xs text-green-700 mt-1">
-                          Le coût a été validé et peut être utilisé pour la publication
-                        </p>
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setValidatedCostPrice(production.validatedCostPrice?.toString() || production.calculatedCostPrice?.toString() || '');
-                          setIsValidatingCost(true);
-                        }}
-                      >
-                        Modifier
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
-                    <p className="text-sm text-yellow-900 mb-3">
-                      Le coût calculé n'a pas encore été validé. Vous pouvez le valider tel quel ou le modifier.
-                    </p>
-                    <Button
-                      onClick={() => {
-                        setValidatedCostPrice(production.calculatedCostPrice?.toString() || '');
-                        setIsValidatingCost(true);
-                      }}
-                      size="sm"
-                    >
-                      Valider le coût
-                    </Button>
-                  </div>
-                )}
-              </div>
-            )}
 
             {production.description && (
               <div>
@@ -882,84 +841,6 @@ const ProductionDetail: React.FC = () => {
         }}
       />
 
-      {/* Cost Validation Modal */}
-      {isValidatingCost && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
-            <div className="p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Valider le coût</h3>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Coût calculé
-                  </label>
-                  <div className="px-3 py-2 bg-gray-50 rounded-md text-sm text-gray-600">
-                    {formatPrice(production.calculatedCostPrice || 0)}
-                  </div>
-                </div>
-
-                <div>
-                  <PriceInput
-                    label="Coût validé (XAF) *"
-                    name="validatedCostPrice"
-                    value={validatedCostPrice}
-                    onChange={(e) => setValidatedCostPrice(e.target.value)}
-                    allowDecimals={false}
-                    placeholder="0"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="px-6 py-4 bg-gray-50 flex justify-end space-x-3">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setIsValidatingCost(false);
-                  setValidatedCostPrice('');
-                }}
-                disabled={isValidatingCostLoading}
-              >
-                Annuler
-              </Button>
-              <Button
-                onClick={async () => {
-                  if (!validatedCostPrice || parseFloat(validatedCostPrice) < 0) {
-                    showWarningToast('Veuillez entrer un montant valide');
-                    return;
-                  }
-
-                  setIsValidatingCostLoading(true);
-                  try {
-                    await updateProduction({
-                      validatedCostPrice: parseFloat(validatedCostPrice),
-                      isCostValidated: true
-                    });
-                    showSuccessToast('Coût validé avec succès');
-                    setIsValidatingCost(false);
-                    setValidatedCostPrice('');
-                  } catch (error: any) {
-                    showErrorToast(error.message || 'Erreur lors de la validation du coût');
-                  } finally {
-                    setIsValidatingCostLoading(false);
-                  }
-                }}
-                disabled={isValidatingCostLoading || !validatedCostPrice}
-              >
-                {isValidatingCostLoading ? (
-                  <>
-                    <Loader2 size={16} className="animate-spin mr-2" />
-                    Validation...
-                  </>
-                ) : (
-                  'Valider'
-                )}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

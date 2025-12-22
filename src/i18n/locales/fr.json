@@ -1113,7 +1113,8 @@
       "editSupplier": "Modifier Fournisseur",
       "deleteSupplier": "Supprimer Fournisseur",
       "viewDebtHistory": "Voir Historique Dettes",
-      "addRefund": "Ajouter Remboursement"
+      "addRefund": "Ajouter Remboursement",
+      "addDebt": "Ajouter Dette"
     },
     "form": {
       "name": "Nom du Fournisseur",
@@ -1179,6 +1180,16 @@
       "refundExceeds": "Le montant du remboursement dépasse la dette restante !",
       "success": "Remboursement ajouté avec succès",
       "error": "Échec de l'ajout du remboursement"
+    },
+    "debt": {
+      "addTitle": "Ajouter une dette",
+      "addButton": "Ajouter la dette",
+      "supplier": "Fournisseur",
+      "amount": "Montant de la dette",
+      "description": "Description",
+      "descriptionPlaceholder": "Raison de la dette (ex: Achat de marchandises, Prêt, etc.)",
+      "addSuccess": "Dette ajoutée avec succès",
+      "addError": "Erreur lors de l'ajout de la dette"
     }
   },
   "checkout": {
