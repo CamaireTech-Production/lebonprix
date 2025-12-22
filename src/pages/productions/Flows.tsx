@@ -1,6 +1,6 @@
 // Production Flows page
 import React, { useState, useMemo } from 'react';
-import { Plus, Edit2, Trash2, Loader2, ArrowUp, ArrowDown, X } from 'lucide-react';
+import { Plus, Edit2, Trash2, Loader2, ArrowUp, ArrowDown, X, Search } from 'lucide-react';
 import { Button, Modal, ModalFooter, LoadingScreen } from '@components/common';
 import { useProductionFlows, useProductionFlowSteps } from '@hooks/data/useFirestore';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
@@ -14,6 +14,7 @@ const Flows: React.FC = () => {
   const [editingFlow, setEditingFlow] = useState<ProductionFlow | null>(null);
   const [deletingFlow, setDeletingFlow] = useState<ProductionFlow | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const [formData, setFormData] = useState({
     name: '',
@@ -48,6 +49,7 @@ const Flows: React.FC = () => {
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setEditingFlow(null);
+    setSearchQuery('');
     setFormData({
       name: '',
       description: '',
@@ -149,8 +151,18 @@ const Flows: React.FC = () => {
   }, [formData.selectedStepIds, flowSteps]);
 
   const availableSteps = useMemo(() => {
-    return flowSteps.filter(step => !formData.selectedStepIds.includes(step.id));
-  }, [flowSteps, formData.selectedStepIds]);
+    const filtered = flowSteps.filter(step => !formData.selectedStepIds.includes(step.id));
+    
+    // Filter by search query (case-insensitive search on name)
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      return filtered.filter(step => 
+        step.name.toLowerCase().includes(query)
+      );
+    }
+    
+    return filtered;
+  }, [flowSteps, formData.selectedStepIds, searchQuery]);
 
   if (loading) {
     return <LoadingScreen />;
@@ -252,7 +264,7 @@ const Flows: React.FC = () => {
         isOpen={isModalOpen}
         onClose={handleCloseModal}
         title={editingFlow ? 'Modifier le flux' : 'Nouveau flux'}
-        size="large"
+        size="lg"
         footer={
           <ModalFooter
             onCancel={handleCloseModal}
@@ -264,130 +276,181 @@ const Flows: React.FC = () => {
           />
         }
       >
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Nom <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Ex: Production Standard, Commandes Personnalisées..."
-            />
+        <div className="space-y-5">
+          {/* Basic Info Section */}
+          <div className="space-y-3 sm:space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Nom <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Ex: Production Standard"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Description
+              </label>
+              <textarea
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                rows={2}
+                placeholder="Description optionnelle"
+              />
+            </div>
+
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="isDefault"
+                checked={formData.isDefault}
+                onChange={(e) => setFormData({ ...formData, isDefault: e.target.checked })}
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              />
+              <label htmlFor="isDefault" className="ml-2 block text-sm text-gray-700">
+                Flux par défaut
+              </label>
+            </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Description
-            </label>
-            <textarea
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              rows={2}
-              placeholder="Description optionnelle du flux"
-            />
-          </div>
-
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              id="isDefault"
-              checked={formData.isDefault}
-              onChange={(e) => setFormData({ ...formData, isDefault: e.target.checked })}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-            />
-            <label htmlFor="isDefault" className="ml-2 block text-sm text-gray-700">
-              Définir comme flux par défaut
-            </label>
-          </div>
-
+          {/* Steps Section */}
           <div className="border-t pt-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Étapes dans ce flux <span className="text-red-500">*</span>
+            <label className="block text-sm font-medium text-gray-700 mb-3">
+              Étapes <span className="text-red-500">*</span>
+              {selectedSteps.length > 0 && (
+                <span className="ml-2 text-xs font-normal text-gray-500">
+                  ({selectedSteps.length} sélectionnée{selectedSteps.length > 1 ? 's' : ''})
+                </span>
+              )}
             </label>
 
-            {/* Selected Steps (ordered) */}
+            {/* Selected Steps - Ordered List */}
             {selectedSteps.length > 0 && (
               <div className="mb-4 space-y-2">
-                <p className="text-xs text-gray-500 mb-2">Ordre des étapes (glisser pour réorganiser) :</p>
-                {selectedSteps.map((step, index) => (
-                  <div
-                    key={step.id}
-                    className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-md"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="text-sm font-medium text-gray-600 w-6">{index + 1}.</span>
-                      {step.image ? (
-                        <img
-                          src={step.image}
-                          alt={step.name}
-                          className="w-6 h-6 object-cover rounded-md"
-                        />
-                      ) : (
-                        <div className="w-4 h-4 bg-gray-200 rounded-md" />
-                      )}
-                      <span className="text-sm text-gray-900">{step.name}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => handleMoveStep(index, 'up')}
-                        disabled={index === 0}
-                        className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30"
-                      >
-                        <ArrowUp size={16} />
-                      </button>
-                      <button
-                        onClick={() => handleMoveStep(index, 'down')}
-                        disabled={index === selectedSteps.length - 1}
-                        className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30"
-                      >
-                        <ArrowDown size={16} />
-                      </button>
-                      <button
-                        onClick={() => handleRemoveStep(step.id)}
-                        className="p-1 text-red-400 hover:text-red-600"
-                      >
-                        <X size={16} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Available Steps */}
-            {availableSteps.length > 0 && (
-              <div>
-                <p className="text-xs text-gray-500 mb-2">Étapes disponibles :</p>
-                <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto">
-                  {availableSteps.map((step) => (
-                    <button
+                <p className="text-xs text-gray-500 mb-2">Ordre des étapes :</p>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {selectedSteps.map((step, index) => (
+                    <div
                       key={step.id}
-                      onClick={() => handleToggleStep(step.id)}
-                      className="flex items-center gap-2 p-2 text-left border border-gray-300 rounded-md hover:bg-gray-50"
+                      className="flex items-center justify-between p-2.5 bg-blue-50 border border-blue-200 rounded-md"
                     >
-                      {step.image ? (
-                        <img
-                          src={step.image}
-                          alt={step.name}
-                          className="w-4 h-4 object-cover rounded-md"
-                        />
-                      ) : (
-                        <div className="w-3 h-3 bg-gray-200 rounded-md" />
-                      )}
-                      <span className="text-sm text-gray-700">{step.name}</span>
-                    </button>
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <span className="text-sm font-medium text-gray-600 w-6 flex-shrink-0">{index + 1}.</span>
+                        {step.image ? (
+                          <img
+                            src={step.image}
+                            alt={step.name}
+                            className="w-6 h-6 object-cover rounded flex-shrink-0"
+                          />
+                        ) : (
+                          <div className="w-6 h-6 bg-gray-200 rounded flex-shrink-0" />
+                        )}
+                        <span className="text-sm text-gray-900">{step.name}</span>
+                      </div>
+                      <div className="flex items-center gap-1 flex-shrink-0 ml-2">
+                        <button
+                          onClick={() => handleMoveStep(index, 'up')}
+                          disabled={index === 0}
+                          className="p-1.5 text-gray-400 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                          title="Déplacer vers le haut"
+                        >
+                          <ArrowUp size={16} />
+                        </button>
+                        <button
+                          onClick={() => handleMoveStep(index, 'down')}
+                          disabled={index === selectedSteps.length - 1}
+                          className="p-1.5 text-gray-400 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                          title="Déplacer vers le bas"
+                        >
+                          <ArrowDown size={16} />
+                        </button>
+                        <button
+                          onClick={() => handleRemoveStep(step.id)}
+                          className="p-1.5 text-red-400 hover:text-red-600 transition-colors"
+                          title="Retirer"
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                    </div>
                   ))}
                 </div>
               </div>
             )}
 
+            {/* Available Steps - Search and Badge Grid */}
+            {flowSteps.filter(step => !formData.selectedStepIds.includes(step.id)).length > 0 && (
+              <div>
+                <div className="mb-2 sm:mb-3">
+                  <label className="block text-xs text-gray-500 mb-1.5">
+                    Rechercher et ajouter des étapes :
+                  </label>
+                  <div className="relative">
+                    <Search className="absolute left-2.5 sm:left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={14} />
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full pl-9 sm:pl-10 pr-3 py-1.5 sm:py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Rechercher une étape..."
+                    />
+                  </div>
+                </div>
+
+                {availableSteps.length > 0 ? (
+                  <div>
+                    <p className="text-xs text-gray-500 mb-2">
+                      {availableSteps.length} étape{availableSteps.length > 1 ? 's' : ''} disponible{availableSteps.length > 1 ? 's' : ''}
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+                      {availableSteps.slice(0, 8).map((step) => (
+                        <button
+                          key={step.id}
+                          onClick={() => {
+                            handleToggleStep(step.id);
+                            setSearchQuery(''); // Clear search after adding
+                          }}
+                          className="flex items-center gap-2 p-2 border border-gray-300 rounded-md hover:bg-blue-50 hover:border-blue-300 transition-all group w-full"
+                          title={step.name}
+                        >
+                          {step.image ? (
+                            <img
+                              src={step.image}
+                              alt={step.name}
+                              className="w-6 h-6 object-cover rounded flex-shrink-0"
+                            />
+                          ) : (
+                            <div className="w-6 h-6 bg-gray-200 rounded flex-shrink-0" />
+                          )}
+                          <span className="text-xs text-gray-700 truncate flex-1 text-left group-hover:text-blue-600">
+                            {step.name}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                    {availableSteps.length > 8 && (
+                      <p className="text-xs text-gray-400 mt-2 text-center">
+                        {availableSteps.length - 8} autre{availableSteps.length - 8 > 1 ? 's' : ''} étape{availableSteps.length - 8 > 1 ? 's' : ''} disponible{availableSteps.length - 8 > 1 ? 's' : ''}. Utilisez la recherche pour les trouver.
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-center py-4 text-sm text-gray-500 bg-gray-50 rounded border border-gray-200">
+                    Aucune étape trouvée pour "{searchQuery}"
+                  </div>
+                )}
+              </div>
+            )}
+
             {flowSteps.length === 0 && (
-              <div className="text-center py-4 text-sm text-gray-500">
-                Aucune étape disponible. Créez d'abord des étapes dans la section "Étapes de Production".
+              <div className="text-center py-4 text-sm text-gray-500 bg-gray-50 rounded border border-gray-200">
+                Aucune étape disponible. Créez d'abord des étapes.
               </div>
             )}
           </div>
