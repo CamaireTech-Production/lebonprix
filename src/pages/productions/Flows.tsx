@@ -99,11 +99,15 @@ const Flows: React.FC = () => {
     try {
       const flowData: Omit<ProductionFlow, 'id' | 'createdAt' | 'updatedAt' | 'companyId' | 'userId'> = {
         name: formData.name.trim(),
-        description: formData.description.trim() || undefined,
         isDefault: formData.isDefault,
         isActive: true,
         stepIds: formData.selectedStepIds
       };
+
+      // Only add optional fields if they have values (Firebase doesn't accept undefined)
+      if (formData.description.trim()) {
+        flowData.description = formData.description.trim();
+      }
 
       if (editingFlow) {
         await updateFlow(editingFlow.id, flowData);

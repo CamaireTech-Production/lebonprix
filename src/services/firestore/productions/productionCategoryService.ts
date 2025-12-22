@@ -67,14 +67,29 @@ export const createProductionCategory = async (
 
     const batch = writeBatch(db);
 
+    // Build category data, filtering out undefined values (Firebase doesn't accept undefined)
     const categoryData: any = {
-      ...data,
+      name: data.name,
       companyId,
       isActive: data.isActive !== false,
       productionCount: 0,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     };
+
+    // Only include optional fields if they have values
+    if (data.description) {
+      categoryData.description = data.description;
+    }
+    if (data.image) {
+      categoryData.image = data.image;
+    }
+    if (data.imagePath) {
+      categoryData.imagePath = data.imagePath;
+    }
+    if (data.userId) {
+      categoryData.userId = data.userId;
+    }
 
     if (createdBy) {
       categoryData.createdBy = createdBy;
@@ -90,16 +105,33 @@ export const createProductionCategory = async (
     await batch.commit();
 
     const now = Date.now() / 1000;
-    return {
+    const result: ProductionCategory = {
       id: categoryRef.id,
-      ...data,
+      name: data.name,
       companyId,
       isActive: data.isActive !== false,
       productionCount: 0,
-      createdAt: { seconds: now, nanoseconds: 0 },
-      updatedAt: { seconds: now, nanoseconds: 0 },
-      createdBy: createdBy || undefined
+      createdAt: { seconds: now, nanoseconds: 0 } as any,
+      updatedAt: { seconds: now, nanoseconds: 0 } as any
     };
+
+    if (data.description) {
+      result.description = data.description;
+    }
+    if (data.image) {
+      result.image = data.image;
+    }
+    if (data.imagePath) {
+      result.imagePath = data.imagePath;
+    }
+    if (data.userId) {
+      result.userId = data.userId;
+    }
+    if (createdBy) {
+      result.createdBy = createdBy;
+    }
+
+    return result;
   } catch (error) {
     logError('Error creating production category', error);
     throw error;

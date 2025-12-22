@@ -150,11 +150,19 @@ const Categories: React.FC = () => {
 
       const categoryData: Omit<ProductionCategory, 'id' | 'createdAt' | 'updatedAt' | 'companyId' | 'userId'> = {
         name: formData.name.trim(),
-        description: formData.description.trim() || undefined,
-        image: imageUrl || undefined,
-        imagePath: imagePath || undefined,
         isActive: true
       };
+
+      // Only add optional fields if they have values (Firebase doesn't accept undefined)
+      if (formData.description.trim()) {
+        categoryData.description = formData.description.trim();
+      }
+      if (imageUrl) {
+        categoryData.image = imageUrl;
+      }
+      if (imagePath) {
+        categoryData.imagePath = imagePath;
+      }
 
       if (editingCategory) {
         await updateCategory(editingCategory.id, categoryData);

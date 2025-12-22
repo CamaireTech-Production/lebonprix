@@ -71,6 +71,33 @@ export const createProductionFlow = async (
 
     const batch = writeBatch(db);
 
+    // Build flow data, filtering out undefined values (Firebase doesn't accept undefined)
+    const flowData: any = {
+      name: data.name,
+      companyId,
+      isDefault: data.isDefault || false,
+      isActive: data.isActive !== false,
+      stepIds: data.stepIds,
+      stepCount: data.stepIds.length,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    };
+
+    // Only include optional fields if they have values
+    if (data.description) {
+      flowData.description = data.description;
+    }
+    if (data.estimatedDuration !== undefined) {
+      flowData.estimatedDuration = data.estimatedDuration;
+    }
+    if (data.userId) {
+      flowData.userId = data.userId;
+    }
+
+    if (createdBy) {
+      flowData.createdBy = createdBy;
+    }
+
     // If this is set as default, unset other defaults
     if (data.isDefault) {
       const existingDefaultsQuery = query(
@@ -87,19 +114,6 @@ export const createProductionFlow = async (
           updatedAt: serverTimestamp()
         });
       });
-    }
-
-    const flowData: any = {
-      ...data,
-      companyId,
-      isActive: data.isActive !== false,
-      stepCount: data.stepIds.length,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
-    };
-
-    if (createdBy) {
-      flowData.createdBy = createdBy;
     }
 
     const flowRef = doc(collection(db, COLLECTION_NAME));
@@ -125,16 +139,32 @@ export const createProductionFlow = async (
     await batch.commit();
 
     const now = Date.now() / 1000;
-    return {
+    const result: ProductionFlow = {
       id: flowRef.id,
-      ...data,
+      name: data.name,
       companyId,
+      isDefault: data.isDefault || false,
       isActive: data.isActive !== false,
+      stepIds: data.stepIds,
       stepCount: data.stepIds.length,
-      createdAt: { seconds: now, nanoseconds: 0 },
-      updatedAt: { seconds: now, nanoseconds: 0 },
-      createdBy: createdBy || undefined
+      createdAt: { seconds: now, nanoseconds: 0 } as any,
+      updatedAt: { seconds: now, nanoseconds: 0 } as any
     };
+
+    if (data.description) {
+      result.description = data.description;
+    }
+    if (data.estimatedDuration !== undefined) {
+      result.estimatedDuration = data.estimatedDuration;
+    }
+    if (data.userId) {
+      result.userId = data.userId;
+    }
+    if (createdBy) {
+      result.createdBy = createdBy;
+    }
+
+    return result;
   } catch (error) {
     logError('Error creating production flow', error);
     throw error;

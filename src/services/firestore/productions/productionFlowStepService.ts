@@ -66,14 +66,32 @@ export const createProductionFlowStep = async (
 
     const batch = writeBatch(db);
 
+    // Build step data, filtering out undefined values (Firebase doesn't accept undefined)
     const stepData: any = {
-      ...data,
+      name: data.name,
       companyId,
       isActive: data.isActive !== false,
       usageCount: 0,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     };
+
+    // Only include optional fields if they have values
+    if (data.description) {
+      stepData.description = data.description;
+    }
+    if (data.image) {
+      stepData.image = data.image;
+    }
+    if (data.imagePath) {
+      stepData.imagePath = data.imagePath;
+    }
+    if (data.estimatedDuration !== undefined) {
+      stepData.estimatedDuration = data.estimatedDuration;
+    }
+    if (data.userId) {
+      stepData.userId = data.userId;
+    }
 
     if (createdBy) {
       stepData.createdBy = createdBy;
@@ -89,21 +107,36 @@ export const createProductionFlowStep = async (
     await batch.commit();
 
     const now = Date.now() / 1000;
-    return {
+    const result: ProductionFlowStep = {
       id: stepRef.id,
       name: data.name,
-      description: data.description,
-      color: data.color,
-      icon: data.icon,
-      estimatedDuration: data.estimatedDuration,
       companyId,
-      userId: data.userId,
       isActive: data.isActive !== false,
       usageCount: 0,
-      createdAt: { seconds: now, nanoseconds: 0 },
-      updatedAt: { seconds: now, nanoseconds: 0 },
-      createdBy: createdBy || undefined
+      createdAt: { seconds: now, nanoseconds: 0 } as any,
+      updatedAt: { seconds: now, nanoseconds: 0 } as any
     };
+
+    if (data.description) {
+      result.description = data.description;
+    }
+    if (data.image) {
+      result.image = data.image;
+    }
+    if (data.imagePath) {
+      result.imagePath = data.imagePath;
+    }
+    if (data.estimatedDuration !== undefined) {
+      result.estimatedDuration = data.estimatedDuration;
+    }
+    if (data.userId) {
+      result.userId = data.userId;
+    }
+    if (createdBy) {
+      result.createdBy = createdBy;
+    }
+
+    return result;
   } catch (error) {
     logError('Error creating production flow step', error);
     throw error;
@@ -130,10 +163,35 @@ export const updateProductionFlowStep = async (
 
     const batch = writeBatch(db);
 
+    // Build update data, filtering out undefined values (Firebase doesn't accept undefined)
     const updateData: any = {
-      ...data,
       updatedAt: serverTimestamp()
     };
+
+    // Only include fields that are being updated
+    if (data.name !== undefined) {
+      updateData.name = data.name;
+    }
+    if (data.description !== undefined) {
+      if (data.description === null || data.description === '') {
+        // Remove description field if explicitly set to empty/null
+        updateData.description = null;
+      } else {
+        updateData.description = data.description;
+      }
+    }
+    if (data.image !== undefined) {
+      updateData.image = data.image;
+    }
+    if (data.imagePath !== undefined) {
+      updateData.imagePath = data.imagePath;
+    }
+    if (data.estimatedDuration !== undefined) {
+      updateData.estimatedDuration = data.estimatedDuration;
+    }
+    if (data.isActive !== undefined) {
+      updateData.isActive = data.isActive;
+    }
 
     // Remove undefined fields
     Object.keys(updateData).forEach((key) => {

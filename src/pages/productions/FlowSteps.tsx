@@ -153,12 +153,22 @@ const FlowSteps: React.FC = () => {
 
       const stepData: Omit<ProductionFlowStep, 'id' | 'createdAt' | 'updatedAt' | 'companyId' | 'userId'> = {
         name: formData.name.trim(),
-        description: formData.description.trim() || undefined,
-        image: imageUrl || undefined,
-        imagePath: imagePath || undefined,
-        estimatedDuration: formData.estimatedDuration ? parseFloat(formData.estimatedDuration) : undefined,
         isActive: true
       };
+
+      // Only add optional fields if they have values (Firebase doesn't accept undefined)
+      if (formData.description.trim()) {
+        stepData.description = formData.description.trim();
+      }
+      if (imageUrl) {
+        stepData.image = imageUrl;
+      }
+      if (imagePath) {
+        stepData.imagePath = imagePath;
+      }
+      if (formData.estimatedDuration) {
+        stepData.estimatedDuration = parseFloat(formData.estimatedDuration);
+      }
 
       if (editingStep) {
         await updateFlowStep(editingStep.id, stepData);
