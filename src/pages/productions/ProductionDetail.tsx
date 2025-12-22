@@ -1,6 +1,6 @@
 // Production Detail page
 import React, { useState, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Edit2, Loader2, CheckCircle2, XCircle } from 'lucide-react';
 import { Button, LoadingScreen, Badge } from '@components/common';
 import { useProductions, useProductionFlows, useProductionFlowSteps, useProductionCategories, useProductionCharges } from '@hooks/data/useFirestore';
@@ -15,12 +15,17 @@ import { Plus, Trash2, Edit2 as EditIcon, Package, Download, BarChart3 } from 'l
 const ProductionDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  
+  // Extract companyId from URL if in company route
+  const isCompanyRoute = location.pathname.startsWith('/company/');
+  const companyId = isCompanyRoute ? location.pathname.split('/')[2] : null;
+  
   const { productions, loading: productionsLoading, changeState, updateProduction } = useProductions();
   const { flows } = useProductionFlows();
   const { flowSteps } = useProductionFlowSteps();
   const { categories } = useProductionCategories();
   const { matiereStocks } = useMatiereStocks();
-  const { charges, loading: chargesLoading, addCharge, updateCharge, deleteCharge } = useProductionCharges(production?.id || null);
 
   const [activeTab, setActiveTab] = useState<'overview' | 'materials' | 'charges' | 'history'>('overview');
   const [isChangeStateModalOpen, setIsChangeStateModalOpen] = useState(false);
@@ -40,6 +45,9 @@ const ProductionDetail: React.FC = () => {
     if (!id) return null;
     return productions.find(p => p.id === id) || null;
   }, [productions, id]);
+
+  // Use id directly instead of production?.id to avoid initialization issues
+  const { charges, loading: chargesLoading, addCharge, updateCharge, deleteCharge } = useProductionCharges(id || null);
 
   const productionFlow = useMemo(() => {
     if (!production) return null;
@@ -102,7 +110,16 @@ const ProductionDetail: React.FC = () => {
       <div className="p-6">
         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
           <p className="text-red-800">Production introuvable</p>
-          <Button onClick={() => navigate('/productions')} className="mt-4">
+          <Button 
+            onClick={() => {
+              if (companyId) {
+                navigate(`/company/${companyId}/productions`);
+              } else {
+                navigate('/productions');
+              }
+            }} 
+            className="mt-4"
+          >
             Retour à la liste
           </Button>
         </div>
@@ -119,7 +136,13 @@ const ProductionDetail: React.FC = () => {
         <Button
           variant="secondary"
           icon={<ArrowLeft size={16} />}
-          onClick={() => navigate('/productions')}
+          onClick={() => {
+            if (companyId) {
+              navigate(`/company/${companyId}/productions`);
+            } else {
+              navigate('/productions');
+            }
+          }}
           className="mb-4"
         >
           Retour

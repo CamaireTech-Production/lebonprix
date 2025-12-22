@@ -5,7 +5,7 @@ import { Button, LoadingScreen, Input, Badge } from '@components/common';
 import { useProductions, useProductionFlows, useProductionCategories } from '@hooks/data/useFirestore';
 import { formatPrice } from '@utils/formatting/formatPrice';
 import CreateProductionModal from '@components/productions/CreateProductionModal';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import type { Production } from '../../types/models';
 
 const Productions: React.FC = () => {
@@ -13,6 +13,12 @@ const Productions: React.FC = () => {
   const { flows } = useProductionFlows();
   const { categories } = useProductionCategories();
   const navigate = useNavigate();
+  const location = useLocation();
+  
+  // Extract companyId from URL if in company route
+  const isCompanyRoute = location.pathname.startsWith('/company/');
+  const companyId = isCompanyRoute ? location.pathname.split('/')[2] : null;
+  
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   
   // Filters
@@ -435,7 +441,11 @@ const Productions: React.FC = () => {
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <button
                       onClick={() => {
-                        navigate(`/productions/${production.id}`);
+                        if (companyId) {
+                          navigate(`/company/${companyId}/productions/${production.id}`);
+                        } else {
+                          navigate(`/productions/${production.id}`);
+                        }
                       }}
                       className="text-blue-600 hover:text-blue-900"
                       title="Voir les détails"
