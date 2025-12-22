@@ -1,7 +1,7 @@
 // Publish Production Modal - Convert production to product
 import React, { useState, useEffect, useMemo } from 'react';
 import { Loader2, AlertTriangle } from 'lucide-react';
-import { Modal, ModalFooter, Button } from '@components/common';
+import { Modal, ModalFooter, Button, PriceInput } from '@components/common';
 import { useAuth } from '@contexts/AuthContext';
 import { useCategories } from '@hooks/data/useFirestore';
 import { useMatiereStocks } from '@hooks/business/useMatiereStocks';
@@ -214,32 +214,24 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Prix de vente (XAF) <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="number"
+              <PriceInput
+                label="Prix de vente (XAF) *"
+                name="sellingPrice"
                 value={formData.sellingPrice}
                 onChange={(e) => setFormData({ ...formData, sellingPrice: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                allowDecimals={false}
                 placeholder="0"
-                min="0"
-                step="0.01"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Prix catalogue (XAF)
-              </label>
-              <input
-                type="number"
+              <PriceInput
+                label="Prix catalogue (XAF)"
+                name="cataloguePrice"
                 value={formData.cataloguePrice}
                 onChange={(e) => setFormData({ ...formData, cataloguePrice: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                allowDecimals={false}
                 placeholder="0"
-                min="0"
-                step="0.01"
               />
             </div>
           </div>

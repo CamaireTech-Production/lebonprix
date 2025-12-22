@@ -1,6 +1,6 @@
 // Productions list page
 import React, { useState, useMemo } from 'react';
-import { Plus, Eye, Loader2, Search, Filter, Download, X } from 'lucide-react';
+import { Plus, Eye, Loader2, Search, Filter, X } from 'lucide-react';
 import { Button, LoadingScreen, Input, Badge } from '@components/common';
 import { useProductions, useProductionFlows, useProductionCategories } from '@hooks/data/useFirestore';
 import { formatPrice } from '@utils/formatting/formatPrice';
@@ -122,38 +122,6 @@ const Productions: React.FC = () => {
     return filtered;
   }, [productions, searchQuery, selectedStatus, selectedFlow, selectedCategory, dateRange, costRange]);
 
-  // Export function
-  const handleExport = () => {
-    const csvData = filteredProductions.map(p => ({
-      'Nom': p.name,
-      'Référence': p.reference || '',
-      'Catégorie': getCategoryName(p.categoryId),
-      'Flux': getFlowName(p.flowId),
-      'Statut': p.status,
-      'Coût': p.calculatedCostPrice || 0,
-      'Date de création': p.createdAt?.seconds
-        ? new Date(p.createdAt.seconds * 1000).toLocaleDateString('fr-FR')
-        : '',
-      'Fermé': p.isClosed ? 'Oui' : 'Non',
-      'Publié': p.isPublished ? 'Oui' : 'Non'
-    }));
-
-    const headers = Object.keys(csvData[0] || {});
-    const csvContent = [
-      headers.join(','),
-      ...csvData.map(row => headers.map(h => `"${row[h as keyof typeof row]}"`).join(','))
-    ].join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `productions_${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
 
   const activeFiltersCount = useMemo(() => {
     let count = 0;
@@ -187,14 +155,6 @@ const Productions: React.FC = () => {
         </div>
         <div className="flex gap-2 mt-4 md:mt-0">
           <Button
-            variant="secondary"
-            icon={<Download size={16} />}
-            onClick={handleExport}
-            disabled={filteredProductions.length === 0}
-          >
-            Exporter
-          </Button>
-          <Button
             icon={<Plus size={16} />}
             onClick={() => setIsCreateModalOpen(true)}
           >
@@ -222,7 +182,7 @@ const Productions: React.FC = () => {
 
           {/* Filter Toggle */}
           <Button
-            variant="secondary"
+            variant="outline"
             icon={<Filter size={16} />}
             onClick={() => setShowFilters(!showFilters)}
           >

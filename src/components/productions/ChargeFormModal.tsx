@@ -1,10 +1,8 @@
 // Charge Form Modal for Productions
 import React, { useState, useEffect } from 'react';
-import { X, Loader2 } from 'lucide-react';
-import { Modal, ModalFooter, Button } from '@components/common';
+import { Modal, ModalFooter, PriceInput } from '@components/common';
 import { useAuth } from '@contexts/AuthContext';
 import { showSuccessToast, showErrorToast, showWarningToast } from '@utils/core/toast';
-import { formatPrice } from '@utils/formatting/formatPrice';
 import type { ProductionCharge } from '../../types/models';
 import { Timestamp } from 'firebase/firestore';
 
@@ -142,7 +140,16 @@ const ChargeFormModal: React.FC<ChargeFormModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       title={charge ? 'Modifier la charge' : 'Nouvelle charge'}
-      size="medium"
+      footer={
+        <ModalFooter
+          onCancel={onClose}
+          onConfirm={handleSubmit}
+          cancelText="Annuler"
+          confirmText={charge ? 'Mettre à jour' : 'Créer'}
+          isLoading={isSubmitting}
+          disabled={isSubmitting || !formData.description.trim() || !formData.amount || parseFloat(formData.amount) <= 0}
+        />
+      }
     >
       <div className="space-y-4">
         <div>
@@ -160,17 +167,13 @@ const ChargeFormModal: React.FC<ChargeFormModalProps> = ({
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Montant (XAF) <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="number"
+            <PriceInput
+              label="Montant (XAF) *"
+              name="amount"
               value={formData.amount}
               onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              allowDecimals={false}
               placeholder="0"
-              min="0"
-              step="0.01"
             />
           </div>
 
@@ -204,31 +207,6 @@ const ChargeFormModal: React.FC<ChargeFormModalProps> = ({
           />
         </div>
       </div>
-
-      <ModalFooter>
-        <div className="flex justify-end space-x-3 w-full">
-          <Button
-            variant="secondary"
-            onClick={onClose}
-            disabled={isSubmitting}
-          >
-            Annuler
-          </Button>
-          <Button
-            onClick={handleSubmit}
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2 size={16} className="animate-spin mr-2" />
-                {charge ? 'Mise à jour...' : 'Création...'}
-              </>
-            ) : (
-              charge ? 'Mettre à jour' : 'Créer'
-            )}
-          </Button>
-        </div>
-      </ModalFooter>
     </Modal>
   );
 };

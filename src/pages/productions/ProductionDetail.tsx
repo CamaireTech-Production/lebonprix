@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Edit2, Loader2, CheckCircle2, XCircle } from 'lucide-react';
-import { Button, LoadingScreen, Badge } from '@components/common';
+import { Button, LoadingScreen, Badge, PriceInput } from '@components/common';
 import { useProductions, useProductionFlows, useProductionFlowSteps, useProductionCategories, useProductionCharges } from '@hooks/data/useFirestore';
 import { useMatiereStocks } from '@hooks/business/useMatiereStocks';
 import { formatPrice } from '@utils/formatting/formatPrice';
@@ -134,7 +134,7 @@ const ProductionDetail: React.FC = () => {
       {/* Header */}
       <div className="mb-6">
         <Button
-          variant="secondary"
+          variant="outline"
           icon={<ArrowLeft size={16} />}
           onClick={() => {
             if (companyId) {
@@ -164,7 +164,7 @@ const ProductionDetail: React.FC = () => {
             {!isClosed && (
               <>
                 <Button
-                  variant="secondary"
+                  variant="outline"
                   icon={<Edit2 size={16} />}
                   onClick={() => setIsChangeStateModalOpen(true)}
                 >
@@ -181,7 +181,7 @@ const ProductionDetail: React.FC = () => {
               </>
             )}
             <Button
-              variant="secondary"
+              variant="outline"
               icon={<Download size={16} />}
               onClick={() => {
                 // Export production detail
@@ -272,7 +272,7 @@ const ProductionDetail: React.FC = () => {
               Exporter
             </Button>
             <Button
-              variant="secondary"
+              variant="outline"
               icon={<BarChart3 size={16} />}
               onClick={() => setShowAnalytics(!showAnalytics)}
             >
@@ -280,7 +280,7 @@ const ProductionDetail: React.FC = () => {
             </Button>
             {isClosed && production.publishedProductId && (
               <Button
-                variant="secondary"
+                variant="outline"
                 onClick={() => navigate(`/products`)}
               >
                 Voir le produit
@@ -445,7 +445,7 @@ const ProductionDetail: React.FC = () => {
                         </p>
                       </div>
                       <Button
-                        variant="secondary"
+                        variant="outline"
                         size="sm"
                         onClick={() => {
                           setValidatedCostPrice(production.validatedCostPrice?.toString() || production.calculatedCostPrice?.toString() || '');
@@ -830,7 +830,7 @@ const ProductionDetail: React.FC = () => {
 
             <div className="px-6 py-4 bg-gray-50 flex justify-end space-x-3">
               <Button
-                variant="secondary"
+                variant="outline"
                 onClick={() => {
                   setIsChangeStateModalOpen(false);
                   setNewStepId('');
@@ -900,17 +900,13 @@ const ProductionDetail: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Coût validé (XAF) <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="number"
+                  <PriceInput
+                    label="Coût validé (XAF) *"
+                    name="validatedCostPrice"
                     value={validatedCostPrice}
                     onChange={(e) => setValidatedCostPrice(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    allowDecimals={false}
                     placeholder="0"
-                    min="0"
-                    step="0.01"
                   />
                 </div>
               </div>
@@ -918,7 +914,7 @@ const ProductionDetail: React.FC = () => {
 
             <div className="px-6 py-4 bg-gray-50 flex justify-end space-x-3">
               <Button
-                variant="secondary"
+                variant="outline"
                 onClick={() => {
                   setIsValidatingCost(false);
                   setValidatedCostPrice('');
