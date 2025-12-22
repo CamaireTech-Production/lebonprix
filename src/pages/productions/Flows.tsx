@@ -1,6 +1,6 @@
 // Production Flows page
 import React, { useState, useMemo } from 'react';
-import { Plus, Edit2, Trash2, Loader2, ArrowUp, ArrowDown, X, Search } from 'lucide-react';
+import { Plus, Edit2, Trash2, Loader2, ArrowUp, ArrowDown, X, Search, ChevronRight, ChevronDown } from 'lucide-react';
 import { Button, Modal, ModalFooter, LoadingScreen } from '@components/common';
 import { useProductionFlows, useProductionFlowSteps } from '@hooks/data/useFirestore';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
@@ -15,6 +15,7 @@ const Flows: React.FC = () => {
   const [deletingFlow, setDeletingFlow] = useState<ProductionFlow | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [expandedFlowId, setExpandedFlowId] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -164,6 +165,22 @@ const Flows: React.FC = () => {
     return filtered;
   }, [flowSteps, formData.selectedStepIds, searchQuery]);
 
+  const handleExpand = (flowId: string) => {
+    setExpandedFlowId((prev) => (prev === flowId ? null : flowId));
+  };
+
+  // Map flow steps by flow ID for quick lookup
+  const stepsByFlow = useMemo(() => {
+    const map = new Map<string, typeof flowSteps>();
+    flows.forEach(flow => {
+      const flowStepList = flow.stepIds
+        .map(stepId => flowSteps.find(step => step.id === stepId))
+        .filter(Boolean) as typeof flowSteps;
+      map.set(flow.id, flowStepList);
+    });
+    return map;
+  }, [flows, flowSteps]);
+
   if (loading) {
     return <LoadingScreen />;
   }
@@ -190,72 +207,148 @@ const Flows: React.FC = () => {
         </div>
       ) : (
         <div className="bg-white rounded-lg shadow overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Nom
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Description
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Étapes
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Par défaut
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {flows.map((flow) => (
-                <tr key={flow.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{flow.name}</div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="text-sm text-gray-500">{flow.description || '-'}</div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="text-sm text-gray-500">
-                      {flow.stepCount || flow.stepIds?.length || 0} étape(s)
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {flow.isDefault ? (
-                      <span className="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
-                        Oui
-                      </span>
-                    ) : (
-                      <span className="text-sm text-gray-400">-</span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <div className="flex justify-end gap-2">
-                      <button
-                        onClick={() => handleOpenModal(flow)}
-                        className="text-blue-600 hover:text-blue-900"
-                      >
-                        <Edit2 size={16} />
-                      </button>
-                      <button
-                        onClick={() => {
-                          setDeletingFlow(flow);
-                          setIsDeleteModalOpen(true);
-                        }}
-                        className="text-red-600 hover:text-red-900"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-10">
+                    {/* Chevron column */}
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Nom
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Description
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Étapes
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Par défaut
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {flows.map((flow) => {
+                  const isExpanded = expandedFlowId === flow.id;
+                  const flowStepList = stepsByFlow.get(flow.id) || [];
+                  return (
+                    <React.Fragment key={flow.id}>
+                      <tr className="hover:bg-gray-50">
+                        <td className="px-4 py-4 text-center">
+                          <button
+                            onClick={() => handleExpand(flow.id)}
+                            className="text-gray-500 hover:text-gray-700 transition-colors"
+                            aria-label="Toggle steps"
+                          >
+                            {isExpanded ? (
+                              <ChevronDown size={18} className="text-blue-600" />
+                            ) : (
+                              <ChevronRight size={18} />
+                            )}
+                          </button>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">{flow.name}</div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="text-sm text-gray-500">{flow.description || '-'}</div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="text-sm text-gray-500">
+                            {flow.stepCount || flow.stepIds?.length || 0} étape(s)
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {flow.isDefault ? (
+                            <span className="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                              Oui
+                            </span>
+                          ) : (
+                            <span className="text-sm text-gray-400">-</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <div className="flex justify-end gap-2">
+                            <button
+                              onClick={() => handleOpenModal(flow)}
+                              className="text-blue-600 hover:text-blue-900"
+                            >
+                              <Edit2 size={16} />
+                            </button>
+                            <button
+                              onClick={() => {
+                                setDeletingFlow(flow);
+                                setIsDeleteModalOpen(true);
+                              }}
+                              className="text-red-600 hover:text-red-900"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                      {isExpanded && (
+                        <tr>
+                          <td colSpan={6} className="px-0 py-0">
+                            <div className="bg-gray-50 px-6 py-4 border-t border-gray-200">
+                              {flowStepList.length === 0 ? (
+                                <div className="text-center py-4">
+                                  <p className="text-sm text-gray-500">Aucune étape dans ce flux</p>
+                                </div>
+                              ) : (
+                                <div className="space-y-2">
+                                  <h4 className="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-3">
+                                    Étapes du flux ({flowStepList.length})
+                                  </h4>
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                                    {flowStepList.map((step, index) => (
+                                      <div
+                                        key={step.id}
+                                        className="flex items-center gap-3 p-3 bg-white border border-gray-200 rounded-md hover:border-blue-300 transition-colors"
+                                      >
+                                        <div className="flex-shrink-0">
+                                          <span className="text-xs font-medium text-gray-500 w-6 inline-block">
+                                            {index + 1}.
+                                          </span>
+                                        </div>
+                                        {step.image ? (
+                                          <img
+                                            src={step.image}
+                                            alt={step.name}
+                                            className="w-8 h-8 object-cover rounded flex-shrink-0"
+                                          />
+                                        ) : (
+                                          <div className="w-8 h-8 bg-gray-200 rounded flex-shrink-0" />
+                                        )}
+                                        <div className="flex-1 min-w-0">
+                                          <p className="text-sm font-medium text-gray-900 truncate">
+                                            {step.name}
+                                          </p>
+                                          {step.description && (
+                                            <p className="text-xs text-gray-500 truncate mt-0.5">
+                                              {step.description}
+                                            </p>
+                                          )}
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
