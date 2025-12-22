@@ -1049,7 +1049,8 @@
       "manual": "Manual",
       "sale": "Sale",
       "expense": "Expense",
-      "supplier": "Supplier"
+      "supplier": "Supplier",
+      "matiere": "Material"
     },
     "types": {
       "loan": "Loan",
@@ -1059,6 +1060,7 @@
       "debt": "Debt",
       "supplier_debt": "Supplier Debt",
       "supplier_refund": "Supplier Refund",
+      "matiere_purchase": "Material Purchase",
         "sortie": "Withdrawal",
       "other": "Associated Entry"
     },

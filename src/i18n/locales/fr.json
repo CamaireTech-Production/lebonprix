@@ -1054,7 +1054,8 @@
       "manual": "Manuelle",
       "sale": "Vente",
       "expense": "Dépense",
-      "supplier": "Fournisseur"
+      "supplier": "Fournisseur",
+      "matiere": "Matière"
     },
     "types": {
       "loan": "Prêt",
@@ -1064,6 +1065,7 @@
       "debt": "Dette",
       "supplier_debt": "Dette Fournisseur",
       "supplier_refund": "Remboursement Fournisseur",
+      "matiere_purchase": "Achat Matière",
         "sortie": "Sortie",
       "other": "Entrée associée"
     },

@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '@contexts/AuthContext';
 import { restockMatiere } from '@services/firestore/stock/stockAdjustments';
 import type { Matiere } from '../../types/models';
-import { Modal, Button, Input } from '@components/common';
+import { Modal, Button, Input, PriceInput } from '@components/common';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
+import { formatCostPrice } from '@utils/inventory/inventoryManagement';
 
 interface RestockModalProps {
   isOpen: boolean;
@@ -25,6 +26,7 @@ const MatiereRestockModal: React.FC<RestockModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     quantity: '',
+    costPrice: '',
     notes: ''
   });
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
@@ -36,6 +38,7 @@ const MatiereRestockModal: React.FC<RestockModalProps> = ({
     if (isOpen) {
       setFormData({
         quantity: '',
+        costPrice: '',
         notes: ''
       });
     }
@@ -62,7 +65,24 @@ const MatiereRestockModal: React.FC<RestockModalProps> = ({
       errors.push('Please enter a valid quantity (whole number greater than 0)');
     }
     
+    // Validate cost price if provided
+    if (formData.costPrice && formData.costPrice.trim() !== '') {
+      const costPrice = parseFloat(formData.costPrice);
+      if (isNaN(costPrice) || costPrice < 0) {
+        errors.push('Please enter a valid cost price (greater than or equal to 0)');
+      }
+    }
+    
     return errors;
+  };
+
+  const calculateTotalCost = (): number => {
+    const quantity = parseInt(formData.quantity, 10);
+    const costPrice = parseFloat(formData.costPrice);
+    if (isNaN(quantity) || isNaN(costPrice) || quantity <= 0 || costPrice < 0) {
+      return 0;
+    }
+    return quantity * costPrice;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -78,6 +98,9 @@ const MatiereRestockModal: React.FC<RestockModalProps> = ({
     }
 
     const quantity = parseInt(formData.quantity, 10);
+    const costPrice = formData.costPrice && formData.costPrice.trim() !== '' 
+      ? parseFloat(formData.costPrice) 
+      : undefined;
 
     setLoading(true);
 
@@ -86,7 +109,8 @@ const MatiereRestockModal: React.FC<RestockModalProps> = ({
         matiere.id,
         quantity,
         company.id,
-        formData.notes || undefined
+        formData.notes || undefined,
+        costPrice
       );
 
       showSuccessToast('Matiere restocked successfully!');
@@ -142,16 +166,42 @@ const MatiereRestockModal: React.FC<RestockModalProps> = ({
         <div className="space-y-4">
           <h3 className="text-lg font-medium text-gray-900">Restock Details</h3>
           
-          <Input
-            label={`Quantity (${matiere.unit})`}
-            type="number"
-            value={formData.quantity}
-            onChange={(e) => handleInputChange('quantity', e.target.value)}
-            placeholder="Enter quantity"
-            required
-            min="1"
-            step="1"
-          />
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label={`Quantity (${matiere.unit})`}
+              type="number"
+              value={formData.quantity}
+              onChange={(e) => handleInputChange('quantity', e.target.value)}
+              placeholder="Enter quantity"
+              required
+              min="1"
+              step="1"
+            />
+            
+            <PriceInput
+              label="Cost Price per Unit (Optional)"
+              name="costPrice"
+              value={formData.costPrice}
+              onChange={(e) => handleInputChange('costPrice', e.target.value)}
+              placeholder="Enter cost price"
+              allowDecimals={true}
+            />
+          </div>
+
+          {/* Total Cost Display - only show if cost price is provided */}
+          {formData.costPrice && formData.costPrice.trim() !== '' && formData.quantity && parseInt(formData.quantity, 10) > 0 && (
+            <div className="bg-blue-50 p-3 rounded-lg">
+              <div className="text-sm font-medium text-blue-800">Total Cost</div>
+              <div className="text-lg font-semibold text-blue-900">
+                {formatCostPrice(calculateTotalCost())}
+              </div>
+              <div className="text-xs text-blue-700 mt-1">
+                {formData.costPrice && parseFloat(formData.costPrice) > 0 
+                  ? 'An expense entry will be created for this restock'
+                  : 'No expense entry will be created'}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Validation Errors */}
