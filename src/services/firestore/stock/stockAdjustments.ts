@@ -115,13 +115,15 @@ export const restockProduct = async (
 };
 
 /**
- * Restock matiere - Add new stock (simplified, no cost price, supplier, or payment tracking)
+ * Restock matiere - Add new stock
+ * If costPrice is provided and > 0, creates a finance entry for the expense
  */
 export const restockMatiere = async (
   matiereId: string,
   quantity: number,
   companyId: string,
-  notes?: string
+  notes?: string,
+  costPrice?: number
 ): Promise<void> => {
   const batch = writeBatch(db);
   
@@ -141,14 +143,17 @@ export const restockMatiere = async (
   // Get userId from matiere for audit
   const userId = currentMatiere.userId || companyId;
   
-  // Create new stock batch (no cost price, supplier, or payment info for matieres)
+  // Use provided costPrice or default to 0
+  const actualCostPrice = costPrice && costPrice > 0 ? costPrice : 0;
+  
+  // Create new stock batch
   const stockBatchRef = doc(collection(db, 'stockBatches'));
   const stockBatchData = {
     id: stockBatchRef.id,
     type: 'matiere' as const, // Always matiere for matiere restock
     matiereId,
     quantity,
-    costPrice: 0, // Set to 0 for matieres (not tracked)
+    costPrice: actualCostPrice, // Use actual cost price if provided
     createdAt: serverTimestamp(),
     userId,
     companyId, // Ensure companyId is set
@@ -158,7 +163,7 @@ export const restockMatiere = async (
   };
   batch.set(stockBatchRef, stockBatchData);
   
-  // Create stock change record (no supplier, payment, or cost price for matieres)
+  // Create stock change record
   createStockChange(
     batch,
     matiereId,
@@ -170,9 +175,30 @@ export const restockMatiere = async (
     undefined, // No supplier for matieres
     undefined, // No own purchase flag for matieres
     undefined, // No credit flag for matieres
-    undefined, // No cost price for matieres
+    actualCostPrice > 0 ? actualCostPrice : undefined, // Include cost price if provided
     stockBatchRef.id
   );
+  
+  // Create finance entry if cost price is provided
+  if (actualCostPrice > 0) {
+    const financeRef = doc(collection(db, 'finances'));
+    const financeData = {
+      id: financeRef.id,
+      userId,
+      companyId,
+      sourceType: 'matiere' as const,
+      sourceId: matiereId,
+      type: 'matiere_purchase',
+      amount: -Math.abs(quantity * actualCostPrice), // Negative for expense
+      description: `Réapprovisionnement de ${quantity} ${currentMatiere.unit} de ${currentMatiere.name}`,
+      date: serverTimestamp(),
+      isDeleted: false,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      batchId: stockBatchRef.id // Link to stock batch
+    };
+    batch.set(financeRef, financeData);
+  }
   
   await batch.commit();
 };
