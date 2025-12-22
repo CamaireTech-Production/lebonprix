@@ -41,6 +41,11 @@ const CreateCompany = lazy(() => import('../pages/company/CreateCompany'));
 const CompanySelection = lazy(() => import('../pages/company/CompanySelection'));
 const HRManagement = lazy(() => import('../pages/hr/HRManagement'));
 const EmployeeDashboard = lazy(() => import('../pages/dashboard/EmployeeDashboard'));
+const Productions = lazy(() => import('../pages/productions/Productions'));
+const ProductionFlowSteps = lazy(() => import('../pages/productions/FlowSteps'));
+const ProductionFlows = lazy(() => import('../pages/productions/Flows'));
+const ProductionCategories = lazy(() => import('../pages/productions/Categories'));
+const ProductionDetail = lazy(() => import('../pages/productions/ProductionDetail'));
 
 interface AppRoutesProps {
   isAddSaleModalOpen: boolean;
@@ -96,6 +101,11 @@ export const AppRoutes: React.FC<AppRoutesProps> = ({ isAddSaleModalOpen, setIsA
           <Route path="products" element={<LazyPage><Products /></LazyPage>} />
           <Route path="products/stocks" element={<LazyPage><Stocks /></LazyPage>} />
           <Route path="categories" element={<LazyPage><Categories /></LazyPage>} />
+          <Route path="productions" element={<LazyPage><Productions /></LazyPage>} />
+          <Route path="productions/:id" element={<LazyPage><ProductionDetail /></LazyPage>} />
+          <Route path="productions/categories" element={<LazyPage><ProductionCategories /></LazyPage>} />
+          <Route path="productions/flow-steps" element={<LazyPage><ProductionFlowSteps /></LazyPage>} />
+          <Route path="productions/flows" element={<LazyPage><ProductionFlows /></LazyPage>} />
           <Route path="magasin" element={<Navigate to="magasin/matieres" replace />} />
           <Route path="magasin/matieres" element={<RoleRoute requiredResource={RESOURCES.MAGASIN}><LazyPage><MagasinMatieres /></LazyPage></RoleRoute>} />
           <Route path="magasin/categories" element={<RoleRoute requiredResource={RESOURCES.MAGASIN}><LazyPage><MagasinCategories /></LazyPage></RoleRoute>} />

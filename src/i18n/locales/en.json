@@ -272,6 +272,15 @@
         "objectiveDeleted": "Objective deleted"
       }
     },
+    "latestOrders": {
+      "title": "Latest Orders",
+      "reference": "Reference",
+      "date": "Date",
+      "status": "Status",
+      "client": "Client",
+      "noData": "No recent orders",
+      "noClient": "No client"
+    },
     "makeSale": "Make a Sale"
   },
   "dateRanges": {
@@ -1099,7 +1108,8 @@
       "editSupplier": "Edit Supplier",
       "deleteSupplier": "Delete Supplier",
       "viewDebtHistory": "View Debt History",
-      "addRefund": "Add Refund"
+      "addRefund": "Add Refund",
+      "addDebt": "Add Debt"
     },
     "form": {
       "name": "Supplier Name",
@@ -1165,6 +1175,16 @@
       "refundExceeds": "Refund amount exceeds remaining debt!",
       "success": "Refund added successfully",
       "error": "Failed to add refund"
+    },
+    "debt": {
+      "addTitle": "Add Debt",
+      "addButton": "Add Debt",
+      "supplier": "Supplier",
+      "amount": "Debt Amount",
+      "description": "Description",
+      "descriptionPlaceholder": "Reason for debt (e.g., Purchase of goods, Loan, etc.)",
+      "addSuccess": "Debt added successfully",
+      "addError": "Error adding debt"
     }
   },
   "checkout": {
@@ -1367,7 +1387,8 @@
       "preparing": "Preparing",
       "ready": "Ready",
       "delivered": "Delivered",
-      "cancelled": "Cancelled"
+      "cancelled": "Cancelled",
+      "commande": "Order"
     },
     "paymentStatus": {
       "pending": "Pending",

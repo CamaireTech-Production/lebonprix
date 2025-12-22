@@ -46,6 +46,33 @@ import {
   getSupplierDebt
 } from '@services/firestore/suppliers/supplierDebtService';
 import { subscribeToStockChanges } from '@services/firestore/stock/stockService';
+import {
+  subscribeToProductionFlowSteps,
+  createProductionFlowStep,
+  updateProductionFlowStep,
+  deleteProductionFlowStep
+} from '@services/firestore/productions/productionFlowStepService';
+import {
+  subscribeToProductionFlows,
+  createProductionFlow,
+  updateProductionFlow,
+  deleteProductionFlow,
+  getDefaultProductionFlow
+} from '@services/firestore/productions/productionFlowService';
+import {
+  subscribeToProductionCategories,
+  createProductionCategory,
+  updateProductionCategory,
+  deleteProductionCategory
+} from '@services/firestore/productions/productionCategoryService';
+import {
+  subscribeToProductions,
+  createProduction,
+  updateProduction,
+  deleteProduction,
+  changeProductionState,
+  publishProduction
+} from '@services/firestore/productions/productionService';
 import { dataCache, cacheKeys, invalidateSpecificCache } from '@utils/storage/dataCache';
 import { logError } from '@utils/core/logger';
 import ProductsManager from '@services/storage/ProductsManager';
@@ -66,7 +93,12 @@ import type {
   FinanceEntry,
   Supplier,
   StockChange,
-  SupplierDebt
+  SupplierDebt,
+  Production,
+  ProductionFlowStep,
+  ProductionFlow,
+  ProductionCategory,
+  ProductionCharge
 } from '../types/models';
 import { Timestamp } from 'firebase/firestore';
 import { useAuth } from '../../contexts/AuthContext';
@@ -1060,5 +1092,434 @@ export const useAuditLogs = () => {
   }, [currentUser]);
 
   return { auditLogs, loading };
+};
+
+// ============================================================================
+// PRODUCTION HOOKS
+// ============================================================================
+
+// Production Flow Steps Hook
+export const useProductionFlowSteps = () => {
+  const [flowSteps, setFlowSteps] = useState<ProductionFlowStep[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+  const { user, company, currentEmployee, isOwner } = useAuth();
+
+  useEffect(() => {
+    if (!user || !company) return;
+
+    const unsubscribe = subscribeToProductionFlowSteps(company.id, (data) => {
+      setFlowSteps(data);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [user, company]);
+
+  const addFlowStep = async (stepData: Omit<ProductionFlowStep, 'id' | 'createdAt' | 'updatedAt' | 'companyId' | 'userId'>) => {
+    if (!user || !company) throw new Error('User not authenticated');
+    try {
+      let createdBy: ReturnType<typeof getCurrentEmployeeRef> = null;
+      if (user && company) {
+        let userData: Awaited<ReturnType<typeof getUserById>> | null = null;
+        if (isOwner && !currentEmployee) {
+          try {
+            userData = await getUserById(user.uid);
+          } catch (error) {
+            logError('Error fetching user data for createdBy', error);
+          }
+        }
+        createdBy = getCurrentEmployeeRef(currentEmployee, user, isOwner, userData);
+      }
+      // Add userId to stepData for audit log
+      const stepDataWithIds = {
+        ...stepData,
+        userId: user.uid
+      };
+      return await createProductionFlowStep(stepDataWithIds, company.id, createdBy);
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
+  };
+
+  const updateFlowStep = async (stepId: string, data: Partial<ProductionFlowStep>) => {
+    if (!user || !company) throw new Error('User not authenticated');
+    try {
+      await updateProductionFlowStep(stepId, data, company.id);
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
+  };
+
+  const deleteFlowStep = async (stepId: string) => {
+    if (!user || !company) throw new Error('User not authenticated');
+    try {
+      await deleteProductionFlowStep(stepId, company.id);
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
+  };
+
+  return {
+    flowSteps,
+    loading,
+    error,
+    addFlowStep,
+    updateFlowStep,
+    deleteFlowStep
+  };
+};
+
+// Production Flows Hook
+export const useProductionFlows = () => {
+  const [flows, setFlows] = useState<ProductionFlow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+  const { user, company, currentEmployee, isOwner } = useAuth();
+
+  useEffect(() => {
+    if (!user || !company) return;
+
+    const unsubscribe = subscribeToProductionFlows(company.id, (data) => {
+      setFlows(data);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [user, company]);
+
+  const addFlow = async (flowData: Omit<ProductionFlow, 'id' | 'createdAt' | 'updatedAt' | 'companyId' | 'userId'>) => {
+    if (!user || !company) throw new Error('User not authenticated');
+    try {
+      let createdBy: ReturnType<typeof getCurrentEmployeeRef> = null;
+      if (user && company) {
+        let userData: Awaited<ReturnType<typeof getUserById>> | null = null;
+        if (isOwner && !currentEmployee) {
+          try {
+            userData = await getUserById(user.uid);
+          } catch (error) {
+            logError('Error fetching user data for createdBy', error);
+          }
+        }
+        createdBy = getCurrentEmployeeRef(currentEmployee, user, isOwner, userData);
+      }
+      // Add userId to flowData for audit log
+      const flowDataWithIds = {
+        ...flowData,
+        userId: user.uid
+      };
+      return await createProductionFlow(flowDataWithIds, company.id, createdBy);
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
+  };
+
+  const updateFlow = async (flowId: string, data: Partial<ProductionFlow>) => {
+    if (!user || !company) throw new Error('User not authenticated');
+    try {
+      await updateProductionFlow(flowId, data, company.id);
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
+  };
+
+  const deleteFlow = async (flowId: string) => {
+    if (!user || !company) throw new Error('User not authenticated');
+    try {
+      await deleteProductionFlow(flowId, company.id);
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
+  };
+
+  const getDefaultFlow = async () => {
+    if (!user || !company) throw new Error('User not authenticated');
+    try {
+      return await getDefaultProductionFlow(company.id);
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
+  };
+
+  return {
+    flows,
+    loading,
+    error,
+    addFlow,
+    updateFlow,
+    deleteFlow,
+    getDefaultFlow
+  };
+};
+
+// Production Categories Hook
+export const useProductionCategories = () => {
+  const [categories, setCategories] = useState<ProductionCategory[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+  const { user, company, currentEmployee, isOwner } = useAuth();
+
+  useEffect(() => {
+    if (!user || !company) return;
+
+    const unsubscribe = subscribeToProductionCategories(company.id, (data) => {
+      setCategories(data);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [user, company]);
+
+  const addCategory = async (categoryData: Omit<ProductionCategory, 'id' | 'createdAt' | 'updatedAt' | 'companyId' | 'userId'>) => {
+    if (!user || !company) throw new Error('User not authenticated');
+    try {
+      let createdBy: ReturnType<typeof getCurrentEmployeeRef> = null;
+      if (user && company) {
+        let userData: Awaited<ReturnType<typeof getUserById>> | null = null;
+        if (isOwner && !currentEmployee) {
+          try {
+            userData = await getUserById(user.uid);
+          } catch (error) {
+            logError('Error fetching user data for createdBy', error);
+          }
+        }
+        createdBy = getCurrentEmployeeRef(currentEmployee, user, isOwner, userData);
+      }
+      // Add userId to categoryData for audit log
+      const categoryDataWithIds = {
+        ...categoryData,
+        userId: user.uid
+      };
+      return await createProductionCategory(categoryDataWithIds, company.id, createdBy);
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
+  };
+
+  const updateCategory = async (categoryId: string, data: Partial<ProductionCategory>) => {
+    if (!user || !company) throw new Error('User not authenticated');
+    try {
+      await updateProductionCategory(categoryId, data, company.id);
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
+  };
+
+  const deleteCategory = async (categoryId: string) => {
+    if (!user || !company) throw new Error('User not authenticated');
+    try {
+      await deleteProductionCategory(categoryId, company.id);
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
+  };
+
+  return {
+    categories,
+    loading,
+    error,
+    addCategory,
+    updateCategory,
+    deleteCategory
+  };
+};
+
+// Productions Hook
+export const useProductions = () => {
+  const [productions, setProductions] = useState<Production[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+  const { user, company, currentEmployee, isOwner } = useAuth();
+
+  useEffect(() => {
+    if (!user || !company) return;
+
+    const unsubscribe = subscribeToProductions(company.id, (data) => {
+      setProductions(data);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [user, company]);
+
+  const addProduction = async (productionData: Omit<Production, 'id' | 'createdAt' | 'updatedAt' | 'stateHistory' | 'calculatedCostPrice' | 'isCostValidated' | 'isPublished' | 'isClosed'>) => {
+    if (!user || !company) throw new Error('User not authenticated');
+    try {
+      let createdBy: ReturnType<typeof getCurrentEmployeeRef> = null;
+      if (user && company) {
+        let userData: Awaited<ReturnType<typeof getUserById>> | null = null;
+        if (isOwner && !currentEmployee) {
+          try {
+            userData = await getUserById(user.uid);
+          } catch (error) {
+            logError('Error fetching user data for createdBy', error);
+          }
+        }
+        createdBy = getCurrentEmployeeRef(currentEmployee, user, isOwner, userData);
+      }
+      return await createProduction(productionData, company.id, createdBy);
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
+  };
+
+  const updateProductionData = async (productionId: string, data: Partial<Production>) => {
+    if (!user || !company) throw new Error('User not authenticated');
+    try {
+      await updateProduction(productionId, data, company.id);
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
+  };
+
+  const deleteProductionData = async (productionId: string) => {
+    if (!user || !company) throw new Error('User not authenticated');
+    try {
+      await deleteProduction(productionId, company.id);
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
+  };
+
+  const changeState = async (productionId: string, newStepId: string, note?: string) => {
+    if (!user || !company) throw new Error('User not authenticated');
+    try {
+      await changeProductionState(productionId, newStepId, company.id, user.uid, note);
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
+  };
+
+  const publish = async (
+    productionId: string,
+    productData: {
+      name: string;
+      category?: string;
+      sellingPrice: number;
+      cataloguePrice?: number;
+      description?: string;
+      barCode?: string;
+      isVisible: boolean;
+      costPrice: number;
+    }
+  ) => {
+    if (!user || !company) throw new Error('User not authenticated');
+    try {
+      return await publishProduction(productionId, productData, company.id, user.uid);
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
+  };
+
+  return {
+    productions,
+    loading,
+    error,
+    addProduction,
+    updateProduction: updateProductionData,
+    deleteProduction: deleteProductionData,
+    changeState,
+    publishProduction: publish
+  };
+};
+
+export const useProductionCharges = (productionId: string | null) => {
+  const [charges, setCharges] = useState<ProductionCharge[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+  const { user, company, currentEmployee, isOwner } = useAuth();
+
+  useEffect(() => {
+    if (!productionId || !company) {
+      setCharges([]);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    let unsubscribe: (() => void) | null = null;
+
+    (async () => {
+      const { subscribeToProductionCharges } = await import('@services/firestore/productions/productionChargeService');
+      unsubscribe = subscribeToProductionCharges(productionId, company.id, (data) => {
+        setCharges(data);
+        setLoading(false);
+        setError(null);
+      });
+    })();
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [productionId, company]);
+
+  const addCharge = async (chargeData: Omit<ProductionCharge, 'id' | 'createdAt' | 'updatedAt'>) => {
+    if (!user || !company) throw new Error('User not authenticated');
+    try {
+      const { createProductionCharge } = await import('@services/firestore/productions/productionChargeService');
+      let createdBy = null;
+      if (user && company) {
+        let userData = null;
+        if (isOwner && !currentEmployee) {
+          try {
+            userData = await getUserById(user.uid);
+          } catch (error) {
+            console.error('Error fetching user data for createdBy:', error);
+          }
+        }
+        createdBy = getCurrentEmployeeRef(currentEmployee, user, isOwner, userData);
+      }
+      return await createProductionCharge(chargeData, company.id, createdBy);
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
+  };
+
+  const updateCharge = async (chargeId: string, data: Partial<ProductionCharge>) => {
+    if (!user || !company) throw new Error('User not authenticated');
+    try {
+      const { updateProductionCharge } = await import('@services/firestore/productions/productionChargeService');
+      await updateProductionCharge(chargeId, data, company.id);
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
+  };
+
+  const deleteCharge = async (chargeId: string) => {
+    if (!user || !company) throw new Error('User not authenticated');
+    try {
+      const { deleteProductionCharge } = await import('@services/firestore/productions/productionChargeService');
+      await deleteProductionCharge(chargeId, company.id);
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
+  };
+
+  return {
+    charges,
+    loading,
+    error,
+    addCharge,
+    updateCharge,
+    deleteCharge
+  };
 };
 

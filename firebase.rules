@@ -374,5 +374,45 @@ service cloud.firestore {
       allow update: if isAuthenticated() && hasCompanyAccess(resource.data.companyId);
       allow delete: if false; // Transactions should not be deleted
     }
+    
+    // Production Flow Steps - Company-scoped access
+    match /productionFlowSteps/{stepId} {
+      allow read: if isAuthenticated() && hasCompanyAccess(resource.data.companyId);
+      allow create: if isAuthenticated() && hasCompanyAccess(request.resource.data.companyId);
+      allow update: if isAuthenticated() && hasCompanyAccess(resource.data.companyId) && hasCompanyAccess(request.resource.data.companyId);
+      allow delete: if isAuthenticated() && hasCompanyAccess(resource.data.companyId);
+    }
+    
+    // Production Flows - Company-scoped access
+    match /productionFlows/{flowId} {
+      allow read: if isAuthenticated() && hasCompanyAccess(resource.data.companyId);
+      allow create: if isAuthenticated() && hasCompanyAccess(request.resource.data.companyId);
+      allow update: if isAuthenticated() && hasCompanyAccess(resource.data.companyId) && hasCompanyAccess(request.resource.data.companyId);
+      allow delete: if isAuthenticated() && hasCompanyAccess(resource.data.companyId);
+    }
+    
+    // Production Categories - Company-scoped access
+    match /productionCategories/{categoryId} {
+      allow read: if isAuthenticated() && hasCompanyAccess(resource.data.companyId);
+      allow create: if isAuthenticated() && hasCompanyAccess(request.resource.data.companyId);
+      allow update: if isAuthenticated() && hasCompanyAccess(resource.data.companyId) && hasCompanyAccess(request.resource.data.companyId);
+      allow delete: if isAuthenticated() && hasCompanyAccess(resource.data.companyId);
+    }
+    
+    // Productions - Company-scoped access
+    match /productions/{productionId} {
+      allow read: if isAuthenticated() && hasCompanyAccess(resource.data.companyId);
+      allow create: if isAuthenticated() && hasCompanyAccess(request.resource.data.companyId);
+      allow update: if isAuthenticated() && hasCompanyAccess(resource.data.companyId) && hasCompanyAccess(request.resource.data.companyId);
+      allow delete: if isAuthenticated() && hasCompanyAccess(resource.data.companyId);
+    }
+    
+    // Production Charges - Company-scoped access
+    match /productionCharges/{chargeId} {
+      allow read: if isAuthenticated() && hasCompanyAccess(resource.data.companyId);
+      allow create: if isAuthenticated() && hasCompanyAccess(request.resource.data.companyId);
+      allow update: if isAuthenticated() && hasCompanyAccess(resource.data.companyId) && hasCompanyAccess(request.resource.data.companyId);
+      allow delete: if isAuthenticated() && hasCompanyAccess(resource.data.companyId);
+    }
   }
 }

@@ -247,7 +247,7 @@ export interface StockChange {
   productId?: string; // Only if type === 'product'
   matiereId?: string; // Only if type === 'matiere'
   change: number; // + for restock, - for sale, etc.
-  reason: 'sale' | 'restock' | 'adjustment' | 'creation' | 'cost_correction' | 'damage' | 'manual_adjustment';
+  reason: 'sale' | 'restock' | 'adjustment' | 'creation' | 'cost_correction' | 'damage' | 'manual_adjustment' | 'production';
   supplierId?: string; // Reference to supplier if applicable
   isOwnPurchase?: boolean; // true if own purchase, false if from supplier
   isCredit?: boolean; // true if on credit, false if paid (only relevant if from supplier)
@@ -453,5 +453,141 @@ export interface Company extends BaseModel {
   employees?: Record<string, CompanyEmployee>; // Mirroir de employeeRefs pour lecture rapide
   employeeCount?: number; // Nombre total d'employés
   // Nouvelle architecture: employeeRefs via sous-collection companies/{id}/employeeRefs/{firebaseUid}
+}
+
+// ============================================================================
+// PRODUCTION MODELS
+// ============================================================================
+
+/**
+ * Production Flow Step - Individual step definition (reusable across flows)
+ */
+export interface ProductionFlowStep extends BaseModel {
+  name: string; // e.g., "Design", "Cutting", "Sewing", "Quality Check", "Packaging"
+  description?: string;
+  image?: string; // Firebase Storage URL
+  imagePath?: string; // Storage path for deletion
+  estimatedDuration?: number; // Hours (optional guidance)
+  isActive: boolean; // Can be deactivated without deleting
+  usageCount?: number; // How many times used in flows (for analytics)
+}
+
+/**
+ * Production Flow - Collection of flow steps
+ */
+export interface ProductionFlow extends BaseModel {
+  name: string; // e.g., "Standard Production", "Custom Orders", "Bulk Production"
+  description?: string;
+  isDefault: boolean; // Default flow for new productions
+  isActive: boolean;
+  
+  // Ordered steps in this flow (references to ProductionFlowStep IDs)
+  stepIds: string[]; // Array of step IDs in desired order (for UI display)
+  // Note: User can still move freely, this is just the suggested/display order
+  
+  // Flow metadata
+  estimatedDuration?: number; // Total days (sum of step durations)
+  stepCount?: number; // Count of steps (denormalized)
+}
+
+/**
+ * Production Category
+ */
+export interface ProductionCategory extends BaseModel {
+  name: string;
+  description?: string;
+  image?: string; // Firebase Storage URL
+  imagePath?: string; // Storage path for deletion
+  productionCount?: number; // Count of productions in this category
+  isActive: boolean;
+}
+
+/**
+ * Production Material - Material required for production
+ */
+export interface ProductionMaterial {
+  matiereId: string;
+  matiereName: string; // Denormalized for display
+  requiredQuantity: number;
+  unit: string;
+  consumedQuantity?: number; // Actual consumed when published
+  costPrice: number; // Cost at time of production
+  batchIds?: string[]; // Which batches were consumed
+}
+
+/**
+ * Production State Change - Tracks state evolution
+ */
+export interface ProductionStateChange {
+  id: string;
+  fromStepId?: string; // Previous step (null if initial)
+  toStepId: string; // New step (must be from associated flow)
+  fromStepName?: string; // Denormalized for display
+  toStepName: string;
+  changedBy: string; // User ID
+  changedByName?: string; // Denormalized for display
+  timestamp: Timestamp;
+  note?: string; // Optional note for the state change
+}
+
+/**
+ * Production Charge - Charge linked to production
+ */
+export interface ProductionCharge extends BaseModel {
+  productionId: string;
+  description: string;
+  amount: number;
+  category: string; // e.g., "labor", "overhead", "equipment"
+  date: Timestamp;
+  financeEntryId?: string; // Link to FinanceEntry
+}
+
+/**
+ * Production - Main production model
+ */
+export interface Production extends BaseModel {
+  // Basic Info
+  name: string;
+  reference: string;
+  description?: string;
+  images?: string[]; // Firebase Storage URLs
+  imagePaths?: string[]; // Storage paths for deletion
+  categoryId?: string; // Reference to ProductionCategory
+  
+  // Flow & State Management
+  flowId: string; // Reference to ProductionFlow (defines available steps)
+  currentStepId: string; // Current step ID (must be from associated flow)
+  status: 'draft' | 'in_progress' | 'ready' | 'published' | 'cancelled' | 'closed';
+  
+  // State History (tracks all state changes - user can move freely)
+  stateHistory: ProductionStateChange[];
+  
+  // Materials (from magasin)
+  materials: ProductionMaterial[];
+  
+  // Cost Calculation
+  calculatedCostPrice: number; // Auto-calculated from materials + charges
+  validatedCostPrice?: number; // User-validated/modified cost price
+  isCostValidated: boolean;
+  
+  // Charges
+  chargeIds: string[]; // References to ProductionCharge documents
+  
+  // Publishing & Closure
+  publishedProductId?: string; // If published, reference to Product
+  isPublished: boolean;
+  isClosed: boolean; // True when published - no more interactions
+  closedAt?: Timestamp;
+  closedBy?: string;
+  
+  // Catalog Info (stored but only used when publishing)
+  catalogData?: {
+    category?: string;
+    sellingPrice?: number;
+    cataloguePrice?: number;
+    isVisible?: boolean;
+    tags?: ProductTag[];
+    barCode?: string;
+  };
 }
 
