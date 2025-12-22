@@ -117,13 +117,15 @@ export const createProduction = async (
     }
 
     // Create initial state change (use Timestamp.now() instead of serverTimestamp() for arrayUnion)
-    const initialStateChange: ProductionStateChange = {
+    // Filter out undefined values for Firebase compatibility
+    const initialStateChangeData: any = {
       id: `state-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       toStepId: data.currentStepId,
       toStepName: '', // Will be populated when reading
       changedBy: data.userId || companyId,
       timestamp: Timestamp.now()
     };
+    const initialStateChange: ProductionStateChange = initialStateChangeData as ProductionStateChange;
 
     // Include initial state change in production data
     productionData.stateHistory = [initialStateChange];
@@ -300,17 +302,27 @@ export const changeProductionState = async (
 
     const batch = writeBatch(db);
 
-    // Create state change record
-    const stateChange: ProductionStateChange = {
+    // Create state change record (filter out undefined values)
+    const stateChangeData: any = {
       id: `state-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      fromStepId: currentData.currentStepId,
-      fromStepName: currentStep?.name,
       toStepId: newStepId,
       toStepName: newStep.name,
       changedBy: userId,
-      timestamp: Timestamp.now(), // Use Timestamp.now() instead of serverTimestamp() for arrayUnion
-      note
+      timestamp: Timestamp.now() // Use Timestamp.now() instead of serverTimestamp() for arrayUnion
     };
+
+    // Add optional fields only if they have values
+    if (currentData.currentStepId) {
+      stateChangeData.fromStepId = currentData.currentStepId;
+    }
+    if (currentStep?.name) {
+      stateChangeData.fromStepName = currentStep.name;
+    }
+    if (note && note.trim()) {
+      stateChangeData.note = note.trim();
+    }
+
+    const stateChange: ProductionStateChange = stateChangeData as ProductionStateChange;
 
     // Determine new status
     let newStatus = currentData.status;
@@ -591,16 +603,23 @@ export const publishProduction = async (
 
     // Close production
     const productionRef = doc(db, COLLECTION_NAME, productionId);
-    const finalStateChange: ProductionStateChange = {
+    // Create final state change (filter out undefined values for Firebase compatibility)
+    const finalStateChangeData: any = {
       id: `state-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      fromStepId: production.currentStepId,
-      toStepId: production.currentStepId, // Stay on same step
-      fromStepName: '', // Will be populated when reading
+      toStepId: production.currentStepId || '', // Stay on same step
       toStepName: 'Publié',
       changedBy: userId,
       timestamp: Timestamp.now(), // Use Timestamp.now() instead of serverTimestamp() for arrayUnion
       note: 'Production publiée en produit'
     };
+    
+    // Add optional fields only if they have values
+    if (production.currentStepId) {
+      finalStateChangeData.fromStepId = production.currentStepId;
+      finalStateChangeData.fromStepName = ''; // Will be populated when reading
+    }
+    
+    const finalStateChange: ProductionStateChange = finalStateChangeData as ProductionStateChange;
 
     // Update materials with consumed quantities
     const updatedMaterials = production.materials.map(material => {
