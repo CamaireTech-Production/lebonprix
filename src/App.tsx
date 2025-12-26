@@ -4,7 +4,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import { CartProvider } from './contexts/CartContext';
 import LoadingScreen from './components/common/LoadingScreen';
 import { Toaster } from 'react-hot-toast';
-import { PWAErrorHandler, PWAUpdateNotification, ErrorBoundary, ErrorDisplay } from './components/pwa';
+import { PWAErrorHandler, PWAUpdateNotification, ErrorBoundary } from './components/pwa';
 import { AppRoutes } from './router';
 
 function App() {
@@ -42,9 +42,6 @@ function AppWithFAB({ isAddSaleModalOpen, setIsAddSaleModalOpen }: { isAddSaleMo
             isAddSaleModalOpen={isAddSaleModalOpen} 
             setIsAddSaleModalOpen={setIsAddSaleModalOpen} 
           />
-          
-          {/* Error Display Panel - Shows all console errors for mobile debugging */}
-          <ErrorDisplay />
         </Suspense>
       </PWAErrorHandler>
     </ErrorBoundary>
