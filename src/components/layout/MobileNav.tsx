@@ -1,6 +1,5 @@
-import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, ShoppingCart, DollarSign, Package2, FileBarChart, Receipt, Settings, Users, ShoppingBag, Loader2, Phone, ScanLine, Warehouse, Building2, UserCheck} from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, DollarSign, Package2, FileBarChart, Receipt, Settings, Users, ShoppingBag, Loader2, Phone, ScanLine, Warehouse, Building2, UserCheck, Factory} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
 import { useRolePermissions } from '../../hooks/business/useRolePermissions';
@@ -10,7 +9,7 @@ const MobileNav = () => {
   const { t } = useTranslation();
   const location = useLocation();
   const { effectiveRole, isOwner } = useAuth();
-  const { canAccess, canAccessFinance, canAccessHR, canAccessSettings, templateLoading } = useRolePermissions();
+  const { canAccess, templateLoading } = useRolePermissions();
   
   // Vérifier si on est dans une route d'entreprise
   const isCompanyRoute = location.pathname.startsWith('/company/');
