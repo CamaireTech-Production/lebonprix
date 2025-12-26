@@ -1,3 +1,7 @@
+// IMPORTANT: Initialize console logger FIRST, before anything else
+// This ensures we capture ALL logs, even if React fails to load
+import './services/consoleLogger';
+
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';

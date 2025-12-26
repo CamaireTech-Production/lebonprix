@@ -36,6 +36,73 @@
     <script src="https://cdn.cinetpay.com/seamless/main.js"></script>
     
     <title>Geskap | Management System</title>
+    
+    <!-- Console Logger - Initialize BEFORE everything else -->
+    <script>
+      (function() {
+        // Store original console methods
+        const originalConsole = {
+          log: console.log.bind(console),
+          error: console.error.bind(console),
+          warn: console.warn.bind(console),
+          info: console.info.bind(console),
+          debug: console.debug.bind(console)
+        };
+        
+        const earlyLogs = [];
+        const maxLogs = 500;
+        
+        function addEarlyLog(type, args) {
+          const message = args.map(arg => {
+            if (arg instanceof Error) return arg.message;
+            if (typeof arg === 'object') {
+              try { return JSON.stringify(arg); } catch { return String(arg); }
+            }
+            return String(arg);
+          }).join(' ');
+          
+          earlyLogs.push({
+            id: Date.now() + '-' + Math.random().toString(36).substr(2, 9),
+            type: type,
+            message: message,
+            timestamp: Date.now(),
+            data: args,
+            stack: args[0] instanceof Error ? args[0].stack : undefined
+          });
+          
+          if (earlyLogs.length > maxLogs) earlyLogs.shift();
+        }
+        
+        // Intercept console methods - these will be replaced by TypeScript module later
+        console.log = function(...args) { originalConsole.log(...args); addEarlyLog('log', args); };
+        console.error = function(...args) { originalConsole.error(...args); addEarlyLog('error', args); };
+        console.warn = function(...args) { originalConsole.warn(...args); addEarlyLog('warn', args); };
+        console.info = function(...args) { originalConsole.info(...args); addEarlyLog('info', args); };
+        console.debug = function(...args) { originalConsole.debug(...args); addEarlyLog('debug', args); };
+        
+        // Capture global errors
+        window.addEventListener('error', function(event) {
+          addEarlyLog('error', [
+            'Global Error: ' + event.message,
+            event.filename,
+            'Line ' + event.lineno + ':' + event.colno,
+            event.error
+          ]);
+        });
+        
+        // Capture unhandled promise rejections
+        window.addEventListener('unhandledrejection', function(event) {
+          const error = event.reason;
+          const message = error instanceof Error ? error.message : String(error);
+          addEarlyLog('error', ['Unhandled Promise Rejection: ' + message, error]);
+        });
+        
+        // Store for TypeScript module to pick up
+        window.__earlyConsoleLogs = earlyLogs;
+        window.__originalConsole = originalConsole;
+        window.__consoleIntercepted = true;
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
