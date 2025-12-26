@@ -422,8 +422,30 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
       }
       
       return newSale;
-    } catch (error) {
-      showErrorToast(t('sales.messages.errors.addSale'));
+    } catch (error: any) {
+      // Provide more specific error messages
+      let errorMessage = t('sales.messages.errors.addSale');
+      
+      if (error?.message) {
+        const errorMsg = error.message.toLowerCase();
+        
+        // Check for specific error types
+        if (errorMsg.includes('product') && errorMsg.includes('not found')) {
+          errorMessage = t('sales.messages.errors.productNotFound') || 'Product not found';
+        } else if (errorMsg.includes('insufficient stock') || errorMsg.includes('stock')) {
+          errorMessage = t('sales.messages.errors.insufficientStock') || 'Insufficient stock for one or more products';
+        } else if (errorMsg.includes('unauthorized')) {
+          errorMessage = t('sales.messages.errors.unauthorized') || 'Unauthorized to perform this action';
+        } else if (errorMsg.includes('quarter') || errorMsg.includes('customer')) {
+          errorMessage = t('sales.messages.errors.invalidCustomerData') || 'Invalid customer data. Please check the quarter field.';
+        } else {
+          // Show the actual error message if available
+          errorMessage = error.message || errorMessage;
+        }
+      }
+      
+      console.error('Error creating sale:', error);
+      showErrorToast(errorMessage);
       return undefined;
     } finally {
       setIsSubmitting(false);

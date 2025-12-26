@@ -1,110 +1,115 @@
 /**
  * Service pour charger et rechercher dans les données géographiques du Cameroun
+ * Simplified structure - only id and name
  */
 
-import type { CameroonLocation, CameroonLocationsData, LocationSearchResult } from '../../types/cameroon-locations';
+import type { SimplifiedLocation, CameroonLocationsData, LocationSearchResult } from '../../types/cameroon-locations';
 import LocalStorageService from './localStorageService';
-
-// Mapping des codes de régions du Cameroun
-const REGION_NAMES: Record<string, string> = {
-  '00': 'Non spécifié',
-  '01': 'Adamaoua',
-  '02': 'Centre',
-  '03': 'Est',
-  '04': 'Extrême-Nord',
-  '05': 'Littoral',
-  '06': 'Nord',
-  '07': 'Nord-Ouest',
-  '08': 'Ouest',
-  '09': 'Sud',
-  '10': 'Sud-Ouest',
-  '11': 'Est', // Code alternatif
-  '12': 'Nord', // Code alternatif
-  '13': 'Nord-Ouest', // Code alternatif
-  '14': 'Centre', // Code alternatif
-};
-
-// Codes de caractéristiques pour les lieux habités (quartiers, villes, villages)
-const POPULATED_PLACE_CODES = ['PPL', 'PPLX', 'PPLQ', 'PPLA', 'PPLA2', 'PPLA3', 'PPLA4', 'PPLC'];
 
 // Clés pour le cache localStorage
 const CACHE_KEY = 'cameroon_locations_filtered';
+const CUSTOM_LOCATIONS_KEY = 'cameroon_locations_custom';
 const INDEX_CACHE_KEY = 'cameroon_locations_index';
 const CACHE_TTL = 7 * 24 * 60 * 60 * 1000; // 7 jours
 
 interface LocationIndex {
-  [firstLetter: string]: CameroonLocation[];
+  [firstLetter: string]: SimplifiedLocation[];
 }
 
 class LocationService {
-  private static cachedLocations: CameroonLocation[] | null = null;
+  private static cachedLocations: SimplifiedLocation[] | null = null;
+  private static customLocations: SimplifiedLocation[] = [];
   private static index: LocationIndex | null = null;
-  private static loadingPromise: Promise<CameroonLocation[]> | null = null;
+  private static loadingPromise: Promise<SimplifiedLocation[]> | null = null;
 
   /**
-   * Charge les données géographiques depuis le fichier JSON
+   * Charge les données géographiques depuis le fichier TypeScript
    * Utilise le cache localStorage si disponible
+   * Merges with custom locations from localStorage
    */
-  static async loadLocations(): Promise<CameroonLocation[]> {
+  static async loadLocations(): Promise<SimplifiedLocation[]> {
     // Si déjà en cache en mémoire, retourner immédiatement
     if (this.cachedLocations) {
-      return this.cachedLocations;
+      return this.getAllLocations();
     }
 
     // Si un chargement est déjà en cours, attendre sa fin
     if (this.loadingPromise) {
-      return this.loadingPromise;
+      return this.loadingPromise.then(() => this.getAllLocations());
     }
 
     // Créer la promesse de chargement
     this.loadingPromise = this._loadLocationsInternal();
     
     try {
-      const locations = await this.loadingPromise;
-      return locations;
+      await this.loadingPromise;
+      return this.getAllLocations();
     } finally {
       this.loadingPromise = null;
     }
   }
 
   /**
+   * Get all locations (cached + custom)
+   */
+  private static getAllLocations(): SimplifiedLocation[] {
+    const base = this.cachedLocations || [];
+    const custom = this.customLocations || [];
+    // Merge and deduplicate by name (case-insensitive)
+    const all = [...base];
+    const existingNames = new Set(base.map(loc => loc.name.toLowerCase()));
+    
+    for (const customLoc of custom) {
+      if (!existingNames.has(customLoc.name.toLowerCase())) {
+        all.push(customLoc);
+        existingNames.add(customLoc.name.toLowerCase());
+      }
+    }
+    
+    return all;
+  }
+
+  /**
    * Chargement interne avec cache
    */
-  private static async _loadLocationsInternal(): Promise<CameroonLocation[]> {
-    // 1. Vérifier le cache localStorage
-    const cached = LocalStorageService.get<CameroonLocation[]>(CACHE_KEY);
+  private static async _loadLocationsInternal(): Promise<void> {
+    // 1. Load custom locations from localStorage
+    const cachedCustom = LocalStorageService.get<SimplifiedLocation[]>(CUSTOM_LOCATIONS_KEY);
+    if (cachedCustom && Array.isArray(cachedCustom)) {
+      this.customLocations = cachedCustom;
+      console.log(`✅ ${cachedCustom.length} custom locations chargées`);
+    }
+
+    // 2. Vérifier le cache localStorage pour les locations principales
+    const cached = LocalStorageService.get<SimplifiedLocation[]>(CACHE_KEY);
     if (cached && Array.isArray(cached) && cached.length > 0) {
       console.log(`✅ Locations chargées depuis le cache (${cached.length} lieux)`);
       this.cachedLocations = cached;
-      return cached;
+      return;
     }
 
-    // 2. Charger depuis le fichier JSON
+    // 3. Charger depuis le fichier TypeScript
     try {
-      console.log('📡 Chargement des données géographiques depuis CM.json...');
-      const importedData = await import('../../data/cameroon-locations.json');
-      const data: CameroonLocationsData = ((importedData as unknown as { default: CameroonLocationsData }).default || importedData) as unknown as CameroonLocationsData;
+      console.log('📡 Chargement des données géographiques depuis cameroon-locations.ts...');
+      const importedData = await import('../../data/cameroon-locations');
+      const data = (importedData as any).cameroonLocationsData || (importedData as any).default;
       
-      // 3. Filtrer uniquement les lieux habités
-      const filteredLocations = data.locations.filter((location: CameroonLocation) => {
-        const featureCode = location.feature?.code;
-        return featureCode && POPULATED_PLACE_CODES.includes(featureCode);
-      });
+      if (!data || !data.locations) {
+        throw new Error('Invalid data structure');
+      }
 
-      console.log(`✅ ${filteredLocations.length} lieux habités filtrés sur ${data.locations.length} total`);
+      console.log(`✅ ${data.locations.length} lieux chargés`);
 
       // 4. Mettre en cache
-      this.cachedLocations = filteredLocations;
+      this.cachedLocations = data.locations;
       
       // 5. Sauvegarder dans localStorage (avec gestion de la taille)
       try {
-        LocalStorageService.set(CACHE_KEY, filteredLocations, CACHE_TTL);
+        LocalStorageService.set(CACHE_KEY, data.locations, CACHE_TTL);
         console.log('✅ Données mises en cache dans localStorage');
       } catch (error) {
         console.warn('⚠️ Impossible de mettre en cache dans localStorage (trop volumineux)', error);
       }
-
-      return filteredLocations;
     } catch (error) {
       console.error('❌ Erreur lors du chargement des données géographiques:', error);
       throw error;
@@ -114,7 +119,7 @@ class LocationService {
   /**
    * Crée un index par première lettre pour recherche rapide
    */
-  private static buildIndex(locations: CameroonLocation[]): LocationIndex {
+  private static buildIndex(locations: SimplifiedLocation[]): LocationIndex {
     // Vérifier le cache de l'index
     const cachedIndex = LocalStorageService.get<LocationIndex>(INDEX_CACHE_KEY);
     if (cachedIndex) {
@@ -125,10 +130,10 @@ class LocationService {
     const index: LocationIndex = {};
 
     for (const location of locations) {
-      const primaryName = location.names.primary;
-      if (!primaryName) continue;
+      const name = location.name;
+      if (!name) continue;
 
-      const firstLetter = primaryName.charAt(0).toUpperCase();
+      const firstLetter = name.charAt(0).toUpperCase();
       
       if (!index[firstLetter]) {
         index[firstLetter] = [];
@@ -140,7 +145,7 @@ class LocationService {
     // Trier chaque groupe alphabétiquement
     for (const letter in index) {
       index[letter].sort((a, b) => 
-        a.names.primary.localeCompare(b.names.primary, 'fr', { sensitivity: 'base' })
+        a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' })
       );
     }
 
@@ -165,7 +170,7 @@ class LocationService {
       return [];
     }
 
-    const locations = this.cachedLocations;
+    const locations = this.getAllLocations();
     if (!locations || locations.length === 0) {
       return [];
     }
@@ -184,63 +189,26 @@ class LocationService {
     for (const location of candidates) {
       if (seenIds.has(location.id)) continue;
 
-      const allNames = location.names.all || [];
-      let bestMatch: { type: 'exact' | 'partial' | 'alternative'; field: 'primary' | 'alternate' | 'alternatives' } | null = null;
+      const lowerName = location.name.toLowerCase();
+      let matchType: 'exact' | 'partial' | null = null;
 
-      for (const name of allNames) {
-        const lowerName = name.toLowerCase();
-
-        // Correspondance exacte
-        if (lowerName === lowerQuery) {
-          let field: 'primary' | 'alternate' | 'alternatives' = 'primary';
-          if (name === location.names.primary) {
-            field = 'primary';
-          } else if (name === location.names.alternate) {
-            field = 'alternate';
-          } else {
-            field = 'alternatives';
-          }
-
-          bestMatch = { type: 'exact', field };
-          break;
-        }
-
-        // Correspondance partielle (commence par)
-        if (lowerName.startsWith(lowerQuery)) {
-          if (!bestMatch || bestMatch.type !== 'exact') {
-            let field: 'primary' | 'alternate' | 'alternatives' = 'primary';
-            if (name === location.names.primary) {
-              field = 'primary';
-            } else if (name === location.names.alternate) {
-              field = 'alternate';
-            } else {
-              field = 'alternatives';
-            }
-
-            bestMatch = { type: 'partial', field };
-          }
-        }
-
-        // Correspondance partielle (contient)
-        if (!bestMatch && lowerName.includes(lowerQuery)) {
-          let field: 'primary' | 'alternate' | 'alternatives' = 'primary';
-          if (name === location.names.primary) {
-            field = 'primary';
-          } else if (name === location.names.alternate) {
-            field = 'alternate';
-          } else {
-            field = 'alternatives';
-          }
-
-          bestMatch = { type: 'alternative', field };
-        }
+      // Correspondance exacte
+      if (lowerName === lowerQuery) {
+        matchType = 'exact';
+      }
+      // Correspondance partielle (commence par)
+      else if (lowerName.startsWith(lowerQuery)) {
+        matchType = 'partial';
+      }
+      // Correspondance partielle (contient)
+      else if (lowerName.includes(lowerQuery)) {
+        matchType = 'partial';
       }
 
-      if (bestMatch) {
+      if (matchType) {
         results.push({
           location,
-          matchType: bestMatch.type,
-          matchField: bestMatch.field,
+          matchType,
         });
         seenIds.add(location.id);
       }
@@ -252,43 +220,28 @@ class LocationService {
         if (seenIds.has(location.id)) continue;
         if (results.length >= limit * 2) break; // Limiter la recherche exhaustive
 
-        const allNames = location.names.all || [];
-        for (const name of allNames) {
-          const lowerName = name.toLowerCase();
-          
-          if (lowerName.includes(lowerQuery)) {
-            let field: 'primary' | 'alternate' | 'alternatives' = 'primary';
-            if (name === location.names.primary) {
-              field = 'primary';
-            } else if (name === location.names.alternate) {
-              field = 'alternate';
-            } else {
-              field = 'alternatives';
-            }
-
-            results.push({
-              location,
-              matchType: 'alternative',
-              matchField: field,
-            });
-            seenIds.add(location.id);
-            break;
-          }
+        const lowerName = location.name.toLowerCase();
+        if (lowerName.includes(lowerQuery)) {
+          const matchType: 'exact' | 'partial' = lowerName === lowerQuery ? 'exact' : 'partial';
+          results.push({
+            location,
+            matchType,
+          });
+          seenIds.add(location.id);
         }
       }
     }
 
-    // Trier les résultats : exact d'abord, puis partiel, puis alternative
-    // Puis tri alphabétique par nom principal
+    // Trier les résultats : exact d'abord, puis partiel
+    // Puis tri alphabétique par nom
     results.sort((a, b) => {
       // Priorité par type de correspondance
-      const priority: Record<string, number> = { exact: 0, partial: 1, alternative: 2 };
-      const priorityDiff = (priority[a.matchType] || 0) - (priority[b.matchType] || 0);
-      if (priorityDiff !== 0) return priorityDiff;
+      if (a.matchType === 'exact' && b.matchType !== 'exact') return -1;
+      if (a.matchType !== 'exact' && b.matchType === 'exact') return 1;
 
       // Puis tri alphabétique
-      return a.location.names.primary.localeCompare(
-        b.location.names.primary,
+      return a.location.name.localeCompare(
+        b.location.name,
         'fr',
         { sensitivity: 'base' }
       );
@@ -299,38 +252,68 @@ class LocationService {
   }
 
   /**
-   * Obtient un lieu par sa valeur (nom principal)
+   * Obtient un lieu par sa valeur (nom)
    */
-  static getLocationByValue(value: string): CameroonLocation | null {
-    if (!value || !this.cachedLocations) {
+  static getLocationByValue(value: string): SimplifiedLocation | null {
+    if (!value) {
       return null;
     }
 
-    const location = this.cachedLocations.find(
-      loc => loc.names.primary === value || loc.names.all?.includes(value)
+    const locations = this.getAllLocations();
+    const location = locations.find(
+      loc => loc.name === value || loc.name.toLowerCase() === value.toLowerCase()
     );
 
     return location || null;
   }
 
   /**
-   * Obtient le nom de la région à partir du code
+   * Add a custom location (user-created quarter)
    */
-  static getRegionName(regionCode: string | undefined): string {
-    if (!regionCode) return '';
-    return REGION_NAMES[regionCode] || `Région ${regionCode}`;
+  static addCustomLocation(name: string): SimplifiedLocation {
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      throw new Error('Location name cannot be empty');
+    }
+
+    // Check if it already exists (case-insensitive)
+    const existing = this.getAllLocations().find(
+      loc => loc.name.toLowerCase() === trimmedName.toLowerCase()
+    );
+
+    if (existing) {
+      return existing;
+    }
+
+    // Create new custom location
+    const newLocation: SimplifiedLocation = {
+      id: `custom_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      name: trimmedName,
+    };
+
+    // Add to custom locations
+    this.customLocations.push(newLocation);
+
+    // Save to localStorage
+    try {
+      LocalStorageService.set(CUSTOM_LOCATIONS_KEY, this.customLocations, CACHE_TTL);
+      console.log(`✅ Custom location added: ${trimmedName}`);
+    } catch (error) {
+      console.warn('⚠️ Impossible de sauvegarder la location personnalisée', error);
+    }
+
+    // Rebuild index
+    this.index = null;
+    this.buildIndex(this.getAllLocations());
+
+    return newLocation;
   }
 
   /**
-   * Obtient le nom du département à partir du code
-   * Note: level_2 n'existe pas dans les données actuelles, mais on prépare pour le futur
+   * Get all custom locations
    */
-  static getDepartmentName(location: CameroonLocation): string {
-    const deptCode = location.administrative?.level_2;
-    if (!deptCode) return '';
-    // Pour l'instant, on retourne le code si disponible
-    // À améliorer quand les données seront disponibles
-    return `Département ${deptCode}`;
+  static getCustomLocations(): SimplifiedLocation[] {
+    return [...this.customLocations];
   }
 
   /**
@@ -338,9 +321,11 @@ class LocationService {
    */
   static clearCache(): void {
     this.cachedLocations = null;
+    this.customLocations = [];
     this.index = null;
     this.loadingPromise = null;
     LocalStorageService.remove(CACHE_KEY);
+    LocalStorageService.remove(CUSTOM_LOCATIONS_KEY);
     LocalStorageService.remove(INDEX_CACHE_KEY);
   }
 }

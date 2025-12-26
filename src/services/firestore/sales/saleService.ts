@@ -335,7 +335,11 @@ export const createSale = async (
     
     const normalizedStatus = data.status || 'paid';
     const normalizedPaymentStatus = data.paymentStatus || 'paid';
-    const normalizedCustomerInfo = data.customerInfo || { name: 'divers', phone: '' };
+    const normalizedCustomerInfo = {
+      ...(data.customerInfo || { name: 'divers', phone: '' }),
+      // Ensure empty quarter strings become undefined
+      quarter: data.customerInfo?.quarter?.trim() || undefined,
+    };
     const normalizedDeliveryFee = data.deliveryFee ?? 0;
     const normalizedInventoryMethod = data.inventoryMethod?.toUpperCase() === 'LIFO' ? 'LIFO' : 'FIFO';
     

@@ -4,14 +4,12 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import LocationService from '@services/utilities/locationService';
-import type { CameroonLocation, LocationSearchResult } from '../../types/cameroon-locations';
+import type { SimplifiedLocation, LocationSearchResult } from '../../types/cameroon-locations';
 
 export interface LocationOption {
   value: string;
   label: string;
-  region?: string;
-  department?: string;
-  location?: CameroonLocation;
+  location?: SimplifiedLocation;
 }
 
 interface UseLocationSearchReturn {
@@ -97,15 +95,10 @@ export function useLocationSearch(): UseLocationSearchReturn {
         // Convertir les résultats en options pour react-select
         const options: LocationOption[] = results.map((result) => {
           const location = result.location;
-          const regionCode = location.administrative?.level_1;
-          const regionName = LocationService.getRegionName(regionCode);
-          const departmentName = LocationService.getDepartmentName(location);
 
           return {
-            value: location.names.primary,
-            label: location.names.primary,
-            region: regionName,
-            department: departmentName || undefined,
+            value: location.name,
+            label: location.name,
             location,
           };
         });
@@ -119,7 +112,7 @@ export function useLocationSearch(): UseLocationSearchReturn {
   }, []);
 
   /**
-   * Obtient un lieu par sa valeur (nom principal)
+   * Obtient un lieu par sa valeur (nom)
    */
   const getLocationByValue = useCallback((value: string): LocationOption | null => {
     if (!value) return null;
@@ -127,15 +120,9 @@ export function useLocationSearch(): UseLocationSearchReturn {
     const location = LocationService.getLocationByValue(value);
     if (!location) return null;
 
-    const regionCode = location.administrative?.level_1;
-    const regionName = LocationService.getRegionName(regionCode);
-    const departmentName = LocationService.getDepartmentName(location);
-
     return {
-      value: location.names.primary,
-      label: location.names.primary,
-      region: regionName,
-      department: departmentName || undefined,
+      value: location.name,
+      label: location.name,
       location,
     };
   }, []);
