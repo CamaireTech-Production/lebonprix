@@ -4,7 +4,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import { CartProvider } from './contexts/CartContext';
 import LoadingScreen from './components/common/LoadingScreen';
 import { Toaster } from 'react-hot-toast';
-import { PWAErrorHandler, PWAUpdateNotification } from './components/pwa';
+import { PWAErrorHandler, PWAUpdateNotification, ErrorBoundary, ErrorDisplay } from './components/pwa';
 import { AppRoutes } from './router';
 
 function App() {
@@ -23,26 +23,31 @@ function App() {
 
 function AppWithFAB({ isAddSaleModalOpen, setIsAddSaleModalOpen }: { isAddSaleModalOpen: boolean, setIsAddSaleModalOpen: (open: boolean) => void }) {
   return (
-    <PWAErrorHandler>
-      <Suspense fallback={<LoadingScreen />}>
-        <Toaster 
-          containerStyle={{
-            zIndex: 9999, // Highest z-index to ensure toasts appear above all other elements
-          }}
-          toastOptions={{
-            style: {
-              zIndex: 9999, // Highest z-index for individual toasts
-            },
-          }}
-        />
-        <PWAUpdateNotification />
-        
-        <AppRoutes 
-          isAddSaleModalOpen={isAddSaleModalOpen} 
-          setIsAddSaleModalOpen={setIsAddSaleModalOpen} 
-        />
-      </Suspense>
-    </PWAErrorHandler>
+    <ErrorBoundary>
+      <PWAErrorHandler>
+        <Suspense fallback={<LoadingScreen />}>
+          <Toaster 
+            containerStyle={{
+              zIndex: 9999, // Highest z-index to ensure toasts appear above all other elements
+            }}
+            toastOptions={{
+              style: {
+                zIndex: 9999, // Highest z-index for individual toasts
+              },
+            }}
+          />
+          <PWAUpdateNotification />
+          
+          <AppRoutes 
+            isAddSaleModalOpen={isAddSaleModalOpen} 
+            setIsAddSaleModalOpen={setIsAddSaleModalOpen} 
+          />
+          
+          {/* Error Display Panel - Shows all console errors for mobile debugging */}
+          <ErrorDisplay />
+        </Suspense>
+      </PWAErrorHandler>
+    </ErrorBoundary>
   );
 }
 

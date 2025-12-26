@@ -82,7 +82,7 @@ function initializeFirebase() {
     } else {
       // Try multiple possible paths for service account
       const possiblePaths = [
-        path.join(__dirname, '../../firebase-keys/le-bon-prix-finances-firebase-adminsdk-fbsvc-530fd9488e.json'),
+        path.join(__dirname, '../../firebase-keys/new-firebase-key.json'),
         path.join(__dirname, '../../firebase-service-account.json'),
         path.join(__dirname, '../../firebase-keys/firebase-service-account.json')
       ];
