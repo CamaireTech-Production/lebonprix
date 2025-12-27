@@ -136,7 +136,7 @@ const MobileNav = () => {
   ];
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 md:hidden pb-safe mb-4">
+    <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 md:hidden pb-safe z-50 shadow-lg">
       <nav className="flex overflow-x-auto scrollbar-hide">
         {showTemplateLoader ? (
           <div className="flex items-center justify-center w-full py-4">
