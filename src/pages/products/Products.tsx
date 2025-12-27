@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Grid, List, Plus, Search, Edit2, Upload, Trash2, CheckSquare, Square, Info, Eye, EyeOff, QrCode, ExternalLink } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -934,10 +934,36 @@ const Products = () => {
     }
   };
 
+  // Organize batches by product ID (source of truth for stock)
+  const batchesByProduct = useMemo(() => {
+    const map = new Map<string, StockBatch[]>();
+    allStockBatches.forEach((batch) => {
+      const productId = batch.productId || '';
+      if (productId) {
+        const arr = map.get(productId) || [];
+        arr.push(batch);
+        map.set(productId, arr);
+      }
+    });
+    return map;
+  }, [allStockBatches]);
+
   // Helper function to get batches for a specific product
   const getProductBatches = (productId: string): StockBatch[] => {
-    return allStockBatches.filter(batch => batch.productId === productId);
+    return batchesByProduct.get(productId) || [];
   };
+
+  // Helper function to calculate stock from batches (remaining/total)
+  const getProductStockFromBatches = (productId: string): { remaining: number; total: number } => {
+    const productBatches = batchesByProduct.get(productId) || [];
+    const remaining = productBatches.reduce((sum, b) => sum + (b.remainingQuantity || 0), 0);
+    const total = productBatches.reduce((sum, b) => sum + (b.quantity || 0), 0);
+    return { remaining, total };
+  };
+
+  // Format number helper (same as Stocks page)
+  const formatNumber = (value: number | undefined): string =>
+    typeof value === 'number' ? value.toLocaleString() : '0';
 
   // Helper function to get the effective visibility state (considering optimistic updates)
   const getEffectiveVisibility = (product: Product): boolean => {
@@ -1325,9 +1351,20 @@ const Products = () => {
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">{t('products.table.columns.stock')}:</span>
-                      <Badge variant={product.stock > 10 ? 'success' : product.stock > 5 ? 'warning' : 'error'}>
-                        {product.stock} units
-                      </Badge>
+                      {(() => {
+                        const stockInfo = getProductStockFromBatches(product.id);
+                        const hasBatches = batchesByProduct.has(product.id);
+                        const remaining = hasBatches ? stockInfo.remaining : 0;
+                        const total = hasBatches ? stockInfo.total : 0;
+                        const displayText = hasBatches 
+                          ? `${formatNumber(remaining)} / ${formatNumber(total)} units`
+                          : '0 units';
+                        return (
+                          <Badge variant={remaining > 10 ? 'success' : remaining > 5 ? 'warning' : 'error'}>
+                            {displayText}
+                          </Badge>
+                        );
+                      })()}
                     </div>
                   </div>
                   {product.category && (
@@ -1496,9 +1533,20 @@ const Products = () => {
                       <div className="text-sm text-emerald-600 font-medium">{product.sellingPrice.toLocaleString()} XAF</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <Badge variant={product.stock > 10 ? 'success' : product.stock > 5 ? 'warning' : 'error'}>
-                        {product.stock} units
-                      </Badge>
+                      {(() => {
+                        const stockInfo = getProductStockFromBatches(product.id);
+                        const hasBatches = batchesByProduct.has(product.id);
+                        const remaining = hasBatches ? stockInfo.remaining : 0;
+                        const total = hasBatches ? stockInfo.total : 0;
+                        const displayText = hasBatches 
+                          ? `${formatNumber(remaining)} / ${formatNumber(total)} units`
+                          : '0 units';
+                        return (
+                          <Badge variant={remaining > 10 ? 'success' : remaining > 5 ? 'warning' : 'error'}>
+                            {displayText}
+                          </Badge>
+                        );
+                      })()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-500">{product.category}</div>
@@ -2671,9 +2719,21 @@ const Products = () => {
                 <div>
                   <label className="block text-sm font-medium text-gray-700">{t('products.table.columns.stock')}</label>
                   <div className="mt-1">
-                    <Badge variant={detailProduct && detailProduct.stock > 10 ? 'success' : detailProduct && detailProduct.stock > 5 ? 'warning' : 'error'}>
-                      {detailProduct?.stock || 0} units
-                    </Badge>
+                    {(() => {
+                      if (!detailProduct) return <Badge variant="error">0 units</Badge>;
+                      const stockInfo = getProductStockFromBatches(detailProduct.id);
+                      const hasBatches = batchesByProduct.has(detailProduct.id);
+                      const remaining = hasBatches ? stockInfo.remaining : 0;
+                      const total = hasBatches ? stockInfo.total : 0;
+                      const displayText = hasBatches 
+                        ? `${formatNumber(remaining)} / ${formatNumber(total)} units`
+                        : '0 units';
+                      return (
+                        <Badge variant={remaining > 10 ? 'success' : remaining > 5 ? 'warning' : 'error'}>
+                          {displayText}
+                        </Badge>
+                      );
+                    })()}
                   </div>
                 </div>
                 <div>
@@ -2688,10 +2748,17 @@ const Products = () => {
                 <div>
                   <label className="block text-sm font-medium text-gray-700">{t('products.detailTabs.totalValue', 'Total Stock Value')}</label>
                   <p className="mt-1 text-sm text-gray-900">
-                    {detailProduct && getLatestCostPrice(detailProduct.id, Array.isArray(stockChanges) ? stockChanges : []) !== undefined
-? formatPrice((getLatestCostPrice(detailProduct.id, Array.isArray(stockChanges) ? stockChanges : []) || 0) * detailProduct.stock)
-                      : '0'
-                    } XAF
+                    {(() => {
+                      if (!detailProduct) return '0 XAF';
+                      const stockInfo = getProductStockFromBatches(detailProduct.id);
+                      const hasBatches = batchesByProduct.has(detailProduct.id);
+                      const remaining = hasBatches ? stockInfo.remaining : 0;
+                      const costPrice = getLatestCostPrice(detailProduct.id, Array.isArray(stockChanges) ? stockChanges : []);
+                      if (costPrice !== undefined && remaining > 0) {
+                        return formatPrice(costPrice * remaining) + ' XAF';
+                      }
+                      return '0 XAF';
+                    })()}
                   </p>
                 </div>
               </div>
