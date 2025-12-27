@@ -4,12 +4,14 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
 import { useRolePermissions } from '../../hooks/business/useRolePermissions';
 import { RESOURCES } from '../../constants/resources';
+import { usePWA } from '../../hooks/usePWA';
 
 const MobileNav = () => {
   const { t } = useTranslation();
   const location = useLocation();
   const { effectiveRole, isOwner } = useAuth();
   const { canAccess, templateLoading } = useRolePermissions();
+  const { isInstalled } = usePWA();
   
   // Vérifier si on est dans une route d'entreprise
   const isCompanyRoute = location.pathname.startsWith('/company/');
@@ -20,8 +22,11 @@ const MobileNav = () => {
   // Extraire le companyId depuis l'URL si on est dans une route d'entreprise
   const companyId = isCompanyRoute ? location.pathname.split('/')[2] : null;
   
-  // Ne pas afficher la navigation sur le dashboard employé ou si on n'a pas de companyId valide
-  if (isEmployeeDashboard || (isCompanyRoute && !companyId)) {
+  // Ne pas afficher la navigation si:
+  // - App n'est pas installée en PWA
+  // - Sur le dashboard employé
+  // - Dans une route d'entreprise sans companyId valide
+  if (!isInstalled || isEmployeeDashboard || (isCompanyRoute && !companyId)) {
     return null;
   }
   
@@ -163,14 +168,14 @@ const MobileNav = () => {
               key={item.path}
               to={item.path}
               className={`
-                flex flex-col items-center py-3 px-3 text-xs flex-shrink-0 min-w-0
+                flex items-center justify-center py-3 px-4 flex-shrink-0
                 ${isActive(item.path) 
                   ? 'text-emerald-600' 
                   : 'text-gray-600 hover:text-gray-900'}
               `}
+              title={item.name}
             >
               {item.icon}
-              <span className="mt-1 truncate">{item.name}</span>
             </Link>
           );
         })
