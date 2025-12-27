@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@contexts/AuthContext';
 import { useFinanceEntries, useSales, useExpenses, useProducts, useStockChanges } from '@hooks/data/useFirestore';
+import { useAllStockBatches } from '@hooks/business/useStockBatches';
 import FinanceEntryTypesManager from '@services/storage/FinanceEntryTypesManager';
 import BackgroundSyncService from '@services/utilities/backgroundSync';
 import {
@@ -54,6 +55,7 @@ export const useFinancialData = (dateRange: { from: Date; to: Date } = { from: n
   const { expenses, loading: expensesLoading } = useExpenses();
   const { products, loading: productsLoading } = useProducts();
   const { stockChanges, loading: stockChangesLoading } = useStockChanges();
+  const { batches: allBatches, loading: batchesLoading } = useAllStockBatches('product');
   
   // Reference data state
   const [entryTypes, setEntryTypes] = useState<FinanceEntryType[]>([]);
@@ -61,7 +63,7 @@ export const useFinancialData = (dateRange: { from: Date; to: Date } = { from: n
   const [referenceDataSyncing, setReferenceDataSyncing] = useState(false);
   
   // Calculate loading state for financial calculations
-  const calculationsLoading = financeLoading || salesLoading || expensesLoading || productsLoading || stockChangesLoading;
+  const calculationsLoading = financeLoading || salesLoading || expensesLoading || productsLoading || stockChangesLoading || batchesLoading;
   
   // Real-time financial calculations
   const financialCalculations = {
@@ -121,7 +123,8 @@ export const useFinancialData = (dateRange: { from: Date; to: Date } = { from: n
     const totalProductsSold = calculateTotalProductsSold(filteredSales);
     
     // Calculate total purchase price for all products in stock (this is not date-filtered as it's current stock)
-    const totalPurchasePrice = calculateTotalPurchasePrice(products, stockChanges);
+    // Uses batches as source of truth (product.stock is deprecated)
+    const totalPurchasePrice = calculateTotalPurchasePrice(allBatches || []);
     
     // Calculate solde: sum of all non-debt/refund entries (filtered by date)
     // Note: This hook only calculates solde without customer debt, so we pass empty arrays

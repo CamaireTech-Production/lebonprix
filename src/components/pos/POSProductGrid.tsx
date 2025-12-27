@@ -3,6 +3,7 @@ import { Package } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import ImageWithSkeleton from '../common/ImageWithSkeleton';
 import type { Product } from '../../types/models';
+import { getEffectiveProductStock, type ProductStockTotals } from '@utils/inventory/stockHelpers';
 
 interface POSProductGridProps {
   products: Product[];
@@ -10,6 +11,7 @@ interface POSProductGridProps {
   selectedCategory: string | null;
   onCategoryChange: (category: string | null) => void;
   categories: string[];
+  stockMap: Map<string, ProductStockTotals>;
 }
 
 export const POSProductGrid: React.FC<POSProductGridProps> = ({
@@ -18,6 +20,7 @@ export const POSProductGrid: React.FC<POSProductGridProps> = ({
   selectedCategory,
   onCategoryChange,
   categories,
+  stockMap,
 }) => {
   const { t } = useTranslation();
   return (
@@ -65,40 +68,43 @@ export const POSProductGrid: React.FC<POSProductGridProps> = ({
               gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 140px), 1fr))'
             }}
           >
-            {products.map(product => (
-              <button
-                key={product.id}
-                onClick={() => onAddToCart(product)}
-                disabled={product.stock <= 0}
-                className={`p-3 bg-white border-2 rounded-lg hover:border-emerald-500 transition-all text-left flex flex-col ${
-                  product.stock <= 0
-                    ? 'opacity-50 cursor-not-allowed border-gray-200'
-                    : 'border-gray-200 hover:shadow-md'
-                }`}
-              >
-                <div className="w-full h-28 mb-2 rounded overflow-hidden bg-gray-100 flex-shrink-0">
-                  <ImageWithSkeleton
-                    src={product.images && product.images.length > 0 ? product.images[0] : '/placeholder.png'}
-                    alt={product.name}
-                    className="w-full h-full object-cover"
-                    placeholder="/placeholder.png"
-                  />
-                </div>
-                <div className="font-medium text-xs mb-1 line-clamp-2 flex-grow">{product.name}</div>
-                <div className="text-emerald-600 font-semibold text-sm mb-1">
-                  {product.sellingPrice.toLocaleString()} XAF
-                </div>
-                <div className={`text-xs ${
-                  product.stock <= 5
-                    ? 'text-red-600 font-semibold'
-                    : product.stock <= 10
-                    ? 'text-orange-600'
-                    : 'text-gray-600'
-                }`}>
-                  {t('pos.products.stock')}: {product.stock}
-                </div>
-              </button>
-            ))}
+            {products.map(product => {
+              const stock = getEffectiveProductStock(product, stockMap);
+              return (
+                <button
+                  key={product.id}
+                  onClick={() => onAddToCart(product)}
+                  disabled={stock <= 0}
+                  className={`p-3 bg-white border-2 rounded-lg hover:border-emerald-500 transition-all text-left flex flex-col ${
+                    stock <= 0
+                      ? 'opacity-50 cursor-not-allowed border-gray-200'
+                      : 'border-gray-200 hover:shadow-md'
+                  }`}
+                >
+                  <div className="w-full h-28 mb-2 rounded overflow-hidden bg-gray-100 flex-shrink-0">
+                    <ImageWithSkeleton
+                      src={product.images && product.images.length > 0 ? product.images[0] : '/placeholder.png'}
+                      alt={product.name}
+                      className="w-full h-full object-cover"
+                      placeholder="/placeholder.png"
+                    />
+                  </div>
+                  <div className="font-medium text-xs mb-1 line-clamp-2 flex-grow">{product.name}</div>
+                  <div className="text-emerald-600 font-semibold text-sm mb-1">
+                    {product.sellingPrice.toLocaleString()} XAF
+                  </div>
+                  <div className={`text-xs ${
+                    stock <= 5
+                      ? 'text-red-600 font-semibold'
+                      : stock <= 10
+                      ? 'text-orange-600'
+                      : 'text-gray-600'
+                  }`}>
+                    {t('pos.products.stock')}: {stock}
+                  </div>
+                </button>
+              );
+            })}
           </div>
         )}
       </div>

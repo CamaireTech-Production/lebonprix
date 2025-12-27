@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { ImageWithSkeleton, PriceInput } from '@components/common';
 import { formatPrice } from '@utils/formatting/formatPrice';
 import type { CartItem } from '@hooks/forms/usePOS';
+import { getEffectiveProductStock, type ProductStockTotals } from '@utils/inventory/stockHelpers';
 
 interface POSCartProps {
   cart: CartItem[];
@@ -16,6 +17,7 @@ interface POSCartProps {
   onDeliveryFeeChange: (fee: number) => void;
   onCompleteSale: () => void;
   isSubmitting: boolean;
+  stockMap: Map<string, ProductStockTotals>;
 }
 
 export const POSCart: React.FC<POSCartProps> = ({
@@ -30,6 +32,7 @@ export const POSCart: React.FC<POSCartProps> = ({
   onDeliveryFeeChange,
   onCompleteSale,
   isSubmitting,
+  stockMap,
 }) => {
   const { t } = useTranslation();
   return (
@@ -96,7 +99,7 @@ export const POSCart: React.FC<POSCartProps> = ({
                       <span className="text-sm font-medium w-8 text-center">{item.quantity}</span>
                       <button
                         onClick={() => onUpdateQuantity(item.product.id, item.quantity + 1)}
-                        disabled={item.quantity >= item.product.stock}
+                        disabled={item.quantity >= getEffectiveProductStock(item.product, stockMap)}
                         className="p-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <Plus size={14} />

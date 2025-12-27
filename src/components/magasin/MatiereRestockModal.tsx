@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@contexts/AuthContext';
 import { restockMatiere } from '@services/firestore/stock/stockAdjustments';
+import { getMatiereStockBatches } from '@services/firestore/stock/stockService';
 import type { Matiere } from '../../types/models';
 import { Modal, Button, Input, PriceInput } from '@components/common';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
@@ -33,16 +34,41 @@ const MatiereRestockModal: React.FC<RestockModalProps> = ({
   const derivedRemaining = batchTotals?.remaining ?? 0;
   const derivedTotal = batchTotals?.total;
 
-  // Reset form when modal opens/closes
+  // Load latest cost price and reset form when modal opens
   useEffect(() => {
-    if (isOpen) {
-      setFormData({
-        quantity: '',
-        costPrice: '',
-        notes: ''
-      });
+    if (isOpen && matiere) {
+      const loadLatestCostPrice = async () => {
+        try {
+          // Get stock batches ordered by creation date (newest first)
+          const batches = await getMatiereStockBatches(matiere.id);
+          
+          // Get cost price from the most recent batch, or fallback to matiere's costPrice
+          let latestCostPrice = '';
+          if (batches.length > 0 && batches[0].costPrice > 0) {
+            latestCostPrice = batches[0].costPrice.toString();
+          } else if (matiere.costPrice > 0) {
+            latestCostPrice = matiere.costPrice.toString();
+          }
+
+          setFormData({
+            quantity: '',
+            costPrice: latestCostPrice,
+            notes: ''
+          });
+        } catch (error) {
+          console.error('Error loading latest cost price:', error);
+          // Fallback to matiere's costPrice if batch fetch fails
+          setFormData({
+            quantity: '',
+            costPrice: matiere.costPrice > 0 ? matiere.costPrice.toString() : '',
+            notes: ''
+          });
+        }
+      };
+
+      loadLatestCostPrice();
     }
-  }, [isOpen]);
+  }, [isOpen, matiere]);
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({

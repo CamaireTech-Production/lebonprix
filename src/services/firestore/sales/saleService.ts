@@ -263,8 +263,12 @@ export const createSale = async (
       if (productData.companyId !== companyId) {
         throw new Error(`Unauthorized to sell product ${productData.name}`);
       }
-      if (productData.stock < product.quantity) {
-        throw new Error(`Insufficient stock for product ${productData.name}`);
+      
+      // Check stock from batches (source of truth)
+      const availableBatches = await getAvailableStockBatches(product.productId);
+      const availableStock = availableBatches.reduce((sum, b) => sum + (b.remainingQuantity || 0), 0);
+      if (availableStock < product.quantity) {
+        throw new Error(`Insufficient stock for product ${productData.name}. Available: ${availableStock}, Requested: ${product.quantity}`);
       }
       
       const inventoryMethod: InventoryMethod = ((data as any).inventoryMethod?.toUpperCase() as InventoryMethod) || (productData as any).inventoryMethod || 'FIFO';
@@ -309,8 +313,8 @@ export const createSale = async (
       };
       enhancedProducts.push(enhancedProduct);
       
+      // Don't update product.stock - batches are the source of truth (already updated via consumeStockFromBatches)
       batch.update(productRef, {
-        stock: productData.stock - product.quantity,
         updatedAt: serverTimestamp()
       });
       
@@ -525,8 +529,8 @@ export const deleteSale = async (saleId: string, userId: string): Promise<void> 
       throw new Error(`Unauthorized to modify product ${productData.name}`);
     }
     
+    // Don't update product.stock - batches are the source of truth (stock is restored via batches)
     batch.update(productRef, {
-      stock: productData.stock + product.quantity,
       updatedAt: serverTimestamp()
     });
 

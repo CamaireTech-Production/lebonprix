@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useSales, useProducts, useCustomers } from '@hooks/data/useFirestore';
 import { useCustomerSources } from '@hooks/business/useCustomerSources';
 import { useAuth } from '@contexts/AuthContext';
@@ -10,6 +10,8 @@ import { validateSaleData, normalizeSaleData } from '@utils/calculations/saleUti
 import type { OrderStatus, SaleProduct, Customer, Product, Sale } from '../types/models';
 import { logError } from '@utils/core/logger';
 import { normalizePhoneForComparison } from '@utils/core/phoneUtils';
+import { useAllStockBatches } from '@hooks/business/useStockBatches';
+import { buildProductStockMap, getEffectiveProductStock } from '@utils/inventory/stockHelpers';
 
 export interface FormProduct {
   product: Product | null;
@@ -42,8 +44,15 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
   const { products } = useProducts();
   const { customers, addCustomer } = useCustomers();
   const { activeSources } = useCustomerSources();
+  const { batches: allBatches } = useAllStockBatches('product');
 
   const { user, company, currentEmployee, isOwner } = useAuth();
+  
+  // Build stock map from batches
+  const stockMap = useMemo(
+    () => buildProductStockMap(allBatches || []),
+    [allBatches]
+  );
 
   /* ----------------------------- UI helpers ----------------------------- */
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -256,8 +265,11 @@ export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
       
       if (Number.isNaN(qty) || qty <= 0) {
         errors[`quantity_${idx}`] = t('sales.messages.warnings.quantityInvalid');
-      } else if (qty > prod.product.stock) {
-        errors[`quantity_${idx}`] = t('sales.messages.warnings.quantityExceeded', { stock: prod.product.stock });
+      } else {
+        const availableStock = getEffectiveProductStock(prod.product, stockMap);
+        if (qty > availableStock) {
+          errors[`quantity_${idx}`] = t('sales.messages.warnings.quantityExceeded', { stock: availableStock });
+        }
       }
     });
     

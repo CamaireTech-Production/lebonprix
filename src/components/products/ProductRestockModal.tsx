@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '@contexts/AuthContext';
 import { subscribeToSuppliers } from '@services/firestore/suppliers/supplierService';
 import { restockProduct } from '@services/firestore/stock/stockAdjustments';
+import { getProductStockBatches } from '@services/firestore/stock/stockService';
 import type { Product, Supplier } from '../../types/models';
 import { Modal, Button, Input, PriceInput, Select } from '@components/common';
 import { formatCostPrice } from '@utils/inventory/inventoryManagement';
@@ -37,7 +38,7 @@ const ProductRestockModal: React.FC<RestockModalProps> = ({
     notes: ''
   });
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
-  const derivedRemaining = batchTotals?.remaining ?? product?.stock ?? 0;
+  const derivedRemaining = batchTotals?.remaining ?? 0;
   const derivedTotal = batchTotals?.total;
 
   // Load suppliers
@@ -48,19 +49,47 @@ const ProductRestockModal: React.FC<RestockModalProps> = ({
     }
   }, [isOpen, company]);
 
-  // Reset form when modal opens/closes
+  // Load latest cost price and reset form when modal opens
   useEffect(() => {
-    if (isOpen) {
-      setFormData({
-        quantity: '',
-        costPrice: '',
-        supplierId: '',
-        isOwnPurchase: false,
-        paymentType: 'paid',
-        notes: ''
-      });
+    if (isOpen && product) {
+      const loadLatestCostPrice = async () => {
+        try {
+          // Get stock batches ordered by creation date (newest first)
+          const batches = await getProductStockBatches(product.id);
+          
+          // Get cost price from the most recent batch, or fallback to product's costPrice
+          let latestCostPrice = '';
+          if (batches.length > 0 && batches[0].costPrice > 0) {
+            latestCostPrice = batches[0].costPrice.toString();
+          } else if (product.costPrice > 0) {
+            latestCostPrice = product.costPrice.toString();
+          }
+
+          setFormData({
+            quantity: '',
+            costPrice: latestCostPrice,
+            supplierId: '',
+            isOwnPurchase: false,
+            paymentType: 'paid',
+            notes: ''
+          });
+        } catch (error) {
+          console.error('Error loading latest cost price:', error);
+          // Fallback to product's costPrice if batch fetch fails
+          setFormData({
+            quantity: '',
+            costPrice: product.costPrice > 0 ? product.costPrice.toString() : '',
+            supplierId: '',
+            isOwnPurchase: false,
+            paymentType: 'paid',
+            notes: ''
+          });
+        }
+      };
+
+      loadLatestCostPrice();
     }
-  }, [isOpen]);
+  }, [isOpen, product]);
 
   const handleInputChange = (field: string, value: string | boolean) => {
     setFormData(prev => ({

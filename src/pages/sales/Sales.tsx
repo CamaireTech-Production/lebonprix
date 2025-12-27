@@ -659,7 +659,7 @@ const Sales: React.FC = () => {
         <div>
           <div className="font-medium">{product.name}</div>
           <div className="text-sm text-gray-500">
-            {product.stock} {t('sales.modals.add.products.inStock')} - {formatPrice(product.sellingPrice)} XAF
+            {getEffectiveProductStock(product, stockMap)} {t('sales.modals.add.products.inStock')} - {formatPrice(product.sellingPrice)} XAF
           </div>
         </div>
       </div>
@@ -1089,7 +1089,7 @@ const Sales: React.FC = () => {
                         <span className="text-sm font-medium text-gray-700">
                           {t('sales.modals.edit.products.availableStock')}:
                         </span>
-                        <span className="ml-2">{product.product.stock}</span>
+                        <span className="ml-2">{getEffectiveProductStock(product.product, stockMap)}</span>
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
@@ -1098,11 +1098,11 @@ const Sales: React.FC = () => {
                         type="number"
                         min="1"
                         step="1"
-                        max={product.product.stock.toString()}
+                        max={getEffectiveProductStock(product.product, stockMap).toString()}
                         value={product.quantity}
                         onChange={(e) => handleProductInputChange(index, 'quantity', e.target.value)}
                         required
-                        helpText={t('sales.modals.edit.products.cannotExceed', { value: product.product.stock })}
+                        helpText={t('sales.modals.edit.products.cannotExceed', { value: getEffectiveProductStock(product.product, stockMap) })}
                       />
                       <PriceInput
                         label={t('sales.modals.edit.products.negotiatedPrice')}

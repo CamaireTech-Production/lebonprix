@@ -52,6 +52,7 @@ export const POSScreen: React.FC = () => {
     focusSearch,
     setAutoSaveCustomer,
     setShowCustomerDropdown,
+    stockMap,
   } = usePOS();
 
   // Get unique categories from products
@@ -140,6 +141,7 @@ export const POSScreen: React.FC = () => {
               onDeliveryFeeChange={(fee) => updateState({ deliveryFee: fee })}
               onCompleteSale={handleCompleteSaleClick}
               isSubmitting={isSubmitting}
+              stockMap={stockMap}
             />
           </div>
         </div>
@@ -162,6 +164,7 @@ export const POSScreen: React.FC = () => {
               selectedCategory={selectedCategory}
               onCategoryChange={(category) => updateState({ selectedCategory: category })}
               categories={categories}
+              stockMap={stockMap}
             />
           </div>
         </div>

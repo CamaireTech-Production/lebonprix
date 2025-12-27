@@ -85,7 +85,7 @@ export const createProduct = async (
     if (
       !data.name ||
       data.sellingPrice < 0 ||
-      data.stock < 0
+      (data.stock !== undefined && data.stock < 0)
     ) {
       throw new Error('Invalid product data');
     }
@@ -104,8 +104,10 @@ export const createProduct = async (
     }
     
     // Set default inventory settings
+    // Remove stock field - batches are the source of truth
+    const { stock, ...dataWithoutStock } = data;
     const productData: any = {
-      ...data,
+      ...dataWithoutStock,
       barCode,
       companyId,
       isAvailable: true,
@@ -126,15 +128,16 @@ export const createProduct = async (
     // Set product data
     batch.set(productRef, productData);
     
-    // Add initial stock change and create stock batch if stock > 0
-    if (data.stock > 0) {
+    // Add initial stock change and create stock batch if initial stock provided
+    const initialStock = stock || 0;
+    if (initialStock > 0) {
       if (supplierInfo?.costPrice) {
         const stockBatchRef = doc(collection(db, 'stockBatches'));
         const stockBatchData = {
           id: stockBatchRef.id,
           type: 'product' as const, // Always product for product batches
           productId: productRef.id,
-          quantity: data.stock,
+          quantity: initialStock,
           costPrice: supplierInfo.costPrice,
           ...(supplierInfo.supplierId && { supplierId: supplierInfo.supplierId }),
           ...(supplierInfo.isOwnPurchase !== undefined && { isOwnPurchase: supplierInfo.isOwnPurchase }),
@@ -142,7 +145,7 @@ export const createProduct = async (
           createdAt: serverTimestamp(),
           userId,
           companyId,
-          remainingQuantity: data.stock,
+          remainingQuantity: initialStock,
           status: 'active'
         };
         batch.set(stockBatchRef, stockBatchData);
@@ -151,10 +154,11 @@ export const createProduct = async (
         createStockChange(
           batch,
           productRef.id,
-          data.stock,
+          initialStock,
           'creation',
           userId,
           companyId,
+          'product',
           supplierInfo.supplierId,
           supplierInfo.isOwnPurchase,
           supplierInfo.isCredit,
@@ -164,14 +168,15 @@ export const createProduct = async (
         
         // Note: Supplier debt will be created after batch commit (see below)
       } else {
-        // Create stock change without batch (legacy mode)
+        // Create stock change without batch (should not happen, but keep for safety)
         createStockChange(
           batch, 
           productRef.id, 
-          data.stock, 
+          initialStock, 
           'creation', 
           userId,
           companyId,
+          'product',
           supplierInfo?.supplierId,
           supplierInfo?.isOwnPurchase,
           supplierInfo?.isCredit,
@@ -258,17 +263,18 @@ export const updateProduct = async (
     
     const userId = currentProduct.userId || companyId;
     const updateFields: any = {};
-    let newStock: number | undefined;
     
-    // Handle stock changes
+    // Handle stock changes (batches are source of truth, don't update product.stock)
     if (stockChange !== undefined && stockReason) {
-      newStock = currentProduct.stock + stockChange;
-      
-      if (newStock < 0) {
-        throw new Error('Stock cannot be negative');
+      // Validate stock change doesn't make stock negative (check batches)
+      if (stockChange < 0) {
+        const { getProductStockBatches } = await import('../stock/stockService');
+        const batches = await getProductStockBatches(id);
+        const currentStock = batches.reduce((sum, b) => sum + (b.remainingQuantity || 0), 0);
+        if (currentStock + stockChange < 0) {
+          throw new Error('Stock cannot be negative');
+        }
       }
-      
-      updateFields.stock = newStock;
       
       // Handle stock batch creation for restock
       if (stockChange > 0 && stockReason === 'restock' && supplierInfo?.costPrice) {
@@ -445,7 +451,20 @@ export const getLowStockProducts = async (companyId: string, threshold?: number)
   const snapshot = await getDocs(q);
   const products = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Product[];
   
-  return products.filter(product => product.stock <= (threshold || 10));
+  // Calculate stock from batches for each product
+  const { getProductStockBatches } = await import('../stock/stockService');
+  const productsWithStock = await Promise.all(
+    products.map(async (product) => {
+      const batches = await getProductStockBatches(product.id);
+      const stock = batches.reduce((sum, b) => sum + (b.remainingQuantity || 0), 0);
+      return { product, stock };
+    })
+  );
+  
+  const stockThreshold = threshold || 10;
+  return productsWithStock
+    .filter(({ stock }) => stock <= stockThreshold)
+    .map(({ product }) => product);
 };
 
 export const getProductPerformance = async (companyId: string, productId: string): Promise<{

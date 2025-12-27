@@ -66,8 +66,8 @@ export const restockProduct = async (
   };
   batch.set(stockBatchRef, stockBatchData);
   
+  // Don't update product.stock - batches are the source of truth
   batch.update(productRef, {
-    stock: currentProduct.stock + quantity,
     updatedAt: serverTimestamp()
   });
   
@@ -283,8 +283,8 @@ export const adjustStockManually = async (
       throw new Error('Unauthorized: Product belongs to different company');
     }
     
+    // Don't update product.stock - batches are the source of truth
     batch.update(productRef, {
-      stock: currentProduct.stock + quantityChange,
       updatedAt: serverTimestamp()
     });
     
@@ -501,8 +501,8 @@ export const adjustStockForDamage = async (
     throw new Error('Unauthorized: Product belongs to different company');
   }
   
+  // Don't update product.stock - batches are the source of truth
   batch.update(productRef, {
-    stock: currentProduct.stock - damagedQuantity,
     updatedAt: serverTimestamp()
   });
   
@@ -764,10 +764,9 @@ export const adjustMultipleBatchesManually = async (
     batch.update(ref, updates);
   });
   
-  // Update product total stock only if there were quantity changes
+  // Don't update product.stock - batches are the source of truth
   if (totalStockChange !== 0) {
     batch.update(productRef, {
-      stock: currentProduct.stock + totalStockChange,
       updatedAt: serverTimestamp()
     });
   }
@@ -953,9 +952,8 @@ export const adjustBatchWithDebtManagement = async (
     batch.update(ref, updates);
   });
   
-  // Update product total stock
+  // Don't update product.stock - batches are the source of truth
   batch.update(productRef, {
-    stock: currentProduct.stock + totalStockChange,
     updatedAt: serverTimestamp()
   });
   

@@ -726,19 +726,7 @@ const Products = () => {
     setIsDeleteModalOpen(true);
   };
 
-  // Migration: create initial StockChange for products with stock > 0 and no StockChange
-  useEffect(() => {
-    if (!infiniteProducts?.length || !stockChanges?.length || !user?.uid) return;
-    infiniteProducts.forEach(async (product) => {
-      const hasStockChange = stockChanges.some((sc) => sc.productId === product.id);
-      if (product.stock > 0 && !hasStockChange) {
-        // Create an initial adjustment with 'creation' reason
-        try {
-          await updateProductData(product.id, { stock: product.stock }, 'creation', product.stock);
-        } catch (e) { console.error(`Failed to create initial stock for ${product.id}:`, e) }
-      }
-    });
-  }, [infiniteProducts, stockChanges, user, updateProductData]);
+  // Migration code removed - product.stock is deprecated, use batches instead
 
   useEffect(() => {
     setSelectedCategory(t('products.filters.allCategories'));
@@ -2148,7 +2136,12 @@ const Products = () => {
                   <p className="text-sm text-gray-600">Total available units for this product</p>
               </div>
                 <div className="text-right">
-                  <div className="text-3xl font-bold text-blue-600">{currentProduct?.stock ?? 0}</div>
+                  <div className="text-3xl font-bold text-blue-600">
+                    {(() => {
+                      const productBatches = batchesByProduct.get(currentProduct?.id || '') || [];
+                      return productBatches.reduce((sum, b) => sum + (b.remainingQuantity || 0), 0);
+                    })()}
+                  </div>
                   <div className="text-sm text-gray-500">units</div>
             </div>
               </div>

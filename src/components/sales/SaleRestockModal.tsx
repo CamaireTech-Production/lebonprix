@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { restockProduct, subscribeToSuppliers } from '../../services/firestore';
+import { getProductStockBatches } from '../../services/firestore/stock/stockService';
 import type { Product, Supplier } from '../../types/models';
 import Modal from '../common/Modal';
 import Button from '../common/Button';
@@ -26,6 +27,7 @@ const SaleRestockModal: React.FC<RestockModalProps> = ({
   
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(false);
+  const [productBatches, setProductBatches] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     quantity: '',
     costPrice: '',
@@ -43,19 +45,48 @@ const SaleRestockModal: React.FC<RestockModalProps> = ({
     }
   }, [isOpen, user?.uid, company?.id]);
 
-  // Reset form when modal opens/closes
+  // Load latest cost price and reset form when modal opens
   useEffect(() => {
-    if (isOpen) {
-      setFormData({
-        quantity: '',
-        costPrice: '',
-        supplierId: '',
-        isOwnPurchase: false,
-        isCredit: false,
-        notes: ''
-      });
+    if (isOpen && product) {
+      const loadLatestCostPrice = async () => {
+        try {
+          // Get stock batches ordered by creation date (newest first)
+          const batches = await getProductStockBatches(product.id);
+          setProductBatches(batches);
+          
+          // Get cost price from the most recent batch, or fallback to product's costPrice
+          let latestCostPrice = '';
+          if (batches.length > 0 && batches[0].costPrice > 0) {
+            latestCostPrice = batches[0].costPrice.toString();
+          } else if (product.costPrice > 0) {
+            latestCostPrice = product.costPrice.toString();
+          }
+
+          setFormData({
+            quantity: '',
+            costPrice: latestCostPrice,
+            supplierId: '',
+            isOwnPurchase: false,
+            isCredit: false,
+            notes: ''
+          });
+        } catch (error) {
+          console.error('Error loading latest cost price:', error);
+          // Fallback to product's costPrice if batch fetch fails
+          setFormData({
+            quantity: '',
+            costPrice: product.costPrice > 0 ? product.costPrice.toString() : '',
+            supplierId: '',
+            isOwnPurchase: false,
+            isCredit: false,
+            notes: ''
+          });
+        }
+      };
+
+      loadLatestCostPrice();
     }
-  }, [isOpen]);
+  }, [isOpen, product]);
 
   const handleInputChange = (field: string, value: string | boolean) => {
     setFormData(prev => ({
@@ -147,7 +178,9 @@ const SaleRestockModal: React.FC<RestockModalProps> = ({
             </div>
             <div>
               <span className="font-medium text-gray-700">Current Stock:</span>
-              <p className="text-gray-900">{product.stock}</p>
+              <p className="text-gray-900">
+                {productBatches.reduce((sum, b) => sum + (b.remainingQuantity || 0), 0)}
+              </p>
             </div>
             <div>
               <span className="font-medium text-gray-700">Selling Price:</span>

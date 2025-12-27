@@ -109,13 +109,28 @@ export const calculateSolde = (
 /**
  * Calculate total purchase price of current stock
  * 
- * Total = sum of (costPrice * stock) for each product
+ * Total = sum of (costPrice * remainingQuantity) for each batch
+ * Uses batches as source of truth (product.stock is deprecated)
  * 
- * @param products - Array of all products
- * @param stockChanges - Array of stock changes (to get cost prices)
+ * @param batches - Array of all stock batches (products and matieres)
  * @returns Total purchase price of stock
  */
 export const calculateTotalPurchasePrice = (
+  batches: import('../types/models').StockBatch[]
+): number => {
+  return batches.reduce((sum, batch) => {
+    if (batch.type === 'product' && batch.remainingQuantity > 0) {
+      return sum + (batch.costPrice * batch.remainingQuantity);
+    }
+    return sum;
+  }, 0);
+};
+
+/**
+ * @deprecated Use calculateTotalPurchasePrice(batches) instead
+ * Legacy function that uses product.stock (deprecated)
+ */
+export const calculateTotalPurchasePriceLegacy = (
   products: Product[],
   stockChanges: StockChange[]
 ): number => {
@@ -125,7 +140,8 @@ export const calculateTotalPurchasePrice = (
     
     if (costPrice === undefined) return sum;
     
-    return sum + (costPrice * product.stock);
+    // Use 0 as stock since product.stock is deprecated
+    return sum;
   }, 0);
 };
 

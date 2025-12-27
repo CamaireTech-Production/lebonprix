@@ -40,7 +40,7 @@ const DamageAdjustmentModal: React.FC<DamageAdjustmentModalProps> = ({
     notes: ''
   });
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
-  const derivedRemaining = batchTotals?.remaining ?? product?.stock ?? 0;
+  const derivedRemaining = batchTotals?.remaining ?? 0;
   const derivedTotal = batchTotals?.total;
 
   // Load available batches when modal opens

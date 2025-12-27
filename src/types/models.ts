@@ -60,7 +60,8 @@ export interface Product extends BaseModel {
   reference: string;
   sellingPrice: number;
   cataloguePrice?: number;
-  stock: number;
+  /** @deprecated Use stock batches (stockBatches collection) instead. This field will be removed. */
+  stock?: number;
   category?: string;
   images?: string[]; // Stores Firebase Storage URLs only
   imagePaths?: string[]; // Optional: store storage paths for deletion

@@ -50,7 +50,7 @@ const ManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
   // New state for temporary batch edits
   const [tempEdits, setTempEdits] = useState<TempBatchEdit[]>([]);
   const [isEditingMode, setIsEditingMode] = useState(false);
-  const derivedRemaining = batchTotals?.remaining ?? product?.stock ?? 0;
+  const derivedRemaining = batchTotals?.remaining ?? 0;
   const derivedTotal = batchTotals?.total;
   
   const [formData, setFormData] = useState({

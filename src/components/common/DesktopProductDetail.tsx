@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useCart } from '../../contexts/CartContext';
 import { getCompanyByUserId, getSellerSettings } from '@services/firestore/firestore';
 import { subscribeToProducts } from '@services/firestore/products/productService';
@@ -8,6 +8,8 @@ import { ArrowLeft, Plus, Minus, MessageCircle, ShoppingCart, ChevronLeft, Chevr
 import { ImageWithSkeleton } from '@components/common';
 import { formatPhoneForWhatsApp } from '@utils/core/phoneUtils';
 import { formatPrice } from '@utils/formatting/formatPrice';
+import { useAllStockBatches } from '@hooks/business/useStockBatches';
+import { buildProductStockMap, getEffectiveProductStock } from '@utils/inventory/stockHelpers';
 
 const placeholderImg = '/placeholder.png';
 
@@ -34,6 +36,19 @@ const DesktopProductDetail: React.FC<DesktopProductDetailProps> = ({
   const [sellerSettings, setSellerSettings] = useState<SellerSettings | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // Get stock from batches
+  const { batches: allBatches } = useAllStockBatches('product');
+  const stockMap = useMemo(
+    () => buildProductStockMap(allBatches || []),
+    [allBatches]
+  );
+  
+  // Calculate product stock from batches
+  const productStock = useMemo(() => {
+    if (!product) return 0;
+    return getEffectiveProductStock(product, stockMap);
+  }, [product, stockMap]);
   
   // Product detail state
   const [quantity, setQuantity] = useState(1);
@@ -185,7 +200,7 @@ Veuillez confirmer la disponibilité et fournir les détails de livraison.`;
   const images = product.images ?? [];
   const currentImage = images.length > 0 ? images[currentImageIndex] : placeholderImg;
   const availableTags = product.tags || [];
-  const stockText = product.stock <= 5 ? `Only ${product.stock} pieces available` : `${product.stock} pieces available`;
+  const stockText = productStock <= 5 ? `Only ${productStock} pieces available` : `${productStock} pieces available`;
 
   return (
     <div className="fixed inset-0 bg-white z-50 overflow-hidden animate-in fade-in duration-300">
@@ -259,7 +274,7 @@ Veuillez confirmer la disponibilité et fournir les détails de livraison.`;
         <div className="w-2/5 bg-[#f5f5f0] p-8 flex flex-col justify-between">
           <div className="space-y-6">
             {/* Limited Edition Tag */}
-            {product.stock <= 5 && (
+            {productStock <= 5 && (
               <div className="inline-block">
                 <span className="bg-[#e2b069] text-[#183524] px-3 py-1 rounded-full text-xs font-medium">
                   Limited Edition

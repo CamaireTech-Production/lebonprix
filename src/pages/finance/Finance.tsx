@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Button, Modal, ModalFooter, CreatableSelect, PriceInput, LoadingScreen, DateRangePicker } from '@components/common';
 import { useFinanceEntries, useProducts, useSales, useExpenses, useCustomers, useStockChanges, useSuppliers } from '@hooks/data/useFirestore';
+import { useAllStockBatches } from '@hooks/business/useStockBatches';
 // Removed useFinancialData import - back to direct calculations
 import { useObjectives } from '@hooks/business/useObjectives';
 import { format } from 'date-fns';
@@ -39,6 +40,7 @@ const Finance: React.FC = () => {
   const { products, loading: productsLoading } = useProducts();
   const { stockChanges } = useStockChanges();
   const { suppliers } = useSuppliers();
+  const { batches: allBatches } = useAllStockBatches('product');
   
   // Date range filter (default: from beginning of 2025 to current date) - MOVED UP
   const [dateRange, setDateRange] = useState({
@@ -298,8 +300,8 @@ const Finance: React.FC = () => {
   const totalProductsSold = calculateTotalProductsSold(filteredSales);
 
   const totalPurchasePrice = useMemo<number>(() => {
-    return calculateTotalPurchasePrice(products, stockChanges);
-  }, [products, stockChanges]);
+    return calculateTotalPurchasePrice(allBatches || []);
+  }, [allBatches]);
 
   // 🚀 HYBRID APPROACH: Only show loading screen if essential data is loading
   if (loading || productsLoading || salesLoading || expensesLoading) {

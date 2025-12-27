@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useCart } from '../../contexts/CartContext';
 import { getCompanyByUserId, getSellerSettings } from '@services/firestore/firestore';
@@ -12,6 +12,8 @@ import BarcodeGenerator from '../../components/products/BarcodeGenerator';
 import BarcodeScanner from '../../components/products/BarcodeScanner';
 import { showSuccessToast } from '@utils/core/toast';
 import { formatPhoneForWhatsApp } from '@utils/core/phoneUtils';
+import { useAllStockBatches } from '@hooks/business/useStockBatches';
+import { buildProductStockMap, getEffectiveProductStock } from '@utils/inventory/stockHelpers';
 
 const placeholderImg = '/placeholder.png';
 
@@ -368,15 +370,13 @@ Veuillez confirmer la disponibilité et fournir les détails de livraison.`;
         </div>
 
         {/* Stock info */}
-        {product.stock !== undefined && (
-          <div className="text-sm text-gray-600">
-            {product.stock > 0 ? (
-              <span className="text-emerald-600">En stock ({product.stock} disponibles)</span>
-            ) : (
-              <span className="text-red-600">Rupture de stock</span>
-            )}
-          </div>
-        )}
+        <div className="text-sm text-gray-600">
+          {productStock > 0 ? (
+            <span className="text-emerald-600">En stock ({productStock} disponibles)</span>
+          ) : (
+            <span className="text-red-600">Rupture de stock</span>
+          )}
+        </div>
 
         {/* Barcode section */}
         {product.barCode && (
@@ -416,7 +416,7 @@ Veuillez confirmer la disponibilité et fournir les détails de livraison.`;
         <button
           onClick={handleWhatsAppOrder}
           className="w-full bg-[#25D366] text-white py-3 rounded-lg font-semibold hover:bg-[#1da851] transition-colors shadow-lg flex items-center justify-center space-x-2"
-          disabled={product.stock === 0}
+          disabled={productStock === 0}
         >
           <MessageCircle size={20} />
           <span>Commander via WhatsApp</span>
@@ -427,7 +427,7 @@ Veuillez confirmer la disponibilité et fournir les détails de livraison.`;
             onClick={handleAddToCart}
             variant="outline"
             className="flex items-center justify-center space-x-1"
-            disabled={product.stock === 0}
+            disabled={productStock === 0}
           >
             <ShoppingCart size={16} />
             <span>Panier</span>
@@ -436,7 +436,7 @@ Veuillez confirmer la disponibilité et fournir les détails de livraison.`;
             onClick={handleBuyNow}
             variant="primary"
             style={{ backgroundColor: colors.primary }}
-            disabled={product.stock === 0}
+            disabled={productStock === 0}
           >
             Acheter
           </Button>

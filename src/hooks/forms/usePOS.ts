@@ -59,7 +59,7 @@ export function usePOS() {
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const [customerSearch, setCustomerSearch] = useState('');
 
-  // Build stock map from all batches (fallback to product.stock when no batches)
+  // Build stock map from all batches (batches are source of truth)
   const stockMap = useMemo(
     () => buildProductStockMap(allBatches || []),
     [allBatches]
@@ -647,7 +647,8 @@ export function usePOS() {
   // Handle barcode scan
   const handleBarcodeScan = useCallback((productId: string) => {
     const product = products?.find(p => p.id === productId);
-    if (product && product.isAvailable && product.stock > 0) {
+    const stock = getEffectiveProductStock(product, stockMap);
+    if (product && product.isAvailable && stock > 0) {
       addToCart(product, 1);
       showSuccessToast(t('pos.messages.productAdded'));
     } else {
@@ -703,6 +704,7 @@ export function usePOS() {
     focusSearch,
     setAutoSaveCustomer,
     setShowCustomerDropdown,
+    stockMap, // Expose stockMap for components that need it
   };
 }
 

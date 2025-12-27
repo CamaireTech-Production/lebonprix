@@ -319,7 +319,7 @@ const Stocks = () => {
                       <div className="col-span-2 text-sm text-gray-900">
                         {productBatches.length > 0
                           ? `${formatNumber(batchRemaining)} / ${formatNumber(batchTotal)} units`
-                          : `${formatNumber(product.stock)} units`}
+                          : '0 units'}
                       </div>
                       <div className="col-span-2 text-sm text-gray-900">
                         {activeBatches.length} active / {depletedBatches.length} depleted
@@ -562,7 +562,13 @@ const Stocks = () => {
                 </div>
                 <div>
                   <span className="font-medium text-gray-700">Current Stock:</span>
-                  <p className="text-gray-900">{selectedProduct.stock} units</p>
+                  <p className="text-gray-900">
+                    {(() => {
+                      const productBatches = batchesByProduct.get(selectedProduct.id) || [];
+                      const batchRemaining = productBatches.reduce((sum, b) => sum + (b.remainingQuantity || 0), 0);
+                      return batchRemaining;
+                    })()} units
+                  </p>
                 </div>
               </div>
             </div>

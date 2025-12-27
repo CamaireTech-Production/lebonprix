@@ -33,7 +33,8 @@ export const buildProductStockMap = (
 
 /**
  * Get the effective stock to use in the UI and validations.
- * Prefer batch-based remaining quantity when available; otherwise fall back to product.stock.
+ * Uses batch-based remaining quantity only (product.stock is deprecated).
+ * Returns 0 if no batches exist for the product.
  */
 export const getEffectiveProductStock = (
   product: Product,
@@ -43,6 +44,7 @@ export const getEffectiveProductStock = (
   if (entry) {
     return entry.remaining;
   }
-  return typeof product.stock === 'number' ? product.stock : 0;
+  // No batches = no stock (product.stock is deprecated and should not be used)
+  return 0;
 };
 
