@@ -335,10 +335,14 @@ export const createSale = async (
     
     const normalizedStatus = data.status || 'paid';
     const normalizedPaymentStatus = data.paymentStatus || 'paid';
+    const quarterValue = data.customerInfo?.quarter?.trim();
+    // Build customerInfo without quarter first, then conditionally add it
+    const baseCustomerInfo = data.customerInfo || { name: 'divers', phone: '' };
+    const { quarter: _, ...customerInfoWithoutQuarter } = baseCustomerInfo;
     const normalizedCustomerInfo = {
-      ...(data.customerInfo || { name: 'divers', phone: '' }),
-      // Ensure empty quarter strings become undefined
-      quarter: data.customerInfo?.quarter?.trim() || undefined,
+      ...customerInfoWithoutQuarter,
+      // Only include quarter if it has a value (Firestore doesn't allow undefined)
+      ...(quarterValue ? { quarter: quarterValue } : {}),
     };
     const normalizedDeliveryFee = data.deliveryFee ?? 0;
     const normalizedInventoryMethod = data.inventoryMethod?.toUpperCase() === 'LIFO' ? 'LIFO' : 'FIFO';
@@ -584,7 +588,7 @@ export const softDeleteSale = async (saleId: string, userId: string): Promise<vo
   }
 };
 
-export const addSaleWithValidation = async (sale: Sale) => {
+export const addSaleWithValidation = async () => {
   // Implementation remains the same
 };
 
