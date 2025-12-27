@@ -62,8 +62,11 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
   }, [location.pathname]);
 
   // Check if products menu should be expanded (if on any products/categories sub-route)
+  // Exclude productions/categories to avoid false positives
   React.useEffect(() => {
-    setProductsMenuExpanded(location.pathname.includes('/products') || location.pathname.includes('/categories'));
+    const isOnProductsRoute = location.pathname.includes('/products');
+    const isOnCategoriesRoute = location.pathname.includes('/categories') && !location.pathname.includes('/productions/categories');
+    setProductsMenuExpanded(isOnProductsRoute || isOnCategoriesRoute);
   }, [location.pathname]);
 
   // Check if productions menu should be expanded (if on any productions sub-route)
@@ -314,7 +317,7 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
                       }}
                         className={`
                         w-full flex items-center justify-between px-3 py-2 text-sm font-medium rounded-md transition-colors
-                        ${isActive(item.path) || (isExpensesItem && location.pathname.includes('/expenses')) || (isContactsItem && location.pathname.includes('/contacts')) || (isProductsItem && (location.pathname.includes('/products') || location.pathname.includes('/categories'))) || (isMagasinItem && location.pathname.includes('/magasin')) || (isProductionsItem && location.pathname.includes('/productions'))
+                        ${isActive(item.path) || (isExpensesItem && location.pathname.includes('/expenses')) || (isContactsItem && location.pathname.includes('/contacts')) || (isProductsItem && (location.pathname.includes('/products') || (location.pathname.includes('/categories') && !location.pathname.includes('/productions/categories')))) || (isMagasinItem && location.pathname.includes('/magasin')) || (isProductionsItem && location.pathname.includes('/productions'))
                           ? 'bg-emerald-50 text-emerald-600'
                           : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'}
                       `}
