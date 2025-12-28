@@ -56,7 +56,7 @@ const Products = () => {
   const { stockChanges } = useStockChanges();
   useCategories();
   const { suppliers } = useSuppliers();
-  const { batches: allStockBatches } = useAllStockBatches();
+  const { batches: allStockBatches, loading: batchesLoading } = useAllStockBatches();
   const { user, company, currentEmployee, isOwner } = useAuth();
   
   // Set up infinite scroll
@@ -1340,6 +1340,15 @@ const Products = () => {
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">{t('products.table.columns.stock')}:</span>
                       {(() => {
+                        // Show skeleton while batches are loading
+                        if (batchesLoading) {
+                          return (
+                            <div className="inline-flex items-center px-2.5 py-0.5 rounded-full animate-pulse">
+                              <div className="h-4 w-20 bg-gray-200 rounded-full"></div>
+                            </div>
+                          );
+                        }
+                        
                         const stockInfo = getProductStockFromBatches(product.id);
                         const hasBatches = batchesByProduct.has(product.id);
                         const remaining = hasBatches ? stockInfo.remaining : 0;
@@ -1522,6 +1531,15 @@ const Products = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       {(() => {
+                        // Show skeleton while batches are loading
+                        if (batchesLoading) {
+                          return (
+                            <div className="inline-flex items-center px-2.5 py-0.5 rounded-full animate-pulse">
+                              <div className="h-4 w-20 bg-gray-200 rounded-full"></div>
+                            </div>
+                          );
+                        }
+                        
                         const stockInfo = getProductStockFromBatches(product.id);
                         const hasBatches = batchesByProduct.has(product.id);
                         const remaining = hasBatches ? stockInfo.remaining : 0;
@@ -2714,6 +2732,16 @@ const Products = () => {
                   <div className="mt-1">
                     {(() => {
                       if (!detailProduct) return <Badge variant="error">0 units</Badge>;
+                      
+                      // Show skeleton while batches are loading
+                      if (batchesLoading) {
+                        return (
+                          <div className="inline-flex items-center px-2.5 py-0.5 rounded-full animate-pulse">
+                            <div className="h-4 w-20 bg-gray-200 rounded-full"></div>
+                          </div>
+                        );
+                      }
+                      
                       const stockInfo = getProductStockFromBatches(detailProduct.id);
                       const hasBatches = batchesByProduct.has(detailProduct.id);
                       const remaining = hasBatches ? stockInfo.remaining : 0;
