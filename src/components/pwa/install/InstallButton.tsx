@@ -1,38 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { Download, Smartphone, Monitor } from 'lucide-react';
 import { InstallGuide } from './InstallGuide';
-
-interface BeforeInstallPromptEvent extends Event {
-  readonly platforms: string[];
-  readonly userChoice: Promise<{
-    outcome: 'accepted' | 'dismissed';
-    platform: string;
-  }>;
-  prompt(): Promise<void>;
-}
+import { usePWAContext } from '../../../contexts/PWAContext';
 
 export const InstallButton: React.FC = () => {
+  const { deferredPrompt, isIOS, isStandalone, clearDeferredPrompt } = usePWAContext();
   const [isInstallable, setIsInstallable] = useState(false);
-  const [isInstalled, setIsInstalled] = useState(false);
   const [showInstallGuide, setShowInstallGuide] = useState(false);
-  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
 
   useEffect(() => {
-    // Check if app is already installed
-    const checkIfInstalled = () => {
-      if (window.matchMedia('(display-mode: standalone)').matches) {
-        setIsInstalled(true);
-        return;
-      }
-      
-      // Check for iOS Safari
-      if ((window.navigator as any).standalone === true) {
-        setIsInstalled(true);
-        return;
-      }
-    };
-
-    // Check if PWA is installable
+    // Check if PWA is installable (has service worker, manifest, and HTTPS)
     const checkInstallability = () => {
       const hasServiceWorker = 'serviceWorker' in navigator;
       const hasManifest = !!document.querySelector('link[rel="manifest"]');
@@ -41,94 +18,56 @@ export const InstallButton: React.FC = () => {
       setIsInstallable(hasServiceWorker && hasManifest && isHTTPS);
     };
 
-    checkIfInstalled();
     checkInstallability();
-
-    // Listen for the beforeinstallprompt event
-    const handleBeforeInstallPrompt = (e: Event) => {
-      e.preventDefault();
-      setDeferredPrompt(e as BeforeInstallPromptEvent);
+    
+    // Update installability when deferredPrompt becomes available
+    if (deferredPrompt) {
       setIsInstallable(true);
-    };
-
-    // Listen for the appinstalled event
-    const handleAppInstalled = () => {
-      setIsInstalled(true);
-      setDeferredPrompt(null);
-    };
-
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    window.addEventListener('appinstalled', handleAppInstalled);
-
-    return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-      window.removeEventListener('appinstalled', handleAppInstalled);
-    };
-  }, []);
+    }
+  }, [deferredPrompt]);
 
   const handleInstallClick = async () => {
-    // Try automatic installation first
+    // If deferredPrompt exists, trigger the native install prompt directly
     if (deferredPrompt) {
       try {
-        console.log('Triggering automatic install prompt...');
+        console.log('[PWA] Triggering native install prompt...');
         await deferredPrompt.prompt();
         const { outcome } = await deferredPrompt.userChoice;
         
         if (outcome === 'accepted') {
-          console.log('User accepted the install prompt');
-          // The appinstalled event will handle hiding the button
+          console.log('[PWA] User accepted the install prompt');
+          // The appinstalled event (handled in context) will clear the prompt
         } else {
-          console.log('User dismissed the install prompt');
+          console.log('[PWA] User dismissed the install prompt');
+          // Clear the prompt so we don't keep trying
+          clearDeferredPrompt();
         }
-        
-        setDeferredPrompt(null);
-        return;
       } catch (error) {
-        console.error('Error during automatic installation:', error);
-        // Fall back to manual guide
+        console.error('[PWA] Error during installation:', error);
+        clearDeferredPrompt();
+        // Fall back to manual guide only for iOS
+        if (isIOS) {
+          setShowInstallGuide(true);
+        }
       }
+      return;
     }
     
-    // Try to force the beforeinstallprompt event
-    console.log('Attempting to force install prompt...');
-    
-    // Check if we can trigger the install prompt manually
-    if ('serviceWorker' in navigator) {
-      try {
-        // Get existing service worker registration
-        const registration = await navigator.serviceWorker.getRegistration();
-        console.log('Service worker found:', registration);
-        
-        // Wait a moment for the event to fire
-        setTimeout(() => {
-          if (deferredPrompt) {
-            console.log('Found deferred prompt');
-            deferredPrompt.prompt().then(() => {
-              return deferredPrompt.userChoice;
-            }).then((choiceResult) => {
-              if (choiceResult.outcome === 'accepted') {
-                console.log('User accepted the install prompt');
-              } else {
-                console.log('User dismissed the install prompt');
-              }
-              setDeferredPrompt(null);
-            });
-          } else {
-            console.log('No deferred prompt available, showing manual guide');
-            setShowInstallGuide(true);
-          }
-        }, 1000);
-      } catch (error) {
-        console.error('Service worker error:', error);
-        setShowInstallGuide(true);
-      }
-    } else {
+    // No deferredPrompt available
+    // For iOS Safari, show manual guide (beforeinstallprompt not supported)
+    if (isIOS) {
       setShowInstallGuide(true);
+      return;
     }
+    
+    // For other browsers, if no prompt is available, it might not be installable yet
+    // or the user already dismissed it. Show manual guide as fallback.
+    console.log('[PWA] No deferred prompt available, showing manual guide');
+    setShowInstallGuide(true);
   };
 
   // Don't show if already installed
-  if (isInstalled) {
+  if (isStandalone) {
     return null;
   }
 

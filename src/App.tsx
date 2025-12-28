@@ -2,6 +2,7 @@ import { Suspense, useState } from 'react';
 import { BrowserRouter } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { CartProvider } from './contexts/CartContext';
+import { PWAProvider } from './contexts/PWAContext';
 import LoadingScreen from './components/common/LoadingScreen';
 import { Toaster } from 'react-hot-toast';
 import { PWAErrorHandler, PWAUpdateNotification, ErrorBoundary } from './components/pwa';
@@ -14,7 +15,9 @@ function App() {
     <BrowserRouter>
       <AuthProvider>
         <CartProvider>
-          <AppWithFAB isAddSaleModalOpen={isAddSaleModalOpen} setIsAddSaleModalOpen={setIsAddSaleModalOpen} />
+          <PWAProvider>
+            <AppWithFAB isAddSaleModalOpen={isAddSaleModalOpen} setIsAddSaleModalOpen={setIsAddSaleModalOpen} />
+          </PWAProvider>
         </CartProvider>
       </AuthProvider>
     </BrowserRouter>

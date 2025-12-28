@@ -9,7 +9,7 @@ interface PWAState {
 }
 
 const LAST_NOTIFIED_VERSION_KEY = 'pwa_last_notified_version';
-const UPDATE_CHECK_INTERVAL = 60000; // 60 seconds
+const UPDATE_CHECK_INTERVAL = 10000; // 10 seconds - faster update detection
 
 export const usePWA = () => {
   const [pwaState, setPwaState] = useState<PWAState>({
@@ -30,13 +30,22 @@ export const usePWA = () => {
     }
 
     try {
+      setPwaState(prev => ({ ...prev, isCheckingUpdate: true }));
+      
       const reg = await navigator.serviceWorker.getRegistration();
       
       if (!reg) {
+        setPwaState(prev => ({ ...prev, isCheckingUpdate: false }));
         return;
       }
 
       setRegistration(reg);
+
+      // Force update check by calling registration.update()
+      // This ensures we check for new service worker versions
+      await reg.update().catch(err => {
+        console.warn('[PWA] Update check warning:', err);
+      });
 
       // Check if there's a waiting service worker AND an active controller
       const hasRealUpdate = 
@@ -57,33 +66,43 @@ export const usePWA = () => {
             setPwaState(prev => ({
               ...prev,
               hasUpdate: true,
+              isCheckingUpdate: false,
             }));
             
             // Store the version we're notifying about
             localStorage.setItem(LAST_NOTIFIED_VERSION_KEY, waitingVersion);
+            console.log('[PWA] Update detected:', waitingVersion);
+          } else {
+            setPwaState(prev => ({ ...prev, isCheckingUpdate: false }));
           }
+        } else {
+          setPwaState(prev => ({ ...prev, isCheckingUpdate: false }));
         }
       } else if (!hasRealUpdate) {
         // No update available, clear state
         setPwaState(prev => ({
           ...prev,
           hasUpdate: false,
+          isCheckingUpdate: false,
         }));
         // Clear old version tracking if no update
         localStorage.removeItem(LAST_NOTIFIED_VERSION_KEY);
       }
     } catch (error) {
-      console.error('Error checking for updates:', error);
+      console.error('[PWA] Error checking for updates:', error);
+      setPwaState(prev => ({ ...prev, isCheckingUpdate: false }));
     }
   }, []);
 
   // Function to trigger update
   const updateApp = useCallback(() => {
     if (!registration || !registration.waiting) {
-      console.error('No service worker waiting to update');
+      console.error('[PWA] No service worker waiting to update');
       return;
     }
 
+    console.log('[PWA] Triggering update - sending SKIP_WAITING message');
+    
     // Send skipWaiting message to the waiting service worker
     registration.waiting.postMessage({ type: 'SKIP_WAITING' });
 
@@ -96,12 +115,24 @@ export const usePWA = () => {
     // Clear version tracking
     localStorage.removeItem(LAST_NOTIFIED_VERSION_KEY);
 
-    // Listen for controller change and reload
+    // Listen for controller change and reload immediately
+    // With skipWaiting: true, the new service worker should activate immediately
     const handleControllerChange = () => {
+      console.log('[PWA] Controller changed - reloading page to apply update');
       window.location.reload();
     };
 
+    // Listen for controllerchange - this fires when new SW takes control
     navigator.serviceWorker.addEventListener('controllerchange', handleControllerChange, { once: true });
+    
+    // Also set a timeout as fallback (in case controllerchange doesn't fire)
+    // This should rarely be needed with skipWaiting: true, but it's a safety net
+    setTimeout(() => {
+      if (navigator.serviceWorker.controller) {
+        console.log('[PWA] Fallback reload after update');
+        window.location.reload();
+      }
+    }, 1000);
   }, [registration]);
 
   useEffect(() => {
@@ -189,12 +220,31 @@ export const usePWA = () => {
     // Initial check for updates
     checkForUpdate();
 
-    // Set up periodic checks (every 60 seconds)
+    // Set up periodic checks (every 10 seconds for faster detection)
     const intervalId = setInterval(() => {
       if (navigator.onLine && isMountedRef.current) {
         checkForUpdate();
       }
     }, UPDATE_CHECK_INTERVAL);
+
+    // Check for updates when tab becomes visible (user returns to app)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && navigator.onLine && isMountedRef.current) {
+        console.log('[PWA] Tab became visible - checking for updates');
+        checkForUpdate();
+      }
+    };
+
+    // Check for updates when window regains focus
+    const handleFocus = () => {
+      if (navigator.onLine && isMountedRef.current) {
+        console.log('[PWA] Window focused - checking for updates');
+        checkForUpdate();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
 
     // Listen for service worker registration and updates
     navigator.serviceWorker.getRegistration().then(reg => {
@@ -267,6 +317,10 @@ export const usePWA = () => {
       
       // Clear interval
       clearInterval(intervalId);
+      
+      // Remove visibility and focus listeners
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
       
       // Remove event listeners
       if (currentWorker && stateChangeHandler) {

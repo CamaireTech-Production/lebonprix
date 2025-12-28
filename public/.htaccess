@@ -37,7 +37,21 @@ Header set Access-Control-Allow-Headers "Content-Type, Authorization"
     AddType font/eot .eot
 </IfModule>
 
-# Cache control for static assets
+# NEVER cache service worker files - must be checked every time for updates
+# This ensures the browser always detects new service worker versions
+<FilesMatch "(sw\.js|service-worker\.js|workbox-.*\.js|.*-sw\.js|dev-sw\.js)$">
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+    Header set Pragma "no-cache"
+    Header set Expires "0"
+</FilesMatch>
+
+# Also exclude manifest.json from long caching - should be checked for updates
+<FilesMatch "manifest\.json$">
+    Header set Cache-Control "no-cache, must-revalidate"
+    Header set Pragma "no-cache"
+</FilesMatch>
+
+# Cache control for static assets (general rule - applies to other files)
 <FilesMatch "\.(css|js|mjs|jpg|jpeg|png|gif|ico|svg|woff|woff2|ttf|eot|json|webp)$">
     Header set Cache-Control "max-age=31536000, public"
 </FilesMatch>

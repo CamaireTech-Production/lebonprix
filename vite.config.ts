@@ -67,9 +67,26 @@ export default defineConfig(({ mode }) => {
         },
         workbox: {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-          skipWaiting: false,
-          clientsClaim: false,
+          // Enable immediate activation of new service worker
+          skipWaiting: true,
+          // Take control of all clients immediately
+          clientsClaim: true,
           runtimeCaching: [
+            // Use StaleWhileRevalidate for HTML/JS/CSS - serves cached immediately, updates in background
+            {
+              urlPattern: /\.(?:html|js|css|mjs)$/,
+              handler: 'StaleWhileRevalidate',
+              options: {
+                cacheName: 'app-assets-cache',
+                expiration: {
+                  maxEntries: 50,
+                  maxAgeSeconds: 60 * 60 * 24 // 24 hours
+                },
+                cacheableResponse: {
+                  statuses: [0, 200]
+                }
+              }
+            },
             {
               urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
               handler: 'CacheFirst',
