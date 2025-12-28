@@ -235,7 +235,7 @@ const MatiereManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
             </div>
             <div>
               <span className="font-medium text-gray-700">Unit:</span>
-              <p className="text-gray-900">{matiere.unit}</p>
+              <p className="text-gray-900">{matiere.unit || '—'}</p>
             </div>
             <div>
               <span className="font-medium text-gray-700">Current Stock:</span>
@@ -286,7 +286,7 @@ const MatiereManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
             <div className="bg-gray-50 p-3 rounded-lg mb-4">
               <p className="text-sm text-gray-600">
                 Current batch stock: <span className="font-medium text-gray-900">{selectedBatch.remainingQuantity}</span>
-                <span className="ml-1 text-gray-500">({matiere.unit})</span>
+                {matiere.unit && <span className="ml-1 text-gray-500">({matiere.unit})</span>}
               </p>
             </div>
           )}
@@ -301,9 +301,11 @@ const MatiereManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
             min="0"
             step="1"
           />
-          <p className="text-xs text-gray-500 mt-1">
-            Unit: {matiere.unit}
-          </p>
+          {matiere.unit && (
+            <p className="text-xs text-gray-500 mt-1">
+              Unit: {matiere.unit}
+            </p>
+          )}
 
           {/* Preview Changes */}
           {selectedBatch && formData.newStock && !formData.newStock.includes('.') && !isNaN(parseInt(formData.newStock, 10)) && parseInt(formData.newStock, 10) >= 0 && (
@@ -319,9 +321,11 @@ const MatiereManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
                   <p className="text-green-900">{Math.round(calculateNewMatiereStock()).toLocaleString()}</p>
                 </div>
               </div>
-              <p className="text-xs text-gray-600 mt-2">
-                Unit: {matiere.unit}
-              </p>
+              {matiere.unit && (
+                <p className="text-xs text-gray-600 mt-2">
+                  Unit: {matiere.unit}
+                </p>
+              )}
             </div>
           )}
         </div>

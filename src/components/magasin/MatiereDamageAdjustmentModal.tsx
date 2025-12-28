@@ -203,14 +203,14 @@ const MatiereDamageAdjustmentModal: React.FC<DamageAdjustmentModalProps> = ({
             </div>
             <div>
               <span className="font-medium text-gray-700">Unit:</span>
-              <p className="text-gray-900">{matiere.unit}</p>
+              <p className="text-gray-900">{matiere.unit || '—'}</p>
             </div>
             <div>
               <span className="font-medium text-gray-700">Current Stock:</span>
               <p className="text-gray-900">
                 {derivedTotal !== undefined
-                  ? `${derivedRemaining} / ${derivedTotal} ${matiere.unit}`
-                  : `${derivedRemaining} ${matiere.unit}`}
+                  ? `${derivedRemaining} / ${derivedTotal} ${matiere.unit || 'unité'}`
+                  : `${derivedRemaining} ${matiere.unit || 'unité'}`}
               </p>
             </div>
             <div>
@@ -280,7 +280,7 @@ const MatiereDamageAdjustmentModal: React.FC<DamageAdjustmentModalProps> = ({
               </div>
               <div>
                 <span className="font-medium text-blue-700">Remaining Quantity:</span>
-                <p className="text-blue-900">{selectedBatch.remainingQuantity} {matiere.unit}</p>
+                <p className="text-blue-900">{selectedBatch.remainingQuantity} {matiere.unit || 'unité'}</p>
               </div>
               <div>
                 <span className="font-medium text-blue-700">Status:</span>
@@ -295,7 +295,7 @@ const MatiereDamageAdjustmentModal: React.FC<DamageAdjustmentModalProps> = ({
           <h3 className="text-lg font-medium text-gray-900">Damage Details</h3>
           
           <Input
-            label={`Damaged Quantity (${matiere.unit})`}
+            label={`Damaged Quantity (${matiere.unit || 'unité'})`}
             type="number"
             value={formData.damagedQuantity}
             onChange={(e) => handleInputChange('damagedQuantity', e.target.value)}
@@ -313,11 +313,11 @@ const MatiereDamageAdjustmentModal: React.FC<DamageAdjustmentModalProps> = ({
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <span className="font-medium text-red-700">New Batch Quantity:</span>
-                  <p className="text-red-900">{calculateNewRemainingQuantity()} {matiere.unit}</p>
+                  <p className="text-red-900">{calculateNewRemainingQuantity()} {matiere.unit || 'unité'}</p>
                 </div>
                 <div>
                   <span className="font-medium text-red-700">New Matiere Stock:</span>
-                  <p className="text-red-900">{calculateNewStock()} {matiere.unit}</p>
+                  <p className="text-red-900">{calculateNewStock()} {matiere.unit || 'unité'}</p>
                 </div>
                 <div>
                   <span className="font-medium text-red-700">Supplier Debt:</span>

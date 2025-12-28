@@ -228,7 +228,7 @@ const ProductionDetail: React.FC = () => {
                   rows.push([
                     escapeCSV(m.matiereName),
                     escapeCSV(m.requiredQuantity),
-                    escapeCSV(m.unit),
+                    escapeCSV(m.unit || 'unité'),
                     escapeCSV(m.costPrice),
                     escapeCSV(m.requiredQuantity * m.costPrice)
                   ].join(','));
@@ -334,7 +334,7 @@ const ProductionDetail: React.FC = () => {
                   <div key={idx} className="flex justify-between text-sm">
                     <span className="text-gray-600">{material.matiereName}:</span>
                     <span className="text-gray-900">
-                      {formatPrice(material.costPrice)} / {material.unit}
+                      {formatPrice(material.costPrice)} / {material.unit || 'unité'}
                     </span>
                   </div>
                 ))}
@@ -493,11 +493,11 @@ const ProductionDetail: React.FC = () => {
                               {material.matiereName}
                             </div>
                             <div className="text-sm text-gray-500">
-                              Stock disponible: {stockInfo?.currentStock || 0} {material.unit}
+                              Stock disponible: {stockInfo?.currentStock || 0} {material.unit || 'unité'}
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {material.requiredQuantity} {material.unit}
+                            {material.requiredQuantity} {material.unit || 'unité'}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                             {formatPrice(material.costPrice)}

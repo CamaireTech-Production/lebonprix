@@ -209,14 +209,14 @@ const MatiereRestockModal: React.FC<RestockModalProps> = ({
             </div>
             <div>
               <span className="font-medium text-gray-700">Unit:</span>
-              <p className="text-gray-900">{matiere.unit}</p>
+              <p className="text-gray-900">{matiere.unit || '—'}</p>
             </div>
             <div>
               <span className="font-medium text-gray-700">Current Stock:</span>
               <p className="text-gray-900">
                 {derivedTotal !== undefined
-                  ? `${derivedRemaining} / ${derivedTotal} ${matiere.unit}`
-                  : `${derivedRemaining} ${matiere.unit}`}
+                  ? `${derivedRemaining} / ${derivedTotal} ${matiere.unit || 'unité'}`
+                  : `${derivedRemaining} ${matiere.unit || 'unité'}`}
               </p>
             </div>
             <div>
@@ -232,7 +232,7 @@ const MatiereRestockModal: React.FC<RestockModalProps> = ({
           
           <div className="grid grid-cols-2 gap-4">
             <Input
-              label={`Quantity (${matiere.unit})`}
+              label={`Quantity (${matiere.unit || 'unité'})`}
               type="number"
               value={formData.quantity}
               onChange={(e) => handleInputChange('quantity', e.target.value)}

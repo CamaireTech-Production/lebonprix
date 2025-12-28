@@ -83,7 +83,7 @@ export interface Matiere extends BaseModel {
   imagePaths?: string[]; // Storage paths for deletion
   refCategorie: string; // Category name (not ID)
   refStock: string; // Reference to stock document ID
-  unit: string; // Unit of measurement (from units.ts)
+  unit?: string; // Unit of measurement (from units.ts) - optional
   costPrice: number; // Last purchase price
   companyId: string;
   createdBy?: EmployeeRef;

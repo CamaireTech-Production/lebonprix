@@ -170,11 +170,6 @@ const MatiereFormModal: React.FC<MatiereFormModalProps> = ({
       return;
     }
 
-    if (!formData.unit) {
-      showErrorToast('L\'unité est requise');
-      return;
-    }
-
     setIsSubmitting(true);
 
     try {
@@ -204,15 +199,23 @@ const MatiereFormModal: React.FC<MatiereFormModalProps> = ({
 
       if (matiere) {
         // Edit mode
-        await updateMatiereData(matiere.id, {
+        const updateData: any = {
           name: formData.name.trim(),
-          description: formData.description.trim() || undefined,
           refCategorie: formData.refCategorie,
-          unit: formData.unit,
           costPrice: formData.costPrice ? parseFloat(formData.costPrice) : 0,
           images: imageUrls,
           imagePaths: imagePaths
-        });
+        };
+        
+        // Only include optional fields if they have values
+        if (formData.description.trim()) {
+          updateData.description = formData.description.trim();
+        }
+        if (formData.unit) {
+          updateData.unit = formData.unit;
+        }
+        
+        await updateMatiereData(matiere.id, updateData);
         showSuccessToast('Matière mise à jour avec succès');
       } else {
         // Create mode
@@ -225,20 +228,28 @@ const MatiereFormModal: React.FC<MatiereFormModalProps> = ({
           isCredit: formData.isCredit
         } : undefined;
 
+        const matiereData: any = {
+          name: formData.name.trim(),
+          refCategorie: formData.refCategorie,
+          costPrice: costPrice || 0,
+          images: imageUrls,
+          imagePaths: imagePaths,
+          refStock: '', // Will be set by createMatiere
+          companyId: company.id,
+          userId: user.uid,
+          isDeleted: false
+        };
+        
+        // Only include optional fields if they have values
+        if (formData.description.trim()) {
+          matiereData.description = formData.description.trim();
+        }
+        if (formData.unit) {
+          matiereData.unit = formData.unit;
+        }
+        
         await addMatiere(
-          {
-            name: formData.name.trim(),
-            description: formData.description.trim() || undefined,
-            refCategorie: formData.refCategorie,
-            unit: formData.unit,
-            costPrice: costPrice || 0,
-            images: imageUrls,
-            imagePaths: imagePaths,
-            refStock: '', // Will be set by createMatiere
-            companyId: company.id,
-            userId: user.uid,
-            isDeleted: false
-          },
+          matiereData,
           initialStock,
           costPrice,
           supplierInfo
@@ -312,12 +323,12 @@ const MatiereFormModal: React.FC<MatiereFormModalProps> = ({
         {/* Unit */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Unité de mesure *
+            Unité de mesure
           </label>
           <UnitSelector
             value={formData.unit}
             onChange={(value) => setFormData(prev => ({ ...prev, unit: value }))}
-            placeholder="Sélectionner une unité"
+            placeholder="Sélectionner une unité (optionnel)"
           />
         </div>
 

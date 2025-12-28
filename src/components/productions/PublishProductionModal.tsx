@@ -47,8 +47,9 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
       const availableStock = stockInfo?.currentStock || 0;
       
       if (availableStock < material.requiredQuantity) {
+        const unit = material.unit || 'unité';
         errors.push(
-          `${material.matiereName}: Stock insuffisant (requis: ${material.requiredQuantity} ${material.unit}, disponible: ${availableStock} ${material.unit})`
+          `${material.matiereName}: Stock insuffisant (requis: ${material.requiredQuantity} ${unit}, disponible: ${availableStock} ${unit})`
         );
       }
     }
@@ -306,10 +307,10 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
                     }`}
                   >
                     <span className={isInsufficient ? 'text-red-700' : 'text-gray-700'}>
-                      {material.matiereName}: {material.requiredQuantity} {material.unit}
+                      {material.matiereName}: {material.requiredQuantity} {material.unit || 'unité'}
                     </span>
                     <span className={isInsufficient ? 'text-red-700 font-medium' : 'text-gray-600'}>
-                      Stock: {availableStock} {material.unit}
+                      Stock: {availableStock} {material.unit || 'unité'}
                     </span>
                   </div>
                 );

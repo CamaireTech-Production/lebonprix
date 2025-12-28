@@ -56,8 +56,8 @@ export const createMatiere = async (
   createdBy?: import('../../../types/models').EmployeeRef | null
 ): Promise<Matiere> => {
   try {
-    if (!data.name || !data.refCategorie || !data.unit) {
-      throw new Error('Invalid matiere data: name, refCategorie, and unit are required');
+    if (!data.name || !data.refCategorie) {
+      throw new Error('Invalid matiere data: name and refCategorie are required');
     }
 
     const categoryQuery = query(
@@ -78,8 +78,12 @@ export const createMatiere = async (
     const userId = data.userId || companyId;
     
     const matiereRef = doc(collection(db, 'matieres'));
+    
+    // Build matiereData object, excluding undefined values (Firestore doesn't support undefined)
     const matiereData: any = {
-      ...data,
+      name: data.name,
+      refCategorie: data.refCategorie,
+      refStock: data.refStock || '',
       companyId,
       isDeleted: false,
       costPrice: costPrice || 0,
@@ -87,6 +91,19 @@ export const createMatiere = async (
       updatedAt: serverTimestamp()
     };
     
+    // Only include optional fields if they have values
+    if (data.description) {
+      matiereData.description = data.description;
+    }
+    if (data.unit) {
+      matiereData.unit = data.unit;
+    }
+    if (data.images && data.images.length > 0) {
+      matiereData.images = data.images;
+    }
+    if (data.imagePaths && data.imagePaths.length > 0) {
+      matiereData.imagePaths = data.imagePaths;
+    }
     if (createdBy) {
       matiereData.createdBy = createdBy;
     }
@@ -141,7 +158,7 @@ export const createMatiere = async (
         sourceId: matiereRef.id,
         type: 'matiere_purchase',
         amount: -Math.abs(initialStock * costPrice),
-        description: `Achat initial de ${initialStock} ${data.unit} de ${data.name}`,
+        description: `Achat initial de ${initialStock} ${data.unit || 'unité'} de ${data.name}`,
         date: serverTimestamp(),
         isDeleted: false,
         createdAt: serverTimestamp(),
@@ -160,7 +177,7 @@ export const createMatiere = async (
           sourceId: supplierInfo.supplierId,
           type: 'supplier_debt',
           amount: debtAmount,
-          description: `Achat crédit de ${initialStock} ${data.unit} de ${data.name}`,
+          description: `Achat crédit de ${initialStock} ${data.unit || 'unité'} de ${data.name}`,
           date: serverTimestamp(),
           isDeleted: false,
           createdAt: serverTimestamp(),
@@ -252,10 +269,21 @@ export const updateMatiere = async (
       }
     }
     
-    const updateData = {
-      ...data,
+    // Build updateData object, excluding undefined values (Firestore doesn't support undefined)
+    const updateData: any = {
       updatedAt: serverTimestamp()
     };
+    
+    // Only include fields that are actually provided (not undefined)
+    if (data.name !== undefined) updateData.name = data.name;
+    if (data.description !== undefined) updateData.description = data.description;
+    if (data.refCategorie !== undefined) updateData.refCategorie = data.refCategorie;
+    if (data.refStock !== undefined) updateData.refStock = data.refStock;
+    if (data.unit !== undefined) updateData.unit = data.unit;
+    if (data.costPrice !== undefined) updateData.costPrice = data.costPrice;
+    if (data.images !== undefined) updateData.images = data.images;
+    if (data.imagePaths !== undefined) updateData.imagePaths = data.imagePaths;
+    if (data.isDeleted !== undefined) updateData.isDeleted = data.isDeleted;
     
     batch.update(matiereRef, updateData);
     

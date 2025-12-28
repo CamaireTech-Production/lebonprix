@@ -123,7 +123,7 @@ export const useMatiereStocks = () => {
         matiereId: matiere.id,
         matiereName: matiere.name,
         currentStock: effectiveStock,
-        unit: matiere.unit,
+        unit: matiere.unit || undefined,
         costPrice: matiere.costPrice,
         category: matiere.refCategorie,
         batches: matiereBatches,

@@ -496,8 +496,9 @@ export const publishProduction = async (
       const totalAvailable = availableBatches.reduce((sum, batch) => sum + batch.remainingQuantity, 0);
       
       if (totalAvailable < material.requiredQuantity) {
+        const unit = material.unit || 'unité';
         throw new Error(
-          `Insufficient stock for ${material.matiereName}. Required: ${material.requiredQuantity} ${material.unit}, Available: ${totalAvailable} ${material.unit}`
+          `Insufficient stock for ${material.matiereName}. Required: ${material.requiredQuantity} ${unit}, Available: ${totalAvailable} ${unit}`
         );
       }
     }

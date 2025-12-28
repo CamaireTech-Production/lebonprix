@@ -174,7 +174,7 @@ const CreateProductionModal: React.FC<CreateProductionModalProps> = ({
             ...updated[index],
             matiereId: value,
             matiereName: matiere.name,
-            unit: matiere.unit,
+            unit: matiere.unit || 'unité',
             costPrice: matiere.costPrice
           };
         }
@@ -643,7 +643,7 @@ const CreateProductionModal: React.FC<CreateProductionModalProps> = ({
                           <option value="">Sélectionner un matériau...</option>
                           {matieres.map(matiere => (
                             <option key={matiere.id} value={matiere.id}>
-                              {matiere.name} ({getAvailableStock(matiere.id)} {matiere.unit} disponible)
+                              {matiere.name} ({getAvailableStock(matiere.id)} {matiere.unit || 'unité'} disponible)
                             </option>
                           ))}
                         </select>
@@ -742,7 +742,7 @@ const CreateProductionModal: React.FC<CreateProductionModalProps> = ({
                       {step3Data.filter(m => m.matiereId).map((material, idx) => (
                         <div key={idx} className="text-sm flex justify-between">
                           <span className="text-gray-600">
-                            {material.matiereName} ({material.requiredQuantity} {material.unit})
+                            {material.matiereName} ({material.requiredQuantity} {material.unit || 'unité'})
                           </span>
                           <span className="text-gray-900">
                             {formatPrice(material.requiredQuantity * material.costPrice)}

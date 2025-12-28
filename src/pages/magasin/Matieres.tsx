@@ -269,9 +269,11 @@ const Matieres = () => {
                       <Badge variant="info">
                         {getCategoryName(matiere.refCategorie)}
                       </Badge>
-                      <Badge variant="info">
-                        {matiere.unit}
-                      </Badge>
+                      {matiere.unit && (
+                        <Badge variant="info">
+                          {matiere.unit}
+                        </Badge>
+                      )}
                     </div>
                     <div className="text-sm text-gray-600">
                       Prix: {matiere.costPrice.toLocaleString()} XAF

@@ -205,7 +205,7 @@ export const restockMatiere = async (
       sourceId: matiereId,
       type: 'matiere_purchase',
       amount: -Math.abs(quantity * actualCostPrice), // Negative for expense
-      description: `Réapprovisionnement de ${quantity} ${currentMatiere.unit} de ${currentMatiere.name}`,
+      description: `Réapprovisionnement de ${quantity} ${currentMatiere.unit || 'unité'} de ${currentMatiere.name}`,
       date: serverTimestamp(),
       isDeleted: false,
       createdAt: serverTimestamp(),

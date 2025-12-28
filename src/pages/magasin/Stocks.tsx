@@ -532,7 +532,7 @@ const Stocks = () => {
                 <div>
                   <span className="font-medium text-gray-700">Current Stock:</span>
                   <p className="text-gray-900">
-                    {batchesByMatiere.get(selectedMatiere.id)?.reduce((sum, b) => sum + (b.remainingQuantity || 0), 0) || 0} {selectedMatiere.unit}
+                    {batchesByMatiere.get(selectedMatiere.id)?.reduce((sum, b) => sum + (b.remainingQuantity || 0), 0) || 0} {selectedMatiere.unit || 'unité'}
                   </p>
                 </div>
               </div>
