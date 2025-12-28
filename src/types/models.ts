@@ -83,11 +83,19 @@ export interface Matiere extends BaseModel {
   imagePaths?: string[]; // Storage paths for deletion
   refCategorie: string; // Category name (not ID)
   refStock: string; // Reference to stock document ID
-  unit?: string; // Unit of measurement (from units.ts) - optional
+  unit?: string; // Unit of measurement (from units.ts or customUnits) - optional
   costPrice: number; // Last purchase price
   companyId: string;
   createdBy?: EmployeeRef;
   isDeleted?: boolean;
+}
+
+export interface CustomUnit extends BaseModel {
+  value: string; // Technical code (e.g., "custom_box")
+  label: string; // Display label (e.g., "Boîte personnalisée")
+  companyId: string; // Company that owns this custom unit
+  createdBy?: EmployeeRef; // Employee who created the unit
+  isDeleted?: boolean; // Soft delete
 }
 
 export interface ProductTag {

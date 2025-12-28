@@ -7,6 +7,7 @@ export * from './useObjectives';
 export * from './useStockBatches';
 export * from './useMatieres';
 export * from './useMatiereStocks';
+export * from './useCustomUnits';
 export * from './useCustomerSources';
 export * from './usePermissions';
 export * from './useRolePermissions';

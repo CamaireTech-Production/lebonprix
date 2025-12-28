@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ChevronDown, Search } from 'lucide-react';
-import { UNITS, searchUnits, type Unit } from '@utils/core/units';
+import { ChevronDown, Search, Plus } from 'lucide-react';
+import { useCustomUnits } from '@hooks/business/useCustomUnits';
+import { getAllUnits, type UnifiedUnit } from '@utils/core/getAllUnits';
+import { showSuccessToast, showErrorToast } from '@utils/core/toast';
 
 interface UnitSelectorProps {
   value: string;
@@ -15,24 +17,87 @@ const UnitSelector: React.FC<UnitSelectorProps> = ({
   placeholder = "Sélectionner une unité",
   className = ""
 }) => {
+  const { customUnits, loading: customUnitsLoading, addCustomUnit } = useCustomUnits();
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isCreating, setIsCreating] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  // Get all units (standard + custom)
+  const allUnits = getAllUnits(customUnits, searchQuery);
+
   // Get selected unit info
-  const selectedUnit = UNITS.find(unit => unit.value === value);
+  const selectedUnit = allUnits.find(unit => unit.value === value);
 
   // Filter units based on search
   const filteredUnits = searchQuery.trim() 
-    ? searchUnits(searchQuery)
-    : UNITS.slice(0, 20); // Show first 20 units if no search
+    ? allUnits
+    : allUnits.slice(0, 30); // Show first 30 units if no search
+
+  // Check if search query doesn't match any unit (for create option)
+  const canCreateUnit = searchQuery.trim() !== '' && 
+    filteredUnits.length === 0 &&
+    searchQuery.trim().length >= 2;
 
   // Handle unit selection
   const handleUnitSelect = (unitValue: string) => {
     onChange(unitValue);
     setIsOpen(false);
     setSearchQuery('');
+  };
+
+  // Handle create new unit (inline, like categories)
+  const handleCreateNew = async () => {
+    const unitLabel = searchQuery.trim();
+    
+    if (!unitLabel || unitLabel.length < 2) return;
+    
+    // Validation : vérifier si l'unité existe déjà (insensible à la casse)
+    const exists = allUnits.some(
+      unit => unit.label.toLowerCase() === unitLabel.toLowerCase() ||
+              unit.value.toLowerCase() === unitLabel.toLowerCase()
+    );
+    
+    if (exists) {
+      showErrorToast('Cette unité existe déjà');
+      return;
+    }
+    
+    setIsCreating(true);
+    try {
+      // Auto-generate value from label
+      const normalizedValue = unitLabel
+        .toLowerCase()
+        .trim()
+        .replace(/\s+/g, '_')
+        .replace(/[^a-z0-9_]/g, '');
+
+      if (!normalizedValue) {
+        showErrorToast('Le nom doit contenir au moins un caractère alphanumérique');
+        return;
+      }
+
+      const newUnit = await addCustomUnit(normalizedValue, unitLabel);
+      
+      if (newUnit) {
+        // Sélectionner automatiquement la nouvelle unité
+        onChange(newUnit.value);
+        
+        // Fermer le dropdown et réinitialiser
+        setIsOpen(false);
+        setSearchQuery('');
+        
+        // Feedback utilisateur
+        showSuccessToast(`Unité "${newUnit.label}" créée avec succès`);
+      }
+    } catch (error: any) {
+      console.error('Error creating unit:', error);
+      // Error is already handled in addCustomUnit
+      // Garder le dropdown ouvert pour permettre une nouvelle tentative
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   // Close dropdown when clicking outside
@@ -107,9 +172,41 @@ const UnitSelector: React.FC<UnitSelectorProps> = ({
 
           {/* Units List */}
           <div className="max-h-60 overflow-y-auto">
-            {filteredUnits.length === 0 ? (
+            {customUnitsLoading ? (
               <div className="p-4 text-center text-gray-500">
-                <p>Aucune unité trouvée</p>
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-emerald-500 mx-auto mb-2"></div>
+                Chargement...
+              </div>
+            ) : filteredUnits.length === 0 ? (
+              <div className="p-4 text-center text-gray-500">
+                {searchQuery ? (
+                  <div className="space-y-2">
+                    <p>Aucune unité trouvée</p>
+                    {canCreateUnit && (
+                      <button
+                        onClick={handleCreateNew}
+                        disabled={isCreating}
+                        className={`flex items-center space-x-2 text-emerald-600 hover:text-emerald-700 text-sm mx-auto ${
+                          isCreating ? 'opacity-50 cursor-not-allowed' : ''
+                        }`}
+                      >
+                        {isCreating ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-emerald-600"></div>
+                            <span>Création...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Plus size={16} />
+                            <span>Créer "{searchQuery.trim()}"</span>
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <p>Aucune unité disponible</p>
+                )}
               </div>
             ) : (
               <div className="py-1">
@@ -133,6 +230,31 @@ const UnitSelector: React.FC<UnitSelectorProps> = ({
                     </div>
                   </button>
                 ))}
+                
+                {/* Create new unit option */}
+                {canCreateUnit && (
+                  <button
+                    onClick={handleCreateNew}
+                    disabled={isCreating}
+                    className={`w-full px-3 py-2 text-left hover:bg-emerald-50 focus:outline-none focus:bg-emerald-50 text-emerald-600 border-t border-gray-200 ${
+                      isCreating ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
+                  >
+                    <div className="flex items-center space-x-2">
+                      {isCreating ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-emerald-600"></div>
+                          <span className="text-sm font-medium">Création...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Plus size={16} />
+                          <span className="text-sm font-medium">Créer "{searchQuery.trim()}"</span>
+                        </>
+                      )}
+                    </div>
+                  </button>
+                )}
               </div>
             )}
           </div>
