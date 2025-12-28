@@ -11,7 +11,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../../core/firebase';
 import type { Product, Matiere, StockBatch, StockChange } from '../../../types/models';
-import { createStockChange } from './stockService';
+import { createStockChange, getMatiereStockBatches } from './stockService';
 import { addSupplierDebt, addSupplierRefund, updateSupplierDebtEntry, removeSupplierDebtEntry, getSupplierDebt } from '../suppliers/supplierDebtService';
 import { logError } from '@utils/core/logger';
 
@@ -139,8 +139,27 @@ export const restockMatiere = async (
   // Get userId from matiere for audit
   const userId = currentMatiere.userId || companyId;
   
-  // Use provided costPrice or default to 0
-  const actualCostPrice = costPrice && costPrice > 0 ? costPrice : 0;
+  // Use provided costPrice, or get latest batch cost price, or fallback to matiere's costPrice, or 0
+  let actualCostPrice = 0;
+  if (costPrice && costPrice > 0) {
+    actualCostPrice = costPrice;
+  } else {
+    // Fetch latest batch cost price as fallback (same logic as in ProductRestockModal)
+    try {
+      const batches = await getMatiereStockBatches(matiereId);
+      if (batches.length > 0 && batches[0].costPrice > 0) {
+        actualCostPrice = batches[0].costPrice;
+      } else if (currentMatiere.costPrice > 0) {
+        actualCostPrice = currentMatiere.costPrice;
+      }
+    } catch (error) {
+      logError('Error fetching latest batch cost price for matiere restock', error);
+      // If fetch fails, try matiere's costPrice as fallback
+      if (currentMatiere.costPrice > 0) {
+        actualCostPrice = currentMatiere.costPrice;
+      }
+    }
+  }
   
   // Create new stock batch
   const stockBatchRef = doc(collection(db, 'stockBatches'));

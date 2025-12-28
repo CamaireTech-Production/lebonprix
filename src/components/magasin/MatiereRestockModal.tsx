@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Loader2 } from 'lucide-react';
 import { useAuth } from '@contexts/AuthContext';
 import { restockMatiere } from '@services/firestore/stock/stockAdjustments';
 import { getMatiereStockBatches } from '@services/firestore/stock/stockService';
@@ -25,11 +26,13 @@ const MatiereRestockModal: React.FC<RestockModalProps> = ({
   const { company } = useAuth();
   
   const [loading, setLoading] = useState(false);
+  const [loadingCostPrice, setLoadingCostPrice] = useState(false);
   const [formData, setFormData] = useState({
     quantity: '',
     costPrice: '',
     notes: ''
   });
+  const [defaultCostPrice, setDefaultCostPrice] = useState<number>(0);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const derivedRemaining = batchTotals?.remaining ?? 0;
   const derivedTotal = batchTotals?.total;
@@ -38,18 +41,23 @@ const MatiereRestockModal: React.FC<RestockModalProps> = ({
   useEffect(() => {
     if (isOpen && matiere) {
       const loadLatestCostPrice = async () => {
+        setLoadingCostPrice(true);
         try {
           // Get stock batches ordered by creation date (newest first)
           const batches = await getMatiereStockBatches(matiere.id);
           
           // Get cost price from the most recent batch, or fallback to matiere's costPrice
           let latestCostPrice = '';
+          let defaultPrice = 0;
           if (batches.length > 0 && batches[0].costPrice > 0) {
             latestCostPrice = batches[0].costPrice.toString();
+            defaultPrice = batches[0].costPrice;
           } else if (matiere.costPrice > 0) {
             latestCostPrice = matiere.costPrice.toString();
+            defaultPrice = matiere.costPrice;
           }
 
+          setDefaultCostPrice(defaultPrice);
           setFormData({
             quantity: '',
             costPrice: latestCostPrice,
@@ -58,11 +66,15 @@ const MatiereRestockModal: React.FC<RestockModalProps> = ({
         } catch (error) {
           console.error('Error loading latest cost price:', error);
           // Fallback to matiere's costPrice if batch fetch fails
+          const fallbackPrice = matiere.costPrice > 0 ? matiere.costPrice : 0;
+          setDefaultCostPrice(fallbackPrice);
           setFormData({
             quantity: '',
-            costPrice: matiere.costPrice > 0 ? matiere.costPrice.toString() : '',
+            costPrice: fallbackPrice > 0 ? fallbackPrice.toString() : '',
             notes: ''
           });
+        } finally {
+          setLoadingCostPrice(false);
         }
       };
 
@@ -104,7 +116,14 @@ const MatiereRestockModal: React.FC<RestockModalProps> = ({
 
   const calculateTotalCost = (): number => {
     const quantity = parseInt(formData.quantity, 10);
-    const costPrice = parseFloat(formData.costPrice);
+    // Use form cost price if provided, otherwise use default cost price from latest batch
+    let costPrice = 0;
+    if (formData.costPrice && formData.costPrice.trim() !== '') {
+      costPrice = parseFloat(formData.costPrice);
+    } else {
+      // Use default cost price (from latest batch or matiere's costPrice)
+      costPrice = defaultCostPrice;
+    }
     if (isNaN(quantity) || isNaN(costPrice) || quantity <= 0 || costPrice < 0) {
       return 0;
     }
@@ -124,9 +143,28 @@ const MatiereRestockModal: React.FC<RestockModalProps> = ({
     }
 
     const quantity = parseInt(formData.quantity, 10);
-    const costPrice = formData.costPrice && formData.costPrice.trim() !== '' 
-      ? parseFloat(formData.costPrice) 
-      : undefined;
+    
+    // If cost price is not provided, get the latest batch cost price (same logic as when loading the form)
+    let costPrice: number | undefined;
+    if (formData.costPrice && formData.costPrice.trim() !== '') {
+      costPrice = parseFloat(formData.costPrice);
+    } else {
+      // Fetch latest batch cost price as fallback
+      setLoadingCostPrice(true);
+      try {
+        const batches = await getMatiereStockBatches(matiere.id);
+        if (batches.length > 0 && batches[0].costPrice > 0) {
+          costPrice = batches[0].costPrice;
+        } else if (matiere.costPrice > 0) {
+          costPrice = matiere.costPrice;
+        }
+      } catch (error) {
+        console.error('Error fetching latest cost price:', error);
+        // If fetch fails, costPrice remains undefined and restockMatiere will handle it
+      } finally {
+        setLoadingCostPrice(false);
+      }
+    }
 
     setLoading(true);
 
@@ -204,30 +242,59 @@ const MatiereRestockModal: React.FC<RestockModalProps> = ({
               step="1"
             />
             
-            <PriceInput
-              label="Cost Price per Unit (Optional)"
-              name="costPrice"
-              value={formData.costPrice}
-              onChange={(e) => handleInputChange('costPrice', e.target.value)}
-              placeholder="Enter cost price"
-              allowDecimals={true}
-            />
+            <div>
+              <div className="relative">
+                <PriceInput
+                  label="Cost Price per Unit (Optional)"
+                  name="costPrice"
+                  value={formData.costPrice}
+                  onChange={(e) => handleInputChange('costPrice', e.target.value)}
+                  placeholder={loadingCostPrice ? "Loading latest cost price..." : "Enter cost price"}
+                  allowDecimals={true}
+                  disabled={loadingCostPrice}
+                />
+                {loadingCostPrice && (
+                  <div className="absolute right-3 top-8 flex items-center pointer-events-none">
+                    <Loader2 className="h-4 w-4 text-gray-400 animate-spin" />
+                  </div>
+                )}
+              </div>
+              {loadingCostPrice && (
+                <p className="mt-1 text-xs text-gray-500 flex items-center">
+                  <Loader2 className="h-3 w-3 text-gray-400 animate-spin mr-1" />
+                  Fetching latest batch cost price...
+                </p>
+              )}
+            </div>
           </div>
 
-          {/* Total Cost Display - only show if cost price is provided */}
-          {formData.costPrice && formData.costPrice.trim() !== '' && formData.quantity && parseInt(formData.quantity, 10) > 0 && (
-            <div className="bg-blue-50 p-3 rounded-lg">
-              <div className="text-sm font-medium text-blue-800">Total Cost</div>
-              <div className="text-lg font-semibold text-blue-900">
-                {formatCostPrice(calculateTotalCost())}
+          {/* Total Cost Display - show if quantity is provided and we have a cost price (from form or default) */}
+          {(() => {
+            const quantity = parseInt(formData.quantity, 10);
+            if (!quantity || quantity <= 0) return null;
+            
+            const totalCost = calculateTotalCost();
+            if (totalCost <= 0) return null;
+            
+            const effectiveCostPrice = formData.costPrice && formData.costPrice.trim() !== '' 
+              ? parseFloat(formData.costPrice) 
+              : defaultCostPrice;
+            const isUsingDefault = !formData.costPrice || formData.costPrice.trim() === '';
+            
+            return (
+              <div className="bg-blue-50 p-3 rounded-lg">
+                <div className="text-sm font-medium text-blue-800">Total Cost</div>
+                <div className="text-lg font-semibold text-blue-900">
+                  {formatCostPrice(totalCost)}
+                </div>
+                <div className="text-xs text-blue-700 mt-1">
+                  {effectiveCostPrice > 0 
+                    ? `An expense entry will be created for this restock${isUsingDefault ? ' (using latest batch cost price)' : ''}`
+                    : 'No expense entry will be created'}
+                </div>
               </div>
-              <div className="text-xs text-blue-700 mt-1">
-                {formData.costPrice && parseFloat(formData.costPrice) > 0 
-                  ? 'An expense entry will be created for this restock'
-                  : 'No expense entry will be created'}
-              </div>
-            </div>
-          )}
+            );
+          })()}
         </div>
 
         {/* Validation Errors */}
