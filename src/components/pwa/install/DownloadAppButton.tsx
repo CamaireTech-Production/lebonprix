@@ -1,17 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Download, ExternalLink } from 'lucide-react';
 import { usePWA } from '../../../hooks/usePWA';
 import { useAuth } from '../../../contexts/AuthContext';
+import { usePWAContext } from '../../../contexts/PWAContext';
 import { InstallModal } from './InstallModal';
-
-interface BeforeInstallPromptEvent extends Event {
-  readonly platforms: string[];
-  readonly userChoice: Promise<{
-    outcome: 'accepted' | 'dismissed';
-    platform: string;
-  }>;
-  prompt(): Promise<void>;
-}
 
 interface DownloadAppButtonProps {
   variant?: 'header' | 'sidebar' | 'compact';
@@ -24,7 +16,7 @@ export const DownloadAppButton: React.FC<DownloadAppButtonProps> = ({
   showText = true,
   className = ''
 }) => {
-  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const { deferredPrompt, isIOS, clearDeferredPrompt } = usePWAContext();
   const [showInstallModal, setShowInstallModal] = useState(false);
   const { isInstalled } = usePWA();
   const { company } = useAuth();
@@ -41,46 +33,34 @@ export const DownloadAppButton: React.FC<DownloadAppButtonProps> = ({
   
   const colors = getDashboardColors();
 
-  useEffect(() => {
-    // Listen for the beforeinstallprompt event to get the deferred prompt
-    const handleBeforeInstallPrompt = (e: Event) => {
-      e.preventDefault();
-      setDeferredPrompt(e as BeforeInstallPromptEvent);
-    };
-
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-
-    return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    };
-  }, []);
-
   const handleDownload = async () => {
-    // Try automatic installation first
+    // If deferredPrompt exists, trigger the native install prompt directly
     if (deferredPrompt) {
       try {
-        console.log('Triggering automatic install prompt...');
+        console.log('[PWA] Triggering native install prompt from DownloadAppButton...');
         await deferredPrompt.prompt();
         const { outcome } = await deferredPrompt.userChoice;
         
         if (outcome === 'accepted') {
-          console.log('User accepted the install prompt');
-          // The appinstalled event will handle hiding the button
+          console.log('[PWA] User accepted the install prompt');
+          // The appinstalled event (handled in context) will handle the rest
         } else {
-          console.log('User dismissed the install prompt');
+          console.log('[PWA] User dismissed the install prompt');
+          clearDeferredPrompt();
         }
-        
-        setDeferredPrompt(null);
-        return;
       } catch (error) {
-        console.error('Error during automatic installation:', error);
-        // Fall back to showing the modal
+        console.error('[PWA] Error during installation:', error);
+        clearDeferredPrompt();
+        // Fall back to modal only for iOS, otherwise just show modal
         setShowInstallModal(true);
       }
-    } else {
-      // No automatic prompt available, show the detailed modal
-      setShowInstallModal(true);
+      return;
     }
+    
+    // No deferredPrompt available - show modal
+    // For iOS, the modal will show manual instructions
+    // For other browsers, the modal will also show instructions as fallback
+    setShowInstallModal(true);
   };
 
 

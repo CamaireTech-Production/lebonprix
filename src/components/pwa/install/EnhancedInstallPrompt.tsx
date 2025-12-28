@@ -2,21 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { Download, X, Smartphone, Monitor, AlertCircle, CheckCircle } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { InstallGuide } from './InstallGuide';
-
-interface BeforeInstallPromptEvent extends Event {
-  readonly platforms: string[];
-  readonly userChoice: Promise<{
-    outcome: 'accepted' | 'dismissed';
-    platform: string;
-  }>;
-  prompt(): Promise<void>;
-}
+import { usePWAContext } from '../../../contexts/PWAContext';
 
 export const EnhancedInstallPrompt: React.FC = () => {
   const location = useLocation();
-  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const { deferredPrompt, isIOS, isStandalone, clearDeferredPrompt } = usePWAContext();
   const [showInstallPrompt, setShowInstallPrompt] = useState(false);
-  const [isInstalled, setIsInstalled] = useState(false);
   const [showInstallGuide, setShowInstallGuide] = useState(false);
   const [pwaStatus, setPwaStatus] = useState({
     hasServiceWorker: false,
@@ -92,41 +83,6 @@ export const EnhancedInstallPrompt: React.FC = () => {
 
     checkPWARequirements();
 
-    // Check if app is already installed
-    const checkIfInstalled = () => {
-      if (window.matchMedia('(display-mode: standalone)').matches) {
-        setIsInstalled(true);
-        return;
-      }
-      
-      // Check for iOS Safari
-      if ((window.navigator as any).standalone === true) {
-        setIsInstalled(true);
-        return;
-      }
-    };
-
-    checkIfInstalled();
-
-    // Listen for the beforeinstallprompt event
-    const handleBeforeInstallPrompt = (e: Event) => {
-      console.log('beforeinstallprompt event fired!');
-      e.preventDefault();
-      setDeferredPrompt(e as BeforeInstallPromptEvent);
-      setShowInstallPrompt(true);
-    };
-
-    // Listen for the appinstalled event
-    const handleAppInstalled = () => {
-      console.log('App installed successfully!');
-      setIsInstalled(true);
-      setShowInstallPrompt(false);
-      setDeferredPrompt(null);
-    };
-
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    window.addEventListener('appinstalled', handleAppInstalled);
-
     // Check if user has previously dismissed the prompt
     const dismissed = localStorage.getItem('pwa-install-dismissed');
     if (dismissed) {
@@ -142,73 +98,53 @@ export const EnhancedInstallPrompt: React.FC = () => {
     }
 
     // Show prompt if installable and on login page
-    if (pwaStatus.isInstallable && !isInstalled && isLoginPage) {
-      console.log('PWA is installable, showing prompt in 3 seconds...');
+    if (pwaStatus.isInstallable && !isStandalone && isLoginPage && deferredPrompt) {
+      console.log('[PWA] PWA is installable, showing prompt in 3 seconds...');
       setTimeout(() => {
         setShowInstallPrompt(true);
       }, 3000);
-    } else {
-      console.log('PWA not installable or not on login page:', pwaStatus);
     }
-
-    return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-      window.removeEventListener('appinstalled', handleAppInstalled);
-    };
-  }, [pwaStatus.isInstallable, isInstalled, isLoginPage]);
+  }, [pwaStatus.isInstallable, isStandalone, isLoginPage, deferredPrompt]);
 
   const handleInstallClick = async () => {
-    if (!deferredPrompt) {
-      console.log('No deferred prompt available');
-      console.log('PWA Status:', pwaStatus);
-      
-      // Try to trigger the beforeinstallprompt event manually
-      const event = new Event('beforeinstallprompt');
-      window.dispatchEvent(event);
-      
-      // Wait a moment for the event to be processed
-      setTimeout(() => {
-        if (!deferredPrompt && pwaStatus.isInstallable) {
-          // If still no prompt, try browser-specific installation
-          const userAgent = navigator.userAgent;
-          if (/Chrome/.test(userAgent) || /Edg/.test(userAgent)) {
-            // For Chrome/Edge, try to open the install dialog
-            if ('serviceWorker' in navigator) {
-              navigator.serviceWorker.getRegistration().then(registration => {
-                if (registration) {
-                  // Try to trigger install via service worker
-                  console.log('Attempting to trigger install via service worker...');
-                }
-              });
-            }
-          }
-          
-          // Show helpful installation guide
-          setShowInstallGuide(true);
-        } else if (!pwaStatus.isInstallable) {
-          alert('App is not installable. Issues found:\n\n' + pwaStatus.errors.join('\n'));
+    // If deferredPrompt exists, trigger the native install prompt directly
+    if (deferredPrompt) {
+      try {
+        console.log('[PWA] Triggering native install prompt from EnhancedInstallPrompt...');
+        await deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        
+        if (outcome === 'accepted') {
+          console.log('[PWA] User accepted the install prompt');
+        } else {
+          console.log('[PWA] User dismissed the install prompt');
+          clearDeferredPrompt();
         }
-      }, 100);
+        
+        setShowInstallPrompt(false);
+      } catch (error) {
+        console.error('[PWA] Error during installation:', error);
+        clearDeferredPrompt();
+        // Fall back to manual guide only for iOS
+        if (isIOS) {
+          setShowInstallGuide(true);
+        } else {
+          setShowInstallPrompt(false);
+        }
+      }
       return;
     }
-
-    try {
-      console.log('Triggering install prompt...');
-      await deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-      
-      if (outcome === 'accepted') {
-        console.log('User accepted the install prompt');
-      } else {
-        console.log('User dismissed the install prompt');
-      }
-      
-      setDeferredPrompt(null);
-      setShowInstallPrompt(false);
-    } catch (error) {
-      console.error('Error during installation:', error);
-      alert('Installation failed. Please try using your browser\'s menu to install the app.');
+    
+    // No deferredPrompt available
+    // For iOS Safari, show manual guide (beforeinstallprompt not supported)
+    if (isIOS) {
+      setShowInstallGuide(true);
+      return;
     }
+    
+    // For other browsers, show manual guide as fallback
+    console.log('[PWA] No deferred prompt available, showing manual guide');
+    setShowInstallGuide(true);
   };
 
   const handleDismiss = () => {
@@ -216,10 +152,7 @@ export const EnhancedInstallPrompt: React.FC = () => {
     localStorage.setItem('pwa-install-dismissed', Date.now().toString());
   };
 
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-  const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
-
-  if (isInstalled || isStandalone || !isLoginPage) {
+  if (isStandalone || !isLoginPage) {
     return null;
   }
 

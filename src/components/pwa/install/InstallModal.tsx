@@ -1,15 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Download, X, Smartphone, Monitor, AlertCircle, CheckCircle } from 'lucide-react';
 import { InstallGuide } from './InstallGuide';
-
-interface BeforeInstallPromptEvent extends Event {
-  readonly platforms: string[];
-  readonly userChoice: Promise<{
-    outcome: 'accepted' | 'dismissed';
-    platform: string;
-  }>;
-  prompt(): Promise<void>;
-}
+import { usePWAContext } from '../../../contexts/PWAContext';
 
 interface InstallModalProps {
   isOpen: boolean;
@@ -17,8 +9,7 @@ interface InstallModalProps {
 }
 
 export const InstallModal: React.FC<InstallModalProps> = ({ isOpen, onClose }) => {
-  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
-  const [isInstalled, setIsInstalled] = useState(false);
+  const { deferredPrompt, isIOS, isStandalone, clearDeferredPrompt } = usePWAContext();
   const [showInstallGuide, setShowInstallGuide] = useState(false);
   const [pwaStatus, setPwaStatus] = useState({
     hasServiceWorker: false,
@@ -28,8 +19,7 @@ export const InstallModal: React.FC<InstallModalProps> = ({ isOpen, onClose }) =
     errors: [] as string[]
   });
 
-  // Device detection
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  // Device detection (for display purposes only)
   const isAndroid = /Android/.test(navigator.userAgent);
   const isChrome = /Chrome/.test(navigator.userAgent);
   const isEdge = /Edg/.test(navigator.userAgent);
@@ -100,76 +90,52 @@ export const InstallModal: React.FC<InstallModalProps> = ({ isOpen, onClose }) =
     };
 
     checkPWARequirements();
-
-    // Check if app is already installed
-    const checkIfInstalled = () => {
-      if (window.matchMedia('(display-mode: standalone)').matches) {
-        setIsInstalled(true);
-        return;
-      }
-      
-      // Check for iOS Safari
-      if ((window.navigator as { standalone?: boolean }).standalone === true) {
-        setIsInstalled(true);
-        return;
-      }
-    };
-
-    checkIfInstalled();
-
-    // Listen for the beforeinstallprompt event
-    const handleBeforeInstallPrompt = (e: Event) => {
-      console.log('beforeinstallprompt event fired!');
-      e.preventDefault();
-      setDeferredPrompt(e as BeforeInstallPromptEvent);
-    };
-
-    // Listen for the appinstalled event
-    const handleAppInstalled = () => {
-      console.log('App installed successfully!');
-      setIsInstalled(true);
-      onClose();
-      setDeferredPrompt(null);
-    };
-
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    window.addEventListener('appinstalled', handleAppInstalled);
-
-    return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-      window.removeEventListener('appinstalled', handleAppInstalled);
-    };
-  }, [isOpen, onClose]);
+  }, [isOpen]);
 
   const handleInstallClick = async () => {
-    // For Android users with Chrome/Edge, try automatic installation first
-    if (isAndroid && (isChrome || isEdge) && deferredPrompt) {
+    // If deferredPrompt exists, trigger the native install prompt directly
+    if (deferredPrompt) {
       try {
-        console.log('Triggering automatic install prompt for Android...');
+        console.log('[PWA] Triggering native install prompt from InstallModal...');
         await deferredPrompt.prompt();
         const { outcome } = await deferredPrompt.userChoice;
         
         if (outcome === 'accepted') {
-          console.log('User accepted the install prompt');
-          setDeferredPrompt(null);
+          console.log('[PWA] User accepted the install prompt');
+          // The appinstalled event (handled in context) will close the modal
           onClose();
-          return;
         } else {
-          console.log('User dismissed the install prompt');
-          // Show manual instructions for Android
-          setShowInstallGuide(true);
-          return;
+          console.log('[PWA] User dismissed the install prompt');
+          clearDeferredPrompt();
+          // Only show manual guide for iOS, otherwise just close
+          if (isIOS) {
+            setShowInstallGuide(true);
+          } else {
+            onClose();
+          }
         }
       } catch (error) {
-        console.error('Error during automatic installation:', error);
-        // Fall back to manual instructions
-        setShowInstallGuide(true);
-        return;
+        console.error('[PWA] Error during installation:', error);
+        clearDeferredPrompt();
+        // Fall back to manual guide only for iOS
+        if (isIOS) {
+          setShowInstallGuide(true);
+        } else {
+          onClose();
+        }
       }
+      return;
     }
-
-    // For other cases, show manual installation guide
-    console.log('Showing manual installation guide');
+    
+    // No deferredPrompt available
+    // For iOS Safari, show manual guide (beforeinstallprompt not supported)
+    if (isIOS) {
+      setShowInstallGuide(true);
+      return;
+    }
+    
+    // For other browsers, show manual guide as fallback
+    console.log('[PWA] No deferred prompt available, showing manual guide');
     setShowInstallGuide(true);
   };
 
@@ -177,9 +143,7 @@ export const InstallModal: React.FC<InstallModalProps> = ({ isOpen, onClose }) =
     onClose();
   };
 
-  const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
-
-  if (!isOpen || isInstalled || isStandalone) {
+  if (!isOpen || isStandalone) {
     return null;
   }
 
