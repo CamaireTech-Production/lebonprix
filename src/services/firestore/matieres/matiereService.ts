@@ -56,21 +56,24 @@ export const createMatiere = async (
   createdBy?: import('../../../types/models').EmployeeRef | null
 ): Promise<Matiere> => {
   try {
-    if (!data.name || !data.refCategorie) {
-      throw new Error('Invalid matiere data: name and refCategorie are required');
+    if (!data.name) {
+      throw new Error('Invalid matiere data: name is required');
     }
 
-    const categoryQuery = query(
-      collection(db, 'categories'),
-      where('name', '==', data.refCategorie),
-      where('companyId', '==', companyId),
-      where('type', '==', 'matiere'),
-      where('isActive', '==', true)
-    );
-    const categorySnapshot = await getDocs(categoryQuery);
-    
-    if (categorySnapshot.empty) {
-      throw new Error(`Category "${data.refCategorie}" not found`);
+    // Validate category if provided
+    if (data.refCategorie) {
+      const categoryQuery = query(
+        collection(db, 'categories'),
+        where('name', '==', data.refCategorie),
+        where('companyId', '==', companyId),
+        where('type', '==', 'matiere'),
+        where('isActive', '==', true)
+      );
+      const categorySnapshot = await getDocs(categoryQuery);
+      
+      if (categorySnapshot.empty) {
+        throw new Error(`Category "${data.refCategorie}" not found`);
+      }
     }
 
     const batch = writeBatch(db);
@@ -82,7 +85,6 @@ export const createMatiere = async (
     // Build matiereData object, excluding undefined values (Firestore doesn't support undefined)
     const matiereData: any = {
       name: data.name,
-      refCategorie: data.refCategorie,
       refStock: data.refStock || '',
       companyId,
       isDeleted: false,
@@ -92,6 +94,9 @@ export const createMatiere = async (
     };
     
     // Only include optional fields if they have values
+    if (data.refCategorie) {
+      matiereData.refCategorie = data.refCategorie;
+    }
     if (data.description) {
       matiereData.description = data.description;
     }
@@ -209,10 +214,13 @@ export const createMatiere = async (
     
     await batch.commit();
     
-    try {
-      await updateCategoryMatiereCount(data.refCategorie, companyId, true);
-    } catch (error) {
-      logError('Error updating category matiere count', error);
+    // Update category count only if category is provided
+    if (data.refCategorie) {
+      try {
+        await updateCategoryMatiereCount(data.refCategorie, companyId, true);
+      } catch (error) {
+        logError('Error updating category matiere count', error);
+      }
     }
     
     return {

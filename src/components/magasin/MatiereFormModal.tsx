@@ -159,14 +159,19 @@ const MatiereFormModal: React.FC<MatiereFormModalProps> = ({
       return;
     }
 
-    // Validation
+    // Validation - Only name, price, and stock are required
     if (!formData.name.trim()) {
       showErrorToast('Le nom est requis');
       return;
     }
 
-    if (!formData.refCategorie) {
-      showErrorToast('La catégorie est requise');
+    if (!formData.costPrice || parseFloat(formData.costPrice) < 0) {
+      showErrorToast('Le prix d\'achat est requis et doit être positif');
+      return;
+    }
+
+    if (!formData.initialStock || parseInt(formData.initialStock) < 0) {
+      showErrorToast('Le stock initial est requis et doit être positif');
       return;
     }
 
@@ -219,8 +224,8 @@ const MatiereFormModal: React.FC<MatiereFormModalProps> = ({
         showSuccessToast('Matière mise à jour avec succès');
       } else {
         // Create mode
-        const initialStock = formData.initialStock ? parseInt(formData.initialStock) : 0;
-        const costPrice = formData.costPrice ? parseFloat(formData.costPrice) : undefined;
+        const initialStock = parseInt(formData.initialStock) || 0;
+        const costPrice = parseFloat(formData.costPrice) || 0;
 
         const supplierInfo = formData.supplierId ? {
           supplierId: formData.supplierId,
@@ -230,22 +235,28 @@ const MatiereFormModal: React.FC<MatiereFormModalProps> = ({
 
         const matiereData: any = {
           name: formData.name.trim(),
-          refCategorie: formData.refCategorie,
-          costPrice: costPrice || 0,
-          images: imageUrls,
-          imagePaths: imagePaths,
+          costPrice: costPrice,
           refStock: '', // Will be set by createMatiere
           companyId: company.id,
           userId: user.uid,
           isDeleted: false
         };
         
-        // Only include optional fields if they have values
+        // Only include optional fields if they have values (no undefined values)
         if (formData.description.trim()) {
           matiereData.description = formData.description.trim();
         }
         if (formData.unit) {
           matiereData.unit = formData.unit;
+        }
+        if (formData.refCategorie) {
+          matiereData.refCategorie = formData.refCategorie;
+        }
+        if (imageUrls.length > 0) {
+          matiereData.images = imageUrls;
+        }
+        if (imagePaths.length > 0) {
+          matiereData.imagePaths = imagePaths;
         }
         
         await addMatiere(
@@ -311,12 +322,12 @@ const MatiereFormModal: React.FC<MatiereFormModalProps> = ({
         {/* Category */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Catégorie *
+            Catégorie
           </label>
           <MatiereCategorySelector
             value={formData.refCategorie}
             onChange={(value) => setFormData(prev => ({ ...prev, refCategorie: value }))}
-            placeholder="Sélectionner une catégorie"
+            placeholder="Sélectionner une catégorie (optionnel)"
           />
         </div>
 
@@ -334,24 +345,26 @@ const MatiereFormModal: React.FC<MatiereFormModalProps> = ({
 
         {/* Cost Price */}
         <PriceInput
-          label="Prix d'achat (XAF)"
+          label="Prix d'achat (XAF) *"
           name="costPrice"
           value={formData.costPrice}
           onChange={(e) => handleInputChange({ target: { name: 'costPrice', value: e.target.value } } as any)}
           placeholder="0"
           allowDecimals={true}
+          required
         />
 
         {/* Initial Stock (only in create mode) */}
         {!matiere && (
           <Input
-            label="Stock initial"
+            label="Stock initial *"
             name="initialStock"
             type="number"
             value={formData.initialStock}
             onChange={handleInputChange}
             placeholder="0"
             min="0"
+            required
           />
         )}
 

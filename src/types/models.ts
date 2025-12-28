@@ -81,7 +81,7 @@ export interface Matiere extends BaseModel {
   description?: string;
   images?: string[]; // Firebase Storage URLs
   imagePaths?: string[]; // Storage paths for deletion
-  refCategorie: string; // Category name (not ID)
+  refCategorie?: string; // Category name (not ID) - optional
   refStock: string; // Reference to stock document ID
   unit?: string; // Unit of measurement (from units.ts or customUnits) - optional
   costPrice: number; // Last purchase price
