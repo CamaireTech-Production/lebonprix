@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLocation, Link, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, ShoppingCart, DollarSign, Package2, FileBarChart, Settings, X, Receipt, Users, Building2, Plus, Grid3X3, ShoppingBag, UserCheck, ChevronDown, ChevronRight, Loader2, Phone, ScanLine, Warehouse, Factory} from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next';
 import CreateCompanyModal from '../modals/CreateCompanyModal';
 import Modal, { ModalFooter } from '../common/Modal';
 import { RESOURCES } from '../../constants/resources';
+import { usePWA } from '../../hooks/usePWA';
 
 interface SidebarProps {
   onClose: () => void;
@@ -22,6 +23,7 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
   const navigate = useNavigate();
   const { company, currentEmployee, isOwner, effectiveRole } = useAuth();
   const { canAccess, canAccessFinance, canAccessHR, canAccessSettings, templateLoading } = useRolePermissions();
+  const { isInstalled } = usePWA();
   const [showCreateCompanyModal, setShowCreateCompanyModal] = React.useState(false);
   const [showCompanyNavigationConfirm, setShowCompanyNavigationConfirm] = React.useState(false);
   const [expensesMenuExpanded, setExpensesMenuExpanded] = React.useState(false);
@@ -29,6 +31,17 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
   const [productsMenuExpanded, setProductsMenuExpanded] = React.useState(false);
   const [magasinMenuExpanded, setMagasinMenuExpanded] = React.useState(false);
   const [productionsMenuExpanded, setProductionsMenuExpanded] = React.useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  
+  // Detect mobile device
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
   
   // Vérifier si on doit afficher le loader pour le template
   const isActualOwner = isOwner || effectiveRole === 'owner';
@@ -400,8 +413,12 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
         )}
       </nav>
       
-      {/* User section */}
-      <div className="border-t border-gray-200 p-4">
+      {/* User section - Add bottom padding on mobile PWA to prevent overlap with bottom nav */}
+      <div 
+        className={`border-t border-gray-200 p-4 flex-shrink-0 ${
+          isMobile && isInstalled ? 'pb-[calc(1rem+64px+env(safe-area-inset-bottom,0px))]' : ''
+        }`}
+      >
         <div className="flex items-center">
           <UserAvatar company={company} size="sm" />
           <div className="ml-3 flex-1 min-w-0">
