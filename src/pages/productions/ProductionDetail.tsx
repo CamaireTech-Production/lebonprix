@@ -21,7 +21,7 @@ const ProductionDetail: React.FC = () => {
   const isCompanyRoute = location.pathname.startsWith('/company/');
   const companyId = isCompanyRoute ? location.pathname.split('/')[2] : null;
   
-  const { productions, loading: productionsLoading, changeState, updateProduction } = useProductions();
+  const { productions, loading: productionsLoading, changeState, changeStatus, updateProduction } = useProductions();
   const { flows } = useProductionFlows();
   const { flowSteps } = useProductionFlowSteps();
   const { categories } = useProductionCategories();
@@ -29,7 +29,9 @@ const ProductionDetail: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<'overview' | 'materials' | 'charges' | 'history'>('overview');
   const [isChangeStateModalOpen, setIsChangeStateModalOpen] = useState(false);
+  const [isChangeStatusModalOpen, setIsChangeStatusModalOpen] = useState(false);
   const [newStepId, setNewStepId] = useState('');
+  const [newStatus, setNewStatus] = useState<'draft' | 'in_progress' | 'ready' | 'published' | 'cancelled' | 'closed'>('draft');
   const [stateChangeNote, setStateChangeNote] = useState('');
   const [isChangingState, setIsChangingState] = useState(false);
   const [isChargeModalOpen, setIsChargeModalOpen] = useState(false);
@@ -109,6 +111,26 @@ const ProductionDetail: React.FC = () => {
     }
   };
 
+  const handleChangeStatus = async () => {
+    if (!production) return;
+
+    setIsChangingState(true);
+    try {
+      await changeStatus(production.id, newStatus, stateChangeNote || undefined);
+      showSuccessToast('Statut de la production mis à jour');
+      setIsChangeStatusModalOpen(false);
+      setNewStatus('draft');
+      setStateChangeNote('');
+    } catch (error: any) {
+      showErrorToast(error.message || 'Erreur lors du changement de statut');
+    } finally {
+      setIsChangingState(false);
+    }
+  };
+
+  // Check if production uses flow or simple mode
+  const hasFlow = production?.flowId !== undefined && production.flowId !== null;
+
   if (productionsLoading) {
     return <LoadingScreen />;
   }
@@ -171,13 +193,26 @@ const ProductionDetail: React.FC = () => {
           <div className="flex flex-wrap gap-2">
             {!isClosed && (
               <>
-                <Button
-                  variant="outline"
-                  icon={<Edit2 size={16} />}
-                  onClick={() => setIsChangeStateModalOpen(true)}
-                >
-                  Changer l'état
-                </Button>
+                {hasFlow ? (
+                  <Button
+                    variant="outline"
+                    icon={<Edit2 size={16} />}
+                    onClick={() => setIsChangeStateModalOpen(true)}
+                  >
+                    Changer l'étape
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    icon={<Edit2 size={16} />}
+                    onClick={() => {
+                      setNewStatus(production.status);
+                      setIsChangeStatusModalOpen(true);
+                    }}
+                  >
+                    Changer le statut
+                  </Button>
+                )}
                 <Button
                   icon={<Package size={16} />}
                   onClick={() => setIsPublishModalOpen(true)}
@@ -207,7 +242,7 @@ const ProductionDetail: React.FC = () => {
                 rows.push('Référence,' + escapeCSV(production.reference || ''));
                 rows.push('Description,' + escapeCSV(production.description || ''));
                 rows.push('Catégorie,' + escapeCSV(categories.find(c => c.id === production.categoryId)?.name || ''));
-                rows.push('Flux,' + escapeCSV(productionFlow?.name || ''));
+                rows.push('Flux,' + escapeCSV(hasFlow ? (productionFlow?.name || '') : 'Aucun (production simple)'));
                 rows.push('Statut,' + escapeCSV(production.status));
                 rows.push('Coût calculé,' + escapeCSV(production.calculatedCostPrice || 0));
                 rows.push('Coût validé,' + escapeCSV(production.validatedCostPrice || ''));
@@ -253,18 +288,49 @@ const ProductionDetail: React.FC = () => {
                 // History
                 rows.push('');
                 rows.push('Historique des Changements d\'État');
-                rows.push('De,À,Date,Note');
-                production.stateHistory.forEach(h => {
-                  const changeDate = h.timestamp?.seconds
-                    ? new Date(h.timestamp.seconds * 1000).toLocaleString('fr-FR')
-                    : '';
-                  rows.push([
-                    escapeCSV(h.fromStepName || 'Début'),
-                    escapeCSV(h.toStepName),
-                    escapeCSV(changeDate),
-                    escapeCSV(h.note || '')
-                  ].join(','));
-                });
+                if (hasFlow) {
+                  rows.push('De,À,Date,Note');
+                  production.stateHistory.forEach(h => {
+                    const changeDate = h.timestamp?.seconds
+                      ? new Date(h.timestamp.seconds * 1000).toLocaleString('fr-FR')
+                      : '';
+                    const fromStep = h.fromStepId
+                      ? flowSteps.find(s => s.id === h.fromStepId)
+                      : null;
+                    const toStep = h.toStepId
+                      ? flowSteps.find(s => s.id === h.toStepId)
+                      : null;
+                    rows.push([
+                      escapeCSV(fromStep?.name || h.fromStepName || 'Début'),
+                      escapeCSV(toStep?.name || h.toStepName || ''),
+                      escapeCSV(changeDate),
+                      escapeCSV(h.note || '')
+                    ].join(','));
+                  });
+                } else {
+                  rows.push('De,À,Date,Note');
+                  const statusLabels: Record<string, string> = {
+                    draft: 'Brouillon',
+                    in_progress: 'En cours',
+                    ready: 'Prêt',
+                    published: 'Publié',
+                    cancelled: 'Annulé',
+                    closed: 'Fermé'
+                  };
+                  production.stateHistory.forEach(h => {
+                    const changeDate = h.timestamp?.seconds
+                      ? new Date(h.timestamp.seconds * 1000).toLocaleString('fr-FR')
+                      : '';
+                    const fromStatus = h.fromStatus ? (statusLabels[h.fromStatus] || h.fromStatus) : 'Début';
+                    const toStatus = h.toStatus ? (statusLabels[h.toStatus] || h.toStatus) : '';
+                    rows.push([
+                      escapeCSV(fromStatus),
+                      escapeCSV(toStatus),
+                      escapeCSV(changeDate),
+                      escapeCSV(h.note || '')
+                    ].join(','));
+                  });
+                }
 
                 const csvContent = rows.join('\n');
                 const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -380,22 +446,31 @@ const ProductionDetail: React.FC = () => {
                     : 'Aucune'}
                 </p>
               </div>
-              <div>
-                <h3 className="text-sm font-medium text-gray-500 mb-2">Flux</h3>
-                <p className="text-gray-900">{productionFlow?.name || 'N/A'}</p>
-              </div>
-              <div>
-                <h3 className="text-sm font-medium text-gray-500 mb-2">Étape actuelle</h3>
-                <div className="flex items-center space-x-2">
-                  {currentStep && (
-                    <div
-                      className="w-4 h-4 rounded-full"
-                      style={{ backgroundColor: currentStep.color || '#3B82F6' }}
-                    />
-                  )}
-                  <p className="text-gray-900">{currentStep?.name || 'N/A'}</p>
+              {hasFlow ? (
+                <>
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500 mb-2">Flux</h3>
+                    <p className="text-gray-900">{productionFlow?.name || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500 mb-2">Étape actuelle</h3>
+                    <div className="flex items-center space-x-2">
+                      {currentStep && (
+                        <div
+                          className="w-4 h-4 rounded-full"
+                          style={{ backgroundColor: currentStep.color || '#3B82F6' }}
+                        />
+                      )}
+                      <p className="text-gray-900">{currentStep?.name || 'N/A'}</p>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500 mb-2">Mode</h3>
+                  <p className="text-gray-900">Production simple (sans flux)</p>
                 </div>
-              </div>
+              )}
               <div>
                 <h3 className="text-sm font-medium text-gray-500 mb-2">Coût calculé</h3>
                 <p className="text-lg font-semibold text-gray-900">
@@ -691,10 +766,45 @@ const ProductionDetail: React.FC = () => {
             ) : (
               <div className="space-y-4">
                 {production.stateHistory.map((change, idx) => {
-                  const fromStep = change.fromStepId
-                    ? flowSteps.find(s => s.id === change.fromStepId)
-                    : null;
-                  const toStep = flowSteps.find(s => s.id === change.toStepId);
+                  // Handle both flow mode and simple mode
+                  const isFlowMode = hasFlow && (change.toStepId || change.fromStepId);
+                  
+                  let displayText = '';
+                  if (isFlowMode) {
+                    const fromStep = change.fromStepId
+                      ? flowSteps.find(s => s.id === change.fromStepId)
+                      : null;
+                    const toStep = change.toStepId
+                      ? flowSteps.find(s => s.id === change.toStepId)
+                      : null;
+                    
+                    if (fromStep && toStep) {
+                      displayText = `${fromStep.name} → ${toStep.name}`;
+                    } else if (toStep) {
+                      displayText = `Début → ${toStep.name}`;
+                    } else if (change.toStepName) {
+                      displayText = change.toStepName;
+                    }
+                  } else {
+                    // Simple mode: status-based
+                    const statusLabels: Record<string, string> = {
+                      draft: 'Brouillon',
+                      in_progress: 'En cours',
+                      ready: 'Prêt',
+                      published: 'Publié',
+                      cancelled: 'Annulé',
+                      closed: 'Fermé'
+                    };
+                    
+                    const fromStatusLabel = change.fromStatus ? statusLabels[change.fromStatus] || change.fromStatus : 'Début';
+                    const toStatusLabel = change.toStatus ? statusLabels[change.toStatus] || change.toStatus : '';
+                    
+                    if (fromStatusLabel && toStatusLabel) {
+                      displayText = `${fromStatusLabel} → ${toStatusLabel}`;
+                    } else if (toStatusLabel) {
+                      displayText = toStatusLabel;
+                    }
+                  }
 
                   return (
                     <div key={change.id} className="flex items-start space-x-4 pb-4 border-b border-gray-200 last:border-0">
@@ -711,15 +821,7 @@ const ProductionDetail: React.FC = () => {
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center space-x-2 mb-1">
-                          {fromStep && (
-                            <>
-                              <span className="text-sm text-gray-600">{fromStep.name}</span>
-                              <span className="text-gray-400">→</span>
-                            </>
-                          )}
-                          {toStep && (
-                            <span className="text-sm font-medium text-gray-900">{toStep.name}</span>
-                          )}
+                          <span className="text-sm font-medium text-gray-900">{displayText || 'Changement d\'état'}</span>
                         </div>
                         <p className="text-xs text-gray-500">
                           {change.timestamp && new Date(change.timestamp.seconds * 1000).toLocaleString('fr-FR')}
@@ -737,12 +839,12 @@ const ProductionDetail: React.FC = () => {
         )}
       </div>
 
-      {/* Change State Modal */}
-      {isChangeStateModalOpen && (
+      {/* Change State Modal (Flow Mode) */}
+      {isChangeStateModalOpen && hasFlow && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
             <div className="p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Changer l'état</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Changer l'étape</h3>
               
               <div className="space-y-4">
                 <div>
@@ -781,7 +883,7 @@ const ProductionDetail: React.FC = () => {
                     onChange={(e) => setStateChangeNote(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     rows={3}
-                    placeholder="Ajouter une note pour ce changement d'état..."
+                    placeholder="Ajouter une note pour ce changement d'étape..."
                   />
                 </div>
               </div>
@@ -802,6 +904,86 @@ const ProductionDetail: React.FC = () => {
               <Button
                 onClick={handleChangeState}
                 disabled={isChangingState || !newStepId}
+              >
+                {isChangingState ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin mr-2" />
+                    Changement...
+                  </>
+                ) : (
+                  'Confirmer'
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Change Status Modal (Simple Mode) */}
+      {isChangeStatusModalOpen && !hasFlow && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Changer le statut</h3>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Statut actuel
+                  </label>
+                  <div className="px-3 py-2 bg-gray-50 rounded-md text-sm text-gray-600">
+                    {getStatusBadge(production.status)}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Nouveau statut <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={newStatus}
+                    onChange={(e) => setNewStatus(e.target.value as typeof newStatus)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="draft">Brouillon</option>
+                    <option value="in_progress">En cours</option>
+                    <option value="ready">Prêt</option>
+                    <option value="published">Publié</option>
+                    <option value="cancelled">Annulé</option>
+                    {production.status !== 'closed' && <option value="closed">Fermé</option>}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Note (optionnel)
+                  </label>
+                  <textarea
+                    value={stateChangeNote}
+                    onChange={(e) => setStateChangeNote(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    rows={3}
+                    placeholder="Ajouter une note pour ce changement de statut..."
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="px-6 py-4 bg-gray-50 flex justify-end space-x-3">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsChangeStatusModalOpen(false);
+                  setNewStatus('draft');
+                  setStateChangeNote('');
+                }}
+                disabled={isChangingState}
+              >
+                Annuler
+              </Button>
+              <Button
+                onClick={handleChangeStatus}
+                disabled={isChangingState || newStatus === production.status}
               >
                 {isChangingState ? (
                   <>

@@ -67,38 +67,15 @@ export const createProduction = async (
       throw new Error('Production name is required');
     }
 
-    if (!data.flowId) {
-      throw new Error('Flow ID is required');
-    }
-
-    // Validate flow exists and get it
-    const flow = await getProductionFlow(data.flowId, companyId);
-    if (!flow) {
-      throw new Error('Flow not found');
-    }
-
-    if (!flow.stepIds || flow.stepIds.length === 0) {
-      throw new Error('Flow must have at least one step');
-    }
-
-    // Set initial step (first step in flow)
-    const initialStepId = flow.stepIds[0];
-    if (!data.currentStepId) {
-      data.currentStepId = initialStepId;
-    }
-
-    // Validate currentStepId is in flow
-    if (!flow.stepIds.includes(data.currentStepId)) {
-      throw new Error('Current step must be in the selected flow');
-    }
-
     const batch = writeBatch(db);
 
     // Calculate initial cost
     const calculatedCostPrice = calculateProductionCost(data.materials || [], []);
 
+    // Build production data, excluding undefined values
     const productionData: any = {
-      ...data,
+      name: data.name,
+      reference: data.reference || '',
       companyId,
       status: 'draft',
       stateHistory: [],
@@ -112,23 +89,68 @@ export const createProduction = async (
       updatedAt: serverTimestamp()
     };
 
+    // Only include optional fields if they have values
+    if (data.description) {
+      productionData.description = data.description;
+    }
+    if (data.categoryId) {
+      productionData.categoryId = data.categoryId;
+    }
+    if (data.images && data.images.length > 0) {
+      productionData.images = data.images;
+    }
+    if (data.imagePaths && data.imagePaths.length > 0) {
+      productionData.imagePaths = data.imagePaths;
+    }
     if (createdBy) {
       productionData.createdBy = createdBy;
     }
 
-    // Create initial state change (use Timestamp.now() instead of serverTimestamp() for arrayUnion)
-    // Filter out undefined values for Firebase compatibility
-    const initialStateChangeData: any = {
-      id: `state-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      toStepId: data.currentStepId,
-      toStepName: '', // Will be populated when reading
-      changedBy: data.userId || companyId,
-      timestamp: Timestamp.now()
-    };
-    const initialStateChange: ProductionStateChange = initialStateChangeData as ProductionStateChange;
+    // Handle flow mode vs simple mode
+    if (data.flowId) {
+      // Flow mode: Validate flow exists and get it
+      const flow = await getProductionFlow(data.flowId, companyId);
+      if (!flow) {
+        throw new Error('Flow not found');
+      }
 
-    // Include initial state change in production data
-    productionData.stateHistory = [initialStateChange];
+      if (!flow.stepIds || flow.stepIds.length === 0) {
+        throw new Error('Flow must have at least one step');
+      }
+
+      // Set initial step (first step in flow)
+      const initialStepId = data.currentStepId || flow.stepIds[0];
+
+      // Validate currentStepId is in flow
+      if (!flow.stepIds.includes(initialStepId)) {
+        throw new Error('Current step must be in the selected flow');
+      }
+
+      productionData.flowId = data.flowId;
+      productionData.currentStepId = initialStepId;
+
+      // Create initial state change for flow mode
+      const initialStateChangeData: any = {
+        id: `state-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        toStepId: initialStepId,
+        toStepName: '', // Will be populated when reading
+        changedBy: data.userId || companyId,
+        timestamp: Timestamp.now()
+      };
+      const initialStateChange: ProductionStateChange = initialStateChangeData as ProductionStateChange;
+      productionData.stateHistory = [initialStateChange];
+    } else {
+      // Simple mode: No flow, use status-based state history
+      // Create initial state change for simple mode
+      const initialStateChangeData: any = {
+        id: `state-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        toStatus: 'draft',
+        changedBy: data.userId || companyId,
+        timestamp: Timestamp.now()
+      };
+      const initialStateChange: ProductionStateChange = initialStateChangeData as ProductionStateChange;
+      productionData.stateHistory = [initialStateChange];
+    }
 
     const productionRef = doc(collection(db, COLLECTION_NAME));
     batch.set(productionRef, productionData);
@@ -146,9 +168,12 @@ export const createProduction = async (
     await batch.commit();
 
     const now = Date.now() / 1000;
-    return {
+    const initialStateChange = productionData.stateHistory[0];
+    
+    const returnData: any = {
       id: productionRef.id,
-      ...data,
+      name: data.name,
+      reference: data.reference || '',
       companyId,
       status: 'draft',
       stateHistory: [initialStateChange],
@@ -160,8 +185,33 @@ export const createProduction = async (
       materials: data.materials || [],
       createdAt: { seconds: now, nanoseconds: 0 },
       updatedAt: { seconds: now, nanoseconds: 0 },
-      createdBy: createdBy || undefined
+      userId: data.userId || companyId
     };
+
+    // Only include optional fields if they have values
+    if (data.description) {
+      returnData.description = data.description;
+    }
+    if (data.categoryId) {
+      returnData.categoryId = data.categoryId;
+    }
+    if (data.images && data.images.length > 0) {
+      returnData.images = data.images;
+    }
+    if (data.imagePaths && data.imagePaths.length > 0) {
+      returnData.imagePaths = data.imagePaths;
+    }
+    if (data.flowId) {
+      returnData.flowId = data.flowId;
+    }
+    if (data.flowId && productionData.currentStepId) {
+      returnData.currentStepId = productionData.currentStepId;
+    }
+    if (createdBy) {
+      returnData.createdBy = createdBy;
+    }
+
+    return returnData as Production;
   } catch (error) {
     logError('Error creating production', error);
     throw error;
@@ -255,6 +305,83 @@ export const updateProduction = async (
   }
 };
 
+/**
+ * Change production status (for productions WITHOUT flow)
+ */
+export const changeProductionStatus = async (
+  id: string,
+  newStatus: 'draft' | 'in_progress' | 'ready' | 'published' | 'cancelled' | 'closed',
+  companyId: string,
+  userId: string,
+  note?: string
+): Promise<void> => {
+  try {
+    const productionRef = doc(db, COLLECTION_NAME, id);
+    const productionSnap = await getDoc(productionRef);
+
+    if (!productionSnap.exists()) {
+      throw new Error('Production not found');
+    }
+
+    const currentData = productionSnap.data() as Production;
+    if (currentData.companyId !== companyId) {
+      throw new Error('Unauthorized: Production belongs to different company');
+    }
+
+    if (currentData.isClosed) {
+      throw new Error('Cannot change status of closed production');
+    }
+
+    if (currentData.flowId) {
+      throw new Error('This production uses a flow. Use changeProductionState instead.');
+    }
+
+    const batch = writeBatch(db);
+
+    // Create state change record (simple mode - status-based)
+    const stateChangeData: any = {
+      id: `state-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      toStatus: newStatus,
+      changedBy: userId,
+      timestamp: Timestamp.now()
+    };
+
+    // Add optional fields only if they have values
+    if (currentData.status) {
+      stateChangeData.fromStatus = currentData.status;
+    }
+    if (note && note.trim()) {
+      stateChangeData.note = note.trim();
+    }
+
+    const stateChange: ProductionStateChange = stateChangeData as ProductionStateChange;
+
+    // Update production
+    batch.update(productionRef, {
+      status: newStatus,
+      stateHistory: arrayUnion(stateChange),
+      updatedAt: serverTimestamp()
+    });
+
+    // Create audit log
+    createAuditLog(batch, 'update', 'production', id, {
+      statusChange: {
+        from: currentData.status,
+        to: newStatus
+      }
+    }, userId);
+
+    await batch.commit();
+  } catch (error) {
+    logError('Error changing production status', error);
+    throw error;
+  }
+};
+
+/**
+ * Change production state (for productions WITH flow)
+ * Automatically detects mode and routes to appropriate function
+ */
 export const changeProductionState = async (
   id: string,
   newStepId: string,
@@ -277,6 +404,11 @@ export const changeProductionState = async (
 
     if (currentData.isClosed) {
       throw new Error('Cannot change state of closed production');
+    }
+
+    // If no flow, this function shouldn't be called
+    if (!currentData.flowId) {
+      throw new Error('This production does not use a flow. Use changeProductionStatus instead.');
     }
 
     // Validate new step is in flow
@@ -302,7 +434,7 @@ export const changeProductionState = async (
 
     const batch = writeBatch(db);
 
-    // Create state change record (filter out undefined values)
+    // Create state change record (flow mode - step-based)
     const stateChangeData: any = {
       id: `state-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       toStepId: newStepId,
@@ -600,20 +732,28 @@ export const publishProduction = async (
 
     // Close production
     const productionRef = doc(db, COLLECTION_NAME, productionId);
+    
     // Create final state change (filter out undefined values for Firebase compatibility)
+    // Handle both flow mode and simple mode
     const finalStateChangeData: any = {
       id: `state-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      toStepId: production.currentStepId || '', // Stay on same step
-      toStepName: 'Publié',
       changedBy: userId,
       timestamp: Timestamp.now(), // Use Timestamp.now() instead of serverTimestamp() for arrayUnion
       note: 'Production publiée en produit'
     };
     
-    // Add optional fields only if they have values
-    if (production.currentStepId) {
-      finalStateChangeData.fromStepId = production.currentStepId;
-      finalStateChangeData.fromStepName = ''; // Will be populated when reading
+    if (production.flowId) {
+      // Flow mode: Use step-based state change
+      finalStateChangeData.toStepId = production.currentStepId || '';
+      finalStateChangeData.toStepName = 'Publié';
+      if (production.currentStepId) {
+        finalStateChangeData.fromStepId = production.currentStepId;
+        finalStateChangeData.fromStepName = ''; // Will be populated when reading
+      }
+    } else {
+      // Simple mode: Use status-based state change
+      finalStateChangeData.fromStatus = production.status;
+      finalStateChangeData.toStatus = 'published';
     }
     
     const finalStateChange: ProductionStateChange = finalStateChangeData as ProductionStateChange;

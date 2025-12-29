@@ -526,13 +526,24 @@ export interface ProductionMaterial {
 
 /**
  * Production State Change - Tracks state evolution
+ * Supports two modes:
+ * - Flow mode: Uses stepId/stepName (when flowId exists)
+ * - Simple mode: Uses status (when no flowId)
  */
 export interface ProductionStateChange {
   id: string;
+  
+  // Flow mode (if flowId exists)
   fromStepId?: string; // Previous step (null if initial)
-  toStepId: string; // New step (must be from associated flow)
+  toStepId?: string; // New step (must be from associated flow)
   fromStepName?: string; // Denormalized for display
-  toStepName: string;
+  toStepName?: string; // Denormalized for display
+  
+  // Simple mode (if no flowId)
+  fromStatus?: string; // Previous status: 'draft' | 'in_progress' | 'ready' | etc.
+  toStatus?: string; // New status: 'draft' | 'in_progress' | 'ready' | etc.
+  
+  // Common fields
   changedBy: string; // User ID
   changedByName?: string; // Denormalized for display
   timestamp: Timestamp;
@@ -564,8 +575,8 @@ export interface Production extends BaseModel {
   categoryId?: string; // Reference to ProductionCategory
   
   // Flow & State Management
-  flowId: string; // Reference to ProductionFlow (defines available steps)
-  currentStepId: string; // Current step ID (must be from associated flow)
+  flowId?: string; // Reference to ProductionFlow (optional - defines available steps if provided)
+  currentStepId?: string; // Current step ID (optional - only if flowId exists)
   status: 'draft' | 'in_progress' | 'ready' | 'published' | 'cancelled' | 'closed';
   
   // State History (tracks all state changes - user can move freely)

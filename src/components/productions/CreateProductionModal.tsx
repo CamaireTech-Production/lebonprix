@@ -92,17 +92,8 @@ const CreateProductionModal: React.FC<CreateProductionModalProps> = ({
         currentStepId: ''
       });
       setStep3Data([]);
-    } else if (isOpen && flows.length > 0 && !step2Data.flowId) {
-      // Auto-select default flow if available
-      const defaultFlow = flows.find(f => f.isDefault) || flows[0];
-      if (defaultFlow) {
-        setStep2Data({
-          flowId: defaultFlow.id,
-          currentStepId: defaultFlow.stepIds[0] || ''
-        });
-      }
     }
-  }, [isOpen, flows, step2Data.flowId]);
+  }, [isOpen]);
 
   // Image compression
   const compressImage = async (file: File): Promise<File> => {
@@ -205,12 +196,10 @@ const CreateProductionModal: React.FC<CreateProductionModalProps> = ({
       }
       setCurrentStep(2);
     } else if (currentStep === 2) {
-      if (!step2Data.flowId) {
-        showWarningToast('Veuillez sélectionner un flux');
-        return;
-      }
-      if (!step2Data.currentStepId) {
-        showWarningToast('Veuillez sélectionner une étape initiale');
+      // Flow is optional - can always proceed to next step
+      // If flow is selected, validate that initial step is also selected
+      if (step2Data.flowId && !step2Data.currentStepId) {
+        showWarningToast('Veuillez sélectionner une étape initiale si vous avez choisi un flux');
         return;
       }
       setCurrentStep(3);
@@ -271,11 +260,11 @@ const CreateProductionModal: React.FC<CreateProductionModalProps> = ({
         name: step1Data.name.trim(),
         reference,
         description: step1Data.description.trim() || undefined,
-        images: imageUrls,
-        imagePaths: imagePaths,
-        categoryId: step1Data.categoryId || undefined,
-        flowId: step2Data.flowId,
-        currentStepId: step2Data.currentStepId,
+        images: imageUrls.length > 0 ? imageUrls : undefined,
+        imagePaths: imagePaths.length > 0 ? imagePaths : undefined,
+        categoryId: step1Data.categoryId && step1Data.categoryId.trim() !== '' ? step1Data.categoryId : undefined,
+        flowId: step2Data.flowId || undefined, // Optional
+        currentStepId: step2Data.flowId ? step2Data.currentStepId : undefined, // Only if flowId exists
         status: 'draft',
         materials: step3Data.filter(m => m.matiereId && m.requiredQuantity > 0),
         chargeIds: [],
@@ -513,36 +502,58 @@ const CreateProductionModal: React.FC<CreateProductionModalProps> = ({
           </div>
         )}
 
-        {/* Step 2: Flow Selection */}
+        {/* Step 2: Flow Selection (OPTIONAL) */}
         {currentStep === 2 && (
           <div className="space-y-4">
+            <div className="bg-blue-50 border border-blue-200 rounded-md p-4 mb-4">
+              <p className="text-sm text-blue-800">
+                <strong>Note:</strong> Le flux est optionnel. Vous pouvez continuer sans sélectionner de flux pour créer une production simple.
+              </p>
+            </div>
+            
             {flowsLoading ? (
               <LoadingScreen />
             ) : flows.length === 0 ? (
               <div className="text-center py-8">
                 <p className="text-gray-500 mb-4">Aucun flux disponible</p>
-                <p className="text-sm text-gray-400">
-                  Créez d'abord un flux dans la section "Flux"
+                <p className="text-sm text-gray-400 mb-4">
+                  Vous pouvez continuer sans flux ou créer un flux dans la section "Flux"
                 </p>
+                <button
+                  onClick={() => setCurrentStep(3)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                >
+                  Continuer sans flux
+                </button>
               </div>
             ) : (
               <>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Sélectionner un flux <span className="text-red-500">*</span>
+                    Sélectionner un flux (optionnel)
                   </label>
                   <select
                     value={step2Data.flowId}
                     onChange={(e) => {
-                      const flow = flows.find(f => f.id === e.target.value);
-                      setStep2Data({
-                        flowId: e.target.value,
-                        currentStepId: flow?.stepIds[0] || ''
-                      });
+                      const selectedFlowId = e.target.value;
+                      if (selectedFlowId === '') {
+                        // No flow selected - reset currentStepId
+                        setStep2Data({
+                          flowId: '',
+                          currentStepId: ''
+                        });
+                      } else {
+                        // Flow selected - auto-select first step
+                        const flow = flows.find(f => f.id === selectedFlowId);
+                        setStep2Data({
+                          flowId: selectedFlowId,
+                          currentStepId: flow?.stepIds[0] || ''
+                        });
+                      }
                     }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="">Sélectionner un flux...</option>
+                    <option value="">Aucun flux (production simple)</option>
                     {flows.map(flow => (
                       <option key={flow.id} value={flow.id}>
                         {flow.name} {flow.isDefault && '(Par défaut)'}
@@ -552,52 +563,52 @@ const CreateProductionModal: React.FC<CreateProductionModalProps> = ({
                 </div>
 
                 {selectedFlow && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
-                    <h4 className="font-medium text-blue-900 mb-2">
-                      Étapes dans ce flux:
-                    </h4>
-                    <div className="space-y-2">
-                      {selectedFlowSteps.map((step, idx) => (
-                        <div
-                          key={step.id}
-                          className="flex items-center space-x-2 text-sm"
-                        >
-                          {step.image ? (
-                            <img
-                              src={step.image}
-                              alt={step.name}
-                              className="w-5 h-5 object-cover rounded"
-                            />
-                          ) : (
-                            <div className="w-5 h-5 bg-gray-200 rounded" />
-                          )}
-                          <span className="text-gray-700">
-                            {idx + 1}. {step.name}
-                          </span>
-                        </div>
-                      ))}
+                  <>
+                    <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
+                      <h4 className="font-medium text-blue-900 mb-2">
+                        Étapes dans ce flux:
+                      </h4>
+                      <div className="space-y-2">
+                        {selectedFlowSteps.map((step, idx) => (
+                          <div
+                            key={step.id}
+                            className="flex items-center space-x-2 text-sm"
+                          >
+                            {step.image ? (
+                              <img
+                                src={step.image}
+                                alt={step.name}
+                                className="w-5 h-5 object-cover rounded"
+                              />
+                            ) : (
+                              <div className="w-5 h-5 bg-gray-200 rounded" />
+                            )}
+                            <span className="text-gray-700">
+                              {idx + 1}. {step.name}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )}
 
-                {selectedFlow && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Étape initiale <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      value={step2Data.currentStepId}
-                      onChange={(e) => setStep2Data({ ...step2Data, currentStepId: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">Sélectionner une étape...</option>
-                      {selectedFlowSteps.map(step => (
-                        <option key={step.id} value={step.id}>
-                          {step.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Étape initiale
+                      </label>
+                      <select
+                        value={step2Data.currentStepId}
+                        onChange={(e) => setStep2Data({ ...step2Data, currentStepId: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">Sélectionner une étape...</option>
+                        {selectedFlowSteps.map(step => (
+                          <option key={step.id} value={step.id}>
+                            {step.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </>
                 )}
               </>
             )}

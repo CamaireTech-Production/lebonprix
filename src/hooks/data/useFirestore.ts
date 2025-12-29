@@ -1404,6 +1404,17 @@ export const useProductions = () => {
     }
   };
 
+  const changeStatus = async (productionId: string, newStatus: 'draft' | 'in_progress' | 'ready' | 'published' | 'cancelled' | 'closed', note?: string) => {
+    if (!user || !company) throw new Error('User not authenticated');
+    try {
+      const { changeProductionStatus } = await import('@services/firestore/productions/productionService');
+      await changeProductionStatus(productionId, newStatus, company.id, user.uid, note);
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
+  };
+
   const publish = async (
     productionId: string,
     productData: {
