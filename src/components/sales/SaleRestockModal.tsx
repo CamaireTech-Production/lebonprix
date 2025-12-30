@@ -50,8 +50,11 @@ const SaleRestockModal: React.FC<RestockModalProps> = ({
     if (isOpen && product) {
       const loadLatestCostPrice = async () => {
         try {
+          if (!company?.id) {
+            throw new Error('Company ID not available');
+          }
           // Get stock batches ordered by creation date (newest first)
-          const batches = await getProductStockBatches(product.id);
+          const batches = await getProductStockBatches(product.id, company.id);
           setProductBatches(batches);
           
           // Get cost price from the most recent batch, or fallback to product's costPrice

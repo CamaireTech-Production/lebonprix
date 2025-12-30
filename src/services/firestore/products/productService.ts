@@ -269,7 +269,12 @@ export const updateProduct = async (
       // Validate stock change doesn't make stock negative (check batches)
       if (stockChange < 0) {
         const { getProductStockBatches } = await import('../stock/stockService');
-        const batches = await getProductStockBatches(id);
+        const productDoc = await getDoc(doc(db, 'products', id));
+        const productData = productDoc.data() as Product;
+        if (!productData?.companyId) {
+          throw new Error('Product companyId not found');
+        }
+        const batches = await getProductStockBatches(id, productData.companyId);
         const currentStock = batches.reduce((sum, b) => sum + (b.remainingQuantity || 0), 0);
         if (currentStock + stockChange < 0) {
           throw new Error('Stock cannot be negative');
@@ -455,7 +460,7 @@ export const getLowStockProducts = async (companyId: string, threshold?: number)
   const { getProductStockBatches } = await import('../stock/stockService');
   const productsWithStock = await Promise.all(
     products.map(async (product) => {
-      const batches = await getProductStockBatches(product.id);
+      const batches = await getProductStockBatches(product.id, companyId);
       const stock = batches.reduce((sum, b) => sum + (b.remainingQuantity || 0), 0);
       return { product, stock };
     })

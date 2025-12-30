@@ -105,9 +105,11 @@ export const createStockBatch = async (
 
 export const getAvailableStockBatches = async (
   productIdOrMatiereId: string,
+  companyId: string,
   type: 'product' | 'matiere' = 'product'
 ): Promise<StockBatch[]> => {
   const constraints: any[] = [
+    where('companyId', '==', companyId),
     where('type', '==', type),
     where('remainingQuantity', '>', 0),
     where('status', '==', 'active'),
@@ -131,11 +133,12 @@ export const getAvailableStockBatches = async (
 export const consumeStockFromBatches = async (
   batch: WriteBatch,
   productIdOrMatiereId: string,
+  companyId: string,
   quantity: number,
   method: InventoryMethod = 'FIFO',
   type: 'product' | 'matiere' = 'product'
 ): Promise<InventoryResult> => {
-  const availableBatches = await getAvailableStockBatches(productIdOrMatiereId, type);
+  const availableBatches = await getAvailableStockBatches(productIdOrMatiereId, companyId, type);
   
   if (availableBatches.length === 0) {
     throw new Error(`No available stock batches found for ${type} ${productIdOrMatiereId}`);
@@ -322,9 +325,10 @@ export const deleteStockChange = async (stockChangeId: string): Promise<void> =>
 // STOCK BATCH QUERIES
 // ============================================================================
 
-export const getProductStockBatches = async (productId: string): Promise<StockBatch[]> => {
+export const getProductStockBatches = async (productId: string, companyId: string): Promise<StockBatch[]> => {
   const q = query(
     collection(db, 'stockBatches'),
+    where('companyId', '==', companyId),
     where('type', '==', 'product'),
     where('productId', '==', productId),
     orderBy('createdAt', 'desc')
@@ -334,13 +338,13 @@ export const getProductStockBatches = async (productId: string): Promise<StockBa
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as StockBatch[];
 };
 
-export const getProductStockInfo = async (productId: string): Promise<{
+export const getProductStockInfo = async (productId: string, companyId: string): Promise<{
   totalStock: number;
   totalValue: number;
   averageCostPrice: number;
   batches: StockBatch[];
 }> => {
-  const batches = await getProductStockBatches(productId);
+  const batches = await getProductStockBatches(productId, companyId);
   const activeBatches = batches.filter(batch => batch.status === 'active' && batch.remainingQuantity > 0);
   
   let totalStock = 0;

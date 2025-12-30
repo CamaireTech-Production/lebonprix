@@ -624,7 +624,7 @@ export const publishProduction = async (
     // Validate stock availability
     const { getAvailableStockBatches } = await import('../stock/stockService');
     for (const material of production.materials) {
-      const availableBatches = await getAvailableStockBatches(material.matiereId, 'matiere');
+      const availableBatches = await getAvailableStockBatches(material.matiereId, companyId, 'matiere');
       const totalAvailable = availableBatches.reduce((sum, batch) => sum + batch.remainingQuantity, 0);
       
       if (totalAvailable < material.requiredQuantity) {
@@ -652,6 +652,7 @@ export const publishProduction = async (
       const inventoryResult = await consumeStockFromBatches(
         batch,
         material.matiereId,
+        companyId,
         material.requiredQuantity,
         'FIFO',
         'matiere'

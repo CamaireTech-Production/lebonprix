@@ -23,9 +23,10 @@ import { createAuditLog } from '../shared';
 
 // Temporary imports from firestore.ts - will be moved to stock/ and finance/ later
 // These functions will be imported from their respective services after refactoring
-const getAvailableStockBatches = async (productId: string): Promise<StockBatch[]> => {
+const getAvailableStockBatches = async (productId: string, companyId: string): Promise<StockBatch[]> => {
   const q = query(
     collection(db, 'stockBatches'),
+    where('companyId', '==', companyId),
     where('type', '==', 'product'),
     where('productId', '==', productId),
     where('remainingQuantity', '>', 0),
@@ -39,10 +40,11 @@ const getAvailableStockBatches = async (productId: string): Promise<StockBatch[]
 const consumeStockFromBatches = async (
   batch: WriteBatch,
   productId: string,
+  companyId: string,
   quantity: number,
   method: InventoryMethod = 'FIFO'
 ): Promise<InventoryResult> => {
-  const availableBatches = await getAvailableStockBatches(productId);
+  const availableBatches = await getAvailableStockBatches(productId, companyId);
   
   if (availableBatches.length === 0) {
     throw new Error(`No available stock batches found for product ${productId}`);
@@ -265,7 +267,7 @@ export const createSale = async (
       }
       
       // Check stock from batches (source of truth)
-      const availableBatches = await getAvailableStockBatches(product.productId);
+      const availableBatches = await getAvailableStockBatches(product.productId, companyId);
       const availableStock = availableBatches.reduce((sum, b) => sum + (b.remainingQuantity || 0), 0);
       if (availableStock < product.quantity) {
         throw new Error(`Insufficient stock for product ${productData.name}. Available: ${availableStock}, Requested: ${product.quantity}`);
@@ -276,6 +278,7 @@ export const createSale = async (
       const inventoryResult = await consumeStockFromBatches(
         batch,
         product.productId,
+        companyId,
         product.quantity,
         inventoryMethod
       );

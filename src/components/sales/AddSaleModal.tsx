@@ -2,7 +2,7 @@ import { useAddSaleForm } from '@hooks/forms/useAddSaleForm';
 import { Modal, ModalFooter, Input, PriceInput, Button, ImageWithSkeleton, LocationAutocomplete } from '@components/common';
 import Select from 'react-select';
 import { Plus, Trash2, Info, ChevronDown, ChevronUp} from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { logError } from '@utils/core/logger';
 import { formatPrice } from '@utils/formatting/formatPrice';
@@ -10,6 +10,9 @@ import type { Sale, StockBatch } from '../../types/models';
 import SaleDetailsModal from './SaleDetailsModal';
 import { getProductStockBatches } from '@services/firestore/stock/stockService';
 import { showWarningToast } from '@utils/core/toast';
+import { useAuth } from '@contexts/AuthContext';
+import { useAllStockBatches } from '@hooks/business/useStockBatches';
+import { buildProductStockMap, getEffectiveProductStock } from '@utils/inventory/stockHelpers';
 
 const LOW_STOCK_THRESHOLD = 5;
 
@@ -28,6 +31,16 @@ interface ProductStockInfo {
 
 const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdded }) => {
   const { t } = useTranslation();
+  const { company } = useAuth();
+  
+  // Load all stock batches to display stock in product selection list
+  const { batches: allBatches, loading: batchesLoading } = useAllStockBatches('product');
+  
+  // Build stock map from batches for quick stock lookup
+  const stockMap = useMemo(
+    () => buildProductStockMap(allBatches || []),
+    [allBatches]
+  );
 
   const {
     formData,
@@ -76,7 +89,10 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
     setLoadingStockInfo(prev => new Set(prev).add(productId));
     
     try {
-      const batches = await getProductStockBatches(productId);
+      if (!company?.id) {
+        throw new Error('Company ID not available');
+      }
+      const batches = await getProductStockBatches(productId, company.id);
       const availableBatches = batches.filter(batch => batch.remainingQuantity > 0 && batch.status === 'active');
       const totalStock = availableBatches.reduce((sum, batch) => sum + batch.remainingQuantity, 0);
       const totalValue = availableBatches.reduce((sum, batch) => sum + (batch.costPrice * batch.remainingQuantity), 0);
@@ -133,8 +149,17 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
           <div className="font-medium">{product.name}</div>
           <div className="text-sm text-gray-500">
             {(() => {
+              // First check if we have detailed stock info (for products already added to form)
               const stockInfo = productStockInfo.get(product.id);
-              return stockInfo ? `${stockInfo.totalStock} in stock` : 'Loading stock...';
+              if (stockInfo) {
+                return `${stockInfo.totalStock} in stock`;
+              }
+              // Otherwise, use stockMap from batches (already loaded)
+              if (!batchesLoading && stockMap) {
+                const stock = getEffectiveProductStock(product, stockMap);
+                return `${stock} in stock`;
+              }
+              return 'Loading stock...';
             })()} - {formatPrice(product.sellingPrice)} XAF
           </div>
         </div>
@@ -549,7 +574,15 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                           <p className="text-sm text-gray-500">
                             {(() => {
                               const stockInfo = productStockInfo.get(product.product.id);
-                              return stockInfo ? `${stockInfo.totalStock} in stock` : 'Loading stock...';
+                              if (stockInfo) {
+                                return `${stockInfo.totalStock} in stock`;
+                              }
+                              // Use stockMap from batches if available
+                              if (!batchesLoading && stockMap) {
+                                const stock = getEffectiveProductStock(product.product, stockMap);
+                                return `${stock} in stock`;
+                              }
+                              return 'Loading stock...';
                             })()} - {formatPrice(product.product.sellingPrice)} XAF
                           </p>
                         </div>
@@ -883,8 +916,17 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                       <p className="font-medium text-sm truncate">{product.name}</p>
                       <p className="text-sm text-gray-500">
                             {(() => {
+                              // First check if we have detailed stock info (for products already added to form)
                               const stockInfo = productStockInfo.get(product.id);
-                              return stockInfo ? `${stockInfo.totalStock} in stock` : 'Loading stock...';
+                              if (stockInfo) {
+                                return `${stockInfo.totalStock} in stock`;
+                              }
+                              // Otherwise, use stockMap from batches (already loaded)
+                              if (!batchesLoading && stockMap) {
+                                const stock = getEffectiveProductStock(product, stockMap);
+                                return `${stock} in stock`;
+                              }
+                              return 'Loading stock...';
                             })()} - {formatPrice(product.sellingPrice)} XAF
                       </p>
                     </div>

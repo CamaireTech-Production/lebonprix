@@ -99,12 +99,12 @@ export const useStockBatches = (productId?: string) => {
   };
 
   const getStockInfo = async () => {
-    if (!productId) {
-      throw new Error('Product ID not provided');
+    if (!productId || !company?.id) {
+      throw new Error('Product ID or company ID not provided');
     }
 
     try {
-      return await getProductStockInfo(productId);
+      return await getProductStockInfo(productId, company.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to get stock info');
       throw err;
