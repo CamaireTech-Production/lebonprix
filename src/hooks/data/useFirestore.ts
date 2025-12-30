@@ -1445,6 +1445,7 @@ export const useProductions = () => {
     updateProduction: updateProductionData,
     deleteProduction: deleteProductionData,
     changeState,
+    changeStatus,
     publishProduction: publish
   };
 };

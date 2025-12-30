@@ -13,7 +13,8 @@ import {
   writeBatch,
   updateDoc,
   arrayUnion,
-  Timestamp
+  Timestamp,
+  runTransaction
 } from 'firebase/firestore';
 import { db } from '../../core/firebase';
 import { logError } from '@utils/core/logger';
@@ -610,50 +611,73 @@ export const publishProduction = async (
   companyId: string,
   userId: string
 ): Promise<{ production: Production; product: import('../../../types/models').Product }> => {
+  const productionRef = doc(db, COLLECTION_NAME, productionId);
+  let productId: string | null = null;
+
   try {
-    // Get production
+    // STEP 1: Atomic transaction to acquire lock and verify state
+    await runTransaction(db, async (transaction) => {
+      const productionSnap = await transaction.get(productionRef);
+      
+      if (!productionSnap.exists()) {
+        throw new Error('Production not found');
+      }
+
+      const production = productionSnap.data() as Production;
+
+      // Verify company ownership
+      if (production.companyId !== companyId) {
+        throw new Error('Unauthorized: Production belongs to different company');
+      }
+
+      // Check if closed
+      if (production.isClosed) {
+        throw new Error('Production is already closed');
+      }
+
+      // Check if currently being published (atomic check)
+      if (production.isPublishing) {
+        throw new Error('Production is currently being published. Please wait...');
+      }
+
+      // Check if already published
+      if (production.isPublished) {
+        if (production.publishedProductId) {
+          // Product already exists, return it after transaction
+          productId = production.publishedProductId;
+          throw new Error('ALREADY_PUBLISHED'); // Special error to handle gracefully
+        }
+        // Inconsistent state: isPublished but no productId
+        throw new Error('Production was in inconsistent state. Please try again.');
+      }
+
+      // Atomically acquire the lock
+      transaction.update(productionRef, {
+        isPublishing: true,
+        updatedAt: serverTimestamp()
+      });
+    });
+
+    // If product already exists, return it
+    if (productId) {
+      const { getDoc } = await import('firebase/firestore');
+      const productRef = doc(db, 'products', productId);
+      const productSnap = await getDoc(productRef);
+      if (productSnap.exists()) {
+        const existingProduct = { id: productSnap.id, ...productSnap.data() } as import('../../../types/models').Product;
+        const production = await getProduction(productionId, companyId);
+        if (!production) throw new Error('Production not found');
+        return { production, product: existingProduct };
+      }
+    }
+
+    // STEP 2: Get production data (after lock is acquired)
     const production = await getProduction(productionId, companyId);
     if (!production) {
       throw new Error('Production not found');
     }
 
-    if (production.isClosed) {
-      throw new Error('Production is already closed');
-    }
-
-    // Check if currently being published (prevent concurrent publication)
-    if (production.isPublishing) {
-      throw new Error('Production is currently being published. Please wait...');
-    }
-
-    // Check if already published
-    if (production.isPublished) {
-      if (production.publishedProductId) {
-        // Return existing product
-        const { getDoc } = await import('firebase/firestore');
-        const productRef = doc(db, 'products', production.publishedProductId);
-        const productSnap = await getDoc(productRef);
-        if (productSnap.exists()) {
-          const existingProduct = { id: productSnap.id, ...productSnap.data() } as import('../../../types/models').Product;
-          return {
-            production,
-            product: existingProduct
-          };
-        }
-      }
-      // If isPublished but no product, reset it (cleanup inconsistent state)
-      const cleanupBatch = writeBatch(db);
-      const productionRefForCleanup = doc(db, COLLECTION_NAME, productionId);
-      cleanupBatch.update(productionRefForCleanup, {
-        isPublished: false,
-        isPublishing: false,
-        updatedAt: serverTimestamp()
-      });
-      await cleanupBatch.commit();
-      throw new Error('Production was in inconsistent state. Please try again.');
-    }
-
-    // Validate stock availability
+    // STEP 3: Validate stock availability
     const { getAvailableStockBatches } = await import('../stock/stockService');
     for (const material of production.materials) {
       const availableBatches = await getAvailableStockBatches(material.matiereId, companyId, 'matiere');
@@ -667,19 +691,7 @@ export const publishProduction = async (
       }
     }
 
-    const batch = writeBatch(db);
-    const productionRef = doc(db, COLLECTION_NAME, productionId);
-
-    // Set publishing lock to prevent concurrent publication attempts
-    batch.update(productionRef, {
-      isPublishing: true,
-      updatedAt: serverTimestamp()
-    });
-    
-    // Commit the lock first
-    await batch.commit();
-
-    // Consume materials from stock
+    // STEP 4: Consume materials from stock
     const { consumeStockFromBatches } = await import('../stock/stockService');
     const { createStockChange } = await import('../stock/stockService');
     
@@ -690,7 +702,6 @@ export const publishProduction = async (
       batchIds: string[];
     }> = [];
 
-    // Create new batch for materials consumption
     const materialsBatch = writeBatch(db);
     
     for (const material of production.materials) {
@@ -732,26 +743,10 @@ export const publishProduction = async (
     // Commit materials consumption
     await materialsBatch.commit();
 
-    // Double-check if product was already created (race condition protection)
-    const productionCheck = await getProduction(productionId, companyId);
-    if (productionCheck?.isPublished && productionCheck?.publishedProductId) {
-      const { getDoc } = await import('firebase/firestore');
-      const productRef = doc(db, 'products', productionCheck.publishedProductId);
-      const productSnap = await getDoc(productRef);
-      if (productSnap.exists()) {
-        const existingProduct = { id: productSnap.id, ...productSnap.data() } as import('../../../types/models').Product;
-        return {
-          production: productionCheck,
-          product: existingProduct
-        };
-      }
-    }
-
-    const { createProduct } = await import('../products/productService');
+    // STEP 5: Get employee reference for createdBy
     const { getCurrentEmployeeRef } = await import('@utils/business/employeeUtils');
     const { getUserById } = await import('@services/utilities/userService');
     
-    // Get employee reference for createdBy
     let createdBy = null;
     try {
       const userData = await getUserById(userId);
@@ -760,13 +755,15 @@ export const publishProduction = async (
       console.error('Error fetching user data for createdBy:', error);
     }
 
+    // STEP 6: Create product
+    const { createProduct } = await import('../products/productService');
     const product = await createProduct(
       {
         name: productData.name,
         reference: production.reference,
         category: productData.category,
         sellingPrice: productData.sellingPrice,
-        cataloguePrice: productData.cataloguePrice ?? productData.sellingPrice, // Use selling price if catalogue price is not provided
+        cataloguePrice: productData.cataloguePrice ?? productData.sellingPrice,
         stock: 1, // Published production becomes 1 product unit
         costPrice: productData.costPrice,
         images: production.images || [],
@@ -787,30 +784,25 @@ export const publishProduction = async (
       createdBy
     );
 
-    // Create new batch for closing production
+    // STEP 7: Update production with all final data (close production)
     const closeBatch = writeBatch(db);
 
-    // Close production (isPublished already set in first batch)
-    
-    // Create final state change (filter out undefined values for Firebase compatibility)
-    // Handle both flow mode and simple mode
+    // Create final state change
     const finalStateChangeData: any = {
       id: `state-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       changedBy: userId,
-      timestamp: Timestamp.now(), // Use Timestamp.now() instead of serverTimestamp() for arrayUnion
+      timestamp: Timestamp.now(),
       note: 'Production publiée en produit'
     };
     
     if (production.flowId) {
-      // Flow mode: Use step-based state change
       finalStateChangeData.toStepId = production.currentStepId || '';
       finalStateChangeData.toStepName = 'Publié';
       if (production.currentStepId) {
         finalStateChangeData.fromStepId = production.currentStepId;
-        finalStateChangeData.fromStepName = ''; // Will be populated when reading
+        finalStateChangeData.fromStepName = '';
       }
     } else {
-      // Simple mode: Use status-based state change
       finalStateChangeData.fromStatus = production.status;
       finalStateChangeData.toStatus = 'published';
     }
@@ -827,7 +819,7 @@ export const publishProduction = async (
       };
     });
 
-    // Build catalogData without undefined values (Firestore doesn't accept undefined)
+    // Build catalogData without undefined values
     const catalogData: any = {
       name: productData.name,
       sellingPrice: productData.sellingPrice,
@@ -836,7 +828,6 @@ export const publishProduction = async (
       isVisible: productData.isVisible
     };
     
-    // Only include optional fields if they have values
     if (productData.category) {
       catalogData.category = productData.category;
     }
@@ -844,14 +835,15 @@ export const publishProduction = async (
       catalogData.description = productData.description;
     }
 
+    // Update production with all final data
     closeBatch.update(productionRef, {
       status: 'closed',
       isClosed: true,
-      isPublished: true, // Mark as published only after successful product creation
+      isPublished: true,
       isPublishing: false, // Release the lock
       publishedProductId: product.id,
-      validatedCostPrice: productData.costPrice, // Validate cost with the provided value
-      isCostValidated: true, // Mark as validated
+      validatedCostPrice: productData.costPrice,
+      isCostValidated: true,
       closedAt: serverTimestamp(),
       closedBy: userId,
       catalogData: catalogData,
@@ -866,34 +858,50 @@ export const publishProduction = async (
       productId: product.id
     }, userId);
 
+    // Commit final update
     await closeBatch.commit();
 
-    // Get updated production
-    const updatedProduction = await getProduction(productionId, companyId);
-    if (!updatedProduction) {
-      throw new Error('Failed to retrieve updated production');
-    }
+    // STEP 8: Return result (no need to re-read, we have all the data)
+    const finalProduction: Production = {
+      ...production,
+      status: 'closed',
+      isClosed: true,
+      isPublished: true,
+      isPublishing: false,
+      publishedProductId: product.id,
+      validatedCostPrice: productData.costPrice,
+      isCostValidated: true,
+      closedBy: userId,
+      catalogData: catalogData,
+      materials: updatedMaterials,
+      stateHistory: [...(production.stateHistory || []), finalStateChange],
+      updatedAt: { seconds: Math.floor(Date.now() / 1000), nanoseconds: 0 }
+    };
 
     return {
-      production: updatedProduction,
+      production: finalProduction,
       product
     };
-  } catch (error) {
-    // ROLLBACK: Release publishing lock if error occurred
-    try {
-      const rollbackBatch = writeBatch(db);
-      const productionRef = doc(db, COLLECTION_NAME, productionId);
-      rollbackBatch.update(productionRef, {
-        isPublishing: false,
-        updatedAt: serverTimestamp()
-      });
-      await rollbackBatch.commit();
-    } catch (rollbackError) {
-      logError('Error during rollback (releasing publishing lock)', rollbackError);
-      // Don't throw - original error is more important
+  } catch (error: any) {
+    // ROLLBACK: Release publishing lock if error occurred (except if already published)
+    if (error.message !== 'ALREADY_PUBLISHED') {
+      try {
+        const rollbackBatch = writeBatch(db);
+        rollbackBatch.update(productionRef, {
+          isPublishing: false,
+          updatedAt: serverTimestamp()
+        });
+        await rollbackBatch.commit();
+      } catch (rollbackError) {
+        logError('Error during rollback (releasing publishing lock)', rollbackError);
+      }
     }
     
-    logError('Error publishing production', error);
+    // If already published, don't log as error
+    if (error.message !== 'ALREADY_PUBLISHED') {
+      logError('Error publishing production', error);
+    }
+    
     throw error;
   }
 };
