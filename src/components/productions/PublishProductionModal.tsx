@@ -78,6 +78,9 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
   const handleSubmit = async () => {
     if (!user || !company || !production) return;
 
+    // Prevent double submission
+    if (isSubmitting) return;
+
     if (!formData.name.trim()) {
       showWarningToast('Le nom du produit est requis');
       return;
@@ -95,6 +98,12 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
 
     if (!formData.validatedCostPrice || parseFloat(formData.validatedCostPrice) < 0) {
       showWarningToast('Veuillez entrer un coût validé valide');
+      return;
+    }
+
+    // Check if production is already published
+    if (production.isPublished) {
+      showErrorToast('Cette production est déjà publiée');
       return;
     }
 
@@ -135,7 +144,7 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
   return (
     <Modal
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={isSubmitting ? () => {} : onClose}
       title="Publier la production"
       size="lg"
       footer={

@@ -38,7 +38,8 @@
     "confirm": "Confirmer",
     "close": "Fermer",
     "phone": "Téléphone",
-    "email": "Email"
+    "email": "Email",
+    "all": "Tous"
   },
   "auth": {
     "login": "Connexion",
@@ -285,6 +286,23 @@
       "client": "Client",
       "noData": "Aucune commande récente",
       "noClient": "Aucun client"
+    },
+    "topSales": {
+      "title": "Meilleures ventes",
+      "viewMore": "Voir plus",
+      "noData": "Aucune vente"
+    },
+    "bestClients": {
+      "title": "Meilleurs clients",
+      "viewMore": "Voir plus",
+      "noData": "Aucun client",
+      "orders": "Commandes"
+    },
+    "bestProducts": {
+      "title": "Meilleurs produits",
+      "viewAll": "Tout voir",
+      "noData": "Aucun produit",
+      "orders": "Commandes"
     },
     "makeSale": "Faire une vente"
   },
@@ -752,6 +770,12 @@
       "createdAt": "Créé le",
       "lastUpdated": "Dernière mise à jour"
     },
+    "stockHistory": {
+      "filterByType": "Filtrer par type",
+      "filterBySupplier": "Filtrer par fournisseur",
+      "searchPlaceholder": "Rechercher par raison, fournisseur...",
+      "itemsPerPage": "Éléments par page"
+    },
     "messages": {
       "productAdded": "Produit ajouté avec succès",
       "productUpdated": "Produit mis à jour avec succès",
@@ -1042,7 +1066,18 @@
     "categories": {
       "transportation": "Transport",
       "purchase": "Achat",
-      "other": "Autre"
+      "other": "Autre",
+      "facebook Adds": "Publicité Facebook",
+      "credit": "Crédit",
+      "Importation": "Importation",
+      "Salaire": "Salaire",
+      "Reparations": "Réparations",
+      "Internet Connexion": "Connexion Internet",
+      "Commision": "Commission",
+      "bijoux": "Bijoux",
+      "Frais de retrait": "Frais de retrait",
+      "Remboursement": "Remboursement",
+      "Marchandise": "Marchandise"
     },
     "summary": {
       "transportation": "Dépenses de transport",
@@ -1393,7 +1428,8 @@
       "ready": "Prête",
       "delivered": "Livrée",
       "cancelled": "Annulée",
-      "commande": "Commande"
+      "commande": "Commande",
+      "paid": "Payé"
     },
     "paymentStatus": {
       "pending": "En Attente",

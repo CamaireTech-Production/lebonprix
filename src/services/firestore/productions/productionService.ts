@@ -621,6 +621,24 @@ export const publishProduction = async (
       throw new Error('Production is already closed');
     }
 
+    // Check if already published
+    if (production.isPublished) {
+      if (production.publishedProductId) {
+        // Return existing product
+        const { getDoc } = await import('firebase/firestore');
+        const productRef = doc(db, 'products', production.publishedProductId);
+        const productSnap = await getDoc(productRef);
+        if (productSnap.exists()) {
+          const existingProduct = { id: productSnap.id, ...productSnap.data() } as import('../../../types/models').Product;
+          return {
+            production,
+            product: existingProduct
+          };
+        }
+      }
+      throw new Error('Production is already published');
+    }
+
     // Validate stock availability
     const { getAvailableStockBatches } = await import('../stock/stockService');
     for (const material of production.materials) {
@@ -636,6 +654,13 @@ export const publishProduction = async (
     }
 
     const batch = writeBatch(db);
+
+    // Mark as published IMMEDIATELY to prevent race conditions
+    const productionRef = doc(db, COLLECTION_NAME, productionId);
+    batch.update(productionRef, {
+      isPublished: true,
+      updatedAt: serverTimestamp()
+    });
 
     // Consume materials from stock
     const { consumeStockFromBatches } = await import('../stock/stockService');
@@ -688,6 +713,21 @@ export const publishProduction = async (
     // We need to commit the batch first to ensure materials are consumed
     await batch.commit();
 
+    // Double-check if product was already created (race condition protection)
+    const productionCheck = await getProduction(productionId, companyId);
+    if (productionCheck?.isPublished && productionCheck?.publishedProductId) {
+      const { getDoc } = await import('firebase/firestore');
+      const productRef = doc(db, 'products', productionCheck.publishedProductId);
+      const productSnap = await getDoc(productRef);
+      if (productSnap.exists()) {
+        const existingProduct = { id: productSnap.id, ...productSnap.data() } as import('../../../types/models').Product;
+        return {
+          production: productionCheck,
+          product: existingProduct
+        };
+      }
+    }
+
     const { createProduct } = await import('../products/productService');
     const { getCurrentEmployeeRef } = await import('@utils/business/employeeUtils');
     const { getUserById } = await import('@services/utilities/userService');
@@ -731,8 +771,7 @@ export const publishProduction = async (
     // Create new batch for closing production
     const closeBatch = writeBatch(db);
 
-    // Close production
-    const productionRef = doc(db, COLLECTION_NAME, productionId);
+    // Close production (isPublished already set in first batch)
     
     // Create final state change (filter out undefined values for Firebase compatibility)
     // Handle both flow mode and simple mode
@@ -772,7 +811,6 @@ export const publishProduction = async (
     closeBatch.update(productionRef, {
       status: 'closed',
       isClosed: true,
-      isPublished: true,
       publishedProductId: product.id,
       validatedCostPrice: productData.costPrice, // Validate cost with the provided value
       isCostValidated: true, // Mark as validated
