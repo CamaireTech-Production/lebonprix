@@ -18,7 +18,7 @@ export const useStockBatches = (productId?: string) => {
   const { user, company } = useAuth();
 
   useEffect(() => {
-    if (!productId) {
+    if (!productId || !company?.id) {
       setBatches([]);
       setLoading(false);
       return;
@@ -31,6 +31,7 @@ export const useStockBatches = (productId?: string) => {
       collection(db, 'stockBatches'),
       where('type', '==', 'product'),
       where('productId', '==', productId),
+      where('companyId', '==', company.id),
       orderBy('createdAt', 'asc')
     );
 
@@ -51,7 +52,7 @@ export const useStockBatches = (productId?: string) => {
     );
 
     return unsubscribe;
-  }, [productId]);
+  }, [productId, company?.id]);
 
   const addBatch = async (
     quantity: number,
@@ -130,10 +131,10 @@ export const useStockBatchStats = () => {
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { user } = useAuth();
+  const { company } = useAuth();
 
   useEffect(() => {
-    if (!user?.uid) {
+    if (!company?.id) {
       setStats(null);
       setLoading(false);
       return;
@@ -142,7 +143,7 @@ export const useStockBatchStats = () => {
     const fetchStats = async () => {
       try {
         setLoading(true);
-        const batchStats = await getStockBatchStats(user.uid);
+        const batchStats = await getStockBatchStats(company.id);
         setStats(batchStats);
         setError(null);
       } catch (err) {
@@ -153,7 +154,7 @@ export const useStockBatchStats = () => {
     };
 
     fetchStats();
-  }, [user?.uid]);
+  }, [company?.id]);
 
   return { stats, loading, error };
 };
@@ -162,10 +163,10 @@ export const useAllStockBatches = (type?: 'product' | 'matiere') => {
   const [batches, setBatches] = useState<StockBatch[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { user } = useAuth();
+  const { company } = useAuth();
 
   useEffect(() => {
-    if (!user?.uid) {
+    if (!company?.id) {
       setBatches([]);
       setLoading(false);
       return;
@@ -175,7 +176,7 @@ export const useAllStockBatches = (type?: 'product' | 'matiere') => {
     setError(null);
 
     const constraints: any[] = [
-      where('userId', '==', user.uid),
+      where('companyId', '==', company.id),
     ];
 
     // Add type filter if provided
@@ -205,7 +206,7 @@ export const useAllStockBatches = (type?: 'product' | 'matiere') => {
     );
 
     return unsubscribe;
-  }, [user?.uid, type]);
+  }, [company?.id, type]);
 
   return { batches, loading, error };
 }; 

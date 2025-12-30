@@ -520,7 +520,7 @@ export const correctBatchCostPrice = async (
 };
 
 export const getStockBatchStats = async (
-  userId: string,
+  companyId: string,
   type?: 'product' | 'matiere'
 ): Promise<{
   totalBatches: number;
@@ -530,7 +530,7 @@ export const getStockBatchStats = async (
   averageCostPrice: number;
 }> => {
   const constraints: any[] = [
-    where('userId', '==', userId),
+    where('companyId', '==', companyId),
   ];
 
   // Add type filter if provided
