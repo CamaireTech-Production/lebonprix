@@ -106,8 +106,18 @@ export const createProduct = async (
     // Set default inventory settings
     // Remove stock field - batches are the source of truth
     const { stock, ...dataWithoutStock } = data;
+    
+    // Filter out undefined values (Firestore doesn't accept undefined)
+    const cleanData: any = {};
+    Object.keys(dataWithoutStock).forEach(key => {
+      const value = (dataWithoutStock as any)[key];
+      if (value !== undefined) {
+        cleanData[key] = value;
+      }
+    });
+    
     const productData: any = {
-      ...dataWithoutStock,
+      ...cleanData,
       barCode,
       companyId,
       isAvailable: true,

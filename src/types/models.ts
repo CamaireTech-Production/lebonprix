@@ -596,6 +596,7 @@ export interface Production extends BaseModel {
   // Publishing & Closure
   publishedProductId?: string; // If published, reference to Product
   isPublished: boolean;
+  isPublishing?: boolean; // Temporary lock during publication process (prevents double publication)
   isClosed: boolean; // True when published - no more interactions
   closedAt?: Timestamp;
   closedBy?: string;

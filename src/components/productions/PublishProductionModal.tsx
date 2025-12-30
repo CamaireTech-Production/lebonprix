@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { Modal, ModalFooter, PriceInput } from '@components/common';
 import { useAuth } from '@contexts/AuthContext';
-import { useCategories } from '@hooks/data/useFirestore';
+import { useProductCategories } from '@hooks/data/useFirestore';
 import { useMatiereStocks } from '@hooks/business/useMatiereStocks';
 import { showSuccessToast, showErrorToast, showWarningToast } from '@utils/core/toast';
 import { formatPrice } from '@utils/formatting/formatPrice';
@@ -23,7 +23,7 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
   onSuccess
 }) => {
   const { user, company } = useAuth();
-  const { categories } = useCategories();
+  const { categories } = useProductCategories();
   const { matiereStocks } = useMatiereStocks();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
@@ -64,7 +64,7 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
     if (isOpen && production) {
       setFormData({
         name: production.name,
-        category: production.categoryId || '',
+        category: '', // Always start empty - ProductionCategory and Product Category are different
         sellingPrice: '',
         cataloguePrice: '',
         description: production.description || '',
@@ -112,13 +112,18 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
     try {
       const { publishProduction } = await import('@services/firestore/productions/productionService');
       
+      const sellingPrice = parseFloat(formData.sellingPrice);
+      const cataloguePrice = formData.cataloguePrice && formData.cataloguePrice.trim() 
+        ? parseFloat(formData.cataloguePrice) 
+        : sellingPrice; // Use selling price if catalogue price is empty
+
       await publishProduction(
         production.id,
         {
           name: formData.name.trim(),
           category: formData.category || undefined,
-          sellingPrice: parseFloat(formData.sellingPrice),
-          cataloguePrice: formData.cataloguePrice ? parseFloat(formData.cataloguePrice) : undefined,
+          sellingPrice: sellingPrice,
+          cataloguePrice: cataloguePrice,
           description: formData.description.trim() || undefined,
           barCode: formData.barCode.trim() || undefined,
           isVisible: formData.isVisible,

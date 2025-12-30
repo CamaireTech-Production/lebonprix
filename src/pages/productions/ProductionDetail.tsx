@@ -4,6 +4,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Edit2, Loader2, CheckCircle2, XCircle } from 'lucide-react';
 import { Button, LoadingScreen, Badge } from '@components/common';
 import { useProductions, useProductionFlows, useProductionFlowSteps, useProductionCategories, useProductionCharges } from '@hooks/data/useFirestore';
+import { useAuth } from '@contexts/AuthContext';
 import { useMatiereStocks } from '@hooks/business/useMatiereStocks';
 import { formatPrice } from '@utils/formatting/formatPrice';
 import { showSuccessToast, showErrorToast, showWarningToast } from '@utils/core/toast';
@@ -19,9 +20,11 @@ const ProductionDetail: React.FC = () => {
   
   // Extract companyId from URL if in company route
   const isCompanyRoute = location.pathname.startsWith('/company/');
-  const companyId = isCompanyRoute ? location.pathname.split('/')[2] : null;
+  const urlCompanyId = isCompanyRoute ? location.pathname.split('/')[2] : null;
+  const { company } = useAuth();
+  const companyId = urlCompanyId || company?.id || null;
   
-  const { productions, loading: productionsLoading, changeState, changeStatus, updateProduction } = useProductions();
+  const { productions, loading: productionsLoading, changeState, changeStatus, updateProduction, deleteProduction } = useProductions();
   const { flows } = useProductionFlows();
   const { flowSteps } = useProductionFlowSteps();
   const { categories } = useProductionCategories();
@@ -39,6 +42,7 @@ const ProductionDetail: React.FC = () => {
   const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [deletingChargeId, setDeletingChargeId] = useState<string | null>(null);
+  const [isDeletingProduction, setIsDeletingProduction] = useState(false);
 
   const production = useMemo(() => {
     if (!id) return null;
@@ -125,6 +129,30 @@ const ProductionDetail: React.FC = () => {
       showErrorToast(error.message || 'Erreur lors du changement de statut');
     } finally {
       setIsChangingState(false);
+    }
+  };
+
+  const handleDeleteProduction = async () => {
+    if (!production || !companyId) return;
+
+    if (!window.confirm(`Êtes-vous sûr de vouloir supprimer la production "${production.name}" ? Cette action est irréversible.`)) {
+      return;
+    }
+
+    setIsDeletingProduction(true);
+    try {
+      await deleteProduction(production.id);
+      showSuccessToast('Production supprimée avec succès');
+      // Navigate back to productions list
+      if (isCompanyRoute) {
+        navigate(`/company/${companyId}/productions`);
+      } else {
+        navigate('/productions');
+      }
+    } catch (error: any) {
+      showErrorToast(error.message || 'Erreur lors de la suppression de la production');
+    } finally {
+      setIsDeletingProduction(false);
     }
   };
 
@@ -220,6 +248,17 @@ const ProductionDetail: React.FC = () => {
                   Publier
                 </Button>
               </>
+            )}
+            {!production.isPublished && !isClosed && (
+              <Button
+                variant="danger"
+                icon={<Trash2 size={16} />}
+                onClick={handleDeleteProduction}
+                isLoading={isDeletingProduction}
+                disabled={isDeletingProduction}
+              >
+                Supprimer
+              </Button>
             )}
             <Button
               variant="outline"

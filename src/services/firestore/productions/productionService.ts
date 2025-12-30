@@ -621,6 +621,11 @@ export const publishProduction = async (
       throw new Error('Production is already closed');
     }
 
+    // Check if currently being published (prevent concurrent publication)
+    if (production.isPublishing) {
+      throw new Error('Production is currently being published. Please wait...');
+    }
+
     // Check if already published
     if (production.isPublished) {
       if (production.publishedProductId) {
@@ -636,7 +641,16 @@ export const publishProduction = async (
           };
         }
       }
-      throw new Error('Production is already published');
+      // If isPublished but no product, reset it (cleanup inconsistent state)
+      const cleanupBatch = writeBatch(db);
+      const productionRefForCleanup = doc(db, COLLECTION_NAME, productionId);
+      cleanupBatch.update(productionRefForCleanup, {
+        isPublished: false,
+        isPublishing: false,
+        updatedAt: serverTimestamp()
+      });
+      await cleanupBatch.commit();
+      throw new Error('Production was in inconsistent state. Please try again.');
     }
 
     // Validate stock availability
@@ -654,13 +668,16 @@ export const publishProduction = async (
     }
 
     const batch = writeBatch(db);
-
-    // Mark as published IMMEDIATELY to prevent race conditions
     const productionRef = doc(db, COLLECTION_NAME, productionId);
+
+    // Set publishing lock to prevent concurrent publication attempts
     batch.update(productionRef, {
-      isPublished: true,
+      isPublishing: true,
       updatedAt: serverTimestamp()
     });
+    
+    // Commit the lock first
+    await batch.commit();
 
     // Consume materials from stock
     const { consumeStockFromBatches } = await import('../stock/stockService');
@@ -673,9 +690,12 @@ export const publishProduction = async (
       batchIds: string[];
     }> = [];
 
+    // Create new batch for materials consumption
+    const materialsBatch = writeBatch(db);
+    
     for (const material of production.materials) {
       const inventoryResult = await consumeStockFromBatches(
-        batch,
+        materialsBatch,
         material.matiereId,
         companyId,
         material.requiredQuantity,
@@ -686,7 +706,7 @@ export const publishProduction = async (
       // Create stock change for each consumed batch
       for (const consumedBatch of inventoryResult.consumedBatches) {
         createStockChange(
-          batch,
+          materialsBatch,
           material.matiereId,
           -consumedBatch.consumedQuantity,
           'production',
@@ -709,9 +729,8 @@ export const publishProduction = async (
       });
     }
 
-    // Create product (after batch commit for materials)
-    // We need to commit the batch first to ensure materials are consumed
-    await batch.commit();
+    // Commit materials consumption
+    await materialsBatch.commit();
 
     // Double-check if product was already created (race condition protection)
     const productionCheck = await getProduction(productionId, companyId);
@@ -747,7 +766,7 @@ export const publishProduction = async (
         reference: production.reference,
         category: productData.category,
         sellingPrice: productData.sellingPrice,
-        cataloguePrice: productData.cataloguePrice || 0,
+        cataloguePrice: productData.cataloguePrice ?? productData.sellingPrice, // Use selling price if catalogue price is not provided
         stock: 1, // Published production becomes 1 product unit
         costPrice: productData.costPrice,
         images: production.images || [],
@@ -808,23 +827,34 @@ export const publishProduction = async (
       };
     });
 
+    // Build catalogData without undefined values (Firestore doesn't accept undefined)
+    const catalogData: any = {
+      name: productData.name,
+      sellingPrice: productData.sellingPrice,
+      cataloguePrice: productData.cataloguePrice ?? productData.sellingPrice,
+      barCode: product.barCode,
+      isVisible: productData.isVisible
+    };
+    
+    // Only include optional fields if they have values
+    if (productData.category) {
+      catalogData.category = productData.category;
+    }
+    if (productData.description) {
+      catalogData.description = productData.description;
+    }
+
     closeBatch.update(productionRef, {
       status: 'closed',
       isClosed: true,
+      isPublished: true, // Mark as published only after successful product creation
+      isPublishing: false, // Release the lock
       publishedProductId: product.id,
       validatedCostPrice: productData.costPrice, // Validate cost with the provided value
       isCostValidated: true, // Mark as validated
       closedAt: serverTimestamp(),
       closedBy: userId,
-      catalogData: {
-        name: productData.name,
-        category: productData.category,
-        sellingPrice: productData.sellingPrice,
-        cataloguePrice: productData.cataloguePrice,
-        description: productData.description,
-        barCode: product.barCode,
-        isVisible: productData.isVisible
-      },
+      catalogData: catalogData,
       materials: updatedMaterials,
       stateHistory: arrayUnion(finalStateChange),
       updatedAt: serverTimestamp()
@@ -849,6 +879,20 @@ export const publishProduction = async (
       product
     };
   } catch (error) {
+    // ROLLBACK: Release publishing lock if error occurred
+    try {
+      const rollbackBatch = writeBatch(db);
+      const productionRef = doc(db, COLLECTION_NAME, productionId);
+      rollbackBatch.update(productionRef, {
+        isPublishing: false,
+        updatedAt: serverTimestamp()
+      });
+      await rollbackBatch.commit();
+    } catch (rollbackError) {
+      logError('Error during rollback (releasing publishing lock)', rollbackError);
+      // Don't throw - original error is more important
+    }
+    
     logError('Error publishing production', error);
     throw error;
   }

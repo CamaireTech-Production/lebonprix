@@ -1,25 +1,30 @@
 // Productions list page
 import React, { useState, useMemo } from 'react';
-import { Plus, Eye, Loader2, Search, Filter, X } from 'lucide-react';
+import { Plus, Eye, Loader2, Search, Filter, X, Trash2 } from 'lucide-react';
 import { Button, LoadingScreen, Input, Badge } from '@components/common';
 import { useProductions, useProductionFlows, useProductionCategories } from '@hooks/data/useFirestore';
 import { formatPrice } from '@utils/formatting/formatPrice';
 import CreateProductionModal from '@components/productions/CreateProductionModal';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '@contexts/AuthContext';
+import { showSuccessToast, showErrorToast } from '@utils/core/toast';
 import type { Production } from '../../types/models';
 
 const Productions: React.FC = () => {
-  const { productions, loading } = useProductions();
+  const { productions, loading, deleteProduction } = useProductions();
   const { flows } = useProductionFlows();
   const { categories } = useProductionCategories();
+  const { company } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   
   // Extract companyId from URL if in company route
   const isCompanyRoute = location.pathname.startsWith('/company/');
-  const companyId = isCompanyRoute ? location.pathname.split('/')[2] : null;
+  const urlCompanyId = isCompanyRoute ? location.pathname.split('/')[2] : null;
+  const companyId = urlCompanyId || company?.id || null;
   
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [deletingProductionId, setDeletingProductionId] = useState<string | null>(null);
   
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -57,6 +62,31 @@ const Productions: React.FC = () => {
     if (!categoryId) return '-';
     const category = categories.find(c => c.id === categoryId);
     return category?.name || 'N/A';
+  };
+
+  const handleDeleteProduction = async (production: Production, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent row click navigation
+    
+    if (!window.confirm(`Êtes-vous sûr de vouloir supprimer la production "${production.name}" ? Cette action est irréversible.`)) {
+      return;
+    }
+
+    setDeletingProductionId(production.id);
+    try {
+      await deleteProduction(production.id);
+      showSuccessToast('Production supprimée avec succès');
+    } catch (error: any) {
+      showErrorToast(error.message || 'Erreur lors de la suppression de la production');
+    } finally {
+      setDeletingProductionId(null);
+    }
+  };
+
+  // Check if production can be deleted (draft or in_progress, not published, not closed)
+  const canDeleteProduction = (production: Production) => {
+    return (production.status === 'draft' || production.status === 'in_progress') 
+      && !production.isPublished 
+      && !production.isClosed;
   };
 
   // Filter productions
@@ -400,19 +430,37 @@ const Productions: React.FC = () => {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <button
-                      onClick={() => {
-                        if (companyId) {
-                          navigate(`/company/${companyId}/productions/${production.id}`);
-                        } else {
-                          navigate(`/productions/${production.id}`);
-                        }
-                      }}
-                      className="text-blue-600 hover:text-blue-900"
-                      title="Voir les détails"
-                    >
-                      <Eye size={16} />
-                    </button>
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        onClick={() => {
+                          if (companyId) {
+                            navigate(`/company/${companyId}/productions/${production.id}`);
+                          } else {
+                            navigate(`/productions/${production.id}`);
+                          }
+                        }}
+                        className="text-blue-600 hover:text-blue-900"
+                        title="Voir les détails"
+                      >
+                        <Eye size={16} />
+                      </button>
+                      {canDeleteProduction(production) && (
+                        <button
+                          onClick={(e) => handleDeleteProduction(production, e)}
+                          disabled={deletingProductionId === production.id}
+                          className={`text-red-600 hover:text-red-900 ${
+                            deletingProductionId === production.id ? 'opacity-50 cursor-not-allowed' : ''
+                          }`}
+                          title="Supprimer la production"
+                        >
+                          {deletingProductionId === production.id ? (
+                            <Loader2 size={16} className="animate-spin" />
+                          ) : (
+                            <Trash2 size={16} />
+                          )}
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
