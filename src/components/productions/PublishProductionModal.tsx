@@ -117,11 +117,16 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
         ? parseFloat(formData.cataloguePrice) 
         : sellingPrice; // Use selling price if catalogue price is empty
 
+      // Find the category name from the selected category ID
+      const selectedCategory = formData.category 
+        ? categories.find(cat => cat.id === formData.category)
+        : null;
+
       await publishProduction(
         production.id,
         {
           name: formData.name.trim(),
-          category: formData.category || undefined,
+          category: selectedCategory?.name || undefined, // Pass the category name, not the ID
           sellingPrice: sellingPrice,
           cataloguePrice: cataloguePrice,
           description: formData.description.trim() || undefined,
