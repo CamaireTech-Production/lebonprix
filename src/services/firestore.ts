@@ -1870,7 +1870,7 @@ export const subscribeToSaleUpdates = (
   });
 };
 
-export const deleteSale = async (saleId: string, userId: string): Promise<void> => {
+export const deleteSale = async (saleId: string, companyId: string): Promise<void> => {
   const batch = writeBatch(db);
   const saleRef = doc(db, 'sales', saleId);
   
@@ -1881,7 +1881,9 @@ export const deleteSale = async (saleId: string, userId: string): Promise<void> 
   }
 
   const sale = saleSnap.data() as Sale;
-  if (sale.userId !== userId) {
+  // companyId parameter is actually company.id in this context
+  // Check companyId instead of userId to allow owners to delete employee-created sales
+  if (sale.companyId !== companyId) {
     throw new Error('Unauthorized to delete this sale');
   }
 
@@ -1895,8 +1897,8 @@ export const deleteSale = async (saleId: string, userId: string): Promise<void> 
     }
     
     const productData = productSnap.data() as Product;
-    // Verify product ownership
-    if (productData.userId !== userId) {
+    // Verify product belongs to company
+    if (productData.companyId !== companyId) {
       throw new Error(`Unauthorized to modify product ${productData.name}`);
     }
     
@@ -1951,8 +1953,9 @@ export const deleteSale = async (saleId: string, userId: string): Promise<void> 
     updatedAt: serverTimestamp()
   });
 
-  // Create audit log
-  createAuditLog(batch, 'delete', 'sale', saleId, sale, userId);
+  // Create audit log (use sale.userId for audit trail, companyId for authorization)
+  const userIdForAudit = sale.userId || companyId;
+  createAuditLog(batch, 'delete', 'sale', saleId, sale, userIdForAudit);
   
   await batch.commit();
 };
@@ -2309,9 +2312,9 @@ export const softDeleteFinanceEntryWithCascade = async (financeEntryId: string):
   await updateFinanceEntry(financeEntryId, { isDeleted: true });
   // Cascade: if sale or expense, also soft delete the corresponding doc
   if (entry.sourceType === 'sale' && entry.sourceId) {
-    await softDeleteSale(entry.sourceId, entry.userId);
+    await softDeleteSale(entry.sourceId, entry.companyId);
   } else if (entry.sourceType === 'expense' && entry.sourceId) {
-    await softDeleteExpense(entry.sourceId, entry.userId);
+    await softDeleteExpense(entry.sourceId, entry.companyId);
   }
   // Cascade: if debt, also soft delete all related refunds
   if (entry.type === 'debt') {
@@ -2335,9 +2338,9 @@ export const softDeleteFinanceEntryWithCascade = async (financeEntryId: string):
 };
 
 // Soft delete sale and cascade to finance entry
-export const softDeleteSale = async (saleId: string, userId: string): Promise<void> => {
+export const softDeleteSale = async (saleId: string, companyId: string): Promise<void> => {
   // Soft delete the sale
-  await deleteSale(saleId, userId);
+  await deleteSale(saleId, companyId);
   // Find and soft delete corresponding finance entry
   const q = query(collection(db, 'finances'), where('sourceType', '==', 'sale'), where('sourceId', '==', saleId));
   const snap = await getDocs(q);
@@ -2349,9 +2352,9 @@ export const softDeleteSale = async (saleId: string, userId: string): Promise<vo
 };
 
 // Soft delete expense and cascade to finance entry
-export const softDeleteExpense = async (expenseId: string, userId: string): Promise<void> => {
+export const softDeleteExpense = async (expenseId: string, companyId: string): Promise<void> => {
   // Soft delete the expense
-  await updateExpense(expenseId, { isAvailable: false }, userId);
+  await updateExpense(expenseId, { isAvailable: false }, companyId);
   // Find and soft delete corresponding finance entry
   const q = query(collection(db, 'finances'), where('sourceType', '==', 'expense'), where('sourceId', '==', expenseId));
   const snap = await getDocs(q);
