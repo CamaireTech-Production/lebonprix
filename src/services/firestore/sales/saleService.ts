@@ -505,20 +505,24 @@ export const getSaleDetails = async (saleId: string): Promise<Sale> => {
   return { id: saleSnap.id, ...saleSnap.data() } as Sale;
 };
 
-export const deleteSale = async (saleId: string, userId: string): Promise<void> => {
+export const deleteSale = async (saleId: string, companyId: string): Promise<void> => {
   const batch = writeBatch(db);
   const saleRef = doc(db, 'sales', saleId);
   
+  // Get current sale data for audit log and stock restoration
   const saleSnap = await getDoc(saleRef);
   if (!saleSnap.exists()) {
     throw new Error('Sale not found');
   }
 
   const sale = saleSnap.data() as Sale;
-  if (sale.userId !== userId) {
+  // companyId parameter is actually company.id in this context
+  // Check companyId instead of userId to allow owners to delete employee-created sales
+  if (sale.companyId !== companyId) {
     throw new Error('Unauthorized to delete this sale');
   }
 
+  // Restore product stock AND batches
   for (const product of sale.products) {
     const productRef = doc(db, 'products', product.productId);
     const productSnap = await getDoc(productRef);
@@ -528,12 +532,14 @@ export const deleteSale = async (saleId: string, userId: string): Promise<void> 
     }
     
     const productData = productSnap.data() as Product;
-    if (productData.userId !== userId) {
+    // Verify product belongs to company
+    if (productData.companyId !== companyId) {
       throw new Error(`Unauthorized to modify product ${productData.name}`);
     }
     
-    // Don't update product.stock - batches are the source of truth (stock is restored via batches)
+    // Restore the stock
     batch.update(productRef, {
+      stock: productData.stock + product.quantity,
       updatedAt: serverTimestamp()
     });
 
@@ -572,18 +578,21 @@ export const deleteSale = async (saleId: string, userId: string): Promise<void> 
     }
   }
 
+  // Soft delete the sale (set isAvailable: false)
   batch.update(saleRef, {
     isAvailable: false,
     updatedAt: serverTimestamp()
   });
 
-  createAuditLog(batch, 'delete', 'sale', saleId, sale, userId);
+  // Create audit log (use sale.userId for audit trail, companyId for authorization)
+  const userIdForAudit = sale.userId || companyId;
+  createAuditLog(batch, 'delete', 'sale', saleId, sale, userIdForAudit);
   
   await batch.commit();
 };
 
-export const softDeleteSale = async (saleId: string, userId: string): Promise<void> => {
-  await deleteSale(saleId, userId);
+export const softDeleteSale = async (saleId: string, companyId: string): Promise<void> => {
+  await deleteSale(saleId, companyId);
   
   const q = query(collection(db, 'finances'), where('sourceType', '==', 'sale'), where('sourceId', '==', saleId));
   const snap = await getDocs(q);

@@ -17,9 +17,9 @@ import type { FinanceEntry, FinanceEntryType, Sale, Expense } from '../../../typ
 import { createAuditLog } from '../shared';
 
 // Temporary imports from other services - will be updated after refactoring
-const softDeleteSale = async (saleId: string, userId: string): Promise<void> => {
+const softDeleteSale = async (saleId: string, companyId: string): Promise<void> => {
   const { softDeleteSale: deleteSale } = await import('../sales/saleService');
-  await deleteSale(saleId, userId);
+  await deleteSale(saleId, companyId);
 };
 
 const softDeleteExpense = async (expenseId: string, userId: string): Promise<void> => {
@@ -97,9 +97,9 @@ export const softDeleteFinanceEntryWithCascade = async (financeEntryId: string):
   await updateFinanceEntry(financeEntryId, { isDeleted: true });
   
   if (entry.sourceType === 'sale' && entry.sourceId) {
-    await softDeleteSale(entry.sourceId, entry.userId);
+    await softDeleteSale(entry.sourceId, entry.companyId);
   } else if (entry.sourceType === 'expense' && entry.sourceId) {
-    await softDeleteExpense(entry.sourceId, entry.userId);
+    await softDeleteExpense(entry.sourceId, entry.companyId);
   }
   
   if (entry.type === 'debt') {
