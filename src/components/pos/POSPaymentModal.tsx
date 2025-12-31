@@ -478,9 +478,17 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
               ${discountAmount > 0 ? `<p style="text-align: right;"><strong>Remise:</strong> -${discountAmount.toLocaleString()} XAF</p>` : ''}
               ${taxAmount > 0 ? `<p style="text-align: right;"><strong>Taxe:</strong> ${taxAmount.toLocaleString()} XAF</p>` : ''}
               <h3 style="text-align: right; margin-top: 10px;">Total: ${completedSale.totalAmount?.toLocaleString() || total.toLocaleString()} XAF</h3>
-              ${paymentMethod === 'cash' && amountReceived && parseFloat(amountReceived) !== total ? `<p style="text-align: right;"><strong>Montant reçu:</strong> ${parseFloat(amountReceived).toLocaleString()} XAF</p>` : ''}
-              ${paymentMethod === 'cash' && change > 0 ? `<p style="text-align: right;"><strong>Monnaie:</strong> ${change.toLocaleString()} XAF</p>` : ''}
-              ${paymentMethod === 'cash' && (!amountReceived || parseFloat(amountReceived) === total) ? `<p style="text-align: right;"><strong>Montant:</strong> ${total.toLocaleString()} XAF (exact)</p>` : ''}
+              ${paymentMethod === 'cash' && amountReceived && parseFloat(amountReceived) !== (completedSale.totalAmount || total) ? `<p style="text-align: right;"><strong>Montant reçu:</strong> ${parseFloat(amountReceived).toLocaleString()} XAF</p>` : ''}
+              ${(() => {
+                if (paymentMethod === 'cash' && amountReceived) {
+                  const actualTotal = completedSale.totalAmount || total;
+                  const received = parseFloat(amountReceived);
+                  const calculatedChange = received > actualTotal ? Math.max(0, received - actualTotal) : 0;
+                  return calculatedChange > 0 ? `<p style="text-align: right;"><strong>Monnaie:</strong> ${calculatedChange.toLocaleString()} XAF</p>` : '';
+                }
+                return '';
+              })()}
+              ${paymentMethod === 'cash' && (!amountReceived || parseFloat(amountReceived) === (completedSale.totalAmount || total)) ? `<p style="text-align: right;"><strong>Montant:</strong> ${(completedSale.totalAmount || total).toLocaleString()} XAF (exact)</p>` : ''}
               <p style="text-align: right;"><strong>Méthode:</strong> ${paymentMethod === 'cash' ? 'Espèces' : paymentMethod === 'mobile_money' ? 'Mobile Money' : paymentMethod === 'card' ? 'Carte' : ''}</p>
               <hr style="border-top: 1px dashed #000; margin: 10px 0;">
               ${completedSale.notes ? `<p style="margin-top: 10px;"><strong>Notes:</strong> ${completedSale.notes}</p>` : ''}
@@ -638,18 +646,23 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
                       <span>{t('pos.payment.totalAmount')}:</span>
                       <span>{completedSale.totalAmount?.toLocaleString() || total.toLocaleString()} XAF</span>
                     </div>
-                    {paymentMethod === 'cash' && amountReceived && parseFloat(amountReceived) !== total && (
+                    {paymentMethod === 'cash' && amountReceived && parseFloat(amountReceived) !== (completedSale.totalAmount || total) && (
                       <div className="flex justify-between text-sm pt-2">
                         <span>{t('pos.payment.amountReceived')}:</span>
                         <span>{parseFloat(amountReceived).toLocaleString()} XAF</span>
                       </div>
                     )}
-                    {paymentMethod === 'cash' && change > 0 && (
-                      <div className="flex justify-between text-sm text-green-600 font-semibold">
-                        <span>{t('pos.payment.change')}:</span>
-                        <span>{change.toLocaleString()} XAF</span>
-                      </div>
-                    )}
+                    {paymentMethod === 'cash' && amountReceived && (() => {
+                      const actualTotal = completedSale.totalAmount || total;
+                      const received = parseFloat(amountReceived);
+                      const calculatedChange = received > actualTotal ? Math.max(0, received - actualTotal) : 0;
+                      return calculatedChange > 0 ? (
+                        <div className="flex justify-between text-sm text-green-600 font-semibold">
+                          <span>{t('pos.payment.change')}:</span>
+                          <span>{calculatedChange.toLocaleString()} XAF</span>
+                        </div>
+                      ) : null;
+                    })()}
                     <div className="flex justify-between text-sm pt-2">
                       <span>{t('pos.payment.paymentMethod')}:</span>
                       <span className="font-semibold">
