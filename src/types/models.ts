@@ -47,7 +47,9 @@ export interface Category extends BaseModel {
   description?: string;
   image?: string; // Firebase Storage URL or base64
   imagePath?: string; // Storage path for deletion
+  type: 'product' | 'matiere'; // Category type: either product or matiere, never both
   productCount?: number;
+  matiereCount?: number; // Count of matieres in this category
   isActive?: boolean; // For soft delete capability
   userId: string; // Owner of the category
 }
@@ -58,7 +60,8 @@ export interface Product extends BaseModel {
   reference: string;
   sellingPrice: number;
   cataloguePrice?: number;
-  stock: number;
+  /** @deprecated Use stock batches (stockBatches collection) instead. This field will be removed. */
+  stock?: number;
   category?: string;
   images?: string[]; // Stores Firebase Storage URLs only
   imagePaths?: string[]; // Optional: store storage paths for deletion
@@ -71,6 +74,28 @@ export interface Product extends BaseModel {
   tags?: ProductTag[]; // Dynamic product tags for variations
   description?: string; // Product description for catalogue
   barCode?: string; // EAN-13 barcode for product identification
+}
+
+export interface Matiere extends BaseModel {
+  name: string;
+  description?: string;
+  images?: string[]; // Firebase Storage URLs
+  imagePaths?: string[]; // Storage paths for deletion
+  refCategorie?: string; // Category name (not ID) - optional
+  refStock: string; // Reference to stock document ID
+  unit?: string; // Unit of measurement (from units.ts or customUnits) - optional
+  costPrice: number; // Last purchase price
+  companyId: string;
+  createdBy?: EmployeeRef;
+  isDeleted?: boolean;
+}
+
+export interface CustomUnit extends BaseModel {
+  value: string; // Technical code (e.g., "custom_box")
+  label: string; // Display label (e.g., "Boîte personnalisée")
+  companyId: string; // Company that owns this custom unit
+  createdBy?: EmployeeRef; // Employee who created the unit
+  isDeleted?: boolean; // Soft delete
 }
 
 export interface ProductTag {
@@ -212,12 +237,26 @@ export interface ProfitPeriodPreference {
   updatedBy: string;
 }
 
-// Stock change event for product inventory tracking
+// Stock document for tracking current quantity
+export interface Stock {
+  id: string;
+  type: 'product' | 'matiere'; // Stock type: either product or matiere, never both
+  productId?: string; // Only if type === 'product'
+  matiereId?: string; // Only if type === 'matiere'
+  quantity: number;
+  companyId: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+// Stock change event for product/matiere inventory tracking
 export interface StockChange {
   id: string;
-  productId: string;
+  type: 'product' | 'matiere'; // Stock type: either product or matiere, never both
+  productId?: string; // Only if type === 'product'
+  matiereId?: string; // Only if type === 'matiere'
   change: number; // + for restock, - for sale, etc.
-  reason: 'sale' | 'restock' | 'adjustment' | 'creation' | 'cost_correction' | 'damage' | 'manual_adjustment';
+  reason: 'sale' | 'restock' | 'adjustment' | 'creation' | 'cost_correction' | 'damage' | 'manual_adjustment' | 'production';
   supplierId?: string; // Reference to supplier if applicable
   isOwnPurchase?: boolean; // true if own purchase, false if from supplier
   isCredit?: boolean; // true if on credit, false if paid (only relevant if from supplier)
@@ -239,7 +278,9 @@ export interface StockChange {
 // Stock batch for FIFO inventory tracking (NEW!)
 export interface StockBatch {
   id: string;
-  productId: string;
+  type: 'product' | 'matiere'; // Stock type: either product or matiere, never both
+  productId?: string; // Only if type === 'product'
+  matiereId?: string; // Only if type === 'matiere'
   quantity: number; // Total quantity in this batch
   costPrice: number; // Cost per unit for this batch
   supplierId?: string; // Reference to supplier if applicable
@@ -264,13 +305,40 @@ export interface Supplier extends BaseModel {
   isDeleted?: boolean;
 }
 
+/**
+ * Supplier Debt Entry - Individual transaction record
+ * Part of the entries array in SupplierDebt
+ */
+export interface SupplierDebtEntry {
+  id: string;
+  type: 'debt' | 'refund';
+  amount: number;
+  description: string;
+  batchId?: string; // Link to stock batch if applicable (for debt entries from stock purchases)
+  refundedDebtId?: string; // For refunds, links to the original debt entry ID (from finance entry)
+  createdAt: Timestamp;
+}
+
+/**
+ * Supplier Debt - Main debt tracking document
+ * One document per supplier per company
+ * Tracks total debt, refunds, and outstanding amount
+ */
+export interface SupplierDebt extends BaseModel {
+  supplierId: string;
+  totalDebt: number; // Sum of all debt entries
+  totalRefunded: number; // Sum of all refund entries
+  outstanding: number; // totalDebt - totalRefunded (calculated field)
+  entries: SupplierDebtEntry[]; // History of all debt/refund transactions
+}
+
 export interface FinanceEntry {
   id: string;
   userId: string; // Legacy field - kept for audit trail
   companyId: string; // Reference to the company this finance entry belongs to
-  sourceType: 'sale' | 'expense' | 'manual' | 'supplier' | 'order';
-  sourceId?: string; // saleId, expenseId, orderId, or supplierId if applicable
-  type: string; // e.g., "sale", "expense", "loan", "deposit", "supplier_debt", "supplier_refund", etc.
+  sourceType: 'sale' | 'expense' | 'manual' | 'supplier' | 'order' | 'matiere';
+  sourceId?: string; // saleId, expenseId, orderId, supplierId, or matiereId if applicable
+  type: string; // e.g., "sale", "expense", "loan", "deposit", "supplier_debt", "supplier_refund", "matiere_purchase", etc.
   amount: number;
   description?: string;
   date: Timestamp;
@@ -291,11 +359,13 @@ export interface FinanceEntryType {
 }
 
 export interface ExpenseType {
-  id: string;
-  name: string;
-  userId?: string; // undefined for default/global types
-  isDefault: boolean;
-  createdAt: Timestamp;
+  id: string;                    // Document ID (auto-generated)
+  name: string;                  // Category name (e.g., "transportation", "purchase")
+  userId?: string;               // User ID who created it (optional, undefined for defaults)
+  companyId?: string;            // Company ID (optional, undefined for default types)
+  isDefault: boolean;            // true for system defaults, false for custom
+  createdAt: Timestamp;          // Firestore timestamp
+  updatedAt?: Timestamp;         // Firestore timestamp (set when updated)
 }
 
 // Employee invitation system types
@@ -392,5 +462,153 @@ export interface Company extends BaseModel {
   employees?: Record<string, CompanyEmployee>; // Mirroir de employeeRefs pour lecture rapide
   employeeCount?: number; // Nombre total d'employés
   // Nouvelle architecture: employeeRefs via sous-collection companies/{id}/employeeRefs/{firebaseUid}
+}
+
+// ============================================================================
+// PRODUCTION MODELS
+// ============================================================================
+
+/**
+ * Production Flow Step - Individual step definition (reusable across flows)
+ */
+export interface ProductionFlowStep extends BaseModel {
+  name: string; // e.g., "Design", "Cutting", "Sewing", "Quality Check", "Packaging"
+  description?: string;
+  image?: string; // Firebase Storage URL
+  imagePath?: string; // Storage path for deletion
+  estimatedDuration?: number; // Hours (optional guidance)
+  isActive: boolean; // Can be deactivated without deleting
+  usageCount?: number; // How many times used in flows (for analytics)
+}
+
+/**
+ * Production Flow - Collection of flow steps
+ */
+export interface ProductionFlow extends BaseModel {
+  name: string; // e.g., "Standard Production", "Custom Orders", "Bulk Production"
+  description?: string;
+  isDefault: boolean; // Default flow for new productions
+  isActive: boolean;
+  
+  // Ordered steps in this flow (references to ProductionFlowStep IDs)
+  stepIds: string[]; // Array of step IDs in desired order (for UI display)
+  // Note: User can still move freely, this is just the suggested/display order
+  
+  // Flow metadata
+  estimatedDuration?: number; // Total days (sum of step durations)
+  stepCount?: number; // Count of steps (denormalized)
+}
+
+/**
+ * Production Category
+ */
+export interface ProductionCategory extends BaseModel {
+  name: string;
+  description?: string;
+  image?: string; // Firebase Storage URL
+  imagePath?: string; // Storage path for deletion
+  productionCount?: number; // Count of productions in this category
+  isActive: boolean;
+}
+
+/**
+ * Production Material - Material required for production
+ */
+export interface ProductionMaterial {
+  matiereId: string;
+  matiereName: string; // Denormalized for display
+  requiredQuantity: number;
+  unit: string;
+  consumedQuantity?: number; // Actual consumed when published
+  costPrice: number; // Cost at time of production
+  batchIds?: string[]; // Which batches were consumed
+}
+
+/**
+ * Production State Change - Tracks state evolution
+ * Supports two modes:
+ * - Flow mode: Uses stepId/stepName (when flowId exists)
+ * - Simple mode: Uses status (when no flowId)
+ */
+export interface ProductionStateChange {
+  id: string;
+  
+  // Flow mode (if flowId exists)
+  fromStepId?: string; // Previous step (null if initial)
+  toStepId?: string; // New step (must be from associated flow)
+  fromStepName?: string; // Denormalized for display
+  toStepName?: string; // Denormalized for display
+  
+  // Simple mode (if no flowId)
+  fromStatus?: string; // Previous status: 'draft' | 'in_progress' | 'ready' | etc.
+  toStatus?: string; // New status: 'draft' | 'in_progress' | 'ready' | etc.
+  
+  // Common fields
+  changedBy: string; // User ID
+  changedByName?: string; // Denormalized for display
+  timestamp: Timestamp;
+  note?: string; // Optional note for the state change
+}
+
+/**
+ * Production Charge - Charge linked to production
+ */
+export interface ProductionCharge extends BaseModel {
+  productionId: string;
+  description: string;
+  amount: number;
+  category: string; // e.g., "labor", "overhead", "equipment"
+  date: Timestamp;
+  financeEntryId?: string; // Link to FinanceEntry
+}
+
+/**
+ * Production - Main production model
+ */
+export interface Production extends BaseModel {
+  // Basic Info
+  name: string;
+  reference: string;
+  description?: string;
+  images?: string[]; // Firebase Storage URLs
+  imagePaths?: string[]; // Storage paths for deletion
+  categoryId?: string; // Reference to ProductionCategory
+  
+  // Flow & State Management
+  flowId?: string; // Reference to ProductionFlow (optional - defines available steps if provided)
+  currentStepId?: string; // Current step ID (optional - only if flowId exists)
+  status: 'draft' | 'in_progress' | 'ready' | 'published' | 'cancelled' | 'closed';
+  
+  // State History (tracks all state changes - user can move freely)
+  stateHistory: ProductionStateChange[];
+  
+  // Materials (from magasin)
+  materials: ProductionMaterial[];
+  
+  // Cost Calculation
+  calculatedCostPrice: number; // Auto-calculated from materials + charges
+  validatedCostPrice?: number; // User-validated/modified cost price
+  isCostValidated: boolean;
+  
+  // Charges
+  chargeIds: string[]; // References to ProductionCharge documents
+  
+  // Publishing & Closure
+  publishedProductId?: string; // If published, reference to Product
+  isPublished: boolean;
+  isPublishing?: boolean; // Temporary lock during publication process (prevents double publication)
+  isClosed: boolean; // True when published - no more interactions
+  closedAt?: Timestamp;
+  closedBy?: string;
+  
+  // Catalog Info (stored but only used when publishing)
+  catalogData?: {
+    category?: string;
+    sellingPrice?: number;
+    cataloguePrice?: number;
+    isVisible?: boolean;
+    tags?: ProductTag[];
+    barCode?: string;
+  };
 }
 

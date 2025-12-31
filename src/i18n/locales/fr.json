@@ -38,7 +38,8 @@
     "confirm": "Confirmer",
     "close": "Fermer",
     "phone": "Téléphone",
-    "email": "Email"
+    "email": "Email",
+    "all": "Tous"
   },
   "auth": {
     "login": "Connexion",
@@ -70,7 +71,8 @@
     "confirmCompanyExit": "Quitter l'entreprise actuelle ?",
     "confirmCompanyExitMessage": "Vous êtes sur le point de quitter le contexte de l'entreprise actuelle pour gérer vos entreprises.",
     "confirmCompanyExitQuestion": "Êtes-vous sûr de vouloir continuer ?",
-    "currentCompany": "Entreprise actuelle"
+    "currentCompany": "Entreprise actuelle",
+    "pos": "Point de Vente"
   },
   "header": {
     "welcome": "Bienvenue",
@@ -86,6 +88,7 @@
     "title": "Tableau de bord",
     "welcome": "Bienvenue ! Voici ce qui se passe dans votre entreprise aujourd'hui.",
     "howCalculated": "Comment sont calculées ces valeurs ?",
+    "guide": "Guide",
     "viewTodayReports": "Voir les rapports d'aujourd'hui",
     "quickActions": "Actions Rapides",
     "quickActionsDescription": "Accédez rapidement aux fonctionnalités fréquemment utilisées",
@@ -107,7 +110,8 @@
       "solde": "Solde",
       "profit": "Profit",
       "expenses": "Dépenses",
-      "productsSold": "Produits vendus"
+      "productsSold": "Produits vendus",
+      "clients": "Clients"
     },
     "profit": {
       "periodSettings": "Paramètres de période de profit",
@@ -150,6 +154,24 @@
       "totalSales": "Ventes totales",
       "noData": "Aucune donnée de vente disponible"
     },
+    "salesByCategory": {
+      "title": "Ventes par catégorie de produits"
+    },
+    "expensesByCategory": {
+      "title": "Dépenses par catégorie"
+    },
+    "salesBySource": {
+      "title": "Ventes par source"
+    },
+    "salesByPaymentStatus": {
+      "title": "Ventes par statut de paiement"
+    },
+    "period": {
+      "thisYear": "Cette année",
+      "thisMonth": "Ce mois",
+      "last30Days": "30 derniers jours",
+      "custom": "Personnalisé"
+    },
     "calculations": {
       "title": "Explication des calculs du tableau de bord",
       "grossProfit": {
@@ -173,7 +195,7 @@
       "totalSalesAmount": {
         "title": "Montant total des ventes",
         "description": "Le revenu total de toutes les ventes, y compris les prix négociés.",
-        "formule": "Formule : Σ(Montant de la vente) pour chaque vente",
+        "formula": "Formule : Σ(Montant de la vente) pour chaque vente",
         "note": "Note : Si un produit a été vendu à un prix négocié, ce prix est utilisé au lieu du prix de vente standard."
       },
       "deliveryFee": {
@@ -255,6 +277,32 @@
         "objectiveUpdated": "Objectif mis à jour",
         "objectiveDeleted": "Objectif supprimé"
       }
+    },
+    "latestOrders": {
+      "title": "Dernières commandes",
+      "reference": "Référence",
+      "date": "Date",
+      "status": "Statut",
+      "client": "Client",
+      "noData": "Aucune commande récente",
+      "noClient": "Aucun client"
+    },
+    "topSales": {
+      "title": "Meilleures ventes",
+      "viewMore": "Voir plus",
+      "noData": "Aucune vente"
+    },
+    "bestClients": {
+      "title": "Meilleurs clients",
+      "viewMore": "Voir plus",
+      "noData": "Aucun client",
+      "orders": "Commandes"
+    },
+    "bestProducts": {
+      "title": "Meilleurs produits",
+      "viewAll": "Tout voir",
+      "noData": "Aucun produit",
+      "orders": "Commandes"
     },
     "makeSale": "Faire une vente"
   },
@@ -722,6 +770,12 @@
       "createdAt": "Créé le",
       "lastUpdated": "Dernière mise à jour"
     },
+    "stockHistory": {
+      "filterByType": "Filtrer par type",
+      "filterBySupplier": "Filtrer par fournisseur",
+      "searchPlaceholder": "Rechercher par raison, fournisseur...",
+      "itemsPerPage": "Éléments par page"
+    },
     "messages": {
       "productAdded": "Produit ajouté avec succès",
       "productUpdated": "Produit mis à jour avec succès",
@@ -813,6 +867,7 @@
       "location": "Localisation",
       "locationHelp": "Optionnel",
       "emailAddress": "Adresse e-mail",
+      "emailDisabledHelp": "L'email ne peut pas être modifié car il est utilisé pour des opérations critiques et les rapports.",
       "reportMail": "Email pour les rapports de vente",
       "reportMailHelp": "Adresse email vers laquelle les rapports de vente seront envoyés",
       "reportTime": "Heure de réception des rapports",
@@ -1011,7 +1066,18 @@
     "categories": {
       "transportation": "Transport",
       "purchase": "Achat",
-      "other": "Autre"
+      "other": "Autre",
+      "facebook Adds": "Publicité Facebook",
+      "credit": "Crédit",
+      "Importation": "Importation",
+      "Salaire": "Salaire",
+      "Reparations": "Réparations",
+      "Internet Connexion": "Connexion Internet",
+      "Commision": "Commission",
+      "bijoux": "Bijoux",
+      "Frais de retrait": "Frais de retrait",
+      "Remboursement": "Remboursement",
+      "Marchandise": "Marchandise"
     },
     "summary": {
       "transportation": "Dépenses de transport",
@@ -1032,7 +1098,8 @@
       "manual": "Manuelle",
       "sale": "Vente",
       "expense": "Dépense",
-      "supplier": "Fournisseur"
+      "supplier": "Fournisseur",
+      "matiere": "Matière"
     },
     "types": {
       "loan": "Prêt",
@@ -1042,6 +1109,7 @@
       "debt": "Dette",
       "supplier_debt": "Dette Fournisseur",
       "supplier_refund": "Remboursement Fournisseur",
+      "matiere_purchase": "Achat Matière",
         "sortie": "Sortie",
       "other": "Entrée associée"
     },
@@ -1080,7 +1148,8 @@
       "editSupplier": "Modifier Fournisseur",
       "deleteSupplier": "Supprimer Fournisseur",
       "viewDebtHistory": "Voir Historique Dettes",
-      "addRefund": "Ajouter Remboursement"
+      "addRefund": "Ajouter Remboursement",
+      "addDebt": "Ajouter Dette"
     },
     "form": {
       "name": "Nom du Fournisseur",
@@ -1146,6 +1215,16 @@
       "refundExceeds": "Le montant du remboursement dépasse la dette restante !",
       "success": "Remboursement ajouté avec succès",
       "error": "Échec de l'ajout du remboursement"
+    },
+    "debt": {
+      "addTitle": "Ajouter une dette",
+      "addButton": "Ajouter la dette",
+      "supplier": "Fournisseur",
+      "amount": "Montant de la dette",
+      "description": "Description",
+      "descriptionPlaceholder": "Raison de la dette (ex: Achat de marchandises, Prêt, etc.)",
+      "addSuccess": "Dette ajoutée avec succès",
+      "addError": "Erreur lors de l'ajout de la dette"
     }
   },
   "checkout": {
@@ -1348,7 +1427,9 @@
       "preparing": "En Préparation",
       "ready": "Prête",
       "delivered": "Livrée",
-      "cancelled": "Annulée"
+      "cancelled": "Annulée",
+      "commande": "Commande",
+      "paid": "Payé"
     },
     "paymentStatus": {
       "pending": "En Attente",

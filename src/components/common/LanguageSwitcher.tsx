@@ -1,5 +1,4 @@
 import { useTranslation } from 'react-i18next';
-import { Globe, ChevronDown } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 
 const languages = [
@@ -33,19 +32,14 @@ const LanguageSwitcher = ({ variant = 'light' }: LanguageSwitcherProps) => {
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`flex items-center gap-2 px-3 py-2 text-sm rounded-md transition-colors ${
+        className={`flex items-center justify-center p-2 rounded-md transition-colors ${
           variant === 'dark' 
             ? 'text-white hover:text-white hover:bg-white hover:bg-opacity-20 border border-white border-opacity-30' 
             : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100'
         }`}
         title={i18n.language === 'en' ? 'Switch to French' : 'Passer en Anglais'}
       >
-        <Globe className="h-4 w-4" />
-        <span className="flex items-center gap-1.5">
-          <span className="text-base">{currentLanguage.flag}</span>
-          <span className="hidden sm:inline">{currentLanguage.name}</span>
-          <ChevronDown className="h-4 w-4" />
-        </span>
+        <span className="text-xl">{currentLanguage.flag}</span>
       </button>
 
       {isOpen && (
@@ -59,15 +53,15 @@ const LanguageSwitcher = ({ variant = 'light' }: LanguageSwitcherProps) => {
                   setIsOpen(false);
                 }}
                 className={`
-                  flex items-center w-full px-4 py-2 text-sm text-black
+                  flex items-center w-full px-4 py-2 text-sm
                   ${i18n.language === lang.code 
-                    ? 'bg-gray-100 text-black' 
-                    : 'text-black hover:bg-gray-50 hover:text-black'}
+                    ? 'bg-gray-100 text-gray-900 font-medium' 
+                    : 'text-gray-700 hover:bg-gray-50'}
                 `}
                 role="menuitem"
               >
-                <span className="text-base mr-2">{lang.flag}</span>
-                {lang.name}
+                <span className="text-base mr-3 flex-shrink-0">{lang.flag}</span>
+                <span className="flex-1 text-left">{lang.name}</span>
               </button>
             ))}
           </div>

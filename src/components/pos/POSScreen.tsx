@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { usePOS } from '../../hooks/usePOS';
+import { usePOS } from '@hooks/forms/usePOS';
 import { POSHeader } from './POSHeader';
 import { POSProductSearch } from './POSProductSearch';
 import { POSProductGrid } from './POSProductGrid';
@@ -8,7 +8,7 @@ import { POSCustomerQuickAdd } from './POSCustomerQuickAdd';
 import { POSPaymentModal } from './POSPaymentModal';
 import { POSKeyboardShortcuts } from './POSKeyboardShortcuts';
 import { POSTransactionsSidebar } from './POSTransactionsSidebar';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '@contexts/AuthContext';
 import { useParams } from 'react-router-dom';
 import type { Sale } from '../../types/models';
 
@@ -52,6 +52,7 @@ export const POSScreen: React.FC = () => {
     focusSearch,
     setAutoSaveCustomer,
     setShowCustomerDropdown,
+    stockMap,
   } = usePOS();
 
   // Get unique categories from products
@@ -140,6 +141,7 @@ export const POSScreen: React.FC = () => {
               onDeliveryFeeChange={(fee) => updateState({ deliveryFee: fee })}
               onCompleteSale={handleCompleteSaleClick}
               isSubmitting={isSubmitting}
+              stockMap={stockMap}
             />
           </div>
         </div>
@@ -162,6 +164,7 @@ export const POSScreen: React.FC = () => {
               selectedCategory={selectedCategory}
               onCategoryChange={(category) => updateState({ selectedCategory: category })}
               categories={categories}
+              stockMap={stockMap}
             />
           </div>
         </div>

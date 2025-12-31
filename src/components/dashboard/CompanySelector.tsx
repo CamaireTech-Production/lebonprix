@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
-import { createCompany } from '../../services/companyService';
+import { useAuth } from '@contexts/AuthContext';
+import { createCompany } from '@services/firestore/companies/companyService';
 import { PlusIcon, BuildingOfficeIcon, UserIcon } from '@heroicons/react/24/outline';
 
 interface CompanySelectorProps {

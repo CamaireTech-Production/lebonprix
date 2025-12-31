@@ -1,13 +1,12 @@
 import { useState, useEffect } from 'react';
-import Card from '../common/Card';
-import Button from '../common/Button';
-import { cancelInvitation, sendInvitationEmailToUser, getInvitationLink } from '../../services/invitationService';
-import { getTemplateById } from '../../services/permissionTemplateService';
+import { Card, Button } from '@components/common';
+import { cancelInvitation, sendInvitationEmailToUser, getInvitationLink } from '@services/firestore/employees/invitationService';
+import { getTemplateById } from '@services/firestore/employees/permissionTemplateService';
 import { formatDistanceToNow } from 'date-fns';
 import { Mail, Clock, User, Trash2, RefreshCw, Copy } from 'lucide-react';
 import type { Invitation } from '../../types/models';
 import type { PermissionTemplate } from '../../types/permissions';
-import { showSuccessToast, showErrorToast } from '../../utils/toast';
+import { showSuccessToast, showErrorToast } from '@utils/core/toast';
 
 interface PendingInvitationsListProps {
   invitations: Invitation[];
@@ -156,7 +155,7 @@ const PendingInvitationsList = ({ invitations, onInvitationCancelled }: PendingI
                       <span className="flex items-center">
                         <Clock className="h-4 w-4 mr-1" />
                         <span>
-                          {expired ? 'Expired' : `Expires ${formatDistanceToNow(invitation.expiresAt.toDate(), { addSuffix: true })}`}
+                          {expired ? 'Expired' : `Expires ${formatDistanceToNow(invitation.expiresAt instanceof Date ? invitation.expiresAt : (invitation.expiresAt as any).toDate?.() || new Date((invitation.expiresAt as any).seconds * 1000), { addSuffix: true })}`}
                         </span>
                       </span>
                     </div>

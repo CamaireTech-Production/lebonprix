@@ -171,7 +171,7 @@ export interface CinetPayError {
 }
 
 // Default CinetPay Configuration
-export const DEFAULT_CINETPAY_CONFIG: Omit<CinetPayConfig, 'id' | 'userId' | 'createdAt' | 'updatedAt'> = {
+export const DEFAULT_CINETPAY_CONFIG: Omit<CinetPayConfig, 'id' | 'userId' | 'companyId' | 'createdAt' | 'updatedAt'> = {
   siteId: '',
   apiKey: '',
   isActive: false,

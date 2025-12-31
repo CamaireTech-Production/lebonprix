@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { countryCodes, defaultCountry, type CountryCode } from '../../data/countryCodes';
-import { normalizePhoneNumber } from '../../utils/phoneUtils';
+import { normalizePhoneNumber } from '@utils/core/phoneUtils';
 
 interface PhoneInputProps {
   value: string;

@@ -1,11 +1,11 @@
 // src/pages/expenses/shared/ExpenseDeleteModal.tsx
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useAuth } from '../../../contexts/AuthContext';
-import Modal, { ModalFooter } from '../../../components/common/Modal';
-import { softDeleteExpense } from '../../../services/firestore';
-import { showSuccessToast, showErrorToast } from '../../../utils/toast';
-import { logError } from '../../../utils/logger';
+import { useAuth } from '@contexts/AuthContext';
+import { Modal, ModalFooter } from '@components/common';
+import { softDeleteExpense } from '@services/firestore/expenses/expenseService';
+import { showSuccessToast, showErrorToast } from '@utils/core/toast';
+import { logError } from '@utils/core/logger';
 import type { Expense } from '../../../types/models';
 
 interface ExpenseDeleteModalProps {
