@@ -451,10 +451,10 @@ const Sales: React.FC = () => {
   };
 
   const handleDeleteSale = async (): Promise<void> => {
-    if (!currentSale || !user?.uid) return;
+    if (!currentSale || !company?.id) return;
     setDeleteLoading(true);
     try {
-      await softDeleteSale(currentSale.id, user.uid);
+      await softDeleteSale(currentSale.id, company.id);
       setIsDeleteModalOpen(false);
       setCurrentSale(null);
       showSuccessToast(t('sales.messages.saleDeleted'));
