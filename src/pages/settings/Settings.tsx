@@ -14,7 +14,7 @@ import type { CheckoutSettings, CheckoutSettingsUpdate } from '../../types/check
 import type { CinetPayConfig, CinetPayConfigUpdate } from '../../types/cinetpay';
 import PaymentMethodModal from '../../components/settings/PaymentMethodModal';
 import { combineActivities } from '@utils/business/activityUtils';
-import { Plus, Copy, Check, ExternalLink, CreditCard, Truck, ShoppingBag, Save, RotateCcw, Eye, Trash2 } from 'lucide-react';
+import { Plus, Copy, Check, ExternalLink, Truck, ShoppingBag, Save, RotateCcw, Eye, Trash2 } from 'lucide-react';
 
 function normalizeWebsite(raw: string): string | undefined {
   const url = (raw || '').trim();

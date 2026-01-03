@@ -23,8 +23,7 @@ import {
   CheckCircle,
   Lock,
   Shield,
-  RotateCcw,
-  HelpCircle
+  RotateCcw
 } from 'lucide-react';
 import { PhoneInput, ImageWithSkeleton, AmountTooLowModal } from '@components/common';
 import SaveStatusIndicator from '@components/checkout/SaveStatusIndicator';
