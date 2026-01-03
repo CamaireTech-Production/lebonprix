@@ -12,4 +12,6 @@ export * from './useCustomerSources';
 export * from './usePermissions';
 export * from './useRolePermissions';
 export * from './useLocationSearch';
+export * from './useSiteSettings';
+export * from './useSiteAnalytics';
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, Link, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, ShoppingCart, DollarSign, Package2, FileBarChart, Settings, X, Receipt, Users, Building2, Plus, Grid3X3, ShoppingBag, UserCheck, ChevronDown, ChevronRight, Loader2, Phone, ScanLine, Warehouse, Factory} from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, DollarSign, Package2, FileBarChart, Settings, X, Receipt, Users, Building2, Plus, Grid3X3, ShoppingBag, UserCheck, ChevronDown, ChevronRight, Loader2, Phone, ScanLine, Warehouse, Factory, Globe} from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useRolePermissions } from '../../hooks/business/useRolePermissions';
 import UserAvatar from '../common/UserAvatar';
@@ -143,6 +143,7 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
     { name: t('navigation.dashboard'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/dashboard` : '/', icon: <LayoutDashboard size={20} />, resource: 'dashboard' },
     { name: t('navigation.sales'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/sales` : '/sales', icon: <ShoppingCart size={20} />, resource: 'sales' },
     { name: 'POS', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/pos` : '/pos', icon: <ScanLine size={20} />, resource: 'sales' },
+    { name: t('site.navigation', 'Online Catalogue'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/site` : '/site', icon: <Globe size={20} />, resource: 'settings' },
     { name: 'Orders', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/orders` : '/orders', icon: <ShoppingBag size={20} />, resource: 'orders' },
     { 
       name: 'Expenses', 

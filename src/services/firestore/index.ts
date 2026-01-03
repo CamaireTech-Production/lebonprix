@@ -17,6 +17,7 @@ export * from './suppliers';
 export * from './objectives';
 export * from './tags';
 export * from './customUnits';
+export * from './site';
 
 // Legacy exports from main firestore.ts (will be gradually moved to domain services)
 export * from './firestore';

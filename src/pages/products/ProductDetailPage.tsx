@@ -3,6 +3,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useCart } from '../../contexts/CartContext';
 import { getCompanyByUserId, getSellerSettings } from '@services/firestore/firestore';
 import { subscribeToProducts } from '@services/firestore/products/productService';
+import { trackProductView } from '@services/firestore/site/siteService';
 import { formatPrice } from '@utils/formatting/formatPrice';
 import type { Company, Product } from '../../types/models';
 import type { SellerSettings } from '../../types/order';
@@ -84,6 +85,19 @@ const ProductDetailPage = () => {
         // Load seller settings for WhatsApp number
         if (settingsData) {
           setSellerSettings(settingsData);
+        }
+
+        // Track product view for analytics
+        if (companyData?.id && foundProduct) {
+          trackProductView(
+            companyData.id,
+            foundProduct.id,
+            foundProduct.name,
+            {
+              userAgent: navigator.userAgent,
+              referrer: document.referrer
+            }
+          );
         }
 
         // Si action=buy, ajouter automatiquement au panier

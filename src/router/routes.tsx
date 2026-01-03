@@ -46,6 +46,7 @@ const ProductionFlowSteps = lazy(() => import('../pages/productions/FlowSteps'))
 const ProductionFlows = lazy(() => import('../pages/productions/Flows'));
 const ProductionCategories = lazy(() => import('../pages/productions/Categories'));
 const ProductionDetail = lazy(() => import('../pages/productions/ProductionDetail'));
+const Site = lazy(() => import('../pages/site/Site'));
 
 interface AppRoutesProps {
   isAddSaleModalOpen: boolean;
@@ -116,6 +117,7 @@ export const AppRoutes: React.FC<AppRoutesProps> = ({ isAddSaleModalOpen, setIsA
           <Route path="hr" element={<RoleRoute requiredResource="hr"><LazyPage><HRManagement /></LazyPage></RoleRoute>} />
           <Route path="reports" element={<RoleRoute requiredResource="reports"><LazyPage><Reports /></LazyPage></RoleRoute>} />
           <Route path="profile" element={<LazyPage><Profile /></LazyPage>} />
+          <Route path="site" element={<RoleRoute requiredResource="settings"><LazyPage><Site /></LazyPage></RoleRoute>} />
           <Route path="settings" element={<RoleRoute requiredResource="settings"><LazyPage><Settings /></LazyPage></RoleRoute>} />
         </Route>
       </Route>

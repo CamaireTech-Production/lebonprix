@@ -40,6 +40,15 @@ export interface Company extends BaseModel {
   primaryColor?: string; // Primary brand color (default: #183524)
   secondaryColor?: string; // Secondary brand color (default: #e2b069)
   tertiaryColor?: string; // Tertiary/accent color (default: #2a4a3a)
+  
+  // SEO settings for catalogue site
+  seoSettings?: {
+    metaTitle?: string;
+    metaDescription?: string;
+    metaKeywords?: string[];
+    ogImage?: string; // Open Graph image URL
+    twitterCard?: 'summary' | 'summary_large_image';
+  };
 }
 
 export interface Category extends BaseModel {
@@ -610,5 +619,28 @@ export interface Production extends BaseModel {
     tags?: ProductTag[];
     barCode?: string;
   };
+}
+
+/**
+ * Site Analytics - Daily aggregation of catalogue views and traffic
+ */
+export interface SiteAnalytics extends BaseModel {
+  companyId: string;
+  date: Timestamp;
+  views: number;
+  uniqueVisitors: number;
+  popularProducts: Array<{
+    productId: string;
+    productName: string;
+    views: number;
+  }>;
+  referrers: Array<{
+    source: string;
+    count: number;
+  }>;
+  deviceTypes: Array<{
+    type: 'desktop' | 'mobile' | 'tablet';
+    count: number;
+  }>;
 }
 
