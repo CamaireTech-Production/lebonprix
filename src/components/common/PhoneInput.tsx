@@ -24,6 +24,22 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Sync selectedCountry with value prop when it changes
+  useEffect(() => {
+    if (value) {
+      // Find the country code that matches the value
+      for (const country of countryCodes) {
+        if (value.startsWith(country.dialCode)) {
+          if (selectedCountry.code !== country.code) {
+            setSelectedCountry(country);
+          }
+          break;
+        }
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+
   // Filter countries based on search query
   const filteredCountries = countryCodes.filter(country =>
     country.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -40,6 +56,7 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
     // Update the phone number with new country code
     const currentNumber = getDisplayValue();
     if (currentNumber) {
+      // Just combine country code with current number, don't normalize yet
       onChange(`${country.dialCode}${currentNumber}`);
     } else {
       onChange(country.dialCode);
@@ -51,18 +68,34 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
     }, 100);
   };
 
-  // Handle phone number input
+  // Handle phone number input - don't normalize during typing
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const inputValue = e.target.value;
-    // Remove any non-digit characters
+    
+    // Remove any non-digit characters from the input
     const cleanValue = inputValue.replace(/[^\d]/g, '');
     
-    // Send the full phone number (country code + number) to parent
-    const fullNumber = cleanValue ? `${selectedCountry.dialCode}${cleanValue}` : selectedCountry.dialCode;
+    // Limit to maximum 15 digits (international standard for phone numbers)
+    const maxDigits = 15;
+    const limitedValue = cleanValue.slice(0, maxDigits);
     
-    // Normalize the phone number before sending to parent
-    const normalized = normalizePhoneNumber(fullNumber, selectedCountry.dialCode);
-    onChange(normalized);
+    // Combine with country code - don't normalize during typing
+    // This prevents cursor jumps and unexpected number changes
+    const fullNumber = limitedValue ? `${selectedCountry.dialCode}${limitedValue}` : selectedCountry.dialCode;
+    
+    // Update parent with the raw value (will be normalized on blur)
+    onChange(fullNumber);
+  };
+
+  // Handle input blur - normalize when user finishes typing
+  const handleInputBlur = () => {
+    if (value) {
+      // Normalize the phone number when user finishes editing
+      const normalized = normalizePhoneNumber(value, selectedCountry.dialCode);
+      if (normalized !== value) {
+        onChange(normalized);
+      }
+    }
   };
 
   // Handle input focus
@@ -70,12 +103,6 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
     // If input is empty, set the country code
     if (!value) {
       onChange(selectedCountry.dialCode);
-    } else {
-      // Normalize existing value on focus
-      const normalized = normalizePhoneNumber(value, selectedCountry.dialCode);
-      if (normalized !== value) {
-        onChange(normalized);
-      }
     }
   };
 
@@ -185,6 +212,7 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
           value={getDisplayValue()}
           onChange={handlePhoneChange}
           onFocus={handleInputFocus}
+          onBlur={handleInputBlur}
           placeholder={placeholder}
           className={`flex-1 px-3 py-2 border rounded-r-lg focus:ring-2 focus:ring-theme-brown focus:border-theme-brown ${
             error ? 'border-red-500' : 'border-gray-300'

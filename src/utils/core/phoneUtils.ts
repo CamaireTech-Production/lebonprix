@@ -5,6 +5,9 @@
 
 import { DEFAULT_COUNTRY_CODE, DEFAULT_COUNTRY_CODE_DIGITS, CAMEROON_PHONE_RULES } from '../../config/phoneConfig';
 
+// Maximum phone number length (international standard: 15 digits)
+const MAX_PHONE_DIGITS = 15;
+
 /**
  * Normalizes a phone number to standard format with country code
  * 
@@ -57,13 +60,20 @@ export const normalizePhoneNumber = (
     }
   }
 
+  // Enforce maximum length (15 digits is international standard)
+  const MAX_PHONE_DIGITS = 15;
+  if (digitsOnly.length > MAX_PHONE_DIGITS) {
+    // Truncate to maximum length
+    digitsOnly = digitsOnly.slice(0, MAX_PHONE_DIGITS);
+  }
+
   // Check for other country codes (2-3 digit country codes)
   // If number is longer than 11 digits, it likely has a country code
   if (digitsOnly.length > 11) {
     // Try to detect if it's an international number
     // Common country codes: 1, 7, 20-99, 200-999
     // If it starts with a known pattern, preserve it
-    if (digitsOnly.length >= 10 && digitsOnly.length <= 15) {
+    if (digitsOnly.length >= 10 && digitsOnly.length <= MAX_PHONE_DIGITS) {
       // Check if it starts with a common international pattern
       // For now, if it's clearly international (starts with 1, 2-9, etc.), preserve it
       // This is a simple heuristic - can be enhanced with a country code list
@@ -99,7 +109,14 @@ export const normalizePhoneNumber = (
 
   // If it's more than 9 digits but doesn't match international pattern,
   // assume it's a Cameroon number with extra digits (take last 9)
+  // But only if total length doesn't exceed international standard
   if (cleanNumber.length > CAMEROON_PHONE_RULES.numberLength) {
+    // If the number is too long, it's likely invalid - truncate to reasonable length
+    if (cleanNumber.length > MAX_PHONE_DIGITS - DEFAULT_COUNTRY_CODE_DIGITS.length) {
+      // Truncate to last valid 9 digits for Cameroon
+      cleanNumber = cleanNumber.slice(-CAMEROON_PHONE_RULES.numberLength);
+    }
+    
     const lastNine = cleanNumber.slice(-CAMEROON_PHONE_RULES.numberLength);
     const firstDigit = lastNine[0];
     if (CAMEROON_PHONE_RULES.validPrefixes.includes(firstDigit as typeof CAMEROON_PHONE_RULES.validPrefixes[number])) {

@@ -22,10 +22,9 @@ export interface CheckoutSettings {
   showDeliveryInstructions: boolean;
   
   // Payment method availability
+  // Only Pay Onsite (cash on delivery) is kept as a basic option
+  // CinetPay handles all online payment processing
   enabledPaymentMethods: {
-    mtnMoney: boolean;
-    orangeMoney: boolean;
-    visaCard: boolean;
     payOnsite: boolean;
   };
   
@@ -65,9 +64,6 @@ export interface CheckoutSettingsUpdate {
   showCity?: boolean;
   showDeliveryInstructions?: boolean;
   enabledPaymentMethods?: {
-    mtnMoney?: boolean;
-    orangeMoney?: boolean;
-    visaCard?: boolean;
     payOnsite?: boolean;
   };
   showShippingMethod?: boolean;
@@ -101,11 +97,9 @@ export const DEFAULT_CHECKOUT_SETTINGS: Omit<CheckoutSettings, 'id' | 'userId' |
   showCity: true,
   showDeliveryInstructions: true,
   
-  // All payment methods enabled
+  // Payment methods - only Pay Onsite (cash on delivery) by default
+  // CinetPay must be configured separately for online payments
   enabledPaymentMethods: {
-    mtnMoney: true,
-    orangeMoney: true,
-    visaCard: true,
     payOnsite: true,
   },
   

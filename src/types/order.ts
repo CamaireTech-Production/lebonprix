@@ -161,7 +161,9 @@ export interface CartItem {
   selectedSize?: string;
 }
 
-// Payment method types (legacy)
+// Payment method types
+// Note: 'mtn_money', 'orange_money', 'visa_card' are deprecated - they don't process payments
+// Only 'pay_onsite' (cash on delivery) and CinetPay methods are actively used
 export type PaymentMethodType = 'phone' | 'ussd' | 'link' | 'mtn_money' | 'orange_money' | 'visa_card' | 'pay_onsite' | 'cinetpay_mobile_money' | 'cinetpay_credit_card' | 'cinetpay_wallet';
 
 export interface PaymentMethod {
