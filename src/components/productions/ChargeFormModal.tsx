@@ -52,7 +52,7 @@ const ChargeFormModal: React.FC<ChargeFormModalProps> = ({
     name: '',
     description: '',
     amount: '',
-    category: 'other',
+    category: '',
     date: new Date().toISOString().split('T')[0],
     isActive: true
   });

@@ -654,30 +654,16 @@ const ProductionDetail: React.FC = () => {
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-medium text-gray-900">Charges</h3>
               {!isClosed && (
-                <div className="flex gap-2">
-                  <Button
-                    icon={<Plus size={16} />}
-                    onClick={() => {
-                      setChargeType('fixed');
-                      setIsSelectFixedChargeModalOpen(true);
-                    }}
-                    variant="secondary"
-                    size="sm"
-                  >
-                    Charge fixe
-                  </Button>
-                  <Button
-                    icon={<Plus size={16} />}
-                    onClick={() => {
-                      setEditingCharge(null);
-                      setChargeType('custom');
-                      setIsChargeModalOpen(true);
-                    }}
-                    size="sm"
-                  >
-                    Charge personnalisée
-                  </Button>
-                </div>
+                <Button
+                  icon={<Plus size={16} />}
+                  onClick={() => {
+                    setEditingCharge(null);
+                    setIsChargeModalOpen(true);
+                  }}
+                  size="sm"
+                >
+                  Ajouter une charge
+                </Button>
               )}
             </div>
 
@@ -1083,14 +1069,13 @@ const ProductionDetail: React.FC = () => {
         </div>
       )}
 
-      {/* Charge Form Modal for Custom Charges */}
+      {/* Charge Form Modal */}
       <ChargeFormModal
         isOpen={isChargeModalOpen}
         onClose={() => {
           setIsChargeModalOpen(false);
           setEditingCharge(null);
         }}
-        type="custom"
         onChargeCreated={async (newCharge) => {
           if (!production) return;
           try {
@@ -1099,7 +1084,7 @@ const ProductionDetail: React.FC = () => {
               chargeId: newCharge.id,
               name: newCharge.name || newCharge.description || '',
               amount: newCharge.amount,
-              type: 'custom' as const,
+              type: newCharge.type || 'custom',
               date: newCharge.date
             };
             
@@ -1117,7 +1102,8 @@ const ProductionDetail: React.FC = () => {
             ];
             
             await updateProduction(production.id, { charges: updatedCharges });
-            showSuccessToast('Charge personnalisée ajoutée à la production');
+            const chargeTypeLabel = newCharge.type === 'fixed' ? 'fixe' : 'personnalisée';
+            showSuccessToast(`Charge ${chargeTypeLabel} ajoutée à la production`);
             setIsChargeModalOpen(false);
           } catch (error: any) {
             showErrorToast(error.message || 'Erreur lors de l\'ajout de la charge à la production');
