@@ -1249,8 +1249,6 @@
       ]
     },
     {
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
       "collectionGroup": "siteAnalytics",
       "queryScope": "COLLECTION",
       "fields": [
@@ -1260,9 +1258,11 @@
         },
         {
           "fieldPath": "date",
-=======
-=======
->>>>>>> Stashed changes
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "auditLogs",
       "queryScope": "COLLECTION",
       "fields": [
@@ -1272,10 +1272,6 @@
         },
         {
           "fieldPath": "timestamp",
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
           "order": "DESCENDING"
         },
         {
