@@ -25,7 +25,7 @@ const CreateProductionModal: React.FC<CreateProductionModalProps> = ({
   onClose,
   onSuccess
 }) => {
-  const { user, company } = useAuth();
+  const { user, company, currentEmployee, isOwner } = useAuth();
   const { addProduction } = useProductions();
   const { flows, loading: flowsLoading } = useProductionFlows();
   const { flowSteps } = useProductionFlowSteps();
@@ -441,7 +441,7 @@ const CreateProductionModal: React.FC<CreateProductionModalProps> = ({
       {/* Progress Steps */}
       <div className="mb-6">
         <div className="flex items-center justify-between">
-          {[1, 2, 3, 4].map((step) => (
+          {[1, 2, 3, 4, 5].map((step) => (
             <React.Fragment key={step}>
               <div className="flex items-center">
                 <div
@@ -465,10 +465,11 @@ const CreateProductionModal: React.FC<CreateProductionModalProps> = ({
                   {step === 1 && 'Infos'}
                   {step === 2 && 'Flux'}
                   {step === 3 && 'Matériaux'}
-                  {step === 4 && 'Récapitulatif'}
+                  {step === 4 && 'Charges'}
+                  {step === 5 && 'Récapitulatif'}
                 </span>
               </div>
-              {step < 4 && (
+              {step < 5 && (
                 <div className={`flex-1 h-0.5 mx-4 ${
                   currentStep > step ? 'bg-green-600' : 'bg-gray-200'
                 }`} />
