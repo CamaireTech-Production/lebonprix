@@ -5,6 +5,7 @@ import { useCart } from '../../contexts/CartContext';
 import { getCompanyByUserId } from '@services/firestore/firestore';
 import { subscribeToProducts } from '@services/firestore/products/productService';
 import { subscribeToCategories } from '@services/firestore/categories/categoryService';
+import { trackCatalogueView } from '@services/firestore/site/siteService';
 import type { Company, Product, Category } from '../../types/models';
 import { Search, Package, AlertCircle, MapPin, Plus, Heart, Phone } from 'lucide-react';
 import { Button, FloatingCartButton, ProductDetailModal, ImageWithSkeleton, LanguageSwitcher } from '@components/common';
@@ -196,6 +197,16 @@ const Catalogue = () => {
     });
 
     return () => unsubscribe();
+  }, [company?.id]);
+
+  // Track catalogue view for analytics
+  useEffect(() => {
+    if (company?.id) {
+      trackCatalogueView(company.id, {
+        userAgent: navigator.userAgent,
+        referrer: document.referrer
+      });
+    }
   }, [company?.id]);
 
   // Get unique categories from products
