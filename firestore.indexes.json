@@ -1247,6 +1247,24 @@
           "order": "ASCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "siteAnalytics",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "companyId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "date",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": []
