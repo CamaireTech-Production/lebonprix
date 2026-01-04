@@ -3,15 +3,15 @@ import React, { useState, useMemo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Edit2, Loader2, CheckCircle2, XCircle } from 'lucide-react';
 import { Button, LoadingScreen, Badge } from '@components/common';
-import { useProductions, useProductionFlows, useProductionFlowSteps, useProductionCategories, useProductionCharges } from '@hooks/data/useFirestore';
+import { useProductions, useProductionFlows, useProductionFlowSteps, useProductionCategories, useFixedCharges } from '@hooks/data/useFirestore';
 import { useAuth } from '@contexts/AuthContext';
 import { useMatiereStocks } from '@hooks/business/useMatiereStocks';
 import { formatPrice } from '@utils/formatting/formatPrice';
 import { showSuccessToast, showErrorToast, showWarningToast } from '@utils/core/toast';
 import ChargeFormModal from '@components/productions/ChargeFormModal';
 import PublishProductionModal from '@components/productions/PublishProductionModal';
-import type { Production, ProductionCharge } from '../../types/models';
-import { Plus, Trash2, Edit2 as EditIcon, Package, Download, BarChart3 } from 'lucide-react';
+import type { Production, ProductionChargeRef } from '../../types/models';
+import { Plus, Trash2, Edit2 as EditIcon, Package, Download, BarChart3, X } from 'lucide-react';
 
 const ProductionDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -38,7 +38,9 @@ const ProductionDetail: React.FC = () => {
   const [stateChangeNote, setStateChangeNote] = useState('');
   const [isChangingState, setIsChangingState] = useState(false);
   const [isChargeModalOpen, setIsChargeModalOpen] = useState(false);
-  const [editingCharge, setEditingCharge] = useState<ProductionCharge | null>(null);
+  const [isSelectFixedChargeModalOpen, setIsSelectFixedChargeModalOpen] = useState(false);
+  const [editingCharge, setEditingCharge] = useState<ProductionChargeRef | null>(null);
+  const [chargeType, setChargeType] = useState<'fixed' | 'custom'>('custom');
   const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [deletingChargeId, setDeletingChargeId] = useState<string | null>(null);
@@ -49,8 +51,8 @@ const ProductionDetail: React.FC = () => {
     return productions.find(p => p.id === id) || null;
   }, [productions, id]);
 
-  // Use id directly instead of production?.id to avoid initialization issues
-  const { charges, loading: chargesLoading, addCharge, updateCharge, deleteCharge } = useProductionCharges(id || null);
+  // Get fixed charges for selection
+  const { charges: fixedCharges } = useFixedCharges(true); // Only active fixed charges
 
   const productionFlow = useMemo(() => {
     if (!production) return null;
@@ -311,15 +313,17 @@ const ProductionDetail: React.FC = () => {
                 // Charges
                 rows.push('');
                 rows.push('Charges');
-                rows.push('Description,Catégorie,Montant,Date');
-                charges.forEach(c => {
+                rows.push('Type,Nom,Description,Catégorie,Montant,Date');
+                (production.charges || []).forEach(c => {
                   const chargeDate = c.date?.seconds
                     ? new Date(c.date.seconds * 1000).toLocaleDateString('fr-FR')
                     : '';
                   rows.push([
-                    escapeCSV(c.description),
-                    escapeCSV(c.category),
-                    escapeCSV(c.amount),
+                    escapeCSV(c.type === 'fixed' ? 'Fixe' : 'Personnalisée'),
+                    escapeCSV(c.name || ''),
+                    escapeCSV(c.description || ''),
+                    escapeCSV(c.category || ''),
+                    escapeCSV(c.amount || 0),
                     escapeCSV(chargeDate)
                   ].join(','));
                 });
@@ -536,7 +540,9 @@ const ProductionDetail: React.FC = () => {
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">Total des charges:</span>
                   <span className="text-sm font-medium text-gray-900">
-                    {formatPrice(charges.reduce((sum, c) => sum + c.amount, 0))}
+                    {formatPrice(
+                      (production.charges || []).reduce((sum, c) => sum + (c.amount || 0), 0)
+                    )}
                   </span>
                 </div>
                 <div className="border-t border-gray-200 pt-3 flex justify-between items-center">
@@ -648,24 +654,34 @@ const ProductionDetail: React.FC = () => {
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-medium text-gray-900">Charges</h3>
               {!isClosed && (
-                <Button
-                  icon={<Plus size={16} />}
-                  onClick={() => {
-                    setEditingCharge(null);
-                    setIsChargeModalOpen(true);
-                  }}
-                  size="sm"
-                >
-                  Ajouter une charge
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    icon={<Plus size={16} />}
+                    onClick={() => {
+                      setChargeType('fixed');
+                      setIsSelectFixedChargeModalOpen(true);
+                    }}
+                    variant="secondary"
+                    size="sm"
+                  >
+                    Charge fixe
+                  </Button>
+                  <Button
+                    icon={<Plus size={16} />}
+                    onClick={() => {
+                      setEditingCharge(null);
+                      setChargeType('custom');
+                      setIsChargeModalOpen(true);
+                    }}
+                    size="sm"
+                  >
+                    Charge personnalisée
+                  </Button>
+                </div>
               )}
             </div>
 
-            {chargesLoading ? (
-              <div className="text-center py-8">
-                <Loader2 size={24} className="animate-spin mx-auto text-gray-400" />
-              </div>
-            ) : charges.length === 0 ? (
+            {(production.charges || []).length === 0 ? (
               <div className="text-center py-8 bg-gray-50 rounded-md">
                 <p className="text-gray-500 mb-2">Aucune charge</p>
                 {!isClosed && (
@@ -698,8 +714,32 @@ const ProductionDetail: React.FC = () => {
                       )}
                     </tr>
                   </thead>
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        Type
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        Nom / Description
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        Catégorie
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        Date
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        Montant
+                      </th>
+                      {!isClosed && (
+                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                          Actions
+                        </th>
+                      )}
+                    </tr>
+                  </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {charges.map((charge) => {
+                    {(production.charges || []).map((charge, index) => {
                       const chargeDate = charge.date
                         ? (charge.date instanceof Date
                             ? charge.date
@@ -719,11 +759,19 @@ const ProductionDetail: React.FC = () => {
                       };
 
                       return (
-                        <tr key={charge.id} className="hover:bg-gray-50">
+                        <tr key={charge.chargeId || index} className="hover:bg-gray-50">
                           <td className="px-6 py-4 whitespace-nowrap">
+                            <Badge variant={charge.type === 'fixed' ? 'info' : 'warning'}>
+                              {charge.type === 'fixed' ? 'Fixe' : 'Personnalisée'}
+                            </Badge>
+                          </td>
+                          <td className="px-6 py-4">
                             <div className="text-sm font-medium text-gray-900">
-                              {charge.description}
+                              {charge.name || charge.description}
                             </div>
+                            {charge.name && charge.description && charge.name !== charge.description && (
+                              <div className="text-sm text-gray-500">{charge.description}</div>
+                            )}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm text-gray-500">
@@ -737,29 +785,24 @@ const ProductionDetail: React.FC = () => {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm font-medium text-gray-900">
-                              {formatPrice(charge.amount)}
+                              {formatPrice(charge.amount || 0)}
                             </div>
                           </td>
                           {!isClosed && (
                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                               <div className="flex justify-end space-x-2">
                                 <button
-                                  onClick={() => {
-                                    setEditingCharge(charge);
-                                    setIsChargeModalOpen(true);
-                                  }}
-                                  className="text-blue-600 hover:text-blue-900"
-                                >
-                                  <EditIcon size={16} />
-                                </button>
-                                <button
                                   onClick={async () => {
-                                    if (deletingChargeId) return; // Prevent double click
-                                    if (window.confirm('Êtes-vous sûr de vouloir supprimer cette charge ?')) {
-                                      setDeletingChargeId(charge.id);
+                                    if (deletingChargeId === charge.chargeId) return;
+                                    if (window.confirm('Êtes-vous sûr de vouloir retirer cette charge de la production ?')) {
+                                      setDeletingChargeId(charge.chargeId);
                                       try {
-                                        await deleteCharge(charge.id);
-                                        showSuccessToast('Charge supprimée');
+                                        // Remove charge from production.charges array
+                                        const updatedCharges = (production.charges || []).filter(
+                                          c => c.chargeId !== charge.chargeId
+                                        );
+                                        await updateProduction(production.id, { charges: updatedCharges });
+                                        showSuccessToast('Charge retirée de la production');
                                       } catch (error: any) {
                                         showErrorToast(error.message || 'Erreur lors de la suppression');
                                       } finally {
@@ -767,10 +810,10 @@ const ProductionDetail: React.FC = () => {
                                       }
                                     }
                                   }}
-                                  disabled={deletingChargeId === charge.id}
-                                  className={`text-red-600 hover:text-red-900 ${deletingChargeId === charge.id ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                  disabled={deletingChargeId === charge.chargeId}
+                                  className={`text-red-600 hover:text-red-900 ${deletingChargeId === charge.chargeId ? 'opacity-50 cursor-not-allowed' : ''}`}
                                 >
-                                  {deletingChargeId === charge.id ? (
+                                  {deletingChargeId === charge.chargeId ? (
                                     <Loader2 size={16} className="animate-spin" />
                                   ) : (
                                     <Trash2 size={16} />
@@ -788,7 +831,9 @@ const ProductionDetail: React.FC = () => {
                   <div className="flex justify-between items-center">
                     <span className="font-medium text-gray-900">Total des charges:</span>
                     <span className="text-lg font-semibold text-gray-900">
-                      {formatPrice(charges.reduce((sum, c) => sum + c.amount, 0))}
+                      {formatPrice(
+                        (production.charges || []).reduce((sum, c) => sum + (c.amount || 0), 0)
+                      )}
                     </span>
                   </div>
                 </div>
@@ -1038,19 +1083,135 @@ const ProductionDetail: React.FC = () => {
         </div>
       )}
 
-      {/* Charge Form Modal */}
+      {/* Charge Form Modal for Custom Charges */}
       <ChargeFormModal
         isOpen={isChargeModalOpen}
         onClose={() => {
           setIsChargeModalOpen(false);
           setEditingCharge(null);
         }}
-        productionId={production?.id || ''}
-        charge={editingCharge}
+        type="custom"
+        onChargeCreated={async (newCharge) => {
+          if (!production) return;
+          try {
+            // Add charge snapshot to production
+            const updatedCharges = [
+              ...(production.charges || []),
+              {
+                chargeId: newCharge.id,
+                name: newCharge.name || newCharge.description,
+                description: newCharge.description,
+                amount: newCharge.amount,
+                category: newCharge.category,
+                type: 'custom' as const,
+                date: newCharge.date
+              }
+            ];
+            
+            await updateProduction(production.id, { charges: updatedCharges });
+            showSuccessToast('Charge personnalisée ajoutée à la production');
+            setIsChargeModalOpen(false);
+          } catch (error: any) {
+            showErrorToast(error.message || 'Erreur lors de l\'ajout de la charge à la production');
+          }
+        }}
         onSuccess={() => {
-          // Charges will update automatically via subscription
+          setIsChargeModalOpen(false);
         }}
       />
+
+      {/* Fixed Charge Selection Modal */}
+      {isSelectFixedChargeModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold text-gray-900">Sélectionner une charge fixe</h2>
+                <button
+                  onClick={() => setIsSelectFixedChargeModalOpen(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+              
+              {fixedCharges.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-gray-500 mb-2">Aucune charge fixe disponible</p>
+                  <p className="text-sm text-gray-400">
+                    Créez une charge fixe dans la page Charges pour la réutiliser
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {fixedCharges
+                    .filter(charge => !(production.charges || []).some(c => c.chargeId === charge.id))
+                    .map((charge) => {
+                      const categoryLabels: Record<string, string> = {
+                        main_oeuvre: 'Main d\'œuvre',
+                        overhead: 'Frais généraux',
+                        transport: 'Transport',
+                        packaging: 'Emballage',
+                        utilities: 'Services publics',
+                        equipment: 'Équipement',
+                        other: 'Autre'
+                      };
+                      
+                      return (
+                        <button
+                          key={charge.id}
+                          onClick={async () => {
+                            if (!production) return;
+                            try {
+                              const updatedCharges = [
+                                ...(production.charges || []),
+                                {
+                                  chargeId: charge.id,
+                                  name: charge.name || charge.description,
+                                  description: charge.description,
+                                  amount: charge.amount,
+                                  category: charge.category,
+                                  type: 'fixed' as const,
+                                  date: charge.date
+                                }
+                              ];
+                              
+                              await updateProduction(production.id, { charges: updatedCharges });
+                              showSuccessToast('Charge fixe ajoutée');
+                              setIsSelectFixedChargeModalOpen(false);
+                            } catch (error: any) {
+                              showErrorToast(error.message || 'Erreur lors de l\'ajout de la charge');
+                            }
+                          }}
+                          className="w-full text-left p-4 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors"
+                        >
+                          <div className="flex justify-between items-start">
+                            <div className="flex-1">
+                              <div className="font-medium text-gray-900">
+                                {charge.name || charge.description}
+                              </div>
+                              {charge.description && charge.name && charge.name !== charge.description && (
+                                <div className="text-sm text-gray-500 mt-1">{charge.description}</div>
+                              )}
+                              <div className="text-xs text-gray-400 mt-1">
+                                {categoryLabels[charge.category] || charge.category}
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className="font-semibold text-gray-900">
+                                {formatPrice(charge.amount)}
+                              </div>
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Publish Production Modal */}
       <PublishProductionModal

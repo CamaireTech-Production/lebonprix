@@ -73,6 +73,17 @@ import {
   changeProductionState,
   publishProduction
 } from '@services/firestore/productions/productionService';
+import {
+  subscribeToCharges,
+  subscribeToFixedCharges,
+  subscribeToCustomCharges,
+  createCharge,
+  updateCharge,
+  deleteCharge,
+  getFixedCharges,
+  getCustomCharges,
+  getAllCharges
+} from '@services/firestore/charges/chargeService';
 import { dataCache, cacheKeys, invalidateSpecificCache } from '@utils/storage/dataCache';
 import { logError } from '@utils/core/logger';
 import ProductsManager from '@services/storage/ProductsManager';
@@ -98,7 +109,8 @@ import type {
   ProductionFlowStep,
   ProductionFlow,
   ProductionCategory,
-  ProductionCharge
+  ProductionCharge,
+  Charge
 } from '../types/models';
 import { Timestamp } from 'firebase/firestore';
 import { useAuth } from '../../contexts/AuthContext';
@@ -1450,14 +1462,49 @@ export const useProductions = () => {
   };
 };
 
+/**
+ * @deprecated useProductionCharges is deprecated
+ * Charges are now stored as snapshots in production.charges array
+ * Use production.charges directly or use useCharges/useFixedCharges hooks for managing charges
+ */
 export const useProductionCharges = (productionId: string | null) => {
-  const [charges, setCharges] = useState<ProductionCharge[]>([]);
+  console.warn('useProductionCharges is deprecated. Use production.charges array directly or use useCharges/useFixedCharges hooks.');
+  const [charges, setCharges] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
+
+  // Return empty state - this hook should not be used anymore
+  useEffect(() => {
+    setCharges([]);
+    setLoading(false);
+  }, [productionId]);
+
+  return {
+    charges,
+    loading,
+    error,
+    addCharge: async () => { throw new Error('useProductionCharges is deprecated'); },
+    updateCharge: async () => { throw new Error('useProductionCharges is deprecated'); },
+    deleteCharge: async () => { throw new Error('useProductionCharges is deprecated'); }
+  };
+};
+
+// ============================================================================
+// CHARGES HOOKS (Unified Charge System)
+// ============================================================================
+
+/**
+ * Hook to fetch and manage charges (both fixed and custom)
+ * @param type - Optional filter: 'fixed', 'custom', or undefined for all
+ */
+export const useCharges = (type?: 'fixed' | 'custom') => {
+  const [charges, setCharges] = useState<Charge[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const { user, company, currentEmployee, isOwner } = useAuth();
 
   useEffect(() => {
-    if (!productionId || !company) {
+    if (!company) {
       setCharges([]);
       setLoading(false);
       return;
@@ -1467,23 +1514,41 @@ export const useProductionCharges = (productionId: string | null) => {
     let unsubscribe: (() => void) | null = null;
 
     (async () => {
-      const { subscribeToProductionCharges } = await import('@services/firestore/productions/productionChargeService');
-      unsubscribe = subscribeToProductionCharges(productionId, company.id, (data) => {
-        setCharges(data);
+      try {
+        if (type === 'fixed') {
+          unsubscribe = subscribeToFixedCharges(company.id, (data) => {
+            setCharges(data);
+            setLoading(false);
+            setError(null);
+          });
+        } else if (type === 'custom') {
+          unsubscribe = subscribeToCustomCharges(company.id, (data) => {
+            setCharges(data);
+            setLoading(false);
+            setError(null);
+          });
+        } else {
+          unsubscribe = subscribeToCharges(company.id, (data) => {
+            setCharges(data);
+            setLoading(false);
+            setError(null);
+          });
+        }
+      } catch (err) {
+        logError('Error setting up charges subscription', err);
+        setError(err as Error);
         setLoading(false);
-        setError(null);
-      });
+      }
     })();
 
     return () => {
       if (unsubscribe) unsubscribe();
     };
-  }, [productionId, company]);
+  }, [company, type]);
 
-  const addCharge = async (chargeData: Omit<ProductionCharge, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const addCharge = async (chargeData: Omit<Charge, 'id' | 'createdAt' | 'updatedAt'>) => {
     if (!user || !company) throw new Error('User not authenticated');
     try {
-      const { createProductionCharge } = await import('@services/firestore/productions/productionChargeService');
       let createdBy = null;
       if (user && company) {
         let userData = null;
@@ -1496,29 +1561,31 @@ export const useProductionCharges = (productionId: string | null) => {
         }
         createdBy = getCurrentEmployeeRef(currentEmployee, user, isOwner, userData);
       }
-      return await createProductionCharge(chargeData, company.id, createdBy);
+      return await createCharge(
+        { ...chargeData, userId: user.uid, companyId: company.id },
+        company.id,
+        createdBy
+      );
     } catch (err) {
       setError(err as Error);
       throw err;
     }
   };
 
-  const updateCharge = async (chargeId: string, data: Partial<ProductionCharge>) => {
+  const updateChargeData = async (chargeId: string, data: Partial<Charge>) => {
     if (!user || !company) throw new Error('User not authenticated');
     try {
-      const { updateProductionCharge } = await import('@services/firestore/productions/productionChargeService');
-      await updateProductionCharge(chargeId, data, company.id);
+      await updateCharge(chargeId, data, company.id);
     } catch (err) {
       setError(err as Error);
       throw err;
     }
   };
 
-  const deleteCharge = async (chargeId: string) => {
+  const deleteChargeData = async (chargeId: string) => {
     if (!user || !company) throw new Error('User not authenticated');
     try {
-      const { deleteProductionCharge } = await import('@services/firestore/productions/productionChargeService');
-      await deleteProductionCharge(chargeId, company.id);
+      await deleteCharge(chargeId, company.id);
     } catch (err) {
       setError(err as Error);
       throw err;
@@ -1530,8 +1597,22 @@ export const useProductionCharges = (productionId: string | null) => {
     loading,
     error,
     addCharge,
-    updateCharge,
-    deleteCharge
+    updateCharge: updateChargeData,
+    deleteCharge: deleteChargeData
   };
+};
+
+/**
+ * Hook to fetch only fixed charges
+ */
+export const useFixedCharges = () => {
+  return useCharges('fixed');
+};
+
+/**
+ * Hook to fetch only custom charges
+ */
+export const useCustomCharges = () => {
+  return useCharges('custom');
 };
 

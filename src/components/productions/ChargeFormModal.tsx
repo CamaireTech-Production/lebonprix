@@ -1,17 +1,19 @@
-// Charge Form Modal for Productions
+// Charge Form Modal - Unified for both fixed and custom charges
 import React, { useState, useEffect } from 'react';
 import { Modal, ModalFooter, PriceInput } from '@components/common';
 import { useAuth } from '@contexts/AuthContext';
 import { showSuccessToast, showErrorToast, showWarningToast } from '@utils/core/toast';
-import type { ProductionCharge } from '../../types/models';
+import { useCharges } from '@hooks/data/useFirestore';
+import type { Charge } from '../../types/models';
 import { Timestamp } from 'firebase/firestore';
 
 interface ChargeFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  productionId: string;
-  charge?: ProductionCharge | null;
+  charge?: Charge | null;
+  type?: 'fixed' | 'custom'; // Charge type (for new charges)
   onSuccess?: () => void;
+  onChargeCreated?: (charge: Charge) => void; // Callback when a new charge is created
 }
 
 const CHARGE_CATEGORIES = [
@@ -37,18 +39,25 @@ const CHARGE_CATEGORY_LABELS: Record<string, string> = {
 const ChargeFormModal: React.FC<ChargeFormModalProps> = ({
   isOpen,
   onClose,
-  productionId,
   charge,
-  onSuccess
+  type = 'custom', // Default to custom if not specified
+  onSuccess,
+  onChargeCreated
 }) => {
   const { user, company } = useAuth();
+  const { addCharge, updateCharge } = useCharges();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
+    name: '',
     description: '',
     amount: '',
     category: 'other',
-    date: new Date().toISOString().split('T')[0]
+    date: new Date().toISOString().split('T')[0],
+    isActive: true
   });
+
+  // Determine charge type (from prop, existing charge, or default)
+  const chargeType = charge?.type || type;
 
   useEffect(() => {
     if (isOpen) {
@@ -63,18 +72,22 @@ const ChargeFormModal: React.FC<ChargeFormModalProps> = ({
           : new Date();
         
         setFormData({
+          name: charge.name || charge.description || '',
           description: charge.description || '',
           amount: charge.amount?.toString() || '',
           category: charge.category || 'other',
-          date: chargeDate.toISOString().split('T')[0]
+          date: chargeDate.toISOString().split('T')[0],
+          isActive: charge.isActive !== false
         });
       } else {
         // Create mode
         setFormData({
+          name: '',
           description: '',
           amount: '',
           category: 'other',
-          date: new Date().toISOString().split('T')[0]
+          date: new Date().toISOString().split('T')[0],
+          isActive: true
         });
       }
     }
@@ -83,8 +96,8 @@ const ChargeFormModal: React.FC<ChargeFormModalProps> = ({
   const handleSubmit = async () => {
     if (!user || !company) return;
 
-    if (!formData.description.trim()) {
-      showWarningToast('La description est requise');
+    if (!formData.name.trim() && !formData.description.trim()) {
+      showWarningToast('Le nom ou la description est requis');
       return;
     }
 
@@ -96,31 +109,40 @@ const ChargeFormModal: React.FC<ChargeFormModalProps> = ({
     setIsSubmitting(true);
 
     try {
-      const { createProductionCharge, updateProductionCharge } = await import('@services/firestore/productions/productionChargeService');
-      
       const chargeDate = Timestamp.fromDate(new Date(formData.date));
       const amount = parseFloat(formData.amount);
+      const name = formData.name.trim() || formData.description.trim();
+      const description = formData.description.trim() || formData.name.trim();
 
       if (charge) {
         // Update existing charge
-        await updateProductionCharge(charge.id, {
-          description: formData.description.trim(),
-          amount,
-          category: formData.category,
-          date: chargeDate
-        }, company.id);
-        showSuccessToast('Charge mise à jour avec succès');
-      } else {
-        // Create new charge
-        await createProductionCharge({
-          productionId,
-          description: formData.description.trim(),
+        await updateCharge(charge.id, {
+          name,
+          description,
           amount,
           category: formData.category,
           date: chargeDate,
+          isActive: chargeType === 'fixed' ? formData.isActive : undefined
+        });
+        showSuccessToast('Charge mise à jour avec succès');
+      } else {
+        // Create new charge
+        const newCharge = await addCharge({
+          type: chargeType,
+          name,
+          description,
+          amount,
+          category: formData.category,
+          date: chargeDate,
+          isActive: chargeType === 'fixed' ? formData.isActive : undefined,
           userId: user.uid
-        }, company.id);
-        showSuccessToast('Charge créée avec succès');
+        });
+        showSuccessToast(`Charge ${chargeType === 'fixed' ? 'fixe' : 'personnalisée'} créée avec succès`);
+        
+        // Call onChargeCreated callback if provided
+        if (onChargeCreated) {
+          onChargeCreated(newCharge);
+        }
       }
 
       onClose();
@@ -139,7 +161,7 @@ const ChargeFormModal: React.FC<ChargeFormModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={charge ? 'Modifier la charge' : 'Nouvelle charge'}
+      title={charge ? 'Modifier la charge' : (chargeType === 'fixed' ? 'Nouvelle charge fixe' : 'Nouvelle charge personnalisée')}
       footer={
         <ModalFooter
           onCancel={onClose}
@@ -147,21 +169,37 @@ const ChargeFormModal: React.FC<ChargeFormModalProps> = ({
           cancelText="Annuler"
           confirmText={charge ? 'Mettre à jour' : 'Créer'}
           isLoading={isSubmitting}
-          disabled={isSubmitting || !formData.description.trim() || !formData.amount || parseFloat(formData.amount) <= 0}
+          disabled={isSubmitting || (!formData.name.trim() && !formData.description.trim()) || !formData.amount || parseFloat(formData.amount) <= 0}
         />
       }
     >
       <div className="space-y-4">
+        {chargeType === 'fixed' && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Nom <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Ex: Électricité mensuelle"
+            />
+            <p className="text-xs text-gray-500 mt-1">Nom de la charge fixe (réutilisable)</p>
+          </div>
+        )}
+
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Description <span className="text-red-500">*</span>
           </label>
-          <input
-            type="text"
+          <textarea
             value={formData.description}
             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Ex: Main d'œuvre pour assemblage"
+            rows={3}
+            placeholder={chargeType === 'fixed' ? "Ex: Coût d'électricité mensuel" : "Ex: Main d'œuvre pour assemblage"}
           />
         </div>
 
@@ -206,10 +244,24 @@ const ChargeFormModal: React.FC<ChargeFormModalProps> = ({
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
+
+        {chargeType === 'fixed' && (
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              id="isActive"
+              checked={formData.isActive}
+              onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
+              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+            />
+            <label htmlFor="isActive" className="ml-2 block text-sm text-gray-700">
+              Actif (visible pour sélection dans les productions)
+            </label>
+          </div>
+        )}
       </div>
     </Modal>
   );
 };
 
 export default ChargeFormModal;
-

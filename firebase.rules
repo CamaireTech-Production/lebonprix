@@ -407,12 +407,28 @@ service cloud.firestore {
       allow delete: if isAuthenticated() && hasCompanyAccess(resource.data.companyId);
     }
     
-    // Production Charges - Company-scoped access
-    match /productionCharges/{chargeId} {
+    // Charges - Company-scoped access (unified for fixed and custom charges)
+    match /charges/{chargeId} {
       allow read: if isAuthenticated() && hasCompanyAccess(resource.data.companyId);
       allow create: if isAuthenticated() && hasCompanyAccess(request.resource.data.companyId);
       allow update: if isAuthenticated() && hasCompanyAccess(resource.data.companyId) && hasCompanyAccess(request.resource.data.companyId);
       allow delete: if isAuthenticated() && hasCompanyAccess(resource.data.companyId);
+      
+      // Validate charge data
+      function isValidCharge() {
+        let data = request.resource.data;
+        return data.companyId is string &&
+               data.type in ['fixed', 'custom'] &&
+               (data.name is string || data.description is string) &&
+               data.amount is number && data.amount >= 0 &&
+               data.category is string &&
+               data.date is timestamp &&
+               data.userId is string &&
+               (!('isActive' in data) || data.isActive is bool);
+      }
+      
+      allow create: if isValidCharge() && hasCompanyAccess(request.resource.data.companyId);
+      allow update: if isValidCharge() && hasCompanyAccess(request.resource.data.companyId);
     }
   }
 }

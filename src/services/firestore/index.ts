@@ -3,6 +3,7 @@
 
 // Domain services by collection
 export * from './categories';
+export * from './charges';
 export * from './companies';
 export * from './employees';
 export * from './orders';

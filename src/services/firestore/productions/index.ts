@@ -2,6 +2,6 @@
 export * from './productionFlowStepService';
 export * from './productionFlowService';
 export * from './productionCategoryService';
-export * from './productionChargeService';
+// productionChargeService removed - use charges service instead (src/services/firestore/charges)
 export * from './productionService';
 

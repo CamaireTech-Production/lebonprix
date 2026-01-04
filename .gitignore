@@ -12,6 +12,7 @@ package-lock.json
 update-migration
 firebase-export
 firebase-keys
+scripts
 dist
 dev-dist
 dist-ssr
