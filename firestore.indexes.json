@@ -1249,6 +1249,7 @@
       ]
     },
     {
+<<<<<<< Updated upstream
       "collectionGroup": "siteAnalytics",
       "queryScope": "COLLECTION",
       "fields": [
@@ -1258,6 +1259,17 @@
         },
         {
           "fieldPath": "date",
+=======
+      "collectionGroup": "auditLogs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "performedBy",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "timestamp",
+>>>>>>> Stashed changes
           "order": "DESCENDING"
         },
         {
