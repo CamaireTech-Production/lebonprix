@@ -775,7 +775,7 @@ const ProductionDetail: React.FC = () => {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm text-gray-500">
-                              {categoryLabels[charge.category] || charge.category}
+                              {charge.category ? (categoryLabels[charge.category] || charge.category) : '-'}
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
@@ -1095,17 +1095,25 @@ const ProductionDetail: React.FC = () => {
           if (!production) return;
           try {
             // Add charge snapshot to production
+            const snapshot: ProductionChargeRef = {
+              chargeId: newCharge.id,
+              name: newCharge.name || newCharge.description || '',
+              amount: newCharge.amount,
+              type: 'custom' as const,
+              date: newCharge.date
+            };
+            
+            // Only include optional fields if they have values
+            if (newCharge.description) {
+              snapshot.description = newCharge.description;
+            }
+            if (newCharge.category) {
+              snapshot.category = newCharge.category;
+            }
+            
             const updatedCharges = [
               ...(production.charges || []),
-              {
-                chargeId: newCharge.id,
-                name: newCharge.name || newCharge.description,
-                description: newCharge.description,
-                amount: newCharge.amount,
-                category: newCharge.category,
-                type: 'custom' as const,
-                date: newCharge.date
-              }
+              snapshot
             ];
             
             await updateProduction(production.id, { charges: updatedCharges });
@@ -1163,17 +1171,25 @@ const ProductionDetail: React.FC = () => {
                           onClick={async () => {
                             if (!production) return;
                             try {
+                              const snapshot: ProductionChargeRef = {
+                                chargeId: charge.id,
+                                name: charge.name || charge.description || '',
+                                amount: charge.amount,
+                                type: 'fixed' as const,
+                                date: charge.date
+                              };
+                              
+                              // Only include optional fields if they have values
+                              if (charge.description) {
+                                snapshot.description = charge.description;
+                              }
+                              if (charge.category) {
+                                snapshot.category = charge.category;
+                              }
+                              
                               const updatedCharges = [
                                 ...(production.charges || []),
-                                {
-                                  chargeId: charge.id,
-                                  name: charge.name || charge.description,
-                                  description: charge.description,
-                                  amount: charge.amount,
-                                  category: charge.category,
-                                  type: 'fixed' as const,
-                                  date: charge.date
-                                }
+                                snapshot
                               ];
                               
                               await updateProduction(production.id, { charges: updatedCharges });
@@ -1193,9 +1209,11 @@ const ProductionDetail: React.FC = () => {
                               {charge.description && charge.name && charge.name !== charge.description && (
                                 <div className="text-sm text-gray-500 mt-1">{charge.description}</div>
                               )}
-                              <div className="text-xs text-gray-400 mt-1">
-                                {categoryLabels[charge.category] || charge.category}
-                              </div>
+                              {charge.category && (
+                                <div className="text-xs text-gray-400 mt-1">
+                                  {categoryLabels[charge.category] || charge.category}
+                                </div>
+                              )}
                             </div>
                             <div className="text-right">
                               <div className="font-semibold text-gray-900">

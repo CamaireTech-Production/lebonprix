@@ -1,7 +1,7 @@
 // Create Production Modal - Multi-step wizard
 import React, { useState, useMemo } from 'react';
 import { X, ChevronLeft, ChevronRight, Plus, Trash2, Loader2, CheckCircle2 } from 'lucide-react';
-import { Modal, Button, LoadingScreen } from '@components/common';
+import { Modal, Button, LoadingScreen, PriceInput } from '@components/common';
 import ImageWithSkeleton from '@components/common/ImageWithSkeleton';
 import { useAuth } from '@contexts/AuthContext';
 import { useProductions, useProductionFlows, useProductionFlowSteps, useProductionCategories, useFixedCharges } from '@hooks/data/useFirestore';
@@ -324,7 +324,7 @@ const CreateProductionModal: React.FC<CreateProductionModalProps> = ({
         try {
           const newCharge = await createCharge({
             type: 'custom',
-            name: customCharge.name || customCharge.description,
+            name: customCharge.name || customCharge.description || '',
             description: customCharge.description,
             amount: customCharge.amount,
             category: customCharge.category,
@@ -332,15 +332,23 @@ const CreateProductionModal: React.FC<CreateProductionModalProps> = ({
             userId: user.uid
           }, company.id, createdBy);
           
-          chargeSnapshots.push({
+          const snapshot: ProductionChargeRef = {
             chargeId: newCharge.id,
-            name: newCharge.name || newCharge.description,
-            description: newCharge.description,
+            name: newCharge.name || newCharge.description || '',
             amount: newCharge.amount,
-            category: newCharge.category,
             type: 'custom',
             date: newCharge.date
-          });
+          };
+          
+          // Only include optional fields if they have values
+          if (newCharge.description) {
+            snapshot.description = newCharge.description;
+          }
+          if (newCharge.category) {
+            snapshot.category = newCharge.category;
+          }
+          
+          chargeSnapshots.push(snapshot);
         } catch (error) {
           console.error('Error creating custom charge:', error);
           showErrorToast('Erreur lors de la création d\'une charge personnalisée');
@@ -351,34 +359,56 @@ const CreateProductionModal: React.FC<CreateProductionModalProps> = ({
       for (const chargeId of step4Data.selectedFixedCharges) {
         const charge = fixedCharges.find(c => c.id === chargeId);
         if (charge) {
-          chargeSnapshots.push({
+          const snapshot: ProductionChargeRef = {
             chargeId: charge.id,
-            name: charge.name || charge.description,
-            description: charge.description,
+            name: charge.name || charge.description || '',
             amount: charge.amount,
-            category: charge.category,
             type: 'fixed',
             date: charge.date
-          });
+          };
+          
+          // Only include optional fields if they have values
+          if (charge.description) {
+            snapshot.description = charge.description;
+          }
+          if (charge.category) {
+            snapshot.category = charge.category;
+          }
+          
+          chargeSnapshots.push(snapshot);
         }
       }
 
-      // Create production data
-      const productionData: Omit<Production, 'id' | 'createdAt' | 'updatedAt' | 'stateHistory' | 'calculatedCostPrice' | 'isCostValidated' | 'isPublished' | 'isClosed'> = {
+      // Create production data - build object without undefined values
+      const productionData: any = {
         name: step1Data.name.trim(),
         reference,
-        description: step1Data.description.trim() || undefined,
-        images: imageUrls.length > 0 ? imageUrls : undefined,
-        imagePaths: imagePaths.length > 0 ? imagePaths : undefined,
-        categoryId: step1Data.categoryId && step1Data.categoryId.trim() !== '' ? step1Data.categoryId : undefined,
-        flowId: step2Data.flowId || undefined, // Optional
-        currentStepId: step2Data.flowId ? step2Data.currentStepId : undefined, // Only if flowId exists
         status: 'draft',
         materials: step3Data.filter(m => m.matiereId && m.requiredQuantity > 0),
         charges: chargeSnapshots,
         userId: user.uid,
         companyId: company.id
       };
+
+      // Only include optional fields if they have values
+      if (step1Data.description.trim()) {
+        productionData.description = step1Data.description.trim();
+      }
+      if (imageUrls.length > 0) {
+        productionData.images = imageUrls;
+      }
+      if (imagePaths.length > 0) {
+        productionData.imagePaths = imagePaths;
+      }
+      if (step1Data.categoryId && step1Data.categoryId.trim() !== '') {
+        productionData.categoryId = step1Data.categoryId;
+      }
+      if (step2Data.flowId) {
+        productionData.flowId = step2Data.flowId;
+        if (step2Data.currentStepId) {
+          productionData.currentStepId = step2Data.currentStepId;
+        }
+      }
 
       await addProduction(productionData);
       showSuccessToast('Production créée avec succès');
@@ -943,20 +973,17 @@ const CreateProductionModal: React.FC<CreateProductionModalProps> = ({
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Montant (XAF) <span className="text-red-500">*</span>
-                          </label>
-                          <input
-                            type="number"
+                          <PriceInput
+                            label="Montant (XAF) *"
+                            name="amount"
                             value={charge.amount || ''}
                             onChange={(e) => {
                               const updated = [...step4Data.customCharges];
                               updated[index].amount = parseFloat(e.target.value) || 0;
                               setStep4Data(prev => ({ ...prev, customCharges: updated }));
                             }}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            min="0"
-                            step="0.01"
+                            allowDecimals={false}
+                            placeholder="0"
                           />
                         </div>
                       </div>

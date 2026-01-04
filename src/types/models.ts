@@ -612,9 +612,9 @@ export interface Charge extends BaseModel {
 export interface ProductionChargeRef {
   chargeId: string; // Reference to Charge document
   name: string; // Snapshot at time of selection
-  description: string; // Snapshot
+  description?: string; // Snapshot (optional)
   amount: number; // Snapshot (important for historical accuracy)
-  category: string; // Snapshot
+  category?: string; // Snapshot (optional)
   type: 'fixed' | 'custom'; // Whether this was a fixed or custom charge
   date: Timestamp; // Snapshot
 }
