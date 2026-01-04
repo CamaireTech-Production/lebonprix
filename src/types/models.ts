@@ -590,9 +590,9 @@ export interface Charge extends BaseModel {
   // - Can be created in Charges page, production creation, or production detail
   
   name: string; // For fixed: "Électricité", "Commission". For custom: same as description
-  description: string; // Full description
+  description?: string; // Full description (optional)
   amount: number;
-  category: string; // Same categories as before: "main_oeuvre", "overhead", "transport", etc.
+  category?: string; // Same categories as before: "main_oeuvre", "overhead", "transport", etc. (optional)
   date: Timestamp;
   isActive?: boolean; // For fixed charges: can disable without deleting
   

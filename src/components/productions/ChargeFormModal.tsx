@@ -77,7 +77,7 @@ const ChargeFormModal: React.FC<ChargeFormModalProps> = ({
           name: charge.name || charge.description || '',
           description: charge.description || '',
           amount: charge.amount?.toString() || '',
-          category: charge.category || 'other',
+          category: charge.category || '',
           date: chargeDate.toISOString().split('T')[0],
           isActive: charge.isActive !== false
         });
@@ -88,7 +88,7 @@ const ChargeFormModal: React.FC<ChargeFormModalProps> = ({
           name: '',
           description: '',
           amount: '',
-          category: 'other',
+          category: '',
           date: new Date().toISOString().split('T')[0],
           isActive: true
         });
@@ -114,32 +114,53 @@ const ChargeFormModal: React.FC<ChargeFormModalProps> = ({
     try {
       const chargeDate = Timestamp.fromDate(new Date(formData.date));
       const amount = parseFloat(formData.amount);
-      const name = formData.name.trim() || formData.description.trim();
-      const description = formData.description.trim() || formData.name.trim();
+      const name = formData.name.trim() || formData.description.trim() || '';
+      const description = formData.description.trim() || undefined;
+      const category = formData.category.trim() || undefined; // Optional - service will default to 'other' if empty
 
       if (charge) {
         // Update existing charge
-        await updateCharge(charge.id, {
+        const updateData: any = {
           name,
-          description,
           amount,
-          category: formData.category,
           date: chargeDate,
           isActive: chargeType === 'fixed' ? formData.isActive : undefined
-        });
+        };
+        
+        // Only include description if provided
+        if (description) {
+          updateData.description = description;
+        }
+        
+        // Only include category if provided
+        if (category) {
+          updateData.category = category;
+        }
+        
+        await updateCharge(charge.id, updateData);
         showSuccessToast('Charge mise à jour avec succès');
       } else {
-        // Create new charge
-        const newCharge = await addCharge({
+        // Create new charge - build object without undefined values
+        const chargeData: any = {
           type: formData.type,
           name,
-          description,
           amount,
-          category: formData.category,
           date: chargeDate,
           isActive: formData.type === 'fixed' ? formData.isActive : undefined,
           userId: user.uid
-        });
+        };
+
+        // Only include description if it has a value
+        if (description) {
+          chargeData.description = description;
+        }
+
+        // Only include category if it has a value
+        if (category) {
+          chargeData.category = category;
+        }
+
+        const newCharge = await addCharge(chargeData);
         showSuccessToast(`Charge ${formData.type === 'fixed' ? 'fixe' : 'personnalisée'} créée avec succès`);
         
         // Call onChargeCreated callback if provided
@@ -216,14 +237,14 @@ const ChargeFormModal: React.FC<ChargeFormModalProps> = ({
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Description <span className="text-red-500">*</span>
+            Description
           </label>
           <textarea
             value={formData.description}
             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             rows={3}
-            placeholder={chargeType === 'fixed' ? "Ex: Coût d'électricité mensuel" : "Ex: Main d'œuvre pour assemblage"}
+            placeholder={chargeType === 'fixed' ? "Ex: Coût d'électricité mensuel (optionnel)" : "Ex: Main d'œuvre pour assemblage (optionnel)"}
           />
         </div>
 
@@ -241,13 +262,14 @@ const ChargeFormModal: React.FC<ChargeFormModalProps> = ({
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Catégorie <span className="text-red-500">*</span>
+              Catégorie
             </label>
             <select
               value={formData.category}
               onChange={(e) => setFormData({ ...formData, category: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
+              <option value="">Aucune catégorie</option>
               {CHARGE_CATEGORIES.map(cat => (
                 <option key={cat} value={cat}>
                   {CHARGE_CATEGORY_LABELS[cat]}

@@ -277,7 +277,7 @@ const Charges: React.FC = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className="text-sm text-gray-500">
-                          {CHARGE_CATEGORY_LABELS[charge.category] || charge.category}
+                          {charge.category ? (CHARGE_CATEGORY_LABELS[charge.category] || charge.category) : '-'}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">

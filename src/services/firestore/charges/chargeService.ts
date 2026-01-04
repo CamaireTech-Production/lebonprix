@@ -134,10 +134,6 @@ export const createCharge = async (
       throw new Error('Charge name is required');
     }
 
-    if (!data.description || data.description.trim() === '') {
-      throw new Error('Charge description is required');
-    }
-
     if (!data.amount || data.amount <= 0) {
       throw new Error('Charge amount must be greater than 0');
     }
@@ -164,16 +160,31 @@ export const createCharge = async (
 
     const userId = data.userId || companyId;
 
+    // Build chargeData object, excluding undefined values
+    // Build chargeData object, explicitly setting each field to avoid undefined values
     const chargeData: any = {
-      ...data,
       name: data.name.trim(),
-      description: data.description.trim(),
+      type: data.type,
+      amount: data.amount,
       date: chargeDate,
       companyId,
       userId,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     };
+
+    // Only include description if provided and not empty
+    if (data.description && data.description.trim()) {
+      chargeData.description = data.description.trim();
+    }
+
+    // Category: use provided value or default to 'other', but always include it
+    chargeData.category = (data.category && data.category.trim()) ? data.category.trim() : 'other';
+
+    // Include isActive for fixed charges
+    if (data.type === 'fixed') {
+      chargeData.isActive = data.isActive !== undefined ? data.isActive : true;
+    }
 
     // Add createdBy if provided
     if (createdBy) {
@@ -219,18 +230,36 @@ export const createCharge = async (
     await batch.commit();
 
     const now = Date.now() / 1000;
-    return {
+    const result: Charge = {
       id: chargeRef.id,
-      ...data,
+      name: data.name.trim(),
+      type: data.type,
+      amount: data.amount,
       date: chargeDate,
-      financeEntryId,
+      financeEntryId: financeEntryId,
       companyId,
       userId,
       createdAt: { seconds: now, nanoseconds: 0 },
       updatedAt: { seconds: now, nanoseconds: 0 },
-      createdBy: createdBy || undefined,
-      isActive: data.type === 'fixed' ? (data.isActive !== false) : undefined
+      category: (data.category && data.category.trim()) ? data.category.trim() : 'other'
     };
+
+    // Only include description if provided
+    if (data.description && data.description.trim()) {
+      result.description = data.description.trim();
+    }
+
+    // Include createdBy if provided
+    if (createdBy) {
+      result.createdBy = createdBy;
+    }
+
+    // Include isActive for fixed charges
+    if (data.type === 'fixed') {
+      result.isActive = data.isActive !== undefined ? data.isActive : true;
+    }
+
+    return result;
   } catch (error) {
     logError('Error creating charge', error);
     throw error;
@@ -260,17 +289,36 @@ export const updateCharge = async (
 
     const batch = writeBatch(db);
 
+    // Build updateData object, excluding undefined values
     const updateData: any = {
-      ...data,
       updatedAt: serverTimestamp()
     };
 
-    // Handle name/description trimming if provided
+    // Only include fields that are actually provided (not undefined)
     if (data.name !== undefined) {
       updateData.name = data.name.trim();
     }
     if (data.description !== undefined) {
-      updateData.description = data.description.trim();
+      // Only include description if it's not empty
+      if (data.description.trim()) {
+        updateData.description = data.description.trim();
+      } else {
+        // If description is explicitly set to empty, we can delete it or leave it empty
+        // For now, we'll set it to empty string (Firestore allows empty strings)
+        updateData.description = '';
+      }
+    }
+    if (data.amount !== undefined) {
+      updateData.amount = data.amount;
+    }
+    if (data.category !== undefined) {
+      updateData.category = data.category.trim() || 'other';
+    }
+    if (data.type !== undefined) {
+      updateData.type = data.type;
+    }
+    if (data.isActive !== undefined && data.type === 'fixed') {
+      updateData.isActive = data.isActive;
     }
 
     // Handle date conversion if provided

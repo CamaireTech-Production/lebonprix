@@ -421,7 +421,7 @@ service cloud.firestore {
                data.type in ['fixed', 'custom'] &&
                (data.name is string || data.description is string) &&
                data.amount is number && data.amount >= 0 &&
-               data.category is string &&
+               (!('category' in data) || data.category is string) &&
                data.date is timestamp &&
                data.userId is string &&
                (!('isActive' in data) || data.isActive is bool);
