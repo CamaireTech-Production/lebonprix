@@ -39,7 +39,6 @@ const Charges: React.FC = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [currentCharge, setCurrentCharge] = useState<Charge | null>(null);
-  const [chargeType, setChargeType] = useState<'fixed' | 'custom'>('fixed');
   const [deletingChargeId, setDeletingChargeId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -82,14 +81,7 @@ const Charges: React.FC = () => {
     return customCharges.reduce((sum, charge) => sum + charge.amount, 0);
   }, [customCharges]);
 
-  const handleAddFixed = () => {
-    setChargeType('fixed');
-    setCurrentCharge(null);
-    setIsAddModalOpen(true);
-  };
-
-  const handleAddCustom = () => {
-    setChargeType('custom');
+  const handleAdd = () => {
     setCurrentCharge(null);
     setIsAddModalOpen(true);
   };
@@ -141,16 +133,9 @@ const Charges: React.FC = () => {
         <div className="flex gap-2 mt-4 md:mt-0">
           <Button 
             icon={<Plus size={16} />}
-            onClick={handleAddFixed}
-            variant="secondary"
+            onClick={handleAdd}
           >
-            Charge fixe
-          </Button>
-          <Button 
-            icon={<Plus size={16} />}
-            onClick={handleAddCustom}
-          >
-            Charge personnalisée
+            Ajouter une charge
           </Button>
         </div>
       </div>
@@ -366,7 +351,6 @@ const Charges: React.FC = () => {
           setIsAddModalOpen(false);
           setCurrentCharge(null);
         }}
-        type={chargeType}
         onSuccess={handleAddSuccess}
       />
 

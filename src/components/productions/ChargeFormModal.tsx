@@ -48,6 +48,7 @@ const ChargeFormModal: React.FC<ChargeFormModalProps> = ({
   const { addCharge, updateCharge } = useCharges();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
+    type: type || 'custom', // Allow type selection for new charges
     name: '',
     description: '',
     amount: '',
@@ -56,8 +57,8 @@ const ChargeFormModal: React.FC<ChargeFormModalProps> = ({
     isActive: true
   });
 
-  // Determine charge type (from prop, existing charge, or default)
-  const chargeType = charge?.type || type;
+  // Determine charge type (from existing charge or form selection)
+  const chargeType = charge?.type || formData.type;
 
   useEffect(() => {
     if (isOpen) {
@@ -72,6 +73,7 @@ const ChargeFormModal: React.FC<ChargeFormModalProps> = ({
           : new Date();
         
         setFormData({
+          type: charge.type || 'custom',
           name: charge.name || charge.description || '',
           description: charge.description || '',
           amount: charge.amount?.toString() || '',
@@ -80,8 +82,9 @@ const ChargeFormModal: React.FC<ChargeFormModalProps> = ({
           isActive: charge.isActive !== false
         });
       } else {
-        // Create mode
+        // Create mode - reset to default
         setFormData({
+          type: type || 'custom',
           name: '',
           description: '',
           amount: '',
@@ -128,16 +131,16 @@ const ChargeFormModal: React.FC<ChargeFormModalProps> = ({
       } else {
         // Create new charge
         const newCharge = await addCharge({
-          type: chargeType,
+          type: formData.type,
           name,
           description,
           amount,
           category: formData.category,
           date: chargeDate,
-          isActive: chargeType === 'fixed' ? formData.isActive : undefined,
+          isActive: formData.type === 'fixed' ? formData.isActive : undefined,
           userId: user.uid
         });
-        showSuccessToast(`Charge ${chargeType === 'fixed' ? 'fixe' : 'personnalisée'} créée avec succès`);
+        showSuccessToast(`Charge ${formData.type === 'fixed' ? 'fixe' : 'personnalisée'} créée avec succès`);
         
         // Call onChargeCreated callback if provided
         if (onChargeCreated) {
@@ -161,7 +164,7 @@ const ChargeFormModal: React.FC<ChargeFormModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={charge ? 'Modifier la charge' : (chargeType === 'fixed' ? 'Nouvelle charge fixe' : 'Nouvelle charge personnalisée')}
+      title={charge ? 'Modifier la charge' : 'Nouvelle charge'}
       footer={
         <ModalFooter
           onCancel={onClose}
@@ -174,6 +177,27 @@ const ChargeFormModal: React.FC<ChargeFormModalProps> = ({
       }
     >
       <div className="space-y-4">
+        {!charge && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Type de charge <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={formData.type}
+              onChange={(e) => setFormData({ ...formData, type: e.target.value as 'fixed' | 'custom' })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="fixed">Charge fixe (réutilisable)</option>
+              <option value="custom">Charge personnalisée</option>
+            </select>
+            <p className="text-xs text-gray-500 mt-1">
+              {formData.type === 'fixed' 
+                ? 'Les charges fixes peuvent être réutilisées dans plusieurs productions'
+                : 'Les charges personnalisées sont spécifiques à une production'}
+            </p>
+          </div>
+        )}
+
         {chargeType === 'fixed' && (
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
