@@ -1,5 +1,5 @@
 // src/services/storage/ExpensesManager.ts
-import LocalStorageService from '../localStorageService';
+import LocalStorageService from '@services/utilities/localStorageService';
 import type { Expense } from '../../types/models';
 
 class ExpensesManager {

@@ -1,11 +1,25 @@
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
+import path from 'path';
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd());
 
   return {
+    resolve: {
+      alias: {
+        '@': path.resolve(__dirname, './src'),
+        '@components': path.resolve(__dirname, './src/components'),
+        '@pages': path.resolve(__dirname, './src/pages'),
+        '@services': path.resolve(__dirname, './src/services'),
+        '@utils': path.resolve(__dirname, './src/utils'),
+        '@hooks': path.resolve(__dirname, './src/hooks'),
+        '@contexts': path.resolve(__dirname, './src/contexts'),
+        '@types': path.resolve(__dirname, './src/types'),
+        '@constants': path.resolve(__dirname, './src/constants'),
+      },
+    },
     plugins: [
       react(),
       VitePWA({
@@ -53,9 +67,26 @@ export default defineConfig(({ mode }) => {
         },
         workbox: {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-          skipWaiting: false,
-          clientsClaim: false,
+          // Enable immediate activation of new service worker
+          skipWaiting: true,
+          // Take control of all clients immediately
+          clientsClaim: true,
           runtimeCaching: [
+            // Use StaleWhileRevalidate for HTML/JS/CSS - serves cached immediately, updates in background
+            {
+              urlPattern: /\.(?:html|js|css|mjs)$/,
+              handler: 'StaleWhileRevalidate',
+              options: {
+                cacheName: 'app-assets-cache',
+                expiration: {
+                  maxEntries: 50,
+                  maxAgeSeconds: 60 * 60 * 24 // 24 hours
+                },
+                cacheableResponse: {
+                  statuses: [0, 200]
+                }
+              }
+            },
             {
               urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
               handler: 'CacheFirst',
@@ -108,7 +139,18 @@ export default defineConfig(({ mode }) => {
               }
             },
             {
-              urlPattern: /^https:\/\/.*\.googleapis\.com\/.*/i,
+              // Ne jamais mettre en cache les flux Firestore (Listen/channel)
+              urlPattern: /^https:\/\/firestore\.googleapis\.com\/.*/i,
+              handler: 'NetworkOnly',
+              options: {
+                cacheName: 'firestore-bypass'
+              }
+            },
+            {
+              // Autres endpoints googleapis restent en NetworkFirst
+              urlPattern: ({ url }) =>
+                url.hostname.endsWith('googleapis.com') &&
+                url.hostname !== 'firestore.googleapis.com',
               handler: 'NetworkFirst',
               options: {
                 cacheName: 'google-apis-cache',

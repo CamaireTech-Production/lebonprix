@@ -1,8 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
-import Card from '../common/Card';
-import Button from '../common/Button';
-import Input from '../common/Input';
-import { useAuth } from '../../contexts/AuthContext';
+import { Card, Button, Input } from '@components/common';
+import { useAuth } from '@contexts/AuthContext';
 import { EmployeeRef, User, UserRole } from '../../types/models';
 import { 
   searchUserByEmail, 
@@ -11,8 +9,8 @@ import {
   updateEmployeeRole,
   getCompanyEmployees,
   subscribeToEmployeeRefs 
-} from '../../services/employeeRefService';
-import { showErrorToast, showSuccessToast } from '../../utils/toast';
+} from '@services/firestore/employees/employeeRefService';
+import { showErrorToast, showSuccessToast } from '@utils/core/toast';
 import { User as UserIcon, Plus, Trash2, Edit3, Search } from 'lucide-react';
 
 const roleOptions: { value: UserRole; label: string }[] = [
@@ -390,7 +388,7 @@ export default function EmployeeRefsTab() {
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {employee.addedAt?.toDate?.()?.toLocaleDateString() || 'N/A'}
+                      {employee.addedAt ? (employee.addedAt instanceof Date ? employee.addedAt.toLocaleDateString() : (employee.addedAt as any)?.toDate?.()?.toLocaleDateString()) : 'N/A'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex items-center justify-end space-x-2">

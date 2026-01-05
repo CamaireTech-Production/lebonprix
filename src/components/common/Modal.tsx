@@ -56,7 +56,7 @@ const Modal = ({ isOpen, onClose, title, children, footer, size = 'md', closeBut
             
             {/* Footer */}
             {footer && (
-              <div className="p-4 border-t border-gray-200 bg-gray-50 flex justify-end space-x-2">
+              <div className="p-4 border-t border-gray-200 bg-gray-50 flex justify-end gap-3">
                 {footer}
               </div>
             )}
@@ -67,7 +67,7 @@ const Modal = ({ isOpen, onClose, title, children, footer, size = 'md', closeBut
   );
 
   // Render modal as a portal to document.body to ensure it's full screen
-  return typeof document !== 'undefined' 
+  return (typeof document !== 'undefined' && document.body)
     ? createPortal(modalContent, document.body)
     : modalContent;
 };

@@ -1,5 +1,5 @@
 // src/services/storage/ProductsManager.ts
-import LocalStorageService from '../localStorageService';
+import LocalStorageService from '@services/utilities/localStorageService';
 import type { Product } from '../../types/models';
 
 class ProductsManager {

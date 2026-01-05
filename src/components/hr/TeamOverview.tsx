@@ -1,12 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import Card from '../common/Card';
-import Button from '../common/Button';
-import Modal, { ModalFooter } from '../common/Modal';
+import { Card, Button, Modal, ModalFooter } from '@components/common';
 import { Users, UserPlus, RefreshCw, Settings, Trash2 } from 'lucide-react';
 import type { UserCompanyRef } from '../../types/models';
 import TemplateAssignment from './TemplateAssignment';
-import { removeUserFromCompany } from '../../services/userCompanySyncService';
-import { getTemplateById } from '../../services/permissionTemplateService';
+import { removeUserFromCompany } from '@services/firestore/companies/userCompanySyncService';
+import { getTemplateById } from '@services/firestore/employees/permissionTemplateService';
 
 interface TeamOverviewProps {
   teamMembers: UserCompanyRef[];
