@@ -1389,7 +1389,7 @@ export const useProductions = () => {
   const updateProductionData = async (productionId: string, data: Partial<Production>) => {
     if (!user || !company) throw new Error('User not authenticated');
     try {
-      await updateProduction(productionId, data, company.id);
+      await updateProduction(productionId, data, company.id, user.uid);
     } catch (err) {
       setError(err as Error);
       throw err;

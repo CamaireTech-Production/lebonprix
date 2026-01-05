@@ -1,17 +1,16 @@
 // Production Detail page
 import React, { useState, useMemo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, Edit2, Loader2, CheckCircle2, XCircle } from 'lucide-react';
+import { ArrowLeft, Edit2, Loader2, CheckCircle2, Plus, Trash2, Package, Download, BarChart3, X, XCircle, Check } from 'lucide-react';
 import { Button, LoadingScreen, Badge } from '@components/common';
 import { useProductions, useProductionFlows, useProductionFlowSteps, useProductionCategories, useFixedCharges } from '@hooks/data/useFirestore';
 import { useAuth } from '@contexts/AuthContext';
 import { useMatiereStocks } from '@hooks/business/useMatiereStocks';
 import { formatPrice } from '@utils/formatting/formatPrice';
-import { showSuccessToast, showErrorToast, showWarningToast } from '@utils/core/toast';
+import { showSuccessToast, showErrorToast } from '@utils/core/toast';
 import ChargeFormModal from '@components/productions/ChargeFormModal';
 import PublishProductionModal from '@components/productions/PublishProductionModal';
-import type { Production, ProductionChargeRef } from '../../types/models';
-import { Plus, Trash2, Edit2 as EditIcon, Package, Download, BarChart3, X } from 'lucide-react';
+import type { ProductionChargeRef } from '../../types/models';
 
 const ProductionDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -24,7 +23,7 @@ const ProductionDetail: React.FC = () => {
   const { company } = useAuth();
   const companyId = urlCompanyId || company?.id || null;
   
-  const { productions, loading: productionsLoading, changeState, changeStatus, updateProduction, deleteProduction } = useProductions();
+  const { productions, loading: productionsLoading, changeState, changeStatus, updateProduction: updateProductionData, deleteProduction } = useProductions();
   const { flows } = useProductionFlows();
   const { flowSteps } = useProductionFlowSteps();
   const { categories } = useProductionCategories();
@@ -39,12 +38,12 @@ const ProductionDetail: React.FC = () => {
   const [isChangingState, setIsChangingState] = useState(false);
   const [isChargeModalOpen, setIsChargeModalOpen] = useState(false);
   const [isSelectFixedChargeModalOpen, setIsSelectFixedChargeModalOpen] = useState(false);
-  const [editingCharge, setEditingCharge] = useState<ProductionChargeRef | null>(null);
-  const [chargeType, setChargeType] = useState<'fixed' | 'custom'>('custom');
   const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [deletingChargeId, setDeletingChargeId] = useState<string | null>(null);
   const [isDeletingProduction, setIsDeletingProduction] = useState(false);
+  const [selectedFixedChargeId, setSelectedFixedChargeId] = useState<string | null>(null);
+  const [isAddingFixedCharge, setIsAddingFixedCharge] = useState(false);
 
   const production = useMemo(() => {
     if (!id) return null;
@@ -52,7 +51,7 @@ const ProductionDetail: React.FC = () => {
   }, [productions, id]);
 
   // Get fixed charges for selection
-  const { charges: fixedCharges } = useFixedCharges(true); // Only active fixed charges
+  const { charges: fixedCharges } = useFixedCharges(); // Get all fixed charges
 
   const productionFlow = useMemo(() => {
     if (!production) return null;
@@ -62,7 +61,7 @@ const ProductionDetail: React.FC = () => {
   const availableSteps = useMemo(() => {
     if (!productionFlow) return [];
     return productionFlow.stepIds
-      .map(stepId => flowSteps.find(s => s.id === stepId))
+      .map((stepId: string) => flowSteps.find(s => s.id === stepId))
       .filter(Boolean);
   }, [productionFlow, flowSteps]);
 
@@ -216,7 +215,7 @@ const ProductionDetail: React.FC = () => {
             <div className="flex items-center gap-4 mt-2">
               {getStatusBadge(production.status)}
               {isClosed && (
-                <Badge variant="secondary">Fermé</Badge>
+                <Badge>Fermé</Badge>
               )}
             </div>
           </div>
@@ -300,7 +299,7 @@ const ProductionDetail: React.FC = () => {
                 rows.push('');
                 rows.push('Matériaux');
                 rows.push('Matériau,Quantité,Unité,Prix unitaire,Total');
-                production.materials.forEach(m => {
+                production.materials.forEach((m: typeof production.materials[0]) => {
                   rows.push([
                     escapeCSV(m.matiereName),
                     escapeCSV(m.requiredQuantity),
@@ -314,7 +313,7 @@ const ProductionDetail: React.FC = () => {
                 rows.push('');
                 rows.push('Charges');
                 rows.push('Type,Nom,Description,Catégorie,Montant,Date');
-                (production.charges || []).forEach(c => {
+                (production.charges || []).forEach((c: ProductionChargeRef) => {
                   const chargeDate = c.date?.seconds
                     ? new Date(c.date.seconds * 1000).toLocaleDateString('fr-FR')
                     : '';
@@ -333,7 +332,7 @@ const ProductionDetail: React.FC = () => {
                 rows.push('Historique des Changements d\'État');
                 if (hasFlow) {
                   rows.push('De,À,Date,Note');
-                  production.stateHistory.forEach(h => {
+                  production.stateHistory.forEach((h: typeof production.stateHistory[0]) => {
                     const changeDate = h.timestamp?.seconds
                       ? new Date(h.timestamp.seconds * 1000).toLocaleString('fr-FR')
                       : '';
@@ -360,7 +359,7 @@ const ProductionDetail: React.FC = () => {
                     cancelled: 'Annulé',
                     closed: 'Fermé'
                   };
-                  production.stateHistory.forEach(h => {
+                  production.stateHistory.forEach((h: typeof production.stateHistory[0]) => {
                     const changeDate = h.timestamp?.seconds
                       ? new Date(h.timestamp.seconds * 1000).toLocaleString('fr-FR')
                       : '';
@@ -439,7 +438,7 @@ const ProductionDetail: React.FC = () => {
             <div className="mt-4">
               <h3 className="text-sm font-medium text-gray-700 mb-2">Coût des matériaux par unité</h3>
               <div className="space-y-2">
-                {production.materials.map((material, idx) => (
+                {production.materials.map((material: typeof production.materials[0], idx: number) => (
                   <div key={idx} className="flex justify-between text-sm">
                     <span className="text-gray-600">{material.matiereName}:</span>
                     <span className="text-gray-900">
@@ -531,7 +530,7 @@ const ProductionDetail: React.FC = () => {
                   <span className="text-sm font-medium text-gray-900">
                     {formatPrice(
                       production.materials.reduce(
-                        (sum, m) => sum + (m.requiredQuantity * m.costPrice),
+                        (sum: number, m: typeof production.materials[0]) => sum + (m.requiredQuantity * m.costPrice),
                         0
                       )
                     )}
@@ -541,14 +540,19 @@ const ProductionDetail: React.FC = () => {
                   <span className="text-sm text-gray-600">Total des charges:</span>
                   <span className="text-sm font-medium text-gray-900">
                     {formatPrice(
-                      (production.charges || []).reduce((sum, c) => sum + (c.amount || 0), 0)
+                      (production.charges || []).reduce((sum: number, c: ProductionChargeRef) => sum + (c.amount || 0), 0)
                     )}
                   </span>
                 </div>
                 <div className="border-t border-gray-200 pt-3 flex justify-between items-center">
                   <span className="text-base font-medium text-gray-900">Coût total calculé:</span>
                   <span className="text-base font-semibold text-gray-900">
-                    {formatPrice(production.calculatedCostPrice || 0)}
+                    {formatPrice(
+                      production.materials.reduce(
+                        (sum: number, m: typeof production.materials[0]) => sum + (m.requiredQuantity * m.costPrice),
+                        0
+                      ) + (production.charges || []).reduce((sum: number, c: ProductionChargeRef) => sum + (c.amount || 0), 0)
+                    )}
                   </span>
                 </div>
               </div>
@@ -565,7 +569,7 @@ const ProductionDetail: React.FC = () => {
               <div>
                 <h3 className="text-sm font-medium text-gray-500 mb-2">Images</h3>
                 <div className="grid grid-cols-4 gap-4">
-                  {production.images.map((img, idx) => (
+                  {production.images.map((img: string, idx: number) => (
                     <img
                       key={idx}
                       src={img}
@@ -604,7 +608,7 @@ const ProductionDetail: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {production.materials.map((material, idx) => {
+                    {production.materials.map((material: typeof production.materials[0], idx: number) => {
                       const stockInfo = matiereStocks.find(ms => ms.matiereId === material.matiereId);
                       return (
                         <tr key={idx}>
@@ -636,7 +640,7 @@ const ProductionDetail: React.FC = () => {
                     <span className="text-lg font-semibold text-gray-900">
                       {formatPrice(
                         production.materials.reduce(
-                          (sum, m) => sum + (m.requiredQuantity * m.costPrice),
+                          (sum: number, m: typeof production.materials[0]) => sum + (m.requiredQuantity * m.costPrice),
                           0
                         )
                       )}
@@ -654,16 +658,26 @@ const ProductionDetail: React.FC = () => {
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-medium text-gray-900">Charges</h3>
               {!isClosed && (
-                <Button
-                  icon={<Plus size={16} />}
-                  onClick={() => {
-                    setEditingCharge(null);
-                    setIsChargeModalOpen(true);
-                  }}
-                  size="sm"
-                >
-                  Ajouter une charge
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    icon={<Plus size={16} />}
+                    onClick={() => {
+                      setIsChargeModalOpen(true);
+                    }}
+                    size="sm"
+                  >
+                    Ajouter une charge
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      setIsSelectFixedChargeModalOpen(true);
+                    }}
+                    size="sm"
+                  >
+                    Sélectionner une charge fixe
+                  </Button>
+                </div>
               )}
             </div>
 
@@ -725,7 +739,7 @@ const ProductionDetail: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {(production.charges || []).map((charge, index) => {
+                    {(production.charges || []).map((charge: ProductionChargeRef, index: number) => {
                       const chargeDate = charge.date
                         ? (charge.date instanceof Date
                             ? charge.date
@@ -780,27 +794,45 @@ const ProductionDetail: React.FC = () => {
                                 <button
                                   onClick={async () => {
                                     if (deletingChargeId === charge.chargeId) return;
-                                    if (window.confirm('Êtes-vous sûr de vouloir retirer cette charge de la production ?')) {
+                                    const actionLabel = charge.type === 'fixed' ? 'retirer' : 'supprimer';
+                                    const confirmMessage = charge.type === 'fixed' 
+                                      ? 'Êtes-vous sûr de vouloir retirer cette charge fixe de la production ? La charge restera disponible pour d\'autres productions.'
+                                      : 'Êtes-vous sûr de vouloir supprimer cette charge personnalisée ?';
+                                    
+                                    if (window.confirm(confirmMessage)) {
                                       setDeletingChargeId(charge.chargeId);
                                       try {
-                                        // Remove charge from production.charges array
-                                        const updatedCharges = (production.charges || []).filter(
-                                          c => c.chargeId !== charge.chargeId
-                                        );
-                                        await updateProduction(production.id, { charges: updatedCharges });
-                                        showSuccessToast('Charge retirée de la production');
+                                        if (charge.type === 'fixed') {
+                                          // Remove charge from production.charges array (fixed charges are reusable)
+                                          const updatedCharges = (production.charges || []).filter(
+                                            (c: ProductionChargeRef) => c.chargeId !== charge.chargeId
+                                          );
+                                          await updateProductionData(production.id, { charges: updatedCharges });
+                                          showSuccessToast('Charge fixe retirée de la production');
+                                        } else {
+                                          // For custom charges, we can also just remove from production
+                                          // (they're production-specific, so removing from production is effectively deleting)
+                                          const updatedCharges = (production.charges || []).filter(
+                                            (c: ProductionChargeRef) => c.chargeId !== charge.chargeId
+                                          );
+                                          await updateProductionData(production.id, { charges: updatedCharges });
+                                          showSuccessToast('Charge personnalisée retirée de la production');
+                                        }
                                       } catch (error: any) {
-                                        showErrorToast(error.message || 'Erreur lors de la suppression');
+                                        showErrorToast(error.message || `Erreur lors de la ${actionLabel}`);
                                       } finally {
                                         setDeletingChargeId(null);
                                       }
                                     }
                                   }}
                                   disabled={deletingChargeId === charge.chargeId}
-                                  className={`text-red-600 hover:text-red-900 ${deletingChargeId === charge.chargeId ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                  className={`${charge.type === 'fixed' ? 'text-orange-600 hover:text-orange-900' : 'text-red-600 hover:text-red-900'} ${deletingChargeId === charge.chargeId ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                  title={charge.type === 'fixed' ? 'Retirer de la production' : 'Supprimer'}
                                 >
                                   {deletingChargeId === charge.chargeId ? (
                                     <Loader2 size={16} className="animate-spin" />
+                                  ) : charge.type === 'fixed' ? (
+                                    <XCircle size={16} />
                                   ) : (
                                     <Trash2 size={16} />
                                   )}
@@ -818,7 +850,7 @@ const ProductionDetail: React.FC = () => {
                     <span className="font-medium text-gray-900">Total des charges:</span>
                     <span className="text-lg font-semibold text-gray-900">
                       {formatPrice(
-                        (production.charges || []).reduce((sum, c) => sum + (c.amount || 0), 0)
+                        (production.charges || []).reduce((sum: number, c: ProductionChargeRef) => sum + (c.amount || 0), 0)
                       )}
                     </span>
                   </div>
@@ -835,7 +867,7 @@ const ProductionDetail: React.FC = () => {
               <p className="text-gray-500 text-center py-8">Aucun historique</p>
             ) : (
               <div className="space-y-4">
-                {production.stateHistory.map((change, idx) => {
+                {production.stateHistory.map((change: typeof production.stateHistory[0], idx: number) => {
                   // Handle both flow mode and simple mode
                   const isFlowMode = hasFlow && (change.toStepId || change.fromStepId);
                   
@@ -936,7 +968,7 @@ const ProductionDetail: React.FC = () => {
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="">Sélectionner une étape...</option>
-                    {availableSteps.map(step => (
+                    {availableSteps.map((step: typeof availableSteps[0]) => (
                       <option key={step.id} value={step.id}>
                         {step.name}
                       </option>
@@ -1074,7 +1106,6 @@ const ProductionDetail: React.FC = () => {
         isOpen={isChargeModalOpen}
         onClose={() => {
           setIsChargeModalOpen(false);
-          setEditingCharge(null);
         }}
         onChargeCreated={async (newCharge) => {
           if (!production) return;
@@ -1101,7 +1132,7 @@ const ProductionDetail: React.FC = () => {
               snapshot
             ];
             
-            await updateProduction(production.id, { charges: updatedCharges });
+            await updateProductionData(production.id, { charges: updatedCharges });
             const chargeTypeLabel = newCharge.type === 'fixed' ? 'fixe' : 'personnalisée';
             showSuccessToast(`Charge ${chargeTypeLabel} ajoutée à la production`);
             setIsChargeModalOpen(false);
@@ -1117,18 +1148,23 @@ const ProductionDetail: React.FC = () => {
       {/* Fixed Charge Selection Modal */}
       {isSelectFixedChargeModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
-            <div className="p-6">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] flex flex-col">
+            <div className="p-6 flex-shrink-0">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-semibold text-gray-900">Sélectionner une charge fixe</h2>
                 <button
-                  onClick={() => setIsSelectFixedChargeModalOpen(false)}
+                  onClick={() => {
+                    setIsSelectFixedChargeModalOpen(false);
+                    setSelectedFixedChargeId(null);
+                  }}
                   className="text-gray-400 hover:text-gray-600"
                 >
                   <X size={24} />
                 </button>
               </div>
-              
+            </div>
+            
+            <div className="flex-1 overflow-y-auto px-6">
               {fixedCharges.length === 0 ? (
                 <div className="text-center py-8">
                   <p className="text-gray-500 mb-2">Aucune charge fixe disponible</p>
@@ -1139,7 +1175,7 @@ const ProductionDetail: React.FC = () => {
               ) : (
                 <div className="space-y-2">
                   {fixedCharges
-                    .filter(charge => !(production.charges || []).some(c => c.chargeId === charge.id))
+                    .filter(charge => !(production.charges || []).some((c: ProductionChargeRef) => c.chargeId === charge.id))
                     .map((charge) => {
                       const categoryLabels: Record<string, string> = {
                         main_oeuvre: 'Main d\'œuvre',
@@ -1151,52 +1187,37 @@ const ProductionDetail: React.FC = () => {
                         other: 'Autre'
                       };
                       
+                      const isSelected = selectedFixedChargeId === charge.id;
+                      
                       return (
                         <button
                           key={charge.id}
-                          onClick={async () => {
-                            if (!production) return;
-                            try {
-                              const snapshot: ProductionChargeRef = {
-                                chargeId: charge.id,
-                                name: charge.name || charge.description || '',
-                                amount: charge.amount,
-                                type: 'fixed' as const,
-                                date: charge.date
-                              };
-                              
-                              // Only include optional fields if they have values
-                              if (charge.description) {
-                                snapshot.description = charge.description;
-                              }
-                              if (charge.category) {
-                                snapshot.category = charge.category;
-                              }
-                              
-                              const updatedCharges = [
-                                ...(production.charges || []),
-                                snapshot
-                              ];
-                              
-                              await updateProduction(production.id, { charges: updatedCharges });
-                              showSuccessToast('Charge fixe ajoutée');
-                              setIsSelectFixedChargeModalOpen(false);
-                            } catch (error: any) {
-                              showErrorToast(error.message || 'Erreur lors de l\'ajout de la charge');
-                            }
-                          }}
-                          className="w-full text-left p-4 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors"
+                          onClick={() => setSelectedFixedChargeId(charge.id)}
+                          className={`w-full text-left p-4 border-2 rounded-md transition-colors ${
+                            isSelected 
+                              ? 'border-blue-500 bg-blue-50' 
+                              : 'border-gray-200 hover:bg-gray-50'
+                          }`}
                         >
                           <div className="flex justify-between items-start">
                             <div className="flex-1">
-                              <div className="font-medium text-gray-900">
-                                {charge.name || charge.description}
+                              <div className="flex items-center gap-2">
+                                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                                  isSelected 
+                                    ? 'border-blue-500 bg-blue-500' 
+                                    : 'border-gray-300'
+                                }`}>
+                                  {isSelected && <Check size={12} className="text-white" />}
+                                </div>
+                                <div className="font-medium text-gray-900">
+                                  {charge.name || charge.description}
+                                </div>
                               </div>
                               {charge.description && charge.name && charge.name !== charge.description && (
-                                <div className="text-sm text-gray-500 mt-1">{charge.description}</div>
+                                <div className="text-sm text-gray-500 mt-1 ml-6">{charge.description}</div>
                               )}
                               {charge.category && (
-                                <div className="text-xs text-gray-400 mt-1">
+                                <div className="text-xs text-gray-400 mt-1 ml-6">
                                   {categoryLabels[charge.category] || charge.category}
                                 </div>
                               )}
@@ -1212,6 +1233,65 @@ const ProductionDetail: React.FC = () => {
                     })}
                 </div>
               )}
+            </div>
+            
+            <div className="p-6 border-t border-gray-200 flex-shrink-0 flex justify-end gap-3">
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setIsSelectFixedChargeModalOpen(false);
+                  setSelectedFixedChargeId(null);
+                }}
+              >
+                Annuler
+              </Button>
+              <Button
+                onClick={async () => {
+                  if (!production || !selectedFixedChargeId || isAddingFixedCharge) return;
+                  
+                  const selectedCharge = fixedCharges.find(c => c.id === selectedFixedChargeId);
+                  if (!selectedCharge) return;
+                  
+                  setIsAddingFixedCharge(true);
+                  try {
+                    const snapshot: ProductionChargeRef = {
+                      chargeId: selectedCharge.id,
+                      name: selectedCharge.name || selectedCharge.description || '',
+                      amount: selectedCharge.amount,
+                      type: 'fixed' as const,
+                      date: selectedCharge.date
+                    };
+                    
+                    // Only include optional fields if they have values
+                    if (selectedCharge.description) {
+                      snapshot.description = selectedCharge.description;
+                    }
+                    if (selectedCharge.category) {
+                      snapshot.category = selectedCharge.category;
+                    }
+                    
+                    const updatedCharges = [
+                      ...(production.charges || []),
+                      snapshot
+                    ];
+                    
+                    await updateProductionData(production.id, { charges: updatedCharges });
+                    showSuccessToast('Charge fixe ajoutée à la production');
+                    setIsSelectFixedChargeModalOpen(false);
+                    setSelectedFixedChargeId(null);
+                  } catch (error: any) {
+                    console.error('Error adding fixed charge to production:', error);
+                    showErrorToast(error.message || 'Erreur lors de l\'ajout de la charge');
+                  } finally {
+                    setIsAddingFixedCharge(false);
+                  }
+                }}
+                disabled={!selectedFixedChargeId || isAddingFixedCharge}
+                isLoading={isAddingFixedCharge}
+                icon={!isAddingFixedCharge ? <Check size={16} /> : undefined}
+              >
+                {isAddingFixedCharge ? 'Ajout en cours...' : 'Confirmer'}
+              </Button>
             </div>
           </div>
         </div>

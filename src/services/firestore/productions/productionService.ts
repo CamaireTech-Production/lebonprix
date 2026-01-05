@@ -223,7 +223,8 @@ export const createProduction = async (
 export const updateProduction = async (
   id: string,
   data: Partial<Production>,
-  companyId: string
+  companyId: string,
+  userId?: string
 ): Promise<void> => {
   try {
     const productionRef = doc(db, COLLECTION_NAME, id);
@@ -289,8 +290,14 @@ export const updateProduction = async (
 
     batch.update(productionRef, updateData);
 
-    // Create audit log
-    const auditUserId = currentData.userId || companyId;
+    // Create audit log - use current user's ID (required by Firestore rules)
+    // Get current user from auth if userId not provided
+    let auditUserId = userId;
+    if (!auditUserId) {
+      const { getAuth } = await import('firebase/auth');
+      const auth = getAuth();
+      auditUserId = auth.currentUser?.uid || companyId;
+    }
     createAuditLog(batch, 'update', 'production', id, updateData, auditUserId);
 
     await batch.commit();
