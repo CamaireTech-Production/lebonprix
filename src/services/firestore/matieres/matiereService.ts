@@ -24,19 +24,56 @@ import { createStockChange } from '../stock/stockService';
 // ============================================================================
 
 export const subscribeToMatieres = (companyId: string, callback: (matieres: Matiere[]) => void): (() => void) => {
-  const q = query(
-    collection(db, 'matieres'),
-    where('companyId', '==', companyId),
-    orderBy('createdAt', 'desc')
-  );
-  
-  return onSnapshot(q, (snapshot) => {
-    const matieres = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    })) as Matiere[];
-    callback(matieres.filter(matiere => matiere.isDeleted !== true));
-  });
+  if (!companyId) {
+    callback([]);
+    return () => {}; // Return empty cleanup function
+  }
+
+  try {
+    const q = query(
+      collection(db, 'matieres'),
+      where('companyId', '==', companyId),
+      orderBy('createdAt', 'desc')
+    );
+    
+    let isActive = true;
+
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        if (!isActive) return; // Prevent callback after cleanup
+        try {
+          const matieres = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          })) as Matiere[];
+          callback(matieres.filter(matiere => matiere.isDeleted !== true));
+        } catch (error) {
+          logError('Error processing matieres snapshot', error);
+          if (isActive) callback([]);
+        }
+      },
+      (error) => {
+        if (!isActive) return; // Prevent callback after cleanup
+        logError('Error subscribing to matieres', error);
+        callback([]);
+      }
+    );
+
+    // Return cleanup function that marks as inactive
+    return () => {
+      isActive = false;
+      try {
+        unsubscribe();
+      } catch (error) {
+        // Ignore cleanup errors
+      }
+    };
+  } catch (error) {
+    logError('Error setting up matieres subscription', error);
+    callback([]);
+    return () => {}; // Return empty cleanup function
+  }
 };
 
 // ============================================================================

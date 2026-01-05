@@ -31,26 +31,56 @@ export const subscribeToProductions = (
   companyId: string,
   callback: (productions: Production[]) => void
 ): (() => void) => {
-  const q = query(
-    collection(db, COLLECTION_NAME),
-    where('companyId', '==', companyId),
-    orderBy('createdAt', 'desc')
-  );
+  if (!companyId) {
+    callback([]);
+    return () => {}; // Return empty cleanup function
+  }
 
-  return onSnapshot(
-    q,
-    (snapshot) => {
-      const productions = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Production[];
-      callback(productions);
-    },
-    (error) => {
-      logError('Error subscribing to productions', error);
-      callback([]);
-    }
-  );
+  try {
+    const q = query(
+      collection(db, COLLECTION_NAME),
+      where('companyId', '==', companyId),
+      orderBy('createdAt', 'desc')
+    );
+
+    let isActive = true;
+
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        if (!isActive) return; // Prevent callback after cleanup
+        try {
+          const productions = snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data()
+          })) as Production[];
+          callback(productions);
+        } catch (error) {
+          logError('Error processing productions snapshot', error);
+          if (isActive) callback([]);
+        }
+      },
+      (error) => {
+        if (!isActive) return; // Prevent callback after cleanup
+        logError('Error subscribing to productions', error);
+        callback([]);
+      }
+    );
+
+    // Return cleanup function that marks as inactive
+    return () => {
+      isActive = false;
+      try {
+        unsubscribe();
+      } catch (error) {
+        // Ignore cleanup errors
+      }
+    };
+  } catch (error) {
+    logError('Error setting up productions subscription', error);
+    callback([]);
+    return () => {}; // Return empty cleanup function
+  }
 };
 
 // ============================================================================

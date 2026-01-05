@@ -185,21 +185,55 @@ export const subscribeToCustomerSources = (
   companyId: string,
   callback: (sources: CustomerSource[]) => void
 ): (() => void) => {
-  const q = query(
-    collection(db, 'customerSources'),
-    where('companyId', '==', companyId),
-    orderBy('createdAt', 'desc')
-  );
-  
-  return onSnapshot(q, (snapshot) => {
-    const sources = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    })) as CustomerSource[];
-    callback(sources);
-  }, (error) => {
-    logError('Error in customer sources subscription', error);
+  if (!companyId) {
     callback([]);
-  });
+    return () => {}; // Return empty cleanup function
+  }
+
+  try {
+    const q = query(
+      collection(db, 'customerSources'),
+      where('companyId', '==', companyId),
+      orderBy('createdAt', 'desc')
+    );
+    
+    let isActive = true;
+
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        if (!isActive) return; // Prevent callback after cleanup
+        try {
+          const sources = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          })) as CustomerSource[];
+          callback(sources);
+        } catch (error) {
+          logError('Error processing customer sources snapshot', error);
+          if (isActive) callback([]);
+        }
+      },
+      (error) => {
+        if (!isActive) return; // Prevent callback after cleanup
+        logError('Error in customer sources subscription', error);
+        callback([]);
+      }
+    );
+
+    // Return cleanup function that marks as inactive
+    return () => {
+      isActive = false;
+      try {
+        unsubscribe();
+      } catch (error) {
+        // Ignore cleanup errors
+      }
+    };
+  } catch (error) {
+    logError('Error setting up customer sources subscription', error);
+    callback([]);
+    return () => {}; // Return empty cleanup function
+  }
 };
 

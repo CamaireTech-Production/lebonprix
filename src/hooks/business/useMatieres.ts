@@ -12,17 +12,43 @@ export const useMatieres = () => {
   const { user, company, currentEmployee, isOwner } = useAuth();
 
   useEffect(() => {
-    if (!user || !company) return;
+    if (!user || !company) {
+      setMatieres([]);
+      setLoading(false);
+      return;
+    }
     
+    let isMounted = true;
+    let unsubscribe: (() => void) | null = null;
+
     setLoading(true);
     
-    const unsubscribe = subscribeToMatieres(company.id, (data) => {
-      setMatieres(data);
-      setLoading(false);
-      setError(null);
-    });
+    try {
+      unsubscribe = subscribeToMatieres(company.id, (data) => {
+        if (isMounted) {
+          setMatieres(data);
+          setLoading(false);
+          setError(null);
+        }
+      });
+    } catch (error) {
+      if (isMounted) {
+        setMatieres([]);
+        setLoading(false);
+        setError(error as Error);
+      }
+    }
 
-    return () => unsubscribe();
+    return () => {
+      isMounted = false;
+      if (unsubscribe) {
+        try {
+          unsubscribe();
+        } catch (error) {
+          // Ignore cleanup errors
+        }
+      }
+    };
   }, [user, company]);
 
   const addMatiere = async (

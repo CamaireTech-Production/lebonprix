@@ -26,16 +26,39 @@ export const useCustomerSources = (): UseCustomerSourcesReturn => {
 
   useEffect(() => {
     if (!user || !company) {
+      setSources([]);
       setLoading(false);
       return;
     }
 
-    const unsubscribe = subscribeToCustomerSources(company.id, (data: CustomerSource[]) => {
-      setSources(data);
-      setLoading(false);
-    });
+    let isMounted = true;
+    let unsubscribe: (() => void) | null = null;
 
-    return () => unsubscribe();
+    try {
+      unsubscribe = subscribeToCustomerSources(company.id, (data: CustomerSource[]) => {
+        if (isMounted) {
+          setSources(data);
+          setLoading(false);
+        }
+      });
+    } catch (error) {
+      if (isMounted) {
+        setSources([]);
+        setLoading(false);
+        setError(error as Error);
+      }
+    }
+
+    return () => {
+      isMounted = false;
+      if (unsubscribe) {
+        try {
+          unsubscribe();
+        } catch (error) {
+          // Ignore cleanup errors
+        }
+      }
+    };
   }, [user, company]);
 
   const addSource = async (data: Omit<CustomerSource, 'id' | 'createdAt' | 'updatedAt' | 'userId' | 'companyId'>): Promise<CustomerSource> => {

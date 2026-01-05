@@ -213,5 +213,11 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow write: if isAuthenticated();
     }
+    
+    // Matieres - SIMPLIFIED: Authenticated users can read/write
+    match /matieres/{matiereId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
   }
 }

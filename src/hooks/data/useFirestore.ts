@@ -1354,14 +1354,40 @@ export const useProductions = () => {
   const { user, company, currentEmployee, isOwner } = useAuth();
 
   useEffect(() => {
-    if (!user || !company) return;
-
-    const unsubscribe = subscribeToProductions(company.id, (data) => {
-      setProductions(data);
+    if (!user || !company) {
+      setProductions([]);
       setLoading(false);
-    });
+      return;
+    }
 
-    return () => unsubscribe();
+    let isMounted = true;
+    let unsubscribe: (() => void) | null = null;
+
+    try {
+      unsubscribe = subscribeToProductions(company.id, (data) => {
+        if (isMounted) {
+          setProductions(data);
+          setLoading(false);
+        }
+      });
+    } catch (error) {
+      logError('Error setting up productions subscription', error);
+      if (isMounted) {
+        setProductions([]);
+        setLoading(false);
+      }
+    }
+
+    return () => {
+      isMounted = false;
+      if (unsubscribe) {
+        try {
+          unsubscribe();
+        } catch (error) {
+          // Ignore cleanup errors
+        }
+      }
+    };
   }, [user, company]);
 
   const addProduction = async (productionData: Omit<Production, 'id' | 'createdAt' | 'updatedAt' | 'stateHistory' | 'calculatedCostPrice' | 'isCostValidated' | 'isPublished' | 'isClosed'>) => {
