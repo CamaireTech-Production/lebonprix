@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Grid, List, Plus, Search, Edit2, Upload, Trash2, CheckSquare, Square, Info, Eye, EyeOff, QrCode, ExternalLink } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -22,7 +22,7 @@ import SyncIndicator from '../components/common/SyncIndicator';
 import { showSuccessToast, showErrorToast, showWarningToast } from '../utils/toast';
 import imageCompression from 'browser-image-compression';
 import * as Papa from 'papaparse';
-import type { Product, ProductTag} from '../types/models';
+import type { Product, ProductTag, StockChange } from '../types/models';
 import type { ParseResult } from 'papaparse';
 import { getLatestCostPrice} from '../utils/productUtils';
 import { formatCreatorName } from '../utils/employeeUtils';
@@ -138,6 +138,25 @@ const Products = () => {
     sellingPrice: '',
     cataloguePrice: '',
   });
+
+  // Field-level error states
+  const [step1Errors, setStep1Errors] = useState<Record<string, string>>({});
+  const [step2Errors, setStep2Errors] = useState<Record<string, string>>({});
+
+  // Clear errors when modals open
+  useEffect(() => {
+    if (isAddModalOpen) {
+      setStep1Errors({});
+      setStep2Errors({});
+    }
+  }, [isAddModalOpen]);
+
+  useEffect(() => {
+    if (isEditModalOpen) {
+      setStep1Errors({});
+      setStep2Errors({});
+    }
+  }, [isEditModalOpen]);
   
   // Quick add supplier state
   const [isQuickAddSupplierOpen, setIsQuickAddSupplierOpen] = useState(false);
@@ -252,6 +271,14 @@ const Products = () => {
   const handleStep1InputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setStep1Data(prev => ({ ...prev, [name]: value }));
+    // Clear error when user starts typing
+    if (step1Errors[name]) {
+      setStep1Errors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[name];
+        return newErrors;
+      });
+    }
   };
   
   const handleStep2InputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -263,6 +290,14 @@ const Products = () => {
       : value;
     
     setStep2Data(prev => ({ ...prev, [name]: filteredValue }));
+    // Clear error when user starts typing
+    if (step2Errors[name]) {
+      setStep2Errors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[name];
+        return newErrors;
+      });
+    }
   };
   
   const handleQuickSupplierInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -288,6 +323,8 @@ const Products = () => {
       sellingPrice: '',
       cataloguePrice: '',
     });
+    setStep1Errors({});
+    setStep2Errors({});
     setCurrentStep(1);
   };
 
@@ -325,23 +362,87 @@ const Products = () => {
     }
   };
 
+  const validateForm = (): boolean => {
+    const step1Errs: Record<string, string> = {};
+    const step2Errs: Record<string, string> = {};
+    let isValid = true;
+
+    // Validate Step 1
+    if (!step1Data.name || step1Data.name.trim() === '') {
+      step1Errs.name = t('products.form.step1.name') + ' ' + t('common.required');
+      isValid = false;
+    }
+
+    // Validate Step 2
+    if (!step2Data.stock || step2Data.stock.trim() === '') {
+      step2Errs.stock = t('products.form.step2.stock') + ' ' + t('common.required');
+      isValid = false;
+    } else if (parseInt(step2Data.stock) <= 0) {
+      step2Errs.stock = t('products.form.step2.stock') + ' ' + (t('common.mustBeGreaterThanZero') || 'must be greater than zero');
+      isValid = false;
+    }
+
+    if (!step2Data.stockCostPrice || step2Data.stockCostPrice.trim() === '') {
+      step2Errs.stockCostPrice = t('products.form.step2.stockCostPrice') + ' ' + t('common.required');
+      isValid = false;
+    } else if (parseFloat(step2Data.stockCostPrice) <= 0) {
+      step2Errs.stockCostPrice = t('products.form.step2.stockCostPrice') + ' ' + (t('common.mustBeGreaterThanZero') || 'must be greater than zero');
+      isValid = false;
+    }
+
+    if (!step2Data.sellingPrice || step2Data.sellingPrice.trim() === '') {
+      step2Errs.sellingPrice = t('products.form.step2.sellingPrice') + ' ' + t('common.required');
+      isValid = false;
+    } else if (parseFloat(step2Data.sellingPrice) <= 0) {
+      step2Errs.sellingPrice = t('products.form.step2.sellingPrice') + ' ' + (t('common.mustBeGreaterThanZero') || 'must be greater than zero');
+      isValid = false;
+    }
+
+    if (step2Data.supplyType === 'fromSupplier' && (!step2Data.supplierId || step2Data.supplierId.trim() === '')) {
+      step2Errs.supplierId = t('products.form.step2.supplier') + ' ' + t('common.required');
+      isValid = false;
+    }
+
+    setStep1Errors(step1Errs);
+    setStep2Errors(step2Errs);
+
+    // If there are errors, show a general message and scroll to first error
+    if (!isValid) {
+      const firstErrorField = Object.keys(step1Errs)[0] || Object.keys(step2Errs)[0];
+      if (firstErrorField) {
+        // If error is in step 2, switch to step 2
+        if (step2Errs[firstErrorField]) {
+          setCurrentStep(2);
+          setTimeout(() => {
+            const element = document.querySelector(`[name="${firstErrorField}"]`);
+            if (element) {
+              element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              (element as HTMLElement).focus();
+            }
+          }, 100);
+        } else {
+          // Error is in step 1
+          setCurrentStep(1);
+          setTimeout(() => {
+            const element = document.querySelector(`[name="${firstErrorField}"]`);
+            if (element) {
+              element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              (element as HTMLElement).focus();
+            }
+          }, 100);
+        }
+      }
+      showWarningToast(t('products.messages.warnings.pleaseFillRequiredFields') || t('products.messages.warnings.requiredFields'));
+    }
+
+    return isValid;
+  };
+
   const handleAddProduct = async () => {
     if (!user?.uid) return;
     
-    // Validate step 1 data
-    if (!step1Data.name) {
-      showWarningToast(t('products.messages.warnings.requiredFields'));
-      return;
-    }
-    
-    // Validate step 2 data
-    if (!step2Data.stock || parseInt(step2Data.stock) <= 0 || !step2Data.stockCostPrice || !step2Data.sellingPrice) {
-      showWarningToast(t('products.messages.warnings.requiredFields'));
-      return;
-    }
-    
-    if (step2Data.supplyType === 'fromSupplier' && !step2Data.supplierId) {
-      showWarningToast(t('products.form.step2.supplierRequired'));
+    // Validate form with specific field errors
+    if (!validateForm()) {
       return;
     }
     
@@ -430,9 +531,9 @@ const Products = () => {
       };
 
       // Get createdBy employee reference
-      let createdBy = null;
+      let createdBy: ReturnType<typeof getCurrentEmployeeRef> | null = null;
       if (user && company) {
-        let userData = null;
+        let userData: Awaited<ReturnType<typeof getUserById>> | null = null;
         if (isOwner && !currentEmployee) {
           // If owner, fetch user data to create EmployeeRef
           try {
@@ -490,11 +591,24 @@ const Products = () => {
   // Step navigation functions
   const nextStep = () => {
     if (currentStep === 1) {
-      // Validate step 1
-      if (!step1Data.name) {
-      showWarningToast(t('products.messages.warnings.requiredFields'));
-      return;
-    }
+      // Validate step 1 with specific field errors
+      const step1Errs: Record<string, string> = {};
+      if (!step1Data.name || step1Data.name.trim() === '') {
+        step1Errs.name = t('products.form.step1.name') + ' ' + t('common.required');
+        setStep1Errors(step1Errs);
+        showWarningToast(t('products.messages.warnings.pleaseFillRequiredFields') || t('products.messages.warnings.requiredFields'));
+        // Scroll to and focus the error field
+        setTimeout(() => {
+          const element = document.querySelector(`[name="name"]`);
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            (element as HTMLElement).focus();
+          }
+        }, 100);
+        return;
+      }
+      // Clear any previous errors if validation passes
+      setStep1Errors({});
       setCurrentStep(2);
     }
   };
@@ -516,9 +630,9 @@ const Products = () => {
     setIsAddingSupplier(true);
     try {
       // Get createdBy employee reference
-      let createdBy = null;
+      let createdBy: ReturnType<typeof getCurrentEmployeeRef> | null = null;
       if (user && company) {
-        let userData = null;
+        let userData: Awaited<ReturnType<typeof getUserById>> | null = null;
         if (isOwner && !currentEmployee) {
           try {
             userData = await getUserById(user.uid);
@@ -527,6 +641,11 @@ const Products = () => {
           }
         }
         createdBy = getCurrentEmployeeRef(currentEmployee, user, isOwner, userData);
+      }
+      
+      if (!company) {
+        showErrorToast('Company not found');
+        return;
       }
       
       const newSupplier = await createSupplier({
@@ -768,9 +887,9 @@ const Products = () => {
     setIsAddingSupplier(true);
     try {
       // Get createdBy employee reference
-      let createdBy = null;
+      let createdBy: ReturnType<typeof getCurrentEmployeeRef> | null = null;
       if (user && company) {
-        let userData = null;
+        let userData: Awaited<ReturnType<typeof getUserById>> | null = null;
         if (isOwner && !currentEmployee) {
           try {
             userData = await getUserById(user.uid);
@@ -779,6 +898,11 @@ const Products = () => {
           }
         }
         createdBy = getCurrentEmployeeRef(currentEmployee, user, isOwner, userData);
+      }
+      
+      if (!company) {
+        showErrorToast('Company not found');
+        return;
       }
       
       const newSupplier = await createSupplier({
@@ -830,9 +954,9 @@ const Products = () => {
       barCode: product.barCode || '', // Load existing barcode
     });
     // Find latest stock change for this product
-    const latestStockChange = stockChanges
-      .filter(sc => sc.productId === product.id)
-      .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))[0];
+    const latestStockChange = (stockChanges as StockChange[])
+      .filter((sc: StockChange) => sc.productId === product.id)
+      .sort((a: StockChange, b: StockChange) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))[0];
     setEditPrices({
       sellingPrice: product.sellingPrice?.toString() || '',
       cataloguePrice: product.cataloguePrice?.toString() || '',
@@ -858,14 +982,45 @@ const Products = () => {
     setStockAdjustment('');
   };
   
+  const validateEditForm = (): boolean => {
+    const step1Errs: Record<string, string> = {};
+    let isValid = true;
+
+    // Validate Step 1 (name is required for edit)
+    if (!step1Data.name || step1Data.name.trim() === '') {
+      step1Errs.name = t('products.form.step1.name') + ' ' + t('common.required');
+      isValid = false;
+    }
+
+    setStep1Errors(step1Errs);
+
+    if (!isValid) {
+      const firstErrorField = Object.keys(step1Errs)[0];
+      if (firstErrorField) {
+        setTimeout(() => {
+          const element = document.querySelector(`[name="${firstErrorField}"]`);
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            (element as HTMLElement).focus();
+          }
+        }, 100);
+      }
+      showWarningToast(t('products.messages.warnings.pleaseFillRequiredFields') || t('products.messages.warnings.requiredFields'));
+    }
+
+    return isValid;
+  };
+
   const handleEditProduct = async () => {
     if (!currentProduct || !user?.uid) {
       return;
     }
-    if (!step1Data.name) {
-      showWarningToast(t('products.messages.warnings.requiredFields'));
+    
+    // Validate form with specific field errors
+    if (!validateEditForm()) {
       return;
     }
+    
     setIsSubmitting(true);
     const safeProduct = {
       ...currentProduct,
@@ -1000,9 +1155,9 @@ const Products = () => {
       }
 
       // Update latest stock change cost price if changed
-      const latestStockChange = stockChanges
-        .filter(sc => sc.productId === currentProduct.id)
-        .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))[0];
+      const latestStockChange = (stockChanges as StockChange[])
+        .filter((sc: StockChange) => sc.productId === currentProduct.id)
+        .sort((a: StockChange, b: StockChange) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))[0];
       if (latestStockChange && editPrices.costPrice && parseFloat(editPrices.costPrice) !== latestStockChange.costPrice) {
         // Update the batch cost price directly using correctBatchCostPrice
         if (latestStockChange.batchId) {
@@ -1048,7 +1203,7 @@ const Products = () => {
   useEffect(() => {
     if (!infiniteProducts?.length || !stockChanges?.length || !user?.uid) return;
     infiniteProducts.forEach(async (product) => {
-      const hasStockChange = stockChanges.some((sc) => sc.productId === product.id);
+      const hasStockChange = (stockChanges as StockChange[]).some((sc: StockChange) => sc.productId === product.id);
       if (product.stock > 0 && !hasStockChange) {
         // Create an initial adjustment with 'creation' reason
         try {
@@ -1308,9 +1463,9 @@ const Products = () => {
     }
 
     // Get createdBy employee reference once for all imports
-    let createdBy = null;
+    let createdBy: ReturnType<typeof getCurrentEmployeeRef> | null = null;
     if (user && company) {
-      let userData = null;
+      let userData: Awaited<ReturnType<typeof getUserById>> | null = null;
       if (isOwner && !currentEmployee) {
         // If owner, fetch user data to create EmployeeRef
         try {
@@ -1320,6 +1475,11 @@ const Products = () => {
         }
       }
       createdBy = getCurrentEmployeeRef(currentEmployee, user, isOwner, userData);
+    }
+    
+    if (!company) {
+      showErrorToast('Company not found');
+      return;
     }
 
     setIsImporting(true);
@@ -1360,6 +1520,7 @@ const Products = () => {
         images: [],
         isAvailable: true,
         userId: user.uid,
+        companyId: company.id,
         updatedAt: { seconds: 0, nanoseconds: 0 }
       };
 
@@ -1374,7 +1535,7 @@ const Products = () => {
       let finalSupplierId = supplierIdRaw;
       if (supplyType === 'fromSupplier') {
         // Prefer supplierName if present
-        let supplier = null;
+        let supplier: Awaited<ReturnType<typeof createSupplier>> | undefined = undefined;
         if (supplierName) {
           supplier = suppliers.find(s => s.name.toLowerCase() === supplierName.toLowerCase());
           if (!supplier) {
@@ -1614,14 +1775,18 @@ const Products = () => {
                   className="flex items-center gap-1 px-2 py-2 bg-white border-b border-gray-100 overflow-x-auto custom-scrollbar"
                 >
                   {(product.images ?? []).map((img, idx) => (
-                    <ImageWithSkeleton
+                    <div
                       key={idx}
-                      src={img}
-                      alt={`Preview ${idx + 1}`}
-                      className={`w-10 h-10 object-cover rounded border cursor-pointer transition-transform duration-200 ${mainImageIndexes[product.id] === idx ? 'ring-2 ring-emerald-500 scale-105' : 'opacity-70 hover:opacity-100'}`}
-                      placeholder="/placeholder.png"
                       onClick={() => handleSetMainImage(product.id, idx)}
-                    />
+                      className="cursor-pointer"
+                    >
+                      <ImageWithSkeleton
+                        src={img}
+                        alt={`Preview ${idx + 1}`}
+                        className={`w-10 h-10 object-cover rounded border transition-transform duration-200 ${mainImageIndexes[product.id] === idx ? 'ring-2 ring-emerald-500 scale-105' : 'opacity-70 hover:opacity-100'}`}
+                        placeholder="/placeholder.png"
+                      />
+                    </div>
                   ))}
                   {/* If less than 4 images, fill with empty slots */}
                   {Array.from({ length: Math.max(0, 4 - (product.images?.length ?? 0)) }).map((_, idx) => (
@@ -1945,8 +2110,9 @@ const Products = () => {
           <Input
             label={t('products.form.step1.name')}
             name="name"
-                value={step1Data.name}
-                onChange={handleStep1InputChange}
+            value={step1Data.name}
+            onChange={handleStep1InputChange}
+            error={step1Errors.name}
             required
           />
           
@@ -2091,6 +2257,7 @@ const Products = () => {
                 type="number"
                 value={step2Data.stock}
                 onChange={handleStep2InputChange}
+                error={step2Errors.stock}
                 required
               />
               
@@ -2121,7 +2288,9 @@ const Products = () => {
                         name="supplierId"
                         value={step2Data.supplierId}
                         onChange={handleStep2InputChange}
-                        className="flex-1 rounded-md border border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm px-3 py-2"
+                        className={`flex-1 rounded-md border ${
+                          step2Errors.supplierId ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-emerald-500 focus:ring-emerald-500'
+                        } shadow-sm focus:outline-none focus:ring-1 sm:text-sm px-3 py-2`}
                       >
                         <option value="">{t('common.select')}</option>
                         {suppliers.filter(s => !s.isDeleted).map(supplier => (
@@ -2138,6 +2307,9 @@ const Products = () => {
                         {t('products.actions.addSupplier')}
                       </Button>
                     </div>
+                    {step2Errors.supplierId && (
+                      <p className="mt-1 text-sm text-red-500">{step2Errors.supplierId}</p>
+                    )}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -2163,7 +2335,8 @@ const Products = () => {
                 type="number"
                 value={step2Data.stockCostPrice}
                 onChange={handleStep2InputChange}
-                helpText={t('products.form.step2.stockCostPriceHelp')}
+                error={step2Errors.stockCostPrice}
+                helpText={step2Errors.stockCostPrice ? undefined : t('products.form.step2.stockCostPriceHelp')}
                 required
               />
               <Input
@@ -2172,7 +2345,8 @@ const Products = () => {
                 type="number"
                 value={step2Data.sellingPrice}
                 onChange={handleStep2InputChange}
-                helpText={t('products.form.step2.sellingPriceHelp')}
+                error={step2Errors.sellingPrice}
+                helpText={step2Errors.sellingPrice ? undefined : t('products.form.step2.sellingPriceHelp')}
                 required
               />
               <Input
@@ -2249,6 +2423,7 @@ const Products = () => {
               name="name"
               value={step1Data.name}
               onChange={handleStep1InputChange}
+              error={step1Errors.name}
             required
           />
             {/* Reference */}
@@ -2477,7 +2652,7 @@ const Products = () => {
                   <span className="text-xs text-gray-500">Last 2 changes</span>
                 </div>
                {(() => {
-                 const history = stockChanges.filter(sc => sc.productId === currentProduct?.id).slice(-2).reverse();
+                 const history = (stockChanges as StockChange[]).filter((sc: StockChange) => sc.productId === currentProduct?.id).slice(-2).reverse();
                  if (history.length === 0) {
                    return <span className="text-sm text-gray-500">{t('products.messages.noStockHistory')}</span>;
                  }
@@ -2583,12 +2758,12 @@ const Products = () => {
             {/* Profit/Cost Info */}
             <div className="space-y-1">
               <div className="text-sm text-gray-700">
-                {t('products.form.latestCostPrice', 'Latest Cost Price')}: {(getLatestCostPrice(currentProduct?.id || '', Array.isArray(stockChanges) ? stockChanges : []) ?? 0)} XAF
+                {t('products.form.latestCostPrice', 'Latest Cost Price')}: {(getLatestCostPrice(currentProduct?.id || '', Array.isArray(stockChanges) ? (stockChanges as StockChange[]) : []) ?? 0)} XAF
               </div>
               <div className="text-sm text-gray-700">
-                {t('products.form.profitPerUnit', 'Profit per unit')}: {editPrices.sellingPrice && getLatestCostPrice(currentProduct?.id || '', Array.isArray(stockChanges) ? stockChanges : []) !== undefined ? (parseFloat(editPrices.sellingPrice) - (getLatestCostPrice(currentProduct?.id || '', Array.isArray(stockChanges) ? stockChanges : []) ?? 0)).toLocaleString() : '-'} XAF
+                {t('products.form.profitPerUnit', 'Profit per unit')}: {editPrices.sellingPrice && getLatestCostPrice(currentProduct?.id || '', Array.isArray(stockChanges) ? (stockChanges as StockChange[]) : []) !== undefined ? (parseFloat(editPrices.sellingPrice) - (getLatestCostPrice(currentProduct?.id || '', Array.isArray(stockChanges) ? (stockChanges as StockChange[]) : []) ?? 0)).toLocaleString() : '-'} XAF
               </div>
-              {editPrices.sellingPrice && getLatestCostPrice(currentProduct?.id || '', Array.isArray(stockChanges) ? stockChanges : []) !== undefined && parseFloat(editPrices.sellingPrice) < (getLatestCostPrice(currentProduct?.id || '', Array.isArray(stockChanges) ? stockChanges : []) ?? 0) && (
+              {editPrices.sellingPrice && getLatestCostPrice(currentProduct?.id || '', Array.isArray(stockChanges) ? (stockChanges as StockChange[]) : []) !== undefined && parseFloat(editPrices.sellingPrice) < (getLatestCostPrice(currentProduct?.id || '', Array.isArray(stockChanges) ? (stockChanges as StockChange[]) : []) ?? 0) && (
                 <div className="flex items-center bg-red-50 border-l-4 border-red-400 p-2 rounded-md mt-2">
                   <svg className="w-4 h-4 text-red-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                   <span className="text-xs text-red-800">{t('products.form.sellingBelowCost', 'Warning: Selling price is below cost price!')}</span>
@@ -2988,7 +3163,7 @@ const Products = () => {
                   )}
                   <div>
                     <label className="block text-sm font-medium text-gray-700">{t('products.form.latestCostPrice', 'Latest Cost Price')}</label>
-                    <p className="mt-1 text-sm text-gray-900">{getLatestCostPrice(detailProduct?.id || '', Array.isArray(stockChanges) ? stockChanges : [])?.toLocaleString() || '0'} XAF</p>
+                    <p className="mt-1 text-sm text-gray-900">{getLatestCostPrice(detailProduct?.id || '', Array.isArray(stockChanges) ? (stockChanges as StockChange[]) : [])?.toLocaleString() || '0'} XAF</p>
                   </div>
                 </div>
               </div>
@@ -3009,8 +3184,8 @@ const Products = () => {
                 <div>
                   <label className="block text-sm font-medium text-gray-700">{t('products.detailTabs.profitPerUnit', 'Profit per Unit')}</label>
                   <p className="mt-1 text-sm font-semibold text-emerald-600">
-                    {detailProduct && getLatestCostPrice(detailProduct.id, Array.isArray(stockChanges) ? stockChanges : []) !== undefined
-? (detailProduct.sellingPrice - (getLatestCostPrice(detailProduct.id, Array.isArray(stockChanges) ? stockChanges : []) || 0)).toLocaleString()
+                    {detailProduct && getLatestCostPrice(detailProduct.id, Array.isArray(stockChanges) ? (stockChanges as StockChange[]) : []) !== undefined
+? (detailProduct.sellingPrice - (getLatestCostPrice(detailProduct.id, Array.isArray(stockChanges) ? (stockChanges as StockChange[]) : []) || 0)).toLocaleString()
                       : '-'
                     } XAF
                   </p>
@@ -3018,8 +3193,8 @@ const Products = () => {
                 <div>
                   <label className="block text-sm font-medium text-gray-700">{t('products.detailTabs.totalValue', 'Total Stock Value')}</label>
                   <p className="mt-1 text-sm text-gray-900">
-                    {detailProduct && getLatestCostPrice(detailProduct.id, Array.isArray(stockChanges) ? stockChanges : []) !== undefined
-? ((getLatestCostPrice(detailProduct.id, Array.isArray(stockChanges) ? stockChanges : []) || 0) * detailProduct.stock).toLocaleString()
+                    {detailProduct && getLatestCostPrice(detailProduct.id, Array.isArray(stockChanges) ? (stockChanges as StockChange[]) : []) !== undefined
+? ((getLatestCostPrice(detailProduct.id, Array.isArray(stockChanges) ? (stockChanges as StockChange[]) : []) || 0) * detailProduct.stock).toLocaleString()
                       : '0'
                     } XAF
                   </p>
@@ -3113,26 +3288,26 @@ const Products = () => {
             {/* Stock History Table */}
             {(() => {
               // Filter stock changes for this product
-              let filteredStockChanges = stockChanges.filter(sc => sc.productId === detailProduct?.id);
+              let filteredStockChanges = (stockChanges as StockChange[]).filter((sc: StockChange) => sc.productId === detailProduct?.id);
               
               // Apply type filter
               if (stockHistoryFilterType) {
-                filteredStockChanges = filteredStockChanges.filter(sc => sc.reason === stockHistoryFilterType);
+                filteredStockChanges = filteredStockChanges.filter((sc: StockChange) => sc.reason === stockHistoryFilterType);
               }
               
               // Apply supplier filter
               if (stockHistoryFilterSupplier) {
                 if (stockHistoryFilterSupplier === 'ownPurchase') {
-                  filteredStockChanges = filteredStockChanges.filter(sc => sc.isOwnPurchase);
+                  filteredStockChanges = filteredStockChanges.filter((sc: StockChange) => sc.isOwnPurchase);
                 } else {
-                  filteredStockChanges = filteredStockChanges.filter(sc => sc.supplierId === stockHistoryFilterSupplier);
+                  filteredStockChanges = filteredStockChanges.filter((sc: StockChange) => sc.supplierId === stockHistoryFilterSupplier);
                 }
               }
               
               // Apply search filter
               if (stockHistorySearch) {
                 const searchLower = stockHistorySearch.toLowerCase();
-                filteredStockChanges = filteredStockChanges.filter(sc => {
+                filteredStockChanges = filteredStockChanges.filter((sc: StockChange) => {
                   const supplier = sc.supplierId ? suppliers.find(s => s.id === sc.supplierId) : null;
                   return (
                     sc.reason.toLowerCase().includes(searchLower) ||
@@ -3142,7 +3317,7 @@ const Products = () => {
               }
               
               // Sort stock changes
-              filteredStockChanges.sort((a, b) => {
+              filteredStockChanges.sort((a: StockChange, b: StockChange) => {
                 let aValue: number | string, bValue: number | string;
                 
                 switch (stockHistorySortBy) {
@@ -3248,7 +3423,7 @@ const Products = () => {
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {paginatedStockChanges.map((stockChange) => {
+                        {paginatedStockChanges.map((stockChange: StockChange) => {
                           const supplier = stockChange.supplierId ? suppliers.find(s => s.id === stockChange.supplierId) : null;
                           return (
                             <tr key={stockChange.id} className="hover:bg-gray-50">
