@@ -68,7 +68,15 @@ export const printPOSBillDirect = (
       return total + price * p.quantity;
     }, 0) || 0;
     
-    const total = subtotal + (sale.deliveryFee || 0);
+    // Get discount amount (can be from discountValue field or calculated)
+    const discountAmount = (sale as any).discountValue || 0;
+    
+    // Get tax amount
+    const taxAmount = (sale as any).tax || 0;
+    
+    // Calculate total: subtotal + deliveryFee - discount + tax
+    // If totalAmount is already set, use it (it should already include discount and tax)
+    const total = sale.totalAmount || (subtotal + (sale.deliveryFee || 0) - discountAmount + taxAmount);
 
     // Format date
     const saleDate = sale.createdAt?.seconds
@@ -245,6 +253,18 @@ export const printPOSBillDirect = (
             <div class="total-row">
               <span>Delivery Fee:</span>
               <span>${sale.deliveryFee.toLocaleString()} XAF</span>
+            </div>
+            ` : ''}
+            ${discountAmount > 0 ? `
+            <div class="total-row" style="color: #dc2626;">
+              <span>Remise:</span>
+              <span>-${discountAmount.toLocaleString()} XAF</span>
+            </div>
+            ` : ''}
+            ${taxAmount > 0 ? `
+            <div class="total-row">
+              <span>Tax:</span>
+              <span>${taxAmount.toLocaleString()} XAF</span>
             </div>
             ` : ''}
             <div class="total-row total-final">
