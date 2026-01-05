@@ -1,13 +1,15 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLocation, Link, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, ShoppingCart, DollarSign, Package2, FileBarChart, Settings, X, Receipt, Users, Building2, Plus, Grid3X3, ShoppingBag, UserCheck, ChevronDown, ChevronRight, Loader2, Phone, ScanLine} from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, DollarSign, Package2, FileBarChart, Settings, X, Receipt, Users, Building2, Plus, Grid3X3, ShoppingBag, UserCheck, ChevronDown, ChevronRight, Loader2, Phone, ScanLine, Warehouse, Factory, Globe} from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import { useRolePermissions } from '../../hooks/useRolePermissions';
+import { useRolePermissions } from '../../hooks/business/useRolePermissions';
 import UserAvatar from '../common/UserAvatar';
-import DownloadAppButton from '../common/DownloadAppButton';
+import { DownloadAppButton } from '../pwa';
 import { useTranslation } from 'react-i18next';
 import CreateCompanyModal from '../modals/CreateCompanyModal';
 import Modal, { ModalFooter } from '../common/Modal';
+import { RESOURCES } from '../../constants/resources';
+import { usePWA } from '../../hooks/usePWA';
 
 interface SidebarProps {
   onClose: () => void;
@@ -21,11 +23,25 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
   const navigate = useNavigate();
   const { company, currentEmployee, isOwner, effectiveRole } = useAuth();
   const { canAccess, canAccessFinance, canAccessHR, canAccessSettings, templateLoading } = useRolePermissions();
+  const { isInstalled } = usePWA();
   const [showCreateCompanyModal, setShowCreateCompanyModal] = React.useState(false);
   const [showCompanyNavigationConfirm, setShowCompanyNavigationConfirm] = React.useState(false);
   const [expensesMenuExpanded, setExpensesMenuExpanded] = React.useState(false);
   const [contactsMenuExpanded, setContactsMenuExpanded] = React.useState(false);
   const [productsMenuExpanded, setProductsMenuExpanded] = React.useState(false);
+  const [magasinMenuExpanded, setMagasinMenuExpanded] = React.useState(false);
+  const [productionsMenuExpanded, setProductionsMenuExpanded] = React.useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  
+  // Detect mobile device
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
   
   // Vérifier si on doit afficher le loader pour le template
   const isActualOwner = isOwner || effectiveRole === 'owner';
@@ -59,8 +75,21 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
   }, [location.pathname]);
 
   // Check if products menu should be expanded (if on any products/categories sub-route)
+  // Exclude productions/categories to avoid false positives
   React.useEffect(() => {
-    setProductsMenuExpanded(location.pathname.includes('/products') || location.pathname.includes('/categories'));
+    const isOnProductsRoute = location.pathname.includes('/products');
+    const isOnCategoriesRoute = location.pathname.includes('/categories') && !location.pathname.includes('/productions/categories');
+    setProductsMenuExpanded(isOnProductsRoute || isOnCategoriesRoute);
+  }, [location.pathname]);
+
+  // Check if productions menu should be expanded (if on any productions sub-route)
+  React.useEffect(() => {
+    setProductionsMenuExpanded(location.pathname.includes('/productions'));
+  }, [location.pathname]);
+
+  // Check if magasin menu should be expanded (if on any magasin sub-route)
+  React.useEffect(() => {
+    setMagasinMenuExpanded(location.pathname.includes('/magasin'));
   }, [location.pathname]);
 
   const handleCreateCompany = () => {
@@ -114,6 +143,7 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
     { name: t('navigation.dashboard'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/dashboard` : '/', icon: <LayoutDashboard size={20} />, resource: 'dashboard' },
     { name: t('navigation.sales'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/sales` : '/sales', icon: <ShoppingCart size={20} />, resource: 'sales' },
     { name: 'POS', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/pos` : '/pos', icon: <ScanLine size={20} />, resource: 'sales' },
+    { name: t('site.navigation', 'Online Catalogue'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/site` : '/site', icon: <Globe size={20} />, resource: 'settings' },
     { name: 'Orders', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/orders` : '/orders', icon: <ShoppingBag size={20} />, resource: 'orders' },
     { 
       name: 'Expenses', 
@@ -137,6 +167,30 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
         { name: 'Liste', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/products` : '/products' },
         { name: 'Categories', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/categories` : '/categories' },
         { name: 'Stocks', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/products/stocks` : '/products/stocks' },
+      ]
+    },
+    { 
+      name: 'Productions', 
+      path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/productions` : '/productions', 
+      icon: <Factory size={20} />, 
+      resource: 'products', // Using products resource for now
+      subItems: [
+        { name: 'Liste', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/productions` : '/productions' },
+        { name: 'Catégories', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/productions/categories` : '/productions/categories' },
+        { name: 'Étapes', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/productions/flow-steps` : '/productions/flow-steps' },
+        { name: 'Flux', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/productions/flows` : '/productions/flows' },
+        { name: 'Charges', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/productions/charges` : '/productions/charges' },
+      ]
+    },
+    { 
+      name: 'Magasin', 
+      path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/magasin` : '/magasin', 
+      icon: <Warehouse size={20} />, 
+      resource: RESOURCES.MAGASIN,
+      subItems: [
+        { name: 'Matières', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/magasin/matieres` : '/magasin/matieres' },
+        { name: 'Catégories', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/magasin/categories` : '/magasin/categories' },
+        { name: 'Stocks', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/magasin/stocks` : '/magasin/stocks' },
       ]
     },
     { name: t('navigation.suppliers'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/suppliers` : '/suppliers', icon: <Users size={20} />, resource: 'suppliers' },
@@ -253,7 +307,9 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
             const isExpensesItem = item.name === 'Expenses';
             const isContactsItem = item.name === 'Contacts';
             const isProductsItem = item.name === t('navigation.products');
-            const isExpanded = (isExpensesItem && expensesMenuExpanded) || (isContactsItem && contactsMenuExpanded) || (isProductsItem && productsMenuExpanded);
+            const isMagasinItem = item.name === 'Magasin';
+            const isProductionsItem = item.name === 'Productions';
+            const isExpanded = (isExpensesItem && expensesMenuExpanded) || (isContactsItem && contactsMenuExpanded) || (isProductsItem && productsMenuExpanded) || (isMagasinItem && magasinMenuExpanded) || (isProductionsItem && productionsMenuExpanded);
             
             return (
               <li key={item.path}>
@@ -268,11 +324,15 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
                           setContactsMenuExpanded(!contactsMenuExpanded);
                         } else if (isProductsItem) {
                           setProductsMenuExpanded(!productsMenuExpanded);
+                        } else if (isMagasinItem) {
+                          setMagasinMenuExpanded(!magasinMenuExpanded);
+                        } else if (isProductionsItem) {
+                          setProductionsMenuExpanded(!productionsMenuExpanded);
                         }
                       }}
-                      className={`
+                        className={`
                         w-full flex items-center justify-between px-3 py-2 text-sm font-medium rounded-md transition-colors
-                        ${isActive(item.path) || (isExpensesItem && location.pathname.includes('/expenses')) || (isContactsItem && location.pathname.includes('/contacts')) || (isProductsItem && (location.pathname.includes('/products') || location.pathname.includes('/categories')))
+                        ${isActive(item.path) || (isExpensesItem && location.pathname.includes('/expenses')) || (isContactsItem && location.pathname.includes('/contacts')) || (isProductsItem && (location.pathname.includes('/products') || (location.pathname.includes('/categories') && !location.pathname.includes('/productions/categories')))) || (isMagasinItem && location.pathname.includes('/magasin')) || (isProductionsItem && location.pathname.includes('/productions'))
                           ? 'bg-emerald-50 text-emerald-600'
                           : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'}
                       `}
@@ -355,8 +415,12 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
         )}
       </nav>
       
-      {/* User section */}
-      <div className="border-t border-gray-200 p-4">
+      {/* User section - Add bottom padding on mobile PWA to prevent overlap with bottom nav */}
+      <div 
+        className={`border-t border-gray-200 p-4 flex-shrink-0 ${
+          isMobile && isInstalled ? 'pb-[calc(1rem+64px+env(safe-area-inset-bottom,0px))]' : ''
+        }`}
+      >
         <div className="flex items-center">
           <UserAvatar company={company} size="sm" />
           <div className="ml-3 flex-1 min-w-0">

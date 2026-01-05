@@ -1,15 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
-import Card from '../common/Card';
-import Button from '../common/Button';
-import LoadingScreen from '../common/LoadingScreen';
+import { useAuth } from '@contexts/AuthContext';
+import { Card, Button, LoadingScreen } from '@components/common';
 import { Plus, Edit, Trash2, Users } from 'lucide-react';
 import { 
   getCompanyTemplates, 
   createTemplate, 
   updateTemplate,
   deleteTemplate
-} from '../../services/permissionTemplateService';
+} from '@services/firestore/employees/permissionTemplateService';
 import { getDefaultPermissionTemplates } from '../../types/permissions';
 import { PermissionTemplate } from '../../types/permissions';
 import PermissionTemplateForm from './PermissionTemplateForm';

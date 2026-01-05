@@ -1,5 +1,5 @@
 // src/services/storage/FinancialCategoriesManager.ts
-import localStorageService from '../localStorageService';
+import localStorageService from '@services/utilities/localStorageService';
 
 // Financial categories are static reference data that rarely change
 interface FinancialCategory {

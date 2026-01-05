@@ -1,30 +1,68 @@
 // src/pages/expenses/ExpensesCategories.tsx
 import { useState } from 'react';
-import { Edit2, Trash2 } from 'lucide-react';
-import Card from '../../components/common/Card';
-import Badge from '../../components/common/Badge';
-import Modal, { ModalFooter } from '../../components/common/Modal';
-import Input from '../../components/common/Input';
-import { useExpenseCategories } from '../../hooks/useExpenseCategories';
-import { showSuccessToast, showErrorToast } from '../../utils/toast';
+import { Edit2, Trash2, Plus } from 'lucide-react';
+import { Card, Badge, Button, Modal, ModalFooter, Input } from '@components/common';
+import { useExpenseCategories } from '@hooks/business/useExpenseCategories';
+import { useAuth } from '@contexts/AuthContext';
+import { showSuccessToast, showErrorToast } from '@utils/core/toast';
 import type { ExpenseType } from '../../types/models';
 
 const ExpensesCategories = () => {
+  const { company } = useAuth();
   const {
     expenseTypesList,
     categoryUsageCounts,
     loading,
+    createCategory,
     updateCategory,
     deleteCategory,
     refresh
   } = useExpenseCategories();
 
+  const [isCreateCategoryModalOpen, setIsCreateCategoryModalOpen] = useState(false);
   const [isEditCategoryModalOpen, setIsEditCategoryModalOpen] = useState(false);
   const [isDeleteCategoryModalOpen, setIsDeleteCategoryModalOpen] = useState(false);
   const [currentCategory, setCurrentCategory] = useState<ExpenseType | null>(null);
+  const [categoryCreateName, setCategoryCreateName] = useState('');
   const [categoryEditName, setCategoryEditName] = useState('');
+  const [categoryCreateLoading, setCategoryCreateLoading] = useState(false);
   const [categoryDeleteLoading, setCategoryDeleteLoading] = useState(false);
   const [categoryEditLoading, setCategoryEditLoading] = useState(false);
+
+  const handleCreateCategory = () => {
+    setCategoryCreateName('');
+    setIsCreateCategoryModalOpen(true);
+  };
+
+  const handleSaveCategoryCreate = async () => {
+    if (!categoryCreateName.trim()) {
+      showErrorToast('Le nom de la catégorie est requis');
+      return;
+    }
+
+    // Check for duplicate names (case-insensitive)
+    const duplicate = expenseTypesList.find(
+      cat => cat.name.toLowerCase().trim() === categoryCreateName.toLowerCase().trim()
+    );
+    if (duplicate) {
+      showErrorToast('Une catégorie avec ce nom existe déjà');
+      return;
+    }
+
+    setCategoryCreateLoading(true);
+    try {
+      await createCategory(categoryCreateName.trim());
+      showSuccessToast('Catégorie créée avec succès');
+      setIsCreateCategoryModalOpen(false);
+      setCategoryCreateName('');
+      await refresh();
+    } catch (error: any) {
+      console.error('Error creating category:', error);
+      showErrorToast(error.message || 'Échec de la création de la catégorie');
+    } finally {
+      setCategoryCreateLoading(false);
+    }
+  };
 
   const handleEditCategory = (category: ExpenseType) => {
     setCurrentCategory(category);
@@ -63,11 +101,11 @@ const ExpensesCategories = () => {
   };
 
   const handleConfirmDeleteCategory = async () => {
-    if (!currentCategory) return;
+    if (!currentCategory || !company?.id) return;
     
     setCategoryDeleteLoading(true);
     try {
-      await deleteCategory(currentCategory.id, currentCategory.companyId);
+      await deleteCategory(currentCategory.id, company.id);
       showSuccessToast('Category deleted successfully');
       setIsDeleteCategoryModalOpen(false);
       setCurrentCategory(null);
@@ -90,9 +128,14 @@ const ExpensesCategories = () => {
 
   return (
     <div className="pb-16 md:pb-0">
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-gray-900">Gestion des Catégories</h1>
-        <p className="text-gray-600">Gérez vos catégories de dépenses. Les catégories par défaut ne peuvent pas être modifiées.</p>
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold text-gray-900">Gestion des Catégories</h1>
+          <p className="text-gray-600">Gérez vos catégories de dépenses. Les catégories par défaut ne peuvent pas être modifiées.</p>
+        </div>
+        <Button onClick={handleCreateCategory} icon={<Plus size={20} />}>
+          Créer une catégorie
+        </Button>
       </div>
 
       <Card>
@@ -172,6 +215,43 @@ const ExpensesCategories = () => {
           </table>
         </div>
       </Card>
+
+      {/* Create Category Modal */}
+      <Modal
+        isOpen={isCreateCategoryModalOpen}
+        onClose={() => {
+          setIsCreateCategoryModalOpen(false);
+          setCategoryCreateName('');
+        }}
+        title="Créer une catégorie"
+        footer={
+          <ModalFooter
+            onCancel={() => {
+              setIsCreateCategoryModalOpen(false);
+              setCategoryCreateName('');
+            }}
+            onConfirm={handleSaveCategoryCreate}
+            confirmText="Créer"
+            isLoading={categoryCreateLoading}
+          />
+        }
+      >
+        <div className="space-y-4">
+          <Input
+            label="Nom de la catégorie"
+            name="categoryName"
+            value={categoryCreateName}
+            onChange={(e) => setCategoryCreateName(e.target.value)}
+            required
+            placeholder="Entrez le nom de la catégorie"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && categoryCreateName.trim() && !categoryCreateLoading) {
+                handleSaveCategoryCreate();
+              }
+            }}
+          />
+        </div>
+      </Modal>
 
       {/* Edit Category Modal */}
       <Modal

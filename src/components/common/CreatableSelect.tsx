@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import Select, { components, MenuProps, GroupBase } from 'react-select';
 import { Plus } from 'lucide-react';
-import { useCategories } from '../../hooks/useFirestore';
-import { showErrorToast, showSuccessToast } from '../../utils/toast';
+import { useCategories } from '@hooks/data/useFirestore';
+import { showErrorToast, showSuccessToast } from '@utils/core/toast';
 
 interface Option {
   label: string;

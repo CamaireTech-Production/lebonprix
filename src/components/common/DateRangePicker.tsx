@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { DateRange, DayPicker } from 'react-day-picker';
 import 'react-day-picker/dist/style.css';
 import {
@@ -39,17 +39,12 @@ interface DateRangePickerProps {
 
 const DateRangePicker = ({ onChange, className }: DateRangePickerProps) => {
   const { t } = useTranslation();
-  const [period, setPeriod] = useState<Period>('all_time');
+  const [period, setPeriod] = useState<Period>('this_month');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [pendingRange, setPendingRange] = useState<{ from: Date; to: Date } | null>(null);
 
   // Set start date to April 1st, 2025 for the app
   const APP_START_DATE = new Date(2025, 3, 1); // April 1st, 2025 (month is 0-indexed)
-
-  const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>({
-    from: APP_START_DATE,
-    to: new Date(2100, 0, 1),
-  });
 
   const endOfDay = (date: Date) => {
     const end = new Date(date);
@@ -61,6 +56,17 @@ const DateRangePicker = ({ onChange, className }: DateRangePickerProps) => {
     start.setHours(0, 0, 0, 0);
     return start;
   };
+
+  // Initialize with current month by default
+  const getInitialDateRange = () => {
+    const now = new Date();
+    return {
+      from: startOfMonth(now),
+      to: endOfDay(now),
+    };
+  };
+
+  const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>(getInitialDateRange());
 
   const handlePeriodChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newPeriod = e.target.value as Period;
@@ -105,7 +111,7 @@ const DateRangePicker = ({ onChange, className }: DateRangePickerProps) => {
       }
       case 'this_month':
         from = startOfMonth(now);
-        to = endOfMonth(now);
+        to = endOfDay(now); // Up to today, not end of month
         break;
       case 'last_30_days':
         from = startOfDay(subDays(now, 29));
@@ -133,6 +139,11 @@ const DateRangePicker = ({ onChange, className }: DateRangePickerProps) => {
     setDateRange(range);
     onChange(range);
   };
+
+  // Call onChange on mount with initial date range
+  useEffect(() => {
+    onChange(dateRange);
+  }, []); // Only on mount
 
   const handleDateSelect = (range: DateRange | undefined) => {
     if (range?.from && range?.to) {
@@ -195,7 +206,7 @@ const DateRangePicker = ({ onChange, className }: DateRangePickerProps) => {
       <div className="mb-1">
         <span className="block text-sm font-semibold text-gray-800">{t('dateRanges.filterTitle') || 'Filtrer par période'}</span>
       </div>
-      <div className="flex flex-row flex-wrap items-center gap-2 sm:gap-2">
+      <div className="flex flex-row items-center gap-2 sm:gap-2">
         <Select
           options={periodOptions}
           value={period}

@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useCart } from '../../contexts/CartContext';
-import { getCompanyByUserId, getSellerSettings } from '../../services/firestore';
-import { createOrder } from '../../services/orderService';
+import { getCompanyByUserId, getSellerSettings } from '@services/firestore/firestore';
+import { createOrder } from '@services/firestore/orders/orderService';
+import { formatPrice } from '@utils/formatting/formatPrice';
 import type { Company } from '../../types/models';
 import type { CustomerInfo, OrderData, SellerSettings, OrderPaymentMethod, OrderPricing, DeliveryInfo, Order } from '../../types/order';
 import { X, ArrowLeft, ArrowRight, ShoppingBag, User, MapPin, Phone, MessageSquare, CreditCard, Truck, CheckCircle, Clock } from 'lucide-react';
-import PhoneInput from '../common/PhoneInput';
+import { PhoneInput } from '@components/common';
 import toast from 'react-hot-toast';
-import { formatPhoneForWhatsApp } from '../../utils/phoneUtils';
+import { formatPhoneForWhatsApp } from '@utils/core/phoneUtils';
 
 interface CheckoutModalProps {
   isOpen: boolean;
@@ -35,7 +36,6 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, companyI
 
   // Payment method selection state
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<OrderPaymentMethod | null>(null);
-  const [showPaymentSelection, setShowPaymentSelection] = useState(false);
   const [orderCreated, setOrderCreated] = useState(false);
   const [createdOrder, setCreatedOrder] = useState<Order | null>(null);
 
@@ -179,7 +179,6 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, companyI
       if (isValid) {
         console.log('Moving to payment selection');
         setCurrentStep(3);
-        setShowPaymentSelection(true);
       } else {
         console.log('Form validation failed, errors:', errors);
       }
@@ -235,9 +234,9 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, companyI
           paymentMethod,
           deliveryInfo,
           metadata: {
-            source: 'checkout_modal',
+            source: 'catalogue',
             deviceInfo: {
-              type: 'web',
+              type: 'desktop',
               os: navigator.platform,
               browser: navigator.userAgent
             }
@@ -300,28 +299,16 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, companyI
     message += `📋 Détails:\n`;
     cartItems.forEach(item => {
       const itemTotal = item.price * item.quantity;
-      message += `- ${item.name} x ${item.quantity} = ${itemTotal.toLocaleString('fr-FR', {
-        style: 'currency',
-        currency: currency
-      })}\n`;
+      message += `- ${item.name} x ${item.quantity} = ${formatPrice(itemTotal)} ${currency}\n`;
     });
     
-    message += `\n💰 Total: ${totalAmount.toLocaleString('fr-FR', {
-      style: 'currency',
-      currency: currency
-    })}\n`;
+    message += `\n💰 Total: ${formatPrice(totalAmount)} ${currency}\n`;
     
     if ((deliveryFee || 0) > 0) {
-      message += `🚚 Frais de livraison: ${(deliveryFee || 0).toLocaleString('fr-FR', {
-        style: 'currency',
-        currency: currency
-      })}\n`;
+      message += `🚚 Frais de livraison: ${formatPrice(deliveryFee || 0)} ${currency}\n`;
     }
     
-    message += `💳 Total final: ${finalTotal.toLocaleString('fr-FR', {
-      style: 'currency',
-      currency: currency
-    })}\n\n`;
+    message += `💳 Total final: ${formatPrice(finalTotal)} ${currency}\n\n`;
     
     message += `👤 Client: ${customerInfo.name}\n`;
     message += `📞 Téléphone: ${customerInfo.phone}\n`;
@@ -441,10 +428,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, companyI
                     <div className="text-right">
                       <p className="text-sm font-medium">x{item.quantity}</p>
                       <p className="text-theme-brown font-semibold text-sm">
-                        {(item.price * item.quantity).toLocaleString('fr-FR', {
-                          style: 'currency',
-                          currency: 'XAF'
-                        })}
+                        {formatPrice(item.price * item.quantity)} XAF
                       </p>
                     </div>
                   </div>
@@ -456,30 +440,21 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, companyI
                 <div className="flex justify-between">
                   <span className="text-gray-600">Subtotal:</span>
                   <span className="font-medium">
-                    {subtotal.toLocaleString('fr-FR', {
-                      style: 'currency',
-                      currency: 'XAF'
-                    })}
+                    {formatPrice(subtotal)} XAF
                   </span>
                 </div>
                 {deliveryFee > 0 && (
                   <div className="flex justify-between">
                     <span className="text-gray-600">Delivery Fee:</span>
                     <span className="font-medium">
-                      {deliveryFee.toLocaleString('fr-FR', {
-                        style: 'currency',
-                        currency: 'XAF'
-                      })}
+                      {formatPrice(deliveryFee)} XAF
                     </span>
                   </div>
                 )}
                 <div className="flex justify-between text-lg font-semibold">
                   <span>Total:</span>
                   <span className="text-theme-brown">
-                    {finalTotal.toLocaleString('fr-FR', {
-                      style: 'currency',
-                      currency: 'XAF'
-                    })}
+                    {formatPrice(finalTotal)} XAF
                   </span>
                 </div>
               </div>

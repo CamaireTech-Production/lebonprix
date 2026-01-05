@@ -1,12 +1,11 @@
 import React, { useMemo, useState } from 'react';
-import Modal from '../common/Modal';
+import { Modal, Button } from '@components/common';
 import ObjectiveItem from './ObjectiveItem';
-import { useObjectives } from '../../hooks/useObjectives';
+import { useObjectives } from '@hooks/business/useObjectives';
 import { Objective } from '../../types/models';
-import Button from '../common/Button';
 import ObjectiveForm from './ObjectiveForm';
 import { useTranslation } from 'react-i18next';
-import { showSuccessToast, showErrorToast } from '../../utils/toast';
+import { showSuccessToast, showErrorToast } from '@utils/core/toast';
 
 interface ObjectivesModalProps {
   isOpen: boolean;
@@ -22,9 +21,9 @@ interface ObjectivesModalProps {
   stockChanges?: any[];
 }
 
-import { getLatestCostPrice } from '../../utils/productUtils';
+import { getLatestCostPrice } from '@utils/business/productUtils';
 
-const ObjectivesModal: React.FC<ObjectivesModalProps> = ({ isOpen, onClose, stats, dateRange, metricsOptions, applyDateFilter, sales, expenses, products, onAfterAdd, stockChanges = [] }) => {
+const ObjectivesModal: React.FC<ObjectivesModalProps> = ({ isOpen, onClose, dateRange, metricsOptions, applyDateFilter, sales, expenses, products, onAfterAdd, stockChanges = [] }) => {
   const { t } = useTranslation();
   const { objectives, deleteObjective } = useObjectives();
   const [editingObjective, setEditingObjective] = useState<Objective | null>(null);
@@ -108,9 +107,33 @@ const ObjectivesModal: React.FC<ObjectivesModalProps> = ({ isOpen, onClose, stat
   };
 
   const filteredObjectives = useMemo(() => {
+    // In the modal, show ALL objectives (active, disabled, and expired) so users can see and manage them
+    // When applyDateFilter is true, show objectives that overlap with dateRange OR objectives that have already ended
     if (!applyDateFilter) return objectives;
-    return objectives.filter(isOverlapping);
-  }, [objectives, dateRange, applyDateFilter]);
+    
+    return objectives.filter(obj => {
+      // Check if objective overlaps with date range
+      if (isOverlapping(obj)) return true;
+      
+      // Also include objectives that have already ended (expired)
+      let objTo: Date | null = null;
+      if (obj.periodType === 'predefined') {
+        const now = new Date();
+        if (obj.predefined === 'this_year') {
+          objTo = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
+        } else {
+          objTo = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+        }
+      } else {
+        objTo = obj.endAt?.toDate ? obj.endAt.toDate() : (obj.endAt ? new Date(obj.endAt) : null);
+      }
+      
+      // Include expired objectives (end date is before dateRange.from)
+      if (objTo && objTo < dateRange.from) return true;
+      
+      return false;
+    });
+  }, [objectives, dateRange, applyDateFilter, isOverlapping]);
 
   const objsWithProgress = useMemo(() => {
     return filteredObjectives.map(o => {
@@ -118,7 +141,7 @@ const ObjectivesModal: React.FC<ObjectivesModalProps> = ({ isOpen, onClose, stat
       const pct = o.targetAmount ? Math.max(0, Math.min(100, (current / o.targetAmount) * 100)) : 0;
       return { ...o, progress: Math.round(pct), currentValue: current } as Objective & { progress: number; currentValue: number };
     });
-  }, [filteredObjectives, sales, expenses, products]);
+  }, [filteredObjectives, sales, expenses, products, stockChanges]);
 
   const handleDelete = async (obj: Objective) => {
     try {

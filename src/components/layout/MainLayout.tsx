@@ -9,7 +9,7 @@ import AddSaleModal from '../sales/AddSaleModal';
 import LockedTabModal from '../modals/LockedTabModal';
 import { useAuth } from '../../contexts/AuthContext';
 import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../../services/firebase';
+import { db } from '../../services/core/firebase';
 
 interface MainLayoutProps {
   isAddSaleModalOpen: boolean;
