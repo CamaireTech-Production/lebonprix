@@ -1074,28 +1074,45 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
           </div>
 
           {/* Sale Date and Discount - Always Visible */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                <Calendar size={16} className="inline mr-2" />
-                {t('pos.payment.saleDate')}
-              </label>
-              <Input
-                type="date"
-                value={saleDate}
-                onChange={(e) => setSaleDate(e.target.value)}
-              />
+          <div className="flex flex-col gap-4">
+            {/* Row 1: Date and Promo Code */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="w-full">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <Calendar size={16} className="inline mr-2" />
+                  {t('pos.payment.saleDate')}
+                </label>
+                <Input
+                  type="date"
+                  value={saleDate}
+                  onChange={(e) => setSaleDate(e.target.value)}
+                  className="w-full"
+                />
+              </div>
+              <div className="w-full">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {t('pos.payment.promoCode')}
+                </label>
+                <Input
+                  type="text"
+                  value={promoCode}
+                  onChange={(e) => setPromoCode(e.target.value)}
+                  placeholder={t('pos.payment.promoCodePlaceholder')}
+                  className="w-full"
+                />
+              </div>
             </div>
-            <div>
+            {/* Row 2: Discount */}
+            <div className="w-full">
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 <Percent size={16} className="inline mr-2" />
                 {t('pos.payment.discount')}
               </label>
-              <div className="flex space-x-2">
+              <div className="flex flex-col sm:flex-row gap-2 w-full">
                 <select
                   value={discountType}
                   onChange={(e) => setDiscountType(e.target.value as 'amount' | 'percentage')}
-                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 text-sm"
+                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 text-sm w-full sm:w-auto sm:min-w-[140px] flex-shrink-0"
                 >
                   <option value="amount">{t('pos.payment.discountAmount')}</option>
                   <option value="percentage">{t('pos.payment.discountPercentage')}</option>
@@ -1106,20 +1123,9 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
                   onChange={(e) => setDiscountValue(e.target.value)}
                   placeholder={discountType === 'amount' ? 'XAF' : '%'}
                   min="0"
-                  className="flex-1"
+                  className="w-full sm:flex-1"
                 />
               </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                {t('pos.payment.promoCode')}
-              </label>
-              <Input
-                type="text"
-                value={promoCode}
-                onChange={(e) => setPromoCode(e.target.value)}
-                placeholder={t('pos.payment.promoCodePlaceholder')}
-              />
             </div>
           </div>
 
