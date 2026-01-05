@@ -179,6 +179,7 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
         { name: 'Catégories', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/productions/categories` : '/productions/categories' },
         { name: 'Étapes', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/productions/flow-steps` : '/productions/flow-steps' },
         { name: 'Flux', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/productions/flows` : '/productions/flows' },
+        { name: 'Charges', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/productions/charges` : '/productions/charges' },
       ]
     },
     { 

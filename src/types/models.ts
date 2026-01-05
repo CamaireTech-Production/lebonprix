@@ -561,6 +561,7 @@ export interface ProductionStateChange {
 
 /**
  * Production Charge - Charge linked to production
+ * @deprecated Use Charge model instead. This is kept for backward compatibility during migration.
  */
 export interface ProductionCharge extends BaseModel {
   productionId: string;
@@ -569,6 +570,53 @@ export interface ProductionCharge extends BaseModel {
   category: string; // e.g., "labor", "overhead", "equipment"
   date: Timestamp;
   financeEntryId?: string; // Link to FinanceEntry
+}
+
+/**
+ * Charge - Unified charge model (company-scoped, no productionId)
+ * Can be either fixed (reusable) or custom (production-specific context)
+ */
+export interface Charge extends BaseModel {
+  companyId: string;
+  type: 'fixed' | 'custom'; // Distinguishes charge types
+  
+  // Fixed charges (type="fixed"):
+  // - Reusable across multiple productions
+  // - Created in Charges management page
+  // - Can be selected during production creation
+  
+  // Custom charges (type="custom"):
+  // - Created for specific production context
+  // - Can be created in Charges page, production creation, or production detail
+  
+  name: string; // For fixed: "Électricité", "Commission". For custom: same as description
+  description?: string; // Full description (optional)
+  amount: number;
+  category?: string; // Same categories as before: "main_oeuvre", "overhead", "transport", etc. (optional)
+  date: Timestamp;
+  isActive?: boolean; // For fixed charges: can disable without deleting
+  
+  // User tracking (like products/sales)
+  userId: string; // Firebase UID who created
+  createdBy?: EmployeeRef; // Employee who created (optional)
+  
+  financeEntryId?: string; // Link to FinanceEntry (optional)
+  
+  // NO productionId - all charges are company-scoped
+}
+
+/**
+ * Production Charge Reference - Charge snapshot stored in Production.charges array
+ * Contains all necessary fields for cost calculation without needing to fetch the charge document
+ */
+export interface ProductionChargeRef {
+  chargeId: string; // Reference to Charge document
+  name: string; // Snapshot at time of selection
+  description?: string; // Snapshot (optional)
+  amount: number; // Snapshot (important for historical accuracy)
+  category?: string; // Snapshot (optional)
+  type: 'fixed' | 'custom'; // Whether this was a fixed or custom charge
+  date: Timestamp; // Snapshot
 }
 
 /**
@@ -600,7 +648,8 @@ export interface Production extends BaseModel {
   isCostValidated: boolean;
   
   // Charges
-  chargeIds: string[]; // References to ProductionCharge documents
+  chargeIds?: string[]; // @deprecated - References to ProductionCharge documents (kept for migration)
+  charges: ProductionChargeRef[]; // Array of charge snapshots (for cost calculation)
   
   // Publishing & Closure
   publishedProductId?: string; // If published, reference to Product

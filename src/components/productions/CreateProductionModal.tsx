@@ -1,17 +1,18 @@
 // Create Production Modal - Multi-step wizard
 import React, { useState, useMemo } from 'react';
 import { X, ChevronLeft, ChevronRight, Plus, Trash2, Loader2, CheckCircle2 } from 'lucide-react';
-import { Modal, Button, LoadingScreen } from '@components/common';
+import { Modal, Button, LoadingScreen, PriceInput } from '@components/common';
 import ImageWithSkeleton from '@components/common/ImageWithSkeleton';
 import { useAuth } from '@contexts/AuthContext';
-import { useProductions, useProductionFlows, useProductionFlowSteps, useProductionCategories } from '@hooks/data/useFirestore';
+import { useProductions, useProductionFlows, useProductionFlowSteps, useProductionCategories, useFixedCharges } from '@hooks/data/useFirestore';
 import { useMatieres } from '@hooks/business/useMatieres';
 import { useMatiereStocks } from '@hooks/business/useMatiereStocks';
 import { showSuccessToast, showErrorToast, showWarningToast } from '@utils/core/toast';
 import { formatPrice } from '@utils/formatting/formatPrice';
 import { FirebaseStorageService } from '@services/core/firebaseStorage';
 import imageCompression from 'browser-image-compression';
-import type { Production, ProductionMaterial, ProductionFlow } from '../../types/models';
+import type { Production, ProductionMaterial, ProductionFlow, ProductionChargeRef } from '../../types/models';
+import { Timestamp } from 'firebase/firestore';
 
 interface CreateProductionModalProps {
   isOpen: boolean;
@@ -24,7 +25,7 @@ const CreateProductionModal: React.FC<CreateProductionModalProps> = ({
   onClose,
   onSuccess
 }) => {
-  const { user, company } = useAuth();
+  const { user, company, currentEmployee, isOwner } = useAuth();
   const { addProduction } = useProductions();
   const { flows, loading: flowsLoading } = useProductionFlows();
   const { flowSteps } = useProductionFlowSteps();
@@ -33,7 +34,7 @@ const CreateProductionModal: React.FC<CreateProductionModalProps> = ({
   const { matiereStocks } = useMatiereStocks();
 
   // Wizard state
-  const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4>(1);
+  const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4 | 5>(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploadingImages, setIsUploadingImages] = useState(false);
 
@@ -55,6 +56,21 @@ const CreateProductionModal: React.FC<CreateProductionModalProps> = ({
   // Step 3: Materials
   const [step3Data, setStep3Data] = useState<ProductionMaterial[]>([]);
 
+  // Step 4: Charges
+  const [step4Data, setStep4Data] = useState<{
+    selectedFixedCharges: string[]; // Array of charge IDs
+    customCharges: Array<{
+      name: string;
+      description: string;
+      amount: number;
+      category: string;
+      date: Date;
+    }>;
+  }>({
+    selectedFixedCharges: [],
+    customCharges: []
+  });
+
   // Get selected flow details
   const selectedFlow = useMemo(() => {
     if (!step2Data.flowId) return null;
@@ -69,12 +85,33 @@ const CreateProductionModal: React.FC<CreateProductionModalProps> = ({
       .filter(Boolean) as typeof flowSteps;
   }, [selectedFlow, flowSteps]);
 
-  // Calculate total cost from materials
-  const calculatedCost = useMemo(() => {
+  // Fetch fixed charges for selection
+  const { charges: fixedCharges } = useFixedCharges(true); // Only active fixed charges
+
+  // Calculate total cost from materials and charges
+  const materialsCost = useMemo(() => {
     return step3Data.reduce((sum, material) => {
       return sum + (material.requiredQuantity * material.costPrice);
     }, 0);
   }, [step3Data]);
+
+  const chargesCost = useMemo(() => {
+    let total = 0;
+    // Add selected fixed charges
+    step4Data.selectedFixedCharges.forEach(chargeId => {
+      const charge = fixedCharges.find(c => c.id === chargeId);
+      if (charge) total += charge.amount;
+    });
+    // Add custom charges
+    step4Data.customCharges.forEach(charge => {
+      total += charge.amount;
+    });
+    return total;
+  }, [step4Data, fixedCharges]);
+
+  const calculatedCost = useMemo(() => {
+    return materialsCost + chargesCost;
+  }, [materialsCost, chargesCost]);
 
   // Reset form when modal opens/closes
   React.useEffect(() => {
@@ -92,6 +129,10 @@ const CreateProductionModal: React.FC<CreateProductionModalProps> = ({
         currentStepId: ''
       });
       setStep3Data([]);
+      setStep4Data({
+        selectedFixedCharges: [],
+        customCharges: []
+      });
     }
   }, [isOpen]);
 
@@ -206,12 +247,15 @@ const CreateProductionModal: React.FC<CreateProductionModalProps> = ({
     } else if (currentStep === 3) {
       // Materials step - can proceed even with no materials
       setCurrentStep(4);
+    } else if (currentStep === 4) {
+      // Charges step - can proceed even with no charges
+      setCurrentStep(5);
     }
   };
 
   const prevStep = () => {
     if (currentStep > 1) {
-      setCurrentStep((currentStep - 1) as 1 | 2 | 3 | 4);
+      setCurrentStep((currentStep - 1) as 1 | 2 | 3 | 4 | 5);
     }
   };
 
@@ -255,22 +299,116 @@ const CreateProductionModal: React.FC<CreateProductionModalProps> = ({
         reference = `${prefix}${nextNumber}`;
       }
 
-      // Create production data
-      const productionData: Omit<Production, 'id' | 'createdAt' | 'updatedAt' | 'stateHistory' | 'calculatedCostPrice' | 'isCostValidated' | 'isPublished' | 'isClosed'> = {
+      // Create charges and build charge snapshots
+      const { createCharge } = await import('@services/firestore/charges/chargeService');
+      const { getUserById } = await import('@services/utilities/userService');
+      const { getCurrentEmployeeRef } = await import('@utils/business/employeeUtils');
+      const chargeSnapshots: ProductionChargeRef[] = [];
+
+      // Get createdBy reference
+      let createdBy = null;
+      if (user && company) {
+        let userData: Awaited<ReturnType<typeof getUserById>> | null = null;
+        if (isOwner && !currentEmployee) {
+          try {
+            userData = await getUserById(user.uid);
+          } catch (error) {
+            console.error('Error fetching user data for createdBy:', error);
+          }
+        }
+        createdBy = getCurrentEmployeeRef(currentEmployee, user, isOwner, userData);
+      }
+
+      // Create custom charges and add to snapshots
+      for (const customCharge of step4Data.customCharges) {
+        try {
+          const newCharge = await createCharge({
+            type: 'custom',
+            name: customCharge.name || customCharge.description || '',
+            description: customCharge.description,
+            amount: customCharge.amount,
+            category: customCharge.category,
+            date: Timestamp.fromDate(customCharge.date),
+            userId: user.uid
+          }, company.id, createdBy);
+          
+          const snapshot: ProductionChargeRef = {
+            chargeId: newCharge.id,
+            name: newCharge.name || newCharge.description || '',
+            amount: newCharge.amount,
+            type: 'custom',
+            date: newCharge.date
+          };
+          
+          // Only include optional fields if they have values
+          if (newCharge.description) {
+            snapshot.description = newCharge.description;
+          }
+          if (newCharge.category) {
+            snapshot.category = newCharge.category;
+          }
+          
+          chargeSnapshots.push(snapshot);
+        } catch (error) {
+          console.error('Error creating custom charge:', error);
+          showErrorToast('Erreur lors de la création d\'une charge personnalisée');
+        }
+      }
+
+      // Add selected fixed charges to snapshots
+      for (const chargeId of step4Data.selectedFixedCharges) {
+        const charge = fixedCharges.find(c => c.id === chargeId);
+        if (charge) {
+          const snapshot: ProductionChargeRef = {
+            chargeId: charge.id,
+            name: charge.name || charge.description || '',
+            amount: charge.amount,
+            type: 'fixed',
+            date: charge.date
+          };
+          
+          // Only include optional fields if they have values
+          if (charge.description) {
+            snapshot.description = charge.description;
+          }
+          if (charge.category) {
+            snapshot.category = charge.category;
+          }
+          
+          chargeSnapshots.push(snapshot);
+        }
+      }
+
+      // Create production data - build object without undefined values
+      const productionData: any = {
         name: step1Data.name.trim(),
         reference,
-        description: step1Data.description.trim() || undefined,
-        images: imageUrls.length > 0 ? imageUrls : undefined,
-        imagePaths: imagePaths.length > 0 ? imagePaths : undefined,
-        categoryId: step1Data.categoryId && step1Data.categoryId.trim() !== '' ? step1Data.categoryId : undefined,
-        flowId: step2Data.flowId || undefined, // Optional
-        currentStepId: step2Data.flowId ? step2Data.currentStepId : undefined, // Only if flowId exists
         status: 'draft',
         materials: step3Data.filter(m => m.matiereId && m.requiredQuantity > 0),
-        chargeIds: [],
+        charges: chargeSnapshots,
         userId: user.uid,
         companyId: company.id
       };
+
+      // Only include optional fields if they have values
+      if (step1Data.description.trim()) {
+        productionData.description = step1Data.description.trim();
+      }
+      if (imageUrls.length > 0) {
+        productionData.images = imageUrls;
+      }
+      if (imagePaths.length > 0) {
+        productionData.imagePaths = imagePaths;
+      }
+      if (step1Data.categoryId && step1Data.categoryId.trim() !== '') {
+        productionData.categoryId = step1Data.categoryId;
+      }
+      if (step2Data.flowId) {
+        productionData.flowId = step2Data.flowId;
+        if (step2Data.currentStepId) {
+          productionData.currentStepId = step2Data.currentStepId;
+        }
+      }
 
       await addProduction(productionData);
       showSuccessToast('Production créée avec succès');
@@ -307,7 +445,7 @@ const CreateProductionModal: React.FC<CreateProductionModalProps> = ({
             )}
           </Button>
           <div className="flex gap-3">
-            {currentStep < 4 ? (
+            {currentStep < 5 ? (
               <Button
                 onClick={nextStep}
                 disabled={isSubmitting || isUploadingImages}
@@ -333,7 +471,7 @@ const CreateProductionModal: React.FC<CreateProductionModalProps> = ({
       {/* Progress Steps */}
       <div className="mb-6">
         <div className="flex items-center justify-between">
-          {[1, 2, 3, 4].map((step) => (
+          {[1, 2, 3, 4, 5].map((step) => (
             <React.Fragment key={step}>
               <div className="flex items-center">
                 <div
@@ -357,10 +495,11 @@ const CreateProductionModal: React.FC<CreateProductionModalProps> = ({
                   {step === 1 && 'Infos'}
                   {step === 2 && 'Flux'}
                   {step === 3 && 'Matériaux'}
-                  {step === 4 && 'Récapitulatif'}
+                  {step === 4 && 'Charges'}
+                  {step === 5 && 'Récapitulatif'}
                 </span>
               </div>
-              {step < 4 && (
+              {step < 5 && (
                 <div className={`flex-1 h-0.5 mx-4 ${
                   currentStep > step ? 'bg-green-600' : 'bg-gray-200'
                 }`} />
@@ -699,18 +838,246 @@ const CreateProductionModal: React.FC<CreateProductionModalProps> = ({
             )}
 
             <div className="bg-gray-50 rounded-md p-4">
-              <div className="flex justify-between items-center">
-                <span className="font-medium text-gray-900">Coût total estimé:</span>
-                <span className="text-lg font-semibold text-gray-900">
-                  {formatPrice(calculatedCost)}
-                </span>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">Coût des matériaux:</span>
+                  <span className="text-sm font-medium text-gray-900">
+                    {formatPrice(materialsCost)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">Coût des charges:</span>
+                  <span className="text-sm font-medium text-gray-900">
+                    {formatPrice(chargesCost)}
+                  </span>
+                </div>
+                <div className="border-t border-gray-200 pt-2 flex justify-between items-center">
+                  <span className="font-medium text-gray-900">Coût total estimé:</span>
+                  <span className="text-lg font-semibold text-gray-900">
+                    {formatPrice(calculatedCost)}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
         )}
 
-        {/* Step 4: Review */}
+        {/* Step 4: Charges */}
         {currentStep === 4 && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-medium text-gray-900">Charges</h3>
+              <p className="text-sm text-gray-500">Ajoutez des charges fixes ou personnalisées</p>
+            </div>
+
+            {/* Fixed Charges Selection */}
+            <div className="border border-gray-200 rounded-md p-4">
+              <h4 className="font-medium text-gray-900 mb-3">Charges fixes disponibles</h4>
+              {fixedCharges.length === 0 ? (
+                <p className="text-sm text-gray-500">Aucune charge fixe disponible. Créez-en une dans la page Charges.</p>
+              ) : (
+                <div className="space-y-2">
+                  {fixedCharges.map((charge) => (
+                    <label key={charge.id} className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={step4Data.selectedFixedCharges.includes(charge.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setStep4Data(prev => ({
+                              ...prev,
+                              selectedFixedCharges: [...prev.selectedFixedCharges, charge.id]
+                            }));
+                          } else {
+                            setStep4Data(prev => ({
+                              ...prev,
+                              selectedFixedCharges: prev.selectedFixedCharges.filter(id => id !== charge.id)
+                            }));
+                          }
+                        }}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      />
+                      <div className="flex-1">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm font-medium text-gray-900">
+                            {charge.name || charge.description}
+                          </span>
+                          <span className="text-sm font-medium text-gray-900">
+                            {formatPrice(charge.amount)}
+                          </span>
+                        </div>
+                        {charge.description && charge.name && charge.name !== charge.description && (
+                          <p className="text-xs text-gray-500 mt-1">{charge.description}</p>
+                        )}
+                        <p className="text-xs text-gray-400 mt-1">
+                          {charge.category === 'main_oeuvre' ? 'Main d\'œuvre' :
+                           charge.category === 'overhead' ? 'Frais généraux' :
+                           charge.category === 'transport' ? 'Transport' :
+                           charge.category === 'packaging' ? 'Emballage' :
+                           charge.category === 'utilities' ? 'Services publics' :
+                           charge.category === 'equipment' ? 'Équipement' : 'Autre'}
+                        </p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Custom Charges */}
+            <div className="border border-gray-200 rounded-md p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="font-medium text-gray-900">Charges personnalisées</h4>
+                <Button
+                  icon={<Plus size={16} />}
+                  onClick={() => {
+                    setStep4Data(prev => ({
+                      ...prev,
+                      customCharges: [...prev.customCharges, {
+                        name: '',
+                        description: '',
+                        amount: 0,
+                        category: 'other',
+                        date: new Date()
+                      }]
+                    }));
+                  }}
+                  variant="secondary"
+                  size="sm"
+                >
+                  Ajouter une charge
+                </Button>
+              </div>
+
+              {step4Data.customCharges.length === 0 ? (
+                <p className="text-sm text-gray-500">Aucune charge personnalisée ajoutée</p>
+              ) : (
+                <div className="space-y-4">
+                  {step4Data.customCharges.map((charge, index) => (
+                    <div key={index} className="border border-gray-200 rounded-md p-4 bg-gray-50">
+                      <div className="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Nom / Description <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={charge.name}
+                            onChange={(e) => {
+                              const updated = [...step4Data.customCharges];
+                              updated[index].name = e.target.value;
+                              setStep4Data(prev => ({ ...prev, customCharges: updated }));
+                            }}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="Ex: Main d'œuvre spéciale"
+                          />
+                        </div>
+                        <div>
+                          <PriceInput
+                            label="Montant (XAF) *"
+                            name="amount"
+                            value={charge.amount || ''}
+                            onChange={(e) => {
+                              const updated = [...step4Data.customCharges];
+                              updated[index].amount = parseFloat(e.target.value) || 0;
+                              setStep4Data(prev => ({ ...prev, customCharges: updated }));
+                            }}
+                            allowDecimals={false}
+                            placeholder="0"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Catégorie
+                          </label>
+                          <select
+                            value={charge.category}
+                            onChange={(e) => {
+                              const updated = [...step4Data.customCharges];
+                              updated[index].category = e.target.value;
+                              setStep4Data(prev => ({ ...prev, customCharges: updated }));
+                            }}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          >
+                            <option value="main_oeuvre">Main d'œuvre</option>
+                            <option value="overhead">Frais généraux</option>
+                            <option value="transport">Transport</option>
+                            <option value="packaging">Emballage</option>
+                            <option value="utilities">Services publics</option>
+                            <option value="equipment">Équipement</option>
+                            <option value="other">Autre</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Date
+                          </label>
+                          <input
+                            type="date"
+                            value={charge.date.toISOString().split('T')[0]}
+                            onChange={(e) => {
+                              const updated = [...step4Data.customCharges];
+                              updated[index].date = new Date(e.target.value);
+                              setStep4Data(prev => ({ ...prev, customCharges: updated }));
+                            }}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Description détaillée
+                        </label>
+                        <textarea
+                          value={charge.description}
+                          onChange={(e) => {
+                            const updated = [...step4Data.customCharges];
+                            updated[index].description = e.target.value;
+                            setStep4Data(prev => ({ ...prev, customCharges: updated }));
+                          }}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          rows={2}
+                          placeholder="Description détaillée de la charge..."
+                        />
+                      </div>
+                      <button
+                        onClick={() => {
+                          setStep4Data(prev => ({
+                            ...prev,
+                            customCharges: prev.customCharges.filter((_, i) => i !== index)
+                          }));
+                        }}
+                        className="mt-2 text-red-600 hover:text-red-800 text-sm flex items-center"
+                      >
+                        <Trash2 size={14} className="mr-1" />
+                        Supprimer
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Charges Summary */}
+            <div className="bg-gray-50 rounded-md p-4">
+              <div className="flex justify-between items-center">
+                <span className="font-medium text-gray-900">Total des charges:</span>
+                <span className="text-lg font-semibold text-gray-900">
+                  {formatPrice(chargesCost)}
+                </span>
+              </div>
+              <div className="mt-2 text-sm text-gray-600">
+                <p>Charges fixes: {step4Data.selectedFixedCharges.length}</p>
+                <p>Charges personnalisées: {step4Data.customCharges.length}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Step 5: Review */}
+        {currentStep === 5 && (
           <div className="space-y-6">
             <div>
               <h3 className="text-lg font-medium text-gray-900 mb-4">Récapitulatif</h3>
@@ -764,12 +1131,62 @@ const CreateProductionModal: React.FC<CreateProductionModalProps> = ({
                   )}
                 </div>
 
+                <div className="border-b border-gray-200 pb-4">
+                  <h4 className="font-medium text-gray-900 mb-2">
+                    Charges ({step4Data.selectedFixedCharges.length + step4Data.customCharges.length})
+                  </h4>
+                  {step4Data.selectedFixedCharges.length === 0 && step4Data.customCharges.length === 0 ? (
+                    <p className="text-sm text-gray-500">Aucune charge</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {step4Data.selectedFixedCharges.map(chargeId => {
+                        const charge = fixedCharges.find(c => c.id === chargeId);
+                        if (!charge) return null;
+                        return (
+                          <div key={chargeId} className="text-sm flex justify-between">
+                            <span className="text-gray-600">
+                              {charge.name || charge.description} <span className="text-gray-400">(Fixe)</span>
+                            </span>
+                            <span className="text-gray-900">
+                              {formatPrice(charge.amount)}
+                            </span>
+                          </div>
+                        );
+                      })}
+                      {step4Data.customCharges.map((charge, idx) => (
+                        <div key={idx} className="text-sm flex justify-between">
+                          <span className="text-gray-600">
+                            {charge.name || charge.description} <span className="text-gray-400">(Personnalisée)</span>
+                          </span>
+                          <span className="text-gray-900">
+                            {formatPrice(charge.amount)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 <div className="bg-blue-50 rounded-md p-4">
-                  <div className="flex justify-between items-center">
-                    <span className="font-medium text-blue-900">Coût total estimé:</span>
-                    <span className="text-xl font-bold text-blue-900">
-                      {formatPrice(calculatedCost)}
-                    </span>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-blue-700">Coût des matériaux:</span>
+                      <span className="text-sm font-medium text-blue-900">
+                        {formatPrice(materialsCost)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-blue-700">Coût des charges:</span>
+                      <span className="text-sm font-medium text-blue-900">
+                        {formatPrice(chargesCost)}
+                      </span>
+                    </div>
+                    <div className="border-t border-blue-200 pt-2 flex justify-between items-center">
+                      <span className="font-medium text-blue-900">Coût total estimé:</span>
+                      <span className="text-xl font-bold text-blue-900">
+                        {formatPrice(calculatedCost)}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>

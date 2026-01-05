@@ -70,8 +70,9 @@ export const createProduction = async (
 
     const batch = writeBatch(db);
 
-    // Calculate initial cost
-    const calculatedCostPrice = calculateProductionCost(data.materials || [], []);
+    // Calculate initial cost (charges will be added when production is created with charges)
+    const chargesTotal = (data.charges || []).reduce((sum, charge) => sum + (charge.amount || 0), 0);
+    const calculatedCostPrice = calculateProductionCost(data.materials || [], data.charges || []);
 
     // Build production data, excluding undefined values
     const productionData: any = {
@@ -84,7 +85,7 @@ export const createProduction = async (
       isCostValidated: false,
       isPublished: false,
       isClosed: false,
-      chargeIds: [],
+      charges: data.charges || [],
       materials: data.materials || [],
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
@@ -182,7 +183,7 @@ export const createProduction = async (
       isCostValidated: false,
       isPublished: false,
       isClosed: false,
-      chargeIds: [],
+      charges: data.charges || [],
       materials: data.materials || [],
       createdAt: { seconds: now, nanoseconds: 0 },
       updatedAt: { seconds: now, nanoseconds: 0 },
@@ -222,7 +223,8 @@ export const createProduction = async (
 export const updateProduction = async (
   id: string,
   data: Partial<Production>,
-  companyId: string
+  companyId: string,
+  userId?: string
 ): Promise<void> => {
   try {
     const productionRef = doc(db, COLLECTION_NAME, id);
@@ -244,22 +246,15 @@ export const updateProduction = async (
     const batch = writeBatch(db);
 
     // Recalculate cost if materials or charges changed
-    if (data.materials !== undefined || data.chargeIds !== undefined) {
+    if (data.materials !== undefined || data.charges !== undefined) {
       const materials = data.materials !== undefined ? data.materials : currentData.materials;
-      const chargeIds = data.chargeIds !== undefined ? data.chargeIds : currentData.chargeIds;
+      const charges = data.charges !== undefined ? data.charges : currentData.charges;
 
-      // Get charges to calculate total
+      // Calculate charges total from production.charges array (snapshots)
       let chargesTotal = 0;
-      if (chargeIds && chargeIds.length > 0) {
-        const chargesQuery = query(
-          collection(db, 'productionCharges'),
-          where('productionId', '==', id),
-          where('companyId', '==', companyId)
-        );
-        const chargesSnapshot = await getDocs(chargesQuery);
-        chargesTotal = chargesSnapshot.docs.reduce((sum, doc) => {
-          const chargeData = doc.data();
-          return sum + (chargeData.amount || 0);
+      if (data.charges && data.charges.length > 0) {
+        chargesTotal = data.charges.reduce((sum, charge) => {
+          return sum + (charge.amount || 0);
         }, 0);
       }
 
@@ -295,8 +290,14 @@ export const updateProduction = async (
 
     batch.update(productionRef, updateData);
 
-    // Create audit log
-    const auditUserId = currentData.userId || companyId;
+    // Create audit log - use current user's ID (required by Firestore rules)
+    // Get current user from auth if userId not provided
+    let auditUserId = userId;
+    if (!auditUserId) {
+      const { getAuth } = await import('firebase/auth');
+      const auth = getAuth();
+      auditUserId = auth.currentUser?.uid || companyId;
+    }
     createAuditLog(batch, 'update', 'production', id, updateData, auditUserId);
 
     await batch.commit();
@@ -515,17 +516,9 @@ export const deleteProduction = async (
       await updateProductionCategoryCount(currentData.categoryId, companyId, false);
     }
 
-    // Delete associated charges
-    if (currentData.chargeIds && currentData.chargeIds.length > 0) {
-      for (const chargeId of currentData.chargeIds) {
-        const { deleteProductionCharge } = await import('./productionChargeService');
-        try {
-          await deleteProductionCharge(chargeId, companyId);
-        } catch (error) {
-          logError(`Error deleting charge ${chargeId}`, error);
-        }
-      }
-    }
+    // Note: Charges are now stored as snapshots in production.charges array
+    // We don't delete the charge documents themselves when deleting a production
+    // as charges can be reused across multiple productions
 
     // Delete production
     batch.delete(productionRef);
