@@ -1,31 +1,40 @@
-import { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Grid, List, Plus, Search, Edit2, Upload, Trash2, CheckSquare, Square, Info, Eye, EyeOff, QrCode, ExternalLink } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Card, Button, Badge, Modal, ModalFooter, Input, PriceInput, ImageWithSkeleton, LoadingScreen, SyncIndicator } from '@components/common';
-import { useProducts, useStockChanges, useCategories, useSuppliers } from '@hooks/data/useFirestore';
-import { useInfiniteProducts } from '@hooks/data/useInfiniteProducts';
-import { useInfiniteScroll } from '@hooks/data/useInfiniteScroll';
-import { useAllStockBatches } from '@hooks/business/useStockBatches';
-import { createSupplier } from '@services/firestore/suppliers/supplierService';
-import { recalculateCategoryProductCounts } from '@services/firestore/categories/categoryService';
-import { correctBatchCostPrice } from '@services/firestore/stock/stockService';
-import { useAuth } from '@contexts/AuthContext';
-import { getCurrentEmployeeRef, formatCreatorName } from '@utils/business/employeeUtils';
-import { getUserById } from '@services/utilities/userService';
-import { FirebaseStorageService } from '@services/core/firebaseStorage';
-import { showSuccessToast, showErrorToast, showWarningToast } from '@utils/core/toast';
+import Card from '../components/common/Card';
+import Button from '../components/common/Button';
+import Badge from '../components/common/Badge';
+import Modal, { ModalFooter } from '../components/common/Modal';
+import Input from '../components/common/Input';
+import { useProducts, useStockChanges, useCategories, useSuppliers } from '../hooks/useFirestore';
+import { useInfiniteProducts } from '../hooks/useInfiniteProducts';
+import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
+import { useAllStockBatches } from '../hooks/useStockBatches';
+import { createSupplier, recalculateCategoryProductCounts, correctBatchCostPrice } from '../services/firestore';
+import { useAuth } from '../contexts/AuthContext';
+import { getCurrentEmployeeRef } from '../utils/employeeUtils';
+import { getUserById } from '../services/userService';
+import { FirebaseStorageService } from '../services/firebaseStorageService';
+import { ImageWithSkeleton } from '../components/common/ImageWithSkeleton';
+import LoadingScreen from '../components/common/LoadingScreen';
+import SyncIndicator from '../components/common/SyncIndicator';
+import { showSuccessToast, showErrorToast, showWarningToast } from '../utils/toast';
 import imageCompression from 'browser-image-compression';
 import * as Papa from 'papaparse';
-import type { Product, ProductTag } from '../../types/models';
+import type { Product, ProductTag, StockChange } from '../types/models';
 import type { ParseResult } from 'papaparse';
-import { getLatestCostPrice} from '@utils/business/productUtils';
-import { formatPrice } from '@utils/formatting/formatPrice';
-import type { StockBatch } from '../../types/models';
-import CostPriceCarousel from '../../components/products/CostPriceCarousel';
-import ProductTagsManager from '../../components/products/ProductTagsManager';
-import CategorySelector from '../../components/products/CategorySelector';
-import BarcodeGenerator from '../../components/products/BarcodeGenerator';
+import { getLatestCostPrice} from '../utils/productUtils';
+import { formatCreatorName } from '../utils/employeeUtils';
+import { 
+  getProductBatchesForAdjustment,
+  adjustBatchWithDebtManagement
+} from '../services/stockAdjustments';
+import type { StockBatch } from '../types/models';
+import CostPriceCarousel from '../components/products/CostPriceCarousel';
+import ProductTagsManager from '../components/products/ProductTagsManager';
+import CategorySelector from '../components/products/CategorySelector';
+import BarcodeGenerator from '../components/products/BarcodeGenerator';
 
 interface CsvRow {
   [key: string]: string;
@@ -56,7 +65,7 @@ const Products = () => {
   const { stockChanges } = useStockChanges();
   useCategories();
   const { suppliers } = useSuppliers();
-  const { batches: allStockBatches, loading: batchesLoading } = useAllStockBatches();
+  const { batches: allStockBatches } = useAllStockBatches();
   const { user, company, currentEmployee, isOwner } = useAuth();
   
   // Set up infinite scroll
@@ -129,6 +138,25 @@ const Products = () => {
     sellingPrice: '',
     cataloguePrice: '',
   });
+
+  // Field-level error states
+  const [step1Errors, setStep1Errors] = useState<Record<string, string>>({});
+  const [step2Errors, setStep2Errors] = useState<Record<string, string>>({});
+
+  // Clear errors when modals open
+  useEffect(() => {
+    if (isAddModalOpen) {
+      setStep1Errors({});
+      setStep2Errors({});
+    }
+  }, [isAddModalOpen]);
+
+  useEffect(() => {
+    if (isEditModalOpen) {
+      setStep1Errors({});
+      setStep2Errors({});
+    }
+  }, [isEditModalOpen]);
   
   // Quick add supplier state
   const [isQuickAddSupplierOpen, setIsQuickAddSupplierOpen] = useState(false);
@@ -156,6 +184,50 @@ const Products = () => {
   // Barcode/QR Code modal state
   const [isBarcodeModalOpen, setIsBarcodeModalOpen] = useState(false);
   const [selectedProductForBarcode, setSelectedProductForBarcode] = useState<Product | null>(null);
+  // State for stock adjustment tab
+  const [stockAdjustment, setStockAdjustment] = useState('');
+  const [stockReason, setStockReason] = useState<'restock' | 'adjustment' | 'damage'>('restock');
+  
+  // State for stock adjustment supplier info
+  const [stockAdjustmentSupplier, setStockAdjustmentSupplier] = useState({
+    supplyType: 'ownPurchase' as 'ownPurchase' | 'fromSupplier',
+    supplierId: '',
+    paymentType: 'paid' as 'credit' | 'paid',
+    costPrice: '',
+  });
+
+  // Enhanced Stock Management State (All Scenarios)
+  const [availableBatches, setAvailableBatches] = useState<StockBatch[]>([]);
+  const [selectedBatchId, setSelectedBatchId] = useState('');
+  const [selectedBatch, setSelectedBatch] = useState<StockBatch | null>(null);
+  const [loadingBatches, setLoadingBatches] = useState(false);
+  
+  // Scenario 2: Manual Adjustment - Enhanced with purchase method editing
+  const [tempBatchEdits, setTempBatchEdits] = useState<Array<{
+    batchId: string;
+    batch: StockBatch;
+    newStock: number;
+    newCostPrice: number;
+    quantityChange: number;
+    newSupplyType: 'ownPurchase' | 'fromSupplier';
+    newSupplierId?: string;
+    newPaymentType: 'paid' | 'credit';
+    timestamp: Date;
+    scenario: 'adjustment' | 'damage';
+  }>>([]);
+  
+  const [batchEditForm, setBatchEditForm] = useState({
+    stock: '',
+    costPrice: '',
+    supplyType: 'ownPurchase' as 'ownPurchase' | 'fromSupplier',
+    supplierId: '',
+    paymentType: 'paid' as 'paid' | 'credit'
+  });
+  
+  // Scenario 3: Damage State
+  const [damageForm, setBatchDamageForm] = useState({
+    damagedQuantity: ''
+  });
   
   const [isBulkSelection, setIsBulkSelection] = useState(false);
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
@@ -199,13 +271,33 @@ const Products = () => {
   const handleStep1InputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setStep1Data(prev => ({ ...prev, [name]: value }));
+    // Clear error when user starts typing
+    if (step1Errors[name]) {
+      setStep1Errors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[name];
+        return newErrors;
+      });
+    }
   };
   
-  const handleStep2InputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement> | { target: { name: string; value: string } }) => {
+  const handleStep2InputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     
-    // PriceInput handles formatting, so we can use the value directly
-    setStep2Data(prev => ({ ...prev, [name]: value }));
+    // Filter out decimals for price fields
+    const filteredValue = ['stockCostPrice', 'sellingPrice', 'cataloguePrice'].includes(name) 
+      ? value.replace(/[^0-9]/g, '') 
+      : value;
+    
+    setStep2Data(prev => ({ ...prev, [name]: filteredValue }));
+    // Clear error when user starts typing
+    if (step2Errors[name]) {
+      setStep2Errors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[name];
+        return newErrors;
+      });
+    }
   };
   
   const handleQuickSupplierInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -231,6 +323,8 @@ const Products = () => {
       sellingPrice: '',
       cataloguePrice: '',
     });
+    setStep1Errors({});
+    setStep2Errors({});
     setCurrentStep(1);
   };
 
@@ -268,23 +362,87 @@ const Products = () => {
     }
   };
 
+  const validateForm = (): boolean => {
+    const step1Errs: Record<string, string> = {};
+    const step2Errs: Record<string, string> = {};
+    let isValid = true;
+
+    // Validate Step 1
+    if (!step1Data.name || step1Data.name.trim() === '') {
+      step1Errs.name = t('products.form.step1.name') + ' ' + t('common.required');
+      isValid = false;
+    }
+
+    // Validate Step 2
+    if (!step2Data.stock || step2Data.stock.trim() === '') {
+      step2Errs.stock = t('products.form.step2.stock') + ' ' + t('common.required');
+      isValid = false;
+    } else if (parseInt(step2Data.stock) <= 0) {
+      step2Errs.stock = t('products.form.step2.stock') + ' ' + (t('common.mustBeGreaterThanZero') || 'must be greater than zero');
+      isValid = false;
+    }
+
+    if (!step2Data.stockCostPrice || step2Data.stockCostPrice.trim() === '') {
+      step2Errs.stockCostPrice = t('products.form.step2.stockCostPrice') + ' ' + t('common.required');
+      isValid = false;
+    } else if (parseFloat(step2Data.stockCostPrice) <= 0) {
+      step2Errs.stockCostPrice = t('products.form.step2.stockCostPrice') + ' ' + (t('common.mustBeGreaterThanZero') || 'must be greater than zero');
+      isValid = false;
+    }
+
+    if (!step2Data.sellingPrice || step2Data.sellingPrice.trim() === '') {
+      step2Errs.sellingPrice = t('products.form.step2.sellingPrice') + ' ' + t('common.required');
+      isValid = false;
+    } else if (parseFloat(step2Data.sellingPrice) <= 0) {
+      step2Errs.sellingPrice = t('products.form.step2.sellingPrice') + ' ' + (t('common.mustBeGreaterThanZero') || 'must be greater than zero');
+      isValid = false;
+    }
+
+    if (step2Data.supplyType === 'fromSupplier' && (!step2Data.supplierId || step2Data.supplierId.trim() === '')) {
+      step2Errs.supplierId = t('products.form.step2.supplier') + ' ' + t('common.required');
+      isValid = false;
+    }
+
+    setStep1Errors(step1Errs);
+    setStep2Errors(step2Errs);
+
+    // If there are errors, show a general message and scroll to first error
+    if (!isValid) {
+      const firstErrorField = Object.keys(step1Errs)[0] || Object.keys(step2Errs)[0];
+      if (firstErrorField) {
+        // If error is in step 2, switch to step 2
+        if (step2Errs[firstErrorField]) {
+          setCurrentStep(2);
+          setTimeout(() => {
+            const element = document.querySelector(`[name="${firstErrorField}"]`);
+            if (element) {
+              element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              (element as HTMLElement).focus();
+            }
+          }, 100);
+        } else {
+          // Error is in step 1
+          setCurrentStep(1);
+          setTimeout(() => {
+            const element = document.querySelector(`[name="${firstErrorField}"]`);
+            if (element) {
+              element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              (element as HTMLElement).focus();
+            }
+          }, 100);
+        }
+      }
+      showWarningToast(t('products.messages.warnings.pleaseFillRequiredFields') || t('products.messages.warnings.requiredFields'));
+    }
+
+    return isValid;
+  };
+
   const handleAddProduct = async () => {
     if (!user?.uid) return;
     
-    // Validate step 1 data
-    if (!step1Data.name) {
-      showWarningToast(t('products.messages.warnings.requiredFields'));
-      return;
-    }
-    
-    // Validate step 2 data
-    if (!step2Data.stock || parseInt(step2Data.stock) <= 0 || !step2Data.stockCostPrice || !step2Data.sellingPrice) {
-      showWarningToast(t('products.messages.warnings.requiredFields'));
-      return;
-    }
-    
-    if (step2Data.supplyType === 'fromSupplier' && !step2Data.supplierId) {
-      showWarningToast(t('products.form.step2.supplierRequired'));
+    // Validate form with specific field errors
+    if (!validateForm()) {
       return;
     }
     
@@ -373,9 +531,9 @@ const Products = () => {
       };
 
       // Get createdBy employee reference
-      let createdBy = null;
+      let createdBy: ReturnType<typeof getCurrentEmployeeRef> | null = null;
       if (user && company) {
-        let userData = null;
+        let userData: Awaited<ReturnType<typeof getUserById>> | null = null;
         if (isOwner && !currentEmployee) {
           // If owner, fetch user data to create EmployeeRef
           try {
@@ -433,11 +591,24 @@ const Products = () => {
   // Step navigation functions
   const nextStep = () => {
     if (currentStep === 1) {
-      // Validate step 1
-      if (!step1Data.name) {
-      showWarningToast(t('products.messages.warnings.requiredFields'));
-      return;
-    }
+      // Validate step 1 with specific field errors
+      const step1Errs: Record<string, string> = {};
+      if (!step1Data.name || step1Data.name.trim() === '') {
+        step1Errs.name = t('products.form.step1.name') + ' ' + t('common.required');
+        setStep1Errors(step1Errs);
+        showWarningToast(t('products.messages.warnings.pleaseFillRequiredFields') || t('products.messages.warnings.requiredFields'));
+        // Scroll to and focus the error field
+        setTimeout(() => {
+          const element = document.querySelector(`[name="name"]`);
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            (element as HTMLElement).focus();
+          }
+        }, 100);
+        return;
+      }
+      // Clear any previous errors if validation passes
+      setStep1Errors({});
       setCurrentStep(2);
     }
   };
@@ -450,7 +621,7 @@ const Products = () => {
 
   // Quick add supplier function
   const handleQuickAddSupplier = async () => {
-    if (!user?.uid || !company) return;
+    if (!user?.uid) return;
     if (!quickSupplierData.name || !quickSupplierData.contact) {
       showWarningToast(t('suppliers.messages.warnings.requiredFields'));
       return;
@@ -459,9 +630,9 @@ const Products = () => {
     setIsAddingSupplier(true);
     try {
       // Get createdBy employee reference
-      let createdBy = null;
+      let createdBy: ReturnType<typeof getCurrentEmployeeRef> | null = null;
       if (user && company) {
-        let userData = null;
+        let userData: Awaited<ReturnType<typeof getUserById>> | null = null;
         if (isOwner && !currentEmployee) {
           try {
             userData = await getUserById(user.uid);
@@ -470,6 +641,11 @@ const Products = () => {
           }
         }
         createdBy = getCurrentEmployeeRef(currentEmployee, user, isOwner, userData);
+      }
+      
+      if (!company) {
+        showErrorToast('Company not found');
+        return;
       }
       
       const newSupplier = await createSupplier({
@@ -501,11 +677,262 @@ const Products = () => {
     }
   };
 
+  const handleStockAdjustmentSupplierChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setStockAdjustmentSupplier(prev => ({ ...prev, [name]: value }));
+  };
+
+  // Enhanced Manual Adjustment Functions
+  const loadBatchesForAdjustment = async (productId: string) => {
+    if (!productId) return;
+    
+    setLoadingBatches(true);
+    try {
+      const batches = await getProductBatchesForAdjustment(productId);
+      // Filter out batches that are already in temp edits
+      const filteredBatches = batches.filter(batch => 
+        !tempBatchEdits.some(edit => edit.batchId === batch.id)
+      );
+      setAvailableBatches(filteredBatches);
+    } catch (error) {
+      console.error('Error loading batches:', error);
+      showErrorToast('Failed to load available batches');
+    } finally {
+      setLoadingBatches(false);
+    }
+  };
+
+  const handleBatchSelection = (batchId: string) => {
+    setSelectedBatchId(batchId);
+    const batch = availableBatches.find(b => b.id === batchId);
+    if (batch) {
+      setSelectedBatch(batch);
+      
+      // Pre-fill form based on scenario
+      if (stockReason === 'adjustment') {
+        // Manual adjustment: pre-fill with TOTAL QUANTITY (not remaining)
+        // This maintains coherence between quantity and remainingQuantity
+        // For manual adjustment, we preserve the original batch's supplier and payment type
+        setBatchEditForm({
+          stock: batch.quantity.toString(), // Use total quantity instead of remaining
+          costPrice: batch.costPrice.toString(),
+          supplyType: batch.isOwnPurchase ? 'ownPurchase' : 'fromSupplier',
+          supplierId: batch.supplierId || '', // Preserve original supplier
+          paymentType: batch.isCredit ? 'credit' : 'paid' // Preserve original payment type
+        });
+      } else if (stockReason === 'damage') {
+        // Damage: only pre-fill damage quantity form
+        setBatchDamageForm({
+          damagedQuantity: ''
+        });
+      }
+    } else {
+      setSelectedBatch(null);
+      setBatchEditForm({ 
+        stock: '', 
+        costPrice: '',
+        supplyType: 'ownPurchase',
+        supplierId: '',
+        paymentType: 'paid'
+      });
+      setBatchDamageForm({ damagedQuantity: '' });
+    }
+  };
+
+  const handleBatchEditFormChange = (field: string, value: string) => {
+    setBatchEditForm(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleDamageFormChange = (field: string, value: string) => {
+    setBatchDamageForm(prev => ({ ...prev, [field]: value }));
+    
+    // Real-time validation for damage quantity
+    if (field === 'damagedQuantity' && selectedBatch && value) {
+      const damagedQuantity = parseFloat(value);
+      if (!isNaN(damagedQuantity) && damagedQuantity > selectedBatch.remainingQuantity) {
+        showErrorToast(`Cannot exceed available stock: ${selectedBatch.remainingQuantity} units`);
+      }
+    }
+  };
+
+  const addTempBatchEdit = () => {
+    if (!selectedBatch) return;
+
+    // Validation based on scenario
+    if (stockReason === 'adjustment') {
+      if (!batchEditForm.stock || !batchEditForm.costPrice) {
+        showErrorToast('Please fill in all required fields');
+        return;
+      }
+      // For manual adjustment, supplier is preserved from the original batch
+      // No need to validate supplier selection as it's automatically set
+
+      const newTotalQuantity = parseFloat(batchEditForm.stock);
+      const usedQuantity = selectedBatch.quantity - selectedBatch.remainingQuantity;
+      const newRemainingQuantity = newTotalQuantity - usedQuantity;
+
+      // Check if the new remaining quantity would be negative
+      if (newRemainingQuantity < 0) {
+        showErrorToast(`Invalid quantity! This batch has ${usedQuantity} units already used. Minimum total quantity: ${usedQuantity}`);
+        return;
+      }
+
+      // Calculate the actual quantity change (difference in total quantity)
+      const quantityChange = newTotalQuantity - selectedBatch.quantity;
+
+      const newEdit = {
+        batchId: selectedBatch.id,
+        batch: selectedBatch,
+        newStock: newTotalQuantity,
+        newCostPrice: parseFloat(batchEditForm.costPrice),
+        quantityChange,
+        newSupplyType: selectedBatch.isOwnPurchase ? 'ownPurchase' as const : 'fromSupplier' as const,
+        newSupplierId: selectedBatch.supplierId, // Preserve the original supplier from the batch
+        newPaymentType: selectedBatch.isCredit ? 'credit' as const : 'paid' as const, // Preserve the original payment type
+        timestamp: new Date(),
+        scenario: 'adjustment' as const
+      };
+
+      setTempBatchEdits(prev => [...prev, newEdit]);
+      showSuccessToast(`Manual adjustment added: ${quantityChange >= 0 ? '+' : ''}${quantityChange} units @ ${parseFloat(batchEditForm.costPrice).toLocaleString()} XAF`);
+
+    } else if (stockReason === 'damage') {
+      if (!damageForm.damagedQuantity) {
+        showErrorToast('Please enter the damaged quantity');
+        return;
+      }
+
+      const damagedQuantity = parseFloat(damageForm.damagedQuantity);
+      if (damagedQuantity <= 0 || damagedQuantity > selectedBatch.remainingQuantity) {
+        showErrorToast(`Invalid quantity. Must be between 1 and ${selectedBatch.remainingQuantity}`);
+        return;
+      }
+
+      const newEdit = {
+        batchId: selectedBatch.id,
+        batch: selectedBatch,
+        newStock: selectedBatch.remainingQuantity - damagedQuantity,
+        newCostPrice: selectedBatch.costPrice,
+        quantityChange: -damagedQuantity,
+        newSupplyType: selectedBatch.isOwnPurchase ? 'ownPurchase' as const : 'fromSupplier' as const,
+        newSupplierId: selectedBatch.supplierId,
+        newPaymentType: selectedBatch.isCredit ? 'credit' as const : 'paid' as const,
+        timestamp: new Date(),
+        scenario: 'damage' as const
+      };
+
+      setTempBatchEdits(prev => [...prev, newEdit]);
+      showSuccessToast(`Damage recorded: -${damagedQuantity} units`);
+    }
+
+    // Reset form and reload batches
+    setBatchEditForm({
+      stock: '',
+      costPrice: '',
+      supplyType: 'ownPurchase',
+      supplierId: '',
+      paymentType: 'paid'
+    });
+    setBatchDamageForm({ damagedQuantity: '' });
+    setSelectedBatchId('');
+    setSelectedBatch(null);
+    
+    // Reload batches to exclude the one just added
+    if (currentProduct?.id) {
+      loadBatchesForAdjustment(currentProduct.id);
+    }
+  };
+
+  const removeTempBatchEdit = (batchId: string) => {
+    setTempBatchEdits(prev => prev.filter(edit => edit.batchId !== batchId));
+    showSuccessToast('Batch edit removed from list');
+    
+    // Reload batches to include the removed one back
+    if (currentProduct?.id) {
+      loadBatchesForAdjustment(currentProduct.id);
+    }
+  };
+
+  const clearAllTempBatchEdits = () => {
+    setTempBatchEdits([]);
+    setBatchEditForm({
+      stock: '',
+      costPrice: '',
+      supplyType: 'ownPurchase',
+      supplierId: '',
+      paymentType: 'paid'
+    });
+    setBatchDamageForm({ damagedQuantity: '' });
+    setSelectedBatchId('');
+    setSelectedBatch(null);
+    showSuccessToast('All batch edits cleared');
+    
+    // Reload batches
+    if (currentProduct?.id) {
+      loadBatchesForAdjustment(currentProduct.id);
+    }
+  };
 
 
 
 
 
+  const handleQuickAddSupplierForStock = async () => {
+    if (!user?.uid) return;
+    if (!quickSupplierData.name || !quickSupplierData.contact) {
+      showWarningToast(t('suppliers.messages.warnings.requiredFields'));
+      return;
+    }
+
+    setIsAddingSupplier(true);
+    try {
+      // Get createdBy employee reference
+      let createdBy: ReturnType<typeof getCurrentEmployeeRef> | null = null;
+      if (user && company) {
+        let userData: Awaited<ReturnType<typeof getUserById>> | null = null;
+        if (isOwner && !currentEmployee) {
+          try {
+            userData = await getUserById(user.uid);
+          } catch (error) {
+            console.error('Error fetching user data for createdBy:', error);
+          }
+        }
+        createdBy = getCurrentEmployeeRef(currentEmployee, user, isOwner, userData);
+      }
+      
+      if (!company) {
+        showErrorToast('Company not found');
+        return;
+      }
+      
+      const newSupplier = await createSupplier({
+        name: quickSupplierData.name,
+        contact: quickSupplierData.contact,
+        location: quickSupplierData.location || undefined,
+        userId: user.uid,
+        companyId: company.id
+      }, company.id, createdBy);
+
+      // Set the new supplier as selected for stock adjustment
+      setStockAdjustmentSupplier(prev => ({
+        ...prev,
+        supplierId: newSupplier.id
+      }));
+
+      setIsQuickAddSupplierOpen(false);
+      setQuickSupplierData({
+        name: '',
+        contact: '',
+        location: ''
+      });
+      showSuccessToast(t('suppliers.messages.supplierAdded'));
+    } catch (err) {
+      console.error('Error adding supplier for stock:', err);
+      showErrorToast(t('suppliers.messages.errors.addSupplier'));
+    } finally {
+      setIsAddingSupplier(false);
+    }
+  };
   
   // Add state for editable prices
   const [editPrices, setEditPrices] = useState({
@@ -527,27 +954,73 @@ const Products = () => {
       barCode: product.barCode || '', // Load existing barcode
     });
     // Find latest stock change for this product
-    const latestStockChange = stockChanges
-      .filter(sc => sc.productId === product.id)
-      .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))[0];
+    const latestStockChange = (stockChanges as StockChange[])
+      .filter((sc: StockChange) => sc.productId === product.id)
+      .sort((a: StockChange, b: StockChange) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))[0];
     setEditPrices({
       sellingPrice: product.sellingPrice?.toString() || '',
       cataloguePrice: product.cataloguePrice?.toString() || '',
       costPrice: latestStockChange?.costPrice?.toString() || ''
     });
     
+    // Reset enhancement states for all scenarios
+    setTempBatchEdits([]);
+    setSelectedBatchId('');
+    setSelectedBatch(null);
+    setBatchEditForm({ 
+      stock: '', 
+      costPrice: '',
+      supplyType: 'ownPurchase',
+      supplierId: '',
+      paymentType: 'paid'
+    });
+    setBatchDamageForm({ damagedQuantity: '' });
+    setStockReason('restock');
+    
     setIsEditModalOpen(true);
     setEditTab('info');
+    setStockAdjustment('');
   };
   
+  const validateEditForm = (): boolean => {
+    const step1Errs: Record<string, string> = {};
+    let isValid = true;
+
+    // Validate Step 1 (name is required for edit)
+    if (!step1Data.name || step1Data.name.trim() === '') {
+      step1Errs.name = t('products.form.step1.name') + ' ' + t('common.required');
+      isValid = false;
+    }
+
+    setStep1Errors(step1Errs);
+
+    if (!isValid) {
+      const firstErrorField = Object.keys(step1Errs)[0];
+      if (firstErrorField) {
+        setTimeout(() => {
+          const element = document.querySelector(`[name="${firstErrorField}"]`);
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            (element as HTMLElement).focus();
+          }
+        }, 100);
+      }
+      showWarningToast(t('products.messages.warnings.pleaseFillRequiredFields') || t('products.messages.warnings.requiredFields'));
+    }
+
+    return isValid;
+  };
+
   const handleEditProduct = async () => {
     if (!currentProduct || !user?.uid) {
       return;
     }
-    if (!step1Data.name) {
-      showWarningToast(t('products.messages.warnings.requiredFields'));
+    
+    // Validate form with specific field errors
+    if (!validateEditForm()) {
       return;
     }
+    
     setIsSubmitting(true);
     const safeProduct = {
       ...currentProduct,
@@ -682,9 +1155,9 @@ const Products = () => {
       }
 
       // Update latest stock change cost price if changed
-      const latestStockChange = stockChanges
-        .filter(sc => sc.productId === currentProduct.id)
-        .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))[0];
+      const latestStockChange = (stockChanges as StockChange[])
+        .filter((sc: StockChange) => sc.productId === currentProduct.id)
+        .sort((a: StockChange, b: StockChange) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))[0];
       if (latestStockChange && editPrices.costPrice && parseFloat(editPrices.costPrice) !== latestStockChange.costPrice) {
         // Update the batch cost price directly using correctBatchCostPrice
         if (latestStockChange.batchId) {
@@ -726,7 +1199,19 @@ const Products = () => {
     setIsDeleteModalOpen(true);
   };
 
-  // Migration code removed - product.stock is deprecated, use batches instead
+  // Migration: create initial StockChange for products with stock > 0 and no StockChange
+  useEffect(() => {
+    if (!infiniteProducts?.length || !stockChanges?.length || !user?.uid) return;
+    infiniteProducts.forEach(async (product) => {
+      const hasStockChange = (stockChanges as StockChange[]).some((sc: StockChange) => sc.productId === product.id);
+      if (product.stock > 0 && !hasStockChange) {
+        // Create an initial adjustment with 'creation' reason
+        try {
+          await updateProductData(product.id, { stock: product.stock }, 'creation', product.stock);
+        } catch (e) { console.error(`Failed to create initial stock for ${product.id}:`, e) }
+      }
+    });
+  }, [infiniteProducts, stockChanges, user, updateProductData]);
 
   useEffect(() => {
     setSelectedCategory(t('products.filters.allCategories'));
@@ -759,6 +1244,12 @@ const Products = () => {
     }
   }, [infiniteProducts]);
 
+  // Load batches when stock reason changes to adjustment or damage
+  useEffect(() => {
+    if ((stockReason === 'adjustment' || stockReason === 'damage') && currentProduct?.id && isEditModalOpen) {
+      loadBatchesForAdjustment(currentProduct.id);
+    }
+  }, [stockReason, currentProduct?.id, isEditModalOpen]);
 
   const toggleBulkSelection = () => {
     setIsBulkSelection((prev) => !prev);
@@ -922,36 +1413,10 @@ const Products = () => {
     }
   };
 
-  // Organize batches by product ID (source of truth for stock)
-  const batchesByProduct = useMemo(() => {
-    const map = new Map<string, StockBatch[]>();
-    allStockBatches.forEach((batch) => {
-      const productId = batch.productId || '';
-      if (productId) {
-        const arr = map.get(productId) || [];
-        arr.push(batch);
-        map.set(productId, arr);
-      }
-    });
-    return map;
-  }, [allStockBatches]);
-
   // Helper function to get batches for a specific product
   const getProductBatches = (productId: string): StockBatch[] => {
-    return batchesByProduct.get(productId) || [];
+    return allStockBatches.filter(batch => batch.productId === productId);
   };
-
-  // Helper function to calculate stock from batches (remaining/total)
-  const getProductStockFromBatches = (productId: string): { remaining: number; total: number } => {
-    const productBatches = batchesByProduct.get(productId) || [];
-    const remaining = productBatches.reduce((sum, b) => sum + (b.remainingQuantity || 0), 0);
-    const total = productBatches.reduce((sum, b) => sum + (b.quantity || 0), 0);
-    return { remaining, total };
-  };
-
-  // Format number helper (same as Stocks page)
-  const formatNumber = (value: number | undefined): string =>
-    typeof value === 'number' ? value.toLocaleString() : '0';
 
   // Helper function to get the effective visibility state (considering optimistic updates)
   const getEffectiveVisibility = (product: Product): boolean => {
@@ -998,9 +1463,9 @@ const Products = () => {
     }
 
     // Get createdBy employee reference once for all imports
-    let createdBy = null;
+    let createdBy: ReturnType<typeof getCurrentEmployeeRef> | null = null;
     if (user && company) {
-      let userData = null;
+      let userData: Awaited<ReturnType<typeof getUserById>> | null = null;
       if (isOwner && !currentEmployee) {
         // If owner, fetch user data to create EmployeeRef
         try {
@@ -1010,6 +1475,11 @@ const Products = () => {
         }
       }
       createdBy = getCurrentEmployeeRef(currentEmployee, user, isOwner, userData);
+    }
+    
+    if (!company) {
+      showErrorToast('Company not found');
+      return;
     }
 
     setIsImporting(true);
@@ -1050,6 +1520,7 @@ const Products = () => {
         images: [],
         isAvailable: true,
         userId: user.uid,
+        companyId: company.id,
         updatedAt: { seconds: 0, nanoseconds: 0 }
       };
 
@@ -1062,9 +1533,9 @@ const Products = () => {
       } | undefined = undefined;
       let finalSupplyType = supplyType;
       let finalSupplierId = supplierIdRaw;
-      if (supplyType === 'fromSupplier' && company) {
+      if (supplyType === 'fromSupplier') {
         // Prefer supplierName if present
-        let supplier = null;
+        let supplier: Awaited<ReturnType<typeof createSupplier>> | undefined = undefined;
         if (supplierName) {
           supplier = suppliers.find(s => s.name.toLowerCase() === supplierName.toLowerCase());
           if (!supplier) {
@@ -1304,14 +1775,18 @@ const Products = () => {
                   className="flex items-center gap-1 px-2 py-2 bg-white border-b border-gray-100 overflow-x-auto custom-scrollbar"
                 >
                   {(product.images ?? []).map((img, idx) => (
-                    <ImageWithSkeleton
+                    <div
                       key={idx}
-                      src={img}
-                      alt={`Preview ${idx + 1}`}
-                      className={`w-10 h-10 object-cover rounded border cursor-pointer transition-transform duration-200 ${mainImageIndexes[product.id] === idx ? 'ring-2 ring-emerald-500 scale-105' : 'opacity-70 hover:opacity-100'}`}
-                      placeholder="/placeholder.png"
                       onClick={() => handleSetMainImage(product.id, idx)}
-                    />
+                      className="cursor-pointer"
+                    >
+                      <ImageWithSkeleton
+                        src={img}
+                        alt={`Preview ${idx + 1}`}
+                        className={`w-10 h-10 object-cover rounded border transition-transform duration-200 ${mainImageIndexes[product.id] === idx ? 'ring-2 ring-emerald-500 scale-105' : 'opacity-70 hover:opacity-100'}`}
+                        placeholder="/placeholder.png"
+                      />
+                    </div>
                   ))}
                   {/* If less than 4 images, fill with empty slots */}
                   {Array.from({ length: Math.max(0, 4 - (product.images?.length ?? 0)) }).map((_, idx) => (
@@ -1335,33 +1810,13 @@ const Products = () => {
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">{t('products.table.columns.sellingPrice')}:</span>
-                      <span className="text-emerald-600 font-medium">{formatPrice(product.sellingPrice)} XAF</span>
+                      <span className="text-emerald-600 font-medium">{product.sellingPrice.toLocaleString()} XAF</span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">{t('products.table.columns.stock')}:</span>
-                      {(() => {
-                        // Show skeleton while batches are loading
-                        if (batchesLoading) {
-                          return (
-                            <div className="inline-flex items-center px-2.5 py-0.5 rounded-full animate-pulse">
-                              <div className="h-4 w-20 bg-gray-200 rounded-full"></div>
-                            </div>
-                          );
-                        }
-                        
-                        const stockInfo = getProductStockFromBatches(product.id);
-                        const hasBatches = batchesByProduct.has(product.id);
-                        const remaining = hasBatches ? stockInfo.remaining : 0;
-                        const total = hasBatches ? stockInfo.total : 0;
-                        const displayText = hasBatches 
-                          ? `${formatNumber(remaining)} / ${formatNumber(total)} units`
-                          : '0 units';
-                        return (
-                          <Badge variant={remaining > 10 ? 'success' : remaining > 5 ? 'warning' : 'error'}>
-                            {displayText}
-                          </Badge>
-                        );
-                      })()}
+                      <Badge variant={product.stock > 10 ? 'success' : product.stock > 5 ? 'warning' : 'error'}>
+                        {product.stock} units
+                      </Badge>
                     </div>
                   </div>
                   {product.category && (
@@ -1530,29 +1985,9 @@ const Products = () => {
                       <div className="text-sm text-emerald-600 font-medium">{product.sellingPrice.toLocaleString()} XAF</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {(() => {
-                        // Show skeleton while batches are loading
-                        if (batchesLoading) {
-                          return (
-                            <div className="inline-flex items-center px-2.5 py-0.5 rounded-full animate-pulse">
-                              <div className="h-4 w-20 bg-gray-200 rounded-full"></div>
-                            </div>
-                          );
-                        }
-                        
-                        const stockInfo = getProductStockFromBatches(product.id);
-                        const hasBatches = batchesByProduct.has(product.id);
-                        const remaining = hasBatches ? stockInfo.remaining : 0;
-                        const total = hasBatches ? stockInfo.total : 0;
-                        const displayText = hasBatches 
-                          ? `${formatNumber(remaining)} / ${formatNumber(total)} units`
-                          : '0 units';
-                        return (
-                          <Badge variant={remaining > 10 ? 'success' : remaining > 5 ? 'warning' : 'error'}>
-                            {displayText}
-                          </Badge>
-                        );
-                      })()}
+                      <Badge variant={product.stock > 10 ? 'success' : product.stock > 5 ? 'warning' : 'error'}>
+                        {product.stock} units
+                      </Badge>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-500">{product.category}</div>
@@ -1675,8 +2110,9 @@ const Products = () => {
           <Input
             label={t('products.form.step1.name')}
             name="name"
-                value={step1Data.name}
-                onChange={handleStep1InputChange}
+            value={step1Data.name}
+            onChange={handleStep1InputChange}
+            error={step1Errors.name}
             required
           />
           
@@ -1821,6 +2257,7 @@ const Products = () => {
                 type="number"
                 value={step2Data.stock}
                 onChange={handleStep2InputChange}
+                error={step2Errors.stock}
                 required
               />
               
@@ -1851,7 +2288,9 @@ const Products = () => {
                         name="supplierId"
                         value={step2Data.supplierId}
                         onChange={handleStep2InputChange}
-                        className="flex-1 rounded-md border border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm px-3 py-2"
+                        className={`flex-1 rounded-md border ${
+                          step2Errors.supplierId ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-emerald-500 focus:ring-emerald-500'
+                        } shadow-sm focus:outline-none focus:ring-1 sm:text-sm px-3 py-2`}
                       >
                         <option value="">{t('common.select')}</option>
                         {suppliers.filter(s => !s.isDeleted).map(supplier => (
@@ -1868,6 +2307,9 @@ const Products = () => {
                         {t('products.actions.addSupplier')}
                       </Button>
                     </div>
+                    {step2Errors.supplierId && (
+                      <p className="mt-1 text-sm text-red-500">{step2Errors.supplierId}</p>
+                    )}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1887,25 +2329,30 @@ const Products = () => {
               )}
               
               {/* These price fields are ALWAYS visible */}
-              <PriceInput
+              <Input
                 label={t('products.form.step2.stockCostPrice')}
                 name="stockCostPrice"
+                type="number"
                 value={step2Data.stockCostPrice}
                 onChange={handleStep2InputChange}
-                helpText={t('products.form.step2.stockCostPriceHelp')}
+                error={step2Errors.stockCostPrice}
+                helpText={step2Errors.stockCostPrice ? undefined : t('products.form.step2.stockCostPriceHelp')}
                 required
               />
-              <PriceInput
+              <Input
                 label={t('products.form.step2.sellingPrice')}
                 name="sellingPrice"
+                type="number"
                 value={step2Data.sellingPrice}
                 onChange={handleStep2InputChange}
-                helpText={t('products.form.step2.sellingPriceHelp')}
+                error={step2Errors.sellingPrice}
+                helpText={step2Errors.sellingPrice ? undefined : t('products.form.step2.sellingPriceHelp')}
                 required
               />
-              <PriceInput
+              <Input
                 label={t('products.form.step2.cataloguePrice')}
                 name="cataloguePrice"
+                type="number"
                 value={step2Data.cataloguePrice}
                 onChange={handleStep2InputChange}
                 helpText={t('products.form.step2.cataloguePriceHelp')}
@@ -1976,6 +2423,7 @@ const Products = () => {
               name="name"
               value={step1Data.name}
               onChange={handleStep1InputChange}
+              error={step1Errors.name}
             required
           />
             {/* Reference */}
@@ -2154,12 +2602,7 @@ const Products = () => {
                   <p className="text-sm text-gray-600">Total available units for this product</p>
               </div>
                 <div className="text-right">
-                  <div className="text-3xl font-bold text-blue-600">
-                    {(() => {
-                      const productBatches = batchesByProduct.get(currentProduct?.id || '') || [];
-                      return productBatches.reduce((sum, b) => sum + (b.remainingQuantity || 0), 0);
-                    })()}
-                  </div>
+                  <div className="text-3xl font-bold text-blue-600">{currentProduct?.stock ?? 0}</div>
                   <div className="text-sm text-gray-500">units</div>
             </div>
               </div>
@@ -2209,7 +2652,7 @@ const Products = () => {
                   <span className="text-xs text-gray-500">Last 2 changes</span>
                 </div>
                {(() => {
-                 const history = stockChanges.filter(sc => sc.productId === currentProduct?.id).slice(-2).reverse();
+                 const history = (stockChanges as StockChange[]).filter((sc: StockChange) => sc.productId === currentProduct?.id).slice(-2).reverse();
                  if (history.length === 0) {
                    return <span className="text-sm text-gray-500">{t('products.messages.noStockHistory')}</span>;
                  }
@@ -2255,7 +2698,7 @@ const Products = () => {
                                )}
                              </td>
                              <td className="px-2 py-1">
-                               {sc.costPrice ? `${formatPrice(sc.costPrice)} XAF` : '-'}
+                               {sc.costPrice ? `${sc.costPrice.toLocaleString()} XAF` : '-'}
                              </td>
                            </tr>
                          );
@@ -2292,31 +2735,35 @@ const Products = () => {
               </div>
             </div>
             {/* Selling Price */}
-            <PriceInput
+            <Input
               label={t('products.form.step2.sellingPrice')}
               name="sellingPrice"
+              type="number"
+              min={0}
               value={editPrices.sellingPrice}
-              onChange={e => setEditPrices(p => ({ ...p, sellingPrice: e.target.value }))}
+              onChange={e => setEditPrices(p => ({ ...p, sellingPrice: e.target.value.replace(/[^0-9]/g, '') }))}
               required
               helpText={t('products.form.sellingPriceHelp', 'Required: The price at which you sell this product.')}
             />
             {/* Catalogue Price */}
-            <PriceInput
+            <Input
               label={t('products.form.step2.cataloguePrice')}
               name="cataloguePrice"
+              type="number"
+              min={0}
               value={editPrices.cataloguePrice}
-              onChange={e => setEditPrices(p => ({ ...p, cataloguePrice: e.target.value }))}
+              onChange={e => setEditPrices(p => ({ ...p, cataloguePrice: e.target.value.replace(/[^0-9]/g, '') }))}
               helpText={t('products.form.cataloguePriceHelp', 'Optional: Used for reference or promotions.')}
             />
             {/* Profit/Cost Info */}
             <div className="space-y-1">
               <div className="text-sm text-gray-700">
-                {t('products.form.latestCostPrice', 'Latest Cost Price')}: {(getLatestCostPrice(currentProduct?.id || '', Array.isArray(stockChanges) ? stockChanges : []) ?? 0)} XAF
+                {t('products.form.latestCostPrice', 'Latest Cost Price')}: {(getLatestCostPrice(currentProduct?.id || '', Array.isArray(stockChanges) ? (stockChanges as StockChange[]) : []) ?? 0)} XAF
               </div>
               <div className="text-sm text-gray-700">
-                {t('products.form.profitPerUnit', 'Profit per unit')}: {editPrices.sellingPrice && getLatestCostPrice(currentProduct?.id || '', Array.isArray(stockChanges) ? stockChanges : []) !== undefined ? formatPrice(parseFloat(editPrices.sellingPrice) - (getLatestCostPrice(currentProduct?.id || '', Array.isArray(stockChanges) ? stockChanges : []) ?? 0)) : '-'} XAF
+                {t('products.form.profitPerUnit', 'Profit per unit')}: {editPrices.sellingPrice && getLatestCostPrice(currentProduct?.id || '', Array.isArray(stockChanges) ? (stockChanges as StockChange[]) : []) !== undefined ? (parseFloat(editPrices.sellingPrice) - (getLatestCostPrice(currentProduct?.id || '', Array.isArray(stockChanges) ? (stockChanges as StockChange[]) : []) ?? 0)).toLocaleString() : '-'} XAF
               </div>
-              {editPrices.sellingPrice && getLatestCostPrice(currentProduct?.id || '', Array.isArray(stockChanges) ? stockChanges : []) !== undefined && parseFloat(editPrices.sellingPrice) < (getLatestCostPrice(currentProduct?.id || '', Array.isArray(stockChanges) ? stockChanges : []) ?? 0) && (
+              {editPrices.sellingPrice && getLatestCostPrice(currentProduct?.id || '', Array.isArray(stockChanges) ? (stockChanges as StockChange[]) : []) !== undefined && parseFloat(editPrices.sellingPrice) < (getLatestCostPrice(currentProduct?.id || '', Array.isArray(stockChanges) ? (stockChanges as StockChange[]) : []) ?? 0) && (
                 <div className="flex items-center bg-red-50 border-l-4 border-red-400 p-2 rounded-md mt-2">
                   <svg className="w-4 h-4 text-red-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                   <span className="text-xs text-red-800">{t('products.form.sellingBelowCost', 'Warning: Selling price is below cost price!')}</span>
@@ -2601,7 +3048,7 @@ const Products = () => {
         footer={
           <ModalFooter 
             onCancel={() => setIsQuickAddSupplierOpen(false)}
-            onConfirm={handleQuickAddSupplier}
+            onConfirm={isEditModalOpen ? handleQuickAddSupplierForStock : handleQuickAddSupplier}
             confirmText={t('suppliers.actions.addSupplier')}
             isLoading={isAddingSupplier}
           />
@@ -2619,7 +3066,6 @@ const Products = () => {
           <Input
             label={t('suppliers.form.contact')}
             name="contact"
-            type="tel"
             value={quickSupplierData.contact}
             onChange={handleQuickSupplierInputChange}
             required
@@ -2707,17 +3153,17 @@ const Products = () => {
                 <div className="space-y-3">
                   <div>
                     <label className="block text-sm font-medium text-gray-700">{t('products.form.step2.sellingPrice')}</label>
-                    <p className="mt-1 text-sm font-semibold text-emerald-600">{formatPrice(detailProduct?.sellingPrice ?? 0)} XAF</p>
+                    <p className="mt-1 text-sm font-semibold text-emerald-600">{detailProduct?.sellingPrice?.toLocaleString()} XAF</p>
                   </div>
                   {detailProduct?.cataloguePrice && (
                     <div>
                       <label className="block text-sm font-medium text-gray-700">{t('products.form.step2.cataloguePrice')}</label>
-                      <p className="mt-1 text-sm text-gray-900">{formatPrice(detailProduct.cataloguePrice)} XAF</p>
+                      <p className="mt-1 text-sm text-gray-900">{detailProduct.cataloguePrice.toLocaleString()} XAF</p>
                     </div>
                   )}
                   <div>
                     <label className="block text-sm font-medium text-gray-700">{t('products.form.latestCostPrice', 'Latest Cost Price')}</label>
-                    <p className="mt-1 text-sm text-gray-900">{formatPrice(getLatestCostPrice(detailProduct?.id || '', Array.isArray(stockChanges) ? stockChanges : []) ?? 0)} XAF</p>
+                    <p className="mt-1 text-sm text-gray-900">{getLatestCostPrice(detailProduct?.id || '', Array.isArray(stockChanges) ? (stockChanges as StockChange[]) : [])?.toLocaleString() || '0'} XAF</p>
                   </div>
                 </div>
               </div>
@@ -2730,38 +3176,16 @@ const Products = () => {
                 <div>
                   <label className="block text-sm font-medium text-gray-700">{t('products.table.columns.stock')}</label>
                   <div className="mt-1">
-                    {(() => {
-                      if (!detailProduct) return <Badge variant="error">0 units</Badge>;
-                      
-                      // Show skeleton while batches are loading
-                      if (batchesLoading) {
-                        return (
-                          <div className="inline-flex items-center px-2.5 py-0.5 rounded-full animate-pulse">
-                            <div className="h-4 w-20 bg-gray-200 rounded-full"></div>
-                          </div>
-                        );
-                      }
-                      
-                      const stockInfo = getProductStockFromBatches(detailProduct.id);
-                      const hasBatches = batchesByProduct.has(detailProduct.id);
-                      const remaining = hasBatches ? stockInfo.remaining : 0;
-                      const total = hasBatches ? stockInfo.total : 0;
-                      const displayText = hasBatches 
-                        ? `${formatNumber(remaining)} / ${formatNumber(total)} units`
-                        : '0 units';
-                      return (
-                        <Badge variant={remaining > 10 ? 'success' : remaining > 5 ? 'warning' : 'error'}>
-                          {displayText}
-                        </Badge>
-                      );
-                    })()}
+                    <Badge variant={detailProduct && detailProduct.stock > 10 ? 'success' : detailProduct && detailProduct.stock > 5 ? 'warning' : 'error'}>
+                      {detailProduct?.stock || 0} units
+                    </Badge>
                   </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">{t('products.detailTabs.profitPerUnit', 'Profit per Unit')}</label>
                   <p className="mt-1 text-sm font-semibold text-emerald-600">
-                    {detailProduct && getLatestCostPrice(detailProduct.id, Array.isArray(stockChanges) ? stockChanges : []) !== undefined
-? formatPrice(detailProduct.sellingPrice - (getLatestCostPrice(detailProduct.id, Array.isArray(stockChanges) ? stockChanges : []) || 0))
+                    {detailProduct && getLatestCostPrice(detailProduct.id, Array.isArray(stockChanges) ? (stockChanges as StockChange[]) : []) !== undefined
+? (detailProduct.sellingPrice - (getLatestCostPrice(detailProduct.id, Array.isArray(stockChanges) ? (stockChanges as StockChange[]) : []) || 0)).toLocaleString()
                       : '-'
                     } XAF
                   </p>
@@ -2769,17 +3193,10 @@ const Products = () => {
                 <div>
                   <label className="block text-sm font-medium text-gray-700">{t('products.detailTabs.totalValue', 'Total Stock Value')}</label>
                   <p className="mt-1 text-sm text-gray-900">
-                    {(() => {
-                      if (!detailProduct) return '0 XAF';
-                      const stockInfo = getProductStockFromBatches(detailProduct.id);
-                      const hasBatches = batchesByProduct.has(detailProduct.id);
-                      const remaining = hasBatches ? stockInfo.remaining : 0;
-                      const costPrice = getLatestCostPrice(detailProduct.id, Array.isArray(stockChanges) ? stockChanges : []);
-                      if (costPrice !== undefined && remaining > 0) {
-                        return formatPrice(costPrice * remaining) + ' XAF';
-                      }
-                      return '0 XAF';
-                    })()}
+                    {detailProduct && getLatestCostPrice(detailProduct.id, Array.isArray(stockChanges) ? (stockChanges as StockChange[]) : []) !== undefined
+? ((getLatestCostPrice(detailProduct.id, Array.isArray(stockChanges) ? (stockChanges as StockChange[]) : []) || 0) * detailProduct.stock).toLocaleString()
+                      : '0'
+                    } XAF
                   </p>
                 </div>
               </div>
@@ -2871,26 +3288,26 @@ const Products = () => {
             {/* Stock History Table */}
             {(() => {
               // Filter stock changes for this product
-              let filteredStockChanges = stockChanges.filter(sc => sc.productId === detailProduct?.id);
+              let filteredStockChanges = (stockChanges as StockChange[]).filter((sc: StockChange) => sc.productId === detailProduct?.id);
               
               // Apply type filter
               if (stockHistoryFilterType) {
-                filteredStockChanges = filteredStockChanges.filter(sc => sc.reason === stockHistoryFilterType);
+                filteredStockChanges = filteredStockChanges.filter((sc: StockChange) => sc.reason === stockHistoryFilterType);
               }
               
               // Apply supplier filter
               if (stockHistoryFilterSupplier) {
                 if (stockHistoryFilterSupplier === 'ownPurchase') {
-                  filteredStockChanges = filteredStockChanges.filter(sc => sc.isOwnPurchase);
+                  filteredStockChanges = filteredStockChanges.filter((sc: StockChange) => sc.isOwnPurchase);
                 } else {
-                  filteredStockChanges = filteredStockChanges.filter(sc => sc.supplierId === stockHistoryFilterSupplier);
+                  filteredStockChanges = filteredStockChanges.filter((sc: StockChange) => sc.supplierId === stockHistoryFilterSupplier);
                 }
               }
               
               // Apply search filter
               if (stockHistorySearch) {
                 const searchLower = stockHistorySearch.toLowerCase();
-                filteredStockChanges = filteredStockChanges.filter(sc => {
+                filteredStockChanges = filteredStockChanges.filter((sc: StockChange) => {
                   const supplier = sc.supplierId ? suppliers.find(s => s.id === sc.supplierId) : null;
                   return (
                     sc.reason.toLowerCase().includes(searchLower) ||
@@ -2900,7 +3317,7 @@ const Products = () => {
               }
               
               // Sort stock changes
-              filteredStockChanges.sort((a, b) => {
+              filteredStockChanges.sort((a: StockChange, b: StockChange) => {
                 let aValue: number | string, bValue: number | string;
                 
                 switch (stockHistorySortBy) {
@@ -3006,7 +3423,7 @@ const Products = () => {
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {paginatedStockChanges.map((stockChange) => {
+                        {paginatedStockChanges.map((stockChange: StockChange) => {
                           const supplier = stockChange.supplierId ? suppliers.find(s => s.id === stockChange.supplierId) : null;
                           return (
                             <tr key={stockChange.id} className="hover:bg-gray-50">
@@ -3046,7 +3463,7 @@ const Products = () => {
                                 )}
                               </td>
                               <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                                {stockChange.costPrice ? formatPrice(stockChange.costPrice) : '-'} XAF
+                                {stockChange.costPrice ? stockChange.costPrice.toLocaleString() : '-'} XAF
                               </td>
                             </tr>
                           );

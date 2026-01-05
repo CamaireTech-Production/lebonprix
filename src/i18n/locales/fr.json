@@ -39,6 +39,7 @@
     "close": "Fermer",
     "phone": "Téléphone",
     "email": "Email",
+    "mustBeGreaterThanZero": "doit être supérieur à zéro",
     "all": "Tous"
   },
   "auth": {
@@ -796,6 +797,7 @@
       },
       "warnings": {
         "requiredFields": "Veuillez remplir tous les champs obligatoires.",
+        "pleaseFillRequiredFields": "Veuillez remplir tous les champs obligatoires.",
         "mapField": "Veuillez mapper le champ '{{field}}'.",
         "emptyMapping": "Le champ '{{field}}' ne peut pas être mappé à partir d'une colonne CSV vide.",
         "missingName": "Nom de produit manquant dans une ligne.",

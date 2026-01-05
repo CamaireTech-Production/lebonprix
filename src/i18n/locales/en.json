@@ -36,7 +36,8 @@
     "confirm": "Confirm",
     "close": "Close",
     "phone": "Phone",
-    "email": "Email"
+    "email": "Email",
+    "mustBeGreaterThanZero": "must be greater than zero"
   },
   "auth": {
     "login": "Login",
@@ -776,6 +777,7 @@
       },
       "warnings": {
         "requiredFields": "Please fill in all required fields",
+        "pleaseFillRequiredFields": "Please fill in all required fields",
         "positiveQuantity": "Quantity must be positive",
         "nonNegativeStock": "Stock cannot be negative",
         "noStockChange": "No stock change detected",
