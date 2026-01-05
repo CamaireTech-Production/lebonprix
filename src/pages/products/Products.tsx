@@ -1,40 +1,31 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Grid, List, Plus, Search, Edit2, Upload, Trash2, CheckSquare, Square, Info, Eye, EyeOff, QrCode, ExternalLink } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useLocation } from 'react-router-dom';
-import Card from '../components/common/Card';
-import Button from '../components/common/Button';
-import Badge from '../components/common/Badge';
-import Modal, { ModalFooter } from '../components/common/Modal';
-import Input from '../components/common/Input';
-import { useProducts, useStockChanges, useCategories, useSuppliers } from '../hooks/useFirestore';
-import { useInfiniteProducts } from '../hooks/useInfiniteProducts';
-import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
-import { useAllStockBatches } from '../hooks/useStockBatches';
-import { createSupplier, recalculateCategoryProductCounts, correctBatchCostPrice } from '../services/firestore';
-import { useAuth } from '../contexts/AuthContext';
-import { getCurrentEmployeeRef } from '../utils/employeeUtils';
-import { getUserById } from '../services/userService';
-import { FirebaseStorageService } from '../services/firebaseStorageService';
-import { ImageWithSkeleton } from '../components/common/ImageWithSkeleton';
-import LoadingScreen from '../components/common/LoadingScreen';
-import SyncIndicator from '../components/common/SyncIndicator';
-import { showSuccessToast, showErrorToast, showWarningToast } from '../utils/toast';
+import { Card, Button, Badge, Modal, ModalFooter, Input, ImageWithSkeleton, LoadingScreen, SyncIndicator } from '@components/common';
+import { useProducts, useStockChanges, useCategories, useSuppliers } from '@hooks/data/useFirestore';
+import { useInfiniteProducts } from '@hooks/data/useInfiniteProducts';
+import { useInfiniteScroll } from '@hooks/data/useInfiniteScroll';
+import { useAllStockBatches } from '@hooks/business/useStockBatches';
+import { createSupplier } from '@services/firestore/suppliers/supplierService';
+import { recalculateCategoryProductCounts } from '@services/firestore/categories/categoryService';
+import { correctBatchCostPrice } from '@services/firestore/stock/stockService';
+import { useAuth } from '@contexts/AuthContext';
+import { getCurrentEmployeeRef, formatCreatorName } from '@utils/business/employeeUtils';
+import { getUserById } from '@services/utilities/userService';
+import { FirebaseStorageService } from '@services/core/firebaseStorage';
+import { showSuccessToast, showErrorToast, showWarningToast } from '@utils/core/toast';
 import imageCompression from 'browser-image-compression';
 import * as Papa from 'papaparse';
-import type { Product, ProductTag, StockChange } from '../types/models';
+import type { Product, ProductTag, StockChange } from '../../types/models';
 import type { ParseResult } from 'papaparse';
-import { getLatestCostPrice} from '../utils/productUtils';
-import { formatCreatorName } from '../utils/employeeUtils';
-import { 
-  getProductBatchesForAdjustment,
-  adjustBatchWithDebtManagement
-} from '../services/stockAdjustments';
-import type { StockBatch } from '../types/models';
-import CostPriceCarousel from '../components/products/CostPriceCarousel';
-import ProductTagsManager from '../components/products/ProductTagsManager';
-import CategorySelector from '../components/products/CategorySelector';
-import BarcodeGenerator from '../components/products/BarcodeGenerator';
+import { getLatestCostPrice} from '@utils/business/productUtils';
+import { getProductBatchesForAdjustment } from '@services/firestore/stock/stockService';
+import type { StockBatch } from '../../types/models';
+import CostPriceCarousel from '../../components/products/CostPriceCarousel';
+import ProductTagsManager from '../../components/products/ProductTagsManager';
+import CategorySelector from '../../components/products/CategorySelector';
+import BarcodeGenerator from '../../components/products/BarcodeGenerator';
 
 interface CsvRow {
   [key: string]: string;
@@ -481,8 +472,8 @@ const Products = () => {
             tempId
           );
           
-          imageUrls = uploadResults.map(result => result.url);
-          imagePaths = uploadResults.map(result => result.path);
+          imageUrls = uploadResults.map((result: { url: string; path: string }) => result.url);
+          imagePaths = uploadResults.map((result: { url: string; path: string }) => result.path);
         } catch (error) {
           console.error('Error uploading images:', error);
           showErrorToast('Image upload failed');
@@ -704,7 +695,7 @@ const Products = () => {
 
   const handleBatchSelection = (batchId: string) => {
     setSelectedBatchId(batchId);
-    const batch = availableBatches.find(b => b.id === batchId);
+    const batch = availableBatches.find((b: StockBatch) => b.id === batchId);
     if (batch) {
       setSelectedBatch(batch);
       
@@ -1202,12 +1193,12 @@ const Products = () => {
   // Migration: create initial StockChange for products with stock > 0 and no StockChange
   useEffect(() => {
     if (!infiniteProducts?.length || !stockChanges?.length || !user?.uid) return;
-    infiniteProducts.forEach(async (product) => {
+    infiniteProducts.forEach(async (product: Product) => {
       const hasStockChange = (stockChanges as StockChange[]).some((sc: StockChange) => sc.productId === product.id);
-      if (product.stock > 0 && !hasStockChange) {
+      if ((product.stock ?? 0) > 0 && !hasStockChange) {
         // Create an initial adjustment with 'creation' reason
         try {
-          await updateProductData(product.id, { stock: product.stock }, 'creation', product.stock);
+          await updateProductData(product.id, { stock: product.stock ?? 0 }, 'creation', product.stock ?? 0);
         } catch (e) { console.error(`Failed to create initial stock for ${product.id}:`, e) }
       }
     });
@@ -1226,7 +1217,7 @@ const Products = () => {
         
         // Only remove overrides when the server data actually matches our override
         Object.keys(newOverrides).forEach(productId => {
-          const product = infiniteProducts.find(p => p.id === productId);
+          const product = infiniteProducts.find((p: Product) => p.id === productId);
           if (product && product.isVisible === newOverrides[productId]) {
             // Server data now matches our override, so we can remove it
             console.log('Cleaning up override for product:', productId, 'server data matches override');
@@ -1275,7 +1266,7 @@ const Products = () => {
     try {
       setIsDeleting(true);
       for (const id of selectedProducts) {
-        const product = infiniteProducts.find(p => p.id === id);
+        const product = infiniteProducts.find((p: Product) => p.id === id);
         if (!product) continue;
         const safeProduct = {
           ...product,
@@ -1415,7 +1406,7 @@ const Products = () => {
 
   // Helper function to get batches for a specific product
   const getProductBatches = (productId: string): StockBatch[] => {
-    return allStockBatches.filter(batch => batch.productId === productId);
+    return allStockBatches.filter((batch: StockBatch) => batch.productId === productId);
   };
 
   // Helper function to get the effective visibility state (considering optimistic updates)
@@ -1537,7 +1528,7 @@ const Products = () => {
         // Prefer supplierName if present
         let supplier: Awaited<ReturnType<typeof createSupplier>> | undefined = undefined;
         if (supplierName) {
-          supplier = suppliers.find(s => s.name.toLowerCase() === supplierName.toLowerCase());
+          supplier = suppliers.find((s: { name: string; id: string }) => s.name.toLowerCase() === supplierName.toLowerCase());
           if (!supplier) {
             supplier = await createSupplier({
               name: supplierName,
@@ -1548,7 +1539,7 @@ const Products = () => {
           }
           finalSupplierId = supplier.id;
         } else if (finalSupplierId) {
-          supplier = suppliers.find(s => s.id === finalSupplierId);
+          supplier = suppliers.find((s: { id: string }) => s.id === finalSupplierId);
           if (!supplier) {
             supplier = await createSupplier({
               name: finalSupplierId,
@@ -1700,7 +1691,7 @@ const Products = () => {
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
           >
-            {categories.map(category => (
+            {categories.map((category: string) => (
               <option key={category} value={category}>{category}</option>
             ))}
           </select>
@@ -1774,7 +1765,7 @@ const Products = () => {
                 <div
                   className="flex items-center gap-1 px-2 py-2 bg-white border-b border-gray-100 overflow-x-auto custom-scrollbar"
                 >
-                  {(product.images ?? []).map((img, idx) => (
+                  {(product.images ?? []).map((img: string, idx: number) => (
                     <div
                       key={idx}
                       onClick={() => handleSetMainImage(product.id, idx)}
@@ -1814,8 +1805,8 @@ const Products = () => {
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">{t('products.table.columns.stock')}:</span>
-                      <Badge variant={product.stock > 10 ? 'success' : product.stock > 5 ? 'warning' : 'error'}>
-                        {product.stock} units
+                      <Badge variant={(product.stock ?? 0) > 10 ? 'success' : (product.stock ?? 0) > 5 ? 'warning' : 'error'}>
+                        {product.stock ?? 0} units
                       </Badge>
                     </div>
                   </div>
@@ -1985,8 +1976,8 @@ const Products = () => {
                       <div className="text-sm text-emerald-600 font-medium">{product.sellingPrice.toLocaleString()} XAF</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <Badge variant={product.stock > 10 ? 'success' : product.stock > 5 ? 'warning' : 'error'}>
-                        {product.stock} units
+                      <Badge variant={(product.stock ?? 0) > 10 ? 'success' : (product.stock ?? 0) > 5 ? 'warning' : 'error'}>
+                        {product.stock ?? 0} units
                       </Badge>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -2129,7 +2120,7 @@ const Products = () => {
             </label>
             <CategorySelector
               value={step1Data.category}
-              onChange={(category) => setStep1Data(prev => ({ ...prev, category }))}
+              onChange={(category: string) => setStep1Data(prev => ({ ...prev, category }))}
               showImages={true}
               placeholder={t('products.form.step1.categoryPlaceholder')}
             />
@@ -2154,7 +2145,7 @@ const Products = () => {
                 )}
               </label>
               <div className="flex overflow-x-auto custom-scrollbar space-x-2 py-1">
-                    {(step1Data.images ?? []).map((img, idx) => {
+                    {(step1Data.images ?? []).map((img: File | string, idx: number) => {
                       // Handle both File objects and existing URLs
                       let imageSrc: string;
                       if (img instanceof File) {
@@ -2204,9 +2195,9 @@ const Products = () => {
           {/* Product Tags Manager */}
           <ProductTagsManager
             tags={step1Data.tags}
-            onTagsChange={(tags) => setStep1Data(prev => ({ ...prev, tags }))}
+            onTagsChange={(tags: ProductTag[]) => setStep1Data(prev => ({ ...prev, tags }))}
             images={step1Data.images
-              .map(img => typeof img === 'string' ? img : URL.createObjectURL(img))
+              .map((img: File | string) => typeof img === 'string' ? img : URL.createObjectURL(img))
               .filter((url): url is string => typeof url === 'string')
             }
           />
@@ -2293,7 +2284,7 @@ const Products = () => {
                         } shadow-sm focus:outline-none focus:ring-1 sm:text-sm px-3 py-2`}
                       >
                         <option value="">{t('common.select')}</option>
-                        {suppliers.filter(s => !s.isDeleted).map(supplier => (
+                        {suppliers.filter((s: { isDeleted?: boolean }) => !s.isDeleted).map((supplier: { id: string; name: string }) => (
                           <option key={supplier.id} value={supplier.id}>
                             {supplier.name}
                           </option>
@@ -2448,7 +2439,7 @@ const Products = () => {
               <label className="block text-sm font-medium text-gray-700 mb-1">{t('products.form.category')}</label>
               <CategorySelector
                 value={step1Data.category}
-                onChange={(category) => setStep1Data(prev => ({ ...prev, category }))}
+                onChange={(category: string) => setStep1Data(prev => ({ ...prev, category }))}
                 showImages={true}
                 placeholder={t('products.form.categoryPlaceholder')}
               />
@@ -2537,9 +2528,9 @@ const Products = () => {
             {/* Product Tags Manager */}
             <ProductTagsManager
               tags={step1Data.tags}
-              onTagsChange={(tags) => setStep1Data(prev => ({ ...prev, tags }))}
+              onTagsChange={(tags: ProductTag[]) => setStep1Data(prev => ({ ...prev, tags }))}
               images={step1Data.images
-                .map(img => typeof img === 'string' ? img : URL.createObjectURL(img))
+                .map((img: File | string) => typeof img === 'string' ? img : URL.createObjectURL(img))
                 .filter((url): url is string => typeof url === 'string')
               }
             />
@@ -2670,7 +2661,7 @@ const Products = () => {
                      </thead>
                      <tbody>
                        {history.map(sc => {
-                         const supplier = sc.supplierId ? suppliers.find(s => s.id === sc.supplierId) : null;
+                         const supplier = sc.supplierId ? suppliers.find((s: { id: string }) => s.id === sc.supplierId) : null;
                          return (
                            <tr key={sc.id} className="border-b last:border-b-0">
                              <td className="px-2 py-1">{sc.createdAt?.seconds ? new Date(sc.createdAt.seconds * 1000).toLocaleString() : ''}</td>
@@ -2741,7 +2732,7 @@ const Products = () => {
               type="number"
               min={0}
               value={editPrices.sellingPrice}
-              onChange={e => setEditPrices(p => ({ ...p, sellingPrice: e.target.value.replace(/[^0-9]/g, '') }))}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditPrices((p: typeof editPrices) => ({ ...p, sellingPrice: e.target.value.replace(/[^0-9]/g, '') }))}
               required
               helpText={t('products.form.sellingPriceHelp', 'Required: The price at which you sell this product.')}
             />
@@ -2752,7 +2743,7 @@ const Products = () => {
               type="number"
               min={0}
               value={editPrices.cataloguePrice}
-              onChange={e => setEditPrices(p => ({ ...p, cataloguePrice: e.target.value.replace(/[^0-9]/g, '') }))}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditPrices((p: typeof editPrices) => ({ ...p, cataloguePrice: e.target.value.replace(/[^0-9]/g, '') }))}
               helpText={t('products.form.cataloguePriceHelp', 'Optional: Used for reference or promotions.')}
             />
             {/* Profit/Cost Info */}
@@ -3110,7 +3101,7 @@ const Products = () => {
               <h3 className="text-lg font-semibold text-gray-900 mb-3">{t('products.form.image', 'Images')}</h3>
               {detailProduct?.images && detailProduct.images.length > 0 ? (
                 <div className="flex space-x-2 overflow-x-auto pb-2">
-                  {detailProduct.images.map((img, idx) => (
+                  {detailProduct.images.map((img: string, idx: number) => (
                     <ImageWithSkeleton
                       key={idx}
                       src={img}
@@ -3176,7 +3167,7 @@ const Products = () => {
                 <div>
                   <label className="block text-sm font-medium text-gray-700">{t('products.table.columns.stock')}</label>
                   <div className="mt-1">
-                    <Badge variant={detailProduct && detailProduct.stock > 10 ? 'success' : detailProduct && detailProduct.stock > 5 ? 'warning' : 'error'}>
+                    <Badge variant={detailProduct && (detailProduct.stock ?? 0) > 10 ? 'success' : detailProduct && (detailProduct.stock ?? 0) > 5 ? 'warning' : 'error'}>
                       {detailProduct?.stock || 0} units
                     </Badge>
                   </div>
@@ -3194,7 +3185,7 @@ const Products = () => {
                   <label className="block text-sm font-medium text-gray-700">{t('products.detailTabs.totalValue', 'Total Stock Value')}</label>
                   <p className="mt-1 text-sm text-gray-900">
                     {detailProduct && getLatestCostPrice(detailProduct.id, Array.isArray(stockChanges) ? (stockChanges as StockChange[]) : []) !== undefined
-? ((getLatestCostPrice(detailProduct.id, Array.isArray(stockChanges) ? (stockChanges as StockChange[]) : []) || 0) * detailProduct.stock).toLocaleString()
+? ((getLatestCostPrice(detailProduct.id, Array.isArray(stockChanges) ? (stockChanges as StockChange[]) : []) || 0) * (detailProduct?.stock ?? 0)).toLocaleString()
                       : '0'
                     } XAF
                   </p>
@@ -3424,7 +3415,7 @@ const Products = () => {
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
                         {paginatedStockChanges.map((stockChange: StockChange) => {
-                          const supplier = stockChange.supplierId ? suppliers.find(s => s.id === stockChange.supplierId) : null;
+                          const supplier = stockChange.supplierId ? suppliers.find((s: { id: string }) => s.id === stockChange.supplierId) : null;
                           return (
                             <tr key={stockChange.id} className="hover:bg-gray-50">
                               <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">

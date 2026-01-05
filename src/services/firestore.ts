@@ -18,9 +18,9 @@ import {
   Timestamp,
   deleteDoc
 } from 'firebase/firestore';
-import { db } from './firebase';
-import { logError, logWarning, devLog } from '../utils/logger';
-import { normalizePhoneNumber } from '../utils/phoneUtils';
+import { db } from './core/firebase';
+import { logError, logWarning, devLog } from '@utils/core/logger';
+import { normalizePhoneNumber } from '@utils/core/phoneUtils';
 import type {
   Product,
   Sale,
@@ -42,12 +42,12 @@ import type {
 } from '../types/models';
 import type { SellerSettings } from '../types/order';
 import { useState, useEffect } from 'react';
-import type { InventoryMethod } from '../utils/inventoryManagement';
+import type { InventoryMethod } from '@utils/inventory/inventoryManagement';
 import { 
   createStockBatch as createBatchUtil,
   validateStockBatch,
   type InventoryResult
-} from '../utils/inventoryManagement';
+} from '@utils/inventory/inventoryManagement';
 
 // Enhanced stock adjustment functions are defined below
 
@@ -80,11 +80,21 @@ export const createStockBatch = async (
     throw new Error(`Validation failed: ${validationErrors.join(', ')}`);
   }
 
+  // Get product to get companyId
+  const productRef = doc(db, 'products', productId);
+  const productSnap = await getDoc(productRef);
+  if (!productSnap.exists()) {
+    throw new Error('Product not found');
+  }
+  const productData = productSnap.data() as Product;
+  const companyId = productData.companyId || userId; // Fallback to userId for legacy support
+
   const batchData = createBatchUtil(
     productId,
     quantity,
     costPrice,
     userId,
+    companyId,
     supplierId,
     isOwnPurchase,
     isCredit
@@ -678,7 +688,7 @@ export const createProduct = async (
   if (
     !data.name ||
     data.sellingPrice < 0 ||
-    data.stock < 0
+    (data.stock ?? 0) < 0
   ) {
     throw new Error('Invalid product data');
   }
@@ -692,7 +702,7 @@ export const createProduct = async (
   // Generate barcode automatically if not provided
   let barCode = data.barCode;
   if (!barCode) {
-    const { generateEAN13 } = await import('./barcodeService');
+    const { generateEAN13 } = await import('./utilities/barcodeService');
     barCode = generateEAN13(productId);
   }
   
@@ -720,7 +730,7 @@ export const createProduct = async (
   batch.set(productRef, productData);
   
   // Add initial stock change and create stock batch if stock > 0
-  if (data.stock > 0) {
+  if ((data.stock ?? 0) > 0) {
     // Create stock batch if cost price is provided (including costPrice = 0)
     // Note: costPrice = 0 is valid (free products, samples), but undefined/null means no batch
     
@@ -748,7 +758,7 @@ export const createProduct = async (
       createStockChange(
         batch,
         productRef.id,
-        data.stock,
+        data.stock ?? 0,
         'creation',
         userId,
         companyId,
@@ -762,7 +772,7 @@ export const createProduct = async (
       // Create supplier debt if credit purchase
       // Force debt creation for credit purchases
       if (supplierInfo.supplierId && supplierInfo.isCredit === true && supplierInfo.isOwnPurchase === false) {
-        const debtAmount = data.stock * supplierInfo.costPrice;
+        const debtAmount = (data.stock ?? 0) * supplierInfo.costPrice;
         const debtRef = doc(collection(db, 'finances'));
         const debtData = {
           id: debtRef.id,
@@ -787,7 +797,7 @@ export const createProduct = async (
     createStockChange(
       batch, 
       productRef.id, 
-      data.stock, 
+      data.stock ?? 0, 
       'creation', 
       userId,
       companyId,
@@ -869,7 +879,7 @@ export const updateProduct = async (
   
   // Handle stock changes
   if (stockChange !== undefined && stockReason) {
-    newStock = currentProduct.stock + stockChange;
+    newStock = (currentProduct.stock ?? 0) + stockChange;
     
     if (newStock < 0) {
       throw new Error('Stock cannot be negative');
@@ -1090,7 +1100,7 @@ export const createSale = async (
     if (productData.companyId !== companyId) {
       throw new Error(`Unauthorized to sell product ${productData.name}`);
     }
-    if (productData.stock < product.quantity) {
+    if ((productData.stock ?? 0) < product.quantity) {
       throw new Error(`Insufficient stock for product ${productData.name}`);
     }
     
@@ -1110,7 +1120,7 @@ export const createSale = async (
     let productCost = 0;
     
     // Calculate profit per batch consumption
-    const batchProfits = inventoryResult.consumedBatches.map(batch => {
+    const batchProfits = inventoryResult.consumedBatches.map((batch: { batchId: string; costPrice: number; consumedQuantity: number }) => {
       const batchProfit = (product.basePrice - batch.costPrice) * batch.consumedQuantity;
       productProfit += batchProfit;
       productCost += batch.costPrice * batch.consumedQuantity;
@@ -1144,7 +1154,7 @@ export const createSale = async (
     
     // Update product stock
     batch.update(productRef, {
-      stock: productData.stock - product.quantity,
+      stock: (productData.stock ?? 0) - product.quantity,
       updatedAt: serverTimestamp()
     });
     
@@ -1615,7 +1625,7 @@ export const getLowStockProducts = async (companyId: string, threshold?: number)
   const snapshot = await getDocs(q);
   const products = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Product[];
   
-  return products.filter(product => product.stock <= (threshold || 10));
+  return products.filter(product => (product.stock ?? 0) <= (threshold || 10));
 };
 
 export const getProductPerformance = async (companyId: string, productId: string): Promise<{
@@ -1907,7 +1917,7 @@ export const deleteSale = async (saleId: string, companyId: string): Promise<voi
     
     // Restore the stock
     batch.update(productRef, {
-      stock: productData.stock + product.quantity,
+      stock: (productData.stock ?? 0) + product.quantity,
       updatedAt: serverTimestamp()
     });
 
@@ -2796,6 +2806,9 @@ export const correctBatchCostPrice = async (
   });
   
   // Create a stock change record for the correction
+  if (!batchData.productId) {
+    throw new Error('Stock batch missing productId');
+  }
   createStockChange(
     batch,
     batchData.productId,
@@ -2912,7 +2925,7 @@ export const restockProduct = async (
   }
   
   batch.update(productRef, {
-    stock: currentProduct.stock + quantity,
+    stock: (currentProduct.stock ?? 0) + quantity,
     updatedAt: serverTimestamp()
   });
   
@@ -3016,7 +3029,7 @@ export const adjustStockManually = async (
   }
   
   batch.update(productRef, {
-    stock: currentProduct.stock + quantityChange,
+    stock: (currentProduct.stock ?? 0) + quantityChange,
     updatedAt: serverTimestamp()
   });
   
@@ -3113,7 +3126,7 @@ export const adjustStockForDamage = async (
   }
   
   batch.update(productRef, {
-    stock: currentProduct.stock - damagedQuantity,
+    stock: (currentProduct.stock ?? 0) - damagedQuantity,
     updatedAt: serverTimestamp()
   });
   
