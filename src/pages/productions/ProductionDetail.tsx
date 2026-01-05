@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Edit2, Loader2, CheckCircle2, Plus, Trash2, Package, Download, BarChart3, X, XCircle, Check } from 'lucide-react';
-import { Button, LoadingScreen, Badge } from '@components/common';
+import { Button, LoadingScreen, Badge, Modal, ModalFooter } from '@components/common';
 import { useProductions, useProductionFlows, useProductionFlowSteps, useProductionCategories, useFixedCharges } from '@hooks/data/useFirestore';
 import { useAuth } from '@contexts/AuthContext';
 import { useMatiereStocks } from '@hooks/business/useMatiereStocks';
@@ -44,6 +44,9 @@ const ProductionDetail: React.FC = () => {
   const [isDeletingProduction, setIsDeletingProduction] = useState(false);
   const [selectedFixedChargeId, setSelectedFixedChargeId] = useState<string | null>(null);
   const [isAddingFixedCharge, setIsAddingFixedCharge] = useState(false);
+  const [isDeleteProductionModalOpen, setIsDeleteProductionModalOpen] = useState(false);
+  const [isRemoveChargeModalOpen, setIsRemoveChargeModalOpen] = useState(false);
+  const [chargeToRemove, setChargeToRemove] = useState<ProductionChargeRef | null>(null);
 
   const production = useMemo(() => {
     if (!id) return null;
@@ -136,14 +139,11 @@ const ProductionDetail: React.FC = () => {
   const handleDeleteProduction = async () => {
     if (!production || !companyId) return;
 
-    if (!window.confirm(`Êtes-vous sûr de vouloir supprimer la production "${production.name}" ? Cette action est irréversible.`)) {
-      return;
-    }
-
     setIsDeletingProduction(true);
     try {
       await deleteProduction(production.id);
       showSuccessToast('Production supprimée avec succès');
+      setIsDeleteProductionModalOpen(false);
       // Navigate back to productions list
       if (isCompanyRoute) {
         navigate(`/company/${companyId}/productions`);
@@ -254,7 +254,7 @@ const ProductionDetail: React.FC = () => {
               <Button
                 variant="danger"
                 icon={<Trash2 size={16} />}
-                onClick={handleDeleteProduction}
+                onClick={() => setIsDeleteProductionModalOpen(true)}
                 isLoading={isDeletingProduction}
                 disabled={isDeletingProduction}
               >
@@ -792,38 +792,9 @@ const ProductionDetail: React.FC = () => {
                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                               <div className="flex justify-end space-x-2">
                                 <button
-                                  onClick={async () => {
-                                    if (deletingChargeId === charge.chargeId) return;
-                                    const actionLabel = charge.type === 'fixed' ? 'retirer' : 'supprimer';
-                                    const confirmMessage = charge.type === 'fixed' 
-                                      ? 'Êtes-vous sûr de vouloir retirer cette charge fixe de la production ? La charge restera disponible pour d\'autres productions.'
-                                      : 'Êtes-vous sûr de vouloir supprimer cette charge personnalisée ?';
-                                    
-                                    if (window.confirm(confirmMessage)) {
-                                      setDeletingChargeId(charge.chargeId);
-                                      try {
-                                        if (charge.type === 'fixed') {
-                                          // Remove charge from production.charges array (fixed charges are reusable)
-                                          const updatedCharges = (production.charges || []).filter(
-                                            (c: ProductionChargeRef) => c.chargeId !== charge.chargeId
-                                          );
-                                          await updateProductionData(production.id, { charges: updatedCharges });
-                                          showSuccessToast('Charge fixe retirée de la production');
-                                        } else {
-                                          // For custom charges, we can also just remove from production
-                                          // (they're production-specific, so removing from production is effectively deleting)
-                                          const updatedCharges = (production.charges || []).filter(
-                                            (c: ProductionChargeRef) => c.chargeId !== charge.chargeId
-                                          );
-                                          await updateProductionData(production.id, { charges: updatedCharges });
-                                          showSuccessToast('Charge personnalisée retirée de la production');
-                                        }
-                                      } catch (error: any) {
-                                        showErrorToast(error.message || `Erreur lors de la ${actionLabel}`);
-                                      } finally {
-                                        setDeletingChargeId(null);
-                                      }
-                                    }
+                                  onClick={() => {
+                                    setChargeToRemove(charge);
+                                    setIsRemoveChargeModalOpen(true);
                                   }}
                                   disabled={deletingChargeId === charge.chargeId}
                                   className={`${charge.type === 'fixed' ? 'text-orange-600 hover:text-orange-900' : 'text-red-600 hover:text-red-900'} ${deletingChargeId === charge.chargeId ? 'opacity-50 cursor-not-allowed' : ''}`}
@@ -1306,6 +1277,97 @@ const ProductionDetail: React.FC = () => {
           // Production will update automatically via subscription
         }}
       />
+
+      {/* Delete Production Confirmation Modal */}
+      <Modal
+        isOpen={isDeleteProductionModalOpen}
+        onClose={() => setIsDeleteProductionModalOpen(false)}
+        title="Supprimer la production"
+        footer={
+          <ModalFooter
+            onCancel={() => setIsDeleteProductionModalOpen(false)}
+            onConfirm={handleDeleteProduction}
+            confirmText="Supprimer"
+            cancelText="Annuler"
+            isLoading={isDeletingProduction}
+            isDanger
+          />
+        }
+      >
+        <div className="text-center">
+          <p className="text-gray-600 mb-4">
+            Êtes-vous sûr de vouloir supprimer la production "{production?.name}" ?
+          </p>
+          <p className="text-sm text-red-600">
+            Cette action est irréversible.
+          </p>
+        </div>
+      </Modal>
+
+      {/* Remove Charge Confirmation Modal */}
+      <Modal
+        isOpen={isRemoveChargeModalOpen}
+        onClose={() => {
+          setIsRemoveChargeModalOpen(false);
+          setChargeToRemove(null);
+        }}
+        title={chargeToRemove?.type === 'fixed' ? 'Retirer la charge fixe' : 'Supprimer la charge personnalisée'}
+        footer={
+          <ModalFooter
+            onCancel={() => {
+              setIsRemoveChargeModalOpen(false);
+              setChargeToRemove(null);
+            }}
+            onConfirm={async () => {
+              if (!chargeToRemove || !production) return;
+              
+              setDeletingChargeId(chargeToRemove.chargeId);
+              try {
+                if (chargeToRemove.type === 'fixed') {
+                  // Remove charge from production.charges array (fixed charges are reusable)
+                  const updatedCharges = (production.charges || []).filter(
+                    (c: ProductionChargeRef) => c.chargeId !== chargeToRemove.chargeId
+                  );
+                  await updateProductionData(production.id, { charges: updatedCharges });
+                  showSuccessToast('Charge fixe retirée de la production');
+                } else {
+                  // For custom charges, we can also just remove from production
+                  // (they're production-specific, so removing from production is effectively deleting)
+                  const updatedCharges = (production.charges || []).filter(
+                    (c: ProductionChargeRef) => c.chargeId !== chargeToRemove.chargeId
+                  );
+                  await updateProductionData(production.id, { charges: updatedCharges });
+                  showSuccessToast('Charge personnalisée retirée de la production');
+                }
+                setIsRemoveChargeModalOpen(false);
+                setChargeToRemove(null);
+              } catch (error: any) {
+                showErrorToast(error.message || 'Erreur lors de la suppression');
+              } finally {
+                setDeletingChargeId(null);
+              }
+            }}
+            confirmText={chargeToRemove?.type === 'fixed' ? 'Retirer' : 'Supprimer'}
+            cancelText="Annuler"
+            isLoading={deletingChargeId === chargeToRemove?.chargeId}
+            isDanger={chargeToRemove?.type !== 'fixed'}
+          />
+        }
+      >
+        <div className="text-center">
+          <p className="text-gray-600 mb-4">
+            {chargeToRemove?.type === 'fixed' 
+              ? 'Êtes-vous sûr de vouloir retirer cette charge fixe de la production ? La charge restera disponible pour d\'autres productions.'
+              : 'Êtes-vous sûr de vouloir supprimer cette charge personnalisée ?'}
+          </p>
+          {chargeToRemove && (
+            <div className="bg-gray-50 rounded-md p-3 text-left">
+              <p className="text-sm font-medium text-gray-900">{chargeToRemove.name || chargeToRemove.description}</p>
+              <p className="text-sm text-gray-600">{formatPrice(chargeToRemove.amount || 0)}</p>
+            </div>
+          )}
+        </div>
+      </Modal>
 
     </div>
   );
