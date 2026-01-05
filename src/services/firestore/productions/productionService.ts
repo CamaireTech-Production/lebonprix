@@ -18,6 +18,7 @@ import { db } from '../../core/firebase';
 import { logError } from '@utils/core/logger';
 import { createAuditLog } from '../shared';
 import { getProductionFlow } from './productionFlowService';
+import { cleanForFirestore } from '@utils/firestore/cleanData';
 
 const COLLECTION_NAME = 'productions';
 
@@ -185,7 +186,9 @@ export const createProduction = async (
     }
 
     const productionRef = doc(collection(db, COLLECTION_NAME));
-    batch.set(productionRef, productionData);
+    // Clean undefined fields before writing to Firestore
+    const cleanedProductionData = cleanForFirestore(productionData);
+    batch.set(productionRef, cleanedProductionData);
 
     // Update category count if categoryId provided
     if (data.categoryId) {
@@ -316,14 +319,9 @@ export const updateProduction = async (
       }
     }
 
-    // Remove undefined fields
-    Object.keys(updateData).forEach((key) => {
-      if (updateData[key] === undefined) {
-        delete updateData[key];
-      }
-    });
-
-    batch.update(productionRef, updateData);
+    // Clean undefined fields before writing to Firestore
+    const cleanedUpdateData = cleanForFirestore(updateData);
+    batch.update(productionRef, cleanedUpdateData);
 
     // Create audit log - use current user's ID (required by Firestore rules)
     // Get current user from auth if userId not provided
@@ -394,11 +392,12 @@ export const changeProductionStatus = async (
     const stateChange: ProductionStateChange = stateChangeData as ProductionStateChange;
 
     // Update production
-    batch.update(productionRef, {
+    const updateData = cleanForFirestore({
       status: newStatus,
       stateHistory: arrayUnion(stateChange),
       updatedAt: serverTimestamp()
     });
+    batch.update(productionRef, updateData);
 
     // Create audit log
     createAuditLog(batch, 'update', 'production', id, {
@@ -500,12 +499,13 @@ export const changeProductionState = async (
     }
 
     // Update production
-    batch.update(productionRef, {
+    const updateData = cleanForFirestore({
       currentStepId: newStepId,
       status: newStatus,
       stateHistory: arrayUnion(stateChange),
       updatedAt: serverTimestamp()
     });
+    batch.update(productionRef, updateData);
 
     // Create audit log
     createAuditLog(batch, 'update', 'production', id, {
@@ -797,7 +797,9 @@ export const publishArticle = async (
       updateData.status = 'published';
     }
 
-    updateBatch.update(productionRef, updateData);
+    // Clean undefined fields before writing to Firestore
+    const cleanedUpdateData = cleanForFirestore(updateData);
+    updateBatch.update(productionRef, cleanedUpdateData);
 
     // Create audit log
     const { getAuth } = await import('firebase/auth');
@@ -937,11 +939,12 @@ export const addArticleToProduction = async (
     // But we keep the calculatedCostPrice as is (it's for the total production)
 
     // Update production
-    batch.update(productionRef, {
+    const updateData = cleanForFirestore({
       articles: updatedArticles,
       totalArticlesQuantity: newTotalArticlesQuantity,
       updatedAt: serverTimestamp()
     });
+    batch.update(productionRef, updateData);
 
     // Create audit log
     const { getAuth } = await import('firebase/auth');
@@ -1019,16 +1022,17 @@ export const updateArticleStage = async (
       currentStepName: newStep?.name
     };
 
-    batch.update(productionRef, {
+    const updateData = cleanForFirestore({
       articles: updatedArticles,
       updatedAt: serverTimestamp()
     });
+    batch.update(productionRef, updateData);
 
     // Create audit log
     const { getAuth } = await import('firebase/auth');
     const auth = getAuth();
     const userId = auth.currentUser?.uid || production.userId;
-    createAuditLog(batch, 'update', 'production', productionId, {
+    const auditData = cleanForFirestore({
       action: 'update_article_stage',
       articleId: articleId,
       articleName: article.name,
@@ -1037,7 +1041,8 @@ export const updateArticleStage = async (
       fromStepName: oldStep?.name,
       toStepName: newStep?.name,
       note: note
-    }, userId);
+    });
+    createAuditLog(batch, 'update', 'production', productionId, auditData, userId);
 
     await batch.commit();
   } catch (error) {
@@ -1309,7 +1314,7 @@ export const publishProduction = async (
     }
 
     // Update production with all final data
-    closeBatch.update(productionRef, {
+    const finalUpdateData = cleanForFirestore({
       status: 'closed',
       isClosed: true,
       isPublished: true,
@@ -1324,6 +1329,7 @@ export const publishProduction = async (
       stateHistory: arrayUnion(finalStateChange),
       updatedAt: serverTimestamp()
     });
+    closeBatch.update(productionRef, finalUpdateData);
 
     // Create audit log
     createAuditLog(closeBatch, 'update', 'production', productionId, {

@@ -447,14 +447,22 @@ const CreateProductionModal: React.FC<CreateProductionModalProps> = ({
       // Create articles from step2_5Data
       const articles: ProductionArticle[] = step2_5Data.map((articleData, index) => {
         const articleName = getArticleName(step1Data.name.trim(), index + 1, articleData.name);
-        return {
+        const article: ProductionArticle = {
           id: articleData.id,
           name: articleName,
           quantity: articleData.quantity,
-          status: 'draft',
-          currentStepId: step2Data.currentStepId || undefined,
-          description: articleData.description || undefined
+          status: 'draft'
         };
+        
+        // Only add optional fields if they have values (avoid undefined)
+        if (step2Data.currentStepId) {
+          article.currentStepId = step2Data.currentStepId;
+        }
+        if (articleData.description && articleData.description.trim()) {
+          article.description = articleData.description.trim();
+        }
+        
+        return article;
       });
 
       // Calculate total articles quantity
