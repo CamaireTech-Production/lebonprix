@@ -138,6 +138,25 @@ const Products = () => {
     sellingPrice: '',
     cataloguePrice: '',
   });
+
+  // Field-level error states
+  const [step1Errors, setStep1Errors] = useState<Record<string, string>>({});
+  const [step2Errors, setStep2Errors] = useState<Record<string, string>>({});
+
+  // Clear errors when modals open
+  useEffect(() => {
+    if (isAddModalOpen) {
+      setStep1Errors({});
+      setStep2Errors({});
+    }
+  }, [isAddModalOpen]);
+
+  useEffect(() => {
+    if (isEditModalOpen) {
+      setStep1Errors({});
+      setStep2Errors({});
+    }
+  }, [isEditModalOpen]);
   
   // Quick add supplier state
   const [isQuickAddSupplierOpen, setIsQuickAddSupplierOpen] = useState(false);
@@ -252,6 +271,14 @@ const Products = () => {
   const handleStep1InputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setStep1Data(prev => ({ ...prev, [name]: value }));
+    // Clear error when user starts typing
+    if (step1Errors[name]) {
+      setStep1Errors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[name];
+        return newErrors;
+      });
+    }
   };
   
   const handleStep2InputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -263,6 +290,14 @@ const Products = () => {
       : value;
     
     setStep2Data(prev => ({ ...prev, [name]: filteredValue }));
+    // Clear error when user starts typing
+    if (step2Errors[name]) {
+      setStep2Errors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[name];
+        return newErrors;
+      });
+    }
   };
   
   const handleQuickSupplierInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -288,6 +323,8 @@ const Products = () => {
       sellingPrice: '',
       cataloguePrice: '',
     });
+    setStep1Errors({});
+    setStep2Errors({});
     setCurrentStep(1);
   };
 
@@ -325,23 +362,87 @@ const Products = () => {
     }
   };
 
+  const validateForm = (): boolean => {
+    const step1Errs: Record<string, string> = {};
+    const step2Errs: Record<string, string> = {};
+    let isValid = true;
+
+    // Validate Step 1
+    if (!step1Data.name || step1Data.name.trim() === '') {
+      step1Errs.name = t('products.form.step1.name') + ' ' + t('common.required');
+      isValid = false;
+    }
+
+    // Validate Step 2
+    if (!step2Data.stock || step2Data.stock.trim() === '') {
+      step2Errs.stock = t('products.form.step2.stock') + ' ' + t('common.required');
+      isValid = false;
+    } else if (parseInt(step2Data.stock) <= 0) {
+      step2Errs.stock = t('products.form.step2.stock') + ' ' + (t('common.mustBeGreaterThanZero') || 'must be greater than zero');
+      isValid = false;
+    }
+
+    if (!step2Data.stockCostPrice || step2Data.stockCostPrice.trim() === '') {
+      step2Errs.stockCostPrice = t('products.form.step2.stockCostPrice') + ' ' + t('common.required');
+      isValid = false;
+    } else if (parseFloat(step2Data.stockCostPrice) <= 0) {
+      step2Errs.stockCostPrice = t('products.form.step2.stockCostPrice') + ' ' + (t('common.mustBeGreaterThanZero') || 'must be greater than zero');
+      isValid = false;
+    }
+
+    if (!step2Data.sellingPrice || step2Data.sellingPrice.trim() === '') {
+      step2Errs.sellingPrice = t('products.form.step2.sellingPrice') + ' ' + t('common.required');
+      isValid = false;
+    } else if (parseFloat(step2Data.sellingPrice) <= 0) {
+      step2Errs.sellingPrice = t('products.form.step2.sellingPrice') + ' ' + (t('common.mustBeGreaterThanZero') || 'must be greater than zero');
+      isValid = false;
+    }
+
+    if (step2Data.supplyType === 'fromSupplier' && (!step2Data.supplierId || step2Data.supplierId.trim() === '')) {
+      step2Errs.supplierId = t('products.form.step2.supplier') + ' ' + t('common.required');
+      isValid = false;
+    }
+
+    setStep1Errors(step1Errs);
+    setStep2Errors(step2Errs);
+
+    // If there are errors, show a general message and scroll to first error
+    if (!isValid) {
+      const firstErrorField = Object.keys(step1Errs)[0] || Object.keys(step2Errs)[0];
+      if (firstErrorField) {
+        // If error is in step 2, switch to step 2
+        if (step2Errs[firstErrorField]) {
+          setCurrentStep(2);
+          setTimeout(() => {
+            const element = document.querySelector(`[name="${firstErrorField}"]`);
+            if (element) {
+              element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              (element as HTMLElement).focus();
+            }
+          }, 100);
+        } else {
+          // Error is in step 1
+          setCurrentStep(1);
+          setTimeout(() => {
+            const element = document.querySelector(`[name="${firstErrorField}"]`);
+            if (element) {
+              element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              (element as HTMLElement).focus();
+            }
+          }, 100);
+        }
+      }
+      showWarningToast(t('products.messages.warnings.pleaseFillRequiredFields') || t('products.messages.warnings.requiredFields'));
+    }
+
+    return isValid;
+  };
+
   const handleAddProduct = async () => {
     if (!user?.uid) return;
     
-    // Validate step 1 data
-    if (!step1Data.name) {
-      showWarningToast(t('products.messages.warnings.requiredFields'));
-      return;
-    }
-    
-    // Validate step 2 data
-    if (!step2Data.stock || parseInt(step2Data.stock) <= 0 || !step2Data.stockCostPrice || !step2Data.sellingPrice) {
-      showWarningToast(t('products.messages.warnings.requiredFields'));
-      return;
-    }
-    
-    if (step2Data.supplyType === 'fromSupplier' && !step2Data.supplierId) {
-      showWarningToast(t('products.form.step2.supplierRequired'));
+    // Validate form with specific field errors
+    if (!validateForm()) {
       return;
     }
     
@@ -490,11 +591,24 @@ const Products = () => {
   // Step navigation functions
   const nextStep = () => {
     if (currentStep === 1) {
-      // Validate step 1
-      if (!step1Data.name) {
-      showWarningToast(t('products.messages.warnings.requiredFields'));
-      return;
-    }
+      // Validate step 1 with specific field errors
+      const step1Errs: Record<string, string> = {};
+      if (!step1Data.name || step1Data.name.trim() === '') {
+        step1Errs.name = t('products.form.step1.name') + ' ' + t('common.required');
+        setStep1Errors(step1Errs);
+        showWarningToast(t('products.messages.warnings.pleaseFillRequiredFields') || t('products.messages.warnings.requiredFields'));
+        // Scroll to and focus the error field
+        setTimeout(() => {
+          const element = document.querySelector(`[name="name"]`);
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            (element as HTMLElement).focus();
+          }
+        }, 100);
+        return;
+      }
+      // Clear any previous errors if validation passes
+      setStep1Errors({});
       setCurrentStep(2);
     }
   };
@@ -858,14 +972,45 @@ const Products = () => {
     setStockAdjustment('');
   };
   
+  const validateEditForm = (): boolean => {
+    const step1Errs: Record<string, string> = {};
+    let isValid = true;
+
+    // Validate Step 1 (name is required for edit)
+    if (!step1Data.name || step1Data.name.trim() === '') {
+      step1Errs.name = t('products.form.step1.name') + ' ' + t('common.required');
+      isValid = false;
+    }
+
+    setStep1Errors(step1Errs);
+
+    if (!isValid) {
+      const firstErrorField = Object.keys(step1Errs)[0];
+      if (firstErrorField) {
+        setTimeout(() => {
+          const element = document.querySelector(`[name="${firstErrorField}"]`);
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            (element as HTMLElement).focus();
+          }
+        }, 100);
+      }
+      showWarningToast(t('products.messages.warnings.pleaseFillRequiredFields') || t('products.messages.warnings.requiredFields'));
+    }
+
+    return isValid;
+  };
+
   const handleEditProduct = async () => {
     if (!currentProduct || !user?.uid) {
       return;
     }
-    if (!step1Data.name) {
-      showWarningToast(t('products.messages.warnings.requiredFields'));
+    
+    // Validate form with specific field errors
+    if (!validateEditForm()) {
       return;
     }
+    
     setIsSubmitting(true);
     const safeProduct = {
       ...currentProduct,
@@ -1945,8 +2090,9 @@ const Products = () => {
           <Input
             label={t('products.form.step1.name')}
             name="name"
-                value={step1Data.name}
-                onChange={handleStep1InputChange}
+            value={step1Data.name}
+            onChange={handleStep1InputChange}
+            error={step1Errors.name}
             required
           />
           
@@ -2091,6 +2237,7 @@ const Products = () => {
                 type="number"
                 value={step2Data.stock}
                 onChange={handleStep2InputChange}
+                error={step2Errors.stock}
                 required
               />
               
@@ -2121,7 +2268,9 @@ const Products = () => {
                         name="supplierId"
                         value={step2Data.supplierId}
                         onChange={handleStep2InputChange}
-                        className="flex-1 rounded-md border border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm px-3 py-2"
+                        className={`flex-1 rounded-md border ${
+                          step2Errors.supplierId ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-emerald-500 focus:ring-emerald-500'
+                        } shadow-sm focus:outline-none focus:ring-1 sm:text-sm px-3 py-2`}
                       >
                         <option value="">{t('common.select')}</option>
                         {suppliers.filter(s => !s.isDeleted).map(supplier => (
@@ -2138,6 +2287,9 @@ const Products = () => {
                         {t('products.actions.addSupplier')}
                       </Button>
                     </div>
+                    {step2Errors.supplierId && (
+                      <p className="mt-1 text-sm text-red-500">{step2Errors.supplierId}</p>
+                    )}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -2163,7 +2315,8 @@ const Products = () => {
                 type="number"
                 value={step2Data.stockCostPrice}
                 onChange={handleStep2InputChange}
-                helpText={t('products.form.step2.stockCostPriceHelp')}
+                error={step2Errors.stockCostPrice}
+                helpText={step2Errors.stockCostPrice ? undefined : t('products.form.step2.stockCostPriceHelp')}
                 required
               />
               <Input
@@ -2172,7 +2325,8 @@ const Products = () => {
                 type="number"
                 value={step2Data.sellingPrice}
                 onChange={handleStep2InputChange}
-                helpText={t('products.form.step2.sellingPriceHelp')}
+                error={step2Errors.sellingPrice}
+                helpText={step2Errors.sellingPrice ? undefined : t('products.form.step2.sellingPriceHelp')}
                 required
               />
               <Input
@@ -2249,6 +2403,7 @@ const Products = () => {
               name="name"
               value={step1Data.name}
               onChange={handleStep1InputChange}
+              error={step1Errors.name}
             required
           />
             {/* Reference */}
