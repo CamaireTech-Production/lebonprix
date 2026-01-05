@@ -356,6 +356,22 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
     try {
       setIsPrinting(true);
 
+      // Calculate discount amount
+      let discountAmount = 0;
+      if (discountValue) {
+        const discountNum = parseFloat(discountValue);
+        if (discountType === 'percentage') {
+          // Calculate percentage discount
+          discountAmount = (subtotal * discountNum) / 100;
+        } else {
+          // Fixed amount discount
+          discountAmount = discountNum;
+        }
+      }
+
+      // Calculate tax amount
+      const taxAmount = tax ? parseFloat(tax) : 0;
+
       // Build temporary sale object from cart
       const tempSale = {
         id: `temp-${Date.now()}`,
@@ -365,13 +381,16 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
           basePrice: item.product.sellingPrice,
           negotiatedPrice: item.negotiatedPrice ?? item.product.sellingPrice,
         })),
-        totalAmount: subtotal + deliveryFee - (discountValue ? parseFloat(discountValue) : 0) + (tax ? parseFloat(tax) : 0),
+        totalAmount: subtotal + deliveryFee - discountAmount + taxAmount,
         customerInfo: {
           name: customerName || currentCustomer?.name || 'Walk-in Customer',
           phone: customerPhone || currentCustomer?.phone || '',
           quarter: customerQuarter || currentCustomer?.quarter || '',
         },
         deliveryFee: deliveryFee,
+        discountType: discountType,
+        discountValue: discountAmount,
+        tax: taxAmount,
         createdAt: { seconds: Math.floor(new Date(saleDate).getTime() / 1000), nanoseconds: 0 },
       };
 
