@@ -16,9 +16,10 @@ import {
   ChartOptions
 } from 'chart.js';
 import Card from '../../components/common/Card';
-import { useInfiniteExpenses } from '../../hooks/useInfiniteExpenses';
-import { useExpenseStats, ExpenseFilterOptions } from '../../hooks/useExpenseStats';
-import { useExpenseCategories } from '../../hooks/useExpenseCategories';
+import { useInfiniteExpenses } from '@hooks/data/useInfiniteExpenses';
+import { useExpenseStats, ExpenseFilterOptions } from '@hooks/business/useExpenseStats';
+import { useExpenseCategories } from '@hooks/business/useExpenseCategories';
+import type { Expense, ExpenseType } from '../../types/models';
 import ExpenseFiltersComponent from './shared/ExpenseFilters';
 import LoadingScreen from '../../components/common/LoadingScreen';
 
@@ -48,7 +49,7 @@ const ExpensesAnalytics = () => {
   });
 
   // Filter expenses
-  const visibleExpenses = expenses.filter(exp => exp.isAvailable !== false);
+  const visibleExpenses = expenses.filter((exp: Expense) => exp.isAvailable !== false);
   
   const filters: ExpenseFilterOptions = useMemo(() => ({
     category: selectedCategory !== 'All' ? selectedCategory : undefined,
@@ -62,7 +63,7 @@ const ExpensesAnalytics = () => {
   const barChartData = useMemo(() => {
     const sortedCategories = [...stats.categoryBreakdown].sort((a, b) => b.totalAmount - a.totalAmount);
     return {
-      labels: sortedCategories.map(item => {
+      labels: sortedCategories.map((item: { category: string; totalAmount: number }) => {
         const defaultCategories = ['transportation', 'purchase', 'other'];
         const isDefault = defaultCategories.includes(item.category);
         return isDefault ? t(`expenses.categories.${item.category}`, item.category) : item.category;
@@ -93,13 +94,13 @@ const ExpensesAnalytics = () => {
 
   const pieChartData = useMemo(() => {
     return {
-      labels: stats.categoryBreakdown.map(item => {
+      labels: stats.categoryBreakdown.map((item: { category: string; totalAmount: number }) => {
         const defaultCategories = ['transportation', 'purchase', 'other'];
         const isDefault = defaultCategories.includes(item.category);
         return isDefault ? t(`expenses.categories.${item.category}`, item.category) : item.category;
       }),
       datasets: [{
-        data: stats.categoryBreakdown.map(item => item.totalAmount),
+        data: stats.categoryBreakdown.map((item: { category: string; totalAmount: number }) => item.totalAmount),
         backgroundColor: [
           'rgba(59, 130, 246, 0.7)',
           'rgba(239, 68, 68, 0.7)',
@@ -125,7 +126,7 @@ const ExpensesAnalytics = () => {
   const lineChartData = useMemo(() => {
     const monthlyData: Record<string, number> = {};
     
-    visibleExpenses.forEach(expense => {
+    visibleExpenses.forEach((expense: Expense) => {
       const timestamp = expense.date || expense.createdAt;
       if (!timestamp?.seconds) return;
       
@@ -241,7 +242,7 @@ const ExpensesAnalytics = () => {
             onChange={(e) => setSelectedCategory(e.target.value)}
           >
             <option value="All">Toutes les catégories</option>
-            {expenseTypesList.map((category) => {
+            {expenseTypesList.map((category: ExpenseType) => {
               const defaultCategories = ['transportation', 'purchase', 'other'];
               const isDefault = defaultCategories.includes(category.name);
               const label = isDefault 

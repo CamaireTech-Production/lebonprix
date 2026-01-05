@@ -39,7 +39,8 @@
     "close": "Fermer",
     "phone": "Téléphone",
     "email": "Email",
-    "mustBeGreaterThanZero": "doit être supérieur à zéro"
+    "mustBeGreaterThanZero": "doit être supérieur à zéro",
+    "all": "Tous"
   },
   "auth": {
     "login": "Connexion",
@@ -71,7 +72,8 @@
     "confirmCompanyExit": "Quitter l'entreprise actuelle ?",
     "confirmCompanyExitMessage": "Vous êtes sur le point de quitter le contexte de l'entreprise actuelle pour gérer vos entreprises.",
     "confirmCompanyExitQuestion": "Êtes-vous sûr de vouloir continuer ?",
-    "currentCompany": "Entreprise actuelle"
+    "currentCompany": "Entreprise actuelle",
+    "pos": "Point de Vente"
   },
   "header": {
     "welcome": "Bienvenue",
@@ -87,6 +89,7 @@
     "title": "Tableau de bord",
     "welcome": "Bienvenue ! Voici ce qui se passe dans votre entreprise aujourd'hui.",
     "howCalculated": "Comment sont calculées ces valeurs ?",
+    "guide": "Guide",
     "viewTodayReports": "Voir les rapports d'aujourd'hui",
     "quickActions": "Actions Rapides",
     "quickActionsDescription": "Accédez rapidement aux fonctionnalités fréquemment utilisées",
@@ -108,7 +111,8 @@
       "solde": "Solde",
       "profit": "Profit",
       "expenses": "Dépenses",
-      "productsSold": "Produits vendus"
+      "productsSold": "Produits vendus",
+      "clients": "Clients"
     },
     "profit": {
       "periodSettings": "Paramètres de période de profit",
@@ -151,6 +155,24 @@
       "totalSales": "Ventes totales",
       "noData": "Aucune donnée de vente disponible"
     },
+    "salesByCategory": {
+      "title": "Ventes par catégorie de produits"
+    },
+    "expensesByCategory": {
+      "title": "Dépenses par catégorie"
+    },
+    "salesBySource": {
+      "title": "Ventes par source"
+    },
+    "salesByPaymentStatus": {
+      "title": "Ventes par statut de paiement"
+    },
+    "period": {
+      "thisYear": "Cette année",
+      "thisMonth": "Ce mois",
+      "last30Days": "30 derniers jours",
+      "custom": "Personnalisé"
+    },
     "calculations": {
       "title": "Explication des calculs du tableau de bord",
       "grossProfit": {
@@ -174,7 +196,7 @@
       "totalSalesAmount": {
         "title": "Montant total des ventes",
         "description": "Le revenu total de toutes les ventes, y compris les prix négociés.",
-        "formule": "Formule : Σ(Montant de la vente) pour chaque vente",
+        "formula": "Formule : Σ(Montant de la vente) pour chaque vente",
         "note": "Note : Si un produit a été vendu à un prix négocié, ce prix est utilisé au lieu du prix de vente standard."
       },
       "deliveryFee": {
@@ -256,6 +278,32 @@
         "objectiveUpdated": "Objectif mis à jour",
         "objectiveDeleted": "Objectif supprimé"
       }
+    },
+    "latestOrders": {
+      "title": "Dernières commandes",
+      "reference": "Référence",
+      "date": "Date",
+      "status": "Statut",
+      "client": "Client",
+      "noData": "Aucune commande récente",
+      "noClient": "Aucun client"
+    },
+    "topSales": {
+      "title": "Meilleures ventes",
+      "viewMore": "Voir plus",
+      "noData": "Aucune vente"
+    },
+    "bestClients": {
+      "title": "Meilleurs clients",
+      "viewMore": "Voir plus",
+      "noData": "Aucun client",
+      "orders": "Commandes"
+    },
+    "bestProducts": {
+      "title": "Meilleurs produits",
+      "viewAll": "Tout voir",
+      "noData": "Aucun produit",
+      "orders": "Commandes"
     },
     "makeSale": "Faire une vente"
   },
@@ -723,6 +771,12 @@
       "createdAt": "Créé le",
       "lastUpdated": "Dernière mise à jour"
     },
+    "stockHistory": {
+      "filterByType": "Filtrer par type",
+      "filterBySupplier": "Filtrer par fournisseur",
+      "searchPlaceholder": "Rechercher par raison, fournisseur...",
+      "itemsPerPage": "Éléments par page"
+    },
     "messages": {
       "productAdded": "Produit ajouté avec succès",
       "productUpdated": "Produit mis à jour avec succès",
@@ -815,6 +869,7 @@
       "location": "Localisation",
       "locationHelp": "Optionnel",
       "emailAddress": "Adresse e-mail",
+      "emailDisabledHelp": "L'email ne peut pas être modifié car il est utilisé pour des opérations critiques et les rapports.",
       "reportMail": "Email pour les rapports de vente",
       "reportMailHelp": "Adresse email vers laquelle les rapports de vente seront envoyés",
       "reportTime": "Heure de réception des rapports",
@@ -866,6 +921,99 @@
       "productStockDescription": "Stock mis à jour pour le produit XYZ",
       "newExpenseAdded": "Nouvelle dépense ajoutée",
       "newExpenseDescription": "Ajouté une dépense de livraison de 5000 XAF"
+    }
+  },
+  "site": {
+    "title": "Catalogue en ligne",
+    "subtitle": "Gérez votre catalogue en ligne",
+    "navigation": "Catalogue en ligne",
+    "tabs": {
+      "preview": "Aperçu",
+      "share": "Partager",
+      "analytics": "Analytiques",
+      "seo": "Paramètres SEO"
+    },
+    "preview": {
+      "title": "Aperçu en direct",
+      "refresh": "Actualiser",
+      "openInNewTab": "Ouvrir dans un nouvel onglet",
+      "desktop": "Ordinateur",
+      "mobile": "Mobile",
+      "previewUrl": "URL d'aperçu",
+      "loadingPreview": "Chargement de l'aperçu...",
+      "companyNotAvailable": "Informations de l'entreprise non disponibles"
+    },
+    "share": {
+      "title": "Partager votre catalogue",
+      "catalogueUrl": "URL de votre catalogue",
+      "copy": "Copier",
+      "copied": "Copié !",
+      "open": "Ouvrir",
+      "qrCode": "Code QR",
+      "qrCodeDescription": "Scannez ce code QR pour ouvrir votre catalogue sur les appareils mobiles",
+      "socialShare": "Partager sur les réseaux sociaux",
+      "whatsapp": "WhatsApp",
+      "facebook": "Facebook",
+      "twitter": "Twitter",
+      "howToShare": "Comment partager",
+      "howToShareItem1": "Copiez l'URL et collez-la n'importe où (e-mail, messages, etc.)",
+      "howToShareItem2": "Utilisez le code QR pour un partage mobile facile",
+      "howToShareItem3": "Partagez directement sur les réseaux sociaux en utilisant les boutons ci-dessus",
+      "howToShareItem4": "Le lien fonctionne sur tous les appareils et navigateurs",
+      "linkCopied": "Lien copié dans le presse-papiers !",
+      "linkCopyFailed": "Échec de la copie du lien",
+      "shareText": "Découvrez le catalogue de {{companyName}} !",
+      "companyNotAvailable": "Informations de l'entreprise non disponibles"
+    },
+    "analytics": {
+      "title": "Tableau de bord analytique",
+      "dateRange": "Plage de dates",
+      "totalViews": "Vues totales",
+      "uniqueVisitors": "Visiteurs uniques",
+      "avgViewsPerDay": "Vues moyennes/jour",
+      "popularProducts": "Produits populaires",
+      "viewsOverTime": "Vues au fil du temps",
+      "deviceTypes": "Types d'appareils",
+      "trafficSources": "Sources de trafic",
+      "noData": "Aucune donnée disponible pour la période sélectionnée",
+      "noDataAvailable": "Aucune donnée disponible",
+      "noReferrerData": "Aucune donnée de référent disponible",
+      "product": "Produit",
+      "views": "Vues",
+      "visits": "Visites",
+      "viewsLabel": "Vues",
+      "uniqueVisitorsLabel": "Visiteurs uniques",
+      "direct": "Direct"
+    },
+    "seo": {
+      "title": "Paramètres SEO",
+      "metaTitle": "Titre méta",
+      "metaTitleDescription": "Le titre qui apparaît dans les résultats des moteurs de recherche et les onglets du navigateur",
+      "metaTitlePlaceholder": "Votre Catalogue - Meilleurs Produits en Ligne",
+      "metaDescription": "Description méta",
+      "metaDescriptionDescription": "Une brève description qui apparaît dans les résultats des moteurs de recherche",
+      "metaDescriptionPlaceholder": "Découvrez notre incroyable collection de produits...",
+      "metaKeywords": "Mots-clés méta",
+      "metaKeywordsDescription": "Mots-clés qui décrivent votre catalogue (séparés par des virgules)",
+      "metaKeywordsPlaceholder": "Ajouter des mots-clés (appuyez sur Entrée pour ajouter)",
+      "ogImage": "URL de l'image Open Graph",
+      "ogImageDescription": "URL de l'image qui apparaît lors du partage sur les réseaux sociaux (recommandé : 1200x630px)",
+      "ogImagePlaceholder": "https://exemple.com/image.jpg",
+      "ogImagePreview": "Aperçu de l'image OG",
+      "twitterCard": "Type de carte Twitter",
+      "twitterCardDescription": "Comment votre catalogue apparaît lorsqu'il est partagé sur Twitter",
+      "twitterCardSummary": "Résumé",
+      "twitterCardLarge": "Résumé avec grande image",
+      "preview": "Aperçu",
+      "previewTitle": "Aperçu",
+      "save": "Enregistrer les paramètres SEO",
+      "saving": "Enregistrement...",
+      "characters": "caractères",
+      "validation": {
+        "titleTooLong": "Le titre méta doit contenir 60 caractères ou moins",
+        "descriptionTooLong": "La description méta doit contenir 160 caractères ou moins",
+        "fixErrors": "Veuillez corriger les erreurs de validation"
+      }
     }
   },
   "languages": {
@@ -1013,7 +1161,18 @@
     "categories": {
       "transportation": "Transport",
       "purchase": "Achat",
-      "other": "Autre"
+      "other": "Autre",
+      "facebook Adds": "Publicité Facebook",
+      "credit": "Crédit",
+      "Importation": "Importation",
+      "Salaire": "Salaire",
+      "Reparations": "Réparations",
+      "Internet Connexion": "Connexion Internet",
+      "Commision": "Commission",
+      "bijoux": "Bijoux",
+      "Frais de retrait": "Frais de retrait",
+      "Remboursement": "Remboursement",
+      "Marchandise": "Marchandise"
     },
     "summary": {
       "transportation": "Dépenses de transport",
@@ -1034,7 +1193,8 @@
       "manual": "Manuelle",
       "sale": "Vente",
       "expense": "Dépense",
-      "supplier": "Fournisseur"
+      "supplier": "Fournisseur",
+      "matiere": "Matière"
     },
     "types": {
       "loan": "Prêt",
@@ -1044,6 +1204,7 @@
       "debt": "Dette",
       "supplier_debt": "Dette Fournisseur",
       "supplier_refund": "Remboursement Fournisseur",
+      "matiere_purchase": "Achat Matière",
         "sortie": "Sortie",
       "other": "Entrée associée"
     },
@@ -1082,7 +1243,8 @@
       "editSupplier": "Modifier Fournisseur",
       "deleteSupplier": "Supprimer Fournisseur",
       "viewDebtHistory": "Voir Historique Dettes",
-      "addRefund": "Ajouter Remboursement"
+      "addRefund": "Ajouter Remboursement",
+      "addDebt": "Ajouter Dette"
     },
     "form": {
       "name": "Nom du Fournisseur",
@@ -1148,6 +1310,16 @@
       "refundExceeds": "Le montant du remboursement dépasse la dette restante !",
       "success": "Remboursement ajouté avec succès",
       "error": "Échec de l'ajout du remboursement"
+    },
+    "debt": {
+      "addTitle": "Ajouter une dette",
+      "addButton": "Ajouter la dette",
+      "supplier": "Fournisseur",
+      "amount": "Montant de la dette",
+      "description": "Description",
+      "descriptionPlaceholder": "Raison de la dette (ex: Achat de marchandises, Prêt, etc.)",
+      "addSuccess": "Dette ajoutée avec succès",
+      "addError": "Erreur lors de l'ajout de la dette"
     }
   },
   "checkout": {
@@ -1350,7 +1522,9 @@
       "preparing": "En Préparation",
       "ready": "Prête",
       "delivered": "Livrée",
-      "cancelled": "Annulée"
+      "cancelled": "Annulée",
+      "commande": "Commande",
+      "paid": "Payé"
     },
     "paymentStatus": {
       "pending": "En Attente",

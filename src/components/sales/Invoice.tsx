@@ -1,8 +1,9 @@
 import { Sale, Product } from '../../types/models';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '@contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
+import { formatPrice } from '@utils/formatting/formatPrice';
 
 interface InvoiceProps {
   sale: Sale;
@@ -109,8 +110,8 @@ const Invoice = ({ sale, products }: InvoiceProps) => {
                 <tr key={index} className="border-b border-gray-100">
                   <td className="py-2 md:py-3 px-2 md:px-4 text-sm text-gray-900">{product?.name || t('invoice.products.unknown')}</td>
                   <td className="py-2 md:py-3 px-2 md:px-4 text-sm text-gray-900 text-right">{saleProduct.quantity}</td>
-                  <td className="py-2 md:py-3 px-2 md:px-4 text-sm text-gray-900 text-right">{unitPrice.toLocaleString()} XAF</td>
-                  <td className="py-2 md:py-3 px-2 md:px-4 text-sm text-gray-900 text-right">{total.toLocaleString()} XAF</td>
+                  <td className="py-2 md:py-3 px-2 md:px-4 text-sm text-gray-900 text-right">{formatPrice(unitPrice)} XAF</td>
+                  <td className="py-2 md:py-3 px-2 md:px-4 text-sm text-gray-900 text-right">{formatPrice(total)} XAF</td>
                 </tr>
               );
             })}
@@ -124,17 +125,17 @@ const Invoice = ({ sale, products }: InvoiceProps) => {
           <div className="space-y-2">
             <div className="flex justify-between text-sm md:text-base text-gray-600">
               <span>{t('invoice.summary.subtotal')}</span>
-              <span>{calculateSubtotal().toLocaleString()} XAF</span>
+              <span>{formatPrice(calculateSubtotal())} XAF</span>
             </div>
             {(sale.deliveryFee ?? 0) > 0 && (
               <div className="flex justify-between text-sm md:text-base text-gray-600">
                 <span>{t('invoice.summary.deliveryFee')}</span>
-                <span>{(sale.deliveryFee ?? 0).toLocaleString()} XAF</span>
+                <span>{formatPrice(sale.deliveryFee ?? 0)} XAF</span>
               </div>
             )}
             <div className="border-t border-gray-200 pt-2 flex justify-between font-semibold text-sm md:text-base text-gray-900">
               <span>{t('invoice.summary.total')}</span>
-              <span>{(calculateSubtotal() + (sale.deliveryFee ?? 0)).toLocaleString()} XAF</span>
+              <span>{formatPrice(calculateSubtotal() + (sale.deliveryFee ?? 0))} XAF</span>
             </div>
           </div>
         </div>

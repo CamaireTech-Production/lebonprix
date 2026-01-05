@@ -1,15 +1,17 @@
-import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, ShoppingCart, DollarSign, Package2, FileBarChart, Receipt, Settings, Users, Grid3X3, ShoppingBag, Loader2, Phone, ScanLine} from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, DollarSign, Package2, FileBarChart, Receipt, Settings, Users, ShoppingBag, Loader2, Phone, ScanLine, Warehouse, Building2, UserCheck, Factory, Globe} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
-import { useRolePermissions } from '../../hooks/useRolePermissions';
+import { useRolePermissions } from '../../hooks/business/useRolePermissions';
+import { RESOURCES } from '../../constants/resources';
+import { usePWA } from '../../hooks/usePWA';
 
 const MobileNav = () => {
   const { t } = useTranslation();
   const location = useLocation();
   const { effectiveRole, isOwner } = useAuth();
-  const { canAccess, canAccessFinance, canAccessHR, canAccessSettings, templateLoading } = useRolePermissions();
+  const { canAccess, templateLoading } = useRolePermissions();
+  const { isInstalled } = usePWA();
   
   // Vérifier si on est dans une route d'entreprise
   const isCompanyRoute = location.pathname.startsWith('/company/');
@@ -20,8 +22,11 @@ const MobileNav = () => {
   // Extraire le companyId depuis l'URL si on est dans une route d'entreprise
   const companyId = isCompanyRoute ? location.pathname.split('/')[2] : null;
   
-  // Ne pas afficher la navigation sur le dashboard employé ou si on n'a pas de companyId valide
-  if (isEmployeeDashboard || (isCompanyRoute && !companyId)) {
+  // Ne pas afficher la navigation si:
+  // - App n'est pas installée en PWA
+  // - Sur le dashboard employé
+  // - Dans une route d'entreprise sans companyId valide
+  if (!isInstalled || isEmployeeDashboard || (isCompanyRoute && !companyId)) {
     return null;
   }
   
@@ -33,7 +38,17 @@ const MobileNav = () => {
     return location.pathname === path;
   };
 
+  // Navigation items matching the Sidebar main menu items (excluding subItems)
   const navigationItems = [
+    // Mes Entreprises (only in company route)
+    ...(isCompanyRoute ? [
+      { 
+        name: 'Mes Entreprises', 
+        path: '/companies', 
+        icon: <Building2 size={20} />, 
+        resource: 'dashboard' 
+      }
+    ] : []),
     { 
       name: t('navigation.dashboard'), 
       path: isCompanyRoute ? `/company/${companyId}/dashboard` : '/', 
@@ -53,16 +68,28 @@ const MobileNav = () => {
       resource: 'sales' 
     },
     { 
+      name: t('site.navigation', 'Online Catalogue'), 
+      path: isCompanyRoute ? `/company/${companyId}/site` : '/site', 
+      icon: <Globe size={20} />, 
+      resource: 'settings' 
+    },
+    { 
       name: 'Orders', 
       path: isCompanyRoute ? `/company/${companyId}/orders` : '/orders', 
       icon: <ShoppingBag size={20} />, 
       resource: 'orders' 
     },
     { 
-      name: t('navigation.expenses'), 
+      name: 'Expenses', 
       path: isCompanyRoute ? `/company/${companyId}/expenses` : '/expenses', 
       icon: <Receipt size={20} />, 
       resource: 'expenses' 
+    },
+    { 
+      name: 'Finance', 
+      path: isCompanyRoute ? `/company/${companyId}/finance` : '/finance', 
+      icon: <DollarSign size={20} />, 
+      resource: 'finance' 
     },
     { 
       name: t('navigation.products'), 
@@ -71,16 +98,16 @@ const MobileNav = () => {
       resource: 'products' 
     },
     { 
-      name: 'Stocks', 
-      path: isCompanyRoute ? `/company/${companyId}/products/stocks` : '/products/stocks', 
-      icon: <Package2 size={20} />, 
+      name: 'Productions', 
+      path: isCompanyRoute ? `/company/${companyId}/productions` : '/productions', 
+      icon: <Factory size={20} />, 
       resource: 'products' 
     },
     { 
-      name: 'Categories', 
-      path: isCompanyRoute ? `/company/${companyId}/categories` : '/categories', 
-      icon: <Grid3X3 size={20} />, 
-      resource: 'categories' 
+      name: 'Magasin', 
+      path: isCompanyRoute ? `/company/${companyId}/magasin` : '/magasin', 
+      icon: <Warehouse size={20} />, 
+      resource: RESOURCES.MAGASIN 
     },
     { 
       name: t('navigation.suppliers'), 
@@ -95,22 +122,16 @@ const MobileNav = () => {
       resource: 'customers' 
     },
     { 
-      name: 'Sources', 
-      path: isCompanyRoute ? `/company/${companyId}/contacts/sources` : '/contacts/sources', 
-      icon: <Phone size={20} />, 
-      resource: 'customers' 
+      name: 'HR Management', 
+      path: isCompanyRoute ? `/company/${companyId}/hr` : '/hr', 
+      icon: <UserCheck size={20} />, 
+      resource: 'hr' 
     },
     { 
       name: t('navigation.reports'), 
       path: isCompanyRoute ? `/company/${companyId}/reports` : '/reports', 
       icon: <FileBarChart size={20} />, 
       resource: 'reports' 
-    },
-    { 
-      name: t('navigation.finance'), 
-      path: isCompanyRoute ? `/company/${companyId}/finance` : '/finance', 
-      icon: <DollarSign size={20} />, 
-      resource: 'finance' 
     },
     { 
       name: t('navigation.settings'), 
@@ -121,7 +142,7 @@ const MobileNav = () => {
   ];
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 md:hidden pb-safe mb-4">
+    <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 md:hidden pb-safe z-50 shadow-lg">
       <nav className="flex overflow-x-auto scrollbar-hide">
         {showTemplateLoader ? (
           <div className="flex items-center justify-center w-full py-4">
@@ -153,14 +174,14 @@ const MobileNav = () => {
               key={item.path}
               to={item.path}
               className={`
-                flex flex-col items-center py-3 px-3 text-xs flex-shrink-0 min-w-0
+                flex items-center justify-center py-3 px-4 flex-shrink-0
                 ${isActive(item.path) 
                   ? 'text-emerald-600' 
                   : 'text-gray-600 hover:text-gray-900'}
               `}
+              title={item.name}
             >
               {item.icon}
-              <span className="mt-1 truncate">{item.name}</span>
             </Link>
           );
         })

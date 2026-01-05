@@ -1,13 +1,13 @@
 import { useState, useRef, useEffect } from 'react';
-import { Link, useNavigate, useLocation, useParams } from 'react-router-dom';
+import { Link, useLocation, useParams } from 'react-router-dom';
 import { Menu, Bell, Search, User, Settings, LogOut, Users, ScanLine } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import UserAvatar from '../common/UserAvatar';
 import LanguageSwitcher from '../common/LanguageSwitcher';
-import DownloadAppButton from '../common/DownloadAppButton';
-import { PWAStatusIndicator } from '../PWAStatusIndicator';
+import { DownloadAppButton } from '../pwa';
+import { PWAStatusIndicator } from '../pwa';
 import { useTranslation } from 'react-i18next';
-import { useRolePermissions } from '../../hooks/useRolePermissions';
+import { useRolePermissions } from '../../hooks/business/useRolePermissions';
 
 interface NavbarProps {
   onMenuClick: () => void;
@@ -19,7 +19,6 @@ const Navbar = ({ onMenuClick, isSelectionMode }: NavbarProps) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { company, signOut, isOwner, effectiveRole } = useAuth();
-  const navigate = useNavigate();
   const location = useLocation();
   const { companyId } = useParams<{ companyId: string }>();
   const { canAccess } = useRolePermissions(company?.id);
@@ -100,11 +99,11 @@ const Navbar = ({ onMenuClick, isSelectionMode }: NavbarProps) => {
           {hasPOSAccess && isCompanyRoute && !isSelectionMode && (
             <Link
               to={`/company/${companyId}/pos`}
-              className="flex items-center space-x-2 px-3 py-2 rounded-md transition-colors hover:bg-gray-100 text-gray-700 hover:text-gray-900"
+              className="flex items-center space-x-2 px-3 py-2 rounded-md transition-colors bg-red-600 hover:bg-red-700 text-white font-medium"
               title={t('navigation.pos')}
             >
               <ScanLine size={18} />
-              <span className="hidden sm:inline text-sm font-medium">{t('navigation.pos')}</span>
+              <span className="hidden sm:inline text-sm">{t('navigation.pos')}</span>
             </Link>
           )}
           
@@ -114,7 +113,7 @@ const Navbar = ({ onMenuClick, isSelectionMode }: NavbarProps) => {
           <PWAStatusIndicator variant="header" />
           
           {/* Download App Button */}
-          <DownloadAppButton variant="header" />
+          <DownloadAppButton variant="header" showText={false} />
           
           <button 
             className="p-1 rounded-full text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
@@ -127,14 +126,10 @@ const Navbar = ({ onMenuClick, isSelectionMode }: NavbarProps) => {
           <div className="relative" ref={dropdownRef}>
             <button
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-              className="flex items-center space-x-3 focus:outline-none"
+              className="flex items-center focus:outline-none"
               aria-label={t('header.profile')}
             >
-              {isSelectionMode? null : <div><UserAvatar company={company} size="sm" /></div>}
-              
-              <span className="text-sm font-medium text-gray-700 hidden md:block">
-                {isSelectionMode ? "selection entreprise" : company?.name || t('header.welcome')}
-              </span>
+              {isSelectionMode ? null : <UserAvatar company={company} size="sm" />}
             </button>
 
             {isDropdownOpen && (

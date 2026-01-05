@@ -106,7 +106,8 @@
       "solde": "Balance",
       "profit": "Profit",
       "expenses": "Expenses",
-      "productsSold": "Products Sold"
+      "productsSold": "Products Sold",
+      "clients": "Clients"
     },
     "profit": {
       "periodSettings": "Profit Period Settings",
@@ -149,6 +150,24 @@
       "quantitySold": "Quantity Sold",
       "totalSales": "Total Sales",
       "noData": "No sales data available"
+    },
+    "salesByCategory": {
+      "title": "Sales by Product Category"
+    },
+    "expensesByCategory": {
+      "title": "Expenses by Category"
+    },
+    "salesBySource": {
+      "title": "Sales by Source"
+    },
+    "salesByPaymentStatus": {
+      "title": "Sales by Payment Status"
+    },
+    "period": {
+      "thisYear": "This Year",
+      "thisMonth": "This Month",
+      "last30Days": "Last 30 Days",
+      "custom": "Custom"
     },
     "calculations": {
       "title": "Dashboard Calculations Explained",
@@ -253,6 +272,15 @@
         "objectiveUpdated": "Objective updated",
         "objectiveDeleted": "Objective deleted"
       }
+    },
+    "latestOrders": {
+      "title": "Latest Orders",
+      "reference": "Reference",
+      "date": "Date",
+      "status": "Status",
+      "client": "Client",
+      "noData": "No recent orders",
+      "noClient": "No client"
     },
     "makeSale": "Make a Sale"
   },
@@ -998,6 +1026,99 @@
       "newExpenseDescription": "Added delivery expense of 5000 XAF"
     }
   },
+  "site": {
+    "title": "Online Catalogue",
+    "subtitle": "Manage your online catalogue",
+    "navigation": "Online Catalogue",
+    "tabs": {
+      "preview": "Preview",
+      "share": "Share",
+      "analytics": "Analytics",
+      "seo": "SEO Settings"
+    },
+    "preview": {
+      "title": "Live Preview",
+      "refresh": "Refresh",
+      "openInNewTab": "Open in New Tab",
+      "desktop": "Desktop",
+      "mobile": "Mobile",
+      "previewUrl": "Preview URL",
+      "loadingPreview": "Loading preview...",
+      "companyNotAvailable": "Company information not available"
+    },
+    "share": {
+      "title": "Share Your Catalogue",
+      "catalogueUrl": "Your Catalogue URL",
+      "copy": "Copy",
+      "copied": "Copied!",
+      "open": "Open",
+      "qrCode": "QR Code",
+      "qrCodeDescription": "Scan this QR code to open your catalogue on mobile devices",
+      "socialShare": "Share on Social Media",
+      "whatsapp": "WhatsApp",
+      "facebook": "Facebook",
+      "twitter": "Twitter",
+      "howToShare": "How to Share",
+      "howToShareItem1": "Copy the URL and paste it anywhere (email, messages, etc.)",
+      "howToShareItem2": "Use the QR code for easy mobile sharing",
+      "howToShareItem3": "Share directly on social media using the buttons above",
+      "howToShareItem4": "The link works on all devices and browsers",
+      "linkCopied": "Link copied to clipboard!",
+      "linkCopyFailed": "Failed to copy link",
+      "shareText": "Check out {{companyName}} catalogue!",
+      "companyNotAvailable": "Company information not available"
+    },
+    "analytics": {
+      "title": "Analytics Dashboard",
+      "dateRange": "Date Range",
+      "totalViews": "Total Views",
+      "uniqueVisitors": "Unique Visitors",
+      "avgViewsPerDay": "Avg. Views/Day",
+      "popularProducts": "Popular Products",
+      "viewsOverTime": "Views Over Time",
+      "deviceTypes": "Device Types",
+      "trafficSources": "Traffic Sources",
+      "noData": "No data available for selected period",
+      "noDataAvailable": "No data available",
+      "noReferrerData": "No referrer data available",
+      "product": "Product",
+      "views": "Views",
+      "visits": "Visits",
+      "viewsLabel": "Views",
+      "uniqueVisitorsLabel": "Unique Visitors",
+      "direct": "Direct"
+    },
+    "seo": {
+      "title": "SEO Settings",
+      "metaTitle": "Meta Title",
+      "metaTitleDescription": "The title that appears in search engine results and browser tabs",
+      "metaTitlePlaceholder": "Your Catalogue - Best Products Online",
+      "metaDescription": "Meta Description",
+      "metaDescriptionDescription": "A brief description that appears in search engine results",
+      "metaDescriptionPlaceholder": "Discover our amazing collection of products...",
+      "metaKeywords": "Meta Keywords",
+      "metaKeywordsDescription": "Keywords that describe your catalogue (comma-separated)",
+      "metaKeywordsPlaceholder": "Add keywords (press Enter to add)",
+      "ogImage": "Open Graph Image URL",
+      "ogImageDescription": "Image URL that appears when sharing on social media (recommended: 1200x630px)",
+      "ogImagePlaceholder": "https://example.com/image.jpg",
+      "ogImagePreview": "OG Image Preview",
+      "twitterCard": "Twitter Card Type",
+      "twitterCardDescription": "How your catalogue appears when shared on Twitter",
+      "twitterCardSummary": "Summary",
+      "twitterCardLarge": "Summary with Large Image",
+      "preview": "Preview",
+      "previewTitle": "Preview",
+      "save": "Save SEO Settings",
+      "saving": "Saving...",
+      "characters": "characters",
+      "validation": {
+        "titleTooLong": "Meta title should be 60 characters or less",
+        "descriptionTooLong": "Meta description should be 160 characters or less",
+        "fixErrors": "Please fix the validation errors"
+      }
+    }
+  },
   "languages": {
     "en": "English",
     "fr": "French"
@@ -1032,7 +1153,8 @@
       "manual": "Manual",
       "sale": "Sale",
       "expense": "Expense",
-      "supplier": "Supplier"
+      "supplier": "Supplier",
+      "matiere": "Material"
     },
     "types": {
       "loan": "Loan",
@@ -1042,6 +1164,7 @@
       "debt": "Debt",
       "supplier_debt": "Supplier Debt",
       "supplier_refund": "Supplier Refund",
+      "matiere_purchase": "Material Purchase",
         "sortie": "Withdrawal",
       "other": "Associated Entry"
     },
@@ -1080,7 +1203,8 @@
       "editSupplier": "Edit Supplier",
       "deleteSupplier": "Delete Supplier",
       "viewDebtHistory": "View Debt History",
-      "addRefund": "Add Refund"
+      "addRefund": "Add Refund",
+      "addDebt": "Add Debt"
     },
     "form": {
       "name": "Supplier Name",
@@ -1146,6 +1270,16 @@
       "refundExceeds": "Refund amount exceeds remaining debt!",
       "success": "Refund added successfully",
       "error": "Failed to add refund"
+    },
+    "debt": {
+      "addTitle": "Add Debt",
+      "addButton": "Add Debt",
+      "supplier": "Supplier",
+      "amount": "Debt Amount",
+      "description": "Description",
+      "descriptionPlaceholder": "Reason for debt (e.g., Purchase of goods, Loan, etc.)",
+      "addSuccess": "Debt added successfully",
+      "addError": "Error adding debt"
     }
   },
   "checkout": {
@@ -1348,7 +1482,8 @@
       "preparing": "Preparing",
       "ready": "Ready",
       "delivered": "Delivered",
-      "cancelled": "Cancelled"
+      "cancelled": "Cancelled",
+      "commande": "Order"
     },
     "paymentStatus": {
       "pending": "Pending",

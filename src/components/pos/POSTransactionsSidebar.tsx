@@ -1,12 +1,12 @@
 import React, { useMemo, useState } from 'react';
-import { useSales } from '../../hooks/useFirestore';
-import { useAuth } from '../../contexts/AuthContext';
+import { useSales } from '@hooks/data/useFirestore';
+import { useAuth } from '@contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { Clock, User, DollarSign, CheckCircle, XCircle, ChevronDown, ChevronUp, Trash2, FileText } from 'lucide-react';
-import Modal, { ModalFooter } from '../common/Modal';
-import { showSuccessToast, showErrorToast } from '../../utils/toast';
+import { Modal, ModalFooter } from '@components/common';
+import { showSuccessToast, showErrorToast } from '@utils/core/toast';
 import type { Sale, OrderStatus, PaymentStatus } from '../../types/models';
-import type { POSDraft } from '../../utils/posDraftStorage';
+import type { POSDraft } from '@utils/pos/posDraftStorage';
 
 interface POSTransactionsSidebarProps {
   onTransactionClick?: (sale: Sale) => void;
