@@ -721,10 +721,12 @@ export const createProduct = async (
   
   // Add initial stock change and create stock batch if stock > 0
   if (data.stock > 0) {
-    // Create stock batch if cost price is provided
+    // Create stock batch if cost price is provided (including costPrice = 0)
+    // Note: costPrice = 0 is valid (free products, samples), but undefined/null means no batch
     
     // Always create batch if cost price is provided (enableBatchTracking defaults to true)
-    if (supplierInfo?.costPrice) {
+    // Check for null/undefined explicitly to allow costPrice = 0
+    if (supplierInfo?.costPrice !== undefined && supplierInfo?.costPrice !== null) {
       const stockBatchRef = doc(collection(db, 'stockBatches'));
       const stockBatchData = {
         id: stockBatchRef.id,
@@ -877,7 +879,8 @@ export const updateProduct = async (
     updateFields.stock = newStock;
     
     // Handle stock batch creation for restock
-    if (stockChange > 0 && stockReason === 'restock' && supplierInfo?.costPrice) {
+    // Check for null/undefined explicitly to allow costPrice = 0
+    if (stockChange > 0 && stockReason === 'restock' && supplierInfo?.costPrice !== undefined && supplierInfo?.costPrice !== null) {
       const stockBatchRef = doc(collection(db, 'stockBatches'));
       const stockBatchData = {
         id: stockBatchRef.id,
