@@ -10,6 +10,7 @@ import { formatPrice } from '@utils/formatting/formatPrice';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
 import ChargeFormModal from '@components/productions/ChargeFormModal';
 import PublishProductionModal from '@components/productions/PublishProductionModal';
+import AddArticleModal from '@components/productions/AddArticleModal';
 import type { ProductionChargeRef } from '../../types/models';
 
 const ProductionDetail: React.FC = () => {
@@ -47,6 +48,11 @@ const ProductionDetail: React.FC = () => {
   const [isDeleteProductionModalOpen, setIsDeleteProductionModalOpen] = useState(false);
   const [isRemoveChargeModalOpen, setIsRemoveChargeModalOpen] = useState(false);
   const [chargeToRemove, setChargeToRemove] = useState<ProductionChargeRef | null>(null);
+  const [isAddArticleModalOpen, setIsAddArticleModalOpen] = useState(false);
+  const [selectedArticles, setSelectedArticles] = useState<Set<string>>(new Set());
+  const [isChangingArticleStage, setIsChangingArticleStage] = useState<string | null>(null);
+  const [isPublishingArticle, setIsPublishingArticle] = useState<string | null>(null);
+  const [isBulkPublishing, setIsBulkPublishing] = useState(false);
 
   const production = useMemo(() => {
     if (!id) return null;
@@ -159,6 +165,12 @@ const ProductionDetail: React.FC = () => {
 
   // Check if production uses flow or simple mode
   const hasFlow = production?.flowId !== undefined && production.flowId !== null;
+
+  // Get article current step
+  const getArticleCurrentStep = (article: typeof production.articles[0]) => {
+    if (!article || !article.currentStepId) return null;
+    return flowSteps.find(s => s.id === article.currentStepId) || null;
+  };
 
   if (productionsLoading) {
     return <LoadingScreen />;
@@ -294,6 +306,30 @@ const ProductionDetail: React.FC = () => {
                 rows.push('Fermé,' + escapeCSV(production.isClosed ? 'Oui' : 'Non'));
                 rows.push('Publié,' + escapeCSV(production.isPublished ? 'Oui' : 'Non'));
                 rows.push('Produit publié ID,' + escapeCSV(production.publishedProductId || ''));
+                rows.push('Total articles,' + escapeCSV(production.totalArticlesQuantity || 0));
+                rows.push('Articles publiés,' + escapeCSV(production.publishedArticlesCount || 0));
+                
+                // Articles
+                if (production.articles && production.articles.length > 0) {
+                  rows.push('');
+                  rows.push('Articles');
+                  rows.push('ID,Nom,Quantité,Statut,Étape actuelle,Produit publié ID,Date de publication,Description');
+                  production.articles.forEach((article: typeof production.articles[0]) => {
+                    const publishDate = article.publishedAt?.seconds
+                      ? new Date(article.publishedAt.seconds * 1000).toLocaleString('fr-FR')
+                      : '';
+                    rows.push([
+                      escapeCSV(article.id),
+                      escapeCSV(article.name),
+                      escapeCSV(article.quantity),
+                      escapeCSV(article.status),
+                      escapeCSV(article.currentStepName || article.currentStepId || ''),
+                      escapeCSV(article.publishedProductId || ''),
+                      escapeCSV(publishDate),
+                      escapeCSV(article.description || '')
+                    ].join(','));
+                  });
+                }
                 
                 // Materials
                 rows.push('');
@@ -408,7 +444,7 @@ const ProductionDetail: React.FC = () => {
       {showAnalytics && production && (
         <div className="bg-white rounded-lg shadow p-6 mb-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Analytics</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <div className="bg-blue-50 rounded-md p-4">
               <div className="text-sm text-blue-600 mb-1">Temps moyen par étape</div>
               <div className="text-2xl font-bold text-blue-900">
@@ -434,6 +470,78 @@ const ProductionDetail: React.FC = () => {
               </div>
             </div>
           </div>
+          
+          {/* Article Analytics */}
+          {production.articles && production.articles.length > 0 && (
+            <div className="border-t border-gray-200 pt-6">
+              <h3 className="text-md font-semibold text-gray-900 mb-4">Analytics des Articles</h3>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="bg-orange-50 rounded-md p-4">
+                  <div className="text-sm text-orange-600 mb-1">Total articles</div>
+                  <div className="text-2xl font-bold text-orange-900">
+                    {production.articles.length}
+                  </div>
+                </div>
+                <div className="bg-green-50 rounded-md p-4">
+                  <div className="text-sm text-green-600 mb-1">Articles publiés</div>
+                  <div className="text-2xl font-bold text-green-900">
+                    {production.publishedArticlesCount || 0}
+                  </div>
+                  <div className="text-xs text-green-600 mt-1">
+                    {production.articles.length > 0
+                      ? `${Math.round(((production.publishedArticlesCount || 0) / production.articles.length) * 100)}%`
+                      : '0%'}
+                  </div>
+                </div>
+                <div className="bg-blue-50 rounded-md p-4">
+                  <div className="text-sm text-blue-600 mb-1">Taux de publication</div>
+                  <div className="text-2xl font-bold text-blue-900">
+                    {production.articles.length > 0
+                      ? `${Math.round(((production.publishedArticlesCount || 0) / production.articles.length) * 100)}%`
+                      : '0%'}
+                  </div>
+                </div>
+                <div className="bg-indigo-50 rounded-md p-4">
+                  <div className="text-sm text-indigo-600 mb-1">Quantité totale</div>
+                  <div className="text-2xl font-bold text-indigo-900">
+                    {production.totalArticlesQuantity || 0}
+                  </div>
+                </div>
+              </div>
+              
+              {/* Article Progress by Status */}
+              <div className="mt-6">
+                <h4 className="text-sm font-medium text-gray-700 mb-3">Répartition par statut</h4>
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                  {['draft', 'in_progress', 'ready', 'published', 'cancelled'].map((status) => {
+                    const count = production.articles.filter((a: typeof production.articles[0]) => a.status === status).length;
+                    const percentage = production.articles.length > 0 ? (count / production.articles.length) * 100 : 0;
+                    const colors = {
+                      draft: 'bg-gray-100 text-gray-800',
+                      in_progress: 'bg-blue-100 text-blue-800',
+                      ready: 'bg-green-100 text-green-800',
+                      published: 'bg-purple-100 text-purple-800',
+                      cancelled: 'bg-red-100 text-red-800'
+                    };
+                    const labels = {
+                      draft: 'Brouillon',
+                      in_progress: 'En cours',
+                      ready: 'Prêt',
+                      published: 'Publié',
+                      cancelled: 'Annulé'
+                    };
+                    return (
+                      <div key={status} className={`rounded-md p-3 ${colors[status as keyof typeof colors]}`}>
+                        <div className="text-xs font-medium mb-1">{labels[status as keyof typeof labels]}</div>
+                        <div className="text-lg font-bold">{count}</div>
+                        <div className="text-xs opacity-75">{percentage.toFixed(0)}%</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
           {production.materials.length > 0 && (
             <div className="mt-4">
               <h3 className="text-sm font-medium text-gray-700 mb-2">Coût des matériaux par unité</h3>
@@ -556,6 +664,267 @@ const ProductionDetail: React.FC = () => {
                   </span>
                 </div>
               </div>
+            </div>
+
+            {/* Articles Section */}
+            <div className="mt-6 border-t border-gray-200 pt-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-medium text-gray-900">Articles</h3>
+                <div className="flex items-center gap-2">
+                  {!isClosed && selectedArticles.size > 0 && (
+                    <Button
+                      icon={<Package size={16} />}
+                      onClick={async () => {
+                        if (selectedArticles.size === 0 || !production) return;
+                        setIsBulkPublishing(true);
+                        try {
+                          const { bulkPublishArticles } = await import('@services/firestore/productions/productionService');
+                          
+                          // Create product data map for each article
+                          const productDataMap = new Map();
+                          const selectedArticleIds = Array.from(selectedArticles);
+                          
+                          for (const articleId of selectedArticleIds) {
+                            const article = production.articles?.find((a: typeof production.articles[0]) => a.id === articleId);
+                            if (!article) continue;
+                            
+                            // Calculate cost per article based on quantity ratio
+                            const articleCostRatio = article.quantity / (production.totalArticlesQuantity || 1);
+                            const articleCostPrice = (production.calculatedCostPrice || 0) * articleCostRatio;
+                            
+                            productDataMap.set(articleId, {
+                              name: article.name,
+                              costPrice: articleCostPrice,
+                              sellingPrice: 0, // User will need to set this - can be enhanced later
+                              stock: article.quantity,
+                              description: article.description || production.description,
+                              isVisible: true
+                            });
+                          }
+                          
+                          const results = await bulkPublishArticles(production.id, selectedArticleIds, productDataMap);
+                          showSuccessToast(`${results.length} article(s) publié(s) avec succès`);
+                          setSelectedArticles(new Set());
+                        } catch (error: any) {
+                          showErrorToast(error.message || 'Erreur lors de la publication en masse');
+                        } finally {
+                          setIsBulkPublishing(false);
+                        }
+                      }}
+                      isLoading={isBulkPublishing}
+                      disabled={isBulkPublishing}
+                      variant="secondary"
+                      size="sm"
+                    >
+                      Publier la sélection ({selectedArticles.size})
+                    </Button>
+                  )}
+                  {!isClosed && (
+                    <Button
+                      icon={<Plus size={16} />}
+                      onClick={() => setIsAddArticleModalOpen(true)}
+                      variant="secondary"
+                      size="sm"
+                    >
+                      Ajouter un article
+                    </Button>
+                  )}
+                </div>
+              </div>
+              {production.articles && production.articles.length > 0 ? (
+                <div className="space-y-3">
+                  {production.articles.map((article: typeof production.articles[0]) => {
+                    const articleStep = getArticleCurrentStep(article);
+                    const isSelected = selectedArticles.has(article.id);
+                    const canPublish = article.status === 'ready' || article.status === 'in_progress';
+                    const isPublished = article.status === 'published';
+
+                    return (
+                      <div key={article.id} className={`border rounded-md p-4 ${isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}>
+                        <div className="flex items-start gap-4">
+                          {!isClosed && !isPublished && (
+                            <div className="pt-1">
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={(e) => {
+                                  const newSelected = new Set(selectedArticles);
+                                  if (e.target.checked) {
+                                    newSelected.add(article.id);
+                                  } else {
+                                    newSelected.delete(article.id);
+                                  }
+                                  setSelectedArticles(newSelected);
+                                }}
+                                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                              />
+                            </div>
+                          )}
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center space-x-2">
+                                <h4 className="font-medium text-gray-900">{article.name}</h4>
+                                <span className={`px-2 py-1 text-xs font-semibold rounded-full flex items-center gap-1 ${
+                                  article.status === 'draft' ? 'bg-gray-100 text-gray-800' :
+                                  article.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
+                                  article.status === 'ready' ? 'bg-green-100 text-green-800' :
+                                  article.status === 'published' ? 'bg-purple-100 text-purple-800' :
+                                  'bg-red-100 text-red-800'
+                                }`}>
+                                  {article.status === 'draft' && (
+                                    <>
+                                      <div className="w-2 h-2 rounded-full bg-gray-500"></div>
+                                      Brouillon
+                                    </>
+                                  )}
+                                  {article.status === 'in_progress' && (
+                                    <>
+                                      <Loader2 className="w-3 h-3 animate-spin" />
+                                      En cours
+                                    </>
+                                  )}
+                                  {article.status === 'ready' && (
+                                    <>
+                                      <CheckCircle2 className="w-3 h-3 text-green-600" />
+                                      Prêt
+                                    </>
+                                  )}
+                                  {article.status === 'published' && (
+                                    <>
+                                      <CheckCircle2 className="w-3 h-3 text-purple-600" />
+                                      Publié
+                                    </>
+                                  )}
+                                  {article.status === 'cancelled' && (
+                                    <>
+                                      <XCircle className="w-3 h-3 text-red-600" />
+                                      Annulé
+                                    </>
+                                  )}
+                                </span>
+                              </div>
+                              {!isClosed && !isPublished && (
+                                <div className="flex items-center gap-2">
+                                  {hasFlow && (
+                                    <div className="relative">
+                                      <select
+                                        value={article.currentStepId || ''}
+                                        onChange={async (e) => {
+                                          const newStepId = e.target.value;
+                                          if (!newStepId) return;
+                                          setIsChangingArticleStage(article.id);
+                                          try {
+                                            const { updateArticleStage } = await import('@services/firestore/productions/productionService');
+                                            await updateArticleStage(production.id, article.id, newStepId);
+                                            showSuccessToast('Étape de l\'article mise à jour');
+                                          } catch (error: any) {
+                                            showErrorToast(error.message || 'Erreur lors du changement d\'étape');
+                                          } finally {
+                                            setIsChangingArticleStage(null);
+                                          }
+                                        }}
+                                        disabled={isChangingArticleStage === article.id}
+                                        className="text-sm px-3 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                                      >
+                                        <option value="">Sélectionner une étape...</option>
+                                        {availableSteps.map((step: typeof availableSteps[0]) => (
+                                          <option key={step.id} value={step.id}>
+                                            {step.name}
+                                          </option>
+                                        ))}
+                                      </select>
+                                      {isChangingArticleStage === article.id && (
+                                        <Loader2 className="absolute right-2 top-1.5 animate-spin" size={14} />
+                                      )}
+                                    </div>
+                                  )}
+                                  {canPublish && (
+                                    <Button
+                                      icon={<Package size={14} />}
+                                      onClick={async () => {
+                                        setIsPublishingArticle(article.id);
+                                        try {
+                                          const { publishArticle } = await import('@services/firestore/productions/productionService');
+                                          
+                                          // Calculate cost per article based on quantity ratio
+                                          const articleCostRatio = article.quantity / (production.totalArticlesQuantity || 1);
+                                          const articleCostPrice = (production.calculatedCostPrice || 0) * articleCostRatio;
+                                          
+                                          await publishArticle(production.id, article.id, {
+                                            name: article.name,
+                                            costPrice: articleCostPrice,
+                                            sellingPrice: 0, // User will need to set this - can be enhanced later
+                                            stock: article.quantity,
+                                            description: article.description || production.description,
+                                            isVisible: true
+                                          });
+                                          showSuccessToast('Article publié avec succès');
+                                        } catch (error: any) {
+                                          showErrorToast(error.message || 'Erreur lors de la publication');
+                                        } finally {
+                                          setIsPublishingArticle(null);
+                                        }
+                                      }}
+                                      isLoading={isPublishingArticle === article.id}
+                                      disabled={isPublishingArticle === article.id}
+                                      size="sm"
+                                      variant="secondary"
+                                    >
+                                      Publier
+                                    </Button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                            <div className="text-sm text-gray-600 space-y-1">
+                              <div>
+                                <span className="font-medium">Quantité:</span> {article.quantity} unité{article.quantity !== 1 ? 's' : ''}
+                              </div>
+                              {articleStep && (
+                                <div className="flex items-center space-x-2">
+                                  <span className="font-medium">Étape:</span>
+                                  <div className="flex items-center space-x-1">
+                                    <div
+                                      className="w-3 h-3 rounded-full"
+                                      style={{ backgroundColor: articleStep.color || '#3B82F6' }}
+                                    />
+                                    <span>{articleStep.name}</span>
+                                  </div>
+                                </div>
+                              )}
+                              {article.description && (
+                                <div>
+                                  <span className="font-medium">Description:</span> {article.description}
+                                </div>
+                              )}
+                              {isPublished && article.publishedProductId && (
+                                <div>
+                                  <span className="font-medium">Produit publié:</span>{' '}
+                                  <a
+                                    href={`/products`}
+                                    className="text-blue-600 hover:text-blue-800 underline"
+                                  >
+                                    Voir le produit
+                                  </a>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-8 bg-gray-50 rounded-md">
+                  <p className="text-gray-500 mb-2">Aucun article</p>
+                  {!isClosed && (
+                    <p className="text-sm text-gray-400">
+                      Cliquez sur "Ajouter un article" pour commencer
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
 
             {production.description && (
@@ -1276,6 +1645,16 @@ const ProductionDetail: React.FC = () => {
         onSuccess={() => {
           // Production will update automatically via subscription
         }}
+      />
+
+      <AddArticleModal
+        isOpen={isAddArticleModalOpen}
+        onClose={() => setIsAddArticleModalOpen(false)}
+        onSuccess={() => {
+          setIsAddArticleModalOpen(false);
+          // Production will be updated via subscription
+        }}
+        production={production}
       />
 
       {/* Delete Production Confirmation Modal */}

@@ -1,13 +1,14 @@
-// Publish Production Modal - Convert production to product
+// Publish Production Modal - Convert production to product (supports multi-article)
 import React, { useState, useEffect, useMemo } from 'react';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Package } from 'lucide-react';
 import { Modal, ModalFooter, PriceInput } from '@components/common';
 import { useAuth } from '@contexts/AuthContext';
 import { useProductCategories } from '@hooks/data/useFirestore';
 import { useMatiereStocks } from '@hooks/business/useMatiereStocks';
 import { showSuccessToast, showErrorToast, showWarningToast } from '@utils/core/toast';
 import { formatPrice } from '@utils/formatting/formatPrice';
-import type { Production } from '../../types/models';
+import { calculateMaterialsForArticleFromProduction } from '@utils/productions/materialCalculations';
+import type { Production, ProductionArticle } from '../../types/models';
 
 interface PublishProductionModalProps {
   isOpen: boolean;
@@ -26,6 +27,18 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
   const { categories } = useProductCategories();
   const { matiereStocks } = useMatiereStocks();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [publishMode, setPublishMode] = useState<'all' | 'selected'>('all'); // 'all' for legacy, 'selected' for articles
+  const [selectedArticles, setSelectedArticles] = useState<Set<string>>(new Set());
+  const [articleFormData, setArticleFormData] = useState<Map<string, {
+    name: string;
+    category: string;
+    sellingPrice: string;
+    cataloguePrice: string;
+    description: string;
+    barCode: string;
+    isVisible: boolean;
+    costPrice: string;
+  }>>(new Map());
   const [formData, setFormData] = useState({
     name: '',
     category: '',
@@ -60,11 +73,23 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
     };
   }, [production, matiereStocks]);
 
+  // Check if production has articles (multi-article mode)
+  const hasArticles = useMemo(() => {
+    return production && production.articles && production.articles.length > 0;
+  }, [production]);
+
+  // Get publishable articles (not already published)
+  const publishableArticles = useMemo(() => {
+    if (!production || !production.articles) return [];
+    return production.articles.filter(a => a.status !== 'published');
+  }, [production]);
+
   useEffect(() => {
     if (isOpen && production) {
+      // Initialize form data
       setFormData({
         name: production.name,
-        category: '', // Always start empty - ProductionCategory and Product Category are different
+        category: '',
         sellingPrice: '',
         cataloguePrice: '',
         description: production.description || '',
@@ -72,8 +97,34 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
         isVisible: true,
         validatedCostPrice: (production.validatedCostPrice || production.calculatedCostPrice || 0).toString()
       });
+
+      // Initialize article form data
+      const articleDataMap = new Map<string, any>();
+      if (production.articles) {
+        production.articles.forEach(article => {
+          if (article.status !== 'published') {
+            // Calculate cost per article
+            const articleCostRatio = article.quantity / (production.totalArticlesQuantity || 1);
+            const articleCostPrice = (production.validatedCostPrice || production.calculatedCostPrice || 0) * articleCostRatio;
+            
+            articleDataMap.set(article.id, {
+              name: article.name,
+              category: '',
+              sellingPrice: '',
+              cataloguePrice: '',
+              description: article.description || production.description || '',
+              barCode: '',
+              isVisible: true,
+              costPrice: articleCostPrice.toString()
+            });
+          }
+        });
+      }
+      setArticleFormData(articleDataMap);
+      setSelectedArticles(new Set(publishableArticles.map(a => a.id)));
+      setPublishMode(hasArticles ? 'selected' : 'all');
     }
-  }, [isOpen, production]);
+  }, [isOpen, production, hasArticles, publishableArticles]);
 
   const handleSubmit = async () => {
     if (!user || !company || !production) return;
@@ -81,6 +132,73 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
     // Prevent double submission
     if (isSubmitting) return;
 
+    // Multi-article mode: publish selected articles
+    if (hasArticles && publishMode === 'selected') {
+      if (selectedArticles.size === 0) {
+        showWarningToast('Veuillez sélectionner au moins un article à publier');
+        return;
+      }
+
+      // Validate all selected articles have required data
+      for (const articleId of selectedArticles) {
+        const articleData = articleFormData.get(articleId);
+        if (!articleData) {
+          showErrorToast(`Données manquantes pour l'article ${articleId}`);
+          return;
+        }
+        if (!articleData.sellingPrice || parseFloat(articleData.sellingPrice) < 0) {
+          showErrorToast(`Prix de vente requis pour tous les articles sélectionnés`);
+          return;
+        }
+        if (!articleData.costPrice || parseFloat(articleData.costPrice) < 0) {
+          showErrorToast(`Coût requis pour tous les articles sélectionnés`);
+          return;
+        }
+      }
+
+      setIsSubmitting(true);
+      try {
+        const { bulkPublishArticles } = await import('@services/firestore/productions/productionService');
+        
+        // Build product data map
+        const productDataMap = new Map();
+        for (const articleId of selectedArticles) {
+          const articleData = articleFormData.get(articleId);
+          if (!articleData) continue;
+          
+          const selectedCategory = articleData.category 
+            ? categories.find(cat => cat.id === articleData.category)
+            : null;
+
+          productDataMap.set(articleId, {
+            name: articleData.name.trim(),
+            costPrice: parseFloat(articleData.costPrice),
+            sellingPrice: parseFloat(articleData.sellingPrice),
+            stock: production.articles?.find(a => a.id === articleId)?.quantity || 0,
+            category: selectedCategory?.name || undefined,
+            cataloguePrice: articleData.cataloguePrice && articleData.cataloguePrice.trim()
+              ? parseFloat(articleData.cataloguePrice)
+              : parseFloat(articleData.sellingPrice),
+            description: articleData.description.trim() || undefined,
+            barCode: articleData.barCode.trim() || undefined,
+            isVisible: articleData.isVisible
+          });
+        }
+
+        const results = await bulkPublishArticles(production.id, Array.from(selectedArticles), productDataMap);
+        showSuccessToast(`${results.length} article(s) publié(s) avec succès`);
+        onClose();
+        if (onSuccess) onSuccess();
+      } catch (error: any) {
+        console.error('Error publishing articles:', error);
+        showErrorToast(error.message || 'Erreur lors de la publication des articles');
+      } finally {
+        setIsSubmitting(false);
+      }
+      return;
+    }
+
+    // Legacy mode: publish entire production as single product
     if (!formData.name.trim()) {
       showWarningToast('Le nom du produit est requis');
       return;
@@ -115,9 +233,8 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
       const sellingPrice = parseFloat(formData.sellingPrice);
       const cataloguePrice = formData.cataloguePrice && formData.cataloguePrice.trim() 
         ? parseFloat(formData.cataloguePrice) 
-        : sellingPrice; // Use selling price if catalogue price is empty
+        : sellingPrice;
 
-      // Find the category name from the selected category ID
       const selectedCategory = formData.category 
         ? categories.find(cat => cat.id === formData.category)
         : null;
@@ -126,7 +243,7 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
         production.id,
         {
           name: formData.name.trim(),
-          category: selectedCategory?.name || undefined, // Pass the category name, not the ID
+          category: selectedCategory?.name || undefined,
           sellingPrice: sellingPrice,
           cataloguePrice: cataloguePrice,
           description: formData.description.trim() || undefined,
@@ -162,9 +279,14 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
           onCancel={onClose}
           onConfirm={handleSubmit}
           cancelText="Annuler"
-          confirmText={isSubmitting ? 'Publication...' : 'Publier'}
+          confirmText={isSubmitting ? 'Publication...' : hasArticles && publishMode === 'selected' ? `Publier ${selectedArticles.size} article(s)` : 'Publier'}
           isLoading={isSubmitting}
-          disabled={isSubmitting || !stockValidation.isValid || !formData.validatedCostPrice || parseFloat(formData.validatedCostPrice) < 0 || !formData.name.trim() || !formData.sellingPrice || parseFloat(formData.sellingPrice) < 0}
+          disabled={
+            isSubmitting || 
+            (hasArticles && publishMode === 'selected' 
+              ? selectedArticles.size === 0
+              : !stockValidation.isValid || !formData.validatedCostPrice || parseFloat(formData.validatedCostPrice) < 0 || !formData.name.trim() || !formData.sellingPrice || parseFloat(formData.sellingPrice) < 0)
+          }
         />
       }
     >
