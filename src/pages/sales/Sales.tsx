@@ -540,6 +540,26 @@ const Sales: React.FC = () => {
             })()}
           </td>
           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+            {sale.customerSourceId ? (() => {
+              const source = activeSources.find(s => s.id === sale.customerSourceId);
+              return source ? (
+                <div className="flex items-center gap-2">
+                  {source.color && (
+                    <div
+                      className="w-3 h-3 rounded-full"
+                      style={{ backgroundColor: source.color }}
+                    />
+                  )}
+                  <span>{source.name}</span>
+                </div>
+              ) : (
+                <span className="text-gray-400">-</span>
+              );
+            })() : (
+              <span className="text-gray-400">-</span>
+            )}
+          </td>
+          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
             {formatCreatorName(sale.createdBy)}
           </td>
           <td className="px-6 py-4 whitespace-nowrap text-sm">
@@ -588,7 +608,7 @@ const Sales: React.FC = () => {
         </tr>,
         isExpanded && (
           <tr key={sale.id + '-details'}>
-            <td colSpan={9} className="p-0 bg-white border-t-0">
+            <td colSpan={10} className="p-0 bg-white border-t-0">
               <div className="overflow-x-auto custom-scrollbar border-t border-gray-100">
                 <table className="min-w-[600px] w-full text-sm">
                   <thead className="bg-emerald-50">
@@ -792,6 +812,9 @@ const Sales: React.FC = () => {
                   {t('sales.table.columns.status')}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Source
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Créé par
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -804,7 +827,7 @@ const Sales: React.FC = () => {
                 renderRows(pagedSales).flat()
               ) : (
                 <tr>
-                  <td colSpan={10} className="px-6 py-4 text-center text-sm text-gray-500">
+                  <td colSpan={11} className="px-6 py-4 text-center text-sm text-gray-500">
                     {t('sales.table.emptyMessage')}
                   </td>
                 </tr>
