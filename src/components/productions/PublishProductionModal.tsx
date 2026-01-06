@@ -1,6 +1,6 @@
 // Publish Production Modal - Convert production to product (supports multi-article)
 import React, { useState, useEffect, useMemo } from 'react';
-import { AlertTriangle, Package } from 'lucide-react';
+import { AlertTriangle, Package, ChevronDown, ChevronUp } from 'lucide-react';
 import { Modal, ModalFooter, PriceInput } from '@components/common';
 import { useAuth } from '@contexts/AuthContext';
 import { useProductCategories } from '@hooks/data/useFirestore';
@@ -29,6 +29,7 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [publishMode, setPublishMode] = useState<'all' | 'selected'>('all'); // 'all' for legacy, 'selected' for articles
   const [selectedArticles, setSelectedArticles] = useState<Set<string>>(new Set());
+  const [expandedArticleId, setExpandedArticleId] = useState<string | null>(null); // Track which article is expanded
   const [articleFormData, setArticleFormData] = useState<Map<string, {
     name: string;
     category: string;
@@ -38,6 +39,7 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
     barCode: string;
     isVisible: boolean;
     costPrice: string;
+    selectedChargeIds: string[]; // IDs of charges selected for this article
   }>>(new Map());
   const [formData, setFormData] = useState({
     name: '',
@@ -103,9 +105,16 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
       if (production.articles) {
         production.articles.forEach(article => {
           if (article.status !== 'published') {
-            // Calculate cost per article
-            const articleCostRatio = article.quantity / (production.totalArticlesQuantity || 1);
-            const articleCostPrice = (production.validatedCostPrice || production.calculatedCostPrice || 0) * articleCostRatio;
+            // Calculate cost from article's own materials (not ratio-based)
+            const articleMaterialsCost = (article.materials || []).reduce((sum, material) => {
+              return sum + (material.requiredQuantity * material.costPrice);
+            }, 0);
+            
+            // Use article's calculatedCostPrice if available, otherwise calculate from materials
+            const articleCostPrice = article.calculatedCostPrice || articleMaterialsCost;
+            
+            // Round to integer (no decimals for XAF)
+            const roundedCostPrice = Math.round(articleCostPrice);
             
             articleDataMap.set(article.id, {
               name: article.name,
@@ -115,7 +124,8 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
               description: article.description || production.description || '',
               barCode: '',
               isVisible: true,
-              costPrice: articleCostPrice.toString()
+              costPrice: roundedCostPrice.toString(),
+              selectedChargeIds: [] // Default: no charges selected, user selects which charges to include
             });
           }
         });
@@ -123,6 +133,9 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
       setArticleFormData(articleDataMap);
       setSelectedArticles(new Set(publishableArticles.map(a => a.id)));
       setPublishMode(hasArticles ? 'selected' : 'all');
+      setExpandedArticleId(null); // Reset expanded article when modal opens
+    } else if (!isOpen) {
+      setExpandedArticleId(null); // Reset when modal closes
     }
   }, [isOpen, production, hasArticles, publishableArticles]);
 
@@ -185,7 +198,7 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
           });
         }
 
-        const results = await bulkPublishArticles(production.id, Array.from(selectedArticles), productDataMap);
+        const results = await bulkPublishArticles(production.id, Array.from(selectedArticles), company.id, productDataMap);
         showSuccessToast(`${results.length} article(s) publié(s) avec succès`);
         onClose();
         if (onSuccess) onSuccess();
@@ -291,50 +304,451 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
       }
     >
       <div className="space-y-6">
-        {/* Stock Validation Warning */}
-        {!stockValidation.isValid && (
-          <div className="bg-red-50 border border-red-200 rounded-md p-4">
-            <div className="flex items-start">
-              <AlertTriangle className="h-5 w-5 text-red-600 mt-0.5 mr-3" />
-              <div className="flex-1">
-                <h4 className="text-sm font-medium text-red-900 mb-2">
-                  Stock insuffisant pour certains matériaux
+        {/* Article Selection Mode (if has articles) */}
+        {hasArticles && publishableArticles.length > 0 ? (
+          <div className="space-y-4">
+            {/* Article Selection Header */}
+            <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="text-sm font-medium text-blue-900">
+                  Sélectionnez les articles à publier
                 </h4>
-                <ul className="list-disc list-inside text-sm text-red-700 space-y-1">
-                  {stockValidation.errors.map((error, idx) => (
-                    <li key={idx}>{error}</li>
-                  ))}
-                </ul>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-blue-600">
+                    {selectedArticles.size} sur {publishableArticles.length} sélectionné(s)
+                  </span>
+                  {publishableArticles.length > 1 && (
+                    <>
+                      <button
+                        onClick={() => setSelectedArticles(new Set(publishableArticles.map(a => a.id)))}
+                        className="text-xs text-blue-600 hover:text-blue-800 underline"
+                      >
+                        Tout sélectionner
+                      </button>
+                      <span className="text-blue-300">|</span>
+                      <button
+                        onClick={() => setSelectedArticles(new Set())}
+                        className="text-xs text-blue-600 hover:text-blue-800 underline"
+                      >
+                        Tout désélectionner
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
+              <p className="text-xs text-blue-700">
+                Configurez les données de catalogue pour chaque article sélectionné
+              </p>
+            </div>
+
+            {/* Article List with Checkboxes and Forms */}
+            <div className="space-y-3 max-h-[60vh] overflow-y-auto">
+              {publishableArticles.map((article) => {
+                const isSelected = selectedArticles.has(article.id);
+                const isExpanded = expandedArticleId === article.id;
+                const articleData = articleFormData.get(article.id);
+                if (!articleData) return null;
+                
+                // Calculate materials for this article
+                const articleMaterials = calculateMaterialsForArticleFromProduction(
+                  article.quantity,
+                  production.materials,
+                  production.totalArticlesQuantity || 0
+                );
+
+                return (
+                  <div key={article.id} className={`border rounded-lg transition-all ${isSelected ? 'border-blue-500 bg-blue-50 shadow-sm' : 'border-gray-200 bg-white'}`}>
+                    {/* Checkbox and Article Header - Clickable to expand/collapse */}
+                    <div 
+                      className="flex items-start gap-3 p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                      onClick={() => {
+                        // Toggle expansion: if already expanded, collapse; otherwise expand this one
+                        setExpandedArticleId(isExpanded ? null : article.id);
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={(e) => {
+                          e.stopPropagation(); // Prevent expanding when clicking checkbox
+                          const newSelected = new Set(selectedArticles);
+                          if (e.target.checked) {
+                            newSelected.add(article.id);
+                          } else {
+                            newSelected.delete(article.id);
+                          }
+                          setSelectedArticles(newSelected);
+                        }}
+                        onClick={(e) => e.stopPropagation()} // Prevent expanding when clicking checkbox
+                        className="mt-1 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      />
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h5 className="font-medium text-gray-900">{articleData.name}</h5>
+                            <p className="text-xs text-gray-500">Quantité: {article.quantity} unité(s)</p>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            {/* Cost Price Display */}
+                            <div className="text-right">
+                              <p className="text-xs text-gray-500">Coût estimé:</p>
+                              <p className="text-sm font-semibold text-gray-900">
+                                {(() => {
+                                  // Show the current cost price (user-edited or calculated)
+                                  const costValue = parseFloat(articleData.costPrice || '0');
+                                  return formatPrice(isNaN(costValue) ? 0 : costValue);
+                                })()}
+                              </p>
+                            </div>
+                            {/* Expand/Collapse Icon */}
+                            {isExpanded ? (
+                              <ChevronUp className="h-5 w-5 text-gray-400" />
+                            ) : (
+                              <ChevronDown className="h-5 w-5 text-gray-400" />
+                            )}
+                          </div>
+                        </div>
+                        {article.description && !isExpanded && (
+                          <p className="text-xs text-gray-400 mt-1">{article.description}</p>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* Article Form (only shown if expanded) */}
+                    {isExpanded && (
+                      <div className="px-4 pb-4 pt-0 border-t border-gray-200 space-y-3">
+                        {/* Product Name */}
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                            Nom du produit <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={articleData.name}
+                            onChange={(e) => {
+                              const newData = new Map(articleFormData);
+                              const current = newData.get(article.id) || articleData;
+                              newData.set(article.id, { ...current, name: e.target.value });
+                              setArticleFormData(newData);
+                            }}
+                            className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+
+                        {/* Category and Barcode */}
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Catégorie</label>
+                            <select
+                              value={articleData.category}
+                              onChange={(e) => {
+                                const newData = new Map(articleFormData);
+                                const current = newData.get(article.id) || articleData;
+                                newData.set(article.id, { ...current, category: e.target.value });
+                                setArticleFormData(newData);
+                              }}
+                              className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                              <option value="">Aucune</option>
+                              {categories.map(cat => (
+                                <option key={cat.id} value={cat.id}>{cat.name}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Code-barres</label>
+                            <input
+                              type="text"
+                              value={articleData.barCode}
+                              onChange={(e) => {
+                                const newData = new Map(articleFormData);
+                                const current = newData.get(article.id) || articleData;
+                                newData.set(article.id, { ...current, barCode: e.target.value });
+                                setArticleFormData(newData);
+                              }}
+                              className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              placeholder="Auto-généré"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Cost Price Section */}
+                        <div className="bg-blue-50 border border-blue-200 rounded-md p-3 space-y-2">
+                          <div className="flex justify-between items-center">
+                            <span className="text-xs font-medium text-blue-900">Coût matériaux:</span>
+                            <span className="text-sm font-semibold text-blue-900">
+                              {(() => {
+                                // Calculate cost from article's materials
+                                const articleMaterialsCost = (article.materials || []).reduce((sum, material) => {
+                                  return sum + (material.requiredQuantity * material.costPrice);
+                                }, 0);
+                                return formatPrice(articleMaterialsCost);
+                              })()}
+                            </span>
+                          </div>
+                          
+                          {/* Charges Selection Section */}
+                          {production.charges && production.charges.length > 0 && (
+                            <div className="pt-2 border-t border-blue-200">
+                              <div className="mb-2">
+                                <span className="text-xs font-medium text-blue-900">Sélectionner les charges:</span>
+                              </div>
+                              <div className="space-y-2 max-h-32 overflow-y-auto">
+                                {production.charges.map((charge) => {
+                                  const isSelected = (articleData.selectedChargeIds || []).includes(charge.chargeId);
+                                  const selectedChargesTotal = (articleData.selectedChargeIds || [])
+                                    .reduce((sum, chargeId) => {
+                                      const selectedCharge = production.charges.find(c => c.chargeId === chargeId);
+                                      return sum + (selectedCharge?.amount || 0);
+                                    }, 0);
+                                  
+                                  return (
+                                    <label
+                                      key={charge.chargeId}
+                                      className="flex items-center justify-between p-2 bg-white rounded border border-gray-200 hover:bg-gray-50 cursor-pointer"
+                                    >
+                                      <div className="flex items-center flex-1">
+                                        <input
+                                          type="checkbox"
+                                          checked={isSelected}
+                                          onChange={(e) => {
+                                            const newData = new Map(articleFormData);
+                                            const current = newData.get(article.id) || articleData;
+                                            const currentSelected = current.selectedChargeIds || [];
+                                            
+                                            let newSelected: string[];
+                                            if (e.target.checked) {
+                                              newSelected = [...currentSelected, charge.chargeId];
+                                            } else {
+                                              newSelected = currentSelected.filter(id => id !== charge.chargeId);
+                                            }
+                                            
+                                            // Calculate selected charges total
+                                            const selectedChargesTotal = newSelected.reduce((sum, chargeId) => {
+                                              const selectedCharge = production.charges.find(c => c.chargeId === chargeId);
+                                              return sum + (selectedCharge?.amount || 0);
+                                            }, 0);
+                                            
+                                            // Calculate base cost from materials
+                                            const articleMaterialsCost = (article.materials || []).reduce((sum, material) => {
+                                              return sum + (material.requiredQuantity * material.costPrice);
+                                            }, 0);
+                                            
+                                            // Total cost = materials + selected charges
+                                            const totalCost = articleMaterialsCost + selectedChargesTotal;
+                                            
+                                            newData.set(article.id, { 
+                                              ...current, 
+                                              selectedChargeIds: newSelected,
+                                              costPrice: totalCost.toString()
+                                            });
+                                            setArticleFormData(newData);
+                                          }}
+                                          className="w-3 h-3 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                        />
+                                        <div className="ml-2 flex-1">
+                                          <span className="text-xs font-medium text-gray-900">
+                                            {charge.name || charge.description || 'Charge sans nom'}
+                                          </span>
+                                          {charge.description && charge.name && charge.name !== charge.description && (
+                                            <p className="text-xs text-gray-500 mt-0.5">{charge.description}</p>
+                                          )}
+                                        </div>
+                                      </div>
+                                      <span className="text-xs font-medium text-gray-700 ml-2">
+                                        {formatPrice(charge.amount)}
+                                      </span>
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                              {(() => {
+                                const selectedChargesTotal = (articleData.selectedChargeIds || [])
+                                  .reduce((sum, chargeId) => {
+                                    const selectedCharge = production.charges.find(c => c.chargeId === chargeId);
+                                    return sum + (selectedCharge?.amount || 0);
+                                  }, 0);
+                                
+                                if (selectedChargesTotal > 0) {
+                                  return (
+                                    <div className="mt-2 pt-2 border-t border-blue-200">
+                                      <div className="flex justify-between items-center">
+                                        <span className="text-xs font-medium text-blue-900">Total charges sélectionnées:</span>
+                                        <span className="text-xs font-semibold text-blue-900">
+                                          {formatPrice(selectedChargesTotal)}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  );
+                                }
+                                return null;
+                              })()}
+                            </div>
+                          )}
+                          
+                          <div>
+                            <PriceInput
+                              label="Prix d'achat (XAF) *"
+                              name={`costPrice-${article.id}`}
+                              value={articleData.costPrice || '0'}
+                              onChange={(e) => {
+                                const newData = new Map(articleFormData);
+                                const current = newData.get(article.id) || articleData;
+                                // Clean the value to ensure it's a valid integer
+                                const cleanValue = e.target.value.replace(/\s/g, '').replace(/[^\d]/g, '');
+                                newData.set(article.id, { ...current, costPrice: cleanValue || '0' });
+                                setArticleFormData(newData);
+                              }}
+                              allowDecimals={false}
+                              placeholder="0"
+                            />
+                            <p className="mt-1 text-xs text-gray-500">
+                              Vous pouvez valider le coût calculé ou le modifier selon vos besoins
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Selling Price and Catalogue Price */}
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <PriceInput
+                              label="Prix de vente (XAF) *"
+                              name={`sellingPrice-${article.id}`}
+                              value={articleData.sellingPrice}
+                              onChange={(e) => {
+                                const newData = new Map(articleFormData);
+                                const current = newData.get(article.id) || articleData;
+                                newData.set(article.id, { ...current, sellingPrice: e.target.value });
+                                setArticleFormData(newData);
+                              }}
+                              allowDecimals={false}
+                              placeholder="0"
+                            />
+                          </div>
+                          <div>
+                            <PriceInput
+                              label="Prix catalogue (XAF)"
+                              name={`cataloguePrice-${article.id}`}
+                              value={articleData.cataloguePrice}
+                              onChange={(e) => {
+                                const newData = new Map(articleFormData);
+                                const current = newData.get(article.id) || articleData;
+                                newData.set(article.id, { ...current, cataloguePrice: e.target.value });
+                                setArticleFormData(newData);
+                              }}
+                              allowDecimals={false}
+                              placeholder="0"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Description */}
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Description</label>
+                          <textarea
+                            value={articleData.description}
+                            onChange={(e) => {
+                              const newData = new Map(articleFormData);
+                              const current = newData.get(article.id) || articleData;
+                              newData.set(article.id, { ...current, description: e.target.value });
+                              setArticleFormData(newData);
+                            }}
+                            className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            rows={2}
+                          />
+                        </div>
+
+                        {/* Visibility Checkbox */}
+                        <div className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={articleData.isVisible}
+                            onChange={(e) => {
+                              const newData = new Map(articleFormData);
+                              const current = newData.get(article.id) || articleData;
+                              newData.set(article.id, { ...current, isVisible: e.target.checked });
+                              setArticleFormData(newData);
+                            }}
+                            className="w-3 h-3 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                          />
+                          <label className="ml-2 text-xs text-gray-700">Visible dans le catalogue</label>
+                        </div>
+
+                        {/* Materials Preview for this article */}
+                        {articleMaterials.length > 0 && (
+                          <div className="bg-yellow-50 border border-yellow-200 rounded p-2">
+                            <p className="text-xs font-medium text-yellow-800 mb-1">Matériaux à consommer pour cet article:</p>
+                            <div className="space-y-1">
+                              {articleMaterials.map((mat, idx) => {
+                                const stockInfo = matiereStocks.find(ms => ms.matiereId === mat.matiereId);
+                                const availableStock = stockInfo?.currentStock || 0;
+                                const isInsufficient = availableStock < mat.requiredQuantity;
+                                return (
+                                  <div key={idx} className={`text-xs ${isInsufficient ? 'text-red-700' : 'text-yellow-700'}`}>
+                                    {mat.matiereName}: {mat.requiredQuantity} {mat.unit || 'unité'} 
+                                    {isInsufficient && (
+                                      <span className="ml-1 font-medium">(Stock insuffisant: {availableStock} disponible)</span>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
-        )}
+        ) : (
+          /* Legacy mode: Show single product form (only if no articles) */
+          <>
+            {/* Stock Validation Warning */}
+            {!stockValidation.isValid && (
+              <div className="bg-red-50 border border-red-200 rounded-md p-4">
+                <div className="flex items-start">
+                  <AlertTriangle className="h-5 w-5 text-red-600 mt-0.5 mr-3" />
+                  <div className="flex-1">
+                    <h4 className="text-sm font-medium text-red-900 mb-2">
+                      Stock insuffisant pour certains matériaux
+                    </h4>
+                    <ul className="list-disc list-inside text-sm text-red-700 space-y-1">
+                      {stockValidation.errors.map((error, idx) => (
+                        <li key={idx}>{error}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            )}
 
-        {/* Cost Validation Section */}
-        <div className="bg-blue-50 border border-blue-200 rounded-md p-4 space-y-3">
-          <div className="flex justify-between items-center">
-            <span className="text-sm font-medium text-blue-900">Coût calculé:</span>
-            <span className="text-lg font-semibold text-blue-900">
-              {formatPrice(production.calculatedCostPrice || 0)}
-            </span>
-          </div>
-          <div>
-            <PriceInput
-              label="Coût validé (XAF) *"
-              name="validatedCostPrice"
-              value={formData.validatedCostPrice}
-              onChange={(e) => setFormData({ ...formData, validatedCostPrice: e.target.value })}
-              allowDecimals={false}
-              placeholder="0"
-            />
-            <p className="mt-1 text-xs text-gray-500">
-              Vous pouvez valider le coût calculé ou le modifier selon vos besoins
-            </p>
-          </div>
-        </div>
+            {/* Cost Validation Section */}
+            <div className="bg-blue-50 border border-blue-200 rounded-md p-4 space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-sm font-medium text-blue-900">Coût calculé:</span>
+                <span className="text-lg font-semibold text-blue-900">
+                  {formatPrice(production.calculatedCostPrice || 0)}
+                </span>
+              </div>
+              <div>
+                <PriceInput
+                  label="Coût validé (XAF) *"
+                  name="validatedCostPrice"
+                  value={formData.validatedCostPrice}
+                  onChange={(e) => setFormData({ ...formData, validatedCostPrice: e.target.value })}
+                  allowDecimals={false}
+                  placeholder="0"
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  Vous pouvez valider le coût calculé ou le modifier selon vos besoins
+                </p>
+              </div>
+            </div>
 
-        {/* Form Fields */}
-        <div className="space-y-4">
+            {/* Form Fields */}
+            <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Nom du produit <span className="text-red-500">*</span>
@@ -430,34 +844,36 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
           </div>
         </div>
 
-        {/* Materials Summary */}
-        {production.materials.length > 0 && (
-          <div className="border-t border-gray-200 pt-4">
-            <h4 className="text-sm font-medium text-gray-900 mb-2">Matériaux à consommer:</h4>
-            <div className="space-y-2">
-              {production.materials.map((material, idx) => {
-                const stockInfo = matiereStocks.find(ms => ms.matiereId === material.matiereId);
-                const availableStock = stockInfo?.currentStock || 0;
-                const isInsufficient = availableStock < material.requiredQuantity;
+            {/* Materials Summary (only for legacy mode) */}
+            {production.materials.length > 0 && (
+              <div className="border-t border-gray-200 pt-4">
+                <h4 className="text-sm font-medium text-gray-900 mb-2">Matériaux à consommer:</h4>
+                <div className="space-y-2">
+                  {production.materials.map((material, idx) => {
+                    const stockInfo = matiereStocks.find(ms => ms.matiereId === material.matiereId);
+                    const availableStock = stockInfo?.currentStock || 0;
+                    const isInsufficient = availableStock < material.requiredQuantity;
 
-                return (
-                  <div
-                    key={idx}
-                    className={`flex justify-between items-center text-sm p-2 rounded ${
-                      isInsufficient ? 'bg-red-50' : 'bg-gray-50'
-                    }`}
-                  >
-                    <span className={isInsufficient ? 'text-red-700' : 'text-gray-700'}>
-                      {material.matiereName}: {material.requiredQuantity} {material.unit || 'unité'}
-                    </span>
-                    <span className={isInsufficient ? 'text-red-700 font-medium' : 'text-gray-600'}>
-                      Stock: {availableStock} {material.unit || 'unité'}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+                    return (
+                      <div
+                        key={idx}
+                        className={`flex justify-between items-center text-sm p-2 rounded ${
+                          isInsufficient ? 'bg-red-50' : 'bg-gray-50'
+                        }`}
+                      >
+                        <span className={isInsufficient ? 'text-red-700' : 'text-gray-700'}>
+                          {material.matiereName}: {material.requiredQuantity} {material.unit || 'unité'}
+                        </span>
+                        <span className={isInsufficient ? 'text-red-700 font-medium' : 'text-gray-600'}>
+                          Stock: {availableStock} {material.unit || 'unité'}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
     </Modal>

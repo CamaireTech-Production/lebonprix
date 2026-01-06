@@ -59,6 +59,26 @@ const ProductionDetail: React.FC = () => {
     return productions.find(p => p.id === id) || null;
   }, [productions, id]);
 
+  // Calculate costs from articles and charges
+  const materialsCost = useMemo(() => {
+    if (!production || !production.articles) return 0;
+    return production.articles.reduce((sum, article) => {
+      const articleMaterialsCost = (article.materials || []).reduce((articleSum, material) => {
+        return articleSum + (material.requiredQuantity * material.costPrice);
+      }, 0);
+      return sum + articleMaterialsCost;
+    }, 0);
+  }, [production]);
+
+  const chargesCost = useMemo(() => {
+    if (!production || !production.charges) return 0;
+    return production.charges.reduce((sum, charge) => sum + (charge.amount || 0), 0);
+  }, [production]);
+
+  const totalCost = useMemo(() => {
+    return materialsCost + chargesCost;
+  }, [materialsCost, chargesCost]);
+
   // Get fixed charges for selection
   const { charges: fixedCharges } = useFixedCharges(); // Get all fixed charges
 
@@ -296,7 +316,7 @@ const ProductionDetail: React.FC = () => {
                 rows.push('Catégorie,' + escapeCSV(categories.find(c => c.id === production.categoryId)?.name || ''));
                 rows.push('Flux,' + escapeCSV(hasFlow ? (productionFlow?.name || '') : 'Aucun (production simple)'));
                 rows.push('Statut,' + escapeCSV(production.status));
-                rows.push('Coût calculé,' + escapeCSV(production.calculatedCostPrice || 0));
+                rows.push('Coût calculé,' + escapeCSV(totalCost));
                 rows.push('Coût validé,' + escapeCSV(production.validatedCostPrice || ''));
                 rows.push('Date de création,' + escapeCSV(
                   production.createdAt?.seconds
@@ -460,7 +480,7 @@ const ProductionDetail: React.FC = () => {
             <div className="bg-green-50 rounded-md p-4">
               <div className="text-sm text-green-600 mb-1">Coût total</div>
               <div className="text-2xl font-bold text-green-900">
-                {formatPrice(production.calculatedCostPrice || 0)}
+                {formatPrice(totalCost)}
               </div>
             </div>
             <div className="bg-purple-50 rounded-md p-4">
@@ -624,7 +644,7 @@ const ProductionDetail: React.FC = () => {
               <div>
                 <h3 className="text-sm font-medium text-gray-500 mb-2">Coût calculé</h3>
                 <p className="text-lg font-semibold text-gray-900">
-                  {formatPrice(production.calculatedCostPrice || 0)}
+                  {formatPrice(totalCost)}
                 </p>
               </div>
             </div>
@@ -636,31 +656,19 @@ const ProductionDetail: React.FC = () => {
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">Coût des matériaux:</span>
                   <span className="text-sm font-medium text-gray-900">
-                    {formatPrice(
-                      production.materials.reduce(
-                        (sum: number, m: typeof production.materials[0]) => sum + (m.requiredQuantity * m.costPrice),
-                        0
-                      )
-                    )}
+                    {formatPrice(materialsCost)}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">Total des charges:</span>
                   <span className="text-sm font-medium text-gray-900">
-                    {formatPrice(
-                      (production.charges || []).reduce((sum: number, c: ProductionChargeRef) => sum + (c.amount || 0), 0)
-                    )}
+                    {formatPrice(chargesCost)}
                   </span>
                 </div>
                 <div className="border-t border-gray-200 pt-3 flex justify-between items-center">
                   <span className="text-base font-medium text-gray-900">Coût total calculé:</span>
                   <span className="text-base font-semibold text-gray-900">
-                    {formatPrice(
-                      production.materials.reduce(
-                        (sum: number, m: typeof production.materials[0]) => sum + (m.requiredQuantity * m.costPrice),
-                        0
-                      ) + (production.charges || []).reduce((sum: number, c: ProductionChargeRef) => sum + (c.amount || 0), 0)
-                    )}
+                    {formatPrice(totalCost)}
                   </span>
                 </div>
               </div>
@@ -688,9 +696,11 @@ const ProductionDetail: React.FC = () => {
                             const article = production.articles?.find((a: typeof production.articles[0]) => a.id === articleId);
                             if (!article) continue;
                             
-                            // Calculate cost per article based on quantity ratio
-                            const articleCostRatio = article.quantity / (production.totalArticlesQuantity || 1);
-                            const articleCostPrice = (production.calculatedCostPrice || 0) * articleCostRatio;
+                            // Calculate cost from article's own materials
+                            const articleMaterialsCost = (article.materials || []).reduce((sum, material) => {
+                              return sum + (material.requiredQuantity * material.costPrice);
+                            }, 0);
+                            const articleCostPrice = article.calculatedCostPrice || articleMaterialsCost;
                             
                             productDataMap.set(articleId, {
                               name: article.name,
@@ -702,7 +712,7 @@ const ProductionDetail: React.FC = () => {
                             });
                           }
                           
-                          const results = await bulkPublishArticles(production.id, selectedArticleIds, productDataMap);
+                          const results = await bulkPublishArticles(production.id, selectedArticleIds, companyId || production.companyId, productDataMap);
                           showSuccessToast(`${results.length} article(s) publié(s) avec succès`);
                           setSelectedArticles(new Set());
                         } catch (error: any) {
@@ -846,11 +856,13 @@ const ProductionDetail: React.FC = () => {
                                         try {
                                           const { publishArticle } = await import('@services/firestore/productions/productionService');
                                           
-                                          // Calculate cost per article based on quantity ratio
-                                          const articleCostRatio = article.quantity / (production.totalArticlesQuantity || 1);
-                                          const articleCostPrice = (production.calculatedCostPrice || 0) * articleCostRatio;
+                                          // Calculate cost from article's own materials
+                                          const articleMaterialsCost = (article.materials || []).reduce((sum, material) => {
+                                            return sum + (material.requiredQuantity * material.costPrice);
+                                          }, 0);
+                                          const articleCostPrice = article.calculatedCostPrice || articleMaterialsCost;
                                           
-                                          await publishArticle(production.id, article.id, {
+                                          await publishArticle(production.id, article.id, companyId || production.companyId, {
                                             name: article.name,
                                             costPrice: articleCostPrice,
                                             sellingPrice: 0, // User will need to set this - can be enhanced later
@@ -1007,12 +1019,7 @@ const ProductionDetail: React.FC = () => {
                   <div className="flex justify-between items-center">
                     <span className="font-medium text-gray-900">Total matériaux:</span>
                     <span className="text-lg font-semibold text-gray-900">
-                      {formatPrice(
-                        production.materials.reduce(
-                          (sum: number, m: typeof production.materials[0]) => sum + (m.requiredQuantity * m.costPrice),
-                          0
-                        )
-                      )}
+                      {formatPrice(materialsCost)}
                     </span>
                   </div>
                 </div>

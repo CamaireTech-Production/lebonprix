@@ -99,8 +99,24 @@ export const createProduction = async (
 
     const batch = writeBatch(db);
 
-    // Calculate initial cost (charges will be added when production is created with charges)
-    const calculatedCostPrice = calculateProductionCost(data.materials || [], data.charges || []);
+    // Calculate initial cost from article materials (charges are separate and allocated during publishing)
+    // Sum of all article material costs
+    let materialsCost = 0;
+    if (data.articles && data.articles.length > 0) {
+      materialsCost = data.articles.reduce((sum, article) => {
+        const articleMaterialsCost = (article.materials || []).reduce((articleSum, material) => {
+          return articleSum + (material.requiredQuantity * material.costPrice);
+        }, 0);
+        return sum + articleMaterialsCost;
+      }, 0);
+    }
+    // For backward compatibility, also check production-level materials
+    if (data.materials && data.materials.length > 0 && materialsCost === 0) {
+      materialsCost = calculateMaterialsCost(data.materials);
+    }
+    
+    // Charges are not included in calculatedCostPrice - they're allocated during publishing
+    const calculatedCostPrice = materialsCost;
 
     // Build production data, excluding undefined values
     const productionData: any = {
@@ -283,21 +299,21 @@ export const updateProduction = async (
 
     const batch = writeBatch(db);
 
-    // Recalculate cost if materials or charges changed
-    if (data.materials !== undefined || data.charges !== undefined) {
-      const materials = data.materials !== undefined ? data.materials : currentData.materials;
-      const charges = data.charges !== undefined ? data.charges : currentData.charges;
-
-      // Calculate charges total from production.charges array (snapshots)
-      let chargesTotal = 0;
-      if (charges && charges.length > 0) {
-        chargesTotal = charges.reduce((sum, charge) => {
-          return sum + (charge.amount || 0);
+    // Recalculate cost if articles (with materials) changed
+    if (data.articles !== undefined) {
+      const articles = data.articles;
+      // Calculate cost from article materials
+      let materialsCost = 0;
+      if (articles && articles.length > 0) {
+        materialsCost = articles.reduce((sum, article) => {
+          const articleMaterialsCost = (article.materials || []).reduce((articleSum, material) => {
+            return articleSum + (material.requiredQuantity * material.costPrice);
+          }, 0);
+          return sum + articleMaterialsCost;
         }, 0);
       }
-
-      const materialsCost = calculateMaterialsCost(materials);
-      data.calculatedCostPrice = materialsCost + chargesTotal;
+      // Charges are not included in calculatedCostPrice - they're allocated during publishing
+      data.calculatedCostPrice = materialsCost;
     }
 
     const updateData: any = {
@@ -610,6 +626,7 @@ export const getProduction = async (
 export const publishArticle = async (
   productionId: string,
   articleId: string,
+  companyId: string,
   productData: {
     name: string;
     costPrice: number;
@@ -626,7 +643,7 @@ export const publishArticle = async (
 
   try {
     // STEP 1: Get production and validate
-    const production = await getProduction(productionId, '');
+    const production = await getProduction(productionId, companyId);
     if (!production) {
       throw new Error('Production not found');
     }
@@ -647,13 +664,12 @@ export const publishArticle = async (
       throw new Error('Article is already published');
     }
 
-    // STEP 2: Calculate materials needed for this article
-    const { calculateMaterialsForArticleFromProduction } = await import('@utils/productions/materialCalculations');
-    const articleMaterials = calculateMaterialsForArticleFromProduction(
-      article.quantity,
-      production.materials,
-      production.totalArticlesQuantity || 0
-    );
+    // STEP 2: Get materials needed for this article (from article.materials)
+    const articleMaterials = article.materials || [];
+    
+    if (articleMaterials.length === 0) {
+      throw new Error(`Aucun matériau défini pour l'article "${article.name}". Veuillez ajouter des matériaux à cet article.`);
+    }
 
     // STEP 3: Validate stock availability
     const { getAvailableStockBatches } = await import('../stock/stockService');
@@ -828,6 +844,7 @@ export const publishArticle = async (
 export const bulkPublishArticles = async (
   productionId: string,
   articleIds: string[],
+  companyId: string,
   productDataMap?: Map<string, {
     name: string;
     costPrice: number;
@@ -841,7 +858,7 @@ export const bulkPublishArticles = async (
   }>
 ): Promise<Array<{ articleId: string; product: import('../../../types/models').Product }>> => {
   // Get production to calculate default product data
-  const production = await getProduction(productionId, '');
+  const production = await getProduction(productionId, companyId);
   if (!production) {
     throw new Error('Production not found');
   }
@@ -861,13 +878,14 @@ export const bulkPublishArticles = async (
       // Get product data from map or use defaults
       let productData = productDataMap?.get(articleId);
       if (!productData) {
-        // Calculate default product data
-        const articleCostRatio = article.quantity / (production.totalArticlesQuantity || 1);
-        const articleCostPrice = (production.calculatedCostPrice || 0) * articleCostRatio;
+        // Calculate default product data from article's materials
+        const articleMaterialsCost = (article.materials || []).reduce((sum, material) => {
+          return sum + (material.requiredQuantity * material.costPrice);
+        }, 0);
         
         productData = {
           name: article.name,
-          costPrice: articleCostPrice,
+          costPrice: article.calculatedCostPrice || articleMaterialsCost,
           sellingPrice: 0, // Default - user should set this
           stock: article.quantity,
           description: article.description || production.description,
@@ -875,7 +893,7 @@ export const bulkPublishArticles = async (
         };
       }
 
-      const product = await publishArticle(productionId, articleId, productData);
+      const product = await publishArticle(productionId, articleId, companyId, productData);
       results.push({ articleId, product });
     } catch (error: any) {
       errors.push({ articleId, error: error.message || 'Unknown error' });
@@ -934,14 +952,22 @@ export const addArticleToProduction = async (
     const { calculateTotalArticlesQuantity } = await import('@utils/productions/articleUtils');
     const newTotalArticlesQuantity = calculateTotalArticlesQuantity(updatedArticles);
 
-    // Recalculate production cost (materials cost remains the same, but per-article cost changes)
-    // Note: Materials cost is for total articles, so it doesn't change when adding articles
-    // But we keep the calculatedCostPrice as is (it's for the total production)
+    // Recalculate production cost from all article materials
+    let newMaterialsCost = 0;
+    if (updatedArticles.length > 0) {
+      newMaterialsCost = updatedArticles.reduce((sum, art) => {
+        const articleMaterialsCost = (art.materials || []).reduce((articleSum, material) => {
+          return articleSum + (material.requiredQuantity * material.costPrice);
+        }, 0);
+        return sum + articleMaterialsCost;
+      }, 0);
+    }
 
     // Update production
     const updateData = cleanForFirestore({
       articles: updatedArticles,
       totalArticlesQuantity: newTotalArticlesQuantity,
+      calculatedCostPrice: newMaterialsCost, // Recalculate from all article materials
       updatedAt: serverTimestamp()
     });
     batch.update(productionRef, updateData);

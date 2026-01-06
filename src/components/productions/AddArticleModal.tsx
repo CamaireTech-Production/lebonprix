@@ -1,17 +1,15 @@
 // Add Article Modal - Add article to existing production
 import React, { useState, useMemo, useEffect } from 'react';
-import { X, AlertCircle, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { X, AlertCircle, CheckCircle2, AlertTriangle, Plus, Trash2 } from 'lucide-react';
 import { Modal, Button, LoadingScreen } from '@components/common';
 import { useMatiereStocks } from '@hooks/business/useMatiereStocks';
+import { useMatieres } from '@hooks/business/useMatieres';
 import { showSuccessToast, showErrorToast, showWarningToast } from '@utils/core/toast';
 import { formatPrice } from '@utils/formatting/formatPrice';
-import type { Production, ProductionArticle } from '../../types/models';
+import type { Production, ProductionArticle, ProductionMaterial } from '../../types/models';
 import {
   generateArticleId,
-  getArticleName,
-  calculateMaterialsForArticleFromProduction,
-  validateMaterialsStockSync,
-  calculateTotalArticlesQuantity
+  getArticleName
 } from '@utils/productions';
 
 interface AddArticleModalProps {
@@ -28,41 +26,66 @@ const AddArticleModal: React.FC<AddArticleModalProps> = ({
   production
 }) => {
   const { matiereStocks } = useMatiereStocks();
+  const { matieres = [] } = useMatieres();
 
   const [articleName, setArticleName] = useState('');
   const [articleQuantity, setArticleQuantity] = useState<number>(1);
   const [articleDescription, setArticleDescription] = useState('');
+  const [articleMaterials, setArticleMaterials] = useState<ProductionMaterial[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isValidatingStock, setIsValidatingStock] = useState(false);
 
-  // Calculate materials needed for this article
-  const requiredMaterials = useMemo(() => {
-    if (!production || articleQuantity <= 0 || !production.materials || production.materials.length === 0) {
-      return [];
-    }
-    return calculateMaterialsForArticleFromProduction(
-      articleQuantity,
-      production.materials,
-      production.totalArticlesQuantity || 0
-    );
-  }, [production, articleQuantity]);
+  // Get available stock for a matiere
+  const getAvailableStock = (matiereId: string): number => {
+    const stockInfo = matiereStocks.find(ms => ms.matiereId === matiereId);
+    return stockInfo?.currentStock || 0;
+  };
 
-  // Create stock data map for validation
-  const stockDataMap = useMemo(() => {
-    const map = new Map<string, number>();
-    matiereStocks.forEach(stock => {
-      map.set(stock.matiereId, stock.currentStock);
+  // Add material
+  const handleAddMaterial = () => {
+    setArticleMaterials(prev => [...prev, {
+      matiereId: '',
+      matiereName: '',
+      requiredQuantity: 0,
+      unit: '',
+      costPrice: 0
+    }]);
+  };
+
+  // Update material
+  const handleUpdateMaterial = (index: number, field: keyof ProductionMaterial, value: any) => {
+    setArticleMaterials(prev => {
+      const updated = [...prev];
+      if (field === 'matiereId') {
+        const matiere = matieres.find(m => m.id === value);
+        if (matiere) {
+          updated[index] = {
+            ...updated[index],
+            matiereId: value,
+            matiereName: matiere.name,
+            unit: matiere.unit || 'unité',
+            costPrice: matiere.costPrice
+          };
+        }
+      } else {
+        updated[index] = { ...updated[index], [field]: value };
+      }
+      return updated;
     });
-    return map;
-  }, [matiereStocks]);
+  };
 
-  // Validate stock
-  const stockValidation = useMemo(() => {
-    if (requiredMaterials.length === 0) {
-      return { isValid: true, warnings: [], hasOutOfStock: false, hasLowStock: false };
-    }
-    return validateMaterialsStockSync(requiredMaterials, stockDataMap);
-  }, [requiredMaterials, stockDataMap]);
+  // Remove material
+  const handleRemoveMaterial = (index: number) => {
+    setArticleMaterials(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // Calculate article cost from materials
+  const articleCost = useMemo(() => {
+    return articleMaterials.reduce((sum, material) => {
+      return sum + (material.requiredQuantity * material.costPrice);
+    }, 0);
+  }, [articleMaterials]);
+
 
   // Reset form when modal opens/closes
   useEffect(() => {
@@ -70,6 +93,7 @@ const AddArticleModal: React.FC<AddArticleModalProps> = ({
       setArticleName('');
       setArticleQuantity(1);
       setArticleDescription('');
+      setArticleMaterials([]);
     }
   }, [isOpen]);
 
@@ -84,19 +108,8 @@ const AddArticleModal: React.FC<AddArticleModalProps> = ({
       return;
     }
 
-    // Check stock validation - prevent creation if out of stock
-    if (!stockValidation.isValid) {
-      const outOfStockMaterials = stockValidation.warnings.filter(w => w.status === 'out_of_stock');
-      if (outOfStockMaterials.length > 0) {
-        const materialsList = outOfStockMaterials.map(m => m.matiereName).join(', ');
-        showErrorToast(
-          `Impossible d'ajouter l'article: ${materialsList} ${outOfStockMaterials.length > 1 ? 'sont' : 'est'} en rupture de stock. Veuillez réapprovisionner avant de continuer.`
-        );
-        return;
-      }
-      // If only low stock warnings, show warning but allow
-      showWarningToast('Attention: Certains matériaux ont un stock faible. Vérifiez les quantités disponibles.');
-    }
+    // Stock validation is now done in the UI (materials section shows warnings)
+    // User can still submit even with low stock warnings
 
     setIsSubmitting(true);
     try {
@@ -108,10 +121,17 @@ const AddArticleModal: React.FC<AddArticleModalProps> = ({
         articleName
       );
 
+      // Calculate cost from materials
+      const articleMaterialCost = articleMaterials.reduce((sum, material) => {
+        return sum + (material.requiredQuantity * material.costPrice);
+      }, 0);
+
       const newArticle: Omit<ProductionArticle, 'id'> = {
         name: articleNameFinal,
         quantity: articleQuantity,
         status: 'draft',
+        materials: articleMaterials.filter(m => m.matiereId && m.requiredQuantity > 0), // Only valid materials
+        calculatedCostPrice: articleMaterialCost,
         currentStepId: production.currentStepId || undefined,
         description: articleDescription || undefined
       };
@@ -148,7 +168,7 @@ const AddArticleModal: React.FC<AddArticleModalProps> = ({
           <Button
             onClick={handleSubmit}
             isLoading={isSubmitting}
-            disabled={isSubmitting || !stockValidation.isValid}
+            disabled={isSubmitting}
           >
             Ajouter l'article
           </Button>
@@ -202,131 +222,137 @@ const AddArticleModal: React.FC<AddArticleModalProps> = ({
           </div>
         </div>
 
-        {/* Stock Validation */}
-        {requiredMaterials.length > 0 && (
-          <div className="border-t border-gray-200 pt-4">
-            <h3 className="text-sm font-medium text-gray-900 mb-3">
-              Matériaux nécessaires pour {articleQuantity} unité{articleQuantity !== 1 ? 's' : ''}
+        {/* Materials Assignment Section */}
+        <div className="border-t border-gray-200 pt-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-medium text-gray-900">
+              Matériaux pour cet article
             </h3>
-            
-            {stockValidation.warnings.length > 0 ? (
-              <div className="space-y-3">
-                {stockValidation.warnings.map((warning, index) => {
-                  const getStatusIcon = () => {
-                    if (warning.status === 'out_of_stock') {
-                      return <XCircle className="text-red-500" size={16} />;
-                    } else if (warning.status === 'low_stock') {
-                      return <AlertTriangle className="text-yellow-500" size={16} />;
-                    } else {
-                      return <CheckCircle2 className="text-green-500" size={16} />;
-                    }
-                  };
+            <Button
+              icon={<Plus size={14} />}
+              onClick={handleAddMaterial}
+              variant="secondary"
+              size="sm"
+            >
+              Ajouter un matériau
+            </Button>
+          </div>
 
-                  const getStatusColor = () => {
-                    if (warning.status === 'out_of_stock') {
-                      return 'bg-red-50 border-red-200';
-                    } else if (warning.status === 'low_stock') {
-                      return 'bg-yellow-50 border-yellow-200';
-                    } else {
-                      return 'bg-green-50 border-green-200';
-                    }
-                  };
+          {articleMaterials.length === 0 ? (
+            <div className="text-center py-4 bg-gray-50 rounded-md">
+              <p className="text-sm text-gray-500 mb-2">Aucun matériau ajouté</p>
+              <p className="text-xs text-gray-400">
+                Vous pouvez ajouter des matériaux maintenant ou plus tard
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {articleMaterials.map((material, index) => {
+                const stockInfo = matiereStocks.find(ms => ms.matiereId === material.matiereId);
+                const availableStock = stockInfo?.currentStock || 0;
+                const isInsufficient = material.matiereId && material.requiredQuantity > 0 && availableStock < material.requiredQuantity;
+                const isLowStock = material.matiereId && material.requiredQuantity > 0 && availableStock >= material.requiredQuantity && availableStock < material.requiredQuantity * 1.5;
 
-                  const getStatusText = () => {
-                    if (warning.status === 'out_of_stock') {
-                      return 'Rupture de stock';
-                    } else if (warning.status === 'low_stock') {
-                      return 'Stock faible';
-                    } else {
-                      return 'Stock suffisant';
-                    }
-                  };
-
-                  return (
-                    <div
-                      key={index}
-                      className={`border rounded-md p-3 ${getStatusColor()}`}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-start space-x-2 flex-1">
-                          {getStatusIcon()}
-                          <div className="flex-1">
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="font-medium text-gray-900">
-                                {warning.matiereName}
-                              </span>
-                              <span className={`text-xs font-semibold ${
-                                warning.status === 'out_of_stock' ? 'text-red-700' :
-                                warning.status === 'low_stock' ? 'text-yellow-700' :
-                                'text-green-700'
-                              }`}>
-                                {getStatusText()}
-                              </span>
-                            </div>
-                            <div className="text-sm text-gray-600 space-y-1">
-                              <div className="flex justify-between">
-                                <span>Nécessaire:</span>
-                                <span className="font-medium">
-                                  {warning.required.toFixed(2)} {warning.unit}
-                                </span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span>Disponible:</span>
-                                <span className="font-medium">
-                                  {warning.available.toFixed(2)} {warning.unit}
-                                </span>
-                              </div>
-                              {warning.shortage && (
-                                <div className="flex justify-between text-red-600 font-medium">
-                                  <span>Manquant:</span>
-                                  <span>{warning.shortage.toFixed(2)} {warning.unit}</span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
+                return (
+                  <div key={index} className={`border rounded-md p-3 ${isInsufficient ? 'bg-red-50 border-red-200' : isLowStock ? 'bg-yellow-50 border-yellow-200' : 'bg-white border-gray-200'}`}>
+                    <div className="grid grid-cols-2 gap-3 mb-2">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Matériau <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                          value={material.matiereId}
+                          onChange={(e) => handleUpdateMaterial(index, 'matiereId', e.target.value)}
+                          className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="">Sélectionner...</option>
+                          {matieres.map(matiere => (
+                            <option key={matiere.id} value={matiere.id}>
+                              {matiere.name} ({getAvailableStock(matiere.id)} {matiere.unit || 'unité'})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Quantité requise <span className="text-red-500">*</span>
+                        </label>
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="number"
+                            value={material.requiredQuantity || ''}
+                            onChange={(e) => handleUpdateMaterial(index, 'requiredQuantity', parseFloat(e.target.value) || 0)}
+                            className="flex-1 px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            min="0"
+                            step="0.01"
+                          />
+                          <span className="text-xs text-gray-500">{material.unit || 'unité'}</span>
                         </div>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <p className="text-sm text-gray-500">Aucun matériau requis</p>
-            )}
-
-            {stockValidation.hasOutOfStock && (
-              <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md">
-                <div className="flex items-start space-x-2">
-                  <AlertCircle className="text-red-500 mt-0.5" size={16} />
-                  <div>
-                    <p className="text-sm font-medium text-red-800">
-                      Impossible d'ajouter l'article
-                    </p>
-                    <p className="text-xs text-red-600 mt-1">
-                      Certains matériaux sont en rupture de stock. Veuillez réapprovisionner avant de continuer.
-                    </p>
+                    
+                    {material.matiereId && (
+                      <>
+                        <div className="flex items-center justify-between text-xs mb-2">
+                          <span className="text-gray-600">
+                            Prix unitaire: {formatPrice(material.costPrice)}
+                          </span>
+                          <span className="font-medium text-gray-900">
+                            Total: {formatPrice(material.requiredQuantity * material.costPrice)}
+                          </span>
+                        </div>
+                        
+                        {/* Stock Status */}
+                        {material.requiredQuantity > 0 && (
+                          <div className={`text-xs p-2 rounded ${
+                            isInsufficient ? 'bg-red-100 text-red-700' :
+                            isLowStock ? 'bg-yellow-100 text-yellow-700' :
+                            'bg-green-100 text-green-700'
+                          }`}>
+                            <div className="flex justify-between">
+                              <span>Stock disponible:</span>
+                              <span className="font-medium">{availableStock} {material.unit || 'unité'}</span>
+                            </div>
+                            {isInsufficient && (
+                              <div className="mt-1 text-red-800 font-medium">
+                                ⚠️ Stock insuffisant
+                              </div>
+                            )}
+                            {isLowStock && !isInsufficient && (
+                              <div className="mt-1 text-yellow-800">
+                                ⚠️ Stock faible
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </>
+                    )}
+                    
+                    <button
+                      onClick={() => handleRemoveMaterial(index)}
+                      className="mt-2 text-red-600 hover:text-red-800 text-xs flex items-center"
+                    >
+                      <Trash2 size={12} className="mr-1" />
+                      Supprimer
+                    </button>
                   </div>
-                </div>
-              </div>
-            )}
+                );
+              })}
+            </div>
+          )}
 
-            {stockValidation.hasLowStock && !stockValidation.hasOutOfStock && (
-              <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-                <div className="flex items-start space-x-2">
-                  <AlertTriangle className="text-yellow-500 mt-0.5" size={16} />
-                  <div>
-                    <p className="text-sm font-medium text-yellow-800">
-                      Attention: Stock faible
-                    </p>
-                    <p className="text-xs text-yellow-600 mt-1">
-                      Certains matériaux ont un stock faible. Vérifiez les quantités disponibles.
-                    </p>
-                  </div>
-                </div>
+          {/* Cost Summary */}
+          {articleCost > 0 && (
+            <div className="mt-3 bg-blue-50 border border-blue-200 rounded-md p-3">
+              <div className="flex justify-between items-center">
+                <span className="text-sm font-medium text-blue-900">Coût estimé des matériaux:</span>
+                <span className="text-sm font-semibold text-blue-900">
+                  {formatPrice(articleCost)}
+                </span>
               </div>
-            )}
-          </div>
-        )}
+            </div>
+          )}
+        </div>
       </div>
     </Modal>
   );

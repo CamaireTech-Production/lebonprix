@@ -16,9 +16,7 @@ import { Timestamp } from 'firebase/firestore';
 import { 
   generateArticleId, 
   getArticleName, 
-  calculateTotalArticlesQuantity,
-  calculateMaterialsPerUnit,
-  calculateCostPerUnit
+  calculateTotalArticlesQuantity
 } from '@utils/productions';
 
 interface CreateProductionModalProps {
@@ -68,8 +66,8 @@ const CreateProductionModal: React.FC<CreateProductionModalProps> = ({
     description?: string;
   }>>([]);
 
-  // Step 3: Materials
-  const [step3Data, setStep3Data] = useState<ProductionMaterial[]>([]);
+  // Step 3: Materials per Article (Map<articleId, ProductionMaterial[]>)
+  const [step3Data, setStep3Data] = useState<Map<string, ProductionMaterial[]>>(new Map());
 
   // Step 4: Charges
   const [step4Data, setStep4Data] = useState<{
@@ -108,18 +106,27 @@ const CreateProductionModal: React.FC<CreateProductionModalProps> = ({
     return calculateTotalArticlesQuantity(step2_5Data.map(a => ({ ...a, status: 'draft' as const })));
   }, [step2_5Data]);
 
-  // Calculate materials per unit
-  const materialsPerUnit = useMemo(() => {
-    if (totalArticlesQuantity <= 0 || !step3Data || step3Data.length === 0) return [];
-    return calculateMaterialsPerUnit(step3Data, totalArticlesQuantity);
-  }, [step3Data, totalArticlesQuantity]);
+  // Calculate cost per article from its materials
+  const articleCosts = useMemo(() => {
+    const costs = new Map<string, number>();
+    step2_5Data.forEach(article => {
+      const articleMaterials = step3Data.get(article.id) || [];
+      const articleCost = articleMaterials.reduce((sum, material) => {
+        return sum + (material.requiredQuantity * material.costPrice);
+      }, 0);
+      costs.set(article.id, articleCost);
+    });
+    return costs;
+  }, [step2_5Data, step3Data]);
 
-  // Calculate total cost from materials and charges
+  // Calculate total materials cost (sum of all article costs)
   const materialsCost = useMemo(() => {
-    return step3Data.reduce((sum, material) => {
-      return sum + (material.requiredQuantity * material.costPrice);
-    }, 0);
-  }, [step3Data]);
+    let total = 0;
+    articleCosts.forEach(cost => {
+      total += cost;
+    });
+    return total;
+  }, [articleCosts]);
 
   const chargesCost = useMemo(() => {
     let total = 0;
@@ -155,7 +162,7 @@ const CreateProductionModal: React.FC<CreateProductionModalProps> = ({
         currentStepId: ''
       });
       setStep2_5Data([]);
-      setStep3Data([]);
+      setStep3Data(new Map());
       setStep4Data({
         selectedFixedCharges: [],
         customCharges: []
@@ -211,26 +218,33 @@ const CreateProductionModal: React.FC<CreateProductionModalProps> = ({
     });
   };
 
-  // Add material
-  const handleAddMaterial = () => {
-    setStep3Data(prev => [...prev, {
-      matiereId: '',
-      matiereName: '',
-      requiredQuantity: 0,
-      unit: '',
-      costPrice: 0
-    }]);
+  // Add material to an article
+  const handleAddMaterial = (articleId: string) => {
+    setStep3Data(prev => {
+      const newMap = new Map(prev);
+      const articleMaterials = newMap.get(articleId) || [];
+      newMap.set(articleId, [...articleMaterials, {
+        matiereId: '',
+        matiereName: '',
+        requiredQuantity: 0,
+        unit: '',
+        costPrice: 0
+      }]);
+      return newMap;
+    });
   };
 
-  // Update material
-  const handleUpdateMaterial = (index: number, field: keyof ProductionMaterial, value: any) => {
+  // Update material for an article
+  const handleUpdateMaterial = (articleId: string, materialIndex: number, field: keyof ProductionMaterial, value: any) => {
     setStep3Data(prev => {
-      const updated = [...prev];
+      const newMap = new Map(prev);
+      const articleMaterials = [...(newMap.get(articleId) || [])];
+      
       if (field === 'matiereId') {
         const matiere = matieres.find(m => m.id === value);
         if (matiere) {
-          updated[index] = {
-            ...updated[index],
+          articleMaterials[materialIndex] = {
+            ...articleMaterials[materialIndex],
             matiereId: value,
             matiereName: matiere.name,
             unit: matiere.unit || 'unité',
@@ -238,15 +252,22 @@ const CreateProductionModal: React.FC<CreateProductionModalProps> = ({
           };
         }
       } else {
-        updated[index] = { ...updated[index], [field]: value };
+        articleMaterials[materialIndex] = { ...articleMaterials[materialIndex], [field]: value };
       }
-      return updated;
+      
+      newMap.set(articleId, articleMaterials);
+      return newMap;
     });
   };
 
-  // Remove material
-  const handleRemoveMaterial = (index: number) => {
-    setStep3Data(prev => prev.filter((_, i) => i !== index));
+  // Remove material from an article
+  const handleRemoveMaterial = (articleId: string, materialIndex: number) => {
+    setStep3Data(prev => {
+      const newMap = new Map(prev);
+      const articleMaterials = newMap.get(articleId) || [];
+      newMap.set(articleId, articleMaterials.filter((_, i) => i !== materialIndex));
+      return newMap;
+    });
   };
 
   // Add article
@@ -271,7 +292,16 @@ const CreateProductionModal: React.FC<CreateProductionModalProps> = ({
 
   // Remove article
   const handleRemoveArticle = (index: number) => {
+    const articleToRemove = step2_5Data[index];
     setStep2_5Data(prev => prev.filter((_, i) => i !== index));
+    // Also remove materials for this article
+    if (articleToRemove) {
+      setStep3Data(prev => {
+        const newMap = new Map(prev);
+        newMap.delete(articleToRemove.id);
+        return newMap;
+      });
+    }
   };
 
   // Get available stock for a matiere
@@ -310,7 +340,8 @@ const CreateProductionModal: React.FC<CreateProductionModalProps> = ({
       }
       setCurrentStep(4);
     } else if (currentStep === 4) {
-      // Materials step - can proceed even with no materials
+      // Materials step - materials are optional, but if added, they should be valid
+      // No strict validation needed - user can add materials later
       setCurrentStep(5);
     } else if (currentStep === 5) {
       // Charges step - can proceed even with no charges
@@ -444,14 +475,23 @@ const CreateProductionModal: React.FC<CreateProductionModalProps> = ({
         }
       }
 
-      // Create articles from step2_5Data
+      // Create articles from step2_5Data with their materials
       const articles: ProductionArticle[] = step2_5Data.map((articleData, index) => {
         const articleName = getArticleName(step1Data.name.trim(), index + 1, articleData.name);
+        const articleMaterials = step3Data.get(articleData.id) || [];
+        
+        // Calculate article cost from its materials
+        const articleMaterialCost = articleMaterials.reduce((sum, material) => {
+          return sum + (material.requiredQuantity * material.costPrice);
+        }, 0);
+        
         const article: ProductionArticle = {
           id: articleData.id,
           name: articleName,
           quantity: articleData.quantity,
-          status: 'draft'
+          status: 'draft',
+          materials: articleMaterials, // Materials specific to this article
+          calculatedCostPrice: articleMaterialCost // Cost from materials only (without charges)
         };
         
         // Only add optional fields if they have values (avoid undefined)
@@ -469,13 +509,14 @@ const CreateProductionModal: React.FC<CreateProductionModalProps> = ({
       const totalArticlesQty = calculateTotalArticlesQuantity(articles);
 
       // Create production data - build object without undefined values
+      // Materials are now per-article, so production.materials is empty (kept for backward compatibility)
       const productionData: any = {
         name: step1Data.name.trim(),
         reference,
         status: 'draft',
         articles,
         totalArticlesQuantity: totalArticlesQty,
-        materials: step3Data.filter(m => m.matiereId && m.requiredQuantity > 0),
+        materials: [], // Materials are now per-article, empty at production level
         charges: chargeSnapshots,
         userId: user.uid,
         companyId: company.id
@@ -941,127 +982,136 @@ const CreateProductionModal: React.FC<CreateProductionModalProps> = ({
                     {totalArticlesQuantity} unité{totalArticlesQuantity !== 1 ? 's' : ''}
                   </span>
                 </div>
-                {step3Data && step3Data.length > 0 && totalArticlesQuantity > 0 && materialsPerUnit && materialsPerUnit.length > 0 && (
-                  <div className="mt-3 pt-3 border-t border-blue-200">
-                    <p className="text-xs text-blue-700 mb-2">Coût estimé par article:</p>
-                    <div className="space-y-1">
-                      {materialsPerUnit.map((materialPerUnit, idx) => {
-                        const material = step3Data[idx];
-                        if (!material || !materialPerUnit) return null;
-                        const costPerUnit = materialPerUnit.requiredQuantityPerUnit * material.costPrice;
-                        return (
-                          <div key={idx} className="flex justify-between text-xs">
-                            <span className="text-blue-600">{material.matiereName}:</span>
-                            <span className="font-medium text-blue-900">
-                              {formatPrice(costPerUnit)} / article
-                            </span>
-                          </div>
-                        );
-                      })}
-                      <div className="flex justify-between text-sm font-semibold pt-1 border-t border-blue-200 mt-1">
-                        <span className="text-blue-800">Total par article:</span>
-                        <span className="text-blue-900">
-                          {formatPrice(materialsPerUnit && materialsPerUnit.length > 0 ? calculateCostPerUnit(materialsPerUnit) : 0)}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                <div className="text-xs text-blue-700 mt-2">
+                  Les matériaux seront assignés individuellement à chaque article à l'étape suivante
+                </div>
               </div>
             )}
           </div>
         )}
 
-        {/* Step 4: Materials */}
+        {/* Step 4: Materials per Article */}
         {currentStep === 4 && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-medium text-gray-900">Matériaux requis</h3>
-              <Button
-                icon={<Plus size={16} />}
-                onClick={handleAddMaterial}
-                variant="secondary"
-                size="sm"
-              >
-                Ajouter un matériau
-              </Button>
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Matériaux par article</h3>
+              <p className="text-sm text-gray-500">
+                Assignez les matériaux nécessaires à chaque article. Chaque article peut avoir ses propres matériaux et quantités.
+              </p>
             </div>
 
-            {step3Data.length === 0 ? (
+            {step2_5Data.length === 0 ? (
               <div className="text-center py-8 bg-gray-50 rounded-md">
-                <p className="text-gray-500 mb-2">Aucun matériau ajouté</p>
-                <p className="text-sm text-gray-400">
-                  Vous pouvez ajouter des matériaux plus tard
-                </p>
+                <p className="text-gray-500">Aucun article défini. Veuillez d'abord ajouter des articles à l'étape précédente.</p>
               </div>
             ) : (
-              <div className="space-y-4">
-                {step3Data.map((material, index) => (
-                  <div key={index} className="border border-gray-200 rounded-md p-4">
-                    <div className="grid grid-cols-2 gap-4 mb-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Matériau <span className="text-red-500">*</span>
-                        </label>
-                        <select
-                          value={material.matiereId}
-                          onChange={(e) => handleUpdateMaterial(index, 'matiereId', e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                          <option value="">Sélectionner un matériau...</option>
-                          {matieres.map(matiere => (
-                            <option key={matiere.id} value={matiere.id}>
-                              {matiere.name} ({getAvailableStock(matiere.id)} {matiere.unit || 'unité'} disponible)
-                            </option>
+              <div className="space-y-6">
+                {step2_5Data.map((article) => {
+                  const articleMaterials = step3Data.get(article.id) || [];
+                  const articleCost = articleCosts.get(article.id) || 0;
+                  
+                  return (
+                    <div key={article.id} className="border border-gray-200 rounded-lg p-4 bg-white">
+                      {/* Article Header */}
+                      <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-200">
+                        <div>
+                          <h4 className="font-medium text-gray-900">{article.name || `Article ${article.id.slice(0, 8)}`}</h4>
+                          <p className="text-sm text-gray-500">Quantité: {article.quantity} unité(s)</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs text-gray-500">Coût des matériaux:</p>
+                          <p className="text-sm font-semibold text-gray-900">{formatPrice(articleCost)}</p>
+                        </div>
+                      </div>
+
+                      {/* Materials List for this Article */}
+                      {articleMaterials.length === 0 ? (
+                        <div className="text-center py-4 bg-gray-50 rounded-md mb-3">
+                          <p className="text-sm text-gray-500 mb-2">Aucun matériau ajouté pour cet article</p>
+                          <Button
+                            icon={<Plus size={14} />}
+                            onClick={() => handleAddMaterial(article.id)}
+                            variant="secondary"
+                            size="sm"
+                          >
+                            Ajouter un matériau
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="space-y-3 mb-3">
+                          {articleMaterials.map((material, materialIndex) => (
+                            <div key={materialIndex} className="border border-gray-200 rounded-md p-3 bg-gray-50">
+                              <div className="grid grid-cols-2 gap-3 mb-3">
+                                <div>
+                                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                                    Matériau <span className="text-red-500">*</span>
+                                  </label>
+                                  <select
+                                    value={material.matiereId}
+                                    onChange={(e) => handleUpdateMaterial(article.id, materialIndex, 'matiereId', e.target.value)}
+                                    className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  >
+                                    <option value="">Sélectionner...</option>
+                                    {matieres.map(matiere => (
+                                      <option key={matiere.id} value={matiere.id}>
+                                        {matiere.name} ({getAvailableStock(matiere.id)} {matiere.unit || 'unité'})
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                                    Quantité requise <span className="text-red-500">*</span>
+                                  </label>
+                                  <div className="flex items-center space-x-2">
+                                    <input
+                                      type="number"
+                                      value={material.requiredQuantity || ''}
+                                      onChange={(e) => handleUpdateMaterial(article.id, materialIndex, 'requiredQuantity', parseFloat(e.target.value) || 0)}
+                                      className="flex-1 px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                      min="0"
+                                      step="0.01"
+                                    />
+                                    <span className="text-xs text-gray-500">{material.unit || 'unité'}</span>
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              {material.matiereId && (
+                                <div className="flex items-center justify-between text-xs mb-2">
+                                  <span className="text-gray-600">
+                                    Prix unitaire: {formatPrice(material.costPrice)}
+                                  </span>
+                                  <span className="font-medium text-gray-900">
+                                    Total: {formatPrice(material.requiredQuantity * material.costPrice)}
+                                  </span>
+                                </div>
+                              )}
+                              
+                              <button
+                                onClick={() => handleRemoveMaterial(article.id, materialIndex)}
+                                className="text-red-600 hover:text-red-800 text-xs flex items-center"
+                              >
+                                <Trash2 size={12} className="mr-1" />
+                                Supprimer
+                              </button>
+                            </div>
                           ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Quantité requise pour {totalArticlesQuantity} article{totalArticlesQuantity !== 1 ? 's' : ''} <span className="text-red-500">*</span>
-                        </label>
-                        <div className="flex items-center space-x-2">
-                          <input
-                            type="number"
-                            value={material.requiredQuantity || ''}
-                            onChange={(e) => handleUpdateMaterial(index, 'requiredQuantity', parseFloat(e.target.value) || 0)}
-                            className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            min="0"
-                            step="0.01"
-                          />
-                          <span className="text-sm text-gray-500">{material.unit || 'unité'}</span>
                         </div>
-                      </div>
+                      )}
+
+                      {/* Add Material Button */}
+                      <Button
+                        icon={<Plus size={14} />}
+                        onClick={() => handleAddMaterial(article.id)}
+                        variant="secondary"
+                        size="sm"
+                      >
+                        Ajouter un matériau
+                      </Button>
                     </div>
-                    {material.matiereId && (
-                      <>
-                        {totalArticlesQuantity > 0 && materialsPerUnit && materialsPerUnit.length > 0 && materialsPerUnit[index] && (
-                          <div className="mb-2 p-2 bg-gray-50 rounded text-sm">
-                            <span className="text-gray-600">Par article: </span>
-                            <span className="font-medium text-gray-900">
-                              {materialsPerUnit[index].requiredQuantityPerUnit.toFixed(4)} {material.unit || 'unité'}
-                            </span>
-                          </div>
-                        )}
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-gray-600">
-                            Prix unitaire: {formatPrice(material.costPrice)}
-                          </span>
-                          <span className="font-medium text-gray-900">
-                            Total: {formatPrice(material.requiredQuantity * material.costPrice)}
-                          </span>
-                        </div>
-                      </>
-                    )}
-                    <button
-                      onClick={() => handleRemoveMaterial(index)}
-                      className="mt-2 text-red-600 hover:text-red-800 text-sm flex items-center"
-                    >
-                      <Trash2 size={14} className="mr-1" />
-                      Supprimer
-                    </button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
 
@@ -1379,26 +1429,54 @@ const CreateProductionModal: React.FC<CreateProductionModalProps> = ({
                   </div>
                 )}
 
-                {/* Materials section - only show if materials exist */}
-                {step3Data && step3Data.filter(m => m.matiereId).length > 0 && (
-                  <div className="border-b border-gray-200 pb-4">
-                    <h4 className="font-medium text-gray-900 mb-2">
-                      Matériaux ({step3Data.filter(m => m.matiereId).length})
-                    </h4>
-                    <div className="space-y-2">
-                      {step3Data.filter(m => m.matiereId).map((material, idx) => (
-                        <div key={idx} className="text-sm flex justify-between">
-                          <span className="text-gray-600">
-                            {material.matiereName} ({material.requiredQuantity} {material.unit || 'unité'})
-                          </span>
-                          <span className="text-gray-900">
-                            {formatPrice(material.requiredQuantity * material.costPrice)}
-                          </span>
-                        </div>
-                      ))}
+                {/* Materials section - show materials per article */}
+                {step2_5Data && step2_5Data.length > 0 && (() => {
+                  const hasAnyMaterials = Array.from(step3Data.values()).some(materials => 
+                    materials && materials.some(m => m.matiereId)
+                  );
+                  if (!hasAnyMaterials) return null;
+                  
+                  return (
+                    <div className="border-b border-gray-200 pb-4">
+                      <h4 className="font-medium text-gray-900 mb-3">Matériaux par article</h4>
+                      <div className="space-y-4">
+                        {step2_5Data.map((article, articleIdx) => {
+                          const articleMaterials = step3Data.get(article.id) || [];
+                          const validMaterials = articleMaterials.filter(m => m.matiereId);
+                          if (validMaterials.length === 0) return null;
+                          
+                          const articleName = article.name || getArticleName(step1Data.name, articleIdx + 1);
+                          const articleCost = articleCosts.get(article.id) || 0;
+                          
+                          return (
+                            <div key={article.id} className="bg-gray-50 rounded-md p-3">
+                              <div className="flex justify-between items-center mb-2">
+                                <span className="font-medium text-sm text-gray-900">{articleName}</span>
+                                <span className="text-xs text-gray-500">{article.quantity} unité(s)</span>
+                              </div>
+                              <div className="space-y-1 ml-2">
+                                {validMaterials.map((material, matIdx) => (
+                                  <div key={matIdx} className="text-xs flex justify-between">
+                                    <span className="text-gray-600">
+                                      {material.matiereName} ({material.requiredQuantity} {material.unit || 'unité'})
+                                    </span>
+                                    <span className="text-gray-900">
+                                      {formatPrice(material.requiredQuantity * material.costPrice)}
+                                    </span>
+                                  </div>
+                                ))}
+                                <div className="flex justify-between text-xs font-medium pt-1 border-t border-gray-200 mt-1">
+                                  <span className="text-gray-700">Coût total:</span>
+                                  <span className="text-gray-900">{formatPrice(articleCost)}</span>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 {/* Charges section - only show if charges exist */}
                 {(step4Data.selectedFixedCharges.length > 0 || step4Data.customCharges.length > 0) && (

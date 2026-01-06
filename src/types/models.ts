@@ -556,8 +556,9 @@ export interface ProductionArticle {
   description?: string;
   images?: string[]; // Article-specific images
   
-  // Note: Materials are calculated from production.materials based on quantity ratio
-  // Materials per article = (production.materials / totalArticlesQuantity) * article.quantity
+  // Materials - Specific to this article (not shared with other articles)
+  materials: ProductionMaterial[]; // Materials required for this article
+  calculatedCostPrice?: number; // Cost calculated from this article's materials only (without charges)
 }
 
 /**
@@ -666,8 +667,8 @@ export interface Production extends BaseModel {
   // State History (tracks all state changes - user can move freely)
   stateHistory: ProductionStateChange[];
   
-  // Materials (from magasin) - Shared across all articles
-  // Materials are specified for total articles quantity
+  // Materials (from magasin) - @deprecated - Materials are now per-article
+  // Kept for backward compatibility, but should be empty for new productions
   materials: ProductionMaterial[];
   
   // Articles - Multiple articles can be produced from one production
