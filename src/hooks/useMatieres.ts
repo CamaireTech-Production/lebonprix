@@ -35,6 +35,9 @@ export const useMatieres = () => {
       isCredit?: boolean;
     }
   ) => {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/53875ac0-7379-4748-ad91-884130143881',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useMatieres.ts:28',message:'addMatiere entry',data:{userId:user?.uid,companyId:company?.id,matiereName:matiereData.name,matiereCategory:matiereData.refCategorie,matiereUnit:matiereData.unit,matiereCompanyId:matiereData.companyId,initialStock,costPrice},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
     if (!user || !company) throw new Error('User not authenticated');
     
     try {

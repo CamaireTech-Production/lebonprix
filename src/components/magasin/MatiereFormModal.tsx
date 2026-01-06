@@ -38,6 +38,7 @@ const MatiereFormModal: React.FC<MatiereFormModalProps> = ({
     refCategorie: '',
     unit: '',
     costPrice: '',
+    qualite: '',
     initialStock: '',
     supplierId: '',
     isOwnPurchase: true,
@@ -57,6 +58,7 @@ const MatiereFormModal: React.FC<MatiereFormModalProps> = ({
           refCategorie: matiere.refCategorie || '',
           unit: matiere.unit || '',
           costPrice: matiere.costPrice?.toString() || '',
+          qualite: matiere.qualite || '',
           initialStock: '', // Don't pre-fill stock in edit mode
           supplierId: '',
           isOwnPurchase: true,
@@ -72,6 +74,7 @@ const MatiereFormModal: React.FC<MatiereFormModalProps> = ({
           refCategorie: '',
           unit: '',
           costPrice: '',
+          qualite: '',
           initialStock: '',
           supplierId: '',
           isOwnPurchase: true,
@@ -156,6 +159,9 @@ const MatiereFormModal: React.FC<MatiereFormModalProps> = ({
   };
 
   const handleSubmit = async () => {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/53875ac0-7379-4748-ad91-884130143881',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'MatiereFormModal.tsx:161',message:'handleSubmit entry',data:{hasUser:!!user,hasCompany:!!company,userId:user?.uid,companyId:company?.id,formDataName:formData.name,formDataCategory:formData.refCategorie,formDataUnit:formData.unit},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
     if (!user || !company) {
       showErrorToast('Utilisateur non authentifié');
       return;
@@ -212,6 +218,7 @@ const MatiereFormModal: React.FC<MatiereFormModalProps> = ({
           refCategorie: formData.refCategorie,
           unit: formData.unit,
           costPrice: formData.costPrice ? parseFloat(formData.costPrice) : 0,
+          qualite: formData.qualite.trim() || undefined,
           images: imageUrls,
           imagePaths: imagePaths
         });
@@ -227,6 +234,9 @@ const MatiereFormModal: React.FC<MatiereFormModalProps> = ({
           isCredit: formData.isCredit
         } : undefined;
 
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/53875ac0-7379-4748-ad91-884130143881',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'MatiereFormModal.tsx:234',message:'Before addMatiere call',data:{companyId:company.id,userId:user.uid,matiereName:formData.name.trim(),category:formData.refCategorie,unit:formData.unit,initialStock,costPrice},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+        // #endregion
         await addMatiere(
           {
             name: formData.name.trim(),
@@ -234,6 +244,7 @@ const MatiereFormModal: React.FC<MatiereFormModalProps> = ({
             refCategorie: formData.refCategorie,
             unit: formData.unit,
             costPrice: costPrice || 0,
+            qualite: formData.qualite.trim() || undefined,
             images: imageUrls,
             imagePaths: imagePaths,
             refStock: '', // Will be set by createMatiere
@@ -251,6 +262,9 @@ const MatiereFormModal: React.FC<MatiereFormModalProps> = ({
       onSuccess?.();
       onClose();
     } catch (error: any) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/53875ac0-7379-4748-ad91-884130143881',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'MatiereFormModal.tsx:258',message:'Error in handleSubmit',data:{errorMessage:error?.message,errorCode:error?.code,errorName:error?.name,fullError:JSON.stringify(error)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
       console.error('Error saving matiere:', error);
       showErrorToast(error.message || 'Erreur lors de la sauvegarde');
     } finally {
@@ -298,6 +312,15 @@ const MatiereFormModal: React.FC<MatiereFormModalProps> = ({
             placeholder="Description de la matière"
           />
         </div>
+
+        {/* Qualité */}
+        <Input
+          label="Qualité"
+          name="qualite"
+          value={formData.qualite}
+          onChange={handleInputChange}
+          placeholder="Ex: Premium, Standard, Bio..."
+        />
 
         {/* Category */}
         <div>

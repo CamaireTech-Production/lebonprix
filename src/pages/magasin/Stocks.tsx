@@ -183,6 +183,11 @@ const Stocks = () => {
                           <Badge variant="info">
                             {getCategoryName(ms.category)}
                           </Badge>
+                          {matiere?.qualite && (
+                            <Badge variant="success">
+                              {matiere.qualite}
+                            </Badge>
+                          )}
                           <Badge variant={isLowStock ? 'warning' : 'success'}>
                             Stock: {ms.currentStock.toLocaleString()} {ms.unit}
                           </Badge>

@@ -83,6 +83,7 @@ export interface Matiere extends BaseModel {
   refStock: string; // Reference to stock document ID
   unit: string; // Unit of measurement (from units.ts)
   costPrice: number; // Last purchase price
+  qualite?: string; // Qualité de la matière (optionnel)
   companyId: string;
   createdBy?: EmployeeRef;
   isDeleted?: boolean;

@@ -1169,9 +1169,23 @@ export const createMatiere = async (
   },
   createdBy?: import('../types/models').EmployeeRef | null
 ): Promise<Matiere> => {
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/53875ac0-7379-4748-ad91-884130143881',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'firestore.ts:1160',message:'createMatiere entry',data:{companyId,dataCompanyId:data.companyId,dataName:data.name,dataCategory:data.refCategorie,dataUnit:data.unit,initialStock,costPrice},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'B'})}).catch(()=>{});
+  // #endregion
   try {
+    // #region agent log - Check company structure
+    const companyDoc = await getDoc(doc(db, 'companies', companyId));
+    const companyData = companyDoc.exists() ? companyDoc.data() : null;
+    const { getAuth } = await import('firebase/auth');
+    const auth = getAuth();
+    const currentUserId = auth.currentUser?.uid;
+    fetch('http://127.0.0.1:7242/ingest/53875ac0-7379-4748-ad91-884130143881',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'firestore.ts:1175',message:'Company structure check',data:{companyId,currentUserId,companyExists:companyDoc.exists(),companyUserId:companyData?.userId,isOwner:companyData?.userId===currentUserId,companyIdMatchesUserId:companyId===currentUserId},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
     // Validate matiere data
     if (!data.name || !data.refCategorie || !data.unit) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/53875ac0-7379-4748-ad91-884130143881',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'firestore.ts:1174',message:'Validation failed',data:{hasName:!!data.name,hasCategory:!!data.refCategorie,hasUnit:!!data.unit},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
       throw new Error('Invalid matiere data: name, refCategorie, and unit are required');
     }
 
@@ -1209,6 +1223,9 @@ export const createMatiere = async (
       matiereData.createdBy = createdBy;
     }
     
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/53875ac0-7379-4748-ad91-884130143881',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'firestore.ts:1212',message:'Before batch.set matiere',data:{matiereDataCompanyId:matiereData.companyId,matiereDataName:matiereData.name,matiereDataCategory:matiereData.refCategorie},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
     batch.set(matiereRef, matiereData);
     
     // Create stock document reference
@@ -1221,6 +1238,9 @@ export const createMatiere = async (
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     };
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/53875ac0-7379-4748-ad91-884130143881',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'firestore.ts:1224',message:'Before batch.set stock',data:{stockDataCompanyId:stockData.companyId,stockDataMatiereId:stockData.matiereId,stockDataQuantity:stockData.quantity},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+    // #endregion
     batch.set(stockRef, stockData);
     
     // Update matiere with refStock
@@ -1328,7 +1348,13 @@ export const createMatiere = async (
     // Create audit log
     createAuditLog(batch, 'create', 'matiere', matiereRef.id, matiereData, userId);
     
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/53875ac0-7379-4748-ad91-884130143881',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'firestore.ts:1343',message:'Before batch.commit',data:{companyId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
     await batch.commit();
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/53875ac0-7379-4748-ad91-884130143881',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'firestore.ts:1345',message:'After batch.commit success',data:{matiereId:matiereRef.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
     
     // Update category matiere count after successful creation
     try {
@@ -1345,7 +1371,10 @@ export const createMatiere = async (
       createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 },
       updatedAt: { seconds: Date.now() / 1000, nanoseconds: 0 }
     };
-  } catch (error) {
+  } catch (error: any) {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/53875ac0-7379-4748-ad91-884130143881',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'firestore.ts:1275',message:'Error in createMatiere catch',data:{errorMessage:error?.message,errorCode:error?.code,errorName:error?.name,errorStack:error?.stack?.substring(0,500)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
     logError('Error creating matiere', error);
     throw error;
   }

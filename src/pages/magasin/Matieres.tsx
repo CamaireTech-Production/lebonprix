@@ -216,6 +216,11 @@ const Matieres = () => {
                         <Badge variant="info">
                           {matiere.unit}
                         </Badge>
+                        {matiere.qualite && (
+                          <Badge variant="success">
+                            {matiere.qualite}
+                          </Badge>
+                        )}
                       </div>
                       <div className="text-sm text-gray-600 mb-3">
                         Prix: {matiere.costPrice.toLocaleString()} XAF
@@ -277,6 +282,11 @@ const Matieres = () => {
                       <Badge variant="info">
                         {matiere.unit}
                       </Badge>
+                      {matiere.qualite && (
+                        <Badge variant="success">
+                          {matiere.qualite}
+                        </Badge>
+                      )}
                     </div>
                     <div className="text-sm text-gray-600">
                       Prix: {matiere.costPrice.toLocaleString()} XAF
