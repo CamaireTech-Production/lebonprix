@@ -9,7 +9,7 @@ const defaultOptions: ToastOptions = {
     boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
     borderRadius: '0.375rem',
     padding: '1rem',
-    zIndex: 9999, // Highest z-index to ensure toast appears above all other elements
+    zIndex: 10000, // Higher than modals (z-[9999]) to ensure toast appears above everything
   },
 };
 
@@ -20,7 +20,7 @@ export const showSuccessToast = (message: string): string => {
     style: {
       ...defaultOptions.style,
       borderLeft: '4px solid #10B981', // emerald-500
-      zIndex: 9999, // Highest z-index to ensure toast appears above all other elements
+      zIndex: 10000, // Higher than modals to ensure toast appears above everything
     },
   });
 };

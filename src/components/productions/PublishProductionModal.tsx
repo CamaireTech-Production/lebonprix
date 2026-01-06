@@ -52,6 +52,20 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
     validatedCostPrice: '' // Add cost validation field
   });
 
+  // Field error tracking for highlighting
+  const [fieldErrors, setFieldErrors] = useState<{
+    legacy?: {
+      name?: boolean;
+      sellingPrice?: boolean;
+      validatedCostPrice?: boolean;
+    };
+    articles?: Map<string, {
+      name?: boolean;
+      sellingPrice?: boolean;
+      costPrice?: boolean;
+    }>;
+  }>({});
+
   // Stock validation
   const stockValidation = useMemo(() => {
     if (!production) return { isValid: true, errors: [] };
@@ -88,6 +102,9 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
 
   useEffect(() => {
     if (isOpen && production) {
+      // Clear any previous errors
+      setFieldErrors({});
+      
       // Initialize form data
       setFormData({
         name: production.name,
@@ -145,6 +162,9 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
     // Prevent double submission
     if (isSubmitting) return;
 
+    // Clear previous errors
+    setFieldErrors({});
+
     // Multi-article mode: publish selected articles
     if (hasArticles && publishMode === 'selected') {
       if (selectedArticles.size === 0) {
@@ -153,20 +173,56 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
       }
 
       // Validate all selected articles have required data
+      const articleErrors = new Map<string, { name?: boolean; sellingPrice?: boolean; costPrice?: boolean }>();
+      let hasErrors = false;
+
       for (const articleId of selectedArticles) {
         const articleData = articleFormData.get(articleId);
+        const errors: { name?: boolean; sellingPrice?: boolean; costPrice?: boolean } = {};
+        
         if (!articleData) {
           showErrorToast(`Données manquantes pour l'article ${articleId}`);
-          return;
+          hasErrors = true;
+          continue;
         }
+        
+        if (!articleData.name || !articleData.name.trim()) {
+          errors.name = true;
+          hasErrors = true;
+        }
+        
         if (!articleData.sellingPrice || parseFloat(articleData.sellingPrice) < 0) {
-          showErrorToast(`Prix de vente requis pour tous les articles sélectionnés`);
-          return;
+          errors.sellingPrice = true;
+          hasErrors = true;
         }
+        
         if (!articleData.costPrice || parseFloat(articleData.costPrice) < 0) {
-          showErrorToast(`Coût requis pour tous les articles sélectionnés`);
-          return;
+          errors.costPrice = true;
+          hasErrors = true;
         }
+
+        if (Object.keys(errors).length > 0) {
+          articleErrors.set(articleId, errors);
+        }
+      }
+
+      if (hasErrors) {
+        setFieldErrors({ articles: articleErrors });
+        // Expand first article with errors and scroll to it
+        const firstErrorArticleId = Array.from(articleErrors.keys())[0];
+        if (firstErrorArticleId) {
+          setExpandedArticleId(firstErrorArticleId);
+          // Scroll to the first error field after a short delay to allow DOM update
+          setTimeout(() => {
+            const errorField = document.querySelector(`[name="name-${firstErrorArticleId}"], [name="sellingPrice-${firstErrorArticleId}"], [name="costPrice-${firstErrorArticleId}"]`);
+            if (errorField) {
+              errorField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              (errorField as HTMLElement).focus();
+            }
+          }, 100);
+        }
+        showErrorToast('Veuillez remplir tous les champs requis pour les articles sélectionnés');
+        return;
       }
 
       setIsSubmitting(true);
@@ -212,23 +268,44 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
     }
 
     // Legacy mode: publish entire production as single product
+    const legacyErrors: { name?: boolean; sellingPrice?: boolean; validatedCostPrice?: boolean } = {};
+    let hasLegacyErrors = false;
+
     if (!formData.name.trim()) {
-      showWarningToast('Le nom du produit est requis');
-      return;
+      legacyErrors.name = true;
+      hasLegacyErrors = true;
     }
 
     if (!formData.sellingPrice || parseFloat(formData.sellingPrice) < 0) {
-      showWarningToast('Le prix de vente est requis et doit être positif');
+      legacyErrors.sellingPrice = true;
+      hasLegacyErrors = true;
+    }
+
+    if (!formData.validatedCostPrice || parseFloat(formData.validatedCostPrice) < 0) {
+      legacyErrors.validatedCostPrice = true;
+      hasLegacyErrors = true;
+    }
+
+    if (hasLegacyErrors) {
+      setFieldErrors({ legacy: legacyErrors });
+      // Scroll to first error field
+      setTimeout(() => {
+        const firstErrorField = document.querySelector(
+          legacyErrors.name ? '[name="name"]' :
+          legacyErrors.sellingPrice ? '[name="sellingPrice"]' :
+          legacyErrors.validatedCostPrice ? '[name="validatedCostPrice"]' : null
+        );
+        if (firstErrorField) {
+          firstErrorField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          (firstErrorField as HTMLElement).focus();
+        }
+      }, 100);
+      showErrorToast('Veuillez remplir tous les champs requis');
       return;
     }
 
     if (!stockValidation.isValid) {
       showErrorToast('Stock insuffisant pour certains matériaux');
-      return;
-    }
-
-    if (!formData.validatedCostPrice || parseFloat(formData.validatedCostPrice) < 0) {
-      showWarningToast('Veuillez entrer un coût validé valide');
       return;
     }
 
@@ -424,15 +501,35 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
                           </label>
                           <input
                             type="text"
+                            name={`name-${article.id}`}
                             value={articleData.name}
                             onChange={(e) => {
                               const newData = new Map(articleFormData);
                               const current = newData.get(article.id) || articleData;
                               newData.set(article.id, { ...current, name: e.target.value });
                               setArticleFormData(newData);
+                              // Clear error when field is filled
+                              if (fieldErrors.articles?.get(article.id)?.name && e.target.value.trim()) {
+                                const newErrors = new Map(fieldErrors.articles);
+                                const articleError = newErrors.get(article.id) || {};
+                                delete articleError.name;
+                                if (Object.keys(articleError).length === 0) {
+                                  newErrors.delete(article.id);
+                                } else {
+                                  newErrors.set(article.id, articleError);
+                                }
+                                setFieldErrors({ articles: newErrors });
+                              }
                             }}
-                            className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className={`w-full px-2 py-1 text-sm border rounded-md focus:outline-none focus:ring-2 ${
+                              fieldErrors.articles?.get(article.id)?.name
+                                ? 'border-red-500 focus:ring-red-500 focus:border-red-500 bg-red-50'
+                                : 'border-gray-300 focus:ring-blue-500'
+                            }`}
                           />
+                          {fieldErrors.articles?.get(article.id)?.name && (
+                            <p className="mt-1 text-xs text-red-500">Ce champ est requis</p>
+                          )}
                         </div>
 
                         {/* Category and Barcode */}
@@ -598,9 +695,22 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
                                 const cleanValue = e.target.value.replace(/\s/g, '').replace(/[^\d]/g, '');
                                 newData.set(article.id, { ...current, costPrice: cleanValue || '0' });
                                 setArticleFormData(newData);
+                                // Clear error when field is filled
+                                if (fieldErrors.articles?.get(article.id)?.costPrice && parseFloat(cleanValue) > 0) {
+                                  const newErrors = new Map(fieldErrors.articles);
+                                  const articleError = newErrors.get(article.id) || {};
+                                  delete articleError.costPrice;
+                                  if (Object.keys(articleError).length === 0) {
+                                    newErrors.delete(article.id);
+                                  } else {
+                                    newErrors.set(article.id, articleError);
+                                  }
+                                  setFieldErrors({ articles: newErrors });
+                                }
                               }}
                               allowDecimals={false}
                               placeholder="0"
+                              error={fieldErrors.articles?.get(article.id)?.costPrice ? 'Ce champ est requis' : undefined}
                             />
                             <p className="mt-1 text-xs text-gray-500">
                               Vous pouvez valider le coût calculé ou le modifier selon vos besoins
@@ -620,9 +730,22 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
                                 const current = newData.get(article.id) || articleData;
                                 newData.set(article.id, { ...current, sellingPrice: e.target.value });
                                 setArticleFormData(newData);
+                                // Clear error when field is filled
+                                if (fieldErrors.articles?.get(article.id)?.sellingPrice && parseFloat(e.target.value) > 0) {
+                                  const newErrors = new Map(fieldErrors.articles);
+                                  const articleError = newErrors.get(article.id) || {};
+                                  delete articleError.sellingPrice;
+                                  if (Object.keys(articleError).length === 0) {
+                                    newErrors.delete(article.id);
+                                  } else {
+                                    newErrors.set(article.id, articleError);
+                                  }
+                                  setFieldErrors({ articles: newErrors });
+                                }
                               }}
                               allowDecimals={false}
                               placeholder="0"
+                              error={fieldErrors.articles?.get(article.id)?.sellingPrice ? 'Ce champ est requis' : undefined}
                             />
                           </div>
                           <div>
@@ -737,9 +860,18 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
                   label="Coût validé (XAF) *"
                   name="validatedCostPrice"
                   value={formData.validatedCostPrice}
-                  onChange={(e) => setFormData({ ...formData, validatedCostPrice: e.target.value })}
+                  onChange={(e) => {
+                    setFormData({ ...formData, validatedCostPrice: e.target.value });
+                    // Clear error when field is filled
+                    if (fieldErrors.legacy?.validatedCostPrice && parseFloat(e.target.value) > 0) {
+                      setFieldErrors({
+                        legacy: { ...fieldErrors.legacy, validatedCostPrice: false }
+                      });
+                    }
+                  }}
                   allowDecimals={false}
                   placeholder="0"
+                  error={fieldErrors.legacy?.validatedCostPrice ? 'Ce champ est requis' : undefined}
                 />
                 <p className="mt-1 text-xs text-gray-500">
                   Vous pouvez valider le coût calculé ou le modifier selon vos besoins
@@ -755,11 +887,27 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
             </label>
             <input
               type="text"
+              name="name"
               value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              onChange={(e) => {
+                setFormData({ ...formData, name: e.target.value });
+                // Clear error when field is filled
+                if (fieldErrors.legacy?.name && e.target.value.trim()) {
+                  setFieldErrors({
+                    legacy: { ...fieldErrors.legacy, name: false }
+                  });
+                }
+              }}
+              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
+                fieldErrors.legacy?.name
+                  ? 'border-red-500 focus:ring-red-500 focus:border-red-500 bg-red-50'
+                  : 'border-gray-300 focus:ring-blue-500'
+              }`}
               placeholder="Nom du produit"
             />
+            {fieldErrors.legacy?.name && (
+              <p className="mt-1 text-sm text-red-500">Ce champ est requis</p>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -799,9 +947,18 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
                 label="Prix de vente (XAF) *"
                 name="sellingPrice"
                 value={formData.sellingPrice}
-                onChange={(e) => setFormData({ ...formData, sellingPrice: e.target.value })}
+                onChange={(e) => {
+                  setFormData({ ...formData, sellingPrice: e.target.value });
+                  // Clear error when field is filled
+                  if (fieldErrors.legacy?.sellingPrice && parseFloat(e.target.value) > 0) {
+                    setFieldErrors({
+                      legacy: { ...fieldErrors.legacy, sellingPrice: false }
+                    });
+                  }
+                }}
                 allowDecimals={false}
                 placeholder="0"
+                error={fieldErrors.legacy?.sellingPrice ? 'Ce champ est requis' : undefined}
               />
             </div>
 
