@@ -534,6 +534,34 @@ export interface ProductionMaterial {
 }
 
 /**
+ * Production Article - Individual article/item produced in a production
+ * Each production can produce multiple articles with different quantities
+ */
+export interface ProductionArticle {
+  id: string; // Unique ID (auto-generated)
+  name: string; // User-entered OR auto-generated from production name
+  quantity: number; // Number of units to produce for this article
+  status: 'draft' | 'in_progress' | 'ready' | 'published' | 'cancelled';
+  
+  // Flow stage tracking (uses production flowId)
+  currentStepId?: string; // Current step in production flow
+  currentStepName?: string; // Denormalized step name
+  
+  // Publishing
+  publishedProductId?: string; // If published, reference to Product
+  publishedAt?: Timestamp;
+  publishedBy?: string;
+  
+  // Optional metadata
+  description?: string;
+  images?: string[]; // Article-specific images
+  
+  // Materials - Specific to this article (not shared with other articles)
+  materials: ProductionMaterial[]; // Materials required for this article
+  calculatedCostPrice?: number; // Cost calculated from this article's materials only (without charges)
+}
+
+/**
  * Production State Change - Tracks state evolution
  * Supports two modes:
  * - Flow mode: Uses stepId/stepName (when flowId exists)
@@ -617,6 +645,7 @@ export interface ProductionChargeRef {
   category?: string; // Snapshot (optional)
   type: 'fixed' | 'custom'; // Whether this was a fixed or custom charge
   date: Timestamp; // Snapshot
+  createdBy?: EmployeeRef; // Snapshot of who created the charge (optional for backward compatibility)
 }
 
 /**
@@ -639,8 +668,15 @@ export interface Production extends BaseModel {
   // State History (tracks all state changes - user can move freely)
   stateHistory: ProductionStateChange[];
   
-  // Materials (from magasin)
+  // Materials (from magasin) - @deprecated - Materials are now per-article
+  // Kept for backward compatibility, but should be empty for new productions
   materials: ProductionMaterial[];
+  
+  // Articles - Multiple articles can be produced from one production
+  articles: ProductionArticle[]; // Array of articles to produce
+  
+  // Total articles quantity (sum of all articles[].quantity)
+  totalArticlesQuantity: number; // Auto-calculated from articles[].quantity
   
   // Cost Calculation
   calculatedCostPrice: number; // Auto-calculated from materials + charges
@@ -652,12 +688,16 @@ export interface Production extends BaseModel {
   charges: ProductionChargeRef[]; // Array of charge snapshots (for cost calculation)
   
   // Publishing & Closure
-  publishedProductId?: string; // If published, reference to Product
-  isPublished: boolean;
+  publishedProductId?: string; // @deprecated - Use articles[].publishedProductId instead (kept for backward compatibility)
+  isPublished: boolean; // True when ALL articles are published
   isPublishing?: boolean; // Temporary lock during publication process (prevents double publication)
   isClosed: boolean; // True when published - no more interactions
   closedAt?: Timestamp;
   closedBy?: string;
+  
+  // Publishing tracking
+  publishedArticlesCount?: number; // Count of published articles
+  selectedArticlesForBulkPublish?: string[]; // Article IDs selected for bulk publish
   
   // Catalog Info (stored but only used when publishing)
   catalogData?: {

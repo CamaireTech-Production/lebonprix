@@ -6,6 +6,7 @@ import { useAuth } from '@contexts/AuthContext';
 import { useProductionFlowSteps } from '@hooks/data/useFirestore';
 import { FirebaseStorageService } from '@services/core/firebaseStorage';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
+import { formatCreatorName } from '@utils/business/employeeUtils';
 import imageCompression from 'browser-image-compression';
 import type { ProductionFlowStep } from '../../types/models';
 
@@ -255,6 +256,9 @@ const FlowSteps: React.FC = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Durée estimée
                 </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Créé par
+                </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
                 </th>
@@ -285,6 +289,11 @@ const FlowSteps: React.FC = () => {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-500">
                       {step.estimatedDuration ? `${step.estimatedDuration}h` : '-'}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-600">
+                      {formatCreatorName(step.createdBy)}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">

@@ -31,11 +31,11 @@ function AppWithFAB({ isAddSaleModalOpen, setIsAddSaleModalOpen }: { isAddSaleMo
         <Suspense fallback={<LoadingScreen />}>
           <Toaster 
             containerStyle={{
-              zIndex: 9999, // Highest z-index to ensure toasts appear above all other elements
+              zIndex: 10000, // Higher than modals (z-[9999]) to ensure toasts appear above everything
             }}
             toastOptions={{
               style: {
-                zIndex: 9999, // Highest z-index for individual toasts
+                zIndex: 10000, // Higher than modals for individual toasts
               },
             }}
           />

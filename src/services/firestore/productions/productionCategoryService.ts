@@ -65,12 +65,22 @@ export const createProductionCategory = async (
       throw new Error('Category name is required');
     }
 
+    // Get current authenticated user
+    const { getAuth } = await import('firebase/auth');
+    const auth = getAuth();
+    const currentUserId = auth.currentUser?.uid;
+    
+    if (!currentUserId) {
+      throw new Error('User must be authenticated to create a production category');
+    }
+
     const batch = writeBatch(db);
 
     // Build category data, filtering out undefined values (Firebase doesn't accept undefined)
     const categoryData: any = {
       name: data.name,
       companyId,
+      userId: currentUserId, // Set userId from authenticated user
       isActive: data.isActive !== false,
       productionCount: 0,
       createdAt: serverTimestamp(),
@@ -86,9 +96,6 @@ export const createProductionCategory = async (
     }
     if (data.imagePath) {
       categoryData.imagePath = data.imagePath;
-    }
-    if (data.userId) {
-      categoryData.userId = data.userId;
     }
 
     if (createdBy) {

@@ -56,7 +56,7 @@ const Products = () => {
   const { stockChanges } = useStockChanges();
   useCategories();
   const { suppliers } = useSuppliers();
-  const { batches: allStockBatches } = useAllStockBatches();
+  const { batches: allStockBatches, loading: batchesLoading } = useAllStockBatches();
   const { user, company, currentEmployee, isOwner } = useAuth();
   
   // Set up infinite scroll
@@ -176,11 +176,11 @@ const Products = () => {
   const [isBarcodeModalOpen, setIsBarcodeModalOpen] = useState(false);
   const [selectedProductForBarcode, setSelectedProductForBarcode] = useState<Product | null>(null);
   // State for stock adjustment tab
-  const [stockAdjustment, setStockAdjustment] = useState('');
+  const [, setStockAdjustment] = useState('');
   const [stockReason, setStockReason] = useState<'restock' | 'adjustment' | 'damage'>('restock');
   
   // State for stock adjustment supplier info
-  const [stockAdjustmentSupplier, setStockAdjustmentSupplier] = useState({
+  const [, setStockAdjustmentSupplier] = useState({
     supplyType: 'ownPurchase' as 'ownPurchase' | 'fromSupplier',
     supplierId: '',
     paymentType: 'paid' as 'credit' | 'paid',
@@ -188,10 +188,10 @@ const Products = () => {
   });
 
   // Enhanced Stock Management State (All Scenarios)
-  const [availableBatches, setAvailableBatches] = useState<StockBatch[]>([]);
-  const [selectedBatchId, setSelectedBatchId] = useState('');
-  const [selectedBatch, setSelectedBatch] = useState<StockBatch | null>(null);
-  const [loadingBatches, setLoadingBatches] = useState(false);
+  const [, setAvailableBatches] = useState<StockBatch[]>([]);
+  const [, setSelectedBatchId] = useState('');
+  const [, setSelectedBatch] = useState<StockBatch | null>(null);
+  const [, setLoadingBatches] = useState(false);
   
   // Scenario 2: Manual Adjustment - Enhanced with purchase method editing
   const [tempBatchEdits, setTempBatchEdits] = useState<Array<{
@@ -207,7 +207,7 @@ const Products = () => {
     scenario: 'adjustment' | 'damage';
   }>>([]);
   
-  const [batchEditForm, setBatchEditForm] = useState({
+  const [, setBatchEditForm] = useState({
     stock: '',
     costPrice: '',
     supplyType: 'ownPurchase' as 'ownPurchase' | 'fromSupplier',
@@ -216,7 +216,7 @@ const Products = () => {
   });
   
   // Scenario 3: Damage State
-  const [damageForm, setBatchDamageForm] = useState({
+  const [, setBatchDamageForm] = useState({
     damagedQuantity: ''
   });
   
@@ -668,10 +668,6 @@ const Products = () => {
     }
   };
 
-  const handleStockAdjustmentSupplierChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setStockAdjustmentSupplier(prev => ({ ...prev, [name]: value }));
-  };
 
   // Enhanced Manual Adjustment Functions
   const loadBatchesForAdjustment = async (productId: string) => {
@@ -693,176 +689,11 @@ const Products = () => {
     }
   };
 
-  const handleBatchSelection = (batchId: string) => {
-    setSelectedBatchId(batchId);
-    const batch = availableBatches.find((b: StockBatch) => b.id === batchId);
-    if (batch) {
-      setSelectedBatch(batch);
-      
-      // Pre-fill form based on scenario
-      if (stockReason === 'adjustment') {
-        // Manual adjustment: pre-fill with TOTAL QUANTITY (not remaining)
-        // This maintains coherence between quantity and remainingQuantity
-        // For manual adjustment, we preserve the original batch's supplier and payment type
-        setBatchEditForm({
-          stock: batch.quantity.toString(), // Use total quantity instead of remaining
-          costPrice: batch.costPrice.toString(),
-          supplyType: batch.isOwnPurchase ? 'ownPurchase' : 'fromSupplier',
-          supplierId: batch.supplierId || '', // Preserve original supplier
-          paymentType: batch.isCredit ? 'credit' : 'paid' // Preserve original payment type
-        });
-      } else if (stockReason === 'damage') {
-        // Damage: only pre-fill damage quantity form
-        setBatchDamageForm({
-          damagedQuantity: ''
-        });
-      }
-    } else {
-      setSelectedBatch(null);
-      setBatchEditForm({ 
-        stock: '', 
-        costPrice: '',
-        supplyType: 'ownPurchase',
-        supplierId: '',
-        paymentType: 'paid'
-      });
-      setBatchDamageForm({ damagedQuantity: '' });
-    }
-  };
 
-  const handleBatchEditFormChange = (field: string, value: string) => {
-    setBatchEditForm(prev => ({ ...prev, [field]: value }));
-  };
 
-  const handleDamageFormChange = (field: string, value: string) => {
-    setBatchDamageForm(prev => ({ ...prev, [field]: value }));
-    
-    // Real-time validation for damage quantity
-    if (field === 'damagedQuantity' && selectedBatch && value) {
-      const damagedQuantity = parseFloat(value);
-      if (!isNaN(damagedQuantity) && damagedQuantity > selectedBatch.remainingQuantity) {
-        showErrorToast(`Cannot exceed available stock: ${selectedBatch.remainingQuantity} units`);
-      }
-    }
-  };
 
-  const addTempBatchEdit = () => {
-    if (!selectedBatch) return;
 
-    // Validation based on scenario
-    if (stockReason === 'adjustment') {
-      if (!batchEditForm.stock || !batchEditForm.costPrice) {
-        showErrorToast('Please fill in all required fields');
-        return;
-      }
-      // For manual adjustment, supplier is preserved from the original batch
-      // No need to validate supplier selection as it's automatically set
 
-      const newTotalQuantity = parseFloat(batchEditForm.stock);
-      const usedQuantity = selectedBatch.quantity - selectedBatch.remainingQuantity;
-      const newRemainingQuantity = newTotalQuantity - usedQuantity;
-
-      // Check if the new remaining quantity would be negative
-      if (newRemainingQuantity < 0) {
-        showErrorToast(`Invalid quantity! This batch has ${usedQuantity} units already used. Minimum total quantity: ${usedQuantity}`);
-        return;
-      }
-
-      // Calculate the actual quantity change (difference in total quantity)
-      const quantityChange = newTotalQuantity - selectedBatch.quantity;
-
-      const newEdit = {
-        batchId: selectedBatch.id,
-        batch: selectedBatch,
-        newStock: newTotalQuantity,
-        newCostPrice: parseFloat(batchEditForm.costPrice),
-        quantityChange,
-        newSupplyType: selectedBatch.isOwnPurchase ? 'ownPurchase' as const : 'fromSupplier' as const,
-        newSupplierId: selectedBatch.supplierId, // Preserve the original supplier from the batch
-        newPaymentType: selectedBatch.isCredit ? 'credit' as const : 'paid' as const, // Preserve the original payment type
-        timestamp: new Date(),
-        scenario: 'adjustment' as const
-      };
-
-      setTempBatchEdits(prev => [...prev, newEdit]);
-      showSuccessToast(`Manual adjustment added: ${quantityChange >= 0 ? '+' : ''}${quantityChange} units @ ${parseFloat(batchEditForm.costPrice).toLocaleString()} XAF`);
-
-    } else if (stockReason === 'damage') {
-      if (!damageForm.damagedQuantity) {
-        showErrorToast('Please enter the damaged quantity');
-        return;
-      }
-
-      const damagedQuantity = parseFloat(damageForm.damagedQuantity);
-      if (damagedQuantity <= 0 || damagedQuantity > selectedBatch.remainingQuantity) {
-        showErrorToast(`Invalid quantity. Must be between 1 and ${selectedBatch.remainingQuantity}`);
-        return;
-      }
-
-      const newEdit = {
-        batchId: selectedBatch.id,
-        batch: selectedBatch,
-        newStock: selectedBatch.remainingQuantity - damagedQuantity,
-        newCostPrice: selectedBatch.costPrice,
-        quantityChange: -damagedQuantity,
-        newSupplyType: selectedBatch.isOwnPurchase ? 'ownPurchase' as const : 'fromSupplier' as const,
-        newSupplierId: selectedBatch.supplierId,
-        newPaymentType: selectedBatch.isCredit ? 'credit' as const : 'paid' as const,
-        timestamp: new Date(),
-        scenario: 'damage' as const
-      };
-
-      setTempBatchEdits(prev => [...prev, newEdit]);
-      showSuccessToast(`Damage recorded: -${damagedQuantity} units`);
-    }
-
-    // Reset form and reload batches
-    setBatchEditForm({
-      stock: '',
-      costPrice: '',
-      supplyType: 'ownPurchase',
-      supplierId: '',
-      paymentType: 'paid'
-    });
-    setBatchDamageForm({ damagedQuantity: '' });
-    setSelectedBatchId('');
-    setSelectedBatch(null);
-    
-    // Reload batches to exclude the one just added
-    if (currentProduct?.id) {
-      loadBatchesForAdjustment(currentProduct.id);
-    }
-  };
-
-  const removeTempBatchEdit = (batchId: string) => {
-    setTempBatchEdits(prev => prev.filter(edit => edit.batchId !== batchId));
-    showSuccessToast('Batch edit removed from list');
-    
-    // Reload batches to include the removed one back
-    if (currentProduct?.id) {
-      loadBatchesForAdjustment(currentProduct.id);
-    }
-  };
-
-  const clearAllTempBatchEdits = () => {
-    setTempBatchEdits([]);
-    setBatchEditForm({
-      stock: '',
-      costPrice: '',
-      supplyType: 'ownPurchase',
-      supplierId: '',
-      paymentType: 'paid'
-    });
-    setBatchDamageForm({ damagedQuantity: '' });
-    setSelectedBatchId('');
-    setSelectedBatch(null);
-    showSuccessToast('All batch edits cleared');
-    
-    // Reload batches
-    if (currentProduct?.id) {
-      loadBatchesForAdjustment(currentProduct.id);
-    }
-  };
 
 
 
@@ -1409,6 +1240,13 @@ const Products = () => {
     return allStockBatches.filter((batch: StockBatch) => batch.productId === productId);
   };
 
+  // Helper function to calculate stock from batches (sum of remainingQuantity from active batches)
+  const getProductStockFromBatches = (productId: string): number => {
+    const batches = getProductBatches(productId);
+    const activeBatches = batches.filter(batch => batch.status === 'active');
+    return activeBatches.reduce((sum, batch) => sum + (batch.remainingQuantity || 0), 0);
+  };
+
   // Helper function to get the effective visibility state (considering optimistic updates)
   const getEffectiveVisibility = (product: Product): boolean => {
     return visibilityOverrides[product.id] !== undefined 
@@ -1805,9 +1643,18 @@ const Products = () => {
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">{t('products.table.columns.stock')}:</span>
-                      <Badge variant={(product.stock ?? 0) > 10 ? 'success' : (product.stock ?? 0) > 5 ? 'warning' : 'error'}>
-                        {product.stock ?? 0} units
-                      </Badge>
+                      {batchesLoading ? (
+                        <div className="h-5 w-16 bg-gray-200 rounded animate-pulse" />
+                      ) : (
+                        (() => {
+                          const stockFromBatches = getProductStockFromBatches(product.id);
+                          return (
+                            <Badge variant={stockFromBatches > 10 ? 'success' : stockFromBatches > 5 ? 'warning' : 'error'}>
+                              {stockFromBatches} units
+                            </Badge>
+                          );
+                        })()
+                      )}
                     </div>
                   </div>
                   {product.category && (
@@ -1976,9 +1823,18 @@ const Products = () => {
                       <div className="text-sm text-emerald-600 font-medium">{product.sellingPrice.toLocaleString()} XAF</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <Badge variant={(product.stock ?? 0) > 10 ? 'success' : (product.stock ?? 0) > 5 ? 'warning' : 'error'}>
-                        {product.stock ?? 0} units
-                      </Badge>
+                      {batchesLoading ? (
+                        <div className="h-5 w-16 bg-gray-200 rounded animate-pulse" />
+                      ) : (
+                        (() => {
+                          const stockFromBatches = getProductStockFromBatches(product.id);
+                          return (
+                            <Badge variant={stockFromBatches > 10 ? 'success' : stockFromBatches > 5 ? 'warning' : 'error'}>
+                              {stockFromBatches} units
+                            </Badge>
+                          );
+                        })()
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-500">{product.category}</div>

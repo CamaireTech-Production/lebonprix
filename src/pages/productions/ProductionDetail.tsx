@@ -1,5 +1,5 @@
 // Production Detail page
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Edit2, Loader2, CheckCircle2, Plus, Trash2, Package, Download, BarChart3, X, XCircle, Check } from 'lucide-react';
 import { Button, LoadingScreen, Badge, Modal, ModalFooter } from '@components/common';
@@ -8,8 +8,11 @@ import { useAuth } from '@contexts/AuthContext';
 import { useMatiereStocks } from '@hooks/business/useMatiereStocks';
 import { formatPrice } from '@utils/formatting/formatPrice';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
+import { getUserById } from '@services/utilities/userService';
+import { formatCreatorName } from '@utils/business/employeeUtils';
 import ChargeFormModal from '@components/productions/ChargeFormModal';
 import PublishProductionModal from '@components/productions/PublishProductionModal';
+import AddArticleModal from '@components/productions/AddArticleModal';
 import type { ProductionChargeRef } from '../../types/models';
 
 const ProductionDetail: React.FC = () => {
@@ -47,11 +50,75 @@ const ProductionDetail: React.FC = () => {
   const [isDeleteProductionModalOpen, setIsDeleteProductionModalOpen] = useState(false);
   const [isRemoveChargeModalOpen, setIsRemoveChargeModalOpen] = useState(false);
   const [chargeToRemove, setChargeToRemove] = useState<ProductionChargeRef | null>(null);
+  const [isAddArticleModalOpen, setIsAddArticleModalOpen] = useState(false);
+  const [selectedArticles, setSelectedArticles] = useState<Set<string>>(new Set());
+  const [isChangingArticleStage, setIsChangingArticleStage] = useState<string | null>(null);
+  const [isPublishingArticle, setIsPublishingArticle] = useState<string | null>(null);
+  const [isBulkPublishing, setIsBulkPublishing] = useState(false);
+  const [userNamesMap, setUserNamesMap] = useState<Map<string, string>>(new Map());
+  const [expandedArticleId, setExpandedArticleId] = useState<string | null>(null);
 
   const production = useMemo(() => {
     if (!id) return null;
     return productions.find(p => p.id === id) || null;
   }, [productions, id]);
+
+  // Fetch user names for state history
+  useEffect(() => {
+    const fetchUserNames = async () => {
+      if (!production || !production.stateHistory || production.stateHistory.length === 0) {
+        return;
+      }
+
+      const userIds = new Set<string>();
+      production.stateHistory.forEach((change) => {
+        if (change.changedBy) {
+          userIds.add(change.changedBy);
+        }
+      });
+
+      const namesMap = new Map<string, string>();
+      const fetchPromises = Array.from(userIds).map(async (userId) => {
+        try {
+          const user = await getUserById(userId);
+          if (user) {
+            const fullName = `${user.firstname || ''} ${user.lastname || ''}`.trim();
+            namesMap.set(userId, fullName || user.email || userId);
+          } else {
+            namesMap.set(userId, userId); // Fallback to userId if user not found
+          }
+        } catch (error) {
+          console.error(`Error fetching user ${userId}:`, error);
+          namesMap.set(userId, userId); // Fallback to userId on error
+        }
+      });
+
+      await Promise.all(fetchPromises);
+      setUserNamesMap(namesMap);
+    };
+
+    fetchUserNames();
+  }, [production?.stateHistory]);
+
+  // Calculate costs from articles and charges
+  const materialsCost = useMemo(() => {
+    if (!production || !production.articles) return 0;
+    return production.articles.reduce((sum, article) => {
+      const articleMaterialsCost = (article.materials || []).reduce((articleSum, material) => {
+        return articleSum + (material.requiredQuantity * material.costPrice);
+      }, 0);
+      return sum + articleMaterialsCost;
+    }, 0);
+  }, [production]);
+
+  const chargesCost = useMemo(() => {
+    if (!production || !production.charges) return 0;
+    return production.charges.reduce((sum, charge) => sum + (charge.amount || 0), 0);
+  }, [production]);
+
+  const totalCost = useMemo(() => {
+    return materialsCost + chargesCost;
+  }, [materialsCost, chargesCost]);
 
   // Get fixed charges for selection
   const { charges: fixedCharges } = useFixedCharges(); // Get all fixed charges
@@ -159,6 +226,12 @@ const ProductionDetail: React.FC = () => {
 
   // Check if production uses flow or simple mode
   const hasFlow = production?.flowId !== undefined && production.flowId !== null;
+
+  // Get article current step
+  const getArticleCurrentStep = (article: typeof production.articles[0]) => {
+    if (!article || !article.currentStepId) return null;
+    return flowSteps.find(s => s.id === article.currentStepId) || null;
+  };
 
   if (productionsLoading) {
     return <LoadingScreen />;
@@ -284,7 +357,7 @@ const ProductionDetail: React.FC = () => {
                 rows.push('Catégorie,' + escapeCSV(categories.find(c => c.id === production.categoryId)?.name || ''));
                 rows.push('Flux,' + escapeCSV(hasFlow ? (productionFlow?.name || '') : 'Aucun (production simple)'));
                 rows.push('Statut,' + escapeCSV(production.status));
-                rows.push('Coût calculé,' + escapeCSV(production.calculatedCostPrice || 0));
+                rows.push('Coût calculé,' + escapeCSV(totalCost));
                 rows.push('Coût validé,' + escapeCSV(production.validatedCostPrice || ''));
                 rows.push('Date de création,' + escapeCSV(
                   production.createdAt?.seconds
@@ -294,6 +367,30 @@ const ProductionDetail: React.FC = () => {
                 rows.push('Fermé,' + escapeCSV(production.isClosed ? 'Oui' : 'Non'));
                 rows.push('Publié,' + escapeCSV(production.isPublished ? 'Oui' : 'Non'));
                 rows.push('Produit publié ID,' + escapeCSV(production.publishedProductId || ''));
+                rows.push('Total articles,' + escapeCSV(production.totalArticlesQuantity || 0));
+                rows.push('Articles publiés,' + escapeCSV(production.publishedArticlesCount || 0));
+                
+                // Articles
+                if (production.articles && production.articles.length > 0) {
+                  rows.push('');
+                  rows.push('Articles');
+                  rows.push('ID,Nom,Quantité,Statut,Étape actuelle,Produit publié ID,Date de publication,Description');
+                  production.articles.forEach((article: typeof production.articles[0]) => {
+                    const publishDate = article.publishedAt?.seconds
+                      ? new Date(article.publishedAt.seconds * 1000).toLocaleString('fr-FR')
+                      : '';
+                    rows.push([
+                      escapeCSV(article.id),
+                      escapeCSV(article.name),
+                      escapeCSV(article.quantity),
+                      escapeCSV(article.status),
+                      escapeCSV(article.currentStepName || article.currentStepId || ''),
+                      escapeCSV(article.publishedProductId || ''),
+                      escapeCSV(publishDate),
+                      escapeCSV(article.description || '')
+                    ].join(','));
+                  });
+                }
                 
                 // Materials
                 rows.push('');
@@ -408,7 +505,7 @@ const ProductionDetail: React.FC = () => {
       {showAnalytics && production && (
         <div className="bg-white rounded-lg shadow p-6 mb-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Analytics</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <div className="bg-blue-50 rounded-md p-4">
               <div className="text-sm text-blue-600 mb-1">Temps moyen par étape</div>
               <div className="text-2xl font-bold text-blue-900">
@@ -424,7 +521,7 @@ const ProductionDetail: React.FC = () => {
             <div className="bg-green-50 rounded-md p-4">
               <div className="text-sm text-green-600 mb-1">Coût total</div>
               <div className="text-2xl font-bold text-green-900">
-                {formatPrice(production.calculatedCostPrice || 0)}
+                {formatPrice(totalCost)}
               </div>
             </div>
             <div className="bg-purple-50 rounded-md p-4">
@@ -434,6 +531,78 @@ const ProductionDetail: React.FC = () => {
               </div>
             </div>
           </div>
+          
+          {/* Article Analytics */}
+          {production.articles && production.articles.length > 0 && (
+            <div className="border-t border-gray-200 pt-6">
+              <h3 className="text-md font-semibold text-gray-900 mb-4">Analytics des Articles</h3>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="bg-orange-50 rounded-md p-4">
+                  <div className="text-sm text-orange-600 mb-1">Total articles</div>
+                  <div className="text-2xl font-bold text-orange-900">
+                    {production.articles.length}
+                  </div>
+                </div>
+                <div className="bg-green-50 rounded-md p-4">
+                  <div className="text-sm text-green-600 mb-1">Articles publiés</div>
+                  <div className="text-2xl font-bold text-green-900">
+                    {production.publishedArticlesCount || 0}
+                  </div>
+                  <div className="text-xs text-green-600 mt-1">
+                    {production.articles.length > 0
+                      ? `${Math.round(((production.publishedArticlesCount || 0) / production.articles.length) * 100)}%`
+                      : '0%'}
+                  </div>
+                </div>
+                <div className="bg-blue-50 rounded-md p-4">
+                  <div className="text-sm text-blue-600 mb-1">Taux de publication</div>
+                  <div className="text-2xl font-bold text-blue-900">
+                    {production.articles.length > 0
+                      ? `${Math.round(((production.publishedArticlesCount || 0) / production.articles.length) * 100)}%`
+                      : '0%'}
+                  </div>
+                </div>
+                <div className="bg-indigo-50 rounded-md p-4">
+                  <div className="text-sm text-indigo-600 mb-1">Quantité totale</div>
+                  <div className="text-2xl font-bold text-indigo-900">
+                    {production.totalArticlesQuantity || 0}
+                  </div>
+                </div>
+              </div>
+              
+              {/* Article Progress by Status */}
+              <div className="mt-6">
+                <h4 className="text-sm font-medium text-gray-700 mb-3">Répartition par statut</h4>
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                  {['draft', 'in_progress', 'ready', 'published', 'cancelled'].map((status) => {
+                    const count = production.articles.filter((a: typeof production.articles[0]) => a.status === status).length;
+                    const percentage = production.articles.length > 0 ? (count / production.articles.length) * 100 : 0;
+                    const colors = {
+                      draft: 'bg-gray-100 text-gray-800',
+                      in_progress: 'bg-blue-100 text-blue-800',
+                      ready: 'bg-green-100 text-green-800',
+                      published: 'bg-purple-100 text-purple-800',
+                      cancelled: 'bg-red-100 text-red-800'
+                    };
+                    const labels = {
+                      draft: 'Brouillon',
+                      in_progress: 'En cours',
+                      ready: 'Prêt',
+                      published: 'Publié',
+                      cancelled: 'Annulé'
+                    };
+                    return (
+                      <div key={status} className={`rounded-md p-3 ${colors[status as keyof typeof colors]}`}>
+                        <div className="text-xs font-medium mb-1">{labels[status as keyof typeof labels]}</div>
+                        <div className="text-lg font-bold">{count}</div>
+                        <div className="text-xs opacity-75">{percentage.toFixed(0)}%</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
           {production.materials.length > 0 && (
             <div className="mt-4">
               <h3 className="text-sm font-medium text-gray-700 mb-2">Coût des matériaux par unité</h3>
@@ -516,7 +685,7 @@ const ProductionDetail: React.FC = () => {
               <div>
                 <h3 className="text-sm font-medium text-gray-500 mb-2">Coût calculé</h3>
                 <p className="text-lg font-semibold text-gray-900">
-                  {formatPrice(production.calculatedCostPrice || 0)}
+                  {formatPrice(totalCost)}
                 </p>
               </div>
             </div>
@@ -528,34 +697,287 @@ const ProductionDetail: React.FC = () => {
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">Coût des matériaux:</span>
                   <span className="text-sm font-medium text-gray-900">
-                    {formatPrice(
-                      production.materials.reduce(
-                        (sum: number, m: typeof production.materials[0]) => sum + (m.requiredQuantity * m.costPrice),
-                        0
-                      )
-                    )}
+                    {formatPrice(materialsCost)}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">Total des charges:</span>
                   <span className="text-sm font-medium text-gray-900">
-                    {formatPrice(
-                      (production.charges || []).reduce((sum: number, c: ProductionChargeRef) => sum + (c.amount || 0), 0)
-                    )}
+                    {formatPrice(chargesCost)}
                   </span>
                 </div>
                 <div className="border-t border-gray-200 pt-3 flex justify-between items-center">
                   <span className="text-base font-medium text-gray-900">Coût total calculé:</span>
                   <span className="text-base font-semibold text-gray-900">
-                    {formatPrice(
-                      production.materials.reduce(
-                        (sum: number, m: typeof production.materials[0]) => sum + (m.requiredQuantity * m.costPrice),
-                        0
-                      ) + (production.charges || []).reduce((sum: number, c: ProductionChargeRef) => sum + (c.amount || 0), 0)
-                    )}
+                    {formatPrice(totalCost)}
                   </span>
                 </div>
               </div>
+            </div>
+
+            {/* Articles Section */}
+            <div className="mt-6 border-t border-gray-200 pt-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-medium text-gray-900">Articles</h3>
+                <div className="flex items-center gap-2">
+                  {!isClosed && selectedArticles.size > 0 && (
+                    <Button
+                      icon={<Package size={16} />}
+                      onClick={async () => {
+                        if (selectedArticles.size === 0 || !production) return;
+                        setIsBulkPublishing(true);
+                        try {
+                          const { bulkPublishArticles } = await import('@services/firestore/productions/productionService');
+                          
+                          // Create product data map for each article
+                          const productDataMap = new Map();
+                          const selectedArticleIds = Array.from(selectedArticles);
+                          
+                          for (const articleId of selectedArticleIds) {
+                            const article = production.articles?.find((a: typeof production.articles[0]) => a.id === articleId);
+                            if (!article) continue;
+                            
+                            // Calculate cost from article's own materials
+                            const articleMaterialsCost = (article.materials || []).reduce((sum, material) => {
+                              return sum + (material.requiredQuantity * material.costPrice);
+                            }, 0);
+                            const articleCostPrice = article.calculatedCostPrice || articleMaterialsCost;
+                            
+                            productDataMap.set(articleId, {
+                              name: article.name,
+                              costPrice: articleCostPrice,
+                              sellingPrice: 0, // User will need to set this - can be enhanced later
+                              stock: article.quantity,
+                              description: article.description || production.description,
+                              isVisible: true
+                            });
+                          }
+                          
+                          const results = await bulkPublishArticles(production.id, selectedArticleIds, companyId || production.companyId, productDataMap);
+                          showSuccessToast(`${results.length} article(s) publié(s) avec succès`);
+                          setSelectedArticles(new Set());
+                        } catch (error: any) {
+                          showErrorToast(error.message || 'Erreur lors de la publication en masse');
+                        } finally {
+                          setIsBulkPublishing(false);
+                        }
+                      }}
+                      isLoading={isBulkPublishing}
+                      disabled={isBulkPublishing}
+                      variant="secondary"
+                      size="sm"
+                    >
+                      Publier la sélection ({selectedArticles.size})
+                    </Button>
+                  )}
+                  {!isClosed && (
+                    <Button
+                      icon={<Plus size={16} />}
+                      onClick={() => setIsAddArticleModalOpen(true)}
+                      variant="secondary"
+                      size="sm"
+                    >
+                      Ajouter un article
+                    </Button>
+                  )}
+                </div>
+              </div>
+              {production.articles && production.articles.length > 0 ? (
+                <div className="space-y-3">
+                  {production.articles.map((article: typeof production.articles[0]) => {
+                    const articleStep = getArticleCurrentStep(article);
+                    const isSelected = selectedArticles.has(article.id);
+                    const canPublish = article.status === 'ready' || article.status === 'in_progress';
+                    const isPublished = article.status === 'published';
+
+                    return (
+                      <div key={article.id} className={`border rounded-md p-4 ${isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}>
+                        <div className="flex items-start gap-4">
+                          {!isClosed && !isPublished && (
+                            <div className="pt-1">
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={(e) => {
+                                  const newSelected = new Set(selectedArticles);
+                                  if (e.target.checked) {
+                                    newSelected.add(article.id);
+                                  } else {
+                                    newSelected.delete(article.id);
+                                  }
+                                  setSelectedArticles(newSelected);
+                                }}
+                                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                              />
+                            </div>
+                          )}
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center space-x-2">
+                                <h4 className="font-medium text-gray-900">{article.name}</h4>
+                                <span className={`px-2 py-1 text-xs font-semibold rounded-full flex items-center gap-1 ${
+                                  article.status === 'draft' ? 'bg-gray-100 text-gray-800' :
+                                  article.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
+                                  article.status === 'ready' ? 'bg-green-100 text-green-800' :
+                                  article.status === 'published' ? 'bg-purple-100 text-purple-800' :
+                                  'bg-red-100 text-red-800'
+                                }`}>
+                                  {article.status === 'draft' && (
+                                    <>
+                                      <div className="w-2 h-2 rounded-full bg-gray-500"></div>
+                                      Brouillon
+                                    </>
+                                  )}
+                                  {article.status === 'in_progress' && (
+                                    <>
+                                      <Loader2 className="w-3 h-3 animate-spin" />
+                                      En cours
+                                    </>
+                                  )}
+                                  {article.status === 'ready' && (
+                                    <>
+                                      <CheckCircle2 className="w-3 h-3 text-green-600" />
+                                      Prêt
+                                    </>
+                                  )}
+                                  {article.status === 'published' && (
+                                    <>
+                                      <CheckCircle2 className="w-3 h-3 text-purple-600" />
+                                      Publié
+                                    </>
+                                  )}
+                                  {article.status === 'cancelled' && (
+                                    <>
+                                      <XCircle className="w-3 h-3 text-red-600" />
+                                      Annulé
+                                    </>
+                                  )}
+                                </span>
+                              </div>
+                              {!isClosed && !isPublished && (
+                                <div className="flex items-center gap-2">
+                                  {hasFlow && (
+                                    <div className="relative">
+                                      <select
+                                        value={article.currentStepId || ''}
+                                        onChange={async (e) => {
+                                          const newStepId = e.target.value;
+                                          if (!newStepId) return;
+                                          setIsChangingArticleStage(article.id);
+                                          try {
+                                            const { updateArticleStage } = await import('@services/firestore/productions/productionService');
+                                            await updateArticleStage(production.id, article.id, newStepId);
+                                            showSuccessToast('Étape de l\'article mise à jour');
+                                          } catch (error: any) {
+                                            showErrorToast(error.message || 'Erreur lors du changement d\'étape');
+                                          } finally {
+                                            setIsChangingArticleStage(null);
+                                          }
+                                        }}
+                                        disabled={isChangingArticleStage === article.id}
+                                        className="text-sm px-3 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                                      >
+                                        <option value="">Sélectionner une étape...</option>
+                                        {availableSteps.map((step: typeof availableSteps[0]) => (
+                                          <option key={step.id} value={step.id}>
+                                            {step.name}
+                                          </option>
+                                        ))}
+                                      </select>
+                                      {isChangingArticleStage === article.id && (
+                                        <Loader2 className="absolute right-2 top-1.5 animate-spin" size={14} />
+                                      )}
+                                    </div>
+                                  )}
+                                  {canPublish && (
+                                    <Button
+                                      icon={<Package size={14} />}
+                                      onClick={async () => {
+                                        setIsPublishingArticle(article.id);
+                                        try {
+                                          const { publishArticle } = await import('@services/firestore/productions/productionService');
+                                          
+                                          // Calculate cost from article's own materials
+                                          const articleMaterialsCost = (article.materials || []).reduce((sum, material) => {
+                                            return sum + (material.requiredQuantity * material.costPrice);
+                                          }, 0);
+                                          const articleCostPrice = article.calculatedCostPrice || articleMaterialsCost;
+                                          
+                                          await publishArticle(production.id, article.id, companyId || production.companyId, {
+                                            name: article.name,
+                                            costPrice: articleCostPrice,
+                                            sellingPrice: 0, // User will need to set this - can be enhanced later
+                                            stock: article.quantity,
+                                            description: article.description || production.description,
+                                            isVisible: true
+                                          });
+                                          showSuccessToast('Article publié avec succès');
+                                        } catch (error: any) {
+                                          showErrorToast(error.message || 'Erreur lors de la publication');
+                                        } finally {
+                                          setIsPublishingArticle(null);
+                                        }
+                                      }}
+                                      isLoading={isPublishingArticle === article.id}
+                                      disabled={isPublishingArticle === article.id}
+                                      size="sm"
+                                      variant="secondary"
+                                    >
+                                      Publier
+                                    </Button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                            <div className="text-sm text-gray-600 space-y-1">
+                              <div>
+                                <span className="font-medium">Quantité:</span> {article.quantity} unité{article.quantity !== 1 ? 's' : ''}
+                              </div>
+                              {articleStep && (
+                                <div className="flex items-center space-x-2">
+                                  <span className="font-medium">Étape:</span>
+                                  <div className="flex items-center space-x-1">
+                                    <div
+                                      className="w-3 h-3 rounded-full"
+                                      style={{ backgroundColor: articleStep.color || '#3B82F6' }}
+                                    />
+                                    <span>{articleStep.name}</span>
+                                  </div>
+                                </div>
+                              )}
+                              {article.description && (
+                                <div>
+                                  <span className="font-medium">Description:</span> {article.description}
+                                </div>
+                              )}
+                              {isPublished && article.publishedProductId && (
+                                <div>
+                                  <span className="font-medium">Produit publié:</span>{' '}
+                                  <a
+                                    href={`/products`}
+                                    className="text-blue-600 hover:text-blue-800 underline"
+                                  >
+                                    Voir le produit
+                                  </a>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-8 bg-gray-50 rounded-md">
+                  <p className="text-gray-500 mb-2">Aucun article</p>
+                  {!isClosed && (
+                    <p className="text-sm text-gray-400">
+                      Cliquez sur "Ajouter un article" pour commencer
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
 
             {production.description && (
@@ -586,64 +1008,130 @@ const ProductionDetail: React.FC = () => {
         {/* Materials Tab */}
         {activeTab === 'materials' && (
           <div className="p-6">
-            {production.materials.length === 0 ? (
+            {(!production.articles || production.articles.length === 0) ? (
               <p className="text-gray-500 text-center py-8">Aucun matériau</p>
             ) : (
               <div className="space-y-4">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Matériau
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Quantité requise
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Prix unitaire
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Total
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {production.materials.map((material: typeof production.materials[0], idx: number) => {
-                      const stockInfo = matiereStocks.find(ms => ms.matiereId === material.matiereId);
-                      return (
-                        <tr key={idx}>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm font-medium text-gray-900">
-                              {material.matiereName}
+                {production.articles.map((article) => {
+                  const articleMaterials = article.materials || [];
+                  const isExpanded = expandedArticleId === article.id;
+
+                  return (
+                    <div key={article.id} className="border rounded-lg shadow-sm bg-white">
+                      <button
+                        type="button"
+                        className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50"
+                        onClick={() =>
+                          setExpandedArticleId(isExpanded ? null : article.id)
+                        }
+                      >
+                        <div className="flex flex-col items-start">
+                          <span className="text-sm font-semibold text-gray-900">{article.name}</span>
+                          <span className="text-xs text-gray-500">Quantité: {article.quantity}</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm font-medium text-gray-900">
+                            {formatPrice(
+                              articleMaterials.reduce(
+                                (sum, m) => sum + m.requiredQuantity * m.costPrice,
+                                0
+                              )
+                            )}
+                          </span>
+                          <svg
+                            className={`w-4 h-4 text-gray-500 transition-transform ${
+                              isExpanded ? 'transform rotate-180' : ''
+                            }`}
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </div>
+                      </button>
+
+                      {isExpanded && (
+                        <div className="px-4 pb-4">
+                          {articleMaterials.length === 0 ? (
+                            <div className="py-4 text-sm text-gray-500">Aucun matériau pour cet article</div>
+                          ) : (
+                            <div className="space-y-3">
+                              <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
+                                  <tr>
+                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                                      Matériau
+                                    </th>
+                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                                      Quantité requise
+                                    </th>
+                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                                      Prix unitaire
+                                    </th>
+                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                                      Total
+                                    </th>
+                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                                      Créé par
+                                    </th>
+                                  </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                  {articleMaterials.map((material, idx) => {
+                                    const stockInfo = matiereStocks.find(ms => ms.matiereId === material.matiereId);
+                                    return (
+                                      <tr key={`${material.matiereId}-${idx}`}>
+                                        <td className="px-4 py-3 whitespace-nowrap">
+                                          <div className="text-sm font-medium text-gray-900">
+                                            {material.matiereName}
+                                          </div>
+                                          <div className="text-xs text-gray-500">
+                                            Stock disponible: {stockInfo?.currentStock || 0} {material.unit || 'unité'}
+                                          </div>
+                                        </td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                                          {material.requiredQuantity} {material.unit || 'unité'}
+                                        </td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                                          {formatPrice(material.costPrice)}
+                                        </td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
+                                          {formatPrice(material.requiredQuantity * material.costPrice)}
+                                        </td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                                          {formatCreatorName(production.createdBy)}
+                                        </td>
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+                              <div className="bg-gray-50 rounded-md p-3 flex justify-between items-center">
+                                <span className="text-sm font-medium text-gray-900">Total matériaux (article):</span>
+                                <span className="text-base font-semibold text-gray-900">
+                                  {formatPrice(
+                                    articleMaterials.reduce(
+                                      (sum, m) => sum + m.requiredQuantity * m.costPrice,
+                                      0
+                                    )
+                                  )}
+                                </span>
+                              </div>
                             </div>
-                            <div className="text-sm text-gray-500">
-                              Stock disponible: {stockInfo?.currentStock || 0} {material.unit || 'unité'}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {material.requiredQuantity} {material.unit || 'unité'}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {formatPrice(material.costPrice)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {formatPrice(material.requiredQuantity * material.costPrice)}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+
                 <div className="bg-gray-50 rounded-md p-4">
                   <div className="flex justify-between items-center">
-                    <span className="font-medium text-gray-900">Total matériaux:</span>
+                    <span className="font-medium text-gray-900">Total matériaux (production):</span>
                     <span className="text-lg font-semibold text-gray-900">
-                      {formatPrice(
-                        production.materials.reduce(
-                          (sum: number, m: typeof production.materials[0]) => sum + (m.requiredQuantity * m.costPrice),
-                          0
-                        )
-                      )}
+                      {formatPrice(materialsCost)}
                     </span>
                   </div>
                 </div>
@@ -696,27 +1184,6 @@ const ProductionDetail: React.FC = () => {
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Description
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Catégorie
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Date
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Montant
-                      </th>
-                      {!isClosed && (
-                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                          Actions
-                        </th>
-                      )}
-                    </tr>
-                  </thead>
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                         Type
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
@@ -730,6 +1197,9 @@ const ProductionDetail: React.FC = () => {
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                         Montant
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        Créé par
                       </th>
                       {!isClosed && (
                         <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
@@ -786,6 +1256,11 @@ const ProductionDetail: React.FC = () => {
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm font-medium text-gray-900">
                               {formatPrice(charge.amount || 0)}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-600">
+                              {formatCreatorName(charge.createdBy)}
                             </div>
                           </td>
                           {!isClosed && (
@@ -896,9 +1371,16 @@ const ProductionDetail: React.FC = () => {
                         <div className="flex items-center space-x-2 mb-1">
                           <span className="text-sm font-medium text-gray-900">{displayText || 'Changement d\'état'}</span>
                         </div>
-                        <p className="text-xs text-gray-500">
-                          {change.timestamp && new Date(change.timestamp.seconds * 1000).toLocaleString('fr-FR')}
-                        </p>
+                        <div className="flex items-center gap-3">
+                          <p className="text-xs text-gray-500">
+                            {change.timestamp && new Date(change.timestamp.seconds * 1000).toLocaleString('fr-FR')}
+                          </p>
+                          {change.changedBy && (
+                            <p className="text-xs text-gray-600">
+                              par <span className="font-medium">{userNamesMap.get(change.changedBy) || change.changedBy}</span>
+                            </p>
+                          )}
+                        </div>
                         {change.note && (
                           <p className="text-sm text-gray-600 mt-1">{change.note}</p>
                         )}
@@ -1276,6 +1758,16 @@ const ProductionDetail: React.FC = () => {
         onSuccess={() => {
           // Production will update automatically via subscription
         }}
+      />
+
+      <AddArticleModal
+        isOpen={isAddArticleModalOpen}
+        onClose={() => setIsAddArticleModalOpen(false)}
+        onSuccess={() => {
+          setIsAddArticleModalOpen(false);
+          // Production will be updated via subscription
+        }}
+        production={production}
       />
 
       {/* Delete Production Confirmation Modal */}

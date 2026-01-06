@@ -1,17 +1,15 @@
 // Production service
-import type { Production, ProductionStateChange, ProductionMaterial } from '../../../types/models';
+import type { Production, ProductionStateChange, ProductionMaterial, ProductionArticle } from '../../../types/models';
 import {
   collection,
   doc,
   query,
   where,
   orderBy,
-  getDocs,
   getDoc,
   onSnapshot,
   serverTimestamp,
   writeBatch,
-  updateDoc,
   arrayUnion,
   Timestamp,
   runTransaction
@@ -20,8 +18,25 @@ import { db } from '../../core/firebase';
 import { logError } from '@utils/core/logger';
 import { createAuditLog } from '../shared';
 import { getProductionFlow } from './productionFlowService';
+import { cleanForFirestore } from '@utils/firestore/cleanData';
 
 const COLLECTION_NAME = 'productions';
+
+/**
+ * Helper function to get current authenticated user ID
+ * Throws error if user is not authenticated
+ */
+const getCurrentUserId = async (): Promise<string> => {
+  const { getAuth } = await import('firebase/auth');
+  const auth = getAuth();
+  const currentUserId = auth.currentUser?.uid;
+  
+  if (!currentUserId) {
+    throw new Error('User must be authenticated to perform this action');
+  }
+  
+  return currentUserId;
+};
 
 // ============================================================================
 // PRODUCTION SUBSCRIPTIONS
@@ -100,15 +115,34 @@ export const createProduction = async (
 
     const batch = writeBatch(db);
 
-    // Calculate initial cost (charges will be added when production is created with charges)
-    const chargesTotal = (data.charges || []).reduce((sum, charge) => sum + (charge.amount || 0), 0);
-    const calculatedCostPrice = calculateProductionCost(data.materials || [], data.charges || []);
+    // Get current authenticated user ID
+    const currentUserId = await getCurrentUserId();
+
+    // Calculate initial cost from article materials (charges are separate and allocated during publishing)
+    // Sum of all article material costs
+    let materialsCost = 0;
+    if (data.articles && data.articles.length > 0) {
+      materialsCost = data.articles.reduce((sum, article) => {
+        const articleMaterialsCost = (article.materials || []).reduce((articleSum, material) => {
+          return articleSum + (material.requiredQuantity * material.costPrice);
+        }, 0);
+        return sum + articleMaterialsCost;
+      }, 0);
+    }
+    // For backward compatibility, also check production-level materials
+    if (data.materials && data.materials.length > 0 && materialsCost === 0) {
+      materialsCost = calculateMaterialsCost(data.materials);
+    }
+    
+    // Charges are not included in calculatedCostPrice - they're allocated during publishing
+    const calculatedCostPrice = materialsCost;
 
     // Build production data, excluding undefined values
     const productionData: any = {
       name: data.name,
       reference: data.reference || '',
       companyId,
+      userId: currentUserId, // Set userId from authenticated user
       status: 'draft',
       stateHistory: [],
       calculatedCostPrice,
@@ -117,6 +151,9 @@ export const createProduction = async (
       isClosed: false,
       charges: data.charges || [],
       materials: data.materials || [],
+      articles: data.articles || [],
+      totalArticlesQuantity: data.totalArticlesQuantity || 0,
+      publishedArticlesCount: 0,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     };
@@ -185,7 +222,9 @@ export const createProduction = async (
     }
 
     const productionRef = doc(collection(db, COLLECTION_NAME));
-    batch.set(productionRef, productionData);
+    // Clean undefined fields before writing to Firestore
+    const cleanedProductionData = cleanForFirestore(productionData);
+    batch.set(productionRef, cleanedProductionData);
 
     // Update category count if categoryId provided
     if (data.categoryId) {
@@ -203,7 +242,6 @@ export const createProduction = async (
     const initialStateChange = productionData.stateHistory[0];
     
     const returnData: any = {
-      id: productionRef.id,
       name: data.name,
       reference: data.reference || '',
       companyId,
@@ -215,10 +253,16 @@ export const createProduction = async (
       isClosed: false,
       charges: data.charges || [],
       materials: data.materials || [],
+      articles: data.articles || [],
+      totalArticlesQuantity: data.totalArticlesQuantity || 0,
+      publishedArticlesCount: 0,
       createdAt: { seconds: now, nanoseconds: 0 },
       updatedAt: { seconds: now, nanoseconds: 0 },
       userId: data.userId || companyId
     };
+    
+    // Add id separately to avoid duplicate
+    returnData.id = productionRef.id;
 
     // Only include optional fields if they have values
     if (data.description) {
@@ -275,21 +319,21 @@ export const updateProduction = async (
 
     const batch = writeBatch(db);
 
-    // Recalculate cost if materials or charges changed
-    if (data.materials !== undefined || data.charges !== undefined) {
-      const materials = data.materials !== undefined ? data.materials : currentData.materials;
-      const charges = data.charges !== undefined ? data.charges : currentData.charges;
-
-      // Calculate charges total from production.charges array (snapshots)
-      let chargesTotal = 0;
-      if (data.charges && data.charges.length > 0) {
-        chargesTotal = data.charges.reduce((sum, charge) => {
-          return sum + (charge.amount || 0);
+    // Recalculate cost if articles (with materials) changed
+    if (data.articles !== undefined) {
+      const articles = data.articles;
+      // Calculate cost from article materials
+      let materialsCost = 0;
+      if (articles && articles.length > 0) {
+        materialsCost = articles.reduce((sum, article) => {
+          const articleMaterialsCost = (article.materials || []).reduce((articleSum, material) => {
+            return articleSum + (material.requiredQuantity * material.costPrice);
+          }, 0);
+          return sum + articleMaterialsCost;
         }, 0);
       }
-
-      const materialsCost = calculateMaterialsCost(materials);
-      data.calculatedCostPrice = materialsCost + chargesTotal;
+      // Charges are not included in calculatedCostPrice - they're allocated during publishing
+      data.calculatedCostPrice = materialsCost;
     }
 
     const updateData: any = {
@@ -311,14 +355,9 @@ export const updateProduction = async (
       }
     }
 
-    // Remove undefined fields
-    Object.keys(updateData).forEach((key) => {
-      if (updateData[key] === undefined) {
-        delete updateData[key];
-      }
-    });
-
-    batch.update(productionRef, updateData);
+    // Clean undefined fields before writing to Firestore
+    const cleanedUpdateData = cleanForFirestore(updateData);
+    batch.update(productionRef, cleanedUpdateData);
 
     // Create audit log - use current user's ID (required by Firestore rules)
     // Get current user from auth if userId not provided
@@ -389,11 +428,12 @@ export const changeProductionStatus = async (
     const stateChange: ProductionStateChange = stateChangeData as ProductionStateChange;
 
     // Update production
-    batch.update(productionRef, {
+    const updateData = cleanForFirestore({
       status: newStatus,
       stateHistory: arrayUnion(stateChange),
       updatedAt: serverTimestamp()
     });
+    batch.update(productionRef, updateData);
 
     // Create audit log
     createAuditLog(batch, 'update', 'production', id, {
@@ -495,12 +535,13 @@ export const changeProductionState = async (
     }
 
     // Update production
-    batch.update(productionRef, {
+    const updateData = cleanForFirestore({
       currentStepId: newStepId,
       status: newStatus,
       stateHistory: arrayUnion(stateChange),
       updatedAt: serverTimestamp()
     });
+    batch.update(productionRef, updateData);
 
     // Create audit log
     createAuditLog(batch, 'update', 'production', id, {
@@ -576,15 +617,19 @@ export const getProduction = async (
       return null;
     }
 
-    const productionData = productionSnap.data() as Production;
+    const productionData = productionSnap.data();
+    if (!productionData) {
+      return null;
+    }
+    
     if (productionData.companyId !== companyId) {
       throw new Error('Unauthorized: Production belongs to different company');
     }
 
     return {
-      id: productionSnap.id,
-      ...productionData
-    };
+      ...productionData,
+      id: productionSnap.id
+    } as Production;
   } catch (error) {
     logError('Error getting production', error);
     throw error;
@@ -596,8 +641,479 @@ export const getProduction = async (
 // ============================================================================
 
 /**
+ * Publish individual article
+ */
+export const publishArticle = async (
+  productionId: string,
+  articleId: string,
+  companyId: string,
+  productData: {
+    name: string;
+    costPrice: number;
+    sellingPrice: number;
+    stock: number;
+    category?: string;
+    cataloguePrice?: number;
+    description?: string;
+    barCode?: string;
+    isVisible?: boolean;
+  }
+): Promise<import('../../../types/models').Product> => {
+  const productionRef = doc(db, COLLECTION_NAME, productionId);
+
+  try {
+    // STEP 1: Get production and validate
+    const production = await getProduction(productionId, companyId);
+    if (!production) {
+      throw new Error('Production not found');
+    }
+
+    if (production.isClosed) {
+      throw new Error('Production is closed');
+    }
+
+    // Find article
+    const articleIndex = production.articles?.findIndex(a => a.id === articleId);
+    if (articleIndex === undefined || articleIndex === -1) {
+      throw new Error('Article not found');
+    }
+
+    const article = production.articles[articleIndex];
+
+    if (article.status === 'published') {
+      throw new Error('Article is already published');
+    }
+
+    // STEP 2: Get materials needed for this article (from article.materials)
+    const articleMaterials = article.materials || [];
+    
+    if (articleMaterials.length === 0) {
+      throw new Error(`Aucun matériau défini pour l'article "${article.name}". Veuillez ajouter des matériaux à cet article.`);
+    }
+
+    // STEP 3: Validate stock availability
+    const { getAvailableStockBatches } = await import('../stock/stockService');
+    for (const material of articleMaterials) {
+      const availableBatches = await getAvailableStockBatches(material.matiereId, production.companyId, 'matiere');
+      const totalAvailable = availableBatches.reduce((sum, batch) => sum + batch.remainingQuantity, 0);
+      
+      if (totalAvailable < material.requiredQuantity) {
+        const unit = material.unit || 'unité';
+        throw new Error(
+          `Stock insuffisant pour ${material.matiereName}. Requis: ${material.requiredQuantity} ${unit}, Disponible: ${totalAvailable} ${unit}`
+        );
+      }
+    }
+
+    // STEP 4: Get current authenticated user (needed for stock changes and product creation)
+    const currentUserId = await getCurrentUserId();
+    
+    // STEP 4.5: Consume materials from stock
+    const { consumeStockFromBatches } = await import('../stock/stockService');
+    const { createStockChange } = await import('../stock/stockService');
+    
+    const consumedMaterials: Array<{
+      matiereId: string;
+      matiereName: string;
+      consumedQuantity: number;
+      batchIds: string[];
+    }> = [];
+
+    const materialsBatch = writeBatch(db);
+    
+    for (const material of articleMaterials) {
+      const inventoryResult = await consumeStockFromBatches(
+        materialsBatch,
+        material.matiereId,
+        production.companyId,
+        material.requiredQuantity,
+        'FIFO',
+        'matiere'
+      );
+      
+      // Create stock change for each consumed batch
+      for (const consumedBatch of inventoryResult.consumedBatches) {
+        createStockChange(
+          materialsBatch,
+          material.matiereId,
+          -consumedBatch.consumedQuantity,
+          'production',
+          currentUserId, // Use current user performing the action, not production.userId
+          production.companyId,
+          'matiere',
+          undefined,
+          undefined,
+          undefined,
+          consumedBatch.costPrice,
+          consumedBatch.batchId
+        );
+      }
+
+      consumedMaterials.push({
+        matiereId: material.matiereId,
+        matiereName: material.matiereName,
+        consumedQuantity: material.requiredQuantity,
+        batchIds: inventoryResult.consumedBatches.map(cb => cb.batchId)
+      });
+    }
+
+    // Commit materials consumption
+    await materialsBatch.commit();
+
+    // STEP 5: Get employee reference for createdBy (currentUserId already retrieved above)
+    const { getCurrentEmployeeRef } = await import('@utils/business/employeeUtils');
+    const { getUserById } = await import('@services/utilities/userService');
+    const { getAuth } = await import('firebase/auth');
+    const auth = getAuth();
+    const currentUser = auth.currentUser;
+    
+    let createdBy = null;
+    try {
+      const userData = await getUserById(currentUserId);
+      // Determine if current user is owner (no employee context in production service)
+      // For now, assume not owner unless we can determine otherwise
+      const isOwner = false; // Could be enhanced to check user's role in company
+      createdBy = getCurrentEmployeeRef(null, currentUser, isOwner, userData);
+    } catch (error) {
+      console.error('Error fetching user data for createdBy:', error);
+      // Fallback: create basic EmployeeRef from current user
+      if (currentUser) {
+        createdBy = {
+          userId: currentUserId,
+          employeeId: null,
+          name: currentUser.email || currentUserId,
+          isOwner: false
+        };
+      }
+    }
+
+    // STEP 6: Create product
+    const { createProduct } = await import('../products/productService');
+    const product = await createProduct(
+      {
+        name: productData.name || article.name,
+        reference: `${production.reference}-${articleId.substring(0, 8)}`,
+        category: productData.category,
+        sellingPrice: productData.sellingPrice,
+        cataloguePrice: productData.cataloguePrice ?? productData.sellingPrice,
+        stock: productData.stock || article.quantity,
+        costPrice: productData.costPrice,
+        images: article.images || production.images || [],
+        imagePaths: production.imagePaths || [],
+        description: productData.description || article.description || production.description,
+        barCode: productData.barCode,
+        isVisible: productData.isVisible !== false,
+        tags: [],
+        userId: currentUserId, // Use current user, not production.userId
+        enableBatchTracking: true,
+        isAvailable: true,
+        companyId: production.companyId
+      },
+      production.companyId,
+      {
+        isOwnPurchase: true,
+        isCredit: false,
+        costPrice: productData.costPrice
+      },
+      createdBy
+    );
+
+    // STEP 7: Update article and production
+    const updateBatch = writeBatch(db);
+
+    // currentUserId already retrieved above for stock changes and product creation
+
+    // Update article
+    const updatedArticles = [...production.articles];
+    updatedArticles[articleIndex] = {
+      ...article,
+      status: 'published',
+      publishedProductId: product.id,
+      publishedAt: Timestamp.now(),
+      publishedBy: currentUserId // Track who published this article
+    };
+
+    // Calculate published articles count
+    const publishedCount = updatedArticles.filter(a => a.status === 'published').length;
+    const allPublished = updatedArticles.length > 0 && updatedArticles.every(a => a.status === 'published');
+
+    // Update production
+    const updateData: any = {
+      articles: updatedArticles,
+      publishedArticlesCount: publishedCount,
+      updatedAt: serverTimestamp()
+    };
+
+    // If all articles are published, mark production as published and closed
+    if (allPublished) {
+      updateData.isPublished = true;
+      updateData.isClosed = true;
+      updateData.closedAt = serverTimestamp();
+      updateData.closedBy = currentUserId; // Track who closed the production
+      updateData.status = 'published';
+    }
+
+    // Clean undefined fields before writing to Firestore
+    const cleanedUpdateData = cleanForFirestore(updateData);
+    updateBatch.update(productionRef, cleanedUpdateData);
+
+    // Create audit log
+    createAuditLog(updateBatch, 'update', 'production', productionId, {
+      action: 'publish_article',
+      articleId: articleId,
+      articleName: article.name,
+      productId: product.id,
+      productName: product.name
+    }, currentUserId);
+
+    await updateBatch.commit();
+
+    return product;
+  } catch (error) {
+    logError('Error publishing article', error);
+    throw error;
+  }
+};
+
+/**
+ * Bulk publish articles
+ */
+export const bulkPublishArticles = async (
+  productionId: string,
+  articleIds: string[],
+  companyId: string,
+  productDataMap?: Map<string, {
+    name: string;
+    costPrice: number;
+    sellingPrice: number;
+    stock: number;
+    category?: string;
+    cataloguePrice?: number;
+    description?: string;
+    barCode?: string;
+    isVisible?: boolean;
+  }>
+): Promise<Array<{ articleId: string; product: import('../../../types/models').Product }>> => {
+  // Get production to calculate default product data
+  const production = await getProduction(productionId, companyId);
+  if (!production) {
+    throw new Error('Production not found');
+  }
+
+  const results: Array<{ articleId: string; product: import('../../../types/models').Product }> = [];
+  const errors: Array<{ articleId: string; error: string }> = [];
+
+  // Publish articles sequentially to avoid conflicts
+  for (const articleId of articleIds) {
+    try {
+      const article = production.articles?.find(a => a.id === articleId);
+      if (!article) {
+        errors.push({ articleId, error: 'Article not found' });
+        continue;
+      }
+
+      // Get product data from map or use defaults
+      let productData = productDataMap?.get(articleId);
+      if (!productData) {
+        // Calculate default product data from article's materials
+        const articleMaterialsCost = (article.materials || []).reduce((sum, material) => {
+          return sum + (material.requiredQuantity * material.costPrice);
+        }, 0);
+        
+        productData = {
+          name: article.name,
+          costPrice: article.calculatedCostPrice || articleMaterialsCost,
+          sellingPrice: 0, // Default - user should set this
+          stock: article.quantity,
+          description: article.description || production.description,
+          isVisible: true
+        };
+      }
+
+      const product = await publishArticle(productionId, articleId, companyId, productData);
+      results.push({ articleId, product });
+    } catch (error: any) {
+      errors.push({ articleId, error: error.message || 'Unknown error' });
+    }
+  }
+
+  if (errors.length > 0 && results.length === 0) {
+    // All failed
+    throw new Error(`Échec de la publication des articles: ${errors.map(e => e.error).join(', ')}`);
+  }
+
+  if (errors.length > 0) {
+    // Some succeeded, some failed
+    console.warn('Some articles failed to publish:', errors);
+    throw new Error(`${results.length} article(s) publié(s), ${errors.length} échec(s): ${errors.map(e => e.error).join(', ')}`);
+  }
+
+  return results;
+};
+
+/**
  * Calculate production cost from materials
  */
+export const addArticleToProduction = async (
+  productionId: string,
+  article: Omit<ProductionArticle, 'id'>
+): Promise<ProductionArticle> => {
+  try {
+    const productionRef = doc(db, COLLECTION_NAME, productionId);
+    const productionSnap = await getDoc(productionRef);
+
+    if (!productionSnap.exists()) {
+      throw new Error('Production not found');
+    }
+
+    const production = productionSnap.data() as Production;
+
+    if (production.isClosed) {
+      throw new Error('Cannot add article to closed production');
+    }
+
+    const batch = writeBatch(db);
+
+    // Get current authenticated user
+    const currentUserId = await getCurrentUserId();
+
+    // Generate article ID
+    const articleId = `article_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    const newArticle: ProductionArticle = {
+      ...article,
+      id: articleId
+    };
+
+    // Get existing articles or initialize empty array
+    const existingArticles = production.articles || [];
+    const updatedArticles = [...existingArticles, newArticle];
+
+    // Calculate new total articles quantity
+    const { calculateTotalArticlesQuantity } = await import('@utils/productions/articleUtils');
+    const newTotalArticlesQuantity = calculateTotalArticlesQuantity(updatedArticles);
+
+    // Recalculate production cost from all article materials
+    let newMaterialsCost = 0;
+    if (updatedArticles.length > 0) {
+      newMaterialsCost = updatedArticles.reduce((sum, art) => {
+        const articleMaterialsCost = (art.materials || []).reduce((articleSum, material) => {
+          return articleSum + (material.requiredQuantity * material.costPrice);
+        }, 0);
+        return sum + articleMaterialsCost;
+      }, 0);
+    }
+
+    // Update production
+    const updateData = cleanForFirestore({
+      articles: updatedArticles,
+      totalArticlesQuantity: newTotalArticlesQuantity,
+      calculatedCostPrice: newMaterialsCost, // Recalculate from all article materials
+      updatedAt: serverTimestamp()
+    });
+    batch.update(productionRef, updateData);
+
+    // Create audit log
+    createAuditLog(batch, 'update', 'production', productionId, {
+      action: 'add_article',
+      articleId: articleId,
+      articleName: newArticle.name
+    }, currentUserId);
+
+    await batch.commit();
+
+    return newArticle;
+  } catch (error) {
+    logError('Error adding article to production', error);
+    throw error;
+  }
+};
+
+/**
+ * Update article stage in production
+ */
+export const updateArticleStage = async (
+  productionId: string,
+  articleId: string,
+  newStepId: string,
+  note?: string
+): Promise<void> => {
+  try {
+    const productionRef = doc(db, COLLECTION_NAME, productionId);
+    const productionSnap = await getDoc(productionRef);
+
+    if (!productionSnap.exists()) {
+      throw new Error('Production not found');
+    }
+
+    const production = productionSnap.data() as Production;
+
+    if (production.isClosed) {
+      throw new Error('Cannot update article in closed production');
+    }
+
+    if (!production.flowId) {
+      throw new Error('Production does not use a flow');
+    }
+
+    // Validate step is in flow
+    const flow = await getProductionFlow(production.flowId, production.companyId);
+    if (!flow || !flow.stepIds.includes(newStepId)) {
+      throw new Error('Step not found in production flow');
+    }
+
+    // Find article
+    const articleIndex = production.articles?.findIndex(a => a.id === articleId);
+    if (articleIndex === undefined || articleIndex === -1) {
+      throw new Error('Article not found');
+    }
+
+    const article = production.articles[articleIndex];
+    const oldStepId = article.currentStepId;
+
+    // Get step name
+    const { getProductionFlowStep } = await import('./productionFlowStepService');
+    const newStep = await getProductionFlowStep(newStepId, production.companyId);
+    const oldStep = oldStepId ? await getProductionFlowStep(oldStepId, production.companyId).catch(() => null) : null;
+
+    const batch = writeBatch(db);
+
+    // Get current authenticated user
+    const currentUserId = await getCurrentUserId();
+
+    // Update article
+    const updatedArticles = [...production.articles];
+    updatedArticles[articleIndex] = {
+      ...article,
+      currentStepId: newStepId,
+      currentStepName: newStep?.name
+    };
+
+    const updateData = cleanForFirestore({
+      articles: updatedArticles,
+      updatedAt: serverTimestamp()
+    });
+    batch.update(productionRef, updateData);
+
+    // Create audit log
+    const auditData = cleanForFirestore({
+      action: 'update_article_stage',
+      articleId: articleId,
+      articleName: article.name,
+      fromStepId: oldStepId,
+      toStepId: newStepId,
+      fromStepName: oldStep?.name,
+      toStepName: newStep?.name,
+      note: note
+    });
+    createAuditLog(batch, 'update', 'production', productionId, auditData, currentUserId);
+
+    await batch.commit();
+  } catch (error) {
+    logError('Error updating article stage', error);
+    throw error;
+  }
+};
+
 export const calculateMaterialsCost = (materials: ProductionMaterial[]): number => {
   return materials.reduce((sum, material) => {
     return sum + (material.requiredQuantity * material.costPrice);
@@ -796,7 +1312,9 @@ export const publishProduction = async (
         isVisible: productData.isVisible,
         tags: [],
         userId,
-        enableBatchTracking: true
+        enableBatchTracking: true,
+        isAvailable: true,
+        companyId: companyId
       },
       companyId,
       {
@@ -859,7 +1377,7 @@ export const publishProduction = async (
     }
 
     // Update production with all final data
-    closeBatch.update(productionRef, {
+    const finalUpdateData = cleanForFirestore({
       status: 'closed',
       isClosed: true,
       isPublished: true,
@@ -874,6 +1392,7 @@ export const publishProduction = async (
       stateHistory: arrayUnion(finalStateChange),
       updatedAt: serverTimestamp()
     });
+    closeBatch.update(productionRef, finalUpdateData);
 
     // Create audit log
     createAuditLog(closeBatch, 'update', 'production', productionId, {

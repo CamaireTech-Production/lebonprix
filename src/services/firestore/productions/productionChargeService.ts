@@ -76,6 +76,15 @@ export const createProductionCharge = async (
       throw new Error('Production ID is required');
     }
 
+    // Get current authenticated user
+    const { getAuth } = await import('firebase/auth');
+    const auth = getAuth();
+    const currentUserId = auth.currentUser?.uid;
+    
+    if (!currentUserId) {
+      throw new Error('User must be authenticated to create a production charge');
+    }
+
     const batch = writeBatch(db);
 
     // Prepare date
@@ -96,6 +105,7 @@ export const createProductionCharge = async (
       ...data,
       date: chargeDate,
       companyId,
+      userId: currentUserId, // Set userId from authenticated user (override data.userId if provided)
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     };

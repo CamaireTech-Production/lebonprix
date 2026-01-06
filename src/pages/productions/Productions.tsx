@@ -1,20 +1,23 @@
 // Productions list page
 import React, { useState, useMemo } from 'react';
-import { Plus, Eye, Loader2, Search, Filter, X, Trash2 } from 'lucide-react';
-import { Button, LoadingScreen, Input, Badge } from '@components/common';
-import { useProductions, useProductionFlows, useProductionCategories } from '@hooks/data/useFirestore';
+import { Plus, Eye, Loader2, Search, Filter, X, Trash2, Edit2, Package } from 'lucide-react';
+import { Button, LoadingScreen, Input, Badge, Modal, ModalFooter } from '@components/common';
+import { useProductions, useProductionFlows, useProductionCategories, useProductionFlowSteps } from '@hooks/data/useFirestore';
 import { formatPrice } from '@utils/formatting/formatPrice';
 import CreateProductionModal from '@components/productions/CreateProductionModal';
+import PublishProductionModal from '@components/productions/PublishProductionModal';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@contexts/AuthContext';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
+import { formatCreatorName } from '@utils/business/employeeUtils';
 import type { Production } from '../../types/models';
 
 const Productions: React.FC = () => {
-  const { productions, loading, deleteProduction } = useProductions();
+  const { productions, loading, deleteProduction, changeState, changeStatus } = useProductions();
   const { flows } = useProductionFlows();
   const { categories } = useProductionCategories();
-  const { company } = useAuth();
+  const { flowSteps } = useProductionFlowSteps();
+  const { company, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -25,6 +28,13 @@ const Productions: React.FC = () => {
   
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [deletingProductionId, setDeletingProductionId] = useState<string | null>(null);
+  const [selectedProduction, setSelectedProduction] = useState<Production | null>(null);
+  const [isChangeStateModalOpen, setIsChangeStateModalOpen] = useState(false);
+  const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
+  const [newStepId, setNewStepId] = useState('');
+  const [newStatus, setNewStatus] = useState<'draft' | 'in_progress' | 'ready' | 'published' | 'cancelled' | 'closed'>('draft');
+  const [stateChangeNote, setStateChangeNote] = useState('');
+  const [isChangingState, setIsChangingState] = useState(false);
   
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -88,6 +98,72 @@ const Productions: React.FC = () => {
       && !production.isPublished 
       && !production.isClosed;
   };
+
+  const handleOpenChangeStateModal = (production: Production, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedProduction(production);
+    setNewStepId('');
+    setNewStatus(production.status);
+    setStateChangeNote('');
+    setIsChangeStateModalOpen(true);
+  };
+
+  const handleOpenPublishModal = (production: Production, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedProduction(production);
+    setIsPublishModalOpen(true);
+  };
+
+  const handleChangeState = async () => {
+    if (!selectedProduction || !companyId || !user) return;
+
+    setIsChangingState(true);
+    try {
+      if (selectedProduction.flowId) {
+        // Flow mode - change step
+        if (!newStepId) {
+          showErrorToast('Veuillez sélectionner une étape');
+          return;
+        }
+        await changeState(selectedProduction.id, newStepId, stateChangeNote || undefined);
+        showSuccessToast('État de la production mis à jour');
+      } else {
+        // Simple mode - change status
+        await changeStatus(selectedProduction.id, newStatus, stateChangeNote || undefined);
+        showSuccessToast('Statut de la production mis à jour');
+      }
+      setIsChangeStateModalOpen(false);
+      setSelectedProduction(null);
+      setNewStepId('');
+      setNewStatus('draft');
+      setStateChangeNote('');
+    } catch (error: any) {
+      showErrorToast(error.message || 'Erreur lors du changement d\'état');
+    } finally {
+      setIsChangingState(false);
+    }
+  };
+
+  const handlePublishSuccess = () => {
+    setIsPublishModalOpen(false);
+    setSelectedProduction(null);
+  };
+
+  // Get available steps for flow-based productions
+  const getAvailableSteps = (production: Production) => {
+    if (!production.flowId) return [];
+    const flow = flows.find(f => f.id === production.flowId);
+    if (!flow) return [];
+    return flow.stepIds
+      .map(stepId => flowSteps.find(s => s.id === stepId))
+      .filter(Boolean) as typeof flowSteps;
+  };
+
+  const hasFlow = selectedProduction?.flowId ? true : false;
+  const availableSteps = selectedProduction ? getAvailableSteps(selectedProduction) : [];
+  const currentStep = selectedProduction?.currentStepId
+    ? flowSteps.find(s => s.id === selectedProduction.currentStepId)
+    : null;
 
   // Filter productions
   const filteredProductions = useMemo(() => {
@@ -394,6 +470,9 @@ const Productions: React.FC = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Date
                 </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Créé par
+                </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
                 </th>
@@ -429,6 +508,11 @@ const Productions: React.FC = () => {
                         : '-'}
                     </div>
                   </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-600">
+                      {formatCreatorName(production.createdBy)}
+                    </div>
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex items-center justify-end gap-2">
                       <button
@@ -444,6 +528,24 @@ const Productions: React.FC = () => {
                       >
                         <Eye size={16} />
                       </button>
+                      {!production.isClosed && !production.isPublished && (
+                        <>
+                          <button
+                            onClick={(e) => handleOpenChangeStateModal(production, e)}
+                            className="text-orange-600 hover:text-orange-900"
+                            title="Changer l'état"
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                          <button
+                            onClick={(e) => handleOpenPublishModal(production, e)}
+                            className="text-green-600 hover:text-green-900"
+                            title="Publier"
+                          >
+                            <Package size={16} />
+                          </button>
+                        </>
+                      )}
                       {canDeleteProduction(production) && (
                         <button
                           onClick={(e) => handleDeleteProduction(production, e)}
@@ -478,6 +580,113 @@ const Productions: React.FC = () => {
           // Production created successfully
         }}
       />
+
+      {/* Change State Modal */}
+      {isChangeStateModalOpen && selectedProduction && (
+        <Modal
+          isOpen={isChangeStateModalOpen}
+          onClose={() => {
+            setIsChangeStateModalOpen(false);
+            setSelectedProduction(null);
+            setNewStepId('');
+            setNewStatus('draft');
+            setStateChangeNote('');
+          }}
+          title={hasFlow ? "Changer l'étape" : "Changer le statut"}
+          size="md"
+          footer={
+            <ModalFooter
+              onCancel={() => {
+                setIsChangeStateModalOpen(false);
+                setSelectedProduction(null);
+                setNewStepId('');
+                setNewStatus('draft');
+                setStateChangeNote('');
+              }}
+              onConfirm={handleChangeState}
+              cancelText="Annuler"
+              confirmText={isChangingState ? 'En cours...' : 'Confirmer'}
+              isLoading={isChangingState}
+              disabled={isChangingState || (hasFlow ? !newStepId : false)}
+            />
+          }
+        >
+          <div className="space-y-4">
+            {hasFlow ? (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Étape actuelle
+                  </label>
+                  <div className="px-3 py-2 bg-gray-50 rounded-md text-sm text-gray-600">
+                    {currentStep?.name || 'N/A'}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Nouvelle étape <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={newStepId}
+                    onChange={(e) => setNewStepId(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Sélectionner une étape...</option>
+                    {availableSteps.map((step) => (
+                      <option key={step.id} value={step.id}>
+                        {step.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </>
+            ) : (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Nouveau statut <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={newStatus}
+                  onChange={(e) => setNewStatus(e.target.value as typeof newStatus)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="draft">Brouillon</option>
+                  <option value="in_progress">En cours</option>
+                  <option value="ready">Prêt</option>
+                  <option value="published">Publié</option>
+                  <option value="cancelled">Annulé</option>
+                  <option value="closed">Fermé</option>
+                </select>
+              </div>
+            )}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Note (optionnel)
+              </label>
+              <textarea
+                value={stateChangeNote}
+                onChange={(e) => setStateChangeNote(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                rows={3}
+                placeholder="Ajouter une note pour ce changement..."
+              />
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Publish Production Modal */}
+      {isPublishModalOpen && selectedProduction && (
+        <PublishProductionModal
+          isOpen={isPublishModalOpen}
+          onClose={() => {
+            setIsPublishModalOpen(false);
+            setSelectedProduction(null);
+          }}
+          production={selectedProduction}
+          onSuccess={handlePublishSuccess}
+        />
+      )}
     </div>
   );
 };

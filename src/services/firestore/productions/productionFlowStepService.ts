@@ -64,12 +64,22 @@ export const createProductionFlowStep = async (
       throw new Error('Flow step name is required');
     }
 
+    // Get current authenticated user
+    const { getAuth } = await import('firebase/auth');
+    const auth = getAuth();
+    const currentUserId = auth.currentUser?.uid;
+    
+    if (!currentUserId) {
+      throw new Error('User must be authenticated to create a production flow step');
+    }
+
     const batch = writeBatch(db);
 
     // Build step data, filtering out undefined values (Firebase doesn't accept undefined)
     const stepData: any = {
       name: data.name,
       companyId,
+      userId: currentUserId, // Set userId from authenticated user
       isActive: data.isActive !== false,
       usageCount: 0,
       createdAt: serverTimestamp(),
@@ -89,9 +99,6 @@ export const createProductionFlowStep = async (
     if (data.estimatedDuration !== undefined) {
       stepData.estimatedDuration = data.estimatedDuration;
     }
-    if (data.userId) {
-      stepData.userId = data.userId;
-    }
 
     if (createdBy) {
       stepData.createdBy = createdBy;
@@ -101,8 +108,7 @@ export const createProductionFlowStep = async (
     batch.set(stepRef, stepData);
 
     // Create audit log
-    const auditUserId = data.userId || companyId;
-    createAuditLog(batch, 'create', 'productionFlowStep', stepRef.id, stepData, auditUserId);
+    createAuditLog(batch, 'create', 'productionFlowStep', stepRef.id, stepData, currentUserId);
 
     await batch.commit();
 
