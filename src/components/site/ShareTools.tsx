@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@contexts/AuthContext';
 import { Button, Card } from '@components/common';
@@ -12,13 +12,15 @@ interface ShareToolsProps {
 
 const ShareTools = ({ className = '' }: ShareToolsProps) => {
   const { t } = useTranslation();
-  const { company, user } = useAuth();
+  const { company } = useAuth();
   const [copied, setCopied] = useState(false);
 
-  // Generate catalogue URL
-  const catalogueUrl = company?.id && user?.uid
-    ? `${window.location.origin}/catalogue/${encodeURIComponent(company.name?.toLowerCase().replace(/\s+/g, '-') || 'catalogue')}/${user.uid}`
-    : '';
+  // Generate catalogue URL - use company.id instead of user.uid to support both owners and employees
+  // Memoize to prevent unnecessary recalculations
+  const catalogueUrl = useMemo(() => {
+    if (!company?.id) return '';
+    return `${window.location.origin}/catalogue/${encodeURIComponent(company.name?.toLowerCase().replace(/\s+/g, '-') || 'catalogue')}/${company.id}`;
+  }, [company?.id, company?.name]);
 
   const handleCopyLink = async () => {
     if (!catalogueUrl) return;
@@ -62,7 +64,7 @@ const ShareTools = ({ className = '' }: ShareToolsProps) => {
     }
   };
 
-  if (!company || !user) {
+  if (!company) {
     return (
       <Card title={t('site.share.title', 'Share Your Catalogue')} className={className}>
         <div className="text-center py-8 text-gray-500">

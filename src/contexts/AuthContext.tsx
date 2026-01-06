@@ -86,9 +86,19 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [userCompanies, setUserCompanies] = useState<UserCompanyRef[]>([]);
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
   const isInitialLoginRef = useRef(false);
+  
+  // Stabilize userCompanies to prevent unnecessary re-renders in useRolePermissions
+  // Only recalculate when the actual data changes (by comparing companyId, role, permissionTemplateId)
+  const memoizedUserCompanies = useMemo(() => {
+    return userCompanies;
+  }, [
+    userCompanies.length,
+    userCompanies.map(c => `${c.companyId}-${c.role}-${c.permissionTemplateId || ''}`).join(',')
+  ]);
   const isSigningInRef = useRef(false); // Track if signIn is in progress to prevent duplicate clicks
 
   // Mémoriser les informations de la compagnie pour les restaurer lors de la reconnexion
+  // Solution 4: Stabilize company object reference by only depending on id and name
   const memoizedCompany = useMemo(() => {
     if (company) {
       // Sauvegarder les informations de la compagnie dans le cache
@@ -103,7 +113,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     }
     
     return null;
-  }, [company]);
+  }, [company?.id, company?.name]); // Only depend on id and name, not the whole object
 
   // Check localStorage session on mount and wait for Firebase auth to restore
   useEffect(() => {
@@ -735,7 +745,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     effectiveRole,
     isOwner,
     currentEmployee,
-    userCompanies,
+    userCompanies: memoizedUserCompanies, // Use memoized version to prevent unnecessary re-renders
     selectedCompanyId,
     signUp,
     signIn,

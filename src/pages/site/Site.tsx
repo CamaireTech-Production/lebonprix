@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo, memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LivePreview, ShareTools, AnalyticsDashboard, SEOSettings } from '@components/site';
 import { SkeletonLoader } from '@components/common';
@@ -7,12 +7,13 @@ const Site = () => {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('preview');
 
-  const tabs = [
+  // Memoize tabs array to prevent unnecessary re-renders
+  const tabs = useMemo(() => [
     { id: 'preview', label: t('site.tabs.preview', 'Preview') },
     { id: 'share', label: t('site.tabs.share', 'Share') },
     { id: 'analytics', label: t('site.tabs.analytics', 'Analytics') },
     { id: 'seo', label: t('site.tabs.seo', 'SEO Settings') }
-  ];
+  ], [t]);
 
   return (
     <div className="pb-16 md:pb-0">
@@ -45,16 +46,17 @@ const Site = () => {
         </nav>
       </div>
 
-      {/* Tab Content */}
+      {/* Tab Content - Use more stable rendering pattern */}
       <div>
-        {activeTab === 'preview' && <LivePreview />}
-        {activeTab === 'share' && <ShareTools />}
-        {activeTab === 'analytics' && <AnalyticsDashboard />}
-        {activeTab === 'seo' && <SEOSettings />}
+        {activeTab === 'preview' && <LivePreview key="preview" />}
+        {activeTab === 'share' && <ShareTools key="share" />}
+        {activeTab === 'analytics' && <AnalyticsDashboard key="analytics" />}
+        {activeTab === 'seo' && <SEOSettings key="seo" />}
       </div>
     </div>
   );
 };
 
-export default Site;
+// Memoize Site component to prevent unnecessary re-renders
+export default memo(Site);
 

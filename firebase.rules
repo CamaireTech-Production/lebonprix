@@ -14,9 +14,12 @@ service cloud.firestore {
       allow delete: if false;
     }
     
-    // Products - SIMPLIFIED: Authenticated users can read/write
+    // Products - Public read for catalogue (Option A: allow all, client-side filtering)
+    // The application already filters by isVisible, isAvailable, isDeleted client-side
     match /products/{productId} {
-      allow read: if isAuthenticated();
+      // Public read: Allow reading all products (filtering happens client-side)
+      // This works for queries since we can't validate individual document fields in query rules
+      allow read: if true;
       allow write: if isAuthenticated();
     }
     
@@ -218,6 +221,14 @@ service cloud.firestore {
     match /matieres/{matiereId} {
       allow read: if isAuthenticated();
       allow write: if isAuthenticated();
+    }
+    
+    // Site Analytics - Public read/write for tracking catalogue views
+    match /siteAnalytics/{analyticsId} {
+      allow read: if true; // Allow public read to check if document exists
+      allow create: if true; // Allow public writes for tracking
+      allow update: if true; // Allow public updates for tracking (increment views)
+      allow delete: if false;
     }
   }
 }

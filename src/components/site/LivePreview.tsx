@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef, memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@contexts/AuthContext';
 import { Button, Card } from '@components/common';
@@ -10,18 +10,73 @@ interface LivePreviewProps {
 
 const LivePreview = ({ className = '' }: LivePreviewProps) => {
   const { t } = useTranslation();
-  const { company, user } = useAuth();
+  const { company } = useAuth();
   const [viewMode, setViewMode] = useState<'mobile' | 'desktop'>('desktop');
   const [isLoading, setIsLoading] = useState(true);
   const [iframeKey, setIframeKey] = useState(0);
+  
+  // Solution 1: Stabilize company object reference
+  // Memoize company based only on id and name to prevent unnecessary recalculations
+  const memoizedCompany = useMemo(() => {
+    if (!company) return null;
+    return {
+      id: company.id,
+      name: company.name
+    };
+  }, [company?.id, company?.name]);
 
-  // Generate catalogue URL
-  const catalogueUrl = company?.id && user?.uid
-    ? `${window.location.origin}/catalogue/${encodeURIComponent(company.name?.toLowerCase().replace(/\s+/g, '-') || 'catalogue')}/${user.uid}`
-    : '';
+  // Generate catalogue URL - use company.id instead of user.uid to support both owners and employees
+  // Memoize to prevent unnecessary recalculations and iframe reloads
+  const catalogueUrl = useMemo(() => {
+    if (!memoizedCompany?.id) return '';
+    return `${window.location.origin}/catalogue/${encodeURIComponent(memoizedCompany.name?.toLowerCase().replace(/\s+/g, '-') || 'catalogue')}/${memoizedCompany.id}`;
+  }, [memoizedCompany?.id, memoizedCompany?.name]);
+  
+  // Solution 3: Prevent iframe reload if URL hasn't changed
+  // Use sessionStorage to persist iframeSrc across unmounts
+  const storageKeyRef = useRef<string>('');
+  const prevUrlRef = useRef<string>('');
+  
+  // Update storage key when company changes
+  useEffect(() => {
+    if (memoizedCompany?.id) {
+      storageKeyRef.current = `livePreview_iframeSrc_${memoizedCompany.id}`;
+    }
+  }, [memoizedCompany?.id]);
+  
+  // Initialize iframeSrc from sessionStorage or catalogueUrl
+  const [iframeSrc, setIframeSrc] = useState<string>(() => {
+    if (typeof window !== 'undefined' && memoizedCompany?.id) {
+      const key = `livePreview_iframeSrc_${memoizedCompany.id}`;
+      const stored = sessionStorage.getItem(key);
+      if (stored && stored === catalogueUrl) {
+        return stored;
+      }
+    }
+    return '';
+  });
+  
+  useEffect(() => {
+    if (catalogueUrl && catalogueUrl !== prevUrlRef.current) {
+      prevUrlRef.current = catalogueUrl;
+      setIframeSrc(catalogueUrl);
+      setIsLoading(true);
+      // Persist to sessionStorage
+      if (typeof window !== 'undefined' && storageKeyRef.current) {
+        sessionStorage.setItem(storageKeyRef.current, catalogueUrl);
+      }
+    } else if (!catalogueUrl) {
+      setIframeSrc('');
+      prevUrlRef.current = '';
+      if (typeof window !== 'undefined' && storageKeyRef.current) {
+        sessionStorage.removeItem(storageKeyRef.current);
+      }
+    }
+  }, [catalogueUrl]);
 
   const handleRefresh = () => {
     setIsLoading(true);
+    // Force iframe reload by updating key (this will remount the iframe)
     setIframeKey(prev => prev + 1);
   };
 
@@ -39,7 +94,7 @@ const LivePreview = ({ className = '' }: LivePreviewProps) => {
     setIsLoading(false);
   };
 
-  if (!company || !user) {
+  if (!memoizedCompany) {
     return (
       <Card title={t('site.preview.title', 'Live Preview')} className={className}>
         <div className="text-center py-8 text-gray-500">
@@ -117,7 +172,7 @@ const LivePreview = ({ className = '' }: LivePreviewProps) => {
           )}
           <iframe
             key={iframeKey}
-            src={catalogueUrl}
+            src={iframeSrc}
             className="w-full h-full border-0"
             title={t('site.preview.title', 'Live Preview')}
             onLoad={handleIframeLoad}
@@ -136,5 +191,6 @@ const LivePreview = ({ className = '' }: LivePreviewProps) => {
   );
 };
 
-export default LivePreview;
+// Memoize LivePreview to prevent unnecessary re-renders
+export default memo(LivePreview);
 

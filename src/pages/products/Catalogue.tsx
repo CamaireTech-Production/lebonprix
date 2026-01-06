@@ -1,6 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { useAuth } from '@contexts/AuthContext';
 import { useCart } from '../../contexts/CartContext';
 import { getCompanyByUserId } from '@services/firestore/firestore';
 import { subscribeToProducts } from '@services/firestore/products/productService';
@@ -18,7 +17,6 @@ const Catalogue = () => {
   const [searchParams] = useSearchParams();
   const categoryParam = searchParams.get('category'); // For backward compatibility
   const categoriesParam = searchParams.get('categories'); // For multiple categories
-  useAuth();
   const { addToCart } = useCart();
   const [company, setCompany] = useState<Company | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
@@ -27,8 +25,8 @@ const Catalogue = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  // Cache for products to prevent re-fetching
-  const [productsCache, setProductsCache] = useState<Map<string, Product[]>>(new Map());
+  // Cache for products to prevent re-fetching - use ref to avoid infinite loops
+  const productsCacheRef = useRef<Map<string, Product[]>>(new Map());
   
   // Cart modal state (removed - using FloatingCartButton instead)
   
@@ -119,12 +117,10 @@ const Catalogue = () => {
       try {
         setLoading(true);
         setError(null);
-        console.log('🔍 Fetching company data for ID:', companyId);
         const companyData = await getCompanyByUserId(companyId);
-        console.log('✅ Company data loaded:', companyData);
         setCompany(companyData);
       } catch (err) {
-        console.error('❌ Error fetching company:', err);
+        console.error('Error fetching company:', err);
         setError(`Company not found: ${err instanceof Error ? err.message : 'Unknown error'}`);
       } finally {
         setLoading(false);
@@ -139,7 +135,31 @@ const Catalogue = () => {
     // Wait for company to be loaded before loading products
     if (!company?.id) return;
 
+    // If we have cached data, show it immediately while waiting for real-time updates
+    if (productsCacheRef.current.has(company.id)) {
+      const cachedProducts = productsCacheRef.current.get(company.id)!;
+      const filteredProducts = cachedProducts.filter(
+        p => {
+          // Filter out products that should not be shown in catalogue:
+          // - Products marked as deleted (isDeleted: true)
+          // - Products marked as unavailable (isAvailable: false) 
+          // - Products marked as invisible (isVisible: false)
+          const isAvailable = p.isAvailable !== false;
+          const isNotDeleted = p.isDeleted !== true;
+          const isVisible = p.isVisible !== false;
+          
+          return isAvailable && isNotDeleted && isVisible;
+        }
+      );
+      setProducts(filteredProducts);
+      setLoading(false);
+    } else {
+      // No cached data - set loading to true while we wait for subscription
+      setLoading(true);
+    }
+
     // Always subscribe to real-time updates, even if we have cached data
+    // Note: onSnapshot fires immediately with current data, so callback will be called right away
     const unsubscribe = subscribeToProducts(company.id, (productsData) => {
       const companyProducts = productsData.filter(
         p => {
@@ -155,37 +175,14 @@ const Catalogue = () => {
         }
       );
       
-      
-      // Cache the products for future use using company.id
-      setProductsCache(prev => new Map(prev).set(company.id, productsData));
+      // Cache the products for future use using company.id (using ref to avoid re-renders)
+      productsCacheRef.current.set(company.id, productsData);
       setProducts(companyProducts);
       setLoading(false);
     });
 
-    // If we have cached data, show it immediately while waiting for real-time updates
-    if (productsCache.has(company.id)) {
-      const cachedProducts = productsCache.get(company.id)!;
-      const filteredProducts = cachedProducts.filter(
-        p => {
-          // Filter out products that should not be shown in catalogue:
-          // - Products marked as deleted (isDeleted: true)
-          // - Products marked as unavailable (isAvailable: false) 
-          // - Products marked as invisible (isVisible: false)
-          const isAvailable = p.isAvailable !== false;
-          const isNotDeleted = p.isDeleted !== true;
-          const isVisible = p.isVisible !== false;
-          
-          return isAvailable && isNotDeleted && isVisible;
-        }
-      );
-      
-      
-      setProducts(filteredProducts);
-      setLoading(false);
-    }
-
     return () => unsubscribe();
-  }, [company?.id, productsCache]);
+  }, [company?.id]);
 
   // Subscribe to categories for enhanced display
   useEffect(() => {
@@ -199,12 +196,17 @@ const Catalogue = () => {
     return () => unsubscribe();
   }, [company?.id]);
 
-  // Track catalogue view for analytics
+  // Track catalogue view for analytics (gracefully handle errors for non-authenticated users)
   useEffect(() => {
     if (company?.id) {
+      // Track view but don't break the page if it fails (e.g., for non-authenticated users)
       trackCatalogueView(company.id, {
         userAgent: navigator.userAgent,
         referrer: document.referrer
+      }).catch((error) => {
+        // Silently fail - analytics tracking should not break the catalogue experience
+        // Error is already logged in trackCatalogueView function
+        console.debug('Catalogue view tracking failed (non-critical):', error);
       });
     }
   }, [company?.id]);
