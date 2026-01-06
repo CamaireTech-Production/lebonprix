@@ -6,6 +6,7 @@ import { useAuth } from '@contexts/AuthContext';
 import { useProductionCategories } from '@hooks/data/useFirestore';
 import { FirebaseStorageService } from '@services/core/firebaseStorage';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
+import { formatCreatorName } from '@utils/business/employeeUtils';
 import imageCompression from 'browser-image-compression';
 import type { ProductionCategory } from '../../types/models';
 
@@ -240,6 +241,9 @@ const Categories: React.FC = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Statut
                 </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Créé par
+                </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
                 </th>
@@ -278,6 +282,11 @@ const Categories: React.FC = () => {
                     ) : (
                       <Badge variant="secondary">Inactive</Badge>
                     )}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-600">
+                      {formatCreatorName(category.createdBy)}
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex justify-end gap-2">

@@ -4,6 +4,7 @@ import { Plus, Edit2, Trash2, Loader2, ArrowUp, ArrowDown, X, Search, ChevronRig
 import { Button, Modal, ModalFooter, LoadingScreen } from '@components/common';
 import { useProductionFlows, useProductionFlowSteps } from '@hooks/data/useFirestore';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
+import { formatCreatorName } from '@utils/business/employeeUtils';
 import type { ProductionFlow } from '../../types/models';
 
 const Flows: React.FC = () => {
@@ -226,6 +227,9 @@ const Flows: React.FC = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Par défaut
                   </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Créé par
+                  </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
                   </th>
@@ -270,6 +274,11 @@ const Flows: React.FC = () => {
                           ) : (
                             <span className="text-sm text-gray-400">-</span>
                           )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-600">
+                            {formatCreatorName(flow.createdBy)}
+                          </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <div className="flex justify-end gap-2">

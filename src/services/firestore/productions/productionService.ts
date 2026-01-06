@@ -99,6 +99,9 @@ export const createProduction = async (
 
     const batch = writeBatch(db);
 
+    // Get current authenticated user ID
+    const currentUserId = await getCurrentUserId();
+
     // Calculate initial cost from article materials (charges are separate and allocated during publishing)
     // Sum of all article material costs
     let materialsCost = 0;
@@ -123,6 +126,7 @@ export const createProduction = async (
       name: data.name,
       reference: data.reference || '',
       companyId,
+      userId: currentUserId, // Set userId from authenticated user
       status: 'draft',
       stateHistory: [],
       calculatedCostPrice,
@@ -685,7 +689,10 @@ export const publishArticle = async (
       }
     }
 
-    // STEP 4: Consume materials from stock
+    // STEP 4: Get current authenticated user (needed for stock changes and product creation)
+    const currentUserId = await getCurrentUserId();
+    
+    // STEP 4.5: Consume materials from stock
     const { consumeStockFromBatches } = await import('../stock/stockService');
     const { createStockChange } = await import('../stock/stockService');
     
@@ -707,7 +714,7 @@ export const publishArticle = async (
         'FIFO',
         'matiere'
       );
-
+      
       // Create stock change for each consumed batch
       for (const consumedBatch of inventoryResult.consumedBatches) {
         createStockChange(
@@ -715,7 +722,7 @@ export const publishArticle = async (
           material.matiereId,
           -consumedBatch.consumedQuantity,
           'production',
-          production.userId,
+          currentUserId, // Use current user performing the action, not production.userId
           production.companyId,
           'matiere',
           undefined,
@@ -737,16 +744,31 @@ export const publishArticle = async (
     // Commit materials consumption
     await materialsBatch.commit();
 
-    // STEP 5: Get employee reference for createdBy
+    // STEP 5: Get employee reference for createdBy (currentUserId already retrieved above)
     const { getCurrentEmployeeRef } = await import('@utils/business/employeeUtils');
     const { getUserById } = await import('@services/utilities/userService');
+    const { getAuth } = await import('firebase/auth');
+    const auth = getAuth();
+    const currentUser = auth.currentUser;
     
     let createdBy = null;
     try {
-      const userData = await getUserById(production.userId);
-      createdBy = getCurrentEmployeeRef(null, { uid: production.userId } as any, true, userData);
+      const userData = await getUserById(currentUserId);
+      // Determine if current user is owner (no employee context in production service)
+      // For now, assume not owner unless we can determine otherwise
+      const isOwner = false; // Could be enhanced to check user's role in company
+      createdBy = getCurrentEmployeeRef(null, currentUser, isOwner, userData);
     } catch (error) {
       console.error('Error fetching user data for createdBy:', error);
+      // Fallback: create basic EmployeeRef from current user
+      if (currentUser) {
+        createdBy = {
+          userId: currentUserId,
+          employeeId: null,
+          name: currentUser.email || currentUserId,
+          isOwner: false
+        };
+      }
     }
 
     // STEP 6: Create product
@@ -766,7 +788,7 @@ export const publishArticle = async (
         barCode: productData.barCode,
         isVisible: productData.isVisible !== false,
         tags: [],
-        userId: production.userId,
+        userId: currentUserId, // Use current user, not production.userId
         enableBatchTracking: true,
         isAvailable: true,
         companyId: production.companyId
@@ -783,6 +805,8 @@ export const publishArticle = async (
     // STEP 7: Update article and production
     const updateBatch = writeBatch(db);
 
+    // currentUserId already retrieved above for stock changes and product creation
+
     // Update article
     const updatedArticles = [...production.articles];
     updatedArticles[articleIndex] = {
@@ -790,7 +814,7 @@ export const publishArticle = async (
       status: 'published',
       publishedProductId: product.id,
       publishedAt: Timestamp.now(),
-      publishedBy: production.userId
+      publishedBy: currentUserId // Track who published this article
     };
 
     // Calculate published articles count
@@ -809,7 +833,7 @@ export const publishArticle = async (
       updateData.isPublished = true;
       updateData.isClosed = true;
       updateData.closedAt = serverTimestamp();
-      updateData.closedBy = production.userId;
+      updateData.closedBy = currentUserId; // Track who closed the production
       updateData.status = 'published';
     }
 
@@ -818,16 +842,13 @@ export const publishArticle = async (
     updateBatch.update(productionRef, cleanedUpdateData);
 
     // Create audit log
-    const { getAuth } = await import('firebase/auth');
-    const auth = getAuth();
-    const userId = auth.currentUser?.uid || production.userId;
     createAuditLog(updateBatch, 'update', 'production', productionId, {
       action: 'publish_article',
       articleId: articleId,
       articleName: article.name,
       productId: product.id,
       productName: product.name
-    }, userId);
+    }, currentUserId);
 
     await updateBatch.commit();
 
@@ -937,6 +958,9 @@ export const addArticleToProduction = async (
 
     const batch = writeBatch(db);
 
+    // Get current authenticated user
+    const currentUserId = await getCurrentUserId();
+
     // Generate article ID
     const articleId = `article_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
     const newArticle: ProductionArticle = {
@@ -973,14 +997,11 @@ export const addArticleToProduction = async (
     batch.update(productionRef, updateData);
 
     // Create audit log
-    const { getAuth } = await import('firebase/auth');
-    const auth = getAuth();
-    const userId = auth.currentUser?.uid || production.userId;
     createAuditLog(batch, 'update', 'production', productionId, {
       action: 'add_article',
       articleId: articleId,
       articleName: newArticle.name
-    }, userId);
+    }, currentUserId);
 
     await batch.commit();
 
@@ -1040,6 +1061,9 @@ export const updateArticleStage = async (
 
     const batch = writeBatch(db);
 
+    // Get current authenticated user
+    const currentUserId = await getCurrentUserId();
+
     // Update article
     const updatedArticles = [...production.articles];
     updatedArticles[articleIndex] = {
@@ -1055,9 +1079,6 @@ export const updateArticleStage = async (
     batch.update(productionRef, updateData);
 
     // Create audit log
-    const { getAuth } = await import('firebase/auth');
-    const auth = getAuth();
-    const userId = auth.currentUser?.uid || production.userId;
     const auditData = cleanForFirestore({
       action: 'update_article_stage',
       articleId: articleId,
@@ -1068,7 +1089,7 @@ export const updateArticleStage = async (
       toStepName: newStep?.name,
       note: note
     });
-    createAuditLog(batch, 'update', 'production', productionId, auditData, userId);
+    createAuditLog(batch, 'update', 'production', productionId, auditData, currentUserId);
 
     await batch.commit();
   } catch (error) {

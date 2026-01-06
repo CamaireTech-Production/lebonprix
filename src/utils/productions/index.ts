@@ -42,3 +42,13 @@ export {
   getArticlesReadyForPublish
 } from './articleUtils';
 
+// User tracking migration utilities
+export {
+  migrateProductionsUserTracking,
+  migrateProductionCategoriesUserTracking,
+  migrateProductionFlowsUserTracking,
+  migrateProductionFlowStepsUserTracking,
+  migrateProductionChargesUserTracking,
+  migrateAllProductionUserTracking
+} from './migrateUserTracking';
+

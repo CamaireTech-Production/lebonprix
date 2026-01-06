@@ -8,6 +8,7 @@ import CreateProductionModal from '@components/productions/CreateProductionModal
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@contexts/AuthContext';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
+import { formatCreatorName } from '@utils/business/employeeUtils';
 import type { Production } from '../../types/models';
 
 const Productions: React.FC = () => {
@@ -394,6 +395,9 @@ const Productions: React.FC = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Date
                 </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Créé par
+                </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
                 </th>
@@ -427,6 +431,11 @@ const Productions: React.FC = () => {
                       {production.createdAt?.seconds
                         ? new Date(production.createdAt.seconds * 1000).toLocaleDateString('fr-FR')
                         : '-'}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-600">
+                      {formatCreatorName(production.createdBy)}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">

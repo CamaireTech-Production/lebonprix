@@ -645,6 +645,7 @@ export interface ProductionChargeRef {
   category?: string; // Snapshot (optional)
   type: 'fixed' | 'custom'; // Whether this was a fixed or custom charge
   date: Timestamp; // Snapshot
+  createdBy?: EmployeeRef; // Snapshot of who created the charge (optional for backward compatibility)
 }
 
 /**

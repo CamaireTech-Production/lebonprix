@@ -1,5 +1,5 @@
 // Production Detail page
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Edit2, Loader2, CheckCircle2, Plus, Trash2, Package, Download, BarChart3, X, XCircle, Check } from 'lucide-react';
 import { Button, LoadingScreen, Badge, Modal, ModalFooter } from '@components/common';
@@ -8,6 +8,8 @@ import { useAuth } from '@contexts/AuthContext';
 import { useMatiereStocks } from '@hooks/business/useMatiereStocks';
 import { formatPrice } from '@utils/formatting/formatPrice';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
+import { getUserById } from '@services/utilities/userService';
+import { formatCreatorName } from '@utils/business/employeeUtils';
 import ChargeFormModal from '@components/productions/ChargeFormModal';
 import PublishProductionModal from '@components/productions/PublishProductionModal';
 import AddArticleModal from '@components/productions/AddArticleModal';
@@ -53,11 +55,50 @@ const ProductionDetail: React.FC = () => {
   const [isChangingArticleStage, setIsChangingArticleStage] = useState<string | null>(null);
   const [isPublishingArticle, setIsPublishingArticle] = useState<string | null>(null);
   const [isBulkPublishing, setIsBulkPublishing] = useState(false);
+  const [userNamesMap, setUserNamesMap] = useState<Map<string, string>>(new Map());
+  const [expandedArticleId, setExpandedArticleId] = useState<string | null>(null);
 
   const production = useMemo(() => {
     if (!id) return null;
     return productions.find(p => p.id === id) || null;
   }, [productions, id]);
+
+  // Fetch user names for state history
+  useEffect(() => {
+    const fetchUserNames = async () => {
+      if (!production || !production.stateHistory || production.stateHistory.length === 0) {
+        return;
+      }
+
+      const userIds = new Set<string>();
+      production.stateHistory.forEach((change) => {
+        if (change.changedBy) {
+          userIds.add(change.changedBy);
+        }
+      });
+
+      const namesMap = new Map<string, string>();
+      const fetchPromises = Array.from(userIds).map(async (userId) => {
+        try {
+          const user = await getUserById(userId);
+          if (user) {
+            const fullName = `${user.firstname || ''} ${user.lastname || ''}`.trim();
+            namesMap.set(userId, fullName || user.email || userId);
+          } else {
+            namesMap.set(userId, userId); // Fallback to userId if user not found
+          }
+        } catch (error) {
+          console.error(`Error fetching user ${userId}:`, error);
+          namesMap.set(userId, userId); // Fallback to userId on error
+        }
+      });
+
+      await Promise.all(fetchPromises);
+      setUserNamesMap(namesMap);
+    };
+
+    fetchUserNames();
+  }, [production?.stateHistory]);
 
   // Calculate costs from articles and charges
   const materialsCost = useMemo(() => {
@@ -967,57 +1008,128 @@ const ProductionDetail: React.FC = () => {
         {/* Materials Tab */}
         {activeTab === 'materials' && (
           <div className="p-6">
-            {production.materials.length === 0 ? (
+            {(!production.articles || production.articles.length === 0) ? (
               <p className="text-gray-500 text-center py-8">Aucun matériau</p>
             ) : (
               <div className="space-y-4">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Matériau
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Quantité requise
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Prix unitaire
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Total
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {production.materials.map((material: typeof production.materials[0], idx: number) => {
-                      const stockInfo = matiereStocks.find(ms => ms.matiereId === material.matiereId);
-                      return (
-                        <tr key={idx}>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm font-medium text-gray-900">
-                              {material.matiereName}
+                {production.articles.map((article) => {
+                  const articleMaterials = article.materials || [];
+                  const isExpanded = expandedArticleId === article.id;
+
+                  return (
+                    <div key={article.id} className="border rounded-lg shadow-sm bg-white">
+                      <button
+                        type="button"
+                        className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50"
+                        onClick={() =>
+                          setExpandedArticleId(isExpanded ? null : article.id)
+                        }
+                      >
+                        <div className="flex flex-col items-start">
+                          <span className="text-sm font-semibold text-gray-900">{article.name}</span>
+                          <span className="text-xs text-gray-500">Quantité: {article.quantity}</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm font-medium text-gray-900">
+                            {formatPrice(
+                              articleMaterials.reduce(
+                                (sum, m) => sum + m.requiredQuantity * m.costPrice,
+                                0
+                              )
+                            )}
+                          </span>
+                          <svg
+                            className={`w-4 h-4 text-gray-500 transition-transform ${
+                              isExpanded ? 'transform rotate-180' : ''
+                            }`}
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </div>
+                      </button>
+
+                      {isExpanded && (
+                        <div className="px-4 pb-4">
+                          {articleMaterials.length === 0 ? (
+                            <div className="py-4 text-sm text-gray-500">Aucun matériau pour cet article</div>
+                          ) : (
+                            <div className="space-y-3">
+                              <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
+                                  <tr>
+                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                                      Matériau
+                                    </th>
+                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                                      Quantité requise
+                                    </th>
+                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                                      Prix unitaire
+                                    </th>
+                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                                      Total
+                                    </th>
+                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                                      Créé par
+                                    </th>
+                                  </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                  {articleMaterials.map((material, idx) => {
+                                    const stockInfo = matiereStocks.find(ms => ms.matiereId === material.matiereId);
+                                    return (
+                                      <tr key={`${material.matiereId}-${idx}`}>
+                                        <td className="px-4 py-3 whitespace-nowrap">
+                                          <div className="text-sm font-medium text-gray-900">
+                                            {material.matiereName}
+                                          </div>
+                                          <div className="text-xs text-gray-500">
+                                            Stock disponible: {stockInfo?.currentStock || 0} {material.unit || 'unité'}
+                                          </div>
+                                        </td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                                          {material.requiredQuantity} {material.unit || 'unité'}
+                                        </td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                                          {formatPrice(material.costPrice)}
+                                        </td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
+                                          {formatPrice(material.requiredQuantity * material.costPrice)}
+                                        </td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                                          {formatCreatorName(production.createdBy)}
+                                        </td>
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+                              <div className="bg-gray-50 rounded-md p-3 flex justify-between items-center">
+                                <span className="text-sm font-medium text-gray-900">Total matériaux (article):</span>
+                                <span className="text-base font-semibold text-gray-900">
+                                  {formatPrice(
+                                    articleMaterials.reduce(
+                                      (sum, m) => sum + m.requiredQuantity * m.costPrice,
+                                      0
+                                    )
+                                  )}
+                                </span>
+                              </div>
                             </div>
-                            <div className="text-sm text-gray-500">
-                              Stock disponible: {stockInfo?.currentStock || 0} {material.unit || 'unité'}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {material.requiredQuantity} {material.unit || 'unité'}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {formatPrice(material.costPrice)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {formatPrice(material.requiredQuantity * material.costPrice)}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+
                 <div className="bg-gray-50 rounded-md p-4">
                   <div className="flex justify-between items-center">
-                    <span className="font-medium text-gray-900">Total matériaux:</span>
+                    <span className="font-medium text-gray-900">Total matériaux (production):</span>
                     <span className="text-lg font-semibold text-gray-900">
                       {formatPrice(materialsCost)}
                     </span>
@@ -1072,27 +1184,6 @@ const ProductionDetail: React.FC = () => {
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Description
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Catégorie
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Date
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Montant
-                      </th>
-                      {!isClosed && (
-                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                          Actions
-                        </th>
-                      )}
-                    </tr>
-                  </thead>
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                         Type
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
@@ -1106,6 +1197,9 @@ const ProductionDetail: React.FC = () => {
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                         Montant
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        Créé par
                       </th>
                       {!isClosed && (
                         <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
@@ -1162,6 +1256,11 @@ const ProductionDetail: React.FC = () => {
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm font-medium text-gray-900">
                               {formatPrice(charge.amount || 0)}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-600">
+                              {formatCreatorName(charge.createdBy)}
                             </div>
                           </td>
                           {!isClosed && (
@@ -1272,9 +1371,16 @@ const ProductionDetail: React.FC = () => {
                         <div className="flex items-center space-x-2 mb-1">
                           <span className="text-sm font-medium text-gray-900">{displayText || 'Changement d\'état'}</span>
                         </div>
-                        <p className="text-xs text-gray-500">
-                          {change.timestamp && new Date(change.timestamp.seconds * 1000).toLocaleString('fr-FR')}
-                        </p>
+                        <div className="flex items-center gap-3">
+                          <p className="text-xs text-gray-500">
+                            {change.timestamp && new Date(change.timestamp.seconds * 1000).toLocaleString('fr-FR')}
+                          </p>
+                          {change.changedBy && (
+                            <p className="text-xs text-gray-600">
+                              par <span className="font-medium">{userNamesMap.get(change.changedBy) || change.changedBy}</span>
+                            </p>
+                          )}
+                        </div>
                         {change.note && (
                           <p className="text-sm text-gray-600 mt-1">{change.note}</p>
                         )}

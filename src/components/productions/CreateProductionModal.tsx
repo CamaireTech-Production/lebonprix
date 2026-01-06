@@ -433,7 +433,8 @@ const CreateProductionModal: React.FC<CreateProductionModalProps> = ({
             name: newCharge.name || newCharge.description || '',
             amount: newCharge.amount,
             type: 'custom',
-            date: newCharge.date
+            date: newCharge.date,
+            createdBy: createdBy || undefined // Include createdBy in snapshot
           };
           
           // Only include optional fields if they have values
@@ -460,7 +461,8 @@ const CreateProductionModal: React.FC<CreateProductionModalProps> = ({
             name: charge.name || charge.description || '',
             amount: charge.amount,
             type: 'fixed',
-            date: charge.date
+            date: charge.date,
+            createdBy: charge.createdBy || createdBy || undefined // Include createdBy from charge or current user
           };
           
           // Only include optional fields if they have values

@@ -69,12 +69,22 @@ export const createProductionFlow = async (
       throw new Error('Flow must have at least one step');
     }
 
+    // Get current authenticated user
+    const { getAuth } = await import('firebase/auth');
+    const auth = getAuth();
+    const currentUserId = auth.currentUser?.uid;
+    
+    if (!currentUserId) {
+      throw new Error('User must be authenticated to create a production flow');
+    }
+
     const batch = writeBatch(db);
 
     // Build flow data, filtering out undefined values (Firebase doesn't accept undefined)
     const flowData: any = {
       name: data.name,
       companyId,
+      userId: currentUserId, // Set userId from authenticated user
       isDefault: data.isDefault || false,
       isActive: data.isActive !== false,
       stepIds: data.stepIds,
@@ -89,9 +99,6 @@ export const createProductionFlow = async (
     }
     if (data.estimatedDuration !== undefined) {
       flowData.estimatedDuration = data.estimatedDuration;
-    }
-    if (data.userId) {
-      flowData.userId = data.userId;
     }
 
     if (createdBy) {
