@@ -12,8 +12,11 @@ import { getCheckoutSettingsWithDefaults, subscribeToCheckoutSettings } from '@s
 // Removed useCheckoutPersistence - using manual save approach
 import { subscribeToCinetPayConfig, isCinetPayConfigured } from '@services/payment/cinetpayService';
 import { processCinetPayPayment, validatePaymentData, formatPhoneForCinetPay } from '@utils/core/cinetpayHandler';
+import { subscribeToCampayConfig, isCampayConfigured } from '@services/payment/campayService';
+import { useCampay } from '@hooks/useCampay';
 import { formatPhoneForWhatsApp } from '@utils/core/phoneUtils';
 import type { CinetPayConfig } from '../../types/cinetpay';
+import type { CampayConfig } from '../../types/campay';
 // import { generateWhatsAppMessage } from '@utils/whatsapp';
 import { 
   CreditCard, 
@@ -146,6 +149,8 @@ const SingleCheckout: React.FC = () => {
   const [sellerSettings, setSellerSettings] = useState<SellerSettings | null>(null);
   const [checkoutSettings, setCheckoutSettings] = useState<CheckoutSettings | null>(null);
   const [cinetpayConfig, setCinetpayConfig] = useState<CinetPayConfig | null>(null);
+  const [campayConfig, setCampayConfig] = useState<CampayConfig | null>(null);
+  const { processPayment: processCampayPayment, isInitialized: isCampayInitialized, hiddenButtonId: campayButtonId } = useCampay(company?.id || null);
   const [submitting, setSubmitting] = useState(false);
   const [orderCreated, setOrderCreated] = useState(false);
   const [createdOrder, setCreatedOrder] = useState<Order | null>(null);
@@ -212,6 +217,17 @@ const SingleCheckout: React.FC = () => {
 
     return () => unsubscribe();
   }, [user?.uid]);
+
+  // Load Campay configuration
+  useEffect(() => {
+    if (!company?.id) return;
+
+    const unsubscribe = subscribeToCampayConfig(company.id, (config) => {
+      setCampayConfig(config);
+    });
+
+    return () => unsubscribe();
+  }, [company?.id]);
 
   // Manual save on form changes (no auto-save)
   const saveCheckoutData = useCallback(() => {
@@ -660,6 +676,173 @@ const SingleCheckout: React.FC = () => {
         } else {
           toast.error(paymentResult.error || 'Payment failed');
         }
+        return;
+      }
+
+      // Check if this is a Campay payment
+      const isCampayPayment = selectedPaymentOption === 'campay';
+      
+      if (isCampayPayment && campayConfig && isCampayInitialized) {
+        // Validate amount limits
+        const finalTotal = getCartTotal() + (sellerSettings?.deliveryFee || 0);
+        
+        // Import validation utilities
+        const { 
+          validateCampayConfig, 
+          validateCampayPaymentData, 
+          checkNetworkConnectivity 
+        } = require('@utils/validation/campayValidation');
+        
+        // Validate configuration
+        const configValidation = validateCampayConfig(campayConfig);
+        if (!configValidation.isValid) {
+          toast.error(`Campay configuration error: ${configValidation.errors.join(', ')}`);
+          setSubmitting(false);
+          return;
+        }
+
+        // Validate payment data
+        const paymentValidation = validateCampayPaymentData(
+          {
+            amount: finalTotal,
+            currency: 'XAF',
+            description: `Order from ${company?.name || 'Store'}`
+          },
+          campayConfig
+        );
+        
+        if (!paymentValidation.isValid) {
+          toast.error(paymentValidation.errors.join(', '));
+          setSubmitting(false);
+          return;
+        }
+
+        // Check network connectivity
+        const networkCheck = checkNetworkConnectivity();
+        if (!networkCheck.isOnline) {
+          toast.error(networkCheck.message);
+          setSubmitting(false);
+          return;
+        }
+
+        // Process Campay payment
+        const externalReference = `ORDER_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        
+        const paymentResult = await processCampayPayment(
+          {
+            payButtonId: campayButtonId,
+            description: `Order from ${company?.name || 'Store'}`,
+            amount: finalTotal,
+            currency: 'XAF',
+            externalReference: externalReference,
+            redirectUrl: `${window.location.origin}/catalogue/${company?.name?.toLowerCase().replace(/\s+/g, '-')}/${company?.id}`
+          },
+          // onSuccess callback
+          async (data) => {
+            console.log('Campay payment successful:', data);
+            
+            // Get createdBy employee reference
+            let createdBy = null;
+            if (user && company) {
+              let userData = null;
+              if (isOwner && !currentEmployee) {
+                try {
+                  userData = await getUserById(user.uid);
+                } catch (error) {
+                  console.error('Error fetching user data for createdBy:', error);
+                }
+              }
+              createdBy = getCurrentEmployeeRef(currentEmployee, user, isOwner, userData);
+            }
+            
+            // Create order with Campay payment details
+            const order = await createOrder(
+              company.id,
+              {
+                customerInfo: sanitizedCustomerInfo,
+                cartItems: cart,
+                pricing: {
+                  subtotal: getCartTotal(),
+                  deliveryFee: sellerSettings?.deliveryFee || 0,
+                  total: finalTotal
+                },
+                paymentMethod: 'campay',
+                paymentOption: 'campay',
+                paymentFormData: sanitizedPaymentFormData,
+                deliveryInfo: {
+                  method: 'delivery',
+                  address: sanitizedCustomerInfo.location,
+                  instructions: sanitizedCustomerInfo.deliveryInstructions
+                },
+                metadata: {
+                  source: 'catalogue',
+                  userId: user?.uid,
+                  createdBy: createdBy || undefined,
+                  deviceInfo: {
+                    type: 'desktop',
+                    os: navigator.platform,
+                    browser: navigator.userAgent
+                  }
+                },
+                campayPaymentDetails: {
+                  reference: data.reference || '',
+                  transactionId: data.transactionId || '',
+                  campayStatus: data.status || 'SUCCESS',
+                  status: data.status || 'SUCCESS',
+                  paidAt: new Date(),
+                  paymentMethod: data.paymentMethod || 'mobile_money',
+                  amount: finalTotal,
+                  currency: 'XAF',
+                  metadata: {
+                    externalReference: externalReference,
+                    environment: campayConfig.environment,
+                    timestamp: new Date().toISOString()
+                  }
+                }
+              }
+            );
+
+            setCreatedOrder(order);
+            setOrderCreated(true);
+            
+            // Clear cart and saved data
+            clearCart();
+            clearCheckoutData();
+            
+            toast.success('Payment successful! Order created.');
+            setSubmitting(false);
+          },
+          // onFail callback
+          (data) => {
+            console.error('Campay payment failed:', data);
+            const { getCampayErrorMessage, isRetryableError } = require('@utils/validation/campayValidation');
+            const errorMessage = getCampayErrorMessage(data.message || 'Payment failed', campayConfig.environment);
+            const isRetryable = isRetryableError(errorMessage);
+            
+            // Show error with retry suggestion if applicable
+            if (isRetryable) {
+              toast.error(`${errorMessage} You can try again.`);
+            } else {
+              toast.error(errorMessage);
+            }
+            
+            setSubmitting(false);
+          },
+          // onModalClose callback
+          () => {
+            console.log('Campay payment modal closed');
+            toast.info('Payment was cancelled');
+            setSubmitting(false);
+          }
+        );
+
+        // If payment was cancelled or failed before callbacks
+        if (!paymentResult) {
+          setSubmitting(false);
+          return;
+        }
+        
+        return;
       } else if (company) {
         // Get createdBy employee reference
         let createdBy = null;
@@ -1354,6 +1537,140 @@ const SingleCheckout: React.FC = () => {
                         </div>
                       )}
                     </>
+                  )}
+
+                  {/* Campay Payment Option */}
+                  {campayConfig && isCampayConfigured(campayConfig) && (
+                    <div 
+                      className={`p-4 border-t border-gray-200 transition-all duration-200 ${
+                        selectedPaymentOption === 'campay' 
+                          ? 'bg-emerald-50 border-l-4 border-l-emerald-500' 
+                          : 'hover:bg-gray-50'
+                      }`}
+                      role="group"
+                      aria-labelledby="campay-payment-label"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <input
+                          type="radio"
+                          name="paymentMethod"
+                          id="campay"
+                          value="campay"
+                          checked={selectedPaymentOption === 'campay'}
+                          onChange={() => handlePaymentMethodSelect('campay')}
+                          className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 cursor-pointer"
+                          aria-labelledby="campay-payment-label"
+                          aria-describedby="campay-payment-description"
+                        />
+                        <label 
+                          htmlFor="campay" 
+                          id="campay-payment-label"
+                          className="flex items-center space-x-3 cursor-pointer flex-1"
+                        >
+                          <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-lg flex items-center justify-center shadow-sm transition-transform duration-200 hover:scale-105">
+                            <span className="text-white font-bold text-sm">CP</span>
+                          </div>
+                          <div className="flex-1">
+                            <span className="font-medium text-gray-900 block">Campay</span>
+                            <span className="text-xs text-gray-500 block mt-0.5">MTN • Orange Money</span>
+                          </div>
+                          {selectedPaymentOption === 'campay' && (
+                            <div className="flex items-center text-emerald-600 animate-fade-in">
+                              <Check className="h-5 w-5" aria-label="Selected" />
+                            </div>
+                          )}
+                        </label>
+                      </div>
+                      
+                      {/* Campay Payment Form */}
+                      {selectedPaymentOption === 'campay' && (
+                        <div 
+                          className="mt-4 pl-8 animate-slide-down"
+                          id="campay-payment-description"
+                          role="region"
+                          aria-labelledby="campay-payment-label"
+                        >
+                          <div className="bg-gradient-to-br from-emerald-50 to-green-50 border border-emerald-200 rounded-lg p-4 shadow-sm">
+                            <div className="flex items-start space-x-3 mb-3">
+                              <div className="flex-shrink-0 mt-0.5">
+                                <div className="w-8 h-8 bg-emerald-100 rounded-full flex items-center justify-center">
+                                  <CreditCard className="h-4 w-4 text-emerald-600" aria-hidden="true" />
+                                </div>
+                              </div>
+                              <div className="flex-1">
+                                <h4 className="font-medium text-emerald-900 mb-1">Paiement sécurisé via Campay</h4>
+                                <p className="text-sm text-emerald-700 leading-relaxed">
+                                  Payez en toute sécurité avec MTN Mobile Money ou Orange Money. Vous serez redirigé vers une page de paiement sécurisée pour compléter votre transaction.
+                                </p>
+                              </div>
+                            </div>
+                            
+                            {/* Payment Methods Icons */}
+                            <div className="flex items-center space-x-2 mt-3 pt-3 border-t border-emerald-200">
+                              <span className="text-xs text-emerald-600 font-medium">Méthodes acceptées:</span>
+                              <div className="flex items-center space-x-2">
+                                <div className="w-6 h-6 bg-yellow-500 rounded flex items-center justify-center" title="MTN Mobile Money">
+                                  <span className="text-white text-xs font-bold">M</span>
+                                </div>
+                                <div className="w-6 h-6 bg-orange-500 rounded flex items-center justify-center" title="Orange Money">
+                                  <span className="text-white text-xs font-bold">O</span>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {campayConfig.environment === 'demo' && (
+                              <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg animate-fade-in">
+                                <div className="flex items-start">
+                                  <div className="flex-shrink-0 mt-0.5">
+                                    <span className="text-amber-600 text-sm" aria-label="Warning">⚠️</span>
+                                  </div>
+                                  <div className="flex-1 ml-2">
+                                    <p className="text-xs text-amber-800 font-medium">Mode démo actif</p>
+                                    <p className="text-xs text-amber-700 mt-0.5">
+                                      Montant maximum: <strong>10 XAF</strong> par transaction. Pour des montants plus élevés, passez en mode production.
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                            
+                            {/* Amount Validation Info */}
+                            {(() => {
+                              const finalTotal = getCartTotal() + (sellerSettings?.deliveryFee || 0);
+                              const isWithinLimits = finalTotal >= campayConfig.minAmount && finalTotal <= campayConfig.maxAmount;
+                              const isWithinDemoLimit = campayConfig.environment !== 'demo' || finalTotal <= 10;
+                              
+                              if (!isWithinLimits || !isWithinDemoLimit) {
+                                return (
+                                  <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg animate-fade-in" role="alert">
+                                    <div className="flex items-start">
+                                      <div className="flex-shrink-0 mt-0.5">
+                                        <span className="text-red-600 text-sm">❌</span>
+                                      </div>
+                                      <div className="flex-1 ml-2">
+                                        <p className="text-xs text-red-800 font-medium">Montant invalide</p>
+                                        <ul className="text-xs text-red-700 mt-1 space-y-0.5 list-disc list-inside">
+                                          {finalTotal < campayConfig.minAmount && (
+                                            <li>Minimum: {campayConfig.minAmount} XAF</li>
+                                          )}
+                                          {finalTotal > campayConfig.maxAmount && (
+                                            <li>Maximum: {campayConfig.maxAmount.toLocaleString()} XAF</li>
+                                          )}
+                                          {campayConfig.environment === 'demo' && finalTotal > 10 && (
+                                            <li>Mode démo: Maximum 10 XAF</li>
+                                          )}
+                                        </ul>
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              }
+                              return null;
+                            })()}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   )}
 
                   {/* Pay Onsite Option */}

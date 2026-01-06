@@ -181,6 +181,24 @@ service cloud.firestore {
       allow write: if isAuthenticated();
     }
     
+    // Campay Configurations - SIMPLIFIED: Authenticated users can read/write
+    match /campay_configs/{configId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+    
+    // Checkout Settings - SIMPLIFIED: Authenticated users can read/write
+    match /checkout_settings/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+    
+    // Seller Settings - SIMPLIFIED: Authenticated users can read/write
+    match /sellerSettings/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+    
     // Production Flow Steps - SIMPLIFIED: Authenticated users can read/write
     match /productionFlowSteps/{stepId} {
       allow read: if isAuthenticated();

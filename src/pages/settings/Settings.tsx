@@ -8,13 +8,15 @@ import { useSales, useExpenses, useAuditLogs, useProducts } from '@hooks/data/us
 import { getSellerSettings, updateSellerSettings } from '@services/firestore/firestore';
 import { getCheckoutSettingsWithDefaults, saveCheckoutSettings, resetCheckoutSettings, subscribeToCheckoutSettings } from '@services/utilities/checkoutSettingsService';
 import { saveCinetPayConfig, subscribeToCinetPayConfig, validateCinetPayCredentials, initializeCinetPayConfig } from '@services/payment/cinetpayService';
+import { saveCampayConfig, subscribeToCampayConfig, validateCampayCredentials, initializeCampayConfig } from '@services/payment/campayService';
 import { AuditLogger } from '@utils/core/auditLogger';
 import type { SellerSettings, PaymentMethod } from '../../types/order';
 import type { CheckoutSettings, CheckoutSettingsUpdate } from '../../types/checkoutSettings';
 import type { CinetPayConfig, CinetPayConfigUpdate } from '../../types/cinetpay';
+import type { CampayConfig, CampayConfigUpdate } from '../../types/campay';
 import PaymentMethodModal from '../../components/settings/PaymentMethodModal';
 import { combineActivities } from '@utils/business/activityUtils';
-import { Plus, Copy, Check, ExternalLink, CreditCard, Truck, ShoppingBag, Save, RotateCcw, Eye, Trash2 } from 'lucide-react';
+import { Plus, Copy, Check, ExternalLink, CreditCard, Truck, ShoppingBag, Save, RotateCcw, Eye, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 
 function normalizeWebsite(raw: string): string | undefined {
   const url = (raw || '').trim();
@@ -38,6 +40,15 @@ const Settings = () => {
   const [cinetpayLoading, setCinetpayLoading] = useState(true);
   const [cinetpaySaving, setCinetpaySaving] = useState(false);
   const [cinetpayTesting, setCinetpayTesting] = useState(false);
+
+  // Campay settings state
+  const [campayConfig, setCampayConfig] = useState<CampayConfig | null>(null);
+  const [campayLoading, setCampayLoading] = useState(true);
+  const [campaySaving, setCampaySaving] = useState(false);
+  const [campayTesting, setCampayTesting] = useState(false);
+  
+  // Accordion state for payment providers
+  const [expandedProvider, setExpandedProvider] = useState<string | null>(null);
   
   // Only fetch data if user is authenticated
   const { sales } = useSales();
@@ -148,6 +159,30 @@ const Settings = () => {
           setCinetpayLoading(false);
         });
       }
+    });
+
+    return () => unsubscribe();
+  }, [company?.id, user?.uid]);
+
+  // Real-time Campay settings subscription
+  useEffect(() => {
+    if (!company?.id) return;
+
+    setCampayLoading(true);
+
+    const unsubscribe = subscribeToCampayConfig(company.id, (config) => {
+      if (config) {
+        setCampayConfig(config);
+        setCampayLoading(false);
+      } else {
+        // If no config exists, don't auto-initialize - let user click the button
+        setCampayLoading(false);
+      }
+    }, (error) => {
+      // Handle subscription errors (like permission errors)
+      console.error('Error subscribing to Campay config:', error);
+      setCampayLoading(false);
+      // Don't set config to null on error - allow user to try initializing
     });
 
     return () => unsubscribe();
@@ -547,6 +582,97 @@ const Settings = () => {
       showErrorToast('Failed to test connection');
     } finally {
       setCinetpayTesting(false);
+    }
+  };
+
+  // Campay settings handlers
+  const handleCampayConfigUpdate = (updates: CampayConfigUpdate) => {
+    if (!campayConfig) return;
+    setCampayConfig(prev => {
+      if (!prev) return null;
+      const merged = { ...prev, ...updates };
+      return merged as CampayConfig;
+    });
+  };
+
+  const handleSaveCampayConfig = async () => {
+    if (!company?.id || !campayConfig) return;
+    
+    try {
+      setCampaySaving(true);
+      await saveCampayConfig(company.id, campayConfig, user?.uid);
+      
+      // Log configuration change
+      await AuditLogger.logConfigChange(user?.uid || company.id, 'campay_config_saved', {
+        configType: 'campay',
+        changes: {
+          isActive: campayConfig.isActive,
+          environment: campayConfig.environment,
+          minAmount: campayConfig.minAmount,
+          maxAmount: campayConfig.maxAmount
+        }
+      });
+      
+      showSuccessToast('Campay payment settings saved');
+    } catch (error) {
+      console.error('Error saving Campay config:', error);
+      showErrorToast('Failed to save Campay payment settings');
+    } finally {
+      setCampaySaving(false);
+    }
+  };
+
+  const handleTestCampayConnection = async () => {
+    if (!campayConfig?.appId) {
+      showErrorToast('Please enter App ID first');
+      return;
+    }
+    
+    try {
+      setCampayTesting(true);
+      const result = await validateCampayCredentials(
+        campayConfig.appId, 
+        campayConfig.environment || 'demo'
+      );
+      
+      if (result.isValid) {
+        showSuccessToast('Connection successful! Credentials are valid.');
+      } else {
+        showErrorToast(`Connection failed: ${result.message}`);
+      }
+    } catch (error) {
+      console.error('Error testing Campay connection:', error);
+      showErrorToast('Failed to test connection');
+    } finally {
+      setCampayTesting(false);
+    }
+  };
+
+  const handleClearCampayCredentials = async () => {
+    if (!company?.id || !campayConfig) return;
+
+    // Show confirmation dialog
+    const confirmed = window.confirm(
+      'Are you sure you want to clear your Campay credentials?\n\n' +
+      'This will remove your App ID. You will need to re-enter it to use Campay payments.\n\n' +
+      'This action cannot be undone.'
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setCampaySaving(true);
+      await saveCampayConfig(company.id, { appId: '', isActive: false }, user?.uid);
+      showSuccessToast('Campay credentials cleared');
+      
+      // Reload config
+      const updatedConfig = await initializeCampayConfig(company.id, user?.uid);
+      setCampayConfig(updatedConfig);
+    } catch (error) {
+      console.error('Error clearing Campay credentials:', error);
+      showErrorToast('Failed to clear credentials');
+    } finally {
+      setCampaySaving(false);
     }
   };
 
@@ -2241,90 +2367,146 @@ const Settings = () => {
 
       {/* Payment Integration Tab */}
       {activeTab === 'payment' && (
-        <div className="space-y-6">
-          {cinetpayLoading ? (
+        <div className="space-y-4 max-w-7xl mx-auto">
+          {/* Header */}
+          <div className="mb-6">
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Payment Integration</h2>
+            <p className="text-gray-600">Configure payment gateways to accept online payments from your customers</p>
+          </div>
+
+          {/* Loading State */}
+          {(cinetpayLoading || campayLoading) ? (
             <Card>
-              <div className="flex items-center justify-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
-                <span className="ml-3 text-gray-600">Loading payment integration settings...</span>
+              <div className="flex items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-10 w-10 border-4 border-emerald-200 border-t-emerald-600"></div>
+                <span className="ml-3 text-gray-600 font-medium">Loading payment integration settings...</span>
               </div>
             </Card>
-          ) : cinetpayConfig ? (
-            <>
-              {/* CinetPay Configuration */}
-              <Card>
-                <div className="max-w-4xl mx-auto">
-                  <div className="space-y-6">
-                    <div className="text-center mb-8">
-                      <h3 className="text-2xl font-semibold text-gray-900 mb-2">Payment Integration</h3>
-                      <p className="text-gray-600">Configure CinetPay for online payment processing</p>
+          ) : (
+            <div className="space-y-4">
+              {/* CinetPay Accordion */}
+              <Card className="overflow-hidden">
+                <button
+                  onClick={() => setExpandedProvider(expandedProvider === 'cinetpay' ? null : 'cinetpay')}
+                  className="w-full flex items-center justify-between p-6 hover:bg-gray-50 transition-colors duration-200"
+                  aria-expanded={expandedProvider === 'cinetpay'}
+                  aria-controls="cinetpay-content"
+                  disabled={cinetpayLoading}
+                >
+                  <div className="flex items-center space-x-4 flex-1">
+                    <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                      <CreditCard className="h-6 w-6 text-blue-600" />
                     </div>
-
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                      {/* Configuration Controls */}
-                      <div className="space-y-6">
-                        {/* Master Enable/Disable */}
-                        <div className="bg-white rounded-lg shadow-sm border p-6">
-                          <div className="flex items-center space-x-2 mb-4">
-                            <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
-                            <h2 className="text-xl font-semibold text-gray-900">Payment Integration</h2>
-                          </div>
-                          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                            <div>
-                              <label className="text-sm font-medium text-gray-700">Enable Online Payments</label>
-                              <p className="text-xs text-gray-500">Master switch for all online payment processing</p>
-                            </div>
-                            <label className="relative inline-flex items-center cursor-pointer">
-                              <input
-                                type="checkbox"
-                                checked={cinetpayConfig.isActive}
-                                onChange={(e) => handleCinetpayConfigUpdate({ isActive: e.target.checked })}
-                                className="sr-only peer"
-                              />
-                              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
-                            </label>
-                          </div>
-                        </div>
-
-                        {/* Test/Live Mode */}
-                        <div className="bg-white rounded-lg shadow-sm border p-6">
-                          <div className="flex items-center space-x-2 mb-4">
-                            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                            <h2 className="text-xl font-semibold text-gray-900">Environment Mode</h2>
-                          </div>
-                          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                            <div>
-                              <label className="text-sm font-medium text-gray-700">Test Mode</label>
-                              <p className="text-xs text-gray-500">Use sandbox environment for testing</p>
-                            </div>
-                            <label className="relative inline-flex items-center cursor-pointer">
-                              <input
-                                type="checkbox"
-                                checked={cinetpayConfig.testMode}
-                                onChange={(e) => handleCinetpayConfigUpdate({ testMode: e.target.checked })}
-                                className="sr-only peer"
-                              />
-                              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                            </label>
-                          </div>
-                          {cinetpayConfig.testMode && (
-                            <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                              <div className="flex items-center">
-                                <div className="w-2 h-2 bg-yellow-500 rounded-full mr-2"></div>
-                                <span className="text-sm text-yellow-800 font-medium">Test Mode Active</span>
+                    <div className="text-left">
+                      <h3 className="text-lg font-semibold text-gray-900">CinetPay</h3>
+                      <p className="text-sm text-gray-500">Mobile Money, Credit Cards, Wallets</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-4">
+                    {cinetpayLoading ? (
+                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-600 border-t-transparent"></div>
+                    ) : (
+                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                        cinetpayConfig?.isActive 
+                          ? 'bg-emerald-100 text-emerald-700' 
+                          : 'bg-gray-100 text-gray-600'
+                      }`}>
+                        {cinetpayConfig?.isActive ? 'Enabled' : 'Disabled'}
+                      </span>
+                    )}
+                    {expandedProvider === 'cinetpay' ? (
+                      <ChevronUp className="h-5 w-5 text-gray-400" />
+                    ) : (
+                      <ChevronDown className="h-5 w-5 text-gray-400" />
+                    )}
+                  </div>
+                </button>
+                
+                {expandedProvider === 'cinetpay' && (
+                  <div 
+                    id="cinetpay-content"
+                    className="border-t border-gray-200 p-6 animate-slide-down"
+                  >
+                    {cinetpayLoading ? (
+                      <div className="flex items-center justify-center py-8">
+                        <div className="animate-spin rounded-full h-8 w-8 border-4 border-blue-200 border-t-blue-600"></div>
+                        <span className="ml-3 text-gray-600">Loading CinetPay settings...</span>
+                      </div>
+                    ) : !cinetpayConfig ? (
+                      <div className="text-center py-8">
+                        <p className="text-gray-600 mb-4">CinetPay configuration not found. Initializing...</p>
+                        <Button
+                          onClick={async () => {
+                            if (company?.id && user?.uid) {
+                              try {
+                                setCinetpayLoading(true);
+                                const config = await initializeCinetPayConfig(company.id, user.uid);
+                                setCinetpayConfig(config);
+                              } catch (error) {
+                                console.error('Error initializing CinetPay:', error);
+                              } finally {
+                                setCinetpayLoading(false);
+                              }
+                            }
+                          }}
+                        >
+                          Initialize CinetPay Configuration
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {/* Left Column - Configuration */}
+                        <div className="space-y-6">
+                          {/* Enable/Disable Toggle */}
+                          <div className="bg-gray-50 rounded-lg p-4">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <label className="text-sm font-medium text-gray-900 block mb-1">
+                                  Enable CinetPay Payments
+                                </label>
+                                <p className="text-xs text-gray-600">Activate CinetPay payment processing</p>
                               </div>
-                              <p className="text-xs text-yellow-700 mt-1">All payments will be processed in sandbox mode</p>
+                              <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={cinetpayConfig.isActive}
+                                  onChange={(e) => handleCinetpayConfigUpdate({ isActive: e.target.checked })}
+                                  className="sr-only peer"
+                                />
+                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                              </label>
                             </div>
-                          )}
-                        </div>
-
-                        {/* CinetPay Credentials */}
-                        <div className="bg-white rounded-lg shadow-sm border p-6">
-                          <div className="flex items-center space-x-2 mb-4">
-                            <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                            <h2 className="text-xl font-semibold text-gray-900">CinetPay Credentials</h2>
                           </div>
+
+                          {/* Test Mode Toggle */}
+                          <div className="bg-gray-50 rounded-lg p-4">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <label className="text-sm font-medium text-gray-900 block mb-1">
+                                  Test Mode
+                                </label>
+                                <p className="text-xs text-gray-600">Use sandbox environment for testing</p>
+                              </div>
+                              <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={cinetpayConfig.testMode}
+                                  onChange={(e) => handleCinetpayConfigUpdate({ testMode: e.target.checked })}
+                                  className="sr-only peer"
+                                />
+                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                              </label>
+                            </div>
+                            {cinetpayConfig.testMode && (
+                              <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-800">
+                                ⚠️ All payments will be processed in sandbox mode
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Credentials */}
                           <div className="space-y-4">
+                            <h4 className="text-sm font-semibold text-gray-900">Credentials</h4>
                             <div>
                               <label className="block text-sm font-medium text-gray-700 mb-2">Site ID</label>
                               <Input
@@ -2351,7 +2533,7 @@ const Settings = () => {
                                 XAF (Cameroon Franc) - Fixed
                               </div>
                             </div>
-                            <div className="flex space-x-3">
+                            <div className="flex gap-3">
                               <Button
                                 onClick={handleTestCinetpayConnection}
                                 disabled={cinetpayTesting || !cinetpayConfig.siteId || !cinetpayConfig.apiKey}
@@ -2365,167 +2547,420 @@ const Settings = () => {
                                 variant="outline"
                                 className="flex-1 bg-red-50 border-red-200 text-red-700 hover:bg-red-100"
                               >
-                                {cinetpaySaving ? (
-                                  'Clearing...'
-                                ) : (
-                                  <>
-                                    <Trash2 className="w-4 h-4 mr-2" />
-                                    Clear Credentials
-                                  </>
-                                )}
+                                <Trash2 className="w-4 h-4 mr-2" />
+                                Clear
                               </Button>
                             </div>
                           </div>
-                        </div>
 
-                        {/* Payment Channels */}
-                        <div className="bg-white rounded-lg shadow-sm border p-6">
-                          <div className="flex items-center space-x-2 mb-4">
-                            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                            <h2 className="text-xl font-semibold text-gray-900">Enabled Payment Methods</h2>
-                          </div>
-                          <p className="text-sm text-gray-600 mb-4">Select which payment methods to offer to your customers</p>
+                          {/* Payment Methods */}
                           <div className="space-y-4">
-                            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                              <div>
-                                <label className="text-sm font-medium text-gray-700">Mobile Money</label>
-                                <p className="text-xs text-gray-500">MTN Money, Orange Money</p>
-                              </div>
-                              <label className="relative inline-flex items-center cursor-pointer">
-                                <input
-                                  type="checkbox"
-                                  checked={cinetpayConfig.enabledChannels.mobileMoney}
-                                  onChange={(e) => handleCinetpayConfigUpdate({ 
-                                    enabledChannels: { 
-                                      ...cinetpayConfig.enabledChannels, 
-                                      mobileMoney: e.target.checked 
-                                    } 
-                                  })}
-                                  className="sr-only peer"
-                                />
-                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
-                              </label>
-                            </div>
-
-                            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                              <div>
-                                <label className="text-sm font-medium text-gray-700">Credit Card</label>
-                                <p className="text-xs text-gray-500">Visa, Mastercard</p>
-                              </div>
-                              <label className="relative inline-flex items-center cursor-pointer">
-                                <input
-                                  type="checkbox"
-                                  checked={cinetpayConfig.enabledChannels.creditCard}
-                                  onChange={(e) => handleCinetpayConfigUpdate({ 
-                                    enabledChannels: { 
-                                      ...cinetpayConfig.enabledChannels, 
-                                      creditCard: e.target.checked 
-                                    } 
-                                  })}
-                                  className="sr-only peer"
-                                />
-                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
-                              </label>
-                            </div>
-
-                            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                              <div>
-                                <label className="text-sm font-medium text-gray-700">Wallet</label>
-                                <p className="text-xs text-gray-500">Electronic wallets</p>
-                              </div>
-                              <label className="relative inline-flex items-center cursor-pointer">
-                                <input
-                                  type="checkbox"
-                                  checked={cinetpayConfig.enabledChannels.wallet}
-                                  onChange={(e) => handleCinetpayConfigUpdate({ 
-                                    enabledChannels: { 
-                                      ...cinetpayConfig.enabledChannels, 
-                                      wallet: e.target.checked 
-                                    } 
-                                  })}
-                                  className="sr-only peer"
-                                />
-                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
-                              </label>
+                            <h4 className="text-sm font-semibold text-gray-900">Enabled Payment Methods</h4>
+                            <div className="space-y-3">
+                              {[
+                                { key: 'mobileMoney', label: 'Mobile Money', desc: 'MTN Money, Orange Money' },
+                                { key: 'creditCard', label: 'Credit Card', desc: 'Visa, Mastercard' },
+                                { key: 'wallet', label: 'Wallet', desc: 'Electronic wallets' }
+                              ].map((method) => (
+                                <div key={method.key} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                  <div>
+                                    <label className="text-sm font-medium text-gray-700">{method.label}</label>
+                                    <p className="text-xs text-gray-500">{method.desc}</p>
+                                  </div>
+                                  <label className="relative inline-flex items-center cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={cinetpayConfig.enabledChannels[method.key as keyof typeof cinetpayConfig.enabledChannels]}
+                                      onChange={(e) => handleCinetpayConfigUpdate({ 
+                                        enabledChannels: { 
+                                          ...cinetpayConfig.enabledChannels, 
+                                          [method.key]: e.target.checked 
+                                        } 
+                                      })}
+                                      className="sr-only peer"
+                                    />
+                                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                                  </label>
+                                </div>
+                              ))}
                             </div>
                           </div>
-                        </div>
 
-                        {/* Save Button */}
-                        <div className="flex justify-end space-x-3">
+                          {/* Save Button */}
                           <Button
                             onClick={handleSaveCinetpayConfig}
                             disabled={cinetpaySaving}
-                            className="flex items-center space-x-2"
+                            className="w-full"
                           >
-                            <Save className="h-4 w-4" />
-                            <span>{cinetpaySaving ? 'Saving...' : 'Save Settings'}</span>
+                            <Save className="h-4 w-4 mr-2" />
+                            {cinetpaySaving ? 'Saving...' : 'Save CinetPay Settings'}
                           </Button>
                         </div>
-                      </div>
 
-                      {/* Preview Panel */}
-                      <div className="space-y-6">
-                        <div className="bg-white rounded-lg shadow-sm border p-6">
-                          <h3 className="text-lg font-semibold text-gray-900 mb-4">Configuration Preview</h3>
-                          <div className="space-y-4">
-                            <div className="flex items-center justify-between">
-                              <span className="text-gray-600">Payment Integration</span>
-                              <span className={`px-2 py-1 rounded text-xs ${
-                                cinetpayConfig.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'
-                              }`}>
-                                {cinetpayConfig.isActive ? 'Enabled' : 'Disabled'}
-                              </span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <span className="text-gray-600">Environment</span>
-                              <span className={`px-2 py-1 rounded text-xs ${
-                                cinetpayConfig.testMode ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'
-                              }`}>
-                                {cinetpayConfig.testMode ? 'Test Mode' : 'Live Mode'}
-                              </span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <span className="text-gray-600">Site ID</span>
-                              <span className="text-xs text-gray-500">
-                                {cinetpayConfig.siteId ? `${cinetpayConfig.siteId.substring(0, 8)}...` : 'Not set'}
-                              </span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <span className="text-gray-600">API Key</span>
-                              <span className="text-xs text-gray-500">
-                                {cinetpayConfig.apiKey ? '••••••••' : 'Not set'}
-                              </span>
-                            </div>
-                            <div className="border-t border-gray-200 pt-3">
-                              <div className="text-gray-600 mb-2">Enabled Payment Methods:</div>
-                              <div className="space-y-1">
-                                {Object.entries(cinetpayConfig.enabledChannels).map(([channel, enabled]) => (
-                                  <div key={channel} className="flex items-center justify-between">
-                                    <span className="text-xs text-gray-500 capitalize">
-                                      {channel.replace(/([A-Z])/g, ' $1').trim()}
-                                    </span>
-                                    <span className={`w-2 h-2 rounded-full ${
-                                      enabled ? 'bg-emerald-500' : 'bg-gray-300'
-                                    }`}></span>
-                                  </div>
-                                ))}
+                        {/* Right Column - Preview */}
+                        <div>
+                          <div className="bg-gray-50 rounded-lg p-6 sticky top-4">
+                            <h4 className="text-sm font-semibold text-gray-900 mb-4">Configuration Preview</h4>
+                            <div className="space-y-3 text-sm">
+                              <div className="flex justify-between">
+                                <span className="text-gray-600">Status</span>
+                                <span className={`px-2 py-1 rounded text-xs font-medium ${
+                                  cinetpayConfig.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600'
+                                }`}>
+                                  {cinetpayConfig.isActive ? 'Enabled' : 'Disabled'}
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-600">Environment</span>
+                                <span className={`px-2 py-1 rounded text-xs font-medium ${
+                                  cinetpayConfig.testMode ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'
+                                }`}>
+                                  {cinetpayConfig.testMode ? 'Test Mode' : 'Live Mode'}
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-600">Site ID</span>
+                                <span className="text-gray-900 font-mono text-xs">
+                                  {cinetpayConfig.siteId ? `${cinetpayConfig.siteId.substring(0, 8)}...` : 'Not set'}
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-600">API Key</span>
+                                <span className="text-gray-900 text-xs">
+                                  {cinetpayConfig.apiKey ? '••••••••' : 'Not set'}
+                                </span>
+                              </div>
+                              <div className="border-t border-gray-200 pt-3 mt-3">
+                                <div className="text-gray-600 mb-2 text-xs font-medium">Enabled Methods:</div>
+                                <div className="space-y-1">
+                                  {Object.entries(cinetpayConfig.enabledChannels).map(([channel, enabled]) => (
+                                    <div key={channel} className="flex items-center justify-between text-xs">
+                                      <span className="text-gray-600 capitalize">
+                                        {channel.replace(/([A-Z])/g, ' $1').trim()}
+                                      </span>
+                                      <span className={`w-2 h-2 rounded-full ${
+                                        enabled ? 'bg-emerald-500' : 'bg-gray-300'
+                                      }`}></span>
+                                    </div>
+                                  ))}
+                                </div>
                               </div>
                             </div>
                           </div>
                         </div>
                       </div>
+                    )}
+                  </div>
+                )}
+              </Card>
+
+              {/* Campay Accordion */}
+              <Card className="overflow-hidden">
+                <button
+                  onClick={() => setExpandedProvider(expandedProvider === 'campay' ? null : 'campay')}
+                  className="w-full flex items-center justify-between p-6 hover:bg-gray-50 transition-colors duration-200"
+                  aria-expanded={expandedProvider === 'campay'}
+                  aria-controls="campay-content"
+                  disabled={campayLoading}
+                >
+                  <div className="flex items-center space-x-4 flex-1">
+                    <div className="w-12 h-12 bg-emerald-100 rounded-lg flex items-center justify-center">
+                      <span className="text-emerald-600 font-bold text-lg">CP</span>
+                    </div>
+                    <div className="text-left">
+                      <h3 className="text-lg font-semibold text-gray-900">Campay</h3>
+                      <p className="text-sm text-gray-500">MTN Mobile Money, Orange Money</p>
                     </div>
                   </div>
-                </div>
-              </Card>
-            </>
-          ) : (
-            <Card>
-              <div className="text-center py-8 text-gray-500">
-                <p>Failed to load payment integration settings. Please try again.</p>
-              </div>
-            </Card>
+                  <div className="flex items-center space-x-4">
+                    {campayLoading ? (
+                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-emerald-600 border-t-transparent"></div>
+                    ) : (
+                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                        campayConfig?.isActive 
+                          ? 'bg-emerald-100 text-emerald-700' 
+                          : 'bg-gray-100 text-gray-600'
+                      }`}>
+                        {campayConfig?.isActive ? 'Enabled' : 'Disabled'}
+                      </span>
+                    )}
+                    {expandedProvider === 'campay' ? (
+                      <ChevronUp className="h-5 w-5 text-gray-400" />
+                    ) : (
+                      <ChevronDown className="h-5 w-5 text-gray-400" />
+                    )}
+                  </div>
+                </button>
+                
+                {expandedProvider === 'campay' && (
+                  <div 
+                    id="campay-content"
+                    className="border-t border-gray-200 p-6 animate-slide-down"
+                  >
+                    {campayLoading ? (
+                      <div className="flex items-center justify-center py-8">
+                        <div className="animate-spin rounded-full h-8 w-8 border-4 border-emerald-200 border-t-emerald-600"></div>
+                        <span className="ml-3 text-gray-600">Loading Campay settings...</span>
+                      </div>
+                    ) : !campayConfig ? (
+                      <div className="text-center py-8">
+                        <p className="text-gray-600 mb-2">Campay configuration not found.</p>
+                        <p className="text-sm text-gray-500 mb-4">Click the button below to initialize with default settings.</p>
+                        <Button
+                          onClick={async () => {
+                            if (company?.id && user?.uid) {
+                              try {
+                                setCampayLoading(true);
+                                const config = await initializeCampayConfig(company.id, user.uid);
+                                setCampayConfig(config);
+                                showSuccessToast('Campay configuration initialized successfully');
+                              } catch (error: any) {
+                                console.error('Error initializing Campay:', error);
+                                const errorMessage = error?.message || 'Failed to initialize Campay configuration';
+                                if (errorMessage.includes('permission') || errorMessage.includes('Permission')) {
+                                  showErrorToast('Permission denied. Please check Firestore security rules.');
+                                } else {
+                                  showErrorToast(`Error: ${errorMessage}`);
+                                }
+                              } finally {
+                                setCampayLoading(false);
+                              }
+                            }
+                          }}
+                          disabled={campayLoading}
+                        >
+                          {campayLoading ? 'Initializing...' : 'Initialize Campay Configuration'}
+                        </Button>
+                      </div>
+                    ) : (
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                          {/* Left Column - Configuration */}
+                          <div className="space-y-6">
+                            {/* Enable/Disable Toggle */}
+                            <div className="bg-gray-50 rounded-lg p-4">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <label className="text-sm font-medium text-gray-900 block mb-1">
+                                    Enable Campay Payments
+                                  </label>
+                                  <p className="text-xs text-gray-600">Activate Campay payment processing</p>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={campayConfig.isActive}
+                                    onChange={(e) => handleCampayConfigUpdate({ isActive: e.target.checked })}
+                                    className="sr-only peer"
+                                  />
+                                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                                </label>
+                              </div>
+                            </div>
+
+                            {/* Environment Mode */}
+                            <div className="bg-gray-50 rounded-lg p-4">
+                              <h4 className="text-sm font-semibold text-gray-900 mb-3">Environment Mode</h4>
+                              <div className="space-y-2">
+                                <label className="flex items-center space-x-3 p-3 bg-white rounded-lg cursor-pointer border-2 border-transparent hover:border-emerald-200 transition-colors">
+                                  <input
+                                    type="radio"
+                                    name="campay-environment"
+                                    value="demo"
+                                    checked={campayConfig.environment === 'demo'}
+                                    onChange={() => handleCampayConfigUpdate({ environment: 'demo' })}
+                                    className="h-4 w-4 text-emerald-600 focus:ring-emerald-500"
+                                  />
+                                  <div className="flex-1">
+                                    <div className="text-sm font-medium text-gray-700">Demo</div>
+                                    <div className="text-xs text-gray-500">Max 10 XAF per transaction</div>
+                                  </div>
+                                </label>
+                                <label className="flex items-center space-x-3 p-3 bg-white rounded-lg cursor-pointer border-2 border-transparent hover:border-emerald-200 transition-colors">
+                                  <input
+                                    type="radio"
+                                    name="campay-environment"
+                                    value="production"
+                                    checked={campayConfig.environment === 'production'}
+                                    onChange={() => handleCampayConfigUpdate({ environment: 'production' })}
+                                    className="h-4 w-4 text-emerald-600 focus:ring-emerald-500"
+                                  />
+                                  <div className="flex-1">
+                                    <div className="text-sm font-medium text-gray-700">Production</div>
+                                    <div className="text-xs text-gray-500">For live payments</div>
+                                  </div>
+                                </label>
+                              </div>
+                              {campayConfig.environment === 'demo' && (
+                                <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-800">
+                                  ⚠️ Demo mode: Maximum 10 XAF per transaction
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Credentials */}
+                            <div className="space-y-4">
+                              <h4 className="text-sm font-semibold text-gray-900">Credentials</h4>
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                  App ID <span className="text-red-500">*</span>
+                                </label>
+                                <div className="relative">
+                                  <Input
+                                    type="password"
+                                    value={campayConfig.appId}
+                                    onChange={(e) => handleCampayConfigUpdate({ appId: e.target.value })}
+                                    placeholder="Enter your Campay App ID"
+                                    className="w-full pr-10"
+                                  />
+                                  {campayConfig.appId && campayConfig.appId.length >= 10 && (
+                                    <Check className="absolute right-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-emerald-500" />
+                                  )}
+                                </div>
+                                <p className="text-xs text-gray-500 mt-1">
+                                  Get your App ID from{' '}
+                                  <a href="https://dashboard.campay.net" target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:underline">
+                                    Campay dashboard
+                                  </a>
+                                  {' '}(min 10 characters)
+                                </p>
+                              </div>
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Currency</label>
+                                <div className="px-3 py-2 bg-gray-100 border border-gray-300 rounded-md text-sm text-gray-600">
+                                  XAF (Cameroon Franc) - Fixed
+                                </div>
+                              </div>
+                              <div className="flex gap-3">
+                                <Button
+                                  onClick={handleTestCampayConnection}
+                                  disabled={campayTesting || !campayConfig.appId || campayConfig.appId.length < 10}
+                                  className="flex-1"
+                                >
+                                  {campayTesting ? 'Testing...' : 'Test Connection'}
+                                </Button>
+                                <Button
+                                  onClick={handleClearCampayCredentials}
+                                  disabled={campaySaving || !campayConfig.appId}
+                                  variant="outline"
+                                  className="flex-1 bg-red-50 border-red-200 text-red-700 hover:bg-red-100"
+                                >
+                                  <Trash2 className="w-4 h-4 mr-2" />
+                                  Clear
+                                </Button>
+                              </div>
+                            </div>
+
+                            {/* Amount Limits */}
+                            <div className="space-y-4">
+                              <h4 className="text-sm font-semibold text-gray-900">Amount Limits</h4>
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Minimum Amount (XAF)</label>
+                                <PriceInput
+                                  name="minAmount"
+                                  value={campayConfig.minAmount}
+                                  onChange={(e) => handleCampayConfigUpdate({ minAmount: Number(e.target.value.replace(/\s/g, '')) || 0 })}
+                                  placeholder="Enter minimum amount"
+                                  className="w-full"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Maximum Amount (XAF)</label>
+                                <PriceInput
+                                  name="maxAmount"
+                                  value={campayConfig.maxAmount}
+                                  onChange={(e) => handleCampayConfigUpdate({ maxAmount: Number(e.target.value.replace(/\s/g, '')) || 0 })}
+                                  placeholder="Enter maximum amount"
+                                  className="w-full"
+                                />
+                              </div>
+                            </div>
+
+                            {/* Save Button */}
+                            <Button
+                              onClick={handleSaveCampayConfig}
+                              disabled={campaySaving}
+                              className="w-full"
+                            >
+                              <Save className="h-4 w-4 mr-2" />
+                              {campaySaving ? 'Saving...' : 'Save Campay Settings'}
+                            </Button>
+                          </div>
+
+                          {/* Right Column - Preview */}
+                          <div>
+                            <div className="bg-gray-50 rounded-lg p-6 sticky top-4">
+                              <h4 className="text-sm font-semibold text-gray-900 mb-4">Configuration Preview</h4>
+                              <div className="space-y-3 text-sm">
+                                <div className="flex justify-between">
+                                  <span className="text-gray-600">Status</span>
+                                  <span className={`px-2 py-1 rounded text-xs font-medium ${
+                                    campayConfig.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600'
+                                  }`}>
+                                    {campayConfig.isActive ? 'Enabled' : 'Disabled'}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-gray-600">Environment</span>
+                                  <span className={`px-2 py-1 rounded text-xs font-medium ${
+                                    campayConfig.environment === 'demo' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'
+                                  }`}>
+                                    {campayConfig.environment === 'demo' ? 'Demo' : 'Production'}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-gray-600">App ID</span>
+                                  <span className="text-gray-900 font-mono text-xs">
+                                    {campayConfig.appId ? `${campayConfig.appId.substring(0, 8)}...` : 'Not set'}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-gray-600">Min Amount</span>
+                                  <span className="text-gray-900 text-xs">{campayConfig.minAmount} XAF</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-gray-600">Max Amount</span>
+                                  <span className="text-gray-900 text-xs">{campayConfig.maxAmount.toLocaleString()} XAF</span>
+                                </div>
+                                <div className="border-t border-gray-200 pt-3 mt-3">
+                                  <div className="text-gray-600 mb-2 text-xs font-medium">Supported Methods:</div>
+                                  <div className="space-y-1">
+                                    {campayConfig.supportedMethods?.map((method) => (
+                                      <div key={method} className="flex items-center justify-between text-xs">
+                                        <span className="text-gray-600">{method}</span>
+                                        <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                      </div>
+                                    )) || (
+                                      <>
+                                        <div className="flex items-center justify-between text-xs">
+                                          <span className="text-gray-600">MTN Mobile Money</span>
+                                          <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                        </div>
+                                        <div className="flex items-center justify-between text-xs">
+                                          <span className="text-gray-600">Orange Money</span>
+                                          <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                        </div>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </Card>
+
+              {/* Error State */}
+              {!cinetpayConfig && !campayConfig && !cinetpayLoading && !campayLoading && (
+                <Card>
+                  <div className="text-center py-8 text-gray-500">
+                    <p>Failed to load payment integration settings. Please refresh the page.</p>
+                  </div>
+                </Card>
+              )}
+            </div>
           )}
         </div>
       )}

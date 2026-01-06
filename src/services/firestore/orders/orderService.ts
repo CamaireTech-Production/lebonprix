@@ -28,7 +28,8 @@ import {
   OrderPricing,
   DeliveryInfo,
   OrderMetadata,
-  CartItem
+  CartItem,
+  CampayDetails
 } from '../../../types/order';
 import { logError } from '@utils/core/logger';
 import { createFinanceEntry, updateFinanceEntry } from '../finance/financeService';
@@ -93,6 +94,7 @@ export const createOrder = async (
     paymentFormData?: Record<string, string>;
     deliveryInfo?: DeliveryInfo;
     metadata?: OrderMetadata;
+    campayPaymentDetails?: CampayDetails;
   }
 ): Promise<Order> => {
   try {
@@ -124,8 +126,20 @@ export const createOrder = async (
     };
 
     // Determine initial status based on payment method
-    const initialStatus: OrderStatus = 'pending';
-    const initialPaymentStatus: PaymentStatus = orderData.paymentMethod === 'pay_onsite' ? 'pending' : 'awaiting_payment';
+    // For Campay: if payment is successful, order should be confirmed
+    // For other methods: start as pending
+    const isCampayPaymentSuccessful = orderData.paymentMethod === 'campay' && 
+                                      orderData.campayPaymentDetails?.status === 'SUCCESS';
+    const initialStatus: OrderStatus = isCampayPaymentSuccessful ? 'confirmed' : 'pending';
+    
+    // For Campay: if campayPaymentDetails is provided with status 'SUCCESS', payment is already completed
+    // For CinetPay: payment status starts as 'awaiting_payment' since payment happens after order creation
+    // For pay_onsite: payment is pending
+    const initialPaymentStatus: PaymentStatus = 
+      orderData.paymentMethod === 'pay_onsite' ? 'pending' : 
+      isCampayPaymentSuccessful ? 'paid' :
+      (orderData.paymentMethod === 'campay' || orderData.paymentMethod?.startsWith('cinetpay_')) ? 'awaiting_payment' :
+      'awaiting_payment';
 
     // Get userId from orderData metadata if available, otherwise use companyId
     const userId = orderData.metadata?.userId || companyId;
@@ -187,6 +201,21 @@ export const createOrder = async (
     // Add createdBy if provided
     if (createdBy) {
       orderDoc.createdBy = createdBy;
+    }
+
+    // Add Campay payment details if provided
+    if (orderData.campayPaymentDetails) {
+      orderDoc.campayPaymentDetails = {
+        reference: orderData.campayPaymentDetails.reference || '',
+        transactionId: orderData.campayPaymentDetails.transactionId || '',
+        campayStatus: orderData.campayPaymentDetails.campayStatus || '',
+        status: orderData.campayPaymentDetails.status || '',
+        paidAt: orderData.campayPaymentDetails.paidAt ? Timestamp.fromDate(orderData.campayPaymentDetails.paidAt) : null,
+        paymentMethod: orderData.campayPaymentDetails.paymentMethod || '',
+        amount: orderData.campayPaymentDetails.amount || 0,
+        currency: orderData.campayPaymentDetails.currency || 'XAF',
+        metadata: orderData.campayPaymentDetails.metadata || {}
+      };
     }
 
     const docRef = await addDoc(collection(db, COLLECTION_NAME), orderDoc);
@@ -408,7 +437,11 @@ export const updateOrderPaymentStatus = async (
   paymentStatus: PaymentStatus,
   companyId: string,
   cinetpayTransactionId?: string,
-  cinetpayStatus?: string
+  cinetpayStatus?: string,
+  campayReference?: string,
+  campayTransactionId?: string,
+  campayStatus?: string,
+  campayPaymentMethod?: string
 ): Promise<void> => {
   try {
     const orderRef = doc(db, COLLECTION_NAME, orderId);
@@ -437,7 +470,11 @@ export const updateOrderPaymentStatus = async (
       userId,
       metadata: { 
         ...(cinetpayTransactionId && { cinetpayTransactionId }),
-        ...(cinetpayStatus && { cinetpayStatus })
+        ...(cinetpayStatus && { cinetpayStatus }),
+        ...(campayReference && { campayReference }),
+        ...(campayTransactionId && { campayTransactionId }),
+        ...(campayStatus && { campayStatus }),
+        ...(campayPaymentMethod && { campayPaymentMethod })
       }
     };
 
@@ -460,12 +497,32 @@ export const updateOrderPaymentStatus = async (
       }
     }
 
-    // Add CinetPay details if provided
-    if (cinetpayTransactionId) {
-      updateData['paymentDetails.cinetpayTransactionId'] = cinetpayTransactionId;
+    // If payment status is 'paid' and order status is 'pending', also update order status to 'confirmed'
+    if (paymentStatus === 'paid' && order.status === 'pending') {
+      updateData.status = 'confirmed';
     }
-    if (cinetpayStatus) {
-      updateData['paymentDetails.cinetpayStatus'] = cinetpayStatus;
+
+    // Add CinetPay details if provided
+    if (cinetpayTransactionId || cinetpayStatus) {
+      const currentPaymentDetails = order.paymentDetails || {};
+      updateData.paymentDetails = {
+        ...currentPaymentDetails,
+        ...(cinetpayTransactionId && { cinetpayTransactionId }),
+        ...(cinetpayStatus && { cinetpayStatus })
+      };
+    }
+
+    // Add Campay details if provided
+    if (campayReference || campayTransactionId || campayStatus) {
+      const currentCampayDetails = order.campayPaymentDetails || {};
+      updateData.campayPaymentDetails = {
+        ...currentCampayDetails,
+        ...(campayReference && { reference: campayReference }),
+        ...(campayTransactionId && { transactionId: campayTransactionId }),
+        ...(campayStatus && { campayStatus, status: campayStatus }),
+        ...(campayPaymentMethod && { paymentMethod: campayPaymentMethod }),
+        ...(paymentStatus === 'paid' && { paidAt: Timestamp.fromDate(new Date()) })
+      };
     }
 
     await updateDoc(orderRef, updateData);

@@ -83,6 +83,19 @@ export interface CinetPayDetails {
   operator?: string;
 }
 
+// Campay payment details
+export interface CampayDetails {
+  reference?: string;
+  transactionId?: string;
+  campayStatus?: string;
+  status?: string;
+  paidAt?: Date;
+  paymentMethod?: string; // MTN, Orange, etc.
+  amount?: number;
+  currency?: string;
+  metadata?: Record<string, unknown>;
+}
+
 // Order metadata
 export interface OrderMetadata {
   source: 'catalogue' | 'admin';
@@ -110,6 +123,7 @@ export interface Order extends BaseModel {
   paymentStatus: PaymentStatus;
   paymentMethod: OrderPaymentMethod;
   paymentDetails?: CinetPayDetails;
+  campayPaymentDetails?: CampayDetails;
   deliveryInfo: DeliveryInfo;
   timeline: OrderEvent[];            // Complete order history
   metadata: OrderMetadata;
@@ -162,7 +176,7 @@ export interface CartItem {
 }
 
 // Payment method types (legacy)
-export type PaymentMethodType = 'phone' | 'ussd' | 'link' | 'mtn_money' | 'orange_money' | 'visa_card' | 'pay_onsite' | 'cinetpay_mobile_money' | 'cinetpay_credit_card' | 'cinetpay_wallet';
+export type PaymentMethodType = 'phone' | 'ussd' | 'link' | 'mtn_money' | 'orange_money' | 'visa_card' | 'pay_onsite' | 'cinetpay_mobile_money' | 'cinetpay_credit_card' | 'cinetpay_wallet' | 'campay';
 
 export interface PaymentMethod {
   id: string;
