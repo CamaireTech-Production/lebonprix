@@ -56,7 +56,7 @@ const Products = () => {
   const { stockChanges } = useStockChanges();
   useCategories();
   const { suppliers } = useSuppliers();
-  const { batches: allStockBatches } = useAllStockBatches();
+  const { batches: allStockBatches, loading: batchesLoading } = useAllStockBatches();
   const { user, company, currentEmployee, isOwner } = useAuth();
   
   // Set up infinite scroll
@@ -1240,6 +1240,13 @@ const Products = () => {
     return allStockBatches.filter((batch: StockBatch) => batch.productId === productId);
   };
 
+  // Helper function to calculate stock from batches (sum of remainingQuantity from active batches)
+  const getProductStockFromBatches = (productId: string): number => {
+    const batches = getProductBatches(productId);
+    const activeBatches = batches.filter(batch => batch.status === 'active');
+    return activeBatches.reduce((sum, batch) => sum + (batch.remainingQuantity || 0), 0);
+  };
+
   // Helper function to get the effective visibility state (considering optimistic updates)
   const getEffectiveVisibility = (product: Product): boolean => {
     return visibilityOverrides[product.id] !== undefined 
@@ -1636,9 +1643,18 @@ const Products = () => {
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">{t('products.table.columns.stock')}:</span>
-                      <Badge variant={(product.stock ?? 0) > 10 ? 'success' : (product.stock ?? 0) > 5 ? 'warning' : 'error'}>
-                        {product.stock ?? 0} units
-                      </Badge>
+                      {batchesLoading ? (
+                        <div className="h-5 w-16 bg-gray-200 rounded animate-pulse" />
+                      ) : (
+                        (() => {
+                          const stockFromBatches = getProductStockFromBatches(product.id);
+                          return (
+                            <Badge variant={stockFromBatches > 10 ? 'success' : stockFromBatches > 5 ? 'warning' : 'error'}>
+                              {stockFromBatches} units
+                            </Badge>
+                          );
+                        })()
+                      )}
                     </div>
                   </div>
                   {product.category && (
@@ -1807,9 +1823,18 @@ const Products = () => {
                       <div className="text-sm text-emerald-600 font-medium">{product.sellingPrice.toLocaleString()} XAF</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <Badge variant={(product.stock ?? 0) > 10 ? 'success' : (product.stock ?? 0) > 5 ? 'warning' : 'error'}>
-                        {product.stock ?? 0} units
-                      </Badge>
+                      {batchesLoading ? (
+                        <div className="h-5 w-16 bg-gray-200 rounded animate-pulse" />
+                      ) : (
+                        (() => {
+                          const stockFromBatches = getProductStockFromBatches(product.id);
+                          return (
+                            <Badge variant={stockFromBatches > 10 ? 'success' : stockFromBatches > 5 ? 'warning' : 'error'}>
+                              {stockFromBatches} units
+                            </Badge>
+                          );
+                        })()
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-500">{product.category}</div>
