@@ -18,7 +18,7 @@ import Select from './Select';
 import Button from './Button';
 import Modal from './Modal';
 
-type Period =
+export type Period =
   | 'all_time'
   | 'today'
   | 'yesterday'
@@ -33,23 +33,33 @@ type Period =
   | 'last_year';
 
 interface DateRangePickerProps {
-  onChange: (range: { from: Date; to: Date }) => void;
+  onChange: (range: { from: Date; to: Date }, period: Period) => void;
   className?: string;
+  initialPeriod?: Period;
+  initialDateRange?: { from: Date; to: Date };
 }
 
-const DateRangePicker = ({ onChange, className }: DateRangePickerProps) => {
+const DateRangePicker = ({ 
+  onChange, 
+  className, 
+  initialPeriod,
+  initialDateRange 
+}: DateRangePickerProps) => {
   const { t } = useTranslation();
-  const [period, setPeriod] = useState<Period>('all_time');
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [pendingRange, setPendingRange] = useState<{ from: Date; to: Date } | null>(null);
-
+  
   // Set start date to April 1st, 2025 for the app
   const APP_START_DATE = new Date(2025, 3, 1); // April 1st, 2025 (month is 0-indexed)
 
-  const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>({
-    from: APP_START_DATE,
-    to: new Date(2100, 0, 1),
-  });
+  const [period, setPeriod] = useState<Period>(initialPeriod || 'all_time');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [pendingRange, setPendingRange] = useState<{ from: Date; to: Date } | null>(null);
+
+  const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>(
+    initialDateRange || {
+      from: APP_START_DATE,
+      to: new Date(2100, 0, 1),
+    }
+  );
 
   const endOfDay = (date: Date) => {
     const end = new Date(date);
@@ -131,7 +141,7 @@ const DateRangePicker = ({ onChange, className }: DateRangePickerProps) => {
     }
     const range = { from, to };
     setDateRange(range);
-    onChange(range);
+    onChange(range, newPeriod);
   };
 
   const handleDateSelect = (range: DateRange | undefined) => {
@@ -245,7 +255,7 @@ const DateRangePicker = ({ onChange, className }: DateRangePickerProps) => {
               if (pendingRange && pendingRange.from) {
                 setDateRange(pendingRange);
                 setPeriod('custom'); // Switch to custom period when user selects custom dates
-                onChange(pendingRange);
+                onChange(pendingRange, 'custom');
                 setIsModalOpen(false);
               }
             }}

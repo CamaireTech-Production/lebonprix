@@ -295,7 +295,15 @@
         "under_delivery": "Under Delivery",
         "paid": "Paid"
       },
-      "search": "Search by name or phone..."
+      "search": "Search by name or phone...",
+      "clearDateFilter": "Clear Date Filter",
+      "invalidDateRange": "Invalid date range: start date must be before end date"
+    },
+    "statistics": {
+      "totalSales": "Total Sales",
+      "totalAmount": "Total Amount",
+      "totalProfit": "Total Profit",
+      "totalProductsSold": "Products Sold"
     },
     "actions": {
       "addSale": "Add Sale",
@@ -497,7 +505,8 @@
         "loadSales": "Failed to load sales. Please refresh the page.",
         "saveCustomer": "Failed to save customer. Please try again.",
         "shareInvoice": "Error sharing invoice",
-        "notLoggedIn": "You must be logged in to create a sale"
+        "notLoggedIn": "You must be logged in to create a sale",
+        "missingIndex": "Firestore index may be missing. Please check Firebase Console."
       },
       "warnings": {
         "customerName": "Customer name is required.",

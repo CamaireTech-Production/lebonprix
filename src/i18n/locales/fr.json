@@ -298,7 +298,15 @@
         "under_delivery": "En livraison",
         "paid": "Payé"
       },
-      "search": "Recherche par nom ou téléphone..."
+      "search": "Recherche par nom ou téléphone...",
+      "clearDateFilter": "Effacer le filtre de date",
+      "invalidDateRange": "Plage de dates invalide : la date de début doit être antérieure à la date de fin"
+    },
+    "statistics": {
+      "totalSales": "Total Ventes",
+      "totalAmount": "Montant Total",
+      "totalProfit": "Profit Total",
+      "totalProductsSold": "Produits Vendus"
     },
     "actions": {
       "addSale": "Ajouter une vente",
@@ -327,6 +335,7 @@
       },
       "productCount": "{{count}} produits",
       "emptyMessage": "Aucune vente trouvée.",
+      "emptyMessageFiltered": "Aucune vente trouvée pour la période sélectionnée. Essayez de sélectionner une autre plage de dates.",
       "unknownProduct": "Produit inconnu"
     },
     "modals": {
@@ -488,6 +497,10 @@
       "saleAdded": "Vente ajoutée avec succès !",
       "saleUpdated": "Vente mise à jour avec succès !",
       "linkCopied": "Lien copié !",
+      "errors": {
+        "loadSales": "Erreur lors du chargement des ventes",
+        "missingIndex": "L'index Firestore peut être manquant. Veuillez vérifier la console Firebase."
+      },
       "messageCopied": "Message copié avec succès !",
       "customerSaved": "Client enregistré avec succès !",
       "invoiceShared": "Facture partagée avec succès !",

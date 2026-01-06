@@ -609,7 +609,10 @@ const Dashboard = () => {
       </div>
       <div className="mb-6 flex">
         <div className="max-w-md w-full">
-          <DateRangePicker onChange={setDateRange} className="w-full" />
+          <DateRangePicker 
+            onChange={(range, period) => setDateRange(range)} 
+            className="w-full" 
+          />
         </div>
       </div>
       {/* Objectives global bar */}

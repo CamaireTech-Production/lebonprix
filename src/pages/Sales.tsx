@@ -46,6 +46,9 @@ import AddSaleModal from '../components/sales/AddSaleModal';
 import SaleDetailsModal from '../components/sales/SaleDetailsModal';
 import ProfitDetailsModal from '../components/sales/ProfitDetailsModal';
 import { format } from 'date-fns';
+import DateRangePicker, { type Period } from '../components/common/DateRangePicker';
+import SalesDateRangeManager from '../services/storage/SalesDateRangeManager';
+import { useMemo } from 'react';
 
 interface FormProduct {
   product: Product | null;
@@ -60,6 +63,23 @@ interface ProductOption {
 
 const Sales: React.FC = () => {
   const { t } = useTranslation();
+  const { user, company } = useAuth();
+  
+  // Date range filter state
+  const [dateRange, setDateRange] = useState<{ from: Date; to: Date } | null>(null);
+  const [savedPeriod, setSavedPeriod] = useState<Period | null>(null);
+
+  // Load persisted dateRange on mount
+  useEffect(() => {
+    if (company?.id) {
+      const saved = SalesDateRangeManager.load(company.id);
+      if (saved) {
+        setDateRange(saved.dateRange);
+        setSavedPeriod(saved.period);
+      }
+    }
+  }, [company?.id]);
+
   const {
     sales,
     loading: salesLoading,
@@ -70,11 +90,10 @@ const Sales: React.FC = () => {
     loadMore: loadMoreSales,
     refresh: refreshSales,
     updateSaleInList
-  } = useInfiniteSales();
+  } = useInfiniteSales(dateRange);
   const { products, loading: productsLoading } = useProducts();
   const { customers } = useCustomers();
   const { activeSources } = useCustomerSources();
-  const { user, company } = useAuth();
   const { updateSale } = useSales();
   const { batches: allBatches } = useAllStockBatches();
 
@@ -275,8 +294,38 @@ const Sales: React.FC = () => {
     }, 0);
   };
 
+  // Handle dateRange changes
+  const handleDateRangeChange = (range: { from: Date; to: Date }, period: Period) => {
+    setDateRange(range);
+    setSavedPeriod(period);
+    // Reset pagination
+    setPage(1);
+    // Persist to localStorage
+    if (company?.id) {
+      SalesDateRangeManager.save(company.id, range, period);
+    }
+  };
+
+  // Clear date range filter
+  const handleClearDateFilter = () => {
+    setDateRange(null);
+    setSavedPeriod(null);
+    setPage(1);
+    if (company?.id) {
+      SalesDateRangeManager.remove(company.id);
+    }
+  };
+
   // Compute overall profit from all filtered sales
+  // Note: Date filtering is now done by Firestore, so sales are already filtered
   let filteredSales: Sale[] = sales || [];
+  
+  // Apply status filter (client-side)
+  if (filterStatus) {
+    filteredSales = filteredSales.filter(sale => sale.status === filterStatus);
+  }
+  
+  // Apply search filter (client-side)
   if (search.trim()) {
     const s = search.trim().toLowerCase();
     filteredSales = filteredSales.filter(
@@ -285,6 +334,8 @@ const Sales: React.FC = () => {
         sale.customerInfo.phone.toLowerCase().includes(s)
     );
   }
+  
+  // Apply sorting (client-side)
   if (sortBy === 'date') {
     filteredSales = filteredSales.slice().sort((a, b) => {
       const aTime = a.createdAt.seconds || 0;
@@ -296,10 +347,25 @@ const Sales: React.FC = () => {
       return sortDir === 'asc' ? a.totalAmount - b.totalAmount : b.totalAmount - a.totalAmount;
     });
   }
+  
   const totalRows: number = filteredSales.length;
   const totalPages: number = Math.max(1, Math.ceil(totalRows / rowsPerPage));
   const pagedSales: Sale[] = filteredSales.slice((page - 1) * rowsPerPage, page * rowsPerPage);
-  const overallTotalProfit = filteredSales.reduce((sum, sale) => sum + computeSaleProfit(sale), 0);
+  
+  // Calculate statistics from filtered sales
+  const statistics = useMemo(() => {
+    const filtered = filteredSales;
+    return {
+      totalSales: filtered.length,
+      totalAmount: filtered.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0),
+      totalProfit: filtered.reduce((sum, sale) => sum + computeSaleProfit(sale), 0),
+      totalProductsSold: filtered.reduce((sum, sale) => 
+        sum + sale.products.reduce((acc, p) => acc + (p.quantity || 0), 0), 0
+      ),
+    };
+  }, [filteredSales]);
+  
+  const overallTotalProfit = statistics.totalProfit;
 
   const handleFilterChange = (e: React.ChangeEvent<HTMLSelectElement>): void => {
     setFilterStatus(e.target.value || null);
@@ -723,6 +789,72 @@ const Sales: React.FC = () => {
           </select>
         </div>
       </div>
+      
+      {/* Date Range Picker - Below search bar */}
+      <div className="mb-4">
+        <DateRangePicker
+          onChange={handleDateRangeChange}
+          className="mb-2"
+          initialPeriod={savedPeriod || undefined}
+          initialDateRange={dateRange || undefined}
+        />
+        {dateRange && (
+          <div className="mt-2 flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleClearDateFilter}
+              className="text-sm"
+            >
+              {t('sales.filters.clearDateFilter', { defaultValue: 'Clear Date Filter' })}
+            </Button>
+            {dateRange.from > dateRange.to && (
+              <span className="text-sm text-red-600">
+                {t('sales.filters.invalidDateRange', { defaultValue: 'Invalid date range: start date must be before end date' })}
+              </span>
+            )}
+          </div>
+        )}
+        {salesError && (
+          <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-md">
+            <p className="text-sm text-red-600">
+              {salesError.message || t('sales.messages.errors.loadSales', { defaultValue: 'Error loading sales' })}
+            </p>
+            {salesError.message?.includes('index') && (
+              <p className="text-xs text-red-500 mt-1">
+                {t('sales.messages.errors.missingIndex', { 
+                  defaultValue: 'Firestore index may be missing. Please check Firebase Console.' 
+                })}
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Statistics Card */}
+      {dateRange && (
+        <Card className="mb-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+              <p className="text-sm text-gray-600">{t('sales.statistics.totalSales', { defaultValue: 'Total Sales' })}</p>
+              <p className="text-lg font-semibold text-gray-900">{statistics.totalSales}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">{t('sales.statistics.totalAmount', { defaultValue: 'Total Amount' })}</p>
+              <p className="text-lg font-semibold text-gray-900">{formatPrice(statistics.totalAmount)} XAF</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">{t('sales.statistics.totalProfit', { defaultValue: 'Total Profit' })}</p>
+              <p className="text-lg font-semibold text-emerald-600">{formatPrice(statistics.totalProfit)} XAF</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">{t('sales.statistics.totalProductsSold', { defaultValue: 'Products Sold' })}</p>
+              <p className="text-lg font-semibold text-gray-900">{statistics.totalProductsSold}</p>
+            </div>
+          </div>
+        </Card>
+      )}
+
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
         <div>
           <h1 className="text-2xl font-semibold text-gray-900">{t('sales.title')}</h1>
@@ -810,7 +942,24 @@ const Sales: React.FC = () => {
               ) : (
                 <tr>
                   <td colSpan={10} className="px-6 py-4 text-center text-sm text-gray-500">
-                    {t('sales.table.emptyMessage')}
+                    {dateRange 
+                      ? t('sales.table.emptyMessageFiltered', { 
+                          defaultValue: 'No sales found for the selected period. Try selecting a different date range.' 
+                        })
+                      : t('sales.table.emptyMessage')
+                    }
+                    {dateRange && (
+                      <div className="mt-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleClearDateFilter}
+                          className="text-xs"
+                        >
+                          {t('sales.filters.clearDateFilter', { defaultValue: 'Clear Date Filter' })}
+                        </Button>
+                      </div>
+                    )}
                   </td>
                 </tr>
               )}
