@@ -201,6 +201,14 @@ const SingleCheckout: React.FC = () => {
     if (!companyId) return;
 
     const unsubscribe = subscribeToCheckoutSettingsByCompanyId(companyId, (settings) => {
+      console.log('Checkout settings loaded:', {
+        hasSettings: !!settings,
+        enabledPaymentMethods: settings?.enabledPaymentMethods,
+        mtnMoney: settings?.enabledPaymentMethods?.mtnMoney,
+        orangeMoney: settings?.enabledPaymentMethods?.orangeMoney,
+        visaCard: settings?.enabledPaymentMethods?.visaCard,
+        payOnsite: settings?.enabledPaymentMethods?.payOnsite,
+      });
       setCheckoutSettings(settings);
     });
 

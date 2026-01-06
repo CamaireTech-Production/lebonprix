@@ -3011,12 +3011,31 @@ const Settings = () => {
                               <input
                                 type="checkbox"
                                 checked={checkoutSettings.enabledPaymentMethods.mtnMoney}
-                                onChange={(e) => handleCheckoutSettingsUpdate({ 
-                                  enabledPaymentMethods: { 
-                                    ...checkoutSettings.enabledPaymentMethods, 
-                                    mtnMoney: e.target.checked 
-                                  } 
-                                })}
+                                onChange={async (e) => {
+                                  handleCheckoutSettingsUpdate({ 
+                                    enabledPaymentMethods: { 
+                                      ...checkoutSettings.enabledPaymentMethods, 
+                                      mtnMoney: e.target.checked 
+                                    } 
+                                  });
+                                  // Auto-save immediately
+                                  if (user?.uid) {
+                                    try {
+                                      const updated = {
+                                        ...checkoutSettings,
+                                        enabledPaymentMethods: {
+                                          ...checkoutSettings.enabledPaymentMethods,
+                                          mtnMoney: e.target.checked
+                                        }
+                                      };
+                                      await saveCheckoutSettings(user.uid, updated);
+                                      showSuccessToast('Payment method updated');
+                                    } catch (error) {
+                                      console.error('Error saving payment method:', error);
+                                      showErrorToast('Failed to save payment method');
+                                    }
+                                  }
+                                }}
                                 className="sr-only peer"
                               />
                               <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
@@ -3042,12 +3061,31 @@ const Settings = () => {
                               <input
                                 type="checkbox"
                                 checked={checkoutSettings.enabledPaymentMethods.orangeMoney}
-                                onChange={(e) => handleCheckoutSettingsUpdate({ 
-                                  enabledPaymentMethods: { 
-                                    ...checkoutSettings.enabledPaymentMethods, 
-                                    orangeMoney: e.target.checked 
-                                  } 
-                                })}
+                                onChange={async (e) => {
+                                  handleCheckoutSettingsUpdate({ 
+                                    enabledPaymentMethods: { 
+                                      ...checkoutSettings.enabledPaymentMethods, 
+                                      orangeMoney: e.target.checked 
+                                    } 
+                                  });
+                                  // Auto-save immediately
+                                  if (user?.uid) {
+                                    try {
+                                      const updated = {
+                                        ...checkoutSettings,
+                                        enabledPaymentMethods: {
+                                          ...checkoutSettings.enabledPaymentMethods,
+                                          orangeMoney: e.target.checked
+                                        }
+                                      };
+                                      await saveCheckoutSettings(user.uid, updated);
+                                      showSuccessToast('Payment method updated');
+                                    } catch (error) {
+                                      console.error('Error saving payment method:', error);
+                                      showErrorToast('Failed to save payment method');
+                                    }
+                                  }
+                                }}
                                 className="sr-only peer"
                               />
                               <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
@@ -3073,12 +3111,31 @@ const Settings = () => {
                               <input
                                 type="checkbox"
                                 checked={checkoutSettings.enabledPaymentMethods.visaCard}
-                                onChange={(e) => handleCheckoutSettingsUpdate({ 
-                                  enabledPaymentMethods: { 
-                                    ...checkoutSettings.enabledPaymentMethods, 
-                                    visaCard: e.target.checked 
-                                  } 
-                                })}
+                                onChange={async (e) => {
+                                  handleCheckoutSettingsUpdate({ 
+                                    enabledPaymentMethods: { 
+                                      ...checkoutSettings.enabledPaymentMethods, 
+                                      visaCard: e.target.checked 
+                                    } 
+                                  });
+                                  // Auto-save immediately
+                                  if (user?.uid) {
+                                    try {
+                                      const updated = {
+                                        ...checkoutSettings,
+                                        enabledPaymentMethods: {
+                                          ...checkoutSettings.enabledPaymentMethods,
+                                          visaCard: e.target.checked
+                                        }
+                                      };
+                                      await saveCheckoutSettings(user.uid, updated);
+                                      showSuccessToast('Payment method updated');
+                                    } catch (error) {
+                                      console.error('Error saving payment method:', error);
+                                      showErrorToast('Failed to save payment method');
+                                    }
+                                  }
+                                }}
                                 className="sr-only peer"
                               />
                               <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
@@ -3104,18 +3161,49 @@ const Settings = () => {
                               <input
                                 type="checkbox"
                                 checked={checkoutSettings.enabledPaymentMethods.payOnsite}
-                                onChange={(e) => handleCheckoutSettingsUpdate({ 
-                                  enabledPaymentMethods: { 
-                                    ...checkoutSettings.enabledPaymentMethods, 
-                                    payOnsite: e.target.checked 
-                                  } 
-                                })}
+                                onChange={async (e) => {
+                                  handleCheckoutSettingsUpdate({ 
+                                    enabledPaymentMethods: { 
+                                      ...checkoutSettings.enabledPaymentMethods, 
+                                      payOnsite: e.target.checked 
+                                    } 
+                                  });
+                                  // Auto-save immediately
+                                  if (user?.uid) {
+                                    try {
+                                      const updated = {
+                                        ...checkoutSettings,
+                                        enabledPaymentMethods: {
+                                          ...checkoutSettings.enabledPaymentMethods,
+                                          payOnsite: e.target.checked
+                                        }
+                                      };
+                                      await saveCheckoutSettings(user.uid, updated);
+                                      showSuccessToast('Payment method updated');
+                                    } catch (error) {
+                                      console.error('Error saving payment method:', error);
+                                      showErrorToast('Failed to save payment method');
+                                    }
+                                  }
+                                }}
                                 className="sr-only peer"
                               />
                               <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
                             </label>
                           </div>
                         </div>
+                      </div>
+                      
+                      {/* Save Button for Basic Payment Methods */}
+                      <div className="mt-6 pt-6 border-t border-gray-200">
+                        <Button
+                          onClick={handleSaveCheckoutSettings}
+                          disabled={checkoutSaving || !checkoutSettings}
+                          className="w-full"
+                        >
+                          <Save className="h-4 w-4 mr-2" />
+                          {checkoutSaving ? 'Saving...' : 'Save Payment Methods'}
+                        </Button>
                       </div>
                     </div>
                   )}

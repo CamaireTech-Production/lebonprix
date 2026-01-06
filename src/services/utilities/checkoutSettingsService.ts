@@ -24,10 +24,13 @@ export const getCheckoutSettings = async (userId: string): Promise<CheckoutSetti
     
     if (docSnap.exists()) {
       const data = docSnap.data();
+      // Use Firestore data as source of truth, only fill missing fields with defaults
       return {
+        ...data,
         id: docSnap.id,
         userId,
-        ...data,
+        // Only use defaults for missing fields
+        enabledPaymentMethods: data.enabledPaymentMethods || DEFAULT_CHECKOUT_SETTINGS.enabledPaymentMethods,
         createdAt: data.createdAt?.toDate() || new Date(),
         updatedAt: data.updatedAt?.toDate() || new Date(),
       } as CheckoutSettings;
@@ -54,16 +57,29 @@ export const saveCheckoutSettings = async (
     const existingSettings = await getCheckoutSettings(userId);
     
     if (existingSettings) {
-      // Update existing settings
-      await updateDoc(docRef, {
+      // When updating, ensure enabledPaymentMethods is a complete object
+      const updateData: any = {
         ...settings,
         updatedAt: serverTimestamp(),
-      });
+      };
+      
+      // If enabledPaymentMethods is being updated, ensure it's a complete object
+      if (settings.enabledPaymentMethods) {
+        // Merge with existing to ensure all methods are included
+        updateData.enabledPaymentMethods = {
+          ...existingSettings.enabledPaymentMethods,
+          ...settings.enabledPaymentMethods,
+        };
+      }
+      
+      await updateDoc(docRef, updateData);
     } else {
       // Create new settings with defaults
       const newSettings = {
         ...DEFAULT_CHECKOUT_SETTINGS,
         ...settings,
+        // Ensure enabledPaymentMethods is complete
+        enabledPaymentMethods: settings.enabledPaymentMethods || DEFAULT_CHECKOUT_SETTINGS.enabledPaymentMethods,
         userId,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -110,11 +126,36 @@ export const subscribeToCheckoutSettings = (
   return onSnapshot(docRef, (doc) => {
     if (doc.exists()) {
       const data = doc.data();
+      // Use Firestore data as source of truth, only fill missing fields with defaults
+      // CRITICAL: enabledPaymentMethods must use Firestore data directly to preserve disabled states
       const settings: CheckoutSettings = {
+        // Spread defaults first for top-level fields
         ...DEFAULT_CHECKOUT_SETTINGS,
+        // Then spread Firestore data to override defaults
         ...data,
         id: doc.id,
         userId,
+        // CRITICAL FIX: Use Firestore enabledPaymentMethods as source of truth
+        // If Firestore has enabledPaymentMethods, use it directly - don't merge with defaults
+        // This ensures disabled methods (false) stay disabled
+        // Only use defaults if Firestore doesn't have enabledPaymentMethods at all
+        enabledPaymentMethods: (data.enabledPaymentMethods && typeof data.enabledPaymentMethods === 'object')
+          ? {
+              // Use Firestore values directly, fill missing with defaults
+              mtnMoney: data.enabledPaymentMethods.mtnMoney !== undefined 
+                ? data.enabledPaymentMethods.mtnMoney 
+                : DEFAULT_CHECKOUT_SETTINGS.enabledPaymentMethods.mtnMoney,
+              orangeMoney: data.enabledPaymentMethods.orangeMoney !== undefined 
+                ? data.enabledPaymentMethods.orangeMoney 
+                : DEFAULT_CHECKOUT_SETTINGS.enabledPaymentMethods.orangeMoney,
+              visaCard: data.enabledPaymentMethods.visaCard !== undefined 
+                ? data.enabledPaymentMethods.visaCard 
+                : DEFAULT_CHECKOUT_SETTINGS.enabledPaymentMethods.visaCard,
+              payOnsite: data.enabledPaymentMethods.payOnsite !== undefined 
+                ? data.enabledPaymentMethods.payOnsite 
+                : DEFAULT_CHECKOUT_SETTINGS.enabledPaymentMethods.payOnsite,
+            }
+          : DEFAULT_CHECKOUT_SETTINGS.enabledPaymentMethods,
         createdAt: data.createdAt?.toDate() || new Date(),
         updatedAt: data.updatedAt?.toDate() || new Date(),
       } as CheckoutSettings;
