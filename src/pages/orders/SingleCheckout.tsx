@@ -9,7 +9,7 @@ import { getSellerSettings } from '@services/firestore/firestore';
 import { getCurrentEmployeeRef } from '@utils/business/employeeUtils';
 import { getUserById } from '@services/utilities/userService';
 import { formatPrice } from '@utils/formatting/formatPrice';
-import { getCheckoutSettingsByCompanyId, subscribeToCheckoutSettingsByCompanyId } from '@services/utilities/checkoutSettingsService';
+import { subscribeToCheckoutSettingsByCompanyId } from '@services/utilities/checkoutSettingsService';
 // Removed useCheckoutPersistence - using manual save approach
 import { subscribeToCinetPayConfig, isCinetPayConfigured } from '@services/payment/cinetpayService';
 import { processCinetPayPayment, validatePaymentData, formatPhoneForCinetPay } from '@utils/core/cinetpayHandler';
@@ -54,7 +54,6 @@ const SingleCheckout: React.FC = () => {
   
   // Local company state (fetched by companyId from URL)
   const [company, setCompany] = useState<Company | null>(null);
-  const [companyLoading, setCompanyLoading] = useState(true);
   
   // Get company colors with fallbacks
   const getCompanyColors = () => {
@@ -164,13 +163,11 @@ const SingleCheckout: React.FC = () => {
   useEffect(() => {
     const fetchCompanyData = async () => {
       if (!companyId) {
-        setCompanyLoading(false);
         toast.error('Company ID not found in URL');
         return;
       }
       
       try {
-        setCompanyLoading(true);
         const companyData = await getCompanyById(companyId);
         
         if (companyData) {
@@ -193,8 +190,6 @@ const SingleCheckout: React.FC = () => {
       } catch (error) {
         console.error('Error fetching company data:', error);
         toast.error('Error loading company information');
-      } finally {
-        setCompanyLoading(false);
       }
     };
 
@@ -847,7 +842,7 @@ const SingleCheckout: React.FC = () => {
           // onModalClose callback
           () => {
             console.log('Campay payment modal closed');
-            toast.info('Payment was cancelled');
+            toast('Payment was cancelled', { icon: 'ℹ️' });
             setSubmitting(false);
           }
         );
@@ -1270,7 +1265,7 @@ const SingleCheckout: React.FC = () => {
                 {/* Payment Options Container */}
                 <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
                   {/* MTN Money Option */}
-                  {checkoutSettings.enabledPaymentMethods.mtnMoney && (
+                  {checkoutSettings && checkoutSettings.enabledPaymentMethods && checkoutSettings.enabledPaymentMethods.mtnMoney === true && (
                     <div className={`p-4 ${selectedPaymentOption === 'mtn_money' ? 'bg-gray-50' : ''}`}>
                   <div className="flex items-center space-x-3">
                     <input
@@ -1310,7 +1305,7 @@ const SingleCheckout: React.FC = () => {
                 )}
 
                   {/* Orange Money Option */}
-                  {checkoutSettings.enabledPaymentMethods.orangeMoney && (
+                  {checkoutSettings && checkoutSettings.enabledPaymentMethods && checkoutSettings.enabledPaymentMethods.orangeMoney === true && (
                     <div className={`p-4 border-t border-gray-200 ${selectedPaymentOption === 'orange_money' ? 'bg-gray-50' : ''}`}>
                       <div className="flex items-center space-x-3">
                         <input
@@ -1350,7 +1345,7 @@ const SingleCheckout: React.FC = () => {
                   )}
 
                   {/* Visa Card Option */}
-                  {checkoutSettings.enabledPaymentMethods.visaCard && (
+                  {checkoutSettings && checkoutSettings.enabledPaymentMethods && checkoutSettings.enabledPaymentMethods.visaCard === true && (
                     <div className={`p-4 border-t border-gray-200 ${selectedPaymentOption === 'visa_card' ? 'bg-gray-50' : ''}`}>
                       <div className="flex items-center space-x-3">
                         <input
@@ -1619,7 +1614,10 @@ const SingleCheckout: React.FC = () => {
                               <div className="flex-1">
                                 <h4 className="font-medium text-emerald-900 mb-1">Paiement sécurisé via Campay</h4>
                                 <p className="text-sm text-emerald-700 leading-relaxed">
-                                  Payez en toute sécurité avec MTN Mobile Money ou Orange Money. Vous serez redirigé vers une page de paiement sécurisée pour compléter votre transaction.
+                                  Payez en toute sécurité avec MTN Mobile Money ou Orange Money.
+                                </p>
+                                <p className="text-sm text-emerald-700 leading-relaxed mt-2">
+                                  Nom de confirmation de paiement: Tawind Group
                                 </p>
                               </div>
                             </div>
@@ -1653,39 +1651,6 @@ const SingleCheckout: React.FC = () => {
                               </div>
                             )}
                             
-                            {/* Amount Validation Info */}
-                            {(() => {
-                              const finalTotal = getCartTotal() + (sellerSettings?.deliveryFee || 0);
-                              const isWithinLimits = finalTotal >= campayConfig.minAmount && finalTotal <= campayConfig.maxAmount;
-                              const isWithinDemoLimit = campayConfig.environment !== 'demo' || finalTotal <= 10;
-                              
-                              if (!isWithinLimits || !isWithinDemoLimit) {
-                                return (
-                                  <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg animate-fade-in" role="alert">
-                                    <div className="flex items-start">
-                                      <div className="flex-shrink-0 mt-0.5">
-                                        <span className="text-red-600 text-sm">❌</span>
-                                      </div>
-                                      <div className="flex-1 ml-2">
-                                        <p className="text-xs text-red-800 font-medium">Montant invalide</p>
-                                        <ul className="text-xs text-red-700 mt-1 space-y-0.5 list-disc list-inside">
-                                          {finalTotal < campayConfig.minAmount && (
-                                            <li>Minimum: {campayConfig.minAmount} XAF</li>
-                                          )}
-                                          {finalTotal > campayConfig.maxAmount && (
-                                            <li>Maximum: {campayConfig.maxAmount.toLocaleString()} XAF</li>
-                                          )}
-                                          {campayConfig.environment === 'demo' && finalTotal > 10 && (
-                                            <li>Mode démo: Maximum 10 XAF</li>
-                                          )}
-                                        </ul>
-                                      </div>
-                                    </div>
-                                  </div>
-                                );
-                              }
-                              return null;
-                            })()}
                           </div>
                         </div>
                       )}
@@ -1693,7 +1658,7 @@ const SingleCheckout: React.FC = () => {
                   )}
 
                   {/* Pay Onsite Option */}
-                  {checkoutSettings.enabledPaymentMethods.payOnsite && (
+                  {checkoutSettings && checkoutSettings.enabledPaymentMethods && checkoutSettings.enabledPaymentMethods.payOnsite === true && (
                     <div className={`p-4 border-t border-gray-200 ${selectedPaymentOption === 'pay_onsite' ? 'bg-gray-50' : ''}`}>
                       <div className="flex items-center space-x-3">
                         <input
@@ -1728,10 +1693,10 @@ const SingleCheckout: React.FC = () => {
                   )}
 
                   {/* No payment methods available message */}
-                  {!checkoutSettings?.enabledPaymentMethods.mtnMoney &&
-                   !checkoutSettings?.enabledPaymentMethods.orangeMoney &&
-                   !checkoutSettings?.enabledPaymentMethods.visaCard &&
-                   !checkoutSettings?.enabledPaymentMethods.payOnsite &&
+                  {(!checkoutSettings || !checkoutSettings.enabledPaymentMethods || checkoutSettings.enabledPaymentMethods.mtnMoney !== true) &&
+                   (!checkoutSettings || !checkoutSettings.enabledPaymentMethods || checkoutSettings.enabledPaymentMethods.orangeMoney !== true) &&
+                   (!checkoutSettings || !checkoutSettings.enabledPaymentMethods || checkoutSettings.enabledPaymentMethods.visaCard !== true) &&
+                   (!checkoutSettings || !checkoutSettings.enabledPaymentMethods || checkoutSettings.enabledPaymentMethods.payOnsite !== true) &&
                    !(cinetpayConfig && isCinetPayConfigured(cinetpayConfig)) &&
                    !(campayConfig && isCampayConfigured(campayConfig)) && (
                     <div className="p-4 text-center text-gray-500">

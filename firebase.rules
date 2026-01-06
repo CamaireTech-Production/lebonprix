@@ -169,10 +169,10 @@ service cloud.firestore {
       allow write: if isAuthenticated();
     }
     
-    // CinetPay Configurations - SIMPLIFIED: Authenticated users can read/write
+    // CinetPay Configurations - Public read for catalogue checkout, authenticated write
     match /cinetpay_configs/{configId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+      allow read: if true; // Public read for guest checkout
+      allow write: if isAuthenticated(); // Only authenticated users can write
     }
     
     // CinetPay Transactions - SIMPLIFIED: Authenticated users can read/write
@@ -181,22 +181,22 @@ service cloud.firestore {
       allow write: if isAuthenticated();
     }
     
-    // Campay Configurations - SIMPLIFIED: Authenticated users can read/write
+    // Campay Configurations - Public read for catalogue checkout, authenticated write
     match /campay_configs/{configId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+      allow read: if true; // Public read for guest checkout
+      allow write: if isAuthenticated(); // Only authenticated users can write
     }
     
-    // Checkout Settings - SIMPLIFIED: Authenticated users can read/write
+    // Checkout Settings - Public read for catalogue checkout, authenticated write
     match /checkout_settings/{userId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+      allow read: if true; // Public read for guest checkout
+      allow write: if isAuthenticated(); // Only authenticated users can write
     }
     
-    // Seller Settings - SIMPLIFIED: Authenticated users can read/write
+    // Seller Settings - Public read for catalogue checkout, authenticated write
     match /sellerSettings/{userId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+      allow read: if true; // Public read for guest checkout
+      allow write: if isAuthenticated(); // Only authenticated users can write
     }
     
     // Production Flow Steps - SIMPLIFIED: Authenticated users can read/write
