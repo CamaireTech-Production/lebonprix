@@ -32,7 +32,11 @@ const Catalogue = () => {
   
   // Cart management functions (now using global context)
   const handleAddToCart = (product: Product) => {
-    addToCart(product, 1);
+    if (companyId) {
+      addToCart(product, 1, undefined, undefined, companyId);
+    } else {
+      addToCart(product, 1);
+    }
   };
 
   // Product detail modal functions

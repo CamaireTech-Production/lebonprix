@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useCart } from '@contexts/CartContext';
 import { useAuth } from '@contexts/AuthContext';
 import { createOrder } from '@services/firestore/orders/orderService';
-import { getCompanyByUserId, getSellerSettings } from '@services/firestore/firestore';
+import { getCompanyById } from '@services/firestore/companies/companyPublic';
+import { getSellerSettings } from '@services/firestore/firestore';
 import { getCurrentEmployeeRef } from '@utils/business/employeeUtils';
 import { getUserById } from '@services/utilities/userService';
 import { formatPrice } from '@utils/formatting/formatPrice';
-import { getCheckoutSettingsWithDefaults, subscribeToCheckoutSettings } from '@services/utilities/checkoutSettingsService';
+import { getCheckoutSettingsByCompanyId, subscribeToCheckoutSettingsByCompanyId } from '@services/utilities/checkoutSettingsService';
 // Removed useCheckoutPersistence - using manual save approach
 import { subscribeToCinetPayConfig, isCinetPayConfigured } from '@services/payment/cinetpayService';
 import { processCinetPayPayment, validatePaymentData, formatPhoneForCinetPay } from '@utils/core/cinetpayHandler';
@@ -17,6 +18,7 @@ import { useCampay } from '@hooks/useCampay';
 import { formatPhoneForWhatsApp } from '@utils/core/phoneUtils';
 import type { CinetPayConfig } from '../../types/cinetpay';
 import type { CampayConfig } from '../../types/campay';
+import type { Company } from '../../types/models';
 // import { generateWhatsAppMessage } from '@utils/whatsapp';
 import { 
   CreditCard, 
@@ -24,6 +26,7 @@ import {
   ShoppingBag,
   ArrowLeft,
   CheckCircle,
+  Check,
   Lock,
   Shield,
   RotateCcw,
@@ -35,14 +38,6 @@ import { toast } from 'react-hot-toast';
 import type { Order, CustomerInfo, PaymentMethodType } from '../../types/order';
 import type { CheckoutSettings } from '../../types/checkoutSettings';
 
-interface Company {
-  id: string;
-  name: string;
-  phone?: string;
-  whatsapp?: string;
-  address?: string;
-}
-
 interface SellerSettings {
   deliveryFee: number;
   minOrderAmount: number;
@@ -53,8 +48,13 @@ interface SellerSettings {
 const SingleCheckout: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { companyId } = useParams<{ companyId: string }>();
   const { cart, clearCart, getCartTotal, loadCartForCompany, setCurrentCompanyId } = useCart();
-  const { user, company, currentEmployee, isOwner } = useAuth();
+  const { user, currentEmployee, isOwner } = useAuth();
+  
+  // Local company state (fetched by companyId from URL)
+  const [company, setCompany] = useState<Company | null>(null);
+  const [companyLoading, setCompanyLoading] = useState(true);
   
   // Get company colors with fallbacks
   const getCompanyColors = () => {
@@ -69,10 +69,10 @@ const SingleCheckout: React.FC = () => {
 
   // Manual data loading
   const loadCheckoutData = useCallback(() => {
-    if (!company?.id || typeof company.id !== 'string') return null;
+    if (!companyId || typeof companyId !== 'string') return null;
     
     try {
-      const key = `checkout_data_${company.id}`;
+      const key = `checkout_data_${companyId}`;
       const stored = localStorage.getItem(key);
       
       if (!stored) return null;
@@ -105,19 +105,19 @@ const SingleCheckout: React.FC = () => {
       console.error('Error loading checkout data:', error);
       return null;
     }
-  }, [company?.id]);
+  }, [companyId]);
 
   const clearCheckoutData = useCallback(() => {
-    if (!company?.id || typeof company.id !== 'string') return;
+    if (!companyId || typeof companyId !== 'string') return;
     
     try {
-      const key = `checkout_data_${company.id}`;
+      const key = `checkout_data_${companyId}`;
       localStorage.removeItem(key);
       console.log('Checkout data cleared');
     } catch (error) {
       console.error('Error clearing checkout data:', error);
     }
-  }, [company?.id]);
+  }, [companyId]);
   
   // Save status state
   const [isSaving, setIsSaving] = useState(false);
@@ -150,7 +150,7 @@ const SingleCheckout: React.FC = () => {
   const [checkoutSettings, setCheckoutSettings] = useState<CheckoutSettings | null>(null);
   const [cinetpayConfig, setCinetpayConfig] = useState<CinetPayConfig | null>(null);
   const [campayConfig, setCampayConfig] = useState<CampayConfig | null>(null);
-  const { processPayment: processCampayPayment, isInitialized: isCampayInitialized, hiddenButtonId: campayButtonId } = useCampay(company?.id || null);
+  const { processPayment: processCampayPayment, isInitialized: isCampayInitialized, hiddenButtonId: campayButtonId } = useCampay(companyId || null);
   const [submitting, setSubmitting] = useState(false);
   const [orderCreated, setOrderCreated] = useState(false);
   const [createdOrder, setCreatedOrder] = useState<Order | null>(null);
@@ -160,78 +160,89 @@ const SingleCheckout: React.FC = () => {
   const [minimumAmount, setMinimumAmount] = useState(100); // Default minimum
   const [errors, setErrors] = useState<Partial<CustomerInfo>>({});
 
-  // Load companyData and settings data
+  // Load company data from URL parameter
   useEffect(() => {
-    const fetchData = async () => {
-      if (!user?.uid) return;
+    const fetchCompanyData = async () => {
+      if (!companyId) {
+        setCompanyLoading(false);
+        toast.error('Company ID not found in URL');
+        return;
+      }
       
       try {
-        if (!company) {
+        setCompanyLoading(true);
+        const companyData = await getCompanyById(companyId);
+        
+        if (companyData) {
+          setCompany(companyData);
+          setCompanyData(companyData);
+          
+          // Also load seller settings
+          try {
+            const settingsData = await getSellerSettings(companyId);
+            if (settingsData) {
+              setSellerSettings(settingsData as unknown as SellerSettings);
+            }
+          } catch (error) {
+            console.error('Error loading seller settings:', error);
+          }
+        } else {
           toast.error('Company not found');
-          return;
-        }
-        
-        const [companyDataResult, settingsData] = await Promise.all([
-          getCompanyByUserId(company.id),
-          getSellerSettings(company.id)
-        ]);
-        
-        if (companyDataResult) {
-          setCompanyData(companyDataResult);
-        }
-        if (settingsData) {
-          setSellerSettings(settingsData as unknown as SellerSettings);
+          navigate('/');
         }
       } catch (error) {
-        console.error('Error fetching companyData data:', error);
-        toast.error('Error loading companyData information');
+        console.error('Error fetching company data:', error);
+        toast.error('Error loading company information');
+      } finally {
+        setCompanyLoading(false);
       }
     };
 
-    fetchData();
-  }, [user?.uid]);
+    fetchCompanyData();
+  }, [companyId, navigate]);
 
-  // Real-time checkout settings subscription
+  // Real-time checkout settings subscription by companyId
   useEffect(() => {
-    if (!user?.uid) return;
+    if (!companyId) return;
 
-    const unsubscribe = subscribeToCheckoutSettings(user.uid, (settings) => {
-      if (settings) {
-        setCheckoutSettings(settings);
-      } else {
-        // If no settings exist, get defaults
-        getCheckoutSettingsWithDefaults(user.uid).then(setCheckoutSettings);
-      }
+    const unsubscribe = subscribeToCheckoutSettingsByCompanyId(companyId, (settings) => {
+      setCheckoutSettings(settings);
     });
 
     return () => unsubscribe();
-  }, [user?.uid]);
+  }, [companyId]);
 
-  // Load CinetPay configuration
+  // Load CinetPay configuration by companyId
   useEffect(() => {
-    if (!user?.uid) return;
+    if (!companyId) return;
 
-    const unsubscribe = subscribeToCinetPayConfig(user.uid, (config) => {
+    const unsubscribe = subscribeToCinetPayConfig(companyId, (config) => {
       setCinetpayConfig(config);
     });
 
     return () => unsubscribe();
-  }, [user?.uid]);
+  }, [companyId]);
 
-  // Load Campay configuration
+  // Load Campay configuration by companyId
   useEffect(() => {
-    if (!company?.id) return;
+    if (!companyId) return;
 
-    const unsubscribe = subscribeToCampayConfig(company.id, (config) => {
+    const unsubscribe = subscribeToCampayConfig(companyId, (config) => {
+      console.log('Campay config loaded:', {
+        exists: !!config,
+        isActive: config?.isActive,
+        hasAppId: !!(config?.appId && config.appId.length > 0),
+        isConfigured: config ? isCampayConfigured(config) : false
+      });
       setCampayConfig(config);
     });
 
     return () => unsubscribe();
-  }, [company?.id]);
+  }, [companyId]);
 
   // Manual save on form changes (no auto-save)
   const saveCheckoutData = useCallback(() => {
-    if (!company?.id || typeof company.id !== 'string') return;
+    if (!companyId || typeof companyId !== 'string') return;
     
     try {
       setIsSaving(true);
@@ -242,11 +253,11 @@ const SingleCheckout: React.FC = () => {
         paymentFormData,
         cartItems: cart,
         lastSaved: new Date().toISOString(),
-        companyId: company.id
+        companyId: companyId
       };
       
       // Save to localStorage
-      const key = `checkout_data_${company.id}`;
+      const key = `checkout_data_${companyId}`;
       const payload = {
         formData,
         cartItems: cart,
@@ -263,7 +274,7 @@ const SingleCheckout: React.FC = () => {
     } finally {
       setIsSaving(false);
     }
-  }, [company?.id, customerInfo, selectedPaymentMethod, selectedPaymentOption, paymentFormData, cart, getCartTotal]);
+  }, [companyId, customerInfo, selectedPaymentMethod, selectedPaymentOption, paymentFormData, cart, getCartTotal]);
 
   // Save data when user makes significant changes
   useEffect(() => {
@@ -290,16 +301,16 @@ const SingleCheckout: React.FC = () => {
 
   // Load saved checkout data on component mount
   useEffect(() => {
-    if (company?.id) {
+    if (companyId) {
       // Set current company ID in cart context
-      setCurrentCompanyId(company.id);
+      setCurrentCompanyId(companyId);
       
       // Load cart data for this company
-      loadCartForCompany(company.id);
+      loadCartForCompany(companyId);
       
       // Load form data
       const savedData = loadCheckoutData();
-      console.log('Loading checkout data for company:', company.id);
+      console.log('Loading checkout data for company:', companyId);
       console.log('Saved data found:', savedData);
       
       if (savedData) {
@@ -334,10 +345,10 @@ const SingleCheckout: React.FC = () => {
           console.log('No formData found in saved data');
         }
       } else {
-        console.log('No saved checkout data found for company:', company.id);
+        console.log('No saved checkout data found for company:', companyId);
       }
     }
-  }, [company?.id, loadCheckoutData, loadCartForCompany, setCurrentCompanyId]);
+  }, [companyId, loadCheckoutData, loadCartForCompany, setCurrentCompanyId]);
 
   // Form validation
   const validateForm = (): boolean => {
@@ -490,6 +501,11 @@ const SingleCheckout: React.FC = () => {
 
   // Handle order creation
   const handleCreateOrder = async () => {
+    if (!companyId) {
+      toast.error('Company ID not found');
+      return;
+    }
+
     if (!selectedPaymentMethod) {
       toast.error('Veuillez sélectionner un mode de paiement');
       return;
@@ -562,7 +578,7 @@ const SingleCheckout: React.FC = () => {
             country: 'CM',
             zipCode: ''
           },
-          returnUrl: `${window.location.origin}/catalogue/${company?.name?.toLowerCase().replace(/\s+/g, '-')}/${company?.id}`,
+          returnUrl: `${window.location.origin}/catalogue/${company?.name?.toLowerCase().replace(/\s+/g, '-')}/${companyId}`,
           notifyUrl: `${window.location.origin}/api/cinetpay/webhook`
         };
 
@@ -626,7 +642,7 @@ const SingleCheckout: React.FC = () => {
           
           // Create order with CinetPay payment details
           const order = await createOrder(
-            company.id,
+            companyId!,
             {
               customerInfo: sanitizedCustomerInfo,
               cartItems: cart,
@@ -645,7 +661,7 @@ const SingleCheckout: React.FC = () => {
               },
               metadata: {
                 source: 'catalogue',
-                userId: user?.uid, // Include userId in metadata for audit
+                userId: user?.uid || undefined, // Optional: Include userId if user is logged in
                 createdBy: createdBy || undefined,
                 deviceInfo: {
                   type: 'desktop',
@@ -667,8 +683,8 @@ const SingleCheckout: React.FC = () => {
           
           // Redirect to catalogue page after a short delay
           setTimeout(() => {
-            if (company) {
-              navigate(`/catalogue/${company.name.toLowerCase().replace(/\s+/g, '-')}/${company.id}`);
+            if (company && companyId) {
+              navigate(`/catalogue/${company.name.toLowerCase().replace(/\s+/g, '-')}/${companyId}`);
             } else {
               navigate('/');
             }
@@ -735,7 +751,7 @@ const SingleCheckout: React.FC = () => {
             amount: finalTotal,
             currency: 'XAF',
             externalReference: externalReference,
-            redirectUrl: `${window.location.origin}/catalogue/${company?.name?.toLowerCase().replace(/\s+/g, '-')}/${company?.id}`
+            redirectUrl: `${window.location.origin}/catalogue/${company?.name?.toLowerCase().replace(/\s+/g, '-')}/${companyId}`
           },
           // onSuccess callback
           async (data) => {
@@ -757,7 +773,7 @@ const SingleCheckout: React.FC = () => {
             
             // Create order with Campay payment details
             const order = await createOrder(
-              company.id,
+              companyId!,
               {
                 customerInfo: sanitizedCustomerInfo,
                 cartItems: cart,
@@ -776,7 +792,7 @@ const SingleCheckout: React.FC = () => {
                 },
                 metadata: {
                   source: 'catalogue',
-                  userId: user?.uid,
+                  userId: user?.uid || undefined, // Optional: Include userId if user is logged in
                   createdBy: createdBy || undefined,
                   deviceInfo: {
                     type: 'desktop',
@@ -923,8 +939,8 @@ const SingleCheckout: React.FC = () => {
         
         // Redirect to catalogue page after a short delay
         setTimeout(() => {
-          if (company) {
-            navigate(`/catalogue/${company.name.toLowerCase().replace(/\s+/g, '-')}/${company.id}`);
+          if (company && companyId) {
+            navigate(`/catalogue/${company.name.toLowerCase().replace(/\s+/g, '-')}/${companyId}`);
           } else {
             navigate('/');
           }
@@ -965,8 +981,8 @@ const SingleCheckout: React.FC = () => {
           <p className="text-gray-600 mb-4">Add some items to your cart to proceed with checkout</p>
           <button
             onClick={() => {
-              if (company) {
-                navigate(`/catalogue/${company.name.toLowerCase().replace(/\s+/g, '-')}/${company.id}`);
+              if (company && companyId) {
+                navigate(`/catalogue/${company.name.toLowerCase().replace(/\s+/g, '-')}/${companyId}`);
               } else {
                 navigate('/');
               }
@@ -987,8 +1003,8 @@ const SingleCheckout: React.FC = () => {
         <div className="mb-8">
           <button
             onClick={() => {
-              if (company) {
-                navigate(`/catalogue/${company.name.toLowerCase().replace(/\s+/g, '-')}/${company.id}`);
+              if (company && companyId) {
+                navigate(`/catalogue/${company.name.toLowerCase().replace(/\s+/g, '-')}/${companyId}`);
               } else {
                 navigate('/');
               }
@@ -1243,7 +1259,10 @@ const SingleCheckout: React.FC = () => {
             )}
 
             {/* Payment Section */}
-            {checkoutSettings?.showPaymentSection && (
+            {/* Show payment section if enabled OR if any payment integration (Campay/CinetPay) is configured */}
+            {((checkoutSettings?.showPaymentSection) || 
+              (campayConfig && isCampayConfigured(campayConfig)) || 
+              (cinetpayConfig && isCinetPayConfigured(cinetpayConfig))) && (
               <div className="bg-white rounded-lg shadow-sm border p-6">
                 <h2 className="text-xl font-bold mb-4" style={{color: getCompanyColors().primary}}>{t('checkout.payment')}</h2>
                 <p className="text-sm text-gray-600 mb-4">Toutes les transactions sont sécurisées et cryptées.</p>
@@ -1707,6 +1726,18 @@ const SingleCheckout: React.FC = () => {
                       )}
                     </div>
                   )}
+
+                  {/* No payment methods available message */}
+                  {!checkoutSettings?.enabledPaymentMethods.mtnMoney &&
+                   !checkoutSettings?.enabledPaymentMethods.orangeMoney &&
+                   !checkoutSettings?.enabledPaymentMethods.visaCard &&
+                   !checkoutSettings?.enabledPaymentMethods.payOnsite &&
+                   !(cinetpayConfig && isCinetPayConfigured(cinetpayConfig)) &&
+                   !(campayConfig && isCampayConfigured(campayConfig)) && (
+                    <div className="p-4 text-center text-gray-500">
+                      <p className="text-sm">Aucun mode de paiement disponible. Veuillez activer au moins un mode de paiement dans les paramètres.</p>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -1864,8 +1895,8 @@ const SingleCheckout: React.FC = () => {
                   <div className="space-y-3">
                     <button
                       onClick={() => {
-                        if (company) {
-                          navigate(`/catalogue/${company.name}/${company.id}`);
+                        if (company && companyId) {
+                          navigate(`/catalogue/${company.name.toLowerCase().replace(/\s+/g, '-')}/${companyId}`);
                         } else {
                           navigate('/');
                         }

@@ -10,6 +10,7 @@ import {
 import { db } from '../core/firebase';
 import type { CheckoutSettings, CheckoutSettingsUpdate } from '../../types/checkoutSettings';
 import { DEFAULT_CHECKOUT_SETTINGS } from '../../types/checkoutSettings';
+import { getCompanyById } from '../firestore/companies/companyPublic';
 
 const COLLECTION_NAME = 'checkout_settings';
 
@@ -164,4 +165,99 @@ export const getCheckoutSettingsWithDefaults = async (userId: string): Promise<C
     console.error('Error getting checkout settings with defaults:', error);
     throw error;
   }
+};
+
+/**
+ * Get checkout settings by companyId (for public checkout)
+ * Falls back to defaults if not found
+ */
+export const getCheckoutSettingsByCompanyId = async (companyId: string): Promise<CheckoutSettings> => {
+  try {
+    // Try to get company document to find userId
+    const company = await getCompanyById(companyId);
+    
+    if (company?.userId) {
+      const settings = await getCheckoutSettings(company.userId);
+      if (settings) {
+        return settings;
+      }
+    }
+    
+    // If no settings found, return defaults
+    return {
+      id: companyId,
+      userId: company?.userId || companyId,
+      ...DEFAULT_CHECKOUT_SETTINGS,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+  } catch (error) {
+    console.error('Error getting checkout settings by companyId:', error);
+    // Return defaults on error
+    return {
+      id: companyId,
+      userId: companyId,
+      ...DEFAULT_CHECKOUT_SETTINGS,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+  }
+};
+
+/**
+ * Subscribe to checkout settings by companyId (for public checkout)
+ */
+export const subscribeToCheckoutSettingsByCompanyId = (
+  companyId: string,
+  callback: (settings: CheckoutSettings) => void
+): Unsubscribe => {
+  let unsubscribeFn: Unsubscribe | null = null;
+  
+  // Try to get company and subscribe to user's settings
+  getCompanyById(companyId)
+    .then((company) => {
+      if (company?.userId) {
+        unsubscribeFn = subscribeToCheckoutSettings(company.userId, (settings) => {
+          if (settings) {
+            callback(settings);
+          } else {
+            // Return defaults if no settings
+            callback({
+              id: companyId,
+              userId: company.userId,
+              ...DEFAULT_CHECKOUT_SETTINGS,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            });
+          }
+        });
+      } else {
+        // Return defaults if no company found
+        callback({
+          id: companyId,
+          userId: companyId,
+          ...DEFAULT_CHECKOUT_SETTINGS,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+      }
+    })
+    .catch((error) => {
+      console.error('Error subscribing to checkout settings by companyId:', error);
+      // Return defaults on error
+      callback({
+        id: companyId,
+        userId: companyId,
+        ...DEFAULT_CHECKOUT_SETTINGS,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+    });
+  
+  // Return unsubscribe function
+  return () => {
+    if (unsubscribeFn) {
+      unsubscribeFn();
+    }
+  };
 };

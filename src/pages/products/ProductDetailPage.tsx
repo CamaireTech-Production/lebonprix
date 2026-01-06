@@ -102,7 +102,11 @@ const ProductDetailPage = () => {
 
         // Si action=buy, ajouter automatiquement au panier
         if (action === 'buy' && foundProduct) {
-          addToCart(foundProduct, 1);
+          if (companyId) {
+            addToCart(foundProduct, 1, undefined, undefined, companyId);
+          } else {
+            addToCart(foundProduct, 1);
+          }
           showSuccessToast('Produit ajouté au panier');
         }
       } catch (err: any) {
@@ -136,14 +140,18 @@ const ProductDetailPage = () => {
 
   const handleAddToCart = () => {
     if (!product) return;
-    addToCart(product, quantity);
+    if (companyId) {
+      addToCart(product, quantity, undefined, undefined, companyId);
+    } else {
+      addToCart(product, quantity);
+    }
     showSuccessToast('Produit ajouté au panier');
   };
 
   const handleBuyNow = () => {
-    if (!product) return;
-    addToCart(product, quantity);
-    navigate('/checkout');
+    if (!product || !companyId) return;
+    addToCart(product, quantity, undefined, undefined, companyId);
+    navigate(`/checkout/${companyId}`);
   };
 
   const handleWhatsAppOrder = () => {
