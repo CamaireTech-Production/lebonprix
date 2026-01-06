@@ -22,6 +22,22 @@ import { cleanForFirestore } from '@utils/firestore/cleanData';
 
 const COLLECTION_NAME = 'productions';
 
+/**
+ * Helper function to get current authenticated user ID
+ * Throws error if user is not authenticated
+ */
+const getCurrentUserId = async (): Promise<string> => {
+  const { getAuth } = await import('firebase/auth');
+  const auth = getAuth();
+  const currentUserId = auth.currentUser?.uid;
+  
+  if (!currentUserId) {
+    throw new Error('User must be authenticated to perform this action');
+  }
+  
+  return currentUserId;
+};
+
 // ============================================================================
 // PRODUCTION SUBSCRIPTIONS
 // ============================================================================
