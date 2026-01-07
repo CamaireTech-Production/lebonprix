@@ -49,6 +49,9 @@ export interface Company extends BaseModel {
     ogImage?: string; // Open Graph image URL
     twitterCard?: 'summary' | 'summary_large_image';
   };
+  
+  // Stock management settings
+  lowStockThreshold?: number; // Global threshold for low stock alerts (in units)
 }
 
 export interface Category extends BaseModel {
