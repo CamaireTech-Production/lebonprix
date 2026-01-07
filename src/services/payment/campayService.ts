@@ -31,18 +31,16 @@ export const getCampayConfig = async (companyId: string): Promise<CampayConfig |
       if (data.appId && !data.appId.includes('***REDACTED***')) {
         try {
           decryptedAppId = SecureEncryption.decrypt(data.appId, companyId);
-          // Removed verbose logging - only log on errors
         } catch (error) {
           console.error('Failed to decrypt App ID:', error);
           // If decryption fails, use the original data (might be plain text)
           decryptedAppId = data.appId;
-          // Removed verbose logging - only log on errors
         }
       }
       
       return {
         id: docSnap.id,
-        userId: data.userId || companyId, // Keep userId for backward compatibility
+        userId: data.userId || companyId,
         companyId: data.companyId || companyId,
         ...data,
         appId: decryptedAppId,
@@ -62,17 +60,17 @@ export const getCampayConfig = async (companyId: string): Promise<CampayConfig |
 export const saveCampayConfig = async (
   companyId: string,
   config: CampayConfigUpdate,
-  userId?: string // Optional userId for audit trail
+  userId?: string
 ): Promise<void> => {
   try {
-    const docRef = doc(db, COLLECTION_NAME, companyId); // Use companyId as document ID
+    const docRef = doc(db, COLLECTION_NAME, companyId);
     const now = serverTimestamp();
 
     // Encrypt App ID before saving (use companyId for encryption key)
     const dataToSave: any = {
       ...config,
-      companyId, // Ensure companyId is set
-      userId: userId || companyId, // Keep userId for audit trail
+      companyId,
+      userId: userId || companyId,
       updatedAt: now
     };
 
@@ -107,7 +105,7 @@ export const subscribeToCampayConfig = (
   callback: (config: CampayConfig | null) => void,
   onError?: (error: Error) => void
 ): Unsubscribe => {
-  const docRef = doc(db, COLLECTION_NAME, companyId); // Use companyId as document ID
+  const docRef = doc(db, COLLECTION_NAME, companyId);
   
   return onSnapshot(docRef, (docSnap) => {
     if (docSnap.exists()) {
@@ -118,18 +116,15 @@ export const subscribeToCampayConfig = (
       if (data.appId && !data.appId.includes('***REDACTED***')) {
         try {
           decryptedAppId = SecureEncryption.decrypt(data.appId, companyId);
-          // Removed verbose logging - subscription fires repeatedly, only log on errors
         } catch (error) {
           console.error('Failed to decrypt App ID (subscription):', error);
-          // If decryption fails, use the original data (might be plain text)
           decryptedAppId = data.appId;
-          // Removed verbose logging - subscription fires repeatedly, only log on errors
         }
       }
       
       callback({
         id: docSnap.id,
-        userId: data.userId || companyId, // Keep userId for backward compatibility
+        userId: data.userId || companyId,
         companyId: data.companyId || companyId,
         ...data,
         appId: decryptedAppId,
@@ -154,31 +149,12 @@ export const initializeCampayConfig = async (companyId: string, userId?: string)
   try {
     const existingConfig = await getCampayConfig(companyId);
     if (existingConfig) {
-      // Check if App ID needs migration (is plain text)
-      // Plain text App IDs typically don't contain encryption markers
-      if (existingConfig.appId && !existingConfig.appId.includes('U2FsdGVkX1')) {
-        console.log('Migrating plain text App ID to encrypted format');
-        try {
-          // Re-save the config to encrypt the App ID
-          await saveCampayConfig(companyId, {
-            appId: existingConfig.appId,
-            isActive: existingConfig.isActive,
-            environment: existingConfig.environment,
-            minAmount: existingConfig.minAmount,
-            maxAmount: existingConfig.maxAmount,
-            supportedMethods: existingConfig.supportedMethods
-          }, userId);
-          console.log('App ID migration completed');
-        } catch (error) {
-          console.error('Failed to migrate App ID:', error);
-        }
-      }
       return existingConfig;
     }
 
     const newConfig: Omit<CampayConfig, 'id' | 'createdAt' | 'updatedAt'> & { createdAt: any; updatedAt: any } = {
       ...DEFAULT_CAMPAY_CONFIG,
-      userId: userId || companyId, // Keep userId for audit trail
+      userId: userId || companyId,
       companyId,
       createdAt: serverTimestamp() as any,
       updatedAt: serverTimestamp() as any
@@ -198,7 +174,6 @@ export const validateCampayCredentials = async (
   environment: 'demo' | 'production' = 'demo'
 ): Promise<CampayValidationResult> => {
   try {
-    // Basic validation
     if (!appId) {
       return {
         isValid: false,
@@ -213,11 +188,8 @@ export const validateCampayCredentials = async (
       };
     }
 
-    // In a real implementation, you would make an API call to Campay
-    // to validate the credentials. For now, we'll simulate validation
     return new Promise((resolve) => {
       setTimeout(() => {
-        // Simulate API validation
         const isValid = appId.length >= 10;
         resolve({
           isValid,
@@ -225,11 +197,11 @@ export const validateCampayCredentials = async (
             ? 'Credentials are valid' 
             : 'Invalid credentials provided',
           details: {
-            appId: appId.substring(0, 4) + '...', // Masked for security
+            appId: appId.substring(0, 4) + '...',
             environment
           }
         });
-      }, 1000); // Simulate network delay
+      }, 1000);
     });
   } catch (error) {
     console.error('Error validating Campay credentials:', error);
@@ -247,26 +219,27 @@ export const getCampayConfigWithDefaults = async (companyId: string, userId?: st
     return config;
   }
   
+  const now = new Date();
   return {
     id: companyId,
     userId: userId || companyId,
     companyId,
     ...DEFAULT_CAMPAY_CONFIG,
-    createdAt: new Date(),
-    updatedAt: new Date()
+    createdAt: { seconds: Math.floor(now.getTime() / 1000), nanoseconds: (now.getTime() % 1000) * 1000000 },
+    updatedAt: { seconds: Math.floor(now.getTime() / 1000), nanoseconds: (now.getTime() % 1000) * 1000000 }
   } as CampayConfig;
 };
 
 // Reset Campay configuration to defaults
 export const resetCampayConfig = async (companyId: string, userId?: string): Promise<void> => {
   try {
-    const docRef = doc(db, COLLECTION_NAME, companyId); // Use companyId as document ID
+    const docRef = doc(db, COLLECTION_NAME, companyId);
     const now = serverTimestamp();
     
     await setDoc(docRef, {
       ...DEFAULT_CAMPAY_CONFIG,
-      userId: userId || companyId, // Keep userId for audit trail
-      companyId, // Ensure companyId is set
+      userId: userId || companyId,
+      companyId,
       createdAt: now,
       updatedAt: now
     });
@@ -316,4 +289,3 @@ export const validateCampayPaymentAmount = (
     message: 'Amount is valid'
   };
 };
-

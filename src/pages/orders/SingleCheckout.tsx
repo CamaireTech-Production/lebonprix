@@ -13,17 +13,10 @@ import { subscribeToCheckoutSettingsByCompanyId } from '@services/utilities/chec
 // Removed useCheckoutPersistence - using manual save approach
 import { subscribeToCinetPayConfig, isCinetPayConfigured } from '@services/payment/cinetpayService';
 import { processCinetPayPayment, validatePaymentData, formatPhoneForCinetPay } from '@utils/core/cinetpayHandler';
-// Removed subscribeToCampayConfig - using useCampay hook's config instead
-import { isCampayConfigured } from '@services/payment/campayService';
+// Campay integration uses useCampay hook (matching RestoFlow pattern)
 import { useCampay } from '@hooks/useCampay';
+import { getCampayConfig } from '@services/payment/campayService';
 import { formatPhoneForWhatsApp } from '@utils/core/phoneUtils';
-import { 
-  validateCampayConfig, 
-  validateCampayPaymentData, 
-  checkNetworkConnectivity,
-  getCampayErrorMessage,
-  isRetryableError
-} from '@utils/validation/campayValidation';
 import type { CinetPayConfig } from '../../types/cinetpay';
 import type { Company } from '../../types/models';
 // import { generateWhatsAppMessage } from '@utils/whatsapp';
@@ -155,8 +148,8 @@ const SingleCheckout: React.FC = () => {
   const [sellerSettings, setSellerSettings] = useState<SellerSettings | null>(null);
   const [checkoutSettings, setCheckoutSettings] = useState<CheckoutSettings | null>(null);
   const [cinetpayConfig, setCinetpayConfig] = useState<CinetPayConfig | null>(null);
-  // Use hook's config instead of duplicate state - single source of truth
-  const { processPayment: processCampayPayment, isInitialized: isCampayInitialized, hiddenButtonId: campayButtonId, config: campayConfig } = useCampay(companyId || null);
+  // Use Campay hook (matching RestoFlow pattern)
+  const { processPayment: processCampayPayment, isInitialized: isCampayInitialized, hiddenButtonId: campayButtonId } = useCampay(companyId || null);
   const [submitting, setSubmitting] = useState(false);
   const [orderCreated, setOrderCreated] = useState(false);
   const [createdOrder, setCreatedOrder] = useState<Order | null>(null);
@@ -691,83 +684,64 @@ const SingleCheckout: React.FC = () => {
         return;
       }
 
-      // Check if this is a Campay payment
+      // Check if this is a Campay payment (matching RestoFlow pattern)
       const isCampayPayment = selectedPaymentOption === 'campay';
       
-      // Simplified condition: Only check if Campay is selected and config exists
-      // SDK will initialize on-demand if needed
-      if (isCampayPayment && campayConfig) {
+      if (isCampayPayment) {
+        // Validate that Campay SDK is initialized (matching RestoFlow)
+        if (!isCampayInitialized) {
+          toast.error('Payment system not configured. Please contact the company.');
+          setSubmitting(false);
+          return;
+        }
+
+        // Get Campay config for amount calculation
+        let campayConfig = null;
+        try {
+          campayConfig = await getCampayConfig(companyId!);
+        } catch (error) {
+          console.error('Error fetching Campay config:', error);
+        }
+
         // Calculate final total
         const calculatedTotal = getCartTotal() + (sellerSettings?.deliveryFee || 0);
         
         // Use 10 XAF for demo mode, otherwise use calculated total
-        const finalTotal = campayConfig.environment === 'demo' ? 10 : calculatedTotal;
+        const finalTotal = campayConfig?.environment === 'demo' ? 10 : calculatedTotal;
         
-        if (campayConfig.environment === 'demo') {
+        if (campayConfig?.environment === 'demo') {
           console.log(`[DEMO MODE] Using fixed amount: 10 XAF (Actual total: ${calculatedTotal} XAF)`);
         }
-        
-        // Validate configuration
-        const configValidation = validateCampayConfig(campayConfig);
-        if (!configValidation.isValid) {
-          toast.error(`Campay configuration error: ${configValidation.errors.join(', ')}`);
-          setSubmitting(false);
-          return;
+
+        // Validate amount limits if config is available
+        if (campayConfig) {
+          if (calculatedTotal < campayConfig.minAmount) {
+            toast.error(`Minimum payment amount is ${campayConfig.minAmount} ${campayConfig.currency}`);
+            setSubmitting(false);
+            return;
+          }
+          if (calculatedTotal > campayConfig.maxAmount) {
+            toast.error(`Maximum payment amount is ${campayConfig.maxAmount} ${campayConfig.currency}`);
+            setSubmitting(false);
+            return;
+          }
         }
 
-        // Validate payment data (use finalTotal which is 10 in demo mode)
-        const paymentValidation = validateCampayPaymentData(
-          {
-            amount: finalTotal,
-            currency: 'XAF',
-            description: `Order from ${company?.name || 'Store'}`
-          },
-          campayConfig
-        );
-        
-        if (!paymentValidation.isValid) {
-          toast.error(paymentValidation.errors.join(', '));
-          setSubmitting(false);
-          return;
-        }
-
-        // Check network connectivity
-        const networkCheck = checkNetworkConnectivity();
-        if (!networkCheck.isOnline) {
-          toast.error(networkCheck.message);
-          setSubmitting(false);
-          return;
-        }
-
-        // Process Campay payment
+        // Process Campay payment (matching RestoFlow pattern)
         const externalReference = `ORDER_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         
-        // Validate that Campay SDK is initialized (like RestoFlow)
-        if (!isCampayInitialized) {
-          console.error('Campay SDK not initialized');
-          toast.error('Payment system not ready. Please wait a moment and try again.');
-          setSubmitting(false);
-          return;
-        }
-        
-        console.log('Initiating Campay payment:', {
-          isCampaySelected: isCampayPayment,
-          hasConfig: !!campayConfig,
-          isInitialized: isCampayInitialized,
-          buttonId: campayButtonId,
-          amount: finalTotal
-        });
-        
+        const paymentOptions = {
+          payButtonId: campayButtonId,
+          description: `Order from ${company?.name || 'Store'}`,
+          amount: finalTotal,
+          currency: 'XAF',
+          externalReference: externalReference,
+          redirectUrl: `${window.location.origin}/catalogue/${company?.name?.toLowerCase().replace(/\s+/g, '-')}/${companyId}`
+        };
+
         const paymentResult = await processCampayPayment(
-          {
-            payButtonId: campayButtonId,
-            description: `Order from ${company?.name || 'Store'}`,
-            amount: finalTotal,
-            currency: 'XAF',
-            externalReference: externalReference,
-            redirectUrl: `${window.location.origin}/catalogue/${company?.name?.toLowerCase().replace(/\s+/g, '-')}/${companyId}`
-          },
-          // onSuccess callback
+          paymentOptions,
+          // onSuccess callback (matching RestoFlow pattern)
           async (data) => {
             console.log('Campay payment successful:', data);
             
@@ -796,7 +770,7 @@ const SingleCheckout: React.FC = () => {
                 pricing: {
                   subtotal: getCartTotal(),
                   deliveryFee: sellerSettings?.deliveryFee || 0,
-                  total: campayConfig.environment === 'demo' ? 10 : actualTotal
+                  total: campayConfig?.environment === 'demo' ? 10 : actualTotal
                 },
                 paymentMethod: 'campay',
                 paymentOption: 'campay',
@@ -808,7 +782,7 @@ const SingleCheckout: React.FC = () => {
                 },
                 metadata: {
                   source: 'catalogue',
-                  userId: user?.uid || undefined, // Optional: Include userId if user is logged in
+                  userId: user?.uid || undefined,
                   createdBy: createdBy || undefined,
                   deviceInfo: {
                     type: 'desktop',
@@ -827,7 +801,7 @@ const SingleCheckout: React.FC = () => {
                   currency: 'XAF',
                   metadata: {
                     externalReference: externalReference,
-                    environment: campayConfig.environment,
+                    environment: campayConfig?.environment || 'production',
                     timestamp: new Date().toISOString()
                   }
                 }
@@ -844,37 +818,34 @@ const SingleCheckout: React.FC = () => {
             toast.success('Payment successful! Order created.');
             setSubmitting(false);
           },
-          // onFail callback
+          // onFail callback (matching RestoFlow pattern)
           (data) => {
             console.error('Campay payment failed:', data);
-            const errorMessage = getCampayErrorMessage(data.message || 'Payment failed', campayConfig.environment);
-            const isRetryable = isRetryableError(errorMessage);
-            
-            // Show error with retry suggestion if applicable
-            if (isRetryable) {
-              toast.error(`${errorMessage} You can try again.`);
+            // Check for demo amount limit error
+            const errorMessage = data.message || '';
+            if (errorMessage.includes('Maximum amount') || errorMessage.includes('ER201') || errorMessage.includes('demo system')) {
+              const demoError = `Demo environment limit: Maximum amount is 10 XAF. Your order total is ${calculatedTotal} XAF. Please use production environment for larger amounts.`;
+              toast.error(demoError, { duration: 6000 });
             } else {
-              toast.error(errorMessage);
+              toast.error(data.message || 'Payment failed. Please try again.');
             }
-            
             setSubmitting(false);
           },
-          // onModalClose callback
+          // onModalClose callback (matching RestoFlow pattern)
           () => {
-            console.log('Campay payment modal closed');
-            toast('Payment was cancelled', { icon: 'ℹ️' });
+            // User cancelled - no error message needed (matching RestoFlow)
             setSubmitting(false);
           }
         );
 
-        // If payment was cancelled or failed before callbacks
+        // Note: The actual order creation happens in the onSuccess callback
+        // This promise resolves when payment is processed
         if (!paymentResult) {
-          setSubmitting(false);
+          // Payment was cancelled or failed - already handled in callbacks
           return;
         }
         
-        // Campay payment initiated - modal should open
-        // Order will be created in onSuccess callback
+        // Payment initiated - modal should open
         return;
       }
       
@@ -1292,7 +1263,7 @@ const SingleCheckout: React.FC = () => {
             {/* Payment Section */}
             {/* Show payment section if enabled OR if any payment integration (Campay/CinetPay) is configured */}
             {((checkoutSettings?.showPaymentSection) || 
-              (campayConfig && isCampayConfigured(campayConfig)) || 
+              isCampayInitialized || 
               (cinetpayConfig && isCinetPayConfigured(cinetpayConfig))) && (
               <div className="bg-white rounded-lg shadow-sm border p-6">
                 <h2 className="text-xl font-bold mb-4" style={{color: getCompanyColors().primary}}>{t('checkout.payment')}</h2>
@@ -1590,7 +1561,7 @@ const SingleCheckout: React.FC = () => {
                   )}
 
                   {/* Campay Payment Option */}
-                  {campayConfig && isCampayConfigured(campayConfig) && (
+                  {isCampayInitialized && (
                     <div 
                       className={`p-4 border-t border-gray-200 transition-all duration-200 ${
                         selectedPaymentOption === 'campay' 
@@ -1671,7 +1642,7 @@ const SingleCheckout: React.FC = () => {
                               </div>
                             </div>
                             
-                            {campayConfig.environment === 'demo' && (
+                            {isCampayInitialized && (
                               <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg animate-fade-in">
                                 <div className="flex items-start">
                                   <div className="flex-shrink-0 mt-0.5">
@@ -1734,7 +1705,7 @@ const SingleCheckout: React.FC = () => {
                    (!checkoutSettings || !checkoutSettings.enabledPaymentMethods || checkoutSettings.enabledPaymentMethods.visaCard !== true) &&
                    (!checkoutSettings || !checkoutSettings.enabledPaymentMethods || checkoutSettings.enabledPaymentMethods.payOnsite !== true) &&
                    !(cinetpayConfig && isCinetPayConfigured(cinetpayConfig)) &&
-                   !(campayConfig && isCampayConfigured(campayConfig)) && (
+                   !isCampayInitialized && (
                     <div className="p-4 text-center text-gray-500">
                       <p className="text-sm">Aucun mode de paiement disponible. Veuillez activer au moins un mode de paiement dans les paramètres.</p>
                     </div>
