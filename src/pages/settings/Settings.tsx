@@ -119,17 +119,17 @@ const Settings = () => {
     }
   }, [company]);
 
-  // Real-time checkout settings subscription
+  // Real-time checkout settings subscription (company-oriented)
   useEffect(() => {
-    if (!user?.uid) return;
+    if (!company?.id) return;
 
-    const unsubscribe = subscribeToCheckoutSettings(user.uid, (settings) => {
+    const unsubscribe = subscribeToCheckoutSettings(company.id, (settings) => {
       if (settings) {
         setCheckoutSettings(settings);
         setCheckoutLoading(false);
       } else {
         // If no settings exist, get defaults
-        getCheckoutSettingsWithDefaults(user.uid).then(settings => {
+        getCheckoutSettingsWithDefaults(company.id, user?.uid).then(settings => {
           setCheckoutSettings(settings);
           setCheckoutLoading(false);
         });
@@ -137,7 +137,7 @@ const Settings = () => {
     });
 
     return () => unsubscribe();
-  }, [user?.uid]);
+  }, [company?.id, user?.uid]);
 
   // Real-time CinetPay settings subscription
   useEffect(() => {
@@ -485,11 +485,11 @@ const Settings = () => {
   };
 
   const handleSaveCheckoutSettings = async () => {
-    if (!user?.uid || !checkoutSettings) return;
+    if (!company?.id || !checkoutSettings) return;
     
     try {
       setCheckoutSaving(true);
-      await saveCheckoutSettings(user.uid, checkoutSettings);
+      await saveCheckoutSettings(company.id, checkoutSettings, user?.uid);
       showSuccessToast('Checkout settings saved successfully!');
     } catch (error) {
       console.error('Error saving checkout settings:', error);
@@ -500,13 +500,13 @@ const Settings = () => {
   };
 
   const handleResetCheckoutSettings = async () => {
-    if (!user?.uid) return;
+    if (!company?.id) return;
     
     if (window.confirm('Are you sure you want to reset all checkout settings to default?')) {
       try {
         setCheckoutSaving(true);
-        await resetCheckoutSettings(user.uid);
-        const settings = await getCheckoutSettingsWithDefaults(user.uid);
+        await resetCheckoutSettings(company.id, user?.uid);
+        const settings = await getCheckoutSettingsWithDefaults(company.id, user?.uid);
         setCheckoutSettings(settings);
         showSuccessToast('Checkout settings reset to default!');
       } catch (error) {
@@ -3019,7 +3019,7 @@ const Settings = () => {
                                     } 
                                   });
                                   // Auto-save immediately
-                                  if (user?.uid) {
+                                  if (company?.id) {
                                     try {
                                       const updated = {
                                         ...checkoutSettings,
@@ -3028,7 +3028,7 @@ const Settings = () => {
                                           mtnMoney: e.target.checked
                                         }
                                       };
-                                      await saveCheckoutSettings(user.uid, updated);
+                                      await saveCheckoutSettings(company.id, updated, user?.uid);
                                       showSuccessToast('Payment method updated');
                                     } catch (error) {
                                       console.error('Error saving payment method:', error);
@@ -3069,7 +3069,7 @@ const Settings = () => {
                                     } 
                                   });
                                   // Auto-save immediately
-                                  if (user?.uid) {
+                                  if (company?.id) {
                                     try {
                                       const updated = {
                                         ...checkoutSettings,
@@ -3078,7 +3078,7 @@ const Settings = () => {
                                           orangeMoney: e.target.checked
                                         }
                                       };
-                                      await saveCheckoutSettings(user.uid, updated);
+                                      await saveCheckoutSettings(company.id, updated, user?.uid);
                                       showSuccessToast('Payment method updated');
                                     } catch (error) {
                                       console.error('Error saving payment method:', error);
@@ -3119,7 +3119,7 @@ const Settings = () => {
                                     } 
                                   });
                                   // Auto-save immediately
-                                  if (user?.uid) {
+                                  if (company?.id) {
                                     try {
                                       const updated = {
                                         ...checkoutSettings,
@@ -3128,7 +3128,7 @@ const Settings = () => {
                                           visaCard: e.target.checked
                                         }
                                       };
-                                      await saveCheckoutSettings(user.uid, updated);
+                                      await saveCheckoutSettings(company.id, updated, user?.uid);
                                       showSuccessToast('Payment method updated');
                                     } catch (error) {
                                       console.error('Error saving payment method:', error);
@@ -3169,7 +3169,7 @@ const Settings = () => {
                                     } 
                                   });
                                   // Auto-save immediately
-                                  if (user?.uid) {
+                                  if (company?.id) {
                                     try {
                                       const updated = {
                                         ...checkoutSettings,
@@ -3178,7 +3178,7 @@ const Settings = () => {
                                           payOnsite: e.target.checked
                                         }
                                       };
-                                      await saveCheckoutSettings(user.uid, updated);
+                                      await saveCheckoutSettings(company.id, updated, user?.uid);
                                       showSuccessToast('Payment method updated');
                                     } catch (error) {
                                       console.error('Error saving payment method:', error);

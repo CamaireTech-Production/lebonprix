@@ -10,27 +10,43 @@ import {
 import { db } from '../core/firebase';
 import type { CheckoutSettings, CheckoutSettingsUpdate } from '../../types/checkoutSettings';
 import { DEFAULT_CHECKOUT_SETTINGS } from '../../types/checkoutSettings';
-import { getCompanyById } from '../firestore/companies/companyPublic';
 
 const COLLECTION_NAME = 'checkout_settings';
 
 /**
- * Get checkout settings for a user
+ * Get checkout settings for a company (company-oriented)
  */
-export const getCheckoutSettings = async (userId: string): Promise<CheckoutSettings | null> => {
+export const getCheckoutSettings = async (companyId: string): Promise<CheckoutSettings | null> => {
   try {
-    const docRef = doc(db, COLLECTION_NAME, userId);
+    const docRef = doc(db, COLLECTION_NAME, companyId);
     const docSnap = await getDoc(docRef);
     
     if (docSnap.exists()) {
       const data = docSnap.data();
       // Use Firestore data as source of truth, only fill missing fields with defaults
+      // CRITICAL: enabledPaymentMethods must use Firestore data directly to preserve disabled states
       return {
+        ...DEFAULT_CHECKOUT_SETTINGS,
         ...data,
         id: docSnap.id,
-        userId,
-        // Only use defaults for missing fields
-        enabledPaymentMethods: data.enabledPaymentMethods || DEFAULT_CHECKOUT_SETTINGS.enabledPaymentMethods,
+        userId: data.userId || companyId, // Keep userId for backward compatibility
+        // CRITICAL: Use Firestore enabledPaymentMethods as source of truth
+        enabledPaymentMethods: (data.enabledPaymentMethods && typeof data.enabledPaymentMethods === 'object')
+          ? {
+              mtnMoney: data.enabledPaymentMethods.mtnMoney !== undefined 
+                ? data.enabledPaymentMethods.mtnMoney 
+                : DEFAULT_CHECKOUT_SETTINGS.enabledPaymentMethods.mtnMoney,
+              orangeMoney: data.enabledPaymentMethods.orangeMoney !== undefined 
+                ? data.enabledPaymentMethods.orangeMoney 
+                : DEFAULT_CHECKOUT_SETTINGS.enabledPaymentMethods.orangeMoney,
+              visaCard: data.enabledPaymentMethods.visaCard !== undefined 
+                ? data.enabledPaymentMethods.visaCard 
+                : DEFAULT_CHECKOUT_SETTINGS.enabledPaymentMethods.visaCard,
+              payOnsite: data.enabledPaymentMethods.payOnsite !== undefined 
+                ? data.enabledPaymentMethods.payOnsite 
+                : DEFAULT_CHECKOUT_SETTINGS.enabledPaymentMethods.payOnsite,
+            }
+          : DEFAULT_CHECKOUT_SETTINGS.enabledPaymentMethods,
         createdAt: data.createdAt?.toDate() || new Date(),
         updatedAt: data.updatedAt?.toDate() || new Date(),
       } as CheckoutSettings;
@@ -44,17 +60,18 @@ export const getCheckoutSettings = async (userId: string): Promise<CheckoutSetti
 };
 
 /**
- * Create or update checkout settings for a user
+ * Create or update checkout settings for a company (company-oriented)
  */
 export const saveCheckoutSettings = async (
-  userId: string, 
-  settings: CheckoutSettingsUpdate
+  companyId: string, 
+  settings: CheckoutSettingsUpdate,
+  userId?: string // Optional userId for audit trail
 ): Promise<void> => {
   try {
-    const docRef = doc(db, COLLECTION_NAME, userId);
+    const docRef = doc(db, COLLECTION_NAME, companyId);
     
     // Check if settings exist
-    const existingSettings = await getCheckoutSettings(userId);
+    const existingSettings = await getCheckoutSettings(companyId);
     
     if (existingSettings) {
       // When updating, ensure enabledPaymentMethods is a complete object
@@ -80,7 +97,7 @@ export const saveCheckoutSettings = async (
         ...settings,
         // Ensure enabledPaymentMethods is complete
         enabledPaymentMethods: settings.enabledPaymentMethods || DEFAULT_CHECKOUT_SETTINGS.enabledPaymentMethods,
-        userId,
+        userId: userId || companyId, // Keep userId for audit trail
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       };
@@ -94,15 +111,15 @@ export const saveCheckoutSettings = async (
 };
 
 /**
- * Initialize default checkout settings for a new user
+ * Initialize default checkout settings for a company
  */
-export const initializeCheckoutSettings = async (userId: string): Promise<void> => {
+export const initializeCheckoutSettings = async (companyId: string, userId?: string): Promise<void> => {
   try {
-    const docRef = doc(db, COLLECTION_NAME, userId);
+    const docRef = doc(db, COLLECTION_NAME, companyId);
     
     const defaultSettings = {
       ...DEFAULT_CHECKOUT_SETTINGS,
-      userId,
+      userId: userId || companyId,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     };
@@ -115,13 +132,13 @@ export const initializeCheckoutSettings = async (userId: string): Promise<void> 
 };
 
 /**
- * Subscribe to checkout settings changes
+ * Subscribe to checkout settings changes for a company (company-oriented)
  */
 export const subscribeToCheckoutSettings = (
-  userId: string,
+  companyId: string,
   callback: (settings: CheckoutSettings | null) => void
 ): Unsubscribe => {
-  const docRef = doc(db, COLLECTION_NAME, userId);
+  const docRef = doc(db, COLLECTION_NAME, companyId);
   
   return onSnapshot(docRef, (doc) => {
     if (doc.exists()) {
@@ -134,7 +151,7 @@ export const subscribeToCheckoutSettings = (
         // Then spread Firestore data to override defaults
         ...data,
         id: doc.id,
-        userId,
+        userId: data.userId || companyId, // Keep userId for backward compatibility
         // CRITICAL FIX: Use Firestore enabledPaymentMethods as source of truth
         // If Firestore has enabledPaymentMethods, use it directly - don't merge with defaults
         // This ensures disabled methods (false) stay disabled
@@ -170,11 +187,11 @@ export const subscribeToCheckoutSettings = (
 };
 
 /**
- * Reset checkout settings to defaults
+ * Reset checkout settings to defaults for a company
  */
-export const resetCheckoutSettings = async (userId: string): Promise<void> => {
+export const resetCheckoutSettings = async (companyId: string, userId?: string): Promise<void> => {
   try {
-    await saveCheckoutSettings(userId, DEFAULT_CHECKOUT_SETTINGS);
+    await saveCheckoutSettings(companyId, DEFAULT_CHECKOUT_SETTINGS, userId);
   } catch (error) {
     console.error('Error resetting checkout settings:', error);
     throw error;
@@ -182,22 +199,22 @@ export const resetCheckoutSettings = async (userId: string): Promise<void> => {
 };
 
 /**
- * Get checkout settings with fallback to defaults
+ * Get checkout settings with fallback to defaults for a company
  */
-export const getCheckoutSettingsWithDefaults = async (userId: string): Promise<CheckoutSettings> => {
+export const getCheckoutSettingsWithDefaults = async (companyId: string, userId?: string): Promise<CheckoutSettings> => {
   try {
-    const settings = await getCheckoutSettings(userId);
+    const settings = await getCheckoutSettings(companyId);
     
     if (settings) {
       return settings;
     }
     
     // If no settings exist, initialize with defaults
-    await initializeCheckoutSettings(userId);
+    await initializeCheckoutSettings(companyId, userId);
     
     return {
-      id: userId,
-      userId,
+      id: companyId,
+      userId: userId || companyId,
       ...DEFAULT_CHECKOUT_SETTINGS,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -209,25 +226,21 @@ export const getCheckoutSettingsWithDefaults = async (userId: string): Promise<C
 };
 
 /**
- * Get checkout settings by companyId (for public checkout)
+ * Get checkout settings by companyId (for public checkout) - now directly company-oriented
  * Falls back to defaults if not found
  */
 export const getCheckoutSettingsByCompanyId = async (companyId: string): Promise<CheckoutSettings> => {
   try {
-    // Try to get company document to find userId
-    const company = await getCompanyById(companyId);
+    const settings = await getCheckoutSettings(companyId);
     
-    if (company?.userId) {
-      const settings = await getCheckoutSettings(company.userId);
-      if (settings) {
-        return settings;
-      }
+    if (settings) {
+      return settings;
     }
     
-    // If no settings found, return defaults
+    // If no settings found, return defaults (but don't create document automatically)
     return {
       id: companyId,
-      userId: company?.userId || companyId,
+      userId: companyId,
       ...DEFAULT_CHECKOUT_SETTINGS,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -246,59 +259,11 @@ export const getCheckoutSettingsByCompanyId = async (companyId: string): Promise
 };
 
 /**
- * Subscribe to checkout settings by companyId (for public checkout)
+ * Subscribe to checkout settings by companyId (for public checkout) - now directly company-oriented
  */
 export const subscribeToCheckoutSettingsByCompanyId = (
   companyId: string,
-  callback: (settings: CheckoutSettings) => void
+  callback: (settings: CheckoutSettings | null) => void
 ): Unsubscribe => {
-  let unsubscribeFn: Unsubscribe | null = null;
-  
-  // Try to get company and subscribe to user's settings
-  getCompanyById(companyId)
-    .then((company) => {
-      if (company?.userId) {
-        unsubscribeFn = subscribeToCheckoutSettings(company.userId, (settings) => {
-          if (settings) {
-            callback(settings);
-          } else {
-            // Return defaults if no settings
-            callback({
-              id: companyId,
-              userId: company.userId,
-              ...DEFAULT_CHECKOUT_SETTINGS,
-              createdAt: new Date(),
-              updatedAt: new Date(),
-            });
-          }
-        });
-      } else {
-        // Return defaults if no company found
-        callback({
-          id: companyId,
-          userId: companyId,
-          ...DEFAULT_CHECKOUT_SETTINGS,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        });
-      }
-    })
-    .catch((error) => {
-      console.error('Error subscribing to checkout settings by companyId:', error);
-      // Return defaults on error
-      callback({
-        id: companyId,
-        userId: companyId,
-        ...DEFAULT_CHECKOUT_SETTINGS,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
-    });
-  
-  // Return unsubscribe function
-  return () => {
-    if (unsubscribeFn) {
-      unsubscribeFn();
-    }
-  };
+  return subscribeToCheckoutSettings(companyId, callback);
 };

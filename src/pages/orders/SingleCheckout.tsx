@@ -10,6 +10,7 @@ import { getCurrentEmployeeRef } from '@utils/business/employeeUtils';
 import { getUserById } from '@services/utilities/userService';
 import { formatPrice } from '@utils/formatting/formatPrice';
 import { subscribeToCheckoutSettingsByCompanyId } from '@services/utilities/checkoutSettingsService';
+import { DEFAULT_CHECKOUT_SETTINGS } from '../../types/checkoutSettings';
 // Removed useCheckoutPersistence - using manual save approach
 import { subscribeToCinetPayConfig, isCinetPayConfigured } from '@services/payment/cinetpayService';
 import { processCinetPayPayment, validatePaymentData, formatPhoneForCinetPay } from '@utils/core/cinetpayHandler';
@@ -195,12 +196,25 @@ const SingleCheckout: React.FC = () => {
     fetchCompanyData();
   }, [companyId, navigate]);
 
-  // Real-time checkout settings subscription by companyId
+  // Real-time checkout settings subscription by companyId (company-oriented)
   useEffect(() => {
     if (!companyId) return;
 
     const unsubscribe = subscribeToCheckoutSettingsByCompanyId(companyId, (settings) => {
-      setCheckoutSettings(settings);
+      // If settings is null, use defaults (all methods enabled)
+      // This ensures disabled methods are properly filtered when settings exist
+      if (settings) {
+        setCheckoutSettings(settings);
+      } else {
+        // No settings found - use defaults
+        setCheckoutSettings({
+          id: companyId,
+          userId: companyId,
+          ...DEFAULT_CHECKOUT_SETTINGS,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+      }
     });
 
     return () => unsubscribe();
