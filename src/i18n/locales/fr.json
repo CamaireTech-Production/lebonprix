@@ -694,6 +694,10 @@
       "categoryPlaceholder": "Sélectionner ou créer une catégorie",
       "image": "Images",
       "latestCostPrice": "Dernier Prix d'Achat",
+      "sellingPriceHelp": "Requis : Le prix auquel vous vendez ce produit.",
+      "cataloguePriceHelp": "Optionnel : Utilisé pour référence ou promotions.",
+      "profitPerUnit": "Profit par unité",
+      "imageHelp": "Ajoutez des images claires pour aider à identifier ce produit. Vous pouvez télécharger plusieurs images.",
       "step1": {
         "title": "Informations de base",
         "name": "Nom du produit",
@@ -707,6 +711,7 @@
         "latestCostPrice": "Dernier Prix d'Achat",
         "visibility": "Visibilité",
         "visibleInCatalogue": "Visible dans le catalogue",
+        "hiddenFromCatalogue": "Masqué du catalogue",
         "imageFormats": "Formats supportés : JPG, PNG, GIF, WebP (max 5MB chacun)",
         "profitPerUnit": "Profit par unité",
         "stockChangeType": "Type de Changement de Stock",

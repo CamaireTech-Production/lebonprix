@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Grid, List, Plus, Search, Edit2, Upload, Trash2, CheckSquare, Square, Info, Eye, EyeOff, QrCode, ExternalLink } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Card, Button, Badge, Modal, ModalFooter, Input, ImageWithSkeleton, LoadingScreen, SyncIndicator } from '@components/common';
+import { Card, Button, Badge, Modal, ModalFooter, Input, ImageWithSkeleton, LoadingScreen, SyncIndicator, PriceInput } from '@components/common';
 import { useProducts, useStockChanges, useCategories, useSuppliers } from '@hooks/data/useFirestore';
 import { useInfiniteProducts } from '@hooks/data/useInfiniteProducts';
 import { useInfiniteScroll } from '@hooks/data/useInfiniteScroll';
@@ -1247,6 +1247,22 @@ const Products = () => {
     return activeBatches.reduce((sum, batch) => sum + (batch.remainingQuantity || 0), 0);
   };
 
+  // Helper function to get latest cost price from active stock batches
+  const getLatestCostPriceFromBatches = (productId: string): number | undefined => {
+    const batches = getProductBatches(productId);
+    const activeBatches = batches.filter(batch => batch.status === 'active' && batch.remainingQuantity > 0);
+    if (activeBatches.length === 0) return undefined;
+    
+    // Sort by creation date (newest first) and get the most recent batch's cost price
+    const sortedBatches = activeBatches.sort((a, b) => {
+      const timeA = a.createdAt?.seconds || 0;
+      const timeB = b.createdAt?.seconds || 0;
+      return timeB - timeA;
+    });
+    
+    return sortedBatches[0]?.costPrice || undefined;
+  };
+
   // Helper function to get the effective visibility state (considering optimistic updates)
   const getEffectiveVisibility = (product: Product): boolean => {
     return visibilityOverrides[product.id] !== undefined 
@@ -2240,19 +2256,19 @@ const Products = () => {
             {t('products.editTabs.info')}
           </button>
           <button
+            className={`px-4 py-2 ${editTab === 'pricing' ? 'font-bold border-b-2 border-emerald-500' : 'text-gray-500'}`}
+            onClick={() => setEditTab('pricing')}
+            type="button"
+          >
+            {t('products.editTabs.pricing')}
+          </button>
+          <button
             className={`px-4 py-2 ${editTab === 'stock' ? 'font-bold border-b-2 border-emerald-500' : 'text-gray-500'}`}
             onClick={() => setEditTab('stock')}
             type="button"
           >
             {t('products.editTabs.stock')}
           </button>
-          <button
-            className={`px-4 py-2 ${editTab === 'pricing' ? 'font-bold border-b-2 border-emerald-500' : 'text-gray-500'}`}
-            onClick={() => setEditTab('pricing')}
-            type="button"
-          >
-            {t('products.editTabs.pricing')}
-                      </button>
                     </div>
         {/* Tab content */}
         {editTab === 'info' && (
@@ -2429,6 +2445,103 @@ const Products = () => {
             </div>
           </div>
         )}
+        {editTab === 'pricing' && (
+          <div className="space-y-6">
+            {/* Info Box */}
+            <div className="flex items-start bg-blue-50 border-l-4 border-blue-400 p-4 rounded-md mb-4">
+              <svg className="w-5 h-5 text-blue-400 mt-0.5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M12 20a8 8 0 100-16 8 8 0 000 16z" /></svg>
+              <div className="text-sm text-blue-800">
+                {t('products.editTabs.pricingInfoBox', 'Set the price at which you sell this product. The catalogue price is optional and can be used for reference or promotions.')}
+              </div>
+            </div>
+            {/* Selling Price */}
+            <PriceInput
+              label={t('products.form.step2.sellingPrice')}
+              name="sellingPrice"
+              value={editPrices.sellingPrice || ''}
+              onChange={(e) => setEditPrices((p: typeof editPrices) => ({ ...p, sellingPrice: e.target.value }))}
+              required
+              helpText={t('products.form.sellingPriceHelp', 'Required: The price at which you sell this product.')}
+            />
+            {/* Catalogue Price */}
+            <PriceInput
+              label={t('products.form.step2.cataloguePrice')}
+              name="cataloguePrice"
+              value={editPrices.cataloguePrice || ''}
+              onChange={(e) => setEditPrices((p: typeof editPrices) => ({ ...p, cataloguePrice: e.target.value }))}
+              helpText={t('products.form.cataloguePriceHelp', 'Optional: Used for reference or promotions.')}
+            />
+            {/* Profit/Cost Info */}
+            <div className="space-y-1">
+              <div className="text-sm text-gray-700">
+                {t('products.form.latestCostPrice', 'Latest Cost Price')}: {(getLatestCostPrice(currentProduct?.id || '', Array.isArray(stockChanges) ? (stockChanges as StockChange[]) : []) ?? 0)} XAF
+              </div>
+              <div className="text-sm text-gray-700">
+                {t('products.form.profitPerUnit', 'Profit per unit')}: {editPrices.sellingPrice && getLatestCostPrice(currentProduct?.id || '', Array.isArray(stockChanges) ? (stockChanges as StockChange[]) : []) !== undefined ? (parseFloat(editPrices.sellingPrice) - (getLatestCostPrice(currentProduct?.id || '', Array.isArray(stockChanges) ? (stockChanges as StockChange[]) : []) ?? 0)).toLocaleString() : '-'} XAF
+              </div>
+              {editPrices.sellingPrice && getLatestCostPrice(currentProduct?.id || '', Array.isArray(stockChanges) ? (stockChanges as StockChange[]) : []) !== undefined && parseFloat(editPrices.sellingPrice) < (getLatestCostPrice(currentProduct?.id || '', Array.isArray(stockChanges) ? (stockChanges as StockChange[]) : []) ?? 0) && (
+                <div className="flex items-center bg-red-50 border-l-4 border-red-400 p-2 rounded-md mt-2">
+                  <svg className="w-4 h-4 text-red-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                  <span className="text-xs text-red-800">{t('products.form.sellingBelowCost', 'Warning: Selling price is below cost price!')}</span>
+                </div>
+              )}
+            </div>
+            {/* Images */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{t('products.form.image')}</label>
+              <div className="flex items-center space-x-2 pb-2">
+                <label className="w-20 h-20 flex items-center justify-center border-2 border-dashed border-gray-300 rounded-md cursor-pointer bg-gray-50 hover:bg-gray-100 transition-all duration-200 relative flex-shrink-0">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="absolute inset-0 opacity-0 cursor-pointer"
+                    onChange={handleImagesUpload}
+                    disabled={isUploadingImages}
+                  />
+                  {isUploadingImages ? (
+                    <span className="animate-spin text-emerald-500"><Upload size={28} /></span>
+                  ) : (
+                    <Upload size={28} className="text-gray-400" />
+                  )}
+                </label>
+                <div className="flex overflow-x-auto custom-scrollbar space-x-2 py-1">
+                  {(step1Data.images ?? []).map((img, idx) => {
+                    // Handle both File objects and existing URLs
+                    let imageSrc: string;
+                    if (img instanceof File) {
+                      imageSrc = URL.createObjectURL(img);
+                    } else if (typeof img === 'string') {
+                      imageSrc = img;
+                    } else {
+                      console.warn('Invalid image object:', img);
+                      imageSrc = '/placeholder.png';
+                    }
+                    
+                    return (
+                      <div key={idx} className="relative w-20 h-20 flex-shrink-0 rounded-md overflow-hidden group">
+                        <ImageWithSkeleton
+                          src={imageSrc}
+                          alt={`Product ${idx + 1}`}
+                          className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
+                          placeholder="/placeholder.png"
+                        />
+                        <button
+                          type="button"
+                          className="absolute top-1 right-1 bg-white bg-opacity-80 rounded-full p-1 text-red-600 hover:text-red-800 shadow"
+                          onClick={() => handleRemoveImage(idx)}
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              <p className="mt-1 text-sm text-gray-500">{t('products.form.imageHelp', 'Add clear images to help identify this product. You can upload multiple images.')}</p>
+        </div>
+          </div>
+        )}
         {editTab === 'stock' && (
           <div className="space-y-6">
             {/* Info Box */}
@@ -2449,7 +2562,7 @@ const Products = () => {
                   <p className="text-sm text-gray-600">Total available units for this product</p>
               </div>
                 <div className="text-right">
-                  <div className="text-3xl font-bold text-blue-600">{currentProduct?.stock ?? 0}</div>
+                  <div className="text-3xl font-bold text-blue-600">{currentProduct?.id ? getProductStockFromBatches(currentProduct.id) : 0}</div>
                   <div className="text-sm text-gray-500">units</div>
             </div>
               </div>
@@ -2571,107 +2684,6 @@ const Products = () => {
                </div>
              </div>
            </div>
-        )}
-        {editTab === 'pricing' && (
-          <div className="space-y-6">
-            {/* Info Box */}
-            <div className="flex items-start bg-blue-50 border-l-4 border-blue-400 p-4 rounded-md mb-4">
-              <svg className="w-5 h-5 text-blue-400 mt-0.5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M12 20a8 8 0 100-16 8 8 0 000 16z" /></svg>
-              <div className="text-sm text-blue-800">
-                {t('products.editTabs.pricingInfoBox', 'Set the price at which you sell this product. The catalogue price is optional and can be used for reference or promotions.')}
-              </div>
-            </div>
-            {/* Selling Price */}
-            <Input
-              label={t('products.form.step2.sellingPrice')}
-              name="sellingPrice"
-              type="number"
-              min={0}
-              value={editPrices.sellingPrice}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditPrices((p: typeof editPrices) => ({ ...p, sellingPrice: e.target.value.replace(/[^0-9]/g, '') }))}
-              required
-              helpText={t('products.form.sellingPriceHelp', 'Required: The price at which you sell this product.')}
-            />
-            {/* Catalogue Price */}
-            <Input
-              label={t('products.form.step2.cataloguePrice')}
-              name="cataloguePrice"
-              type="number"
-              min={0}
-              value={editPrices.cataloguePrice}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditPrices((p: typeof editPrices) => ({ ...p, cataloguePrice: e.target.value.replace(/[^0-9]/g, '') }))}
-              helpText={t('products.form.cataloguePriceHelp', 'Optional: Used for reference or promotions.')}
-            />
-            {/* Profit/Cost Info */}
-            <div className="space-y-1">
-              <div className="text-sm text-gray-700">
-                {t('products.form.latestCostPrice', 'Latest Cost Price')}: {(getLatestCostPrice(currentProduct?.id || '', Array.isArray(stockChanges) ? (stockChanges as StockChange[]) : []) ?? 0)} XAF
-              </div>
-              <div className="text-sm text-gray-700">
-                {t('products.form.profitPerUnit', 'Profit per unit')}: {editPrices.sellingPrice && getLatestCostPrice(currentProduct?.id || '', Array.isArray(stockChanges) ? (stockChanges as StockChange[]) : []) !== undefined ? (parseFloat(editPrices.sellingPrice) - (getLatestCostPrice(currentProduct?.id || '', Array.isArray(stockChanges) ? (stockChanges as StockChange[]) : []) ?? 0)).toLocaleString() : '-'} XAF
-              </div>
-              {editPrices.sellingPrice && getLatestCostPrice(currentProduct?.id || '', Array.isArray(stockChanges) ? (stockChanges as StockChange[]) : []) !== undefined && parseFloat(editPrices.sellingPrice) < (getLatestCostPrice(currentProduct?.id || '', Array.isArray(stockChanges) ? (stockChanges as StockChange[]) : []) ?? 0) && (
-                <div className="flex items-center bg-red-50 border-l-4 border-red-400 p-2 rounded-md mt-2">
-                  <svg className="w-4 h-4 text-red-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                  <span className="text-xs text-red-800">{t('products.form.sellingBelowCost', 'Warning: Selling price is below cost price!')}</span>
-                </div>
-              )}
-            </div>
-            {/* Images */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">{t('products.form.image')}</label>
-              <div className="flex items-center space-x-2 pb-2">
-                <label className="w-20 h-20 flex items-center justify-center border-2 border-dashed border-gray-300 rounded-md cursor-pointer bg-gray-50 hover:bg-gray-100 transition-all duration-200 relative flex-shrink-0">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    className="absolute inset-0 opacity-0 cursor-pointer"
-                    onChange={handleImagesUpload}
-                    disabled={isUploadingImages}
-                  />
-                  {isUploadingImages ? (
-                    <span className="animate-spin text-emerald-500"><Upload size={28} /></span>
-                  ) : (
-                    <Upload size={28} className="text-gray-400" />
-                  )}
-                </label>
-                <div className="flex overflow-x-auto custom-scrollbar space-x-2 py-1">
-                  {(step1Data.images ?? []).map((img, idx) => {
-                    // Handle both File objects and existing URLs
-                    let imageSrc: string;
-                    if (img instanceof File) {
-                      imageSrc = URL.createObjectURL(img);
-                    } else if (typeof img === 'string') {
-                      imageSrc = img;
-                    } else {
-                      console.warn('Invalid image object:', img);
-                      imageSrc = '/placeholder.png';
-                    }
-                    
-                    return (
-                      <div key={idx} className="relative w-20 h-20 flex-shrink-0 rounded-md overflow-hidden group">
-                        <ImageWithSkeleton
-                          src={imageSrc}
-                          alt={`Product ${idx + 1}`}
-                          className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
-                          placeholder="/placeholder.png"
-                        />
-                        <button
-                          type="button"
-                          className="absolute top-1 right-1 bg-white bg-opacity-80 rounded-full p-1 text-red-600 hover:text-red-800 shadow"
-                          onClick={() => handleRemoveImage(idx)}
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-              <p className="mt-1 text-sm text-gray-500">{t('products.form.imageHelp', 'Add clear images to help identify this product. You can upload multiple images.')}</p>
-        </div>
-          </div>
         )}
       </Modal>
 
@@ -3010,7 +3022,7 @@ const Products = () => {
                   )}
                   <div>
                     <label className="block text-sm font-medium text-gray-700">{t('products.form.latestCostPrice', 'Latest Cost Price')}</label>
-                    <p className="mt-1 text-sm text-gray-900">{getLatestCostPrice(detailProduct?.id || '', Array.isArray(stockChanges) ? (stockChanges as StockChange[]) : [])?.toLocaleString() || '0'} XAF</p>
+                    <p className="mt-1 text-sm text-gray-900">{detailProduct?.id ? (getLatestCostPriceFromBatches(detailProduct.id)?.toLocaleString() || '0') : '0'} XAF</p>
                   </div>
                 </div>
               </div>
@@ -3019,32 +3031,19 @@ const Products = () => {
             {/* Stock Information */}
             <div>
               <h3 className="text-lg font-semibold text-gray-900 mb-3">{t('products.detailTabs.stock', 'Stock Information')}</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700">{t('products.table.columns.stock')}</label>
                   <div className="mt-1">
-                    <Badge variant={detailProduct && (detailProduct.stock ?? 0) > 10 ? 'success' : detailProduct && (detailProduct.stock ?? 0) > 5 ? 'warning' : 'error'}>
-                      {detailProduct?.stock || 0} units
-                    </Badge>
+                    {(() => {
+                      const stockFromBatches = detailProduct?.id ? getProductStockFromBatches(detailProduct.id) : 0;
+                      return (
+                        <Badge variant={stockFromBatches > 10 ? 'success' : stockFromBatches > 5 ? 'warning' : 'error'}>
+                          {stockFromBatches} units
+                        </Badge>
+                      );
+                    })()}
                   </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">{t('products.detailTabs.profitPerUnit', 'Profit per Unit')}</label>
-                  <p className="mt-1 text-sm font-semibold text-emerald-600">
-                    {detailProduct && getLatestCostPrice(detailProduct.id, Array.isArray(stockChanges) ? (stockChanges as StockChange[]) : []) !== undefined
-? (detailProduct.sellingPrice - (getLatestCostPrice(detailProduct.id, Array.isArray(stockChanges) ? (stockChanges as StockChange[]) : []) || 0)).toLocaleString()
-                      : '-'
-                    } XAF
-                  </p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">{t('products.detailTabs.totalValue', 'Total Stock Value')}</label>
-                  <p className="mt-1 text-sm text-gray-900">
-                    {detailProduct && getLatestCostPrice(detailProduct.id, Array.isArray(stockChanges) ? (stockChanges as StockChange[]) : []) !== undefined
-? ((getLatestCostPrice(detailProduct.id, Array.isArray(stockChanges) ? (stockChanges as StockChange[]) : []) || 0) * (detailProduct?.stock ?? 0)).toLocaleString()
-                      : '0'
-                    } XAF
-                  </p>
                 </div>
               </div>
             </div>
