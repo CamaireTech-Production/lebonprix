@@ -190,9 +190,9 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
       icon: <Warehouse size={20} />, 
       resource: RESOURCES.MAGASIN,
       subItems: [
-        { name: 'Matières', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/magasin/matieres` : '/magasin/matieres' },
-        { name: 'Catégories', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/magasin/categories` : '/magasin/categories' },
-        { name: 'Stocks', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/magasin/stocks` : '/magasin/stocks' },
+        { name: t('navigation.warehouse.matieres'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/magasin/matieres` : '/magasin/matieres' },
+        { name: t('navigation.warehouse.categories'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/magasin/categories` : '/magasin/categories' },
+        { name: t('navigation.warehouse.stocks'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/magasin/stocks` : '/magasin/stocks' },
       ]
     },
     { name: t('navigation.suppliers'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/suppliers` : '/suppliers', icon: <Users size={20} />, resource: 'suppliers' },

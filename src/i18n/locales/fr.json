@@ -73,7 +73,119 @@
     "confirmCompanyExitMessage": "Vous êtes sur le point de quitter le contexte de l'entreprise actuelle pour gérer vos entreprises.",
     "confirmCompanyExitQuestion": "Êtes-vous sûr de vouloir continuer ?",
     "currentCompany": "Entreprise actuelle",
-    "pos": "Point de Vente"
+    "pos": "Point de Vente",
+    "warehouse": {
+      "matieres": "Matières",
+      "categories": "Catégories",
+      "stocks": "Inventaire",
+      "stocksPage": {
+        "title": "Inventaire des Matières",
+        "subtitle": "Gérer l'inventaire des matières avec visibilité des lots",
+        "searchPlaceholder": "Rechercher des matières par nom ou référence",
+        "rowsPerPage": "Lignes par page",
+        "columns": {
+          "matiere": "Matière",
+          "category": "Catégorie",
+          "stock": "Stock",
+          "batches": "Lots",
+          "actions": "Actions"
+        },
+        "batchTable": {
+          "batchId": "ID du Lot",
+          "remainingTotal": "Restant / Total",
+          "status": "Statut",
+          "actions": "Actions"
+        },
+        "actions": {
+          "history": "Historique",
+          "restock": "Réapprovisionner",
+          "adjust": "Ajuster",
+          "damage": "Endommagé",
+          "toggleBatches": "Basculer les lots"
+        },
+        "status": {
+          "active": "actif",
+          "depleted": "épuisé",
+          "activeDepleted": "{{active}} actif / {{depleted}} épuisé"
+        },
+        "messages": {
+          "errorLoading": "Erreur lors du chargement des matières",
+          "failedToLoad": "Échec du chargement des matières. Veuillez réessayer.",
+          "reloadPage": "Recharger la page",
+          "errorLoadingBatches": "Erreur lors du chargement des lots. Veuillez réessayer.",
+          "noBatchesFound": "Aucun lot trouvé pour cette matière.",
+          "createBatchByRestocking": "Créez un lot en réapprovisionnant cette matière.",
+          "noActionsDepleted": "Aucune action (épuisé)",
+          "noMatieresFound": "Aucune matière trouvée",
+          "noMatieresMatchSearch": "Aucune matière ne correspond à votre recherche \"{{search}}\". Essayez d'ajuster vos termes de recherche.",
+          "clearSearch": "Effacer la recherche",
+          "noMatieresYet": "Aucune matière pour le moment",
+          "startByAdding": "Commencez par ajouter des matières à votre inventaire. Une fois les matières ajoutées, elles apparaîtront ici avec leurs informations de stock.",
+          "showingResults": "Affichage de {{from}} à {{to}} sur {{total}} matières",
+          "previous": "Précédent",
+          "next": "Suivant",
+          "page": "Page",
+          "of": "sur"
+        },
+        "historyModal": {
+          "title": "Historique du Stock - {{name}}",
+          "matiere": "Matière :",
+          "currentStock": "Stock actuel :",
+          "columns": {
+            "date": "Date",
+            "change": "Changement",
+            "reason": "Raison",
+            "supplier": "Fournisseur",
+            "payment": "Paiement",
+            "costPrice": "Prix d'achat"
+          },
+          "noHistoryFound": "Aucun historique de stock trouvé pour cette matière."
+        }
+      },
+      "restockModal": {
+        "title": "Réapprovisionner {{name}}",
+        "matiereInfo": {
+          "title": "Informations de la Matière",
+          "name": "Nom :",
+          "unit": "Unité :",
+          "currentStock": "Stock actuel :",
+          "category": "Catégorie :"
+        },
+        "restockDetails": {
+          "title": "Détails du Réapprovisionnement",
+          "quantity": "Quantité ({{unit}})",
+          "quantityPlaceholder": "Entrer la quantité",
+          "costPrice": "Prix d'achat par unité (Optionnel)",
+          "costPricePlaceholder": "Entrer le prix d'achat",
+          "loadingCostPrice": "Chargement du dernier prix d'achat...",
+          "fetchingCostPrice": "Récupération du prix d'achat du dernier lot..."
+        },
+        "totalCost": {
+          "title": "Coût Total",
+          "expenseWillBeCreated": "Une entrée de dépense sera créée pour ce réapprovisionnement{{usingDefault}}",
+          "usingDefault": " (en utilisant le prix d'achat du dernier lot)",
+          "noExpenseCreated": "Aucune entrée de dépense ne sera créée"
+        },
+        "validation": {
+          "title": "Erreurs de Validation",
+          "invalidQuantity": "Veuillez entrer une quantité valide (nombre entier supérieur à 0)",
+          "invalidCostPrice": "Veuillez entrer un prix d'achat valide (supérieur ou égal à 0)"
+        },
+        "notes": {
+          "label": "Notes (Optionnel)",
+          "placeholder": "Ajouter des notes concernant ce réapprovisionnement..."
+        },
+        "actions": {
+          "cancel": "Annuler",
+          "restock": "Réapprovisionner la Matière",
+          "restocking": "Réapprovisionnement..."
+        },
+        "messages": {
+          "success": "Matière réapprovisionnée avec succès !",
+          "error": "Échec du réapprovisionnement de la matière : {{error}}"
+        }
+      }
+    }
   },
   "header": {
     "welcome": "Bienvenue",
