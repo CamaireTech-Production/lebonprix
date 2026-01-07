@@ -2,14 +2,19 @@ import { useState, useMemo } from 'react';
 import { Plus, Search, Edit2, Trash2, Package, Grid3X3 } from 'lucide-react';
 import { Card, Button, Input, Badge, Modal, ModalFooter, ImageWithSkeleton } from '@components/common';
 import { useMatieres } from '@hooks/business/useMatieres';
+import { useMatiereStocks } from '@hooks/business/useMatiereStocks';
 import { useCategories } from '@hooks/data/useFirestore';
+import { useAuth } from '@contexts/AuthContext';
 import MatiereFormModal from '../../components/magasin/MatiereFormModal';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
+import { getStockBadgeVariant } from '@utils/magasin/stockBadge';
 import type { Matiere } from '../../types/models';
 
 const Matieres = () => {
   const { matieres, loading, error, deleteMatiereData } = useMatieres();
+  const { matiereStocks, loading: stocksLoading } = useMatiereStocks();
   const { categories } = useCategories();
+  const { company } = useAuth();
   
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -18,6 +23,23 @@ const Matieres = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+
+  // Create a map for quick stock lookup
+  const stockMap = useMemo(() => {
+    const map = new Map<string, number>();
+    matiereStocks.forEach(stock => {
+      map.set(stock.matiereId, stock.currentStock);
+    });
+    return map;
+  }, [matiereStocks]);
+
+  // Get stock for a matiere
+  const getMatiereStock = (matiereId: string): number | undefined => {
+    return stockMap.get(matiereId);
+  };
+
+  // Get threshold from company settings
+  const threshold = company?.lowStockThreshold;
 
   // Filter matieres
   const filteredMatieres = useMemo(() => {
@@ -216,6 +238,19 @@ const Matieres = () => {
                         Prix: {matiere.costPrice.toLocaleString()} XAF
                       </div>
                       
+                      {/* Stock Badge */}
+                      <div className="mb-3">
+                        {stocksLoading ? (
+                          <div className="h-5 w-24 bg-gray-200 rounded animate-pulse" />
+                        ) : (
+                          <Badge variant={getStockBadgeVariant(getMatiereStock(matiere.id) ?? 0, threshold)}>
+                            Stock: {getMatiereStock(matiere.id) !== undefined 
+                              ? `${getMatiereStock(matiere.id)!.toLocaleString()} ${matiere.unit || ''}`.trim()
+                              : '—'}
+                          </Badge>
+                        )}
+                      </div>
+                      
                       {/* Actions */}
                       <div className="flex justify-end space-x-2">
                         <button
@@ -275,8 +310,20 @@ const Matieres = () => {
                         </Badge>
                       )}
                     </div>
-                    <div className="text-sm text-gray-600">
+                    <div className="text-sm text-gray-600 mb-1">
                       Prix: {matiere.costPrice.toLocaleString()} XAF
+                    </div>
+                    {/* Stock Badge */}
+                    <div className="mt-1">
+                      {stocksLoading ? (
+                        <div className="h-5 w-24 bg-gray-200 rounded animate-pulse" />
+                      ) : (
+                        <Badge variant={getStockBadgeVariant(getMatiereStock(matiere.id) ?? 0, threshold)}>
+                          Stock: {getMatiereStock(matiere.id) !== undefined 
+                            ? `${getMatiereStock(matiere.id)!.toLocaleString()} ${matiere.unit || ''}`.trim()
+                            : '—'}
+                        </Badge>
+                      )}
                     </div>
                   </div>
                   
