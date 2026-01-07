@@ -112,7 +112,6 @@ const SingleCheckout: React.FC = () => {
     try {
       const key = `checkout_data_${companyId}`;
       localStorage.removeItem(key);
-      console.log('Checkout data cleared');
     } catch (error) {
       console.error('Error clearing checkout data:', error);
     }
@@ -201,14 +200,6 @@ const SingleCheckout: React.FC = () => {
     if (!companyId) return;
 
     const unsubscribe = subscribeToCheckoutSettingsByCompanyId(companyId, (settings) => {
-      console.log('Checkout settings loaded:', {
-        hasSettings: !!settings,
-        enabledPaymentMethods: settings?.enabledPaymentMethods,
-        mtnMoney: settings?.enabledPaymentMethods?.mtnMoney,
-        orangeMoney: settings?.enabledPaymentMethods?.orangeMoney,
-        visaCard: settings?.enabledPaymentMethods?.visaCard,
-        payOnsite: settings?.enabledPaymentMethods?.payOnsite,
-      });
       setCheckoutSettings(settings);
     });
 
@@ -257,7 +248,6 @@ const SingleCheckout: React.FC = () => {
       
       localStorage.setItem(key, JSON.stringify(payload));
       setLastSaved(new Date().toISOString());
-      console.log('Checkout data saved manually');
     } catch (error) {
       console.error('Error saving checkout data:', error);
     } finally {
@@ -299,16 +289,8 @@ const SingleCheckout: React.FC = () => {
       
       // Load form data
       const savedData = loadCheckoutData();
-      console.log('Loading checkout data for company:', companyId);
-      console.log('Saved data found:', savedData);
       
       if (savedData) {
-        console.log('Saved data structure:', {
-          hasFormData: !!savedData.formData,
-          formDataKeys: savedData.formData ? Object.keys(savedData.formData) : [],
-          hasCustomerInfo: !!(savedData.formData && savedData.formData.customerInfo)
-        });
-        
         if (savedData.formData) {
           // Restore form data with null checks
           if (savedData.formData.customerInfo) {
@@ -324,17 +306,11 @@ const SingleCheckout: React.FC = () => {
             setPaymentFormData(savedData.formData.paymentFormData);
           }
           
-          console.log('Form data restored:', savedData.formData);
-          
           // Show restoration message
           if (savedData.formData.customerInfo && (savedData.formData.customerInfo.name || savedData.formData.customerInfo.phone)) {
             toast.success('Previous checkout data restored');
           }
-        } else {
-          console.log('No formData found in saved data');
         }
-      } else {
-        console.log('No saved checkout data found for company:', companyId);
       }
     }
   }, [companyId, loadCheckoutData, loadCartForCompany, setCurrentCompanyId]);
@@ -583,8 +559,7 @@ const SingleCheckout: React.FC = () => {
           cinetpayConfig,
           paymentData,
           {
-            onSuccess: (transaction) => {
-              console.log('CinetPay payment successful:', transaction);
+            onSuccess: () => {
               toast.success('Payment successful! Your order is being processed.');
             },
             onError: (error) => {
@@ -608,7 +583,7 @@ const SingleCheckout: React.FC = () => {
               }
             },
             onClose: () => {
-              console.log('CinetPay payment popup closed');
+              // CinetPay payment popup closed
             }
           }
         );
@@ -708,10 +683,6 @@ const SingleCheckout: React.FC = () => {
         
         // Use 10 XAF for demo mode, otherwise use calculated total
         const finalTotal = campayConfig?.environment === 'demo' ? 10 : calculatedTotal;
-        
-        if (campayConfig?.environment === 'demo') {
-          console.log(`[DEMO MODE] Using fixed amount: 10 XAF (Actual total: ${calculatedTotal} XAF)`);
-        }
 
         // Validate amount limits if config is available
         if (campayConfig) {
@@ -743,7 +714,6 @@ const SingleCheckout: React.FC = () => {
           paymentOptions,
           // onSuccess callback (matching RestoFlow pattern)
           async (data) => {
-            console.log('Campay payment successful:', data);
             
             // Get createdBy employee reference
             let createdBy = null;
