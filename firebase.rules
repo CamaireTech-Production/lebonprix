@@ -143,10 +143,12 @@ service cloud.firestore {
       allow write: if isAuthenticated();
     }
     
-    // Orders - SIMPLIFIED: Authenticated users can read/write
+    // Orders - Allow guest checkout (unauthenticated create), authenticated read
     match /orders/{orderId} {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+      allow create: if true; // Allow guest checkout - orders can be created by anyone
+      allow update: if isAuthenticated(); // Only authenticated users can update orders
+      allow delete: if false; // Never allow deletion
     }
     
     // Order Events - SIMPLIFIED: Authenticated users can read/write

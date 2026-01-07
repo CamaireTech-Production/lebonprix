@@ -5,7 +5,8 @@ import {
   isCampayConfigured 
 } from '@services/payment/campayService';
 import { 
-  processCampayPayment 
+  processCampayPayment,
+  initializeCampay as initializeCampaySDK
 } from '@utils/core/campayHandler';
 import type { 
   CampayConfig, 
@@ -41,7 +42,7 @@ export const useCampay = (companyId: string | null): UseCampayReturn => {
 
   // Initialize Campay configuration on mount
   useEffect(() => {
-    const initializeCampay = async () => {
+    const initializeConfig = async () => {
       if (!companyId) {
         setIsInitialized(false);
         setConfig(null);
@@ -64,8 +65,18 @@ export const useCampay = (companyId: string | null): UseCampayReturn => {
         
         if (configured && campayConfig) {
           setConfig(campayConfig);
-          setIsInitialized(true);
+          // Ensure hidden button exists in DOM (like RestoFlow)
           ensureHiddenButton();
+          
+          // Preload SDK immediately when config is ready (like working sample)
+          try {
+            await initializeCampaySDK(campayConfig.appId, campayConfig.environment);
+            setIsInitialized(true);
+            console.log('Campay SDK preloaded and ready');
+          } catch (error) {
+            console.error('Campay SDK preload failed:', error);
+            setIsInitialized(false);
+          }
         } else {
           setConfig(campayConfig);
           setIsInitialized(false);
@@ -79,10 +90,11 @@ export const useCampay = (companyId: string | null): UseCampayReturn => {
       }
     };
 
-    initializeCampay();
+    initializeConfig();
   }, [companyId]);
 
-  // Create hidden button for SDK
+  // Ensure hidden button exists in DOM (like RestoFlow)
+  // This creates the button programmatically to ensure it's always available
   const ensureHiddenButton = () => {
     const buttonId = hiddenButtonIdRef.current;
     let button = document.getElementById(buttonId);
@@ -92,7 +104,9 @@ export const useCampay = (companyId: string | null): UseCampayReturn => {
       button.id = buttonId;
       button.style.display = 'none';
       button.setAttribute('type', 'button');
+      button.setAttribute('aria-hidden', 'true');
       document.body.appendChild(button);
+      console.log('Campay hidden button created programmatically:', buttonId);
     }
   };
 
@@ -115,16 +129,44 @@ export const useCampay = (companyId: string | null): UseCampayReturn => {
       return null;
     }
 
+    // If not initialized, try to initialize on-demand
     if (!isInitialized) {
-      console.error('Campay not initialized');
-      if (onFailCallback) {
-        onFailCallback({
-          status: 'error',
-          reference: '',
-          message: 'Campay payment is not available'
-        });
+      console.warn('Campay SDK not initialized, attempting to initialize on-demand...');
+      
+      if (!config) {
+        console.error('Campay config not available');
+        if (onFailCallback) {
+          onFailCallback({
+            status: 'error',
+            reference: '',
+            message: 'Campay payment is not configured'
+          });
+        }
+        return null;
       }
-      return null;
+      
+      try {
+        // Try to initialize SDK on-demand
+        const { initializeCampay: initSDK } = await import('@utils/core/campayHandler');
+        await initSDK(config.appId, config.environment);
+        
+        // Like RestoFlow: Only check if window.campay exists after loading
+        if (!window.campay) {
+          throw new Error('Campay SDK loaded but window.campay object is not available.');
+        }
+        
+        console.log('Campay SDK initialized on-demand and ready');
+      } catch (error) {
+        console.error('Failed to initialize Campay SDK on-demand:', error);
+        if (onFailCallback) {
+          onFailCallback({
+            status: 'error',
+            reference: '',
+            message: error instanceof Error ? error.message : 'Failed to initialize payment system. Please try again.'
+          });
+        }
+        return null;
+      }
     }
 
     // Ensure hidden button exists
@@ -216,7 +258,7 @@ export const useCampay = (companyId: string | null): UseCampayReturn => {
     isLoading,
     isInitialized,
     hiddenButtonId: hiddenButtonIdRef.current,
-    config
+    config // Expose config so component can use it
   };
 };
 

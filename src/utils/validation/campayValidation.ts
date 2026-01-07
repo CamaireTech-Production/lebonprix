@@ -257,6 +257,8 @@ export const validateSDKInitialization = (): { isInitialized: boolean; message: 
     };
   }
 
+  // Check if window.campay exists AND has the options() method
+  // The SDK object may exist before methods are attached
   if (!window.campay) {
     return {
       isInitialized: false,
@@ -264,10 +266,11 @@ export const validateSDKInitialization = (): { isInitialized: boolean; message: 
     };
   }
 
+  // Critical: Verify that options() method exists and is a function
   if (typeof window.campay.options !== 'function') {
     return {
       isInitialized: false,
-      message: 'Campay SDK is not properly initialized'
+      message: 'Campay SDK is not fully initialized. Methods are not available yet.'
     };
   }
 

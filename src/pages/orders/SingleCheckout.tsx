@@ -13,11 +13,18 @@ import { subscribeToCheckoutSettingsByCompanyId } from '@services/utilities/chec
 // Removed useCheckoutPersistence - using manual save approach
 import { subscribeToCinetPayConfig, isCinetPayConfigured } from '@services/payment/cinetpayService';
 import { processCinetPayPayment, validatePaymentData, formatPhoneForCinetPay } from '@utils/core/cinetpayHandler';
-import { subscribeToCampayConfig, isCampayConfigured } from '@services/payment/campayService';
+// Removed subscribeToCampayConfig - using useCampay hook's config instead
+import { isCampayConfigured } from '@services/payment/campayService';
 import { useCampay } from '@hooks/useCampay';
 import { formatPhoneForWhatsApp } from '@utils/core/phoneUtils';
+import { 
+  validateCampayConfig, 
+  validateCampayPaymentData, 
+  checkNetworkConnectivity,
+  getCampayErrorMessage,
+  isRetryableError
+} from '@utils/validation/campayValidation';
 import type { CinetPayConfig } from '../../types/cinetpay';
-import type { CampayConfig } from '../../types/campay';
 import type { Company } from '../../types/models';
 // import { generateWhatsAppMessage } from '@utils/whatsapp';
 import { 
@@ -148,8 +155,8 @@ const SingleCheckout: React.FC = () => {
   const [sellerSettings, setSellerSettings] = useState<SellerSettings | null>(null);
   const [checkoutSettings, setCheckoutSettings] = useState<CheckoutSettings | null>(null);
   const [cinetpayConfig, setCinetpayConfig] = useState<CinetPayConfig | null>(null);
-  const [campayConfig, setCampayConfig] = useState<CampayConfig | null>(null);
-  const { processPayment: processCampayPayment, isInitialized: isCampayInitialized, hiddenButtonId: campayButtonId } = useCampay(companyId || null);
+  // Use hook's config instead of duplicate state - single source of truth
+  const { processPayment: processCampayPayment, isInitialized: isCampayInitialized, hiddenButtonId: campayButtonId, config: campayConfig } = useCampay(companyId || null);
   const [submitting, setSubmitting] = useState(false);
   const [orderCreated, setOrderCreated] = useState(false);
   const [createdOrder, setCreatedOrder] = useState<Order | null>(null);
@@ -226,22 +233,8 @@ const SingleCheckout: React.FC = () => {
     return () => unsubscribe();
   }, [companyId]);
 
-  // Load Campay configuration by companyId
-  useEffect(() => {
-    if (!companyId) return;
-
-    const unsubscribe = subscribeToCampayConfig(companyId, (config) => {
-      console.log('Campay config loaded:', {
-        exists: !!config,
-        isActive: config?.isActive,
-        hasAppId: !!(config?.appId && config.appId.length > 0),
-        isConfigured: config ? isCampayConfigured(config) : false
-      });
-      setCampayConfig(config);
-    });
-
-    return () => unsubscribe();
-  }, [companyId]);
+  // Campay config is now managed by useCampay hook - no need for separate subscription
+  // Removed duplicate subscription to avoid state sync issues
 
   // Manual save on form changes (no auto-save)
   const saveCheckoutData = useCallback(() => {
@@ -701,16 +694,18 @@ const SingleCheckout: React.FC = () => {
       // Check if this is a Campay payment
       const isCampayPayment = selectedPaymentOption === 'campay';
       
-      if (isCampayPayment && campayConfig && isCampayInitialized) {
-        // Validate amount limits
-        const finalTotal = getCartTotal() + (sellerSettings?.deliveryFee || 0);
+      // Simplified condition: Only check if Campay is selected and config exists
+      // SDK will initialize on-demand if needed
+      if (isCampayPayment && campayConfig) {
+        // Calculate final total
+        const calculatedTotal = getCartTotal() + (sellerSettings?.deliveryFee || 0);
         
-        // Import validation utilities
-        const { 
-          validateCampayConfig, 
-          validateCampayPaymentData, 
-          checkNetworkConnectivity 
-        } = require('@utils/validation/campayValidation');
+        // Use 10 XAF for demo mode, otherwise use calculated total
+        const finalTotal = campayConfig.environment === 'demo' ? 10 : calculatedTotal;
+        
+        if (campayConfig.environment === 'demo') {
+          console.log(`[DEMO MODE] Using fixed amount: 10 XAF (Actual total: ${calculatedTotal} XAF)`);
+        }
         
         // Validate configuration
         const configValidation = validateCampayConfig(campayConfig);
@@ -720,7 +715,7 @@ const SingleCheckout: React.FC = () => {
           return;
         }
 
-        // Validate payment data
+        // Validate payment data (use finalTotal which is 10 in demo mode)
         const paymentValidation = validateCampayPaymentData(
           {
             amount: finalTotal,
@@ -746,6 +741,22 @@ const SingleCheckout: React.FC = () => {
 
         // Process Campay payment
         const externalReference = `ORDER_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        
+        // Validate that Campay SDK is initialized (like RestoFlow)
+        if (!isCampayInitialized) {
+          console.error('Campay SDK not initialized');
+          toast.error('Payment system not ready. Please wait a moment and try again.');
+          setSubmitting(false);
+          return;
+        }
+        
+        console.log('Initiating Campay payment:', {
+          isCampaySelected: isCampayPayment,
+          hasConfig: !!campayConfig,
+          isInitialized: isCampayInitialized,
+          buttonId: campayButtonId,
+          amount: finalTotal
+        });
         
         const paymentResult = await processCampayPayment(
           {
@@ -775,6 +786,8 @@ const SingleCheckout: React.FC = () => {
             }
             
             // Create order with Campay payment details
+            // In demo mode, use 10 XAF for payment but keep actual pricing for records
+            const actualTotal = getCartTotal() + (sellerSettings?.deliveryFee || 0);
             const order = await createOrder(
               companyId!,
               {
@@ -783,7 +796,7 @@ const SingleCheckout: React.FC = () => {
                 pricing: {
                   subtotal: getCartTotal(),
                   deliveryFee: sellerSettings?.deliveryFee || 0,
-                  total: finalTotal
+                  total: campayConfig.environment === 'demo' ? 10 : actualTotal
                 },
                 paymentMethod: 'campay',
                 paymentOption: 'campay',
@@ -834,7 +847,6 @@ const SingleCheckout: React.FC = () => {
           // onFail callback
           (data) => {
             console.error('Campay payment failed:', data);
-            const { getCampayErrorMessage, isRetryableError } = require('@utils/validation/campayValidation');
             const errorMessage = getCampayErrorMessage(data.message || 'Payment failed', campayConfig.environment);
             const isRetryable = isRetryableError(errorMessage);
             
@@ -861,8 +873,13 @@ const SingleCheckout: React.FC = () => {
           return;
         }
         
+        // Campay payment initiated - modal should open
+        // Order will be created in onSuccess callback
         return;
-      } else if (company) {
+      }
+      
+      // Only proceed to regular payment methods if Campay is NOT selected
+      if (company && !isCampayPayment) {
         // Get createdBy employee reference
         let createdBy = null;
         if (user && company) {
@@ -948,6 +965,17 @@ const SingleCheckout: React.FC = () => {
             navigate('/');
           }
         }, 2000);
+      } else {
+        // If Campay was selected but config is missing, show error
+        if (isCampayPayment) {
+          toast.error('Campay payment is not configured. Please contact support or select another payment method.');
+          setSubmitting(false);
+          return;
+        }
+        
+        // If no company, show error
+        toast.error('Company information not found. Please refresh the page.');
+        setSubmitting(false);
       }
       
     } catch (error) {
@@ -1905,6 +1933,16 @@ const SingleCheckout: React.FC = () => {
         currency="XAF"
         onAddMoreItems={scrollToCart}
       />
+
+      {/* Hidden button for Campay SDK */}
+      {isCampayInitialized && (
+        <button
+          id={campayButtonId}
+          type="button"
+          style={{ display: 'none' }}
+          aria-hidden="true"
+        />
+      )}
     </div>
   );
 };

@@ -31,12 +31,12 @@ export const getCampayConfig = async (companyId: string): Promise<CampayConfig |
       if (data.appId && !data.appId.includes('***REDACTED***')) {
         try {
           decryptedAppId = SecureEncryption.decrypt(data.appId, companyId);
-          console.log('App ID decrypted successfully');
+          // Removed verbose logging - only log on errors
         } catch (error) {
           console.error('Failed to decrypt App ID:', error);
           // If decryption fails, use the original data (might be plain text)
           decryptedAppId = data.appId;
-          console.log('Using original App ID as fallback');
+          // Removed verbose logging - only log on errors
         }
       }
       
@@ -118,12 +118,12 @@ export const subscribeToCampayConfig = (
       if (data.appId && !data.appId.includes('***REDACTED***')) {
         try {
           decryptedAppId = SecureEncryption.decrypt(data.appId, companyId);
-          console.log('App ID decrypted successfully');
+          // Removed verbose logging - subscription fires repeatedly, only log on errors
         } catch (error) {
-          console.error('Failed to decrypt App ID:', error);
+          console.error('Failed to decrypt App ID (subscription):', error);
           // If decryption fails, use the original data (might be plain text)
           decryptedAppId = data.appId;
-          console.log('Using original App ID as fallback');
+          // Removed verbose logging - subscription fires repeatedly, only log on errors
         }
       }
       

@@ -12,16 +12,15 @@
  */
 
 import { CampayConfig, CampayOptions, CampayResponse, CampayCallbacks } from '../../types/campay';
-import { SecureEncryption, PaymentValidator } from '../security/encryption';
+import { PaymentValidator } from '../security/encryption';
 import { AuditLogger } from './auditLogger';
-import { validateCampayPaymentAmount } from '@services/payment/campayService';
 import {
   validateCampayConfig,
   validateCampayPaymentData as validatePaymentDataUtil,
   checkNetworkConnectivity,
-  validateSDKInitialization,
   getCampayErrorMessage,
-  isRetryableError
+  isRetryableError,
+  validateAppIdFormat
 } from '../validation/campayValidation';
 
 // Declare global Campay object
@@ -67,9 +66,19 @@ export interface CampayPaymentResult {
  */
 export const initializeCampay = (appId: string, environment: 'demo' | 'production'): Promise<boolean> => {
   return new Promise((resolve, reject) => {
-    // Check if Campay SDK is already loaded
-    const sdkCheck = validateSDKInitialization();
-    if (sdkCheck.isInitialized) {
+    // Log App ID info (masked for security)
+    const maskedAppId = appId.length > 10 
+      ? `${appId.substring(0, 4)}...${appId.substring(appId.length - 4)}` 
+      : '***';
+    console.log('Initializing Campay SDK with:', { 
+      environment, 
+      appIdLength: appId.length,
+      appIdPreview: maskedAppId,
+      appIdFirstChars: appId.substring(0, 10)
+    });
+
+    // Check if Campay SDK is already loaded (like RestoFlow - only check object existence)
+    if (window.campay) {
       console.log('Campay SDK already loaded');
       resolve(true);
       return;
@@ -83,79 +92,103 @@ export const initializeCampay = (appId: string, environment: 'demo' | 'productio
     }
 
     // Validate App ID format
-    const { validateAppIdFormat } = require('../validation/campayValidation');
     const appIdValidation = validateAppIdFormat(appId);
     if (!appIdValidation.isValid) {
+      console.error('App ID validation failed:', appIdValidation.message);
       reject(new Error(appIdValidation.message));
       return;
     }
 
-    console.log('Loading Campay SDK...');
+    console.log('Loading Campay SDK...', { environment, appIdLength: appId.length });
 
     // Determine SDK URL based on environment
+    // Note: Campay SDK URLs might vary - trying common patterns
     const baseUrl = environment === 'demo' 
       ? 'https://demo.campay.net/sdk/js'
       : 'https://www.campay.net/sdk/js';
     
     const scriptUrl = `${baseUrl}?app-id=${encodeURIComponent(appId)}`;
+    console.log('Campay SDK URL:', scriptUrl.replace(appId, '***'));
 
-    // Check if script is already loaded
-    const existingScript = document.querySelector(`script[src="${scriptUrl}"]`);
+    // Check if script is already loaded (check by URL pattern, not exact match)
+    const existingScript = document.querySelector(`script[src*="campay.net"]`);
     
-    // Timeout after 10 seconds
-    let timeoutId: NodeJS.Timeout;
+    // Use setInterval for polling (like RestoFlow)
+    let checkInterval: NodeJS.Timeout | null = null;
+    let attempts = 0;
+    const maxAttempts = 50; // 5 seconds (50 attempts × 100ms)
     
     // Check if script is loaded but Campay object not available yet
-    const checkCampay = () => {
-      const sdkCheck = validateSDKInitialization();
-      if (sdkCheck.isInitialized) {
-        if (timeoutId) {
-          clearTimeout(timeoutId);
+    // Use setInterval like RestoFlow - only check if window.campay exists
+    const startChecking = () => {
+      checkInterval = setInterval(() => {
+        attempts++;
+        
+        // Like RestoFlow: Only check if window.campay exists (not methods)
+        if (window.campay) {
+          if (checkInterval) {
+            clearInterval(checkInterval);
+          }
+          console.log('Campay SDK loaded and ready');
+          resolve(true);
+        } else if (attempts >= maxAttempts) {
+          if (checkInterval) {
+            clearInterval(checkInterval);
+          }
+          console.error('Campay SDK failed to initialize after 5 seconds');
+          reject(new Error('Campay SDK loaded but initialization timed out. Please refresh and try again.'));
         }
-        console.log('Campay SDK loaded successfully');
-        resolve(true);
-      } else {
-        // Retry after 100ms
-        setTimeout(checkCampay, 100);
-      }
+      }, 100); // Check every 100ms (like RestoFlow)
     };
 
-    // Set timeout
-    timeoutId = setTimeout(() => {
-      const sdkCheck = validateSDKInitialization();
-      if (!sdkCheck.isInitialized) {
-        console.error('Campay SDK failed to load after 10 seconds');
-        reject(new Error(sdkCheck.message));
-      }
-    }, 10000);
-
     if (existingScript) {
-      console.log('Campay script already exists, waiting for object...');
-      checkCampay();
+      console.log('Campay script already exists, waiting for object...', {
+        scriptSrc: existingScript.getAttribute('src')?.replace(appId, '***')
+      });
+      startChecking();
       return;
     }
 
     // Load the SDK dynamically
+    // Note: Do NOT add crossOrigin attribute - it causes CORS errors
+    // Campay SDK should be loaded as a normal script tag (like in their documentation)
+    // Match working sample: async = true AND defer = true
     const script = document.createElement('script');
     script.src = scriptUrl;
     script.async = true;
+    script.defer = true; // ADD THIS - matches working sample
+    
     script.onload = () => {
-      console.log('Campay script loaded, waiting for object...');
-      checkCampay();
-    };
-    script.onerror = () => {
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
-      console.error('Failed to load Campay script');
-      reject(new Error('Failed to load Campay SDK. Please refresh the page and try again.'));
+      console.log('Campay script loaded successfully, waiting for window.campay object...');
+      // Start checking with setInterval (like working sample)
+      startChecking();
     };
     
+    script.onerror = (error) => {
+      if (checkInterval) {
+        clearInterval(checkInterval);
+      }
+      console.error('Failed to load Campay script:', error);
+      console.error('Script URL:', scriptUrl.replace(appId, '***'));
+      console.error('Possible causes:');
+      console.error('1. Invalid App ID');
+      console.error('2. Network connectivity issues');
+      console.error('3. CORS policy blocking the script');
+      console.error('4. Content Security Policy restrictions');
+      reject(new Error('Failed to load Campay SDK script. Please check: 1) App ID is correct, 2) Network connection, 3) Browser console for CORS/CSP errors.'));
+    };
+    
+    // Add error event listener for better debugging
+    script.addEventListener('error', (event) => {
+      console.error('Script error event:', event);
+    }, true);
+    
     if (typeof document !== 'undefined' && document.head) {
+      console.log('Appending Campay script to document head...');
       document.head.appendChild(script);
     } else {
-      if (timeoutId) {
-        clearTimeout(timeoutId);
+      if (checkInterval) {
+        clearInterval(checkInterval);
       }
       reject(new Error('Document head is not available'));
     }
@@ -232,30 +265,29 @@ export const processCampayPayment = async (
     // Initialize Campay SDK
     await initializeCampay(config.appId, config.environment);
 
-    // Validate SDK initialization after loading
-    const sdkValidation = validateSDKInitialization();
-    if (!sdkValidation.isInitialized) {
-      throw new Error(sdkValidation.message);
-    }
+    // Like RestoFlow: Only check if window.campay exists, not methods
+    // Methods will be checked when we actually use them
 
     // Sanitize input data
     const sanitizedPaymentData = PaymentValidator.sanitizeInput(paymentData);
 
-    // Log payment initiation
-    await AuditLogger.logPaymentEvent(config.userId, 'campay_payment_initiated', {
+    // Log payment initiation (non-blocking)
+    AuditLogger.logPaymentEvent(config.userId, 'campay_payment_initiated', {
       orderId: paymentData.externalReference || 'unknown',
       amount: paymentData.amount,
       currency: paymentData.currency,
       status: 'initiated'
+    }).catch(err => {
+      // Silently handle audit logging errors - don't break payment flow
+      console.warn('Audit log failed (non-critical):', err);
     });
 
     // Process payment using Campay SDK
     return new Promise((resolve, reject) => {
       try {
-        // Validate SDK initialization
-        const sdkValidation = validateSDKInitialization();
-        if (!sdkValidation.isInitialized) {
-          throw new Error(sdkValidation.message);
+        // Like RestoFlow: Only check if window.campay exists
+        if (!window.campay) {
+          throw new Error('Campay SDK is not loaded. Please refresh the page and try again.');
         }
 
         // Convert amount to string (Campay requirement)
@@ -280,7 +312,7 @@ export const processCampayPayment = async (
           environment: config.environment
         });
 
-        // Set up callbacks BEFORE calling options()
+        // Set up callbacks BEFORE calling options() (like RestoFlow)
         window.campay.onSuccess = (data: CampayResponse) => {
           console.log('Campay payment successful:', data);
           
@@ -293,13 +325,16 @@ export const processCampayPayment = async (
           
           resolve(successResult);
           
-          // Log successful payment
+          // Log successful payment (non-blocking)
           AuditLogger.logPaymentEvent(config.userId, 'campay_payment_success', {
             orderId: paymentData.externalReference || 'unknown',
             transactionId: data.transactionId || data.reference,
             amount: paymentData.amount,
             currency: paymentData.currency,
             status: 'success'
+          }).catch(err => {
+            // Silently handle audit logging errors - don't break payment flow
+            console.warn('Audit log failed (non-critical):', err);
           });
           
           if (callbacks.onSuccess) {
@@ -324,14 +359,16 @@ export const processCampayPayment = async (
           
           resolve(errorResult);
           
-          // Log failed payment
+          // Log failed payment (non-blocking)
           AuditLogger.logPaymentEvent(config.userId, 'campay_payment_failed', {
             orderId: paymentData.externalReference || 'unknown',
             amount: paymentData.amount,
             currency: paymentData.currency,
             status: 'failed',
-            error: errorMessage,
-            isRetryable
+            error: errorMessage
+          }).catch(err => {
+            // Silently handle audit logging errors - don't break payment flow
+            console.warn('Audit log failed (non-critical):', err);
           });
           
           if (callbacks.onFail) {
@@ -350,12 +387,15 @@ export const processCampayPayment = async (
           
           resolve(cancelledResult);
           
-          // Log cancelled payment
+          // Log cancelled payment (non-blocking)
           AuditLogger.logPaymentEvent(config.userId, 'campay_payment_cancelled', {
             orderId: paymentData.externalReference || 'unknown',
             amount: paymentData.amount,
             currency: paymentData.currency,
             status: 'cancelled'
+          }).catch(err => {
+            // Silently handle audit logging errors - don't break payment flow
+            console.warn('Audit log failed (non-critical):', err);
           });
           
           if (callbacks.onModalClose) {
@@ -363,17 +403,49 @@ export const processCampayPayment = async (
           }
         };
 
-        // Configure Campay SDK with payment options
-        window.campay.options(campayOptions);
-
-        // Get the button element and trigger payment
-        const button = document.getElementById(payButtonId);
-        if (!button) {
-          throw new Error(`Payment button with ID "${payButtonId}" not found`);
+        // Configure Campay SDK with payment options (like RestoFlow - call directly)
+        try {
+          window.campay.options(campayOptions);
+        } catch (error) {
+          throw new Error(`Failed to configure Campay: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
 
-        // Trigger payment by clicking the button
-        button.click();
+        // Get the button element and validate it exists
+        const button = document.getElementById(payButtonId);
+        if (!button) {
+          console.error('Campay payment button not found:', {
+            buttonId: payButtonId,
+            allButtons: Array.from(document.querySelectorAll('button')).map(b => b.id).filter(Boolean),
+            bodyChildren: Array.from(document.body.children).map(el => el.tagName + (el.id ? `#${el.id}` : ''))
+          });
+          throw new Error(`Payment button with ID "${payButtonId}" not found in DOM. Please ensure the button is rendered in the component JSX.`);
+        }
+
+        // Validate button is a button element
+        if (button.tagName !== 'BUTTON') {
+          console.error('Element with button ID is not a button:', button.tagName);
+          throw new Error(`Element with ID "${payButtonId}" is not a button element`);
+        }
+
+        // Wait 50ms before clicking button (like working sample)
+        // This ensures callbacks are fully registered before modal opens
+        setTimeout(() => {
+          // Double-check button still exists before clicking
+          const buttonToClick = document.getElementById(payButtonId);
+          if (!buttonToClick) {
+            console.error('Button disappeared before click:', payButtonId);
+            throw new Error('Payment button was removed from DOM before payment could be triggered');
+          }
+          
+          // Trigger payment by clicking the button (this opens the modal)
+          try {
+            buttonToClick.click();
+            console.log('Campay payment button clicked successfully');
+          } catch (clickError) {
+            console.error('Error clicking Campay button:', clickError);
+            throw new Error(`Failed to trigger payment: ${clickError instanceof Error ? clickError.message : 'Unknown error'}`);
+          }
+        }, 50);
 
       } catch (error) {
         console.error('Error initializing Campay payment:', error);
@@ -395,13 +467,16 @@ export const processCampayPayment = async (
       ? getCampayErrorMessage(error.message, config.environment)
       : 'Unknown error occurred';
     
-    // Log error
+    // Log error (non-blocking)
     AuditLogger.logPaymentEvent(config.userId, 'campay_payment_error', {
       orderId: paymentData.externalReference || 'unknown',
       amount: paymentData.amount,
       currency: paymentData.currency,
       status: 'error',
       error: errorMessage
+    }).catch(err => {
+      // Silently handle audit logging errors - don't break payment flow
+      console.warn('Audit log failed (non-critical):', err);
     });
     
     return {
