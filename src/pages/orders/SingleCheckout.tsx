@@ -31,7 +31,8 @@ import {
   Lock,
   Shield,
   RotateCcw,
-  HelpCircle
+  HelpCircle,
+  Smartphone
 } from 'lucide-react';
 import { PhoneInput, ImageWithSkeleton, AmountTooLowModal } from '@components/common';
 import SaveStatusIndicator from '@components/checkout/SaveStatusIndicator';
@@ -1579,11 +1580,11 @@ const SingleCheckout: React.FC = () => {
                           className="flex items-center space-x-3 cursor-pointer flex-1"
                         >
                           <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-lg flex items-center justify-center shadow-sm transition-transform duration-200 hover:scale-105">
-                            <span className="text-white font-bold text-sm">CP</span>
+                            <Smartphone className="h-5 w-5 text-white" />
                           </div>
                           <div className="flex-1">
                             <span className="font-medium text-gray-900 block">MTN ou Orange Money</span>
-                            <span className="text-xs text-gray-500 block mt-0.5">Paiement mobile</span>
+                            <span className="text-xs text-gray-500 block mt-0.5">Paiement mobile par Campay</span>
                           </div>
                           {selectedPaymentOption === 'campay' && (
                             <div className="flex items-center text-emerald-600 animate-fade-in">
@@ -1605,7 +1606,7 @@ const SingleCheckout: React.FC = () => {
                             <div className="flex items-start space-x-3 mb-3">
                               <div className="flex-shrink-0 mt-0.5">
                                 <div className="w-8 h-8 bg-emerald-100 rounded-full flex items-center justify-center">
-                                  <CreditCard className="h-4 w-4 text-emerald-600" aria-hidden="true" />
+                                  <Smartphone className="h-4 w-4 text-emerald-600" aria-hidden="true" />
                                 </div>
                               </div>
                               <div className="flex-1">
@@ -1614,7 +1615,7 @@ const SingleCheckout: React.FC = () => {
                                   Payez en toute sécurité avec MTN Mobile Money ou Orange Money.
                                 </p>
                                 <p className="text-sm text-emerald-700 leading-relaxed mt-2">
-                                  Nom de confirmation de paiement: Tawind Group
+                                  Nom de confirmation de paiement: TAKWID GROUP
                                 </p>
                               </div>
                             </div>
@@ -1631,22 +1632,6 @@ const SingleCheckout: React.FC = () => {
                                 </div>
                               </div>
                             </div>
-                            
-                            {isCampayInitialized && (
-                              <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg animate-fade-in">
-                                <div className="flex items-start">
-                                  <div className="flex-shrink-0 mt-0.5">
-                                    <span className="text-amber-600 text-sm" aria-label="Warning">⚠️</span>
-                                  </div>
-                                  <div className="flex-1 ml-2">
-                                    <p className="text-xs text-amber-800 font-medium">Mode démo actif</p>
-                                    <p className="text-xs text-amber-700 mt-0.5">
-                                      Montant maximum: <strong>10 XAF</strong> par transaction. Pour des montants plus élevés, passez en mode production.
-                                    </p>
-                                  </div>
-                                </div>
-                              </div>
-                            )}
                             
                           </div>
                         </div>
