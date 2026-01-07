@@ -482,7 +482,18 @@ const Productions: React.FC = () => {
               {filteredProductions.map((production) => (
                 <tr key={production.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{production.name}</div>
+                    <div 
+                      onClick={() => {
+                        if (companyId) {
+                          navigate(`/company/${companyId}/productions/${production.id}`);
+                        } else {
+                          navigate(`/productions/${production.id}`);
+                        }
+                      }}
+                      className="text-sm font-medium text-gray-900 hover:text-gray-700 cursor-pointer transition-colors"
+                    >
+                      {production.name}
+                    </div>
                     {production.reference && (
                       <div className="text-sm text-gray-500">Ref: {production.reference}</div>
                     )}
