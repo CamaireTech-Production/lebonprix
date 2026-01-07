@@ -1227,40 +1227,46 @@ const SingleCheckout: React.FC = () => {
                       />
                     </div>
                   )}
-                </div>
-              </div>
-            )}
 
-            {/* Shipping Method Section */}
-            {checkoutSettings?.showShippingMethod && (
-              <div className="bg-white rounded-lg shadow-sm border p-6">
-                <h2 className="text-xl font-bold mb-4" style={{color: getCompanyColors().primary}}>Mode de livraison</h2>
-                
-                <div className="space-y-3">
-                  <div className="border border-gray-200 rounded-lg p-4 bg-emerald-50">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        <input
-                          type="radio"
-                          name="shipping"
-                          defaultChecked
-                          className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300"
-                        />
-                      <div>
-                        <p className="font-medium text-gray-900">Livraison standard</p>
-                        <p className="text-sm text-gray-600">3-5 jours ouvrables</p>
+                  {/* Shipping Method Section - Inside Delivery Card */}
+                  {checkoutSettings?.showShippingMethod && (
+                    <>
+                      <div className="border-t border-gray-200 pt-4 mt-4">
+                        <h3 className="text-lg font-bold mb-4" style={{color: getCompanyColors().primary}}>Mode de livraison</h3>
+                        
+                        <div className="space-y-3">
+                          <div className="border border-gray-200 rounded-lg p-4 bg-emerald-50">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-3">
+                                <input
+                                  type="radio"
+                                  name="shipping"
+                                  defaultChecked
+                                  className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300"
+                                />
+                                <div>
+                                  <p className="font-medium text-gray-900">Livraison standard</p>
+                                  <p className="text-sm text-gray-600">3-5 jours ouvrables</p>
+                                </div>
+                              </div>
+                              <span className="font-semibold text-gray-900">
+                                {deliveryFee > 0 ? `${formatPrice(deliveryFee)} XAF` : 'À confirmer après commande'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                    <span className="font-semibold text-gray-900">
-                      {deliveryFee > 0 ? `${formatPrice(deliveryFee)} XAF` : 'À confirmer après commande'}
-                    </span>
-                    </div>
-                  </div>
+                    </>
+                  )}
                 </div>
               </div>
             )}
 
-            {/* Payment Section */}
+          </div>
+
+          {/* Right Column - Payment and Order Summary */}
+          <div className="space-y-8">
+            {/* Payment Section - Moved to Right Column */}
             {/* Show payment section if enabled OR if any payment integration (Campay/CinetPay) is configured */}
             {((checkoutSettings?.showPaymentSection) || 
               isCampayInitialized || 
@@ -1592,8 +1598,8 @@ const SingleCheckout: React.FC = () => {
                             <span className="text-white font-bold text-sm">CP</span>
                           </div>
                           <div className="flex-1">
-                            <span className="font-medium text-gray-900 block">Campay</span>
-                            <span className="text-xs text-gray-500 block mt-0.5">MTN • Orange Money</span>
+                            <span className="font-medium text-gray-900 block">MTN ou Orange Money</span>
+                            <span className="text-xs text-gray-500 block mt-0.5">Paiement mobile</span>
                           </div>
                           {selectedPaymentOption === 'campay' && (
                             <div className="flex items-center text-emerald-600 animate-fade-in">
@@ -1713,11 +1719,10 @@ const SingleCheckout: React.FC = () => {
                 </div>
               </div>
             )}
-          </div>
 
-          {/* Right Column - Order Summary */}
-          {checkoutSettings?.showOrderSummary && (
-            <div className="lg:sticky lg:top-8" id="cart-section">
+            {/* Order Summary */}
+            {checkoutSettings?.showOrderSummary && (
+              <div className="lg:sticky lg:top-8" id="cart-section">
               <div className="bg-white rounded-lg shadow-sm border p-6">
                 <h3 className="text-lg font-semibold mb-6" style={{color: getCompanyColors().primary}}>{t('checkout.orderSummary')}</h3>
               
@@ -1892,6 +1897,7 @@ const SingleCheckout: React.FC = () => {
               </div>
             </div>
           )}
+          </div>
         </div>
       </div>
       
