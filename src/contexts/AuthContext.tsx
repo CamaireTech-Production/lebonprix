@@ -275,7 +275,15 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     
     try {
       // 1. Charger les données utilisateur depuis le système unifié
-      const userData = await getUserById(userId);
+      // Retry logic to handle race condition during signup (document might be creating)
+      let userData = await getUserById(userId);
+      
+      // If user document doesn't exist, wait a bit and retry (might be during signup)
+      if (!userData) {
+        // Wait 500ms and retry once - document might be in the process of being created
+        await new Promise(resolve => setTimeout(resolve, 500));
+        userData = await getUserById(userId);
+      }
       
       if (userData) {
         setUserCompanies(userData.companies || []);
@@ -334,33 +342,50 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           }
         }
       } else {
-        // Créer l'utilisateur dans le nouveau système s'il n'existe pas
-        await migrateUserToNewSystem(userId);
-        // Puis recharger les données
-        const userData = await getUserById(userId);
-        if (userData) {
-          setUserCompanies(userData.companies || []);
-          // Handle routing after migration
-          if (isInitialLoginRef.current) {
-            if (userData.companies && userData.companies.length > 0) {
-              // User has companies - auto-select and go to dashboard
-              // Find first company where user is owner or admin
-              const ownerOrAdminCompany = userData.companies.find((company: UserCompanyRef) => 
-                company.role === 'owner' || company.role === 'admin'
-              );
-              
-              if (ownerOrAdminCompany) {
-                navigate(`/company/${ownerOrAdminCompany.companyId}/dashboard`);
-              } else {
-                // User is only employee - show company selection
-                navigate(`/companies/me/${userId}`);
+        // User document still doesn't exist after retry
+        // This might be a legacy user or the document creation failed
+        // Only try migration if we have Firebase Auth user data (legacy scenario)
+        const firebaseUser = auth.currentUser;
+        if (firebaseUser && firebaseUser.displayName) {
+          // Legacy user - try migration
+          try {
+            await migrateUserToNewSystem(userId);
+            // Retry loading after migration
+            userData = await getUserById(userId);
+            if (userData) {
+              setUserCompanies(userData.companies || []);
+              // Handle routing after migration
+              if (isInitialLoginRef.current) {
+                if (userData.companies && userData.companies.length > 0) {
+                  const ownerOrAdminCompany = userData.companies.find((company: UserCompanyRef) => 
+                    company.role === 'owner' || company.role === 'admin'
+                  );
+                  
+                  if (ownerOrAdminCompany) {
+                    navigate(`/company/${ownerOrAdminCompany.companyId}/dashboard`);
+                  } else {
+                    navigate(`/companies/me/${userId}`);
+                  }
+                } else {
+                  navigate('/mode-selection');
+                }
+                
+                isInitialLoginRef.current = false;
               }
-            } else {
-              // User has no companies - show mode selection
-              navigate('/mode-selection');
             }
-            
-            isInitialLoginRef.current = false; // Reset après redirection
+          } catch (migrationError) {
+            // Migration failed - might be during signup, just route to mode selection
+            if (isInitialLoginRef.current) {
+              navigate('/mode-selection');
+              isInitialLoginRef.current = false;
+            }
+          }
+        } else {
+          // New user signup in progress - document will be created by signUpUser
+          // Just route to mode selection
+          if (isInitialLoginRef.current) {
+            navigate('/mode-selection');
+            isInitialLoginRef.current = false;
           }
         }
       }

@@ -1,7 +1,7 @@
 // src/services/core/firebase.ts
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from "firebase/firestore";
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, getFirestore, Firestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
 const firebaseConfig = {
@@ -24,8 +24,12 @@ const db = initializeFirestore(app, {
     tabManager: persistentMultipleTabManager()
   })
 });
+// Instance Firestore sans cache pour les opérations critiques (ex: inscription)
+// Cela évite les problèmes de cache qui peuvent causer des erreurs de permission
+const dbNoCache = getFirestore(app);
 const storage = getStorage(app);
 
-export { auth, db, storage };
+export { auth, db, dbNoCache, storage, app };
 export { getFirestore } from "firebase/firestore";
+export type { Firestore };
 

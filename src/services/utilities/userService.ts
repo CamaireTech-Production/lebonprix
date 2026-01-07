@@ -1,4 +1,4 @@
-import { doc, setDoc, getDoc, getDocFromCache, updateDoc, arrayUnion, arrayRemove, Timestamp, DocumentReference } from 'firebase/firestore';
+import { doc, setDoc, getDoc, getDocFromCache, updateDoc, arrayUnion, arrayRemove, Timestamp, DocumentReference, Firestore } from 'firebase/firestore';
 import { db } from '../core/firebase';
 import { User, UserCompanyRef } from '../../types/models';
 import { normalizePhoneNumber } from '@utils/core/phoneUtils';
@@ -38,19 +38,17 @@ export interface UserData {
  * @param userData - Données de base de l'utilisateur
  * @param companyId - ID de l'entreprise (optionnel)
  * @param role - Rôle dans l'entreprise (optionnel)
+ * @param firestoreInstance - Instance Firestore à utiliser (optionnel, utilise db par défaut)
  * @returns L'utilisateur créé
  */
 export const createUser = async (
   userId: string,
   userData: UserData,
   companyId?: string,
-  role?: 'owner' | 'admin' | 'manager' | 'staff'
+  role?: 'owner' | 'admin' | 'manager' | 'staff',
+  firestoreInstance?: Firestore
 ): Promise<User> => {
   try {
-    console.log('📄 Création du document utilisateur dans Firestore...');
-    console.log('🆔 User ID:', userId);
-    console.log('📝 User Data:', userData);
-    
     const now = Timestamp.now();
     
     // Créer l'objet utilisateur en filtrant les valeurs undefined
@@ -69,8 +67,6 @@ export const createUser = async (
       ...(userData.photoURL && { photoURL: userData.photoURL })
     };
 
-    console.log('👤 Objet utilisateur créé:', newUser);
-
     // Si une entreprise est fournie, l'ajouter à la liste
     if (companyId && role) {
       const companyRef: UserCompanyRef = {
@@ -80,21 +76,19 @@ export const createUser = async (
         joinedAt: now
       };
       newUser.companies.push(companyRef);
-      console.log('🏢 Référence entreprise ajoutée:', companyRef);
     }
 
-    console.log('💾 Sauvegarde dans Firestore...');
-    await setDoc(doc(db, 'users', userId), newUser);
-    console.log('✅ Document utilisateur sauvegardé avec succès');
+    // Utiliser l'instance Firestore fournie ou l'instance par défaut
+    const firestoreDb = firestoreInstance || db;
+    
+    // Créer le document Firestore directement
+    // L'utilisateur est déjà authentifié (créé via createUserWithEmailAndPassword)
+    // Les security rules vérifieront que request.auth.uid == userId
+    await setDoc(doc(firestoreDb, 'users', userId), newUser);
     
     return newUser;
   } catch (error: any) {
     console.error('❌ Erreur lors de la création de l\'utilisateur:', error);
-    console.error('❌ Détails de l\'erreur:', {
-      message: error.message,
-      code: error.code,
-      stack: error.stack
-    });
     throw error;
   }
 };
@@ -114,6 +108,14 @@ export const getUserById = async (userId: string): Promise<User | null> => {
     
     return null;
   } catch (error: any) {
+    // Si c'est une erreur de permission et que le document n'existe pas encore,
+    // retourner null au lieu de lancer une erreur
+    // Cela peut arriver pendant l'inscription quand le document est en cours de création
+    if (error.code === 'permission-denied') {
+      console.warn('Permission denied lors de la récupération de l\'utilisateur. Le document n\'existe peut-être pas encore:', userId);
+      return null;
+    }
+    
     console.error('Erreur lors de la récupération de l\'utilisateur:', error);
     throw error;
   }

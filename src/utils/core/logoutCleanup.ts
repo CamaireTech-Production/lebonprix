@@ -118,16 +118,9 @@ export const clearUserDataOnLogout = (userId?: string): void => {
     keysToRemove.forEach(key => {
       try {
         localStorage.removeItem(key);
-        console.log(`🗑️ Removed localStorage key: ${key}`);
       } catch (error) {
         console.error(`❌ Failed to remove localStorage key: ${key}`, error);
       }
-    });
-    
-    console.log(`🧹 Logout cleanup complete: Removed ${keysToRemove.length} localStorage keys`, {
-      removed: keysToRemove.length,
-      userId: userId || 'all users',
-      preserved: preservePrefixes
     });
     
   } catch (error) {

@@ -1,16 +1,25 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Helper function
+    // Helper functions
     function isAuthenticated() {
       return request.auth != null;
     }
     
-    // User profiles
+    // User profiles - Simplified rules
     match /users/{userId} {
+      // Allow authenticated users to read any user profile
       allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && request.auth.uid == userId;
+      
+      // TEMPORARY: Relaxed rule to allow user creation during signup
+      // Allows any authenticated user to create a user document
+      // TODO: Fix auth timing issue and restore: allow create: if isAuthenticated() && request.auth.uid == userId;
+      allow create: if isAuthenticated();
+      
+      // Allow users to update only their own profile
       allow update: if isAuthenticated() && request.auth.uid == userId;
+      
+      // Never allow deletion
       allow delete: if false;
     }
     

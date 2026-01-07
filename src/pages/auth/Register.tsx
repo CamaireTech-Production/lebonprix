@@ -118,37 +118,50 @@ const Register = () => {
 
       await signUpUser(email, password, userData);
       
-      // Connexion automatique après inscription
-      await signIn(email, password);
+      // Note: L'utilisateur est déjà connecté après signUpUser
+      // Pas besoin de signIn() car createUserWithEmailAndPassword connecte automatiquement
+      // onAuthStateChanged dans AuthContext gérera la redirection
       
       // Show success message
       showSuccessToast('Compte créé avec succès ! Redirection en cours...');
       
+      // Petite attente pour laisser le temps à onAuthStateChanged de traiter
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
       // Redirection vers la page de sélection de mode
+      // (onAuthStateChanged peut aussi gérer cela, mais on le fait ici pour être sûr)
       navigate('/mode-selection');
-    } catch (err) {
-      if (err instanceof FirebaseError) {
-        switch (err.code) {
+    } catch (err: any) {
+      // Check for Firebase error code (works for both FirebaseError and errors with code property)
+      const errorCode = err?.code || (err instanceof FirebaseError ? err.code : null);
+      
+      if (errorCode) {
+        switch (errorCode) {
           case 'auth/email-already-in-use':
             showErrorToast(
-              'Cette adresse email est déjà utilisée. Veuillez vous connecter si vous avez déjà un compte, ou utiliser une autre adresse email.'
+              '❌ Cette adresse email est déjà utilisée. Veuillez vous connecter avec votre compte existant.'
             );
             break;
           case 'auth/invalid-email':
-            showErrorToast('L\'adresse email n\'est pas valide. Veuillez vérifier votre email.');
+            showErrorToast('❌ L\'adresse email n\'est pas valide. Veuillez vérifier votre email.');
             break;
           case 'auth/operation-not-allowed':
-            showErrorToast('L\'inscription par email n\'est pas activée. Veuillez contacter le support.');
+            showErrorToast('❌ L\'inscription par email n\'est pas activée. Veuillez contacter le support.');
             break;
           case 'auth/weak-password':
-            showErrorToast('Le mot de passe est trop faible. Veuillez utiliser un mot de passe plus fort.');
+            showErrorToast('❌ Le mot de passe est trop faible. Veuillez utiliser un mot de passe plus fort.');
+            break;
+          case 'auth/network-request-failed':
+            showErrorToast('❌ Erreur de connexion. Vérifiez votre connexion internet et réessayez.');
             break;
           default:
-            showErrorToast('Une erreur est survenue lors de la création du compte. Veuillez réessayer.');
+            showErrorToast(`❌ Erreur lors de la création du compte: ${err?.message || 'Erreur inconnue'}. Veuillez réessayer.`);
             console.error('Registration error:', err);
         }
       } else {
-        showErrorToast('Une erreur inattendue est survenue. Veuillez réessayer.');
+        // Handle non-Firebase errors
+        const errorMessage = err?.message || 'Une erreur inattendue est survenue';
+        showErrorToast(`❌ ${errorMessage}. Veuillez réessayer.`);
         console.error('Unexpected error:', err);
       }
     } finally {
