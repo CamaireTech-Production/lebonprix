@@ -15,7 +15,7 @@ import {
   ChevronsRight
 } from 'lucide-react';
 import Select from 'react-select';
-import { Modal, ModalFooter, Input, PriceInput, Badge, Button, Card, ImageWithSkeleton, LoadingScreen, SyncIndicator } from '@components/common';
+import { Modal, ModalFooter, Input, PriceInput, Badge, Button, Card, ImageWithSkeleton, LoadingScreen, SyncIndicator, DateRangePicker } from '@components/common';
 import { useProducts, useCustomers, useSales } from '@hooks/data/useFirestore';
 import { useCustomerSources } from '@hooks/business/useCustomerSources';
 import { useInfiniteSales } from '@hooks/data/useInfiniteSales';
@@ -106,6 +106,14 @@ const Sales: React.FC = () => {
   const [sortBy, setSortBy] = useState<'date' | 'amount' | null>('date');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [search, setSearch] = useState('');
+  const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>(() => {
+    // Default to all_time: from app start date to far future
+    const APP_START_DATE = new Date(2025, 3, 1); // April 1st, 2025
+    return {
+      from: APP_START_DATE,
+      to: new Date(2100, 0, 1)
+    };
+  });
 
   const [formData, setFormData] = useState({
     customerName: '',
@@ -270,6 +278,20 @@ const Sales: React.FC = () => {
   // Compute overall profit from all filtered sales
   // Filter out soft-deleted sales (isAvailable === false)
   let filteredSales: Sale[] = (sales || []).filter(sale => sale.isAvailable !== false);
+  
+  // Apply date range filter
+  filteredSales = filteredSales.filter(sale => {
+    if (!sale.createdAt?.seconds) return false;
+    const saleDate = new Date(sale.createdAt.seconds * 1000);
+    return saleDate >= dateRange.from && saleDate <= dateRange.to;
+  });
+  
+  // Apply status filter (independent)
+  if (filterStatus) {
+    filteredSales = filteredSales.filter(sale => sale.status === filterStatus);
+  }
+  
+  // Apply search filter (existing)
   if (search.trim()) {
     const s = search.trim().toLowerCase();
     filteredSales = filteredSales.filter(
@@ -296,6 +318,11 @@ const Sales: React.FC = () => {
 
   const handleFilterChange = (e: React.ChangeEvent<HTMLSelectElement>): void => {
     setFilterStatus(e.target.value || null);
+  };
+
+  const handleDateRangeChange = (range: { from: Date; to: Date }) => {
+    setDateRange(range);
+    setPage(1); // Reset to first page when filter changes
   };
 
   const handleEditSale = async (): Promise<void> => {
@@ -737,6 +764,13 @@ const Sales: React.FC = () => {
             ))}
           </select>
         </div>
+      </div>
+      {/* Date Range Filter - positioned below search bar */}
+      <div className="mb-4">
+        <DateRangePicker 
+          onChange={handleDateRangeChange}
+          className="w-full"
+        />
       </div>
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
         <div>
