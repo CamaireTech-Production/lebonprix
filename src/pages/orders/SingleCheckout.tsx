@@ -1,19 +1,25 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useCart } from '@contexts/CartContext';
 import { useAuth } from '@contexts/AuthContext';
 import { createOrder } from '@services/firestore/orders/orderService';
-import { getCompanyByUserId, getSellerSettings } from '@services/firestore/firestore';
+import { getCompanyById } from '@services/firestore/companies/companyPublic';
+import { getSellerSettings } from '@services/firestore/firestore';
 import { getCurrentEmployeeRef } from '@utils/business/employeeUtils';
 import { getUserById } from '@services/utilities/userService';
 import { formatPrice } from '@utils/formatting/formatPrice';
-import { getCheckoutSettingsWithDefaults, subscribeToCheckoutSettings } from '@services/utilities/checkoutSettingsService';
+import { subscribeToCheckoutSettingsByCompanyId } from '@services/utilities/checkoutSettingsService';
+import { DEFAULT_CHECKOUT_SETTINGS } from '../../types/checkoutSettings';
 // Removed useCheckoutPersistence - using manual save approach
 import { subscribeToCinetPayConfig, isCinetPayConfigured } from '@services/payment/cinetpayService';
 import { processCinetPayPayment, validatePaymentData, formatPhoneForCinetPay } from '@utils/core/cinetpayHandler';
+// Campay integration uses useCampay hook (matching RestoFlow pattern)
+import { useCampay } from '@hooks/useCampay';
+import { getCampayConfig } from '@services/payment/campayService';
 import { formatPhoneForWhatsApp } from '@utils/core/phoneUtils';
 import type { CinetPayConfig } from '../../types/cinetpay';
+import type { Company } from '../../types/models';
 // import { generateWhatsAppMessage } from '@utils/whatsapp';
 import { 
   CreditCard, 
@@ -21,24 +27,18 @@ import {
   ShoppingBag,
   ArrowLeft,
   CheckCircle,
+  Check,
   Lock,
   Shield,
   RotateCcw,
-  HelpCircle
+  HelpCircle,
+  Smartphone
 } from 'lucide-react';
 import { PhoneInput, ImageWithSkeleton, AmountTooLowModal } from '@components/common';
 import SaveStatusIndicator from '@components/checkout/SaveStatusIndicator';
 import { toast } from 'react-hot-toast';
 import type { Order, CustomerInfo, PaymentMethodType } from '../../types/order';
 import type { CheckoutSettings } from '../../types/checkoutSettings';
-
-interface Company {
-  id: string;
-  name: string;
-  phone?: string;
-  whatsapp?: string;
-  address?: string;
-}
 
 interface SellerSettings {
   deliveryFee: number;
@@ -50,8 +50,12 @@ interface SellerSettings {
 const SingleCheckout: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { companyId } = useParams<{ companyId: string }>();
   const { cart, clearCart, getCartTotal, loadCartForCompany, setCurrentCompanyId } = useCart();
-  const { user, company, currentEmployee, isOwner } = useAuth();
+  const { user, currentEmployee, isOwner } = useAuth();
+  
+  // Local company state (fetched by companyId from URL)
+  const [company, setCompany] = useState<Company | null>(null);
   
   // Get company colors with fallbacks
   const getCompanyColors = () => {
@@ -66,10 +70,10 @@ const SingleCheckout: React.FC = () => {
 
   // Manual data loading
   const loadCheckoutData = useCallback(() => {
-    if (!company?.id || typeof company.id !== 'string') return null;
+    if (!companyId || typeof companyId !== 'string') return null;
     
     try {
-      const key = `checkout_data_${company.id}`;
+      const key = `checkout_data_${companyId}`;
       const stored = localStorage.getItem(key);
       
       if (!stored) return null;
@@ -102,19 +106,18 @@ const SingleCheckout: React.FC = () => {
       console.error('Error loading checkout data:', error);
       return null;
     }
-  }, [company?.id]);
+  }, [companyId]);
 
   const clearCheckoutData = useCallback(() => {
-    if (!company?.id || typeof company.id !== 'string') return;
+    if (!companyId || typeof companyId !== 'string') return;
     
     try {
-      const key = `checkout_data_${company.id}`;
+      const key = `checkout_data_${companyId}`;
       localStorage.removeItem(key);
-      console.log('Checkout data cleared');
     } catch (error) {
       console.error('Error clearing checkout data:', error);
     }
-  }, [company?.id]);
+  }, [companyId]);
   
   // Save status state
   const [isSaving, setIsSaving] = useState(false);
@@ -146,6 +149,8 @@ const SingleCheckout: React.FC = () => {
   const [sellerSettings, setSellerSettings] = useState<SellerSettings | null>(null);
   const [checkoutSettings, setCheckoutSettings] = useState<CheckoutSettings | null>(null);
   const [cinetpayConfig, setCinetpayConfig] = useState<CinetPayConfig | null>(null);
+  // Use Campay hook (matching RestoFlow pattern)
+  const { processPayment: processCampayPayment, isInitialized: isCampayInitialized, hiddenButtonId: campayButtonId } = useCampay(companyId || null);
   const [submitting, setSubmitting] = useState(false);
   const [orderCreated, setOrderCreated] = useState(false);
   const [createdOrder, setCreatedOrder] = useState<Order | null>(null);
@@ -155,67 +160,84 @@ const SingleCheckout: React.FC = () => {
   const [minimumAmount, setMinimumAmount] = useState(100); // Default minimum
   const [errors, setErrors] = useState<Partial<CustomerInfo>>({});
 
-  // Load companyData and settings data
+  // Load company data from URL parameter
   useEffect(() => {
-    const fetchData = async () => {
-      if (!user?.uid) return;
+    const fetchCompanyData = async () => {
+      if (!companyId) {
+        toast.error('Company ID not found in URL');
+        return;
+      }
       
       try {
-        if (!company) {
+        const companyData = await getCompanyById(companyId);
+        
+        if (companyData) {
+          setCompany(companyData);
+          setCompanyData(companyData);
+          
+          // Also load seller settings
+          try {
+            const settingsData = await getSellerSettings(companyId);
+            if (settingsData) {
+              setSellerSettings(settingsData as unknown as SellerSettings);
+            }
+          } catch (error) {
+            console.error('Error loading seller settings:', error);
+          }
+        } else {
           toast.error('Company not found');
-          return;
-        }
-        
-        const [companyDataResult, settingsData] = await Promise.all([
-          getCompanyByUserId(company.id),
-          getSellerSettings(company.id)
-        ]);
-        
-        if (companyDataResult) {
-          setCompanyData(companyDataResult);
-        }
-        if (settingsData) {
-          setSellerSettings(settingsData as unknown as SellerSettings);
+          navigate('/');
         }
       } catch (error) {
-        console.error('Error fetching companyData data:', error);
-        toast.error('Error loading companyData information');
+        console.error('Error fetching company data:', error);
+        toast.error('Error loading company information');
       }
     };
 
-    fetchData();
-  }, [user?.uid]);
+    fetchCompanyData();
+  }, [companyId, navigate]);
 
-  // Real-time checkout settings subscription
+  // Real-time checkout settings subscription by companyId (company-oriented)
   useEffect(() => {
-    if (!user?.uid) return;
+    if (!companyId) return;
 
-    const unsubscribe = subscribeToCheckoutSettings(user.uid, (settings) => {
+    const unsubscribe = subscribeToCheckoutSettingsByCompanyId(companyId, (settings) => {
+      // If settings is null, use defaults (all methods enabled)
+      // This ensures disabled methods are properly filtered when settings exist
       if (settings) {
         setCheckoutSettings(settings);
       } else {
-        // If no settings exist, get defaults
-        getCheckoutSettingsWithDefaults(user.uid).then(setCheckoutSettings);
+        // No settings found - use defaults
+        setCheckoutSettings({
+          id: companyId,
+          userId: companyId,
+          ...DEFAULT_CHECKOUT_SETTINGS,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
       }
     });
 
     return () => unsubscribe();
-  }, [user?.uid]);
+  }, [companyId]);
 
-  // Load CinetPay configuration
+  // Load CinetPay configuration by companyId
   useEffect(() => {
-    if (!user?.uid) return;
+    if (!companyId) return;
 
-    const unsubscribe = subscribeToCinetPayConfig(user.uid, (config) => {
+    const unsubscribe = subscribeToCinetPayConfig(companyId, (config) => {
       setCinetpayConfig(config);
     });
 
     return () => unsubscribe();
-  }, [user?.uid]);
+  }, [companyId]);
+
+  // Campay config is now managed by useCampay hook - no need for separate subscription
+  // Removed duplicate subscription to avoid state sync issues
 
   // Manual save on form changes (no auto-save)
   const saveCheckoutData = useCallback(() => {
-    if (!company?.id || typeof company.id !== 'string') return;
+    if (!companyId || typeof companyId !== 'string') return;
     
     try {
       setIsSaving(true);
@@ -226,11 +248,11 @@ const SingleCheckout: React.FC = () => {
         paymentFormData,
         cartItems: cart,
         lastSaved: new Date().toISOString(),
-        companyId: company.id
+        companyId: companyId
       };
       
       // Save to localStorage
-      const key = `checkout_data_${company.id}`;
+      const key = `checkout_data_${companyId}`;
       const payload = {
         formData,
         cartItems: cart,
@@ -241,13 +263,12 @@ const SingleCheckout: React.FC = () => {
       
       localStorage.setItem(key, JSON.stringify(payload));
       setLastSaved(new Date().toISOString());
-      console.log('Checkout data saved manually');
     } catch (error) {
       console.error('Error saving checkout data:', error);
     } finally {
       setIsSaving(false);
     }
-  }, [company?.id, customerInfo, selectedPaymentMethod, selectedPaymentOption, paymentFormData, cart, getCartTotal]);
+  }, [companyId, customerInfo, selectedPaymentMethod, selectedPaymentOption, paymentFormData, cart, getCartTotal]);
 
   // Save data when user makes significant changes
   useEffect(() => {
@@ -274,25 +295,17 @@ const SingleCheckout: React.FC = () => {
 
   // Load saved checkout data on component mount
   useEffect(() => {
-    if (company?.id) {
+    if (companyId) {
       // Set current company ID in cart context
-      setCurrentCompanyId(company.id);
+      setCurrentCompanyId(companyId);
       
       // Load cart data for this company
-      loadCartForCompany(company.id);
+      loadCartForCompany(companyId);
       
       // Load form data
       const savedData = loadCheckoutData();
-      console.log('Loading checkout data for company:', company.id);
-      console.log('Saved data found:', savedData);
       
       if (savedData) {
-        console.log('Saved data structure:', {
-          hasFormData: !!savedData.formData,
-          formDataKeys: savedData.formData ? Object.keys(savedData.formData) : [],
-          hasCustomerInfo: !!(savedData.formData && savedData.formData.customerInfo)
-        });
-        
         if (savedData.formData) {
           // Restore form data with null checks
           if (savedData.formData.customerInfo) {
@@ -308,20 +321,14 @@ const SingleCheckout: React.FC = () => {
             setPaymentFormData(savedData.formData.paymentFormData);
           }
           
-          console.log('Form data restored:', savedData.formData);
-          
           // Show restoration message
           if (savedData.formData.customerInfo && (savedData.formData.customerInfo.name || savedData.formData.customerInfo.phone)) {
             toast.success('Previous checkout data restored');
           }
-        } else {
-          console.log('No formData found in saved data');
         }
-      } else {
-        console.log('No saved checkout data found for company:', company.id);
       }
     }
-  }, [company?.id, loadCheckoutData, loadCartForCompany, setCurrentCompanyId]);
+  }, [companyId, loadCheckoutData, loadCartForCompany, setCurrentCompanyId]);
 
   // Form validation
   const validateForm = (): boolean => {
@@ -474,6 +481,11 @@ const SingleCheckout: React.FC = () => {
 
   // Handle order creation
   const handleCreateOrder = async () => {
+    if (!companyId) {
+      toast.error('Company ID not found');
+      return;
+    }
+
     if (!selectedPaymentMethod) {
       toast.error('Veuillez sélectionner un mode de paiement');
       return;
@@ -546,7 +558,7 @@ const SingleCheckout: React.FC = () => {
             country: 'CM',
             zipCode: ''
           },
-          returnUrl: `${window.location.origin}/catalogue/${company?.name?.toLowerCase().replace(/\s+/g, '-')}/${company?.id}`,
+          returnUrl: `${window.location.origin}/catalogue/${company?.name?.toLowerCase().replace(/\s+/g, '-')}/${companyId}`,
           notifyUrl: `${window.location.origin}/api/cinetpay/webhook`
         };
 
@@ -562,8 +574,7 @@ const SingleCheckout: React.FC = () => {
           cinetpayConfig,
           paymentData,
           {
-            onSuccess: (transaction) => {
-              console.log('CinetPay payment successful:', transaction);
+            onSuccess: () => {
               toast.success('Payment successful! Your order is being processed.');
             },
             onError: (error) => {
@@ -587,7 +598,7 @@ const SingleCheckout: React.FC = () => {
               }
             },
             onClose: () => {
-              console.log('CinetPay payment popup closed');
+              // CinetPay payment popup closed
             }
           }
         );
@@ -610,7 +621,7 @@ const SingleCheckout: React.FC = () => {
           
           // Create order with CinetPay payment details
           const order = await createOrder(
-            company.id,
+            companyId!,
             {
               customerInfo: sanitizedCustomerInfo,
               cartItems: cart,
@@ -629,7 +640,7 @@ const SingleCheckout: React.FC = () => {
               },
               metadata: {
                 source: 'catalogue',
-                userId: user?.uid, // Include userId in metadata for audit
+                userId: user?.uid || undefined, // Optional: Include userId if user is logged in
                 createdBy: createdBy || undefined,
                 deviceInfo: {
                   type: 'desktop',
@@ -651,8 +662,8 @@ const SingleCheckout: React.FC = () => {
           
           // Redirect to catalogue page after a short delay
           setTimeout(() => {
-            if (company) {
-              navigate(`/catalogue/${company.name.toLowerCase().replace(/\s+/g, '-')}/${company.id}`);
+            if (company && companyId) {
+              navigate(`/catalogue/${company.name.toLowerCase().replace(/\s+/g, '-')}/${companyId}`);
             } else {
               navigate('/');
             }
@@ -660,7 +671,171 @@ const SingleCheckout: React.FC = () => {
         } else {
           toast.error(paymentResult.error || 'Payment failed');
         }
-      } else if (company) {
+        return;
+      }
+
+      // Check if this is a Campay payment (matching RestoFlow pattern)
+      const isCampayPayment = selectedPaymentOption === 'campay';
+      
+      if (isCampayPayment) {
+        // Validate that Campay SDK is initialized (matching RestoFlow)
+        if (!isCampayInitialized) {
+          toast.error('Payment system not configured. Please contact the company.');
+          setSubmitting(false);
+          return;
+        }
+
+        // Get Campay config for amount calculation
+        let campayConfig = null;
+        try {
+          campayConfig = await getCampayConfig(companyId!);
+        } catch (error) {
+          console.error('Error fetching Campay config:', error);
+        }
+
+        // Calculate final total
+        const calculatedTotal = getCartTotal() + (sellerSettings?.deliveryFee || 0);
+        
+        // Use 10 XAF for demo mode, otherwise use calculated total
+        const finalTotal = campayConfig?.environment === 'demo' ? 10 : calculatedTotal;
+
+        // Validate amount limits if config is available
+        if (campayConfig) {
+          if (calculatedTotal < campayConfig.minAmount) {
+            toast.error(`Minimum payment amount is ${campayConfig.minAmount} ${campayConfig.currency}`);
+            setSubmitting(false);
+            return;
+          }
+          if (calculatedTotal > campayConfig.maxAmount) {
+            toast.error(`Maximum payment amount is ${campayConfig.maxAmount} ${campayConfig.currency}`);
+            setSubmitting(false);
+            return;
+          }
+        }
+
+        // Process Campay payment (matching RestoFlow pattern)
+        const externalReference = `ORDER_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        
+        const paymentOptions = {
+          payButtonId: campayButtonId,
+          description: `Order from ${company?.name || 'Store'}`,
+          amount: finalTotal,
+          currency: 'XAF',
+          externalReference: externalReference,
+          redirectUrl: `${window.location.origin}/catalogue/${company?.name?.toLowerCase().replace(/\s+/g, '-')}/${companyId}`
+        };
+
+        const paymentResult = await processCampayPayment(
+          paymentOptions,
+          // onSuccess callback (matching RestoFlow pattern)
+          async (data) => {
+            
+            // Get createdBy employee reference
+            let createdBy = null;
+            if (user && company) {
+              let userData = null;
+              if (isOwner && !currentEmployee) {
+                try {
+                  userData = await getUserById(user.uid);
+                } catch (error) {
+                  console.error('Error fetching user data for createdBy:', error);
+                }
+              }
+              createdBy = getCurrentEmployeeRef(currentEmployee, user, isOwner, userData);
+            }
+            
+            // Create order with Campay payment details
+            // In demo mode, use 10 XAF for payment but keep actual pricing for records
+            const actualTotal = getCartTotal() + (sellerSettings?.deliveryFee || 0);
+            const order = await createOrder(
+              companyId!,
+              {
+                customerInfo: sanitizedCustomerInfo,
+                cartItems: cart,
+                pricing: {
+                  subtotal: getCartTotal(),
+                  deliveryFee: sellerSettings?.deliveryFee || 0,
+                  total: campayConfig?.environment === 'demo' ? 10 : actualTotal
+                },
+                paymentMethod: 'campay',
+                paymentOption: 'campay',
+                paymentFormData: sanitizedPaymentFormData,
+                deliveryInfo: {
+                  method: 'delivery',
+                  address: sanitizedCustomerInfo.location,
+                  instructions: sanitizedCustomerInfo.deliveryInstructions
+                },
+                metadata: {
+                  source: 'catalogue',
+                  userId: user?.uid || undefined,
+                  createdBy: createdBy || undefined,
+                  deviceInfo: {
+                    type: 'desktop',
+                    os: navigator.platform,
+                    browser: navigator.userAgent
+                  }
+                },
+                campayPaymentDetails: {
+                  reference: data.reference || '',
+                  transactionId: data.transactionId || '',
+                  campayStatus: data.status || 'SUCCESS',
+                  status: data.status || 'SUCCESS',
+                  paidAt: new Date(),
+                  paymentMethod: data.paymentMethod || 'mobile_money',
+                  amount: finalTotal,
+                  currency: 'XAF',
+                  metadata: {
+                    externalReference: externalReference,
+                    environment: campayConfig?.environment || 'production',
+                    timestamp: new Date().toISOString()
+                  }
+                }
+              }
+            );
+
+            setCreatedOrder(order);
+            setOrderCreated(true);
+            
+            // Clear cart and saved data
+            clearCart();
+            clearCheckoutData();
+            
+            toast.success('Payment successful! Order created.');
+            setSubmitting(false);
+          },
+          // onFail callback (matching RestoFlow pattern)
+          (data) => {
+            console.error('Campay payment failed:', data);
+            // Check for demo amount limit error
+            const errorMessage = data.message || '';
+            if (errorMessage.includes('Maximum amount') || errorMessage.includes('ER201') || errorMessage.includes('demo system')) {
+              const demoError = `Demo environment limit: Maximum amount is 10 XAF. Your order total is ${calculatedTotal} XAF. Please use production environment for larger amounts.`;
+              toast.error(demoError, { duration: 6000 });
+            } else {
+              toast.error(data.message || 'Payment failed. Please try again.');
+            }
+            setSubmitting(false);
+          },
+          // onModalClose callback (matching RestoFlow pattern)
+          () => {
+            // User cancelled - no error message needed (matching RestoFlow)
+            setSubmitting(false);
+          }
+        );
+
+        // Note: The actual order creation happens in the onSuccess callback
+        // This promise resolves when payment is processed
+        if (!paymentResult) {
+          // Payment was cancelled or failed - already handled in callbacks
+          return;
+        }
+        
+        // Payment initiated - modal should open
+        return;
+      }
+      
+      // Only proceed to regular payment methods if Campay is NOT selected
+      if (company && !isCampayPayment) {
         // Get createdBy employee reference
         let createdBy = null;
         if (user && company) {
@@ -740,12 +915,23 @@ const SingleCheckout: React.FC = () => {
         
         // Redirect to catalogue page after a short delay
         setTimeout(() => {
-          if (company) {
-            navigate(`/catalogue/${company.name.toLowerCase().replace(/\s+/g, '-')}/${company.id}`);
+          if (company && companyId) {
+            navigate(`/catalogue/${company.name.toLowerCase().replace(/\s+/g, '-')}/${companyId}`);
           } else {
             navigate('/');
           }
         }, 2000);
+      } else {
+        // If Campay was selected but config is missing, show error
+        if (isCampayPayment) {
+          toast.error('Campay payment is not configured. Please contact support or select another payment method.');
+          setSubmitting(false);
+          return;
+        }
+        
+        // If no company, show error
+        toast.error('Company information not found. Please refresh the page.');
+        setSubmitting(false);
       }
       
     } catch (error) {
@@ -782,8 +968,8 @@ const SingleCheckout: React.FC = () => {
           <p className="text-gray-600 mb-4">Add some items to your cart to proceed with checkout</p>
           <button
             onClick={() => {
-              if (company) {
-                navigate(`/catalogue/${company.name.toLowerCase().replace(/\s+/g, '-')}/${company.id}`);
+              if (company && companyId) {
+                navigate(`/catalogue/${company.name.toLowerCase().replace(/\s+/g, '-')}/${companyId}`);
               } else {
                 navigate('/');
               }
@@ -804,8 +990,8 @@ const SingleCheckout: React.FC = () => {
         <div className="mb-8">
           <button
             onClick={() => {
-              if (company) {
-                navigate(`/catalogue/${company.name.toLowerCase().replace(/\s+/g, '-')}/${company.id}`);
+              if (company && companyId) {
+                navigate(`/catalogue/${company.name.toLowerCase().replace(/\s+/g, '-')}/${companyId}`);
               } else {
                 navigate('/');
               }
@@ -1026,41 +1212,50 @@ const SingleCheckout: React.FC = () => {
                       />
                     </div>
                   )}
-                </div>
-              </div>
-            )}
 
-            {/* Shipping Method Section */}
-            {checkoutSettings?.showShippingMethod && (
-              <div className="bg-white rounded-lg shadow-sm border p-6">
-                <h2 className="text-xl font-bold mb-4" style={{color: getCompanyColors().primary}}>Mode de livraison</h2>
-                
-                <div className="space-y-3">
-                  <div className="border border-gray-200 rounded-lg p-4 bg-emerald-50">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        <input
-                          type="radio"
-                          name="shipping"
-                          defaultChecked
-                          className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300"
-                        />
-                      <div>
-                        <p className="font-medium text-gray-900">Livraison standard</p>
-                        <p className="text-sm text-gray-600">3-5 jours ouvrables</p>
+                  {/* Shipping Method Section - Inside Delivery Card */}
+                  {checkoutSettings?.showShippingMethod && (
+                    <>
+                      <div className="border-t border-gray-200 pt-4 mt-4">
+                        <h3 className="text-lg font-bold mb-4" style={{color: getCompanyColors().primary}}>Mode de livraison</h3>
+                        
+                        <div className="space-y-3">
+                          <div className="border border-gray-200 rounded-lg p-4 bg-emerald-50">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-3">
+                                <input
+                                  type="radio"
+                                  name="shipping"
+                                  defaultChecked
+                                  className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300"
+                                />
+                                <div>
+                                  <p className="font-medium text-gray-900">Livraison standard</p>
+                                  <p className="text-sm text-gray-600">3-5 jours ouvrables</p>
+                                </div>
+                              </div>
+                              <span className="font-semibold text-gray-900">
+                                {deliveryFee > 0 ? `${formatPrice(deliveryFee)} XAF` : 'À confirmer après commande'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                    <span className="font-semibold text-gray-900">
-                      {deliveryFee > 0 ? `${formatPrice(deliveryFee)} XAF` : 'À confirmer après commande'}
-                    </span>
-                    </div>
-                  </div>
+                    </>
+                  )}
                 </div>
               </div>
             )}
 
-            {/* Payment Section */}
-            {checkoutSettings?.showPaymentSection && (
+          </div>
+
+          {/* Right Column - Payment and Order Summary */}
+          <div className="space-y-8">
+            {/* Payment Section - Moved to Right Column */}
+            {/* Show payment section if enabled OR if any payment integration (Campay/CinetPay) is configured */}
+            {((checkoutSettings?.showPaymentSection) || 
+              isCampayInitialized || 
+              (cinetpayConfig && isCinetPayConfigured(cinetpayConfig))) && (
               <div className="bg-white rounded-lg shadow-sm border p-6">
                 <h2 className="text-xl font-bold mb-4" style={{color: getCompanyColors().primary}}>{t('checkout.payment')}</h2>
                 <p className="text-sm text-gray-600 mb-4">Toutes les transactions sont sécurisées et cryptées.</p>
@@ -1068,7 +1263,7 @@ const SingleCheckout: React.FC = () => {
                 {/* Payment Options Container */}
                 <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
                   {/* MTN Money Option */}
-                  {checkoutSettings.enabledPaymentMethods.mtnMoney && (
+                  {checkoutSettings && checkoutSettings.enabledPaymentMethods && checkoutSettings.enabledPaymentMethods.mtnMoney === true && (
                     <div className={`p-4 ${selectedPaymentOption === 'mtn_money' ? 'bg-gray-50' : ''}`}>
                   <div className="flex items-center space-x-3">
                     <input
@@ -1108,7 +1303,7 @@ const SingleCheckout: React.FC = () => {
                 )}
 
                   {/* Orange Money Option */}
-                  {checkoutSettings.enabledPaymentMethods.orangeMoney && (
+                  {checkoutSettings && checkoutSettings.enabledPaymentMethods && checkoutSettings.enabledPaymentMethods.orangeMoney === true && (
                     <div className={`p-4 border-t border-gray-200 ${selectedPaymentOption === 'orange_money' ? 'bg-gray-50' : ''}`}>
                       <div className="flex items-center space-x-3">
                         <input
@@ -1148,7 +1343,7 @@ const SingleCheckout: React.FC = () => {
                   )}
 
                   {/* Visa Card Option */}
-                  {checkoutSettings.enabledPaymentMethods.visaCard && (
+                  {checkoutSettings && checkoutSettings.enabledPaymentMethods && checkoutSettings.enabledPaymentMethods.visaCard === true && (
                     <div className={`p-4 border-t border-gray-200 ${selectedPaymentOption === 'visa_card' ? 'bg-gray-50' : ''}`}>
                       <div className="flex items-center space-x-3">
                         <input
@@ -1356,8 +1551,96 @@ const SingleCheckout: React.FC = () => {
                     </>
                   )}
 
+                  {/* Campay Payment Option */}
+                  {isCampayInitialized && (
+                    <div 
+                      className={`p-4 border-t border-gray-200 transition-all duration-200 ${
+                        selectedPaymentOption === 'campay' 
+                          ? 'bg-emerald-50 border-l-4 border-l-emerald-500' 
+                          : 'hover:bg-gray-50'
+                      }`}
+                      role="group"
+                      aria-labelledby="campay-payment-label"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <input
+                          type="radio"
+                          name="paymentMethod"
+                          id="campay"
+                          value="campay"
+                          checked={selectedPaymentOption === 'campay'}
+                          onChange={() => handlePaymentMethodSelect('campay')}
+                          className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 cursor-pointer"
+                          aria-labelledby="campay-payment-label"
+                          aria-describedby="campay-payment-description"
+                        />
+                        <label 
+                          htmlFor="campay" 
+                          id="campay-payment-label"
+                          className="flex items-center space-x-3 cursor-pointer flex-1"
+                        >
+                          <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-lg flex items-center justify-center shadow-sm transition-transform duration-200 hover:scale-105">
+                            <Smartphone className="h-5 w-5 text-white" />
+                          </div>
+                          <div className="flex-1">
+                            <span className="font-medium text-gray-900 block">MTN ou Orange Money</span>
+                            <span className="text-xs text-gray-500 block mt-0.5">Paiement mobile par Campay</span>
+                          </div>
+                          {selectedPaymentOption === 'campay' && (
+                            <div className="flex items-center text-emerald-600 animate-fade-in">
+                              <Check className="h-5 w-5" aria-label="Selected" />
+                            </div>
+                          )}
+                        </label>
+                      </div>
+                      
+                      {/* Campay Payment Form */}
+                      {selectedPaymentOption === 'campay' && (
+                        <div 
+                          className="mt-4 pl-8 animate-slide-down"
+                          id="campay-payment-description"
+                          role="region"
+                          aria-labelledby="campay-payment-label"
+                        >
+                          <div className="bg-gradient-to-br from-emerald-50 to-green-50 border border-emerald-200 rounded-lg p-4 shadow-sm">
+                            <div className="flex items-start space-x-3 mb-3">
+                              <div className="flex-shrink-0 mt-0.5">
+                                <div className="w-8 h-8 bg-emerald-100 rounded-full flex items-center justify-center">
+                                  <Smartphone className="h-4 w-4 text-emerald-600" aria-hidden="true" />
+                                </div>
+                              </div>
+                              <div className="flex-1">
+                                <h4 className="font-medium text-emerald-900 mb-1">Paiement sécurisé via Campay</h4>
+                                <p className="text-sm text-emerald-700 leading-relaxed">
+                                  Payez en toute sécurité avec MTN Mobile Money ou Orange Money.
+                                </p>
+                                <p className="text-sm text-emerald-700 leading-relaxed mt-2">
+                                  Nom de confirmation de paiement: TAKWID GROUP
+                                </p>
+                              </div>
+                            </div>
+                            
+                            {/* Payment Methods Icons */}
+                            <div className="flex items-center space-x-2 mt-3 pt-3 border-t border-emerald-200">
+                              <span className="text-xs text-emerald-600 font-medium">Méthodes acceptées:</span>
+                              <div className="flex items-center space-x-2">
+                                <div className="w-6 h-6 bg-yellow-500 rounded flex items-center justify-center" title="MTN Mobile Money">
+                                  <span className="text-white text-xs font-bold">M</span>
+                                </div>
+                                <div className="w-6 h-6 bg-orange-500 rounded flex items-center justify-center" title="Orange Money">
+                                  <span className="text-white text-xs font-bold">O</span>
+                                </div>
+                              </div>
+                            </div>
+                            
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {/* Pay Onsite Option */}
-                  {checkoutSettings.enabledPaymentMethods.payOnsite && (
+                  {checkoutSettings && checkoutSettings.enabledPaymentMethods && checkoutSettings.enabledPaymentMethods.payOnsite === true && (
                     <div className={`p-4 border-t border-gray-200 ${selectedPaymentOption === 'pay_onsite' ? 'bg-gray-50' : ''}`}>
                       <div className="flex items-center space-x-3">
                         <input
@@ -1390,14 +1673,25 @@ const SingleCheckout: React.FC = () => {
                       )}
                     </div>
                   )}
+
+                  {/* No payment methods available message */}
+                  {(!checkoutSettings || !checkoutSettings.enabledPaymentMethods || checkoutSettings.enabledPaymentMethods.mtnMoney !== true) &&
+                   (!checkoutSettings || !checkoutSettings.enabledPaymentMethods || checkoutSettings.enabledPaymentMethods.orangeMoney !== true) &&
+                   (!checkoutSettings || !checkoutSettings.enabledPaymentMethods || checkoutSettings.enabledPaymentMethods.visaCard !== true) &&
+                   (!checkoutSettings || !checkoutSettings.enabledPaymentMethods || checkoutSettings.enabledPaymentMethods.payOnsite !== true) &&
+                   !(cinetpayConfig && isCinetPayConfigured(cinetpayConfig)) &&
+                   !isCampayInitialized && (
+                    <div className="p-4 text-center text-gray-500">
+                      <p className="text-sm">Aucun mode de paiement disponible. Veuillez activer au moins un mode de paiement dans les paramètres.</p>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
-          </div>
 
-          {/* Right Column - Order Summary */}
-          {checkoutSettings?.showOrderSummary && (
-            <div className="lg:sticky lg:top-8" id="cart-section">
+            {/* Order Summary */}
+            {checkoutSettings?.showOrderSummary && (
+              <div className="lg:sticky lg:top-8" id="cart-section">
               <div className="bg-white rounded-lg shadow-sm border p-6">
                 <h3 className="text-lg font-semibold mb-6" style={{color: getCompanyColors().primary}}>{t('checkout.orderSummary')}</h3>
               
@@ -1547,8 +1841,8 @@ const SingleCheckout: React.FC = () => {
                   <div className="space-y-3">
                     <button
                       onClick={() => {
-                        if (company) {
-                          navigate(`/catalogue/${company.name}/${company.id}`);
+                        if (company && companyId) {
+                          navigate(`/catalogue/${company.name.toLowerCase().replace(/\s+/g, '-')}/${companyId}`);
                         } else {
                           navigate('/');
                         }
@@ -1572,6 +1866,7 @@ const SingleCheckout: React.FC = () => {
               </div>
             </div>
           )}
+          </div>
         </div>
       </div>
       
@@ -1584,6 +1879,16 @@ const SingleCheckout: React.FC = () => {
         currency="XAF"
         onAddMoreItems={scrollToCart}
       />
+
+      {/* Hidden button for Campay SDK */}
+      {isCampayInitialized && (
+        <button
+          id={campayButtonId}
+          type="button"
+          style={{ display: 'none' }}
+          aria-hidden="true"
+        />
+      )}
     </div>
   );
 };

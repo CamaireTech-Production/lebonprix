@@ -48,7 +48,14 @@ export const normalizePhoneNumber = (
   // Check for Cameroon first
   if (digitsOnly.startsWith(DEFAULT_COUNTRY_CODE_DIGITS)) {
     // Already has Cameroon country code
-    const numberPart = digitsOnly.substring(DEFAULT_COUNTRY_CODE_DIGITS.length);
+    let numberPart = digitsOnly.substring(DEFAULT_COUNTRY_CODE_DIGITS.length);
+    
+    // Handle duplicate country codes (e.g., "23723785443333222" -> extract "23785443333222" -> "23785443333222")
+    // If the number part also starts with country code, remove it
+    if (numberPart.startsWith(DEFAULT_COUNTRY_CODE_DIGITS)) {
+      numberPart = numberPart.substring(DEFAULT_COUNTRY_CODE_DIGITS.length);
+    }
+    
     // Remove leading zeros from number part
     const cleanNumber = numberPart.replace(/^0+/, '');
     // Validate length

@@ -130,7 +130,11 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     // Convert selectedVariations to the format expected by addToCart
     const selectedColor = selectedVariations['Color'] || '';
     const selectedSize = selectedVariations['Size'] || '';
-    addToCart(product, quantity, selectedColor, selectedSize);
+    if (companyId) {
+      addToCart(product, quantity, selectedColor, selectedSize, companyId);
+    } else {
+      addToCart(product, quantity, selectedColor, selectedSize);
+    }
     console.log('Added to cart:', product.name, 'Quantity:', quantity, 'Variations:', selectedVariations);
   };
 

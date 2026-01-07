@@ -680,7 +680,39 @@ const handleCampayOrder = async () => {
 
 ---
 
+## Testing
+
+### Manual Testing
+
+See the [Testing Guide](./CAMPAY_TESTING_GUIDE.md) for comprehensive testing procedures including:
+- Configuration testing
+- Payment flow testing
+- Error scenario testing
+- Integration testing
+
+### Testing Checklist
+
+- [ ] Configuration setup and validation
+- [ ] Demo environment payments (≤ 10 XAF)
+- [ ] Production environment payments
+- [ ] Payment cancellation handling
+- [ ] Amount validation (min/max limits)
+- [ ] Network error handling
+- [ ] SDK loading and initialization
+- [ ] Order creation and storage
+- [ ] Error message display
+
 ## Troubleshooting
+
+See the [Troubleshooting Guide](./CAMPAY_TROUBLESHOOTING.md) for common issues and solutions.
+
+### Quick Reference
+
+**Common Issues:**
+1. **Campay payment option not appearing** - Check if Campay is configured and active
+2. **SDK not loading** - Check network connectivity and disable ad blockers
+3. **Demo limit error** - Reduce amount to ≤ 10 XAF or switch to Production
+4. **Order not created** - Check Firestore permissions and browser console
 
 ### Issue 1: SDK Not Loading
 
