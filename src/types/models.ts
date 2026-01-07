@@ -445,10 +445,10 @@ export interface UserCompanyRef {
 // Nouveau modèle User unifié
 export interface User {
   id: string;
+  username: string; // Unique username identifier
   firstname: string;
   lastname: string;
   email: string;
-  phone?: string;
   photoURL?: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;

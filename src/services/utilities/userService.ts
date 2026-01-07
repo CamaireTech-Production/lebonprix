@@ -1,7 +1,7 @@
-import { doc, setDoc, getDoc, getDocFromCache, updateDoc, arrayUnion, arrayRemove, Timestamp, DocumentReference, Firestore } from 'firebase/firestore';
+import { doc, setDoc, getDoc, getDocFromCache, updateDoc, arrayUnion, arrayRemove, Timestamp, DocumentReference, Firestore, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../core/firebase';
 import { User, UserCompanyRef } from '../../types/models';
-import { normalizePhoneNumber } from '@utils/core/phoneUtils';
+import { normalizeUsername } from '@utils/validation/usernameValidation';
 
 const isOfflineFirestoreError = (error: any) => {
   if (!error) return false;
@@ -25,10 +25,10 @@ const getDocWithCache = async <T = unknown>(ref: DocumentReference<T>) => {
 };
 
 export interface UserData {
+  username: string; // Required unique username
   firstname: string;
   lastname: string;
   email: string;
-  phone?: string;
   photoURL?: string;
 }
 
@@ -51,9 +51,14 @@ export const createUser = async (
   try {
     const now = Timestamp.now();
     
+    // Normalize username for storage (lowercase for case-insensitive uniqueness)
+    // We store it normalized to ensure uniqueness while preserving original case in UI if needed
+    const normalizedUsername = normalizeUsername(userData.username);
+    
     // Créer l'objet utilisateur en filtrant les valeurs undefined
     const newUser: User = {
       id: userId,
+      username: normalizedUsername, // Store normalized for uniqueness
       firstname: userData.firstname,
       lastname: userData.lastname,
       email: userData.email,
@@ -62,8 +67,6 @@ export const createUser = async (
       companies: [],
       status: 'active',
       // Ajouter seulement les champs non-undefined
-      // Normalize phone number before saving
-      ...(userData.phone && { phone: normalizePhoneNumber(userData.phone) }),
       ...(userData.photoURL && { photoURL: userData.photoURL })
     };
 
@@ -259,6 +262,51 @@ export const userExists = async (userId: string): Promise<boolean> => {
     return user !== null;
   } catch (error: any) {
     console.error('Erreur lors de la vérification de l\'existence de l\'utilisateur:', error);
+    return false;
+  }
+};
+
+/**
+ * Vérifie si un nom d'utilisateur est disponible
+ * La vérification est case-insensitive (username et Username sont considérés comme identiques)
+ * 
+ * @param username - Le nom d'utilisateur à vérifier
+ * @param excludeUserId - ID d'utilisateur à exclure de la vérification (pour les mises à jour)
+ * @returns true si le nom d'utilisateur est disponible, false sinon
+ */
+export const checkUsernameAvailability = async (
+  username: string,
+  excludeUserId?: string
+): Promise<boolean> => {
+  try {
+    if (!username || username.trim().length === 0) {
+      return false;
+    }
+    
+    const normalizedUsername = normalizeUsername(username);
+    
+    // Query Firestore for users with the same normalized username
+    // Since we store usernames normalized (lowercase), we can query directly
+    const usersRef = collection(db, 'users');
+    const q = query(usersRef, where('username', '==', normalizedUsername));
+    const querySnapshot = await getDocs(q);
+    
+    // If no documents found, username is available
+    if (querySnapshot.empty) {
+      return true;
+    }
+    
+    // If excludeUserId is provided, check if the only match is the excluded user
+    if (excludeUserId) {
+      const matchingUsers = querySnapshot.docs.filter(doc => doc.id !== excludeUserId);
+      return matchingUsers.length === 0;
+    }
+    
+    // Username is already taken
+    return false;
+  } catch (error: any) {
+    console.error('Erreur lors de la vérification de la disponibilité du nom d\'utilisateur:', error);
+    // On error, assume username is not available to be safe
     return false;
   }
 };
