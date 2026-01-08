@@ -1248,16 +1248,26 @@ const Products = () => {
   };
 
   // Helper function to get latest cost price from active stock batches
+  // Uses updatedAt to get the most recently modified batch (for cost price corrections)
+  // Falls back to createdAt if updatedAt is not available
   const getLatestCostPriceFromBatches = (productId: string): number | undefined => {
     const batches = getProductBatches(productId);
     const activeBatches = batches.filter(batch => batch.status === 'active' && batch.remainingQuantity > 0);
     if (activeBatches.length === 0) return undefined;
     
-    // Sort by creation date (newest first) and get the most recent batch's cost price
+    // Sort by updatedAt (most recently modified first), fallback to createdAt if updatedAt is not available
+    // This ensures that when a batch's cost price is corrected, it's recognized as the latest
     const sortedBatches = activeBatches.sort((a, b) => {
-      const timeA = a.createdAt?.seconds || 0;
-      const timeB = b.createdAt?.seconds || 0;
-      return timeB - timeA;
+      // Primary sort: updatedAt (most recently modified)
+      const updatedA = a.updatedAt?.seconds || 0;
+      const updatedB = b.updatedAt?.seconds || 0;
+      if (updatedB !== updatedA) {
+        return updatedB - updatedA;
+      }
+      // Secondary sort: createdAt (if updatedAt is same or missing)
+      const createdA = a.createdAt?.seconds || 0;
+      const createdB = b.createdAt?.seconds || 0;
+      return createdB - createdA;
     });
     
     return sortedBatches[0]?.costPrice || undefined;
@@ -2474,12 +2484,12 @@ const Products = () => {
             {/* Profit/Cost Info */}
             <div className="space-y-1">
               <div className="text-sm text-gray-700">
-                {t('products.form.latestCostPrice', 'Latest Cost Price')}: {(getLatestCostPrice(currentProduct?.id || '', Array.isArray(stockChanges) ? (stockChanges as StockChange[]) : []) ?? 0)} XAF
+                {t('products.form.latestCostPrice', 'Latest Cost Price')}: {currentProduct?.id ? (getLatestCostPriceFromBatches(currentProduct.id)?.toLocaleString() || '0') : '0'} XAF
               </div>
               <div className="text-sm text-gray-700">
-                {t('products.form.profitPerUnit', 'Profit per unit')}: {editPrices.sellingPrice && getLatestCostPrice(currentProduct?.id || '', Array.isArray(stockChanges) ? (stockChanges as StockChange[]) : []) !== undefined ? (parseFloat(editPrices.sellingPrice) - (getLatestCostPrice(currentProduct?.id || '', Array.isArray(stockChanges) ? (stockChanges as StockChange[]) : []) ?? 0)).toLocaleString() : '-'} XAF
+                {t('products.form.profitPerUnit', 'Profit per unit')}: {editPrices.sellingPrice && currentProduct?.id && getLatestCostPriceFromBatches(currentProduct.id) !== undefined ? (parseFloat(editPrices.sellingPrice) - (getLatestCostPriceFromBatches(currentProduct.id) ?? 0)).toLocaleString() : '-'} XAF
               </div>
-              {editPrices.sellingPrice && getLatestCostPrice(currentProduct?.id || '', Array.isArray(stockChanges) ? (stockChanges as StockChange[]) : []) !== undefined && parseFloat(editPrices.sellingPrice) < (getLatestCostPrice(currentProduct?.id || '', Array.isArray(stockChanges) ? (stockChanges as StockChange[]) : []) ?? 0) && (
+              {editPrices.sellingPrice && currentProduct?.id && getLatestCostPriceFromBatches(currentProduct.id) !== undefined && parseFloat(editPrices.sellingPrice) < (getLatestCostPriceFromBatches(currentProduct.id) ?? 0) && (
                 <div className="flex items-center bg-red-50 border-l-4 border-red-400 p-2 rounded-md mt-2">
                   <svg className="w-4 h-4 text-red-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                   <span className="text-xs text-red-800">{t('products.form.sellingBelowCost', 'Warning: Selling price is below cost price!')}</span>
@@ -3021,8 +3031,12 @@ const Products = () => {
                     </div>
                   )}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">{t('products.form.latestCostPrice', 'Latest Cost Price')}</label>
-                    <p className="mt-1 text-sm text-gray-900">{detailProduct?.id ? (getLatestCostPriceFromBatches(detailProduct.id)?.toLocaleString() || '0') : '0'} XAF</p>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('products.form.latestCostPrice', 'Latest Cost Price')}</label>
+                    {detailProduct?.id ? (
+                      <CostPriceCarousel batches={getProductBatches(detailProduct.id)} />
+                    ) : (
+                      <p className="mt-1 text-sm text-gray-900">0 XAF</p>
+                    )}
                   </div>
                 </div>
               </div>

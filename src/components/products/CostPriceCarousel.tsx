@@ -12,13 +12,22 @@ const CostPriceCarousel: React.FC<CostPriceCarouselProps> = ({ batches, classNam
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
 
-  // Filter batches with remaining quantity > 0 and sort by creation date (newest first)
+  // Filter batches with remaining quantity > 0 and sort by updatedAt (most recently modified first)
+  // Falls back to createdAt if updatedAt is not available
+  // This ensures that when a batch's cost price is corrected, it's recognized as the latest
   const activeBatches = batches
     .filter(batch => batch.remainingQuantity > 0)
     .sort((a, b) => {
-      const timeA = a.createdAt?.seconds || 0;
-      const timeB = b.createdAt?.seconds || 0;
-      return timeB - timeA;
+      // Primary sort: updatedAt (most recently modified)
+      const updatedA = a.updatedAt?.seconds || 0;
+      const updatedB = b.updatedAt?.seconds || 0;
+      if (updatedB !== updatedA) {
+        return updatedB - updatedA;
+      }
+      // Secondary sort: createdAt (if updatedAt is same or missing)
+      const createdA = a.createdAt?.seconds || 0;
+      const createdB = b.createdAt?.seconds || 0;
+      return createdB - createdA;
     });
 
   useEffect(() => {

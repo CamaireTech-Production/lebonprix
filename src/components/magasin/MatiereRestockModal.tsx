@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '@contexts/AuthContext';
+import { subscribeToSuppliers } from '@services/firestore/suppliers/supplierService';
 import { restockMatiere } from '@services/firestore/stock/stockAdjustments';
 import { getMatiereStockBatches } from '@services/firestore/stock/stockService';
-import type { Matiere } from '../../types/models';
-import { Modal, Button, Input, PriceInput } from '@components/common';
+import type { Matiere, Supplier } from '../../types/models';
+import { Modal, Button, Input, PriceInput, Select } from '@components/common';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
 import { formatCostPrice } from '@utils/inventory/inventoryManagement';
 
@@ -27,17 +28,29 @@ const MatiereRestockModal: React.FC<RestockModalProps> = ({
   const { t } = useTranslation();
   const { company } = useAuth();
   
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingCostPrice, setLoadingCostPrice] = useState(false);
   const [formData, setFormData] = useState({
     quantity: '',
     costPrice: '',
+    supplierId: '',
+    isOwnPurchase: true, // Default to own purchase
+    paymentType: 'paid' as 'paid' | 'credit', // Always require payment type
     notes: ''
   });
-  const [defaultCostPrice, setDefaultCostPrice] = useState<number>(0);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [defaultCostPrice, setDefaultCostPrice] = useState<number>(0);
   const derivedRemaining = batchTotals?.remaining ?? 0;
   const derivedTotal = batchTotals?.total;
+
+  // Load suppliers
+  useEffect(() => {
+    if (isOpen && company) {
+      const unsubscribe = subscribeToSuppliers(company.id, setSuppliers);
+      return unsubscribe;
+    }
+  }, [isOpen, company]);
 
   // Load latest cost price and reset form when modal opens
   useEffect(() => {
@@ -63,6 +76,9 @@ const MatiereRestockModal: React.FC<RestockModalProps> = ({
           setFormData({
             quantity: '',
             costPrice: latestCostPrice,
+            supplierId: '',
+            isOwnPurchase: true, // Default to own purchase
+            paymentType: 'paid',
             notes: ''
           });
         } catch (error) {
@@ -73,6 +89,9 @@ const MatiereRestockModal: React.FC<RestockModalProps> = ({
           setFormData({
             quantity: '',
             costPrice: fallbackPrice > 0 ? fallbackPrice.toString() : '',
+            supplierId: '',
+            isOwnPurchase: true, // Default to own purchase
+            paymentType: 'paid',
             notes: ''
           });
         } finally {
@@ -84,7 +103,7 @@ const MatiereRestockModal: React.FC<RestockModalProps> = ({
     }
   }, [isOpen, matiere]);
 
-  const handleInputChange = (field: string, value: string) => {
+  const handleInputChange = (field: string, value: string | boolean) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
@@ -113,6 +132,21 @@ const MatiereRestockModal: React.FC<RestockModalProps> = ({
       }
     }
     
+    // Validate supplier selection for non-own purchases
+    if (!formData.isOwnPurchase && !formData.supplierId) {
+      errors.push(t('navigation.warehouseMenu.restockModal.validation.supplierRequired'));
+    }
+    
+    // Validate own purchase vs supplier selection
+    if (formData.isOwnPurchase && formData.supplierId) {
+      errors.push(t('navigation.warehouseMenu.restockModal.validation.ownPurchaseCannotHaveSupplier'));
+    }
+    
+    // Validate payment type for credit purchases
+    if (formData.paymentType === 'credit' && formData.isOwnPurchase) {
+      errors.push(t('navigation.warehouseMenu.restockModal.validation.ownPurchaseCannotBeCredit'));
+    }
+    
     return errors;
   };
 
@@ -130,6 +164,23 @@ const MatiereRestockModal: React.FC<RestockModalProps> = ({
       return 0;
     }
     return quantity * costPrice;
+  };
+
+  const getSupplierOptions = () => {
+    return [
+      { value: '', label: t('navigation.warehouseMenu.restockModal.purchaseInfo.selectSupplier') },
+      ...suppliers.map(supplier => ({
+        value: supplier.id,
+        label: supplier.name
+      }))
+    ];
+  };
+
+  const getPaymentTypeOptions = () => {
+    return [
+      { value: 'paid', label: t('navigation.warehouseMenu.restockModal.purchaseInfo.paid') },
+      { value: 'credit', label: t('navigation.warehouseMenu.restockModal.purchaseInfo.credit') }
+    ];
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -168,6 +219,8 @@ const MatiereRestockModal: React.FC<RestockModalProps> = ({
       }
     }
 
+    const isCredit = formData.paymentType === 'credit';
+
     setLoading(true);
 
     try {
@@ -176,7 +229,10 @@ const MatiereRestockModal: React.FC<RestockModalProps> = ({
         quantity,
         company.id,
         formData.notes || undefined,
-        costPrice
+        costPrice,
+        formData.supplierId || undefined,
+        formData.isOwnPurchase,
+        isCredit
       );
 
       showSuccessToast(t('navigation.warehouseMenu.restockModal.messages.success'));
@@ -299,6 +355,72 @@ const MatiereRestockModal: React.FC<RestockModalProps> = ({
               </div>
             );
           })()}
+        </div>
+
+        {/* Purchase Type and Supplier Information */}
+        <div className="space-y-4">
+          <h3 className="text-lg font-medium text-gray-900">{t('navigation.warehouseMenu.restockModal.purchaseInfo.title')}</h3>
+          
+          {/* Purchase Type Selection - Made more visible */}
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg p-4">
+            <div className="flex items-center space-x-3">
+              <input
+                type="checkbox"
+                id="isOwnPurchase"
+                checked={formData.isOwnPurchase}
+                onChange={(e) => handleInputChange('isOwnPurchase', e.target.checked)}
+                className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
+              />
+              <label htmlFor="isOwnPurchase" className="flex-1 cursor-pointer">
+                <span className="text-base font-semibold text-gray-900">{t('navigation.warehouseMenu.restockModal.purchaseInfo.ownPurchase')}</span>
+                <p className="text-sm text-gray-600 mt-1">
+                  {t('navigation.warehouseMenu.restockModal.purchaseInfo.ownPurchaseDescription')}
+                </p>
+              </label>
+              {formData.isOwnPurchase && (
+                <span className="px-3 py-1 bg-blue-600 text-white text-sm font-medium rounded-full">
+                  {t('navigation.warehouseMenu.restockModal.purchaseInfo.selected')}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Supplier Selection */}
+          <Select
+            label={t('navigation.warehouseMenu.restockModal.purchaseInfo.supplier')}
+            value={formData.supplierId}
+            onChange={(e) => handleInputChange('supplierId', e.target.value)}
+            options={getSupplierOptions()}
+            disabled={formData.isOwnPurchase}
+          />
+
+          {/* Payment Type Selection */}
+          <Select
+            label={t('navigation.warehouseMenu.restockModal.purchaseInfo.paymentType')}
+            value={formData.paymentType}
+            onChange={(e) => handleInputChange('paymentType', e.target.value)}
+            options={getPaymentTypeOptions()}
+            disabled={formData.isOwnPurchase}
+          />
+
+          {/* Information Messages */}
+          {formData.isOwnPurchase && (
+            <div className="text-sm text-gray-600 bg-yellow-50 p-2 rounded">
+              {t('navigation.warehouseMenu.restockModal.purchaseInfo.ownPurchaseSelected')}
+            </div>
+          )}
+
+          {formData.paymentType === 'credit' && !formData.isOwnPurchase && formData.supplierId && (
+            <div className="text-sm text-gray-600 bg-blue-50 p-2 rounded">
+              {t('navigation.warehouseMenu.restockModal.purchaseInfo.creditSelected')}
+            </div>
+          )}
+
+          {formData.paymentType === 'paid' && !formData.isOwnPurchase && formData.supplierId && (
+            <div className="text-sm text-gray-600 bg-green-50 p-2 rounded">
+              {t('navigation.warehouseMenu.restockModal.purchaseInfo.paidSelected')}
+            </div>
+          )}
         </div>
 
         {/* Validation Errors */}
