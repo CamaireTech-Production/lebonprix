@@ -871,6 +871,84 @@
       "mapping": "Mapper les colonnes",
       "productsToImport": "Nombre de produits à importer : {{count}}"
     },
+    "stocksPage": {
+      "title": "Inventaire des Produits",
+      "subtitle": "Gérer l'inventaire avec visibilité des lots. Les commandes ne déduisent pas le stock ; les ventes le font.",
+      "searchPlaceholder": "Rechercher des produits par nom ou référence",
+      "rowsPerPage": "Lignes par page",
+      "refresh": "Actualiser",
+      "columns": {
+        "product": "Produit",
+        "category": "Catégorie",
+        "stock": "Stock",
+        "batches": "Lots",
+        "actions": "Actions"
+      },
+      "batchTable": {
+        "batchId": "ID du Lot",
+        "remainingTotal": "Restant / Total",
+        "costPrice": "Prix d'achat",
+        "supplier": "Fournisseur",
+        "payment": "Paiement",
+        "status": "Statut",
+        "actions": "Actions"
+      },
+      "actions": {
+        "history": "Historique",
+        "restock": "Réapprovisionner",
+        "adjust": "Ajuster",
+        "damage": "Endommagé",
+        "toggleBatches": "Basculer les lots"
+      },
+      "status": {
+        "active": "actif",
+        "depleted": "épuisé",
+        "activeDepleted": "{{active}} actif / {{depleted}} épuisé",
+        "units": "unités"
+      },
+      "payment": {
+        "credit": "Crédit",
+        "paid": "Payé",
+        "ownPurchase": "Achat propre"
+      },
+      "messages": {
+        "errorLoading": "Erreur lors du chargement des produits",
+        "failedToLoad": "Échec du chargement des produits. Veuillez réessayer.",
+        "reloadPage": "Recharger la page",
+        "retry": "Réessayer",
+        "errorLoadingBatches": "Erreur lors du chargement des lots. Veuillez réessayer.",
+        "noBatchesFound": "Aucun lot trouvé pour ce produit.",
+        "createBatchByRestocking": "Créez un lot en réapprovisionnant ce produit.",
+        "noActionsDepleted": "Aucune action (épuisé)",
+        "noProductsFound": "Aucun produit trouvé",
+        "noProductsMatchSearch": "Aucun produit ne correspond à votre recherche \"{{search}}\". Essayez d'ajuster vos termes de recherche.",
+        "clearSearch": "Effacer la recherche",
+        "noProductsYet": "Aucun produit pour le moment",
+        "startByAdding": "Commencez par ajouter des produits à votre inventaire. Une fois les produits ajoutés, ils apparaîtront ici avec leurs informations de stock.",
+        "showingResults": "Affichage de {{from}} à {{to}} sur {{total}} produits",
+        "moreAvailable": "(Plus disponible)",
+        "previous": "Précédent",
+        "next": "Suivant",
+        "page": "Page",
+        "of": "sur",
+        "loading": "Chargement…",
+        "loadMore": "Charger plus"
+      },
+      "historyModal": {
+        "title": "Historique du Stock - {{name}}",
+        "product": "Produit :",
+        "currentStock": "Stock actuel :",
+        "columns": {
+          "date": "Date",
+          "change": "Changement",
+          "reason": "Raison",
+          "supplier": "Fournisseur",
+          "payment": "Paiement",
+          "costPrice": "Prix d'achat"
+        },
+        "noHistoryFound": "Aucun historique de stock trouvé pour ce produit."
+      }
+    },
     "detailTabs": {
       "details": "Détails",
       "stock": "Historique du stock",

@@ -928,6 +928,84 @@
       "saveCategories": "Save my categories from this import",
       "mapping": "Map Columns",
       "productsToImport": "Products to import: {{count}}"
+    },
+    "stocksPage": {
+      "title": "Product Stocks",
+      "subtitle": "Manage inventory with batch visibility. Orders do not deduct stock; sales do.",
+      "searchPlaceholder": "Search products by name or reference",
+      "rowsPerPage": "Rows per page",
+      "refresh": "Refresh",
+      "columns": {
+        "product": "Product",
+        "category": "Category",
+        "stock": "Stock",
+        "batches": "Batches",
+        "actions": "Actions"
+      },
+      "batchTable": {
+        "batchId": "Batch ID",
+        "remainingTotal": "Remaining / Total",
+        "costPrice": "Cost Price",
+        "supplier": "Supplier",
+        "payment": "Payment",
+        "status": "Status",
+        "actions": "Actions"
+      },
+      "actions": {
+        "history": "History",
+        "restock": "Restock",
+        "adjust": "Adjust",
+        "damage": "Damage",
+        "toggleBatches": "Toggle batches"
+      },
+      "status": {
+        "active": "active",
+        "depleted": "depleted",
+        "activeDepleted": "{{active}} active / {{depleted}} depleted",
+        "units": "units"
+      },
+      "payment": {
+        "credit": "Credit",
+        "paid": "Paid",
+        "ownPurchase": "Own purchase"
+      },
+      "messages": {
+        "errorLoading": "Error Loading Products",
+        "failedToLoad": "Failed to load products. Please try again.",
+        "reloadPage": "Reload Page",
+        "retry": "Retry",
+        "errorLoadingBatches": "Error loading batches. Please try again.",
+        "noBatchesFound": "No batches found for this product.",
+        "createBatchByRestocking": "Create a batch by restocking this product.",
+        "noActionsDepleted": "No actions (depleted)",
+        "noProductsFound": "No products found",
+        "noProductsMatchSearch": "No products match your search \"{{search}}\". Try adjusting your search terms.",
+        "clearSearch": "Clear Search",
+        "noProductsYet": "No products yet",
+        "startByAdding": "Start by adding products to your inventory. Once products are added, they will appear here with their stock information.",
+        "showingResults": "Showing {{from}} to {{to}} of {{total}} products",
+        "moreAvailable": "(More available)",
+        "previous": "Previous",
+        "next": "Next",
+        "page": "Page",
+        "of": "of",
+        "loading": "Loading…",
+        "loadMore": "Load More"
+      },
+      "historyModal": {
+        "title": "Stock History - {{name}}",
+        "product": "Product:",
+        "currentStock": "Current Stock:",
+        "columns": {
+          "date": "Date",
+          "change": "Change",
+          "reason": "Reason",
+          "supplier": "Supplier",
+          "payment": "Payment",
+          "costPrice": "Cost Price"
+        },
+        "noHistoryFound": "No stock history found for this product."
+      }
     }
   },
   "expenses": {
