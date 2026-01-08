@@ -75,12 +75,13 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
   }, [location.pathname]);
 
   // Check if products menu should be expanded (if on any products/categories sub-route)
-  // Exclude productions/categories and expenses/categories to avoid false positives
+  // Exclude productions/categories, expenses/categories, and magasin/categories to avoid false positives
   React.useEffect(() => {
     const isOnProductsRoute = location.pathname.includes('/products');
     const isOnCategoriesRoute = location.pathname.includes('/categories') && 
                                  !location.pathname.includes('/productions/categories') &&
-                                 !location.pathname.includes('/expenses/categories');
+                                 !location.pathname.includes('/expenses/categories') &&
+                                 !location.pathname.includes('/magasin/categories');
     setProductsMenuExpanded(isOnProductsRoute || isOnCategoriesRoute);
   }, [location.pathname]);
 
@@ -334,7 +335,7 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
                       }}
                         className={`
                         w-full flex items-center justify-between px-3 py-2 text-sm font-medium rounded-md transition-colors
-                        ${isActive(item.path) || (isExpensesItem && location.pathname.includes('/expenses')) || (isContactsItem && location.pathname.includes('/contacts')) || (isProductsItem && (location.pathname.includes('/products') || (location.pathname.includes('/categories') && !location.pathname.includes('/productions/categories') && !location.pathname.includes('/expenses/categories')))) || (isMagasinItem && location.pathname.includes('/magasin')) || (isProductionsItem && location.pathname.includes('/productions'))
+                        ${isActive(item.path) || (isExpensesItem && location.pathname.includes('/expenses')) || (isContactsItem && location.pathname.includes('/contacts')) || (isProductsItem && (location.pathname.includes('/products') || (location.pathname.includes('/categories') && !location.pathname.includes('/productions/categories') && !location.pathname.includes('/expenses/categories') && !location.pathname.includes('/magasin/categories')))) || (isMagasinItem && location.pathname.includes('/magasin')) || (isProductionsItem && location.pathname.includes('/productions'))
                           ? 'bg-emerald-50 text-emerald-600'
                           : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'}
                       `}
@@ -430,7 +431,7 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
               // Affichage pour les employés
               <div>
                 <p className="text-sm font-medium text-gray-700 truncate">
-                  Bonjour {currentEmployee.firstname}
+                  Bonjour {currentEmployee.username}
                 </p>
                 <p className="text-xs text-gray-500 truncate">
                   {currentEmployee.role === 'staff' ? 'Vendeur' : 

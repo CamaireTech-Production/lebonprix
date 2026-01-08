@@ -71,31 +71,29 @@ export const useExpenseCategories = (): UseExpenseCategoriesReturn => {
     try {
       const types = await getExpenseTypes(company.id);
       
-      // Map fetched types using translations when keys match known categories
-      const options = types.map(tDoc => {
-        const key = tDoc.name;
-        const label = t(`expenses.categories.${key}`, key);
-        return { label, value: key };
-      });
+      // Map fetched types using translations with additional deduplication by value
+      const optionsMap = new Map<string, { label: string; value: string }>();
       
-      // Ensure legacy defaults visible even before migration
-      const legacyDefaults = ['transportation', 'purchase', 'other'];
-      legacyDefaults.forEach(name => {
-        if (!options.find(o => o.value === name)) {
-          options.push({ label: t(`expenses.categories.${name}`, name), value: name });
+      types.forEach(tDoc => {
+        const key = (tDoc.name || '').trim();
+        if (key) {
+          // Only add if not already in map (additional deduplication by name)
+          const keyLower = key.toLowerCase();
+          if (!optionsMap.has(keyLower)) {
+            const label = t(`expenses.categories.${key}`, key);
+            optionsMap.set(keyLower, { label, value: key });
+          }
         }
       });
       
-      setExpenseTypes(options);
+      // Convert map to array (ensures unique values)
+      const uniqueOptions = Array.from(optionsMap.values());
+      
+      setExpenseTypes(uniqueOptions);
     } catch (error) {
       console.error('Error loading expense types:', error);
-      // Fallback to legacy defaults if there's an error
-      const legacyDefaults = ['transportation', 'purchase', 'other'];
-      const fallbackOptions = legacyDefaults.map(name => ({
-        label: t(`expenses.categories.${name}`, name),
-        value: name
-      }));
-      setExpenseTypes(fallbackOptions);
+      // Empty array on error - no fallback defaults (company-specific only)
+      setExpenseTypes([]);
     }
   }, [user, company, t]);
 

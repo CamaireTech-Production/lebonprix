@@ -657,7 +657,8 @@ export const publishArticle = async (
     description?: string;
     barCode?: string;
     isVisible?: boolean;
-  }
+  },
+  selectedChargeIds?: string[] // IDs of charges selected for this article
 ): Promise<import('../../../types/models').Product> => {
   const productionRef = doc(db, COLLECTION_NAME, productionId);
 
@@ -868,6 +869,51 @@ export const publishArticle = async (
 
     await updateBatch.commit();
 
+    // STEP 8: Create finance entries for selected charges (one per charge, not per article)
+    // This ensures each charge creates only one finance entry even if used by multiple articles
+    if (selectedChargeIds && selectedChargeIds.length > 0) {
+      const { createFinanceEntryForCharge, getProductionCharge } = await import('./productionChargeService');
+      
+      // Get all charges from production.charges array (snapshots)
+      const chargeRefs = production.charges || [];
+      
+      for (const chargeId of selectedChargeIds) {
+        try {
+          // Find charge in production.charges array first (snapshot)
+          const chargeRef = chargeRefs.find(c => c.chargeId === chargeId);
+          
+          if (chargeRef) {
+            // Check if this charge already has a finance entry (already used in another article)
+            const fullCharge = await getProductionCharge(chargeId, companyId);
+            
+            if (fullCharge && !fullCharge.financeEntryId) {
+              // Create finance entry only if it doesn't exist yet (one per charge)
+              // Use fullCharge (ProductionCharge) which has all required fields
+              // Add name from chargeRef if available (for better description)
+              const chargeForFinance = {
+                ...fullCharge,
+                // Add name from chargeRef snapshot for better description
+                name: chargeRef.name
+              } as any;
+              
+              await createFinanceEntryForCharge(
+                chargeForFinance,
+                product.name, // article name
+                production.name, // production name
+                companyId,
+                currentUserId
+              );
+            }
+            // If financeEntryId already exists, skip (charge already used in another article)
+          }
+        } catch (error) {
+          // Log error but don't fail the entire publish operation
+          logError(`Error creating finance entry for charge ${chargeId}`, error);
+          console.error(`Failed to create finance entry for charge ${chargeId}:`, error);
+        }
+      }
+    }
+
     return product;
   } catch (error) {
     logError('Error publishing article', error);
@@ -892,6 +938,7 @@ export const bulkPublishArticles = async (
     description?: string;
     barCode?: string;
     isVisible?: boolean;
+    selectedChargeIds?: string[]; // IDs of charges selected for each article
   }>
 ): Promise<Array<{ articleId: string; product: import('../../../types/models').Product }>> => {
   // Get production to calculate default product data
@@ -914,6 +961,8 @@ export const bulkPublishArticles = async (
 
       // Get product data from map or use defaults
       let productData = productDataMap?.get(articleId);
+      const selectedChargeIds = productData?.selectedChargeIds;
+      
       if (!productData) {
         // Calculate default product data from article's materials
         const articleMaterialsCost = (article.materials || []).reduce((sum, material) => {
@@ -930,7 +979,9 @@ export const bulkPublishArticles = async (
         };
       }
 
-      const product = await publishArticle(productionId, articleId, companyId, productData);
+      // Extract selectedChargeIds before passing to publishArticle (remove from productData)
+      const { selectedChargeIds: chargeIds, ...productDataWithoutCharges } = productData;
+      const product = await publishArticle(productionId, articleId, companyId, productDataWithoutCharges, chargeIds);
       results.push({ articleId, product });
     } catch (error: any) {
       errors.push({ articleId, error: error.message || 'Unknown error' });

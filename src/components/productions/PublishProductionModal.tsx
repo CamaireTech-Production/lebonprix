@@ -250,7 +250,8 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
               : parseFloat(articleData.sellingPrice),
             description: articleData.description.trim() || undefined,
             barCode: articleData.barCode.trim() || undefined,
-            isVisible: articleData.isVisible
+            isVisible: articleData.isVisible,
+            selectedChargeIds: articleData.selectedChargeIds || [] // Pass selected charge IDs
           });
         }
 

@@ -101,8 +101,7 @@ export const addEmployeeToCompany = async (
       companyId,
       companyInfo,
       {
-        firstname: userData.firstname,
-        lastname: userData.lastname,
+        username: userData.username,
         email: userData.email
       },
       role

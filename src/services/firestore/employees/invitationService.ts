@@ -9,7 +9,8 @@ import {
   where, 
   getDocs, 
   orderBy, 
-  Timestamp 
+  Timestamp,
+  onSnapshot
 } from 'firebase/firestore';
 import { db } from '../../core/firebase';
 import { Invitation, UserCompanyRef } from '../../../types/models';
@@ -47,29 +48,15 @@ const normalizeEmail = (email: string | undefined | null): string => {
 };
 
 /**
- * Format full name from firstname and lastname, handling undefined/null/empty values
- * @param firstname - First name (can be undefined, null, or empty)
- * @param lastname - Last name (can be undefined, null, or empty)
- * @returns Formatted full name, or "Utilisateur" if both are empty
+ * Format display name from username
+ * @param username - Username (can be undefined, null, or empty)
+ * @returns Formatted username, or "Utilisateur" if empty
  */
-const formatFullName = (firstname?: string | null, lastname?: string | null): string => {
-  const parts: string[] = [];
-  
-  // Add firstname if it's valid
-  if (firstname && firstname.trim()) {
-    parts.push(firstname.trim());
+const formatDisplayName = (username?: string | null): string => {
+  if (username && username.trim()) {
+    return username.trim();
   }
-  
-  // Add lastname if it's valid
-  if (lastname && lastname.trim()) {
-    parts.push(lastname.trim());
-  }
-  
-  // Join parts and normalize spaces
-  const fullName = parts.join(' ').trim();
-  
-  // Return default if no valid name parts
-  return fullName || 'Utilisateur';
+  return 'Utilisateur';
 };
 
 /**
@@ -109,7 +96,7 @@ export const getUserByEmail = async (email: string, companyId?: string): Promise
     
     // If companyId not provided, just return found user
     if (!companyId) {
-      console.log('✅ User found:', userData.firstname, userData.lastname);
+      console.log('✅ User found:', userData.username);
       return { type: 'found', user: userData };
     }
     
@@ -159,9 +146,6 @@ export const createInvitation = async (
   inviterData: { id: string; name: string },
   employeeData: {
     email: string;
-    firstname: string;
-    lastname: string;
-    phone?: string;
     permissionTemplateId: string;
   }
 ): Promise<Invitation> => {
@@ -185,9 +169,7 @@ export const createInvitation = async (
       invitedBy: inviterData.id,
       invitedByName: inviterData.name,
       email: normalizedEmail,
-      firstname: employeeData.firstname,
-      lastname: employeeData.lastname,
-      phone: employeeData.phone,
+      // firstname and lastname will be filled when user registers
       status: 'pending',
       createdAt: Timestamp.now(),
       expiresAt: Timestamp.fromDate(expiresAt),
@@ -241,7 +223,7 @@ export const sendInvitationEmailToUser = async (invitation: Invitation) => {
     
     const emailData = {
       to_email: invitation.email,
-      to_name: formatFullName(invitation.firstname, invitation.lastname),
+      to_name: invitation.email.split('@')[0], // Use email username as display name
       company_name: invitation.companyName,
       inviter_name: invitation.invitedByName,
       role: baseRole,
@@ -352,8 +334,7 @@ export const acceptInvitation = async (inviteId: string, userId: string): Promis
         logo: companyData.logo
       },
       {
-        firstname: user.firstname,
-        lastname: user.lastname,
+        username: user.username,
         email: user.email
       },
       baseRole,
@@ -434,6 +415,86 @@ export const getPendingInvitations = async (companyId: string): Promise<Invitati
 };
 
 /**
+ * Subscribe to pending invitations for a company (real-time updates)
+ * @param companyId - Company ID
+ * @param callback - Callback function that receives the invitations array
+ * @returns Unsubscribe function
+ */
+export const subscribeToPendingInvitations = (
+  companyId: string,
+  callback: (invitations: Invitation[]) => void
+): (() => void) => {
+  try {
+    const invitationsRef = collection(db, 'invitations');
+    const q = query(
+      invitationsRef,
+      where('companyId', '==', companyId),
+      where('status', '==', 'pending'),
+      orderBy('createdAt', 'desc')
+    );
+    
+    return onSnapshot(
+      q,
+      (snapshot) => {
+        const invitations: Invitation[] = [];
+        snapshot.forEach((doc) => {
+          invitations.push({ id: doc.id, ...doc.data() } as Invitation);
+        });
+        callback(invitations);
+      },
+      (error) => {
+        console.error('❌ Error in pending invitations subscription:', error);
+        callback([]); // Return empty array on error
+      }
+    );
+  } catch (error) {
+    console.error('❌ Error setting up pending invitations subscription:', error);
+    // Return a no-op unsubscribe function
+    return () => {};
+  }
+};
+
+/**
+ * Get all pending invitations for a user by email
+ * @param userEmail - User email address
+ * @returns Array of pending invitations
+ */
+export const getPendingInvitationsByEmail = async (userEmail: string): Promise<Invitation[]> => {
+  try {
+    const normalizedEmail = normalizeEmail(userEmail);
+    console.log('🔍 Getting pending invitations for email:', normalizedEmail);
+    
+    const invitationsRef = collection(db, 'invitations');
+    const q = query(
+      invitationsRef,
+      where('email', '==', normalizedEmail),
+      where('status', '==', 'pending'),
+      orderBy('createdAt', 'desc')
+    );
+    
+    const querySnapshot = await getDocs(q);
+    const invitations: Invitation[] = [];
+    
+    querySnapshot.forEach((doc) => {
+      const invitation = { id: doc.id, ...doc.data() } as Invitation;
+      
+      // Check if invitation is expired
+      const now = new Date();
+      const expiresAt = (invitation.expiresAt as Timestamp).seconds * 1000;
+      if (now.getTime() <= expiresAt) {
+        invitations.push(invitation);
+      }
+    });
+    
+    console.log(`✅ Found ${invitations.length} pending invitations for ${normalizedEmail}`);
+    return invitations;
+  } catch (error) {
+    console.error('❌ Error getting pending invitations by email:', error);
+    throw error;
+  }
+};
+
+/**
  * Cancel/revoke invitation
  * @param inviteId - Invitation ID
  * @returns Success result
@@ -471,9 +532,6 @@ export const handleExistingUserInvitation = async (
   inviterData: { id: string; name: string },
   employeeData: {
     email: string;
-    firstname: string;
-    lastname: string;
-    phone?: string;
     permissionTemplateId: string;
   },
   existingUser: import('../../../types/models').User
@@ -525,8 +583,7 @@ export const handleExistingUserInvitation = async (
         logo: companyData.logo
       },
       {
-        firstname: existingUser.firstname,
-        lastname: existingUser.lastname,
+        username: existingUser.username,
         email: existingUser.email
       },
       baseRole,
@@ -536,7 +593,7 @@ export const handleExistingUserInvitation = async (
     // Send notification email
     const emailData = {
       to_email: existingUser.email,
-      to_name: formatFullName(existingUser.firstname, existingUser.lastname),
+      to_name: existingUser.username || existingUser.email.split('@')[0],
       company_name: companyName,
       inviter_name: inviterData.name,
       role: baseRole,

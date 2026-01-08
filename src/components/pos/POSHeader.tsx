@@ -35,7 +35,7 @@ export const POSHeader: React.FC<POSHeaderProps> = ({ companyName }) => {
   }, []);
 
   const cashierName = currentEmployee
-    ? `${currentEmployee.firstname} ${currentEmployee.lastname}`
+    ? currentEmployee.username
     : isOwner && user
     ? `${user.displayName || user.email || 'Owner'}`
     : 'Unknown';

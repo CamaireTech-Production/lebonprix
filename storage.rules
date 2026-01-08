@@ -1,0 +1,62 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isValidImage() {
+      return request.resource.size <= 5 * 1024 * 1024 && // Max 5MB
+             request.resource.contentType.matches('image/.*');
+    }
+    
+    // Company Logos - Users can upload/read their own logos
+    match /company-logos/{userId}/{fileName} {
+      // Allow authenticated users to read any company logo (for display purposes)
+      allow read: if isAuthenticated();
+      
+      // Only allow users to upload to their own folder
+      allow write: if isOwner(userId) && isValidImage();
+      
+      // Allow deletion only by owner
+      allow delete: if isOwner(userId);
+    }
+    
+    // Product Images - Users can upload/read their own product images
+    match /products/{userId}/{productId}/{fileName} {
+      // Allow authenticated users to read product images (for catalog display)
+      allow read: if isAuthenticated();
+      
+      // Only allow users to upload to their own folder
+      allow write: if isOwner(userId) && isValidImage();
+      
+      // Allow deletion only by owner
+      allow delete: if isOwner(userId);
+    }
+    
+    // Category Images - Users can upload/read their own category images
+    match /categories/{userId}/{fileName} {
+      // Allow authenticated users to read category images (for catalog display)
+      allow read: if isAuthenticated();
+      
+      // Only allow users to upload to their own folder
+      allow write: if isOwner(userId) && isValidImage();
+      
+      // Allow deletion only by owner
+      allow delete: if isOwner(userId);
+    }
+    
+    // Deny all other paths by default
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
+

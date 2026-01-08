@@ -10,8 +10,7 @@ const convertCompanyEmployeeToEmployeeRef = (
 ): EmployeeRef => {
   return {
     id: employee.firebaseUid || userId,
-    firstname: employee.firstname,
-    lastname: employee.lastname,
+    username: employee.username,
     email: employee.email,
     role: employee.role === 'admin' ? 'admin' : employee.role === 'manager' ? 'manager' : 'staff',
     addedAt: employee.createdAt
@@ -24,8 +23,7 @@ const convertCompanyEmployeeToEmployeeRef = (
 const createEmployeeRefFromUser = (user: User, userId: string): EmployeeRef => {
   return {
     id: userId,
-    firstname: user.firstname,
-    lastname: user.lastname,
+    username: user.username,
     email: user.email,
     role: 'admin', // Owners sont considérés comme admin
     addedAt: user.createdAt || {
@@ -72,6 +70,6 @@ export const formatCreatorName = (createdBy?: EmployeeRef | null): string => {
   if (!createdBy) {
     return 'Company';
   }
-  return `${createdBy.firstname} ${createdBy.lastname}`.trim() || createdBy.email || 'Company';
+  return createdBy.username || createdBy.email || 'Company';
 };
 

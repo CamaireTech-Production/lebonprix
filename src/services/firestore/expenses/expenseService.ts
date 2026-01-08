@@ -220,20 +220,65 @@ export const createExpenseType = async (type: Omit<ExpenseType, 'id' | 'createdA
   return { id: ref.id, ...snap.data() } as ExpenseType;
 };
 
-export const getExpenseTypes = async (companyId: string): Promise<ExpenseType[]> => {
-  await ensureDefaultExpenseTypes();
+// Initialize company-specific default expense types
+const initializeCompanyExpenseTypes = async (companyId: string): Promise<void> => {
+  const defaultTypes = [
+    { name: 'transportation', isDefault: false },
+    { name: 'purchase', isDefault: false },
+    { name: 'other', isDefault: false }
+  ];
+
+  const batch = writeBatch(db);
   
-  const defaultSnap = await getDocs(query(collection(db, 'expenseTypes'), where('isDefault', '==', true)));
-  const companySnap = await getDocs(query(collection(db, 'expenseTypes'), where('companyId', '==', companyId)));
-  const allDocs = [...defaultSnap.docs, ...companySnap.docs];
-  const seen = new Set<string>();
+  for (const typeData of defaultTypes) {
+    const typeRef = doc(collection(db, 'expenseTypes'));
+    const newType = {
+      id: typeRef.id,
+      name: typeData.name,
+      companyId: companyId, // Company-specific
+      isDefault: false, // Not global defaults
+      createdAt: serverTimestamp()
+    };
+    batch.set(typeRef, newType);
+  }
+  
+  try {
+    await batch.commit();
+  } catch (error) {
+    logError('Error initializing company expense types', error);
+    throw error;
+  }
+};
+
+export const getExpenseTypes = async (companyId: string): Promise<ExpenseType[]> => {
+  // Only fetch company-specific types (no global defaults)
+  const companySnap = await getDocs(
+    query(collection(db, 'expenseTypes'), where('companyId', '==', companyId))
+  );
+  
+  // Deduplicate by name (case-insensitive) instead of document ID
+  const seen = new Map<string, ExpenseType>(); // Use Map to keep first occurrence
   const types: ExpenseType[] = [];
-  for (const docSnap of allDocs) {
-    if (!seen.has(docSnap.id)) {
-      seen.add(docSnap.id);
-      types.push({ id: docSnap.id, ...docSnap.data() } as ExpenseType);
+  
+  for (const docSnap of companySnap.docs) {
+    const data = docSnap.data();
+    const nameKey = (data.name || '').toLowerCase().trim();
+    
+    // Only add if we haven't seen this name before
+    if (nameKey && !seen.has(nameKey)) {
+      const type = { id: docSnap.id, ...data } as ExpenseType;
+      seen.set(nameKey, type);
+      types.push(type);
     }
   }
+  
+  // If no categories exist, initialize company defaults
+  if (types.length === 0) {
+    await initializeCompanyExpenseTypes(companyId);
+    // Recursively fetch after initialization
+    return getExpenseTypes(companyId);
+  }
+  
   return types;
 };
 
@@ -258,10 +303,12 @@ export const deleteExpenseType = async (typeId: string, companyId: string): Prom
   
   const typeData = typeSnap.data() as ExpenseType;
   
-  if (typeData.isDefault) {
-    throw new Error('Cannot delete default expense types');
+  // Verify the category belongs to this company
+  if (typeData.companyId && typeData.companyId !== companyId) {
+    throw new Error('Unauthorized: Expense type belongs to different company');
   }
   
+  // Check if type is in use by this company
   const expensesQuery = query(
     collection(db, 'expenses'),
     where('companyId', '==', companyId),
@@ -295,47 +342,12 @@ export const getExpenseCountByCategory = async (companyId: string): Promise<Reco
   return counts;
 };
 
+// Legacy function - kept for backward compatibility but no longer used
+// Categories are now company-specific and initialized automatically
 export const ensureDefaultExpenseTypes = async (): Promise<void> => {
-  const defaultTypes = [
-    { name: 'transportation', isDefault: true },
-    { name: 'purchase', isDefault: true },
-    { name: 'other', isDefault: true }
-  ];
-
-  const existingDefaultsQuery = query(
-    collection(db, 'expenseTypes'),
-    where('isDefault', '==', true)
-  );
-  const existingDefaultsSnap = await getDocs(existingDefaultsQuery);
-  
-  const existingTypeNames = new Set(
-    existingDefaultsSnap.docs.map(doc => doc.data().name)
-  );
-  
-  const missingTypes = defaultTypes.filter(type => !existingTypeNames.has(type.name));
-  
-  if (missingTypes.length === 0) {
-    return;
-  }
-  
-  const batch = writeBatch(db);
-  
-  for (const typeData of missingTypes) {
-    const typeRef = doc(collection(db, 'expenseTypes'));
-    const newType = {
-      id: typeRef.id,
-      name: typeData.name,
-      isDefault: true,
-      createdAt: serverTimestamp()
-    };
-    batch.set(typeRef, newType);
-  }
-  
-  try {
-    await batch.commit();
-  } catch (error) {
-    logError('Error creating default expense types', error);
-    throw error;
-  }
+  // This function is deprecated - categories are now company-specific
+  // Company defaults are initialized automatically in getExpenseTypes
+  return;
 };
+
 

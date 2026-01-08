@@ -19,6 +19,7 @@ import { getUserById, updateUserLastLogin, createUser } from '@services/utilitie
 import { saveUserSession, getUserSession, clearUserSession} from '@utils/storage/userSession';
 import { clearUserDataOnLogout } from '@utils/core/logoutCleanup';
 import { logError, logWarning } from '@utils/core/logger';
+import { signInWithGoogle as signInWithGoogleService } from '@services/auth/authService';
 
 interface AuthContextType {
   user: FirebaseUser | null;
@@ -33,6 +34,7 @@ interface AuthContextType {
   selectedCompanyId: string | null; // Entreprise actuellement sélectionnée
   signUp: (email: string, password: string, companyData: Omit<Company, 'id' | 'createdAt' | 'updatedAt' | 'companyId'>) => Promise<FirebaseUser>;
   signIn: (email: string, password: string) => Promise<FirebaseUser>;
+  signInWithGoogle: () => Promise<FirebaseUser>;
   signOut: () => Promise<void>;
   updateCompany: (data: Partial<Omit<Company, 'id' | 'createdAt' | 'updatedAt' | 'companyId'>>) => Promise<void>;
   updateUserPassword: (currentPassword: string, newPassword: string) => Promise<void>;
@@ -255,11 +257,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       }
       
       // Créer l'utilisateur dans le nouveau système
+      // Use displayName as username, or generate from email if not available
+      const username = firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'user' + Date.now();
       await createUser(userId, {
-        firstname: firebaseUser.displayName?.split(' ')[0] || 'Utilisateur',
-        lastname: firebaseUser.displayName?.split(' ').slice(1).join(' ') || 'Anonyme',
+        username: username,
         email: firebaseUser.email || '',
-        phone: firebaseUser.phoneNumber || undefined,
         photoURL: firebaseUser.photoURL || undefined
       });
       
@@ -507,8 +509,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           // Create CompanyEmployee from user data for currentEmployee
           const employee: CompanyEmployee = {
             id: userId, // Use userId as id
-            firstname: userData.firstname || '',
-            lastname: userData.lastname || '',
+            username: userData.username || '',
             email: userData.email || '',
             phone: userData.phone || undefined,
             role: userCompanyRef.role as UserRole,
@@ -663,6 +664,37 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     }
   };
 
+  const signInWithGoogle = async (): Promise<FirebaseUser> => {
+    // Prevent duplicate login attempts
+    if (isSigningInRef.current) {
+      throw new Error('Une tentative de connexion est déjà en cours. Veuillez patienter...');
+    }
+    
+    // Marquer AVANT le try pour garantir son exécution même en cas d'erreur précoce
+    isInitialLoginRef.current = true;
+    isSigningInRef.current = true;
+    
+    try {
+      // Call the Google sign-in service
+      const user = await signInWithGoogleService();
+      
+      // The onAuthStateChanged listener will handle the routing and reset isSigningInRef
+      // Let the background loading handle routing based on user's companies
+      
+      // Note: isSigningInRef will be reset in onAuthStateChanged to prevent duplicate clicks
+      // The loading state will be maintained until onAuthStateChanged completes
+      
+      return user;
+    } catch (error: any) {
+      logError('Google sign in error', error);
+      isInitialLoginRef.current = false; // Reset on error
+      isSigningInRef.current = false; // Reset on error
+      
+      // Re-throw the error (it already has user-friendly messages from authService)
+      throw error;
+    }
+  };
+
   const signOut = (): Promise<void> => {
     // Get userId before clearing state
     const currentUserId = user?.uid;
@@ -774,6 +806,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     selectedCompanyId,
     signUp,
     signIn,
+    signInWithGoogle,
     signOut,
     updateCompany,
     updateUserPassword,

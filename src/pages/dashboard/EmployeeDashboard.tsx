@@ -5,6 +5,7 @@ import { Building2, Plus, Users, Crown, Shield, User, Settings, LogOut } from 'l
 import { Button, Card, LoadingScreen } from '@components/common';
 import { UserCompanyRef } from '../../types/models';
 import { showErrorToast } from '@utils/core/toast';
+import PendingInvitationsBanner from '@components/invitations/PendingInvitationsBanner';
 
 interface CompanyCardProps {
   company: UserCompanyRef;
@@ -111,7 +112,7 @@ const CompanyCard: React.FC<CompanyCardProps> = ({ company, onSelect, isLoading 
 };
 
 const EmployeeDashboard: React.FC = () => {
-  const { userCompanies, selectCompany, signOut } = useAuth();
+  const { userCompanies, selectCompany, signOut, user } = useAuth();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
@@ -160,6 +161,11 @@ const EmployeeDashboard: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Pending Invitations Banner */}
+        {user?.email && (
+          <PendingInvitationsBanner userEmail={user.email} />
+        )}
+
         {/* Header with Logout Button */}
         <div className="mb-8 flex items-start justify-between">
           <div>
