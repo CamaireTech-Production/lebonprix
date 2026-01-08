@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@contexts/AuthContext';
 import { createCompany, deleteCompany } from '@services/firestore/companies/companyService';
+import { getUserById } from '@services/utilities/userService';
+import { getCompanyById } from '@services/firestore/companies/companyPublic';
 import { Plus, Building2, Trash2, User, LogOut } from 'lucide-react';
 import { Button, Modal, Input, Textarea } from '@components/common';
 import { showSuccessToast, showErrorToast, showWarningToast } from '@utils/core/toast';
@@ -43,6 +45,9 @@ export const CompaniesManagement: React.FC = () => {
 
   // État pour la sélection d'entreprise
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
+  
+  // État pour stocker les informations des propriétaires
+  const [ownersInfo, setOwnersInfo] = useState<Record<string, { name: string; email: string }>>({});
 
   /**
    * Gérer la sélection d'une entreprise
@@ -223,24 +228,140 @@ export const CompaniesManagement: React.FC = () => {
   };
 
   /**
+   * Charge les informations des propriétaires des entreprises
+   */
+  useEffect(() => {
+    const loadOwnersInfo = async () => {
+      const owners: Record<string, { name: string; email: string }> = {};
+      
+      for (const company of userCompanies) {
+        try {
+          let ownerId: string | null = null;
+          
+          // Si l'utilisateur actuel est le propriétaire, utiliser ses infos
+          if (company.role === 'owner' && user) {
+            const fullName = `${user.firstname || ''} ${user.lastname || ''}`.trim();
+            owners[company.companyId] = {
+              name: fullName || user.email || 'Propriétaire',
+              email: user.email || ''
+            };
+            continue;
+          }
+          
+          // Sinon, récupérer le document company pour obtenir le userId (owner)
+          const companyDoc = await getCompanyById(company.companyId);
+          if (companyDoc && companyDoc.userId) {
+            ownerId = companyDoc.userId;
+          } else if (companyDoc && companyDoc.companyId) {
+            // Fallback pour les anciennes companies où companyId est le userId
+            ownerId = companyDoc.companyId;
+          }
+          
+          // Récupérer les infos du propriétaire
+          if (ownerId) {
+            const ownerUser = await getUserById(ownerId);
+            if (ownerUser) {
+              const fullName = `${ownerUser.firstname || ''} ${ownerUser.lastname || ''}`.trim();
+              owners[company.companyId] = {
+                name: fullName || ownerUser.email || 'Propriétaire',
+                email: ownerUser.email || ''
+              };
+            }
+          }
+        } catch (error) {
+          console.error(`Erreur lors de la récupération du propriétaire pour ${company.companyId}:`, error);
+        }
+      }
+      
+      setOwnersInfo(owners);
+    };
+    
+    if (userCompanies.length > 0) {
+      loadOwnersInfo();
+    }
+  }, [userCompanies, user]);
+
+  /**
+   * Récupère les initiales d'un nom d'entreprise
+   */
+  const getCompanyInitials = (name: string): string => {
+    if (!name) return '';
+    
+    // Prendre les premières lettres de chaque mot (maximum 2 lettres)
+    const words = name.trim().split(/\s+/);
+    if (words.length === 1) {
+      // Si un seul mot, prendre les 2 premières lettres
+      return name.substring(0, 2).toUpperCase();
+    } else {
+      // Si plusieurs mots, prendre la première lettre de chaque mot (max 2)
+      return words
+        .slice(0, 2)
+        .map(word => word.charAt(0).toUpperCase())
+        .join('');
+    }
+  };
+
+  /**
    * Rendu d'une carte d'entreprise
    */
-  const CompanyCard: React.FC<{ company: any }> = ({ company }) => (
-    <div className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow cursor-pointer p-6 border border-gray-200 group">
-      <div className="flex items-start justify-between">
-        <div className="flex items-center space-x-4 flex-1">
-          {/* Logo ou icône par défaut */}
-          <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center flex-shrink-0">
-            {company.logo ? (
-              <img 
-                src={company.logo.startsWith('data:') ? company.logo : `data:image/jpeg;base64,${company.logo}`} 
-                alt={company.name}
-                className="w-full h-full object-cover rounded-lg"
-              />
-            ) : (
-              <Building2 className="w-8 h-8 text-white" />
-            )}
-          </div>
+  const CompanyCard: React.FC<{ company: any }> = ({ company }) => {
+    const hasLogo = company.logo && company.logo.trim() !== '';
+    
+    // Déterminer l'URL du logo : peut être une URL Firebase Storage (https://) ou base64
+    let logoUrl: string | null = null;
+    if (hasLogo) {
+      if (company.logo.startsWith('http://') || company.logo.startsWith('https://')) {
+        // URL Firebase Storage - utiliser directement
+        logoUrl = company.logo;
+      } else if (company.logo.startsWith('data:')) {
+        // Déjà formaté en data URL
+        logoUrl = company.logo;
+      } else {
+        // Base64 - ajouter le préfixe
+        logoUrl = `data:image/jpeg;base64,${company.logo}`;
+      }
+    }
+    
+    const initials = getCompanyInitials(company.name || '');
+    const ownerInfo = ownersInfo[company.companyId];
+    const ownerDisplayName = ownerInfo 
+      ? (ownerInfo.name || ownerInfo.email || 'Propriétaire')
+      : 'Propriétaire';
+
+    return (
+      <div className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow cursor-pointer p-6 border border-gray-200 group">
+        <div className="flex items-start justify-between">
+          <div className="flex items-center space-x-4 flex-1">
+            {/* Logo ou initiales */}
+            <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center flex-shrink-0 relative">
+              {logoUrl ? (
+                <>
+                  <img 
+                    src={logoUrl} 
+                    alt={company.name}
+                    className="w-full h-full object-cover rounded-lg"
+                    onError={(e) => {
+                      // Si l'image ne charge pas, masquer l'image et afficher les initiales
+                      e.currentTarget.style.display = 'none';
+                      const initialsEl = e.currentTarget.nextElementSibling as HTMLElement;
+                      if (initialsEl) {
+                        initialsEl.style.display = 'flex';
+                      }
+                    }}
+                  />
+                  <span 
+                    className="company-initials text-white font-bold text-xl absolute inset-0 flex items-center justify-center"
+                    style={{ display: 'none' }}
+                  >
+                    {initials}
+                  </span>
+                </>
+              ) : (
+                <span className="text-white font-bold text-xl">
+                  {initials || <Building2 className="w-8 h-8 text-white" />}
+                </span>
+              )}
+            </div>
           
           {/* Informations de l'entreprise */}
           <div className="flex-1 min-w-0">
@@ -252,8 +373,8 @@ export const CompaniesManagement: React.FC = () => {
             {/* Rôle de l'utilisateur */}
             <div className="flex items-center mt-2">
               <User className="w-4 h-4 text-gray-400 mr-1" />
-              <span className="text-sm text-gray-500 capitalize">
-                {company.role === 'owner' ? 'Propriétaire' : 
+              <span className="text-sm text-gray-500">
+                {company.role === 'owner' ? ownerDisplayName : 
                  company.role === 'admin' ? 'Administrateur' :
                  company.role === 'manager' ? 'Gestionnaire' : 'Employé'}
               </span>
@@ -276,7 +397,8 @@ export const CompaniesManagement: React.FC = () => {
         )}
       </div>
     </div>
-  );
+    );
+  };
 
   /**
    * Rendu du bouton "Créer entreprise"
@@ -304,14 +426,13 @@ export const CompaniesManagement: React.FC = () => {
           </div>
           
           {/* Bouton de déconnexion */}
-          <Button
+          <button
             onClick={handleSignOut}
-            variant="outline"
-            className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-50 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 whitespace-nowrap"
           >
-            <LogOut className="w-4 h-4" />
+            <LogOut className="w-4 h-4 flex-shrink-0" />
             <span>Se déconnecter</span>
-          </Button>
+          </button>
         </div>
 
         {/* Grille des entreprises */}
