@@ -329,9 +329,9 @@ export const CompaniesManagement: React.FC = () => {
       : 'Propriétaire';
 
     return (
-      <div className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow cursor-pointer p-6 border border-gray-200 group">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center space-x-4 flex-1">
+      <div className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow cursor-pointer p-6 border border-gray-200 group overflow-hidden">
+        <div className="flex items-start justify-between min-w-0">
+          <div className="flex items-center space-x-4 flex-1 min-w-0">
             {/* Logo ou initiales */}
             <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center flex-shrink-0 relative">
               {logoUrl ? (
@@ -371,9 +371,9 @@ export const CompaniesManagement: React.FC = () => {
             )}
             
             {/* Rôle de l'utilisateur */}
-            <div className="flex items-center mt-2">
-              <User className="w-4 h-4 text-gray-400 mr-1" />
-              <span className="text-sm text-gray-500">
+            <div className="flex items-center mt-2 min-w-0">
+              <User className="w-4 h-4 text-gray-400 mr-1 flex-shrink-0" />
+              <span className="text-sm text-gray-500 truncate">
                 {company.role === 'owner' ? ownerDisplayName : 
                  company.role === 'admin' ? 'Administrateur' :
                  company.role === 'manager' ? 'Gestionnaire' : 'Employé'}
