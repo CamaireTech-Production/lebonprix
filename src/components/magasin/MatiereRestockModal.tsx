@@ -102,14 +102,14 @@ const MatiereRestockModal: React.FC<RestockModalProps> = ({
     // Validate quantity
     const quantity = parseInt(formData.quantity, 10);
     if (isNaN(quantity) || quantity <= 0) {
-      errors.push(t('navigation.warehouse.restockModal.validation.invalidQuantity'));
+      errors.push(t('navigation.warehouseMenu.restockModal.validation.invalidQuantity'));
     }
     
     // Validate cost price if provided
     if (formData.costPrice && formData.costPrice.trim() !== '') {
       const costPrice = parseFloat(formData.costPrice);
       if (isNaN(costPrice) || costPrice < 0) {
-        errors.push(t('navigation.warehouse.restockModal.validation.invalidCostPrice'));
+        errors.push(t('navigation.warehouseMenu.restockModal.validation.invalidCostPrice'));
       }
     }
     
@@ -179,13 +179,13 @@ const MatiereRestockModal: React.FC<RestockModalProps> = ({
         costPrice
       );
 
-      showSuccessToast(t('navigation.warehouse.restockModal.messages.success'));
+      showSuccessToast(t('navigation.warehouseMenu.restockModal.messages.success'));
       onSuccess?.();
       onClose();
     } catch (error) {
       console.error('Error restocking matiere:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      showErrorToast(t('navigation.warehouse.restockModal.messages.error', { error: errorMessage }));
+      showErrorToast(t('navigation.warehouseMenu.restockModal.messages.error', { error: errorMessage }));
     } finally {
       setLoading(false);
     }
@@ -197,24 +197,24 @@ const MatiereRestockModal: React.FC<RestockModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={t('navigation.warehouse.restockModal.title', { name: matiere.name })}
+      title={t('navigation.warehouseMenu.restockModal.title', { name: matiere.name })}
       size="lg"
     >
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Matiere Information */}
         <div className="bg-gray-50 p-4 rounded-lg">
-          <h3 className="text-lg font-medium text-gray-900 mb-2">{t('navigation.warehouse.restockModal.matiereInfo.title')}</h3>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">{t('navigation.warehouseMenu.restockModal.matiereInfo.title')}</h3>
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
-              <span className="font-medium text-gray-700">{t('navigation.warehouse.restockModal.matiereInfo.name')}</span>
+              <span className="font-medium text-gray-700">{t('navigation.warehouseMenu.restockModal.matiereInfo.name')}</span>
               <p className="text-gray-900">{matiere.name}</p>
             </div>
             <div>
-              <span className="font-medium text-gray-700">{t('navigation.warehouse.restockModal.matiereInfo.unit')}</span>
+              <span className="font-medium text-gray-700">{t('navigation.warehouseMenu.restockModal.matiereInfo.unit')}</span>
               <p className="text-gray-900">{matiere.unit || '—'}</p>
             </div>
             <div>
-              <span className="font-medium text-gray-700">{t('navigation.warehouse.restockModal.matiereInfo.currentStock')}</span>
+              <span className="font-medium text-gray-700">{t('navigation.warehouseMenu.restockModal.matiereInfo.currentStock')}</span>
               <p className="text-gray-900">
                 {derivedTotal !== undefined
                   ? `${derivedRemaining} / ${derivedTotal} ${matiere.unit || 'unité'}`
@@ -222,7 +222,7 @@ const MatiereRestockModal: React.FC<RestockModalProps> = ({
               </p>
             </div>
             <div>
-              <span className="font-medium text-gray-700">{t('navigation.warehouse.restockModal.matiereInfo.category')}</span>
+              <span className="font-medium text-gray-700">{t('navigation.warehouseMenu.restockModal.matiereInfo.category')}</span>
               <p className="text-gray-900">{matiere.refCategorie || '—'}</p>
             </div>
           </div>
@@ -230,15 +230,15 @@ const MatiereRestockModal: React.FC<RestockModalProps> = ({
 
         {/* Restock Details */}
         <div className="space-y-4">
-          <h3 className="text-lg font-medium text-gray-900">{t('navigation.warehouse.restockModal.restockDetails.title')}</h3>
+          <h3 className="text-lg font-medium text-gray-900">{t('navigation.warehouseMenu.restockModal.restockDetails.title')}</h3>
           
           <div className="grid grid-cols-2 gap-4">
             <Input
-              label={t('navigation.warehouse.restockModal.restockDetails.quantity', { unit: matiere.unit || 'unité' })}
+              label={t('navigation.warehouseMenu.restockModal.restockDetails.quantity', { unit: matiere.unit || 'unité' })}
               type="number"
               value={formData.quantity}
               onChange={(e) => handleInputChange('quantity', e.target.value)}
-              placeholder={t('navigation.warehouse.restockModal.restockDetails.quantityPlaceholder')}
+              placeholder={t('navigation.warehouseMenu.restockModal.restockDetails.quantityPlaceholder')}
               required
               min="1"
               step="1"
@@ -247,11 +247,11 @@ const MatiereRestockModal: React.FC<RestockModalProps> = ({
             <div>
               <div className="relative">
                 <PriceInput
-                  label={t('navigation.warehouse.restockModal.restockDetails.costPrice')}
+                  label={t('navigation.warehouseMenu.restockModal.restockDetails.costPrice')}
                   name="costPrice"
                   value={formData.costPrice}
                   onChange={(e) => handleInputChange('costPrice', e.target.value)}
-                  placeholder={loadingCostPrice ? t('navigation.warehouse.restockModal.restockDetails.loadingCostPrice') : t('navigation.warehouse.restockModal.restockDetails.costPricePlaceholder')}
+                  placeholder={loadingCostPrice ? t('navigation.warehouseMenu.restockModal.restockDetails.loadingCostPrice') : t('navigation.warehouseMenu.restockModal.restockDetails.costPricePlaceholder')}
                   allowDecimals={true}
                   disabled={loadingCostPrice}
                 />
@@ -264,7 +264,7 @@ const MatiereRestockModal: React.FC<RestockModalProps> = ({
               {loadingCostPrice && (
                 <p className="mt-1 text-xs text-gray-500 flex items-center">
                   <Loader2 className="h-3 w-3 text-gray-400 animate-spin mr-1" />
-                  {t('navigation.warehouse.restockModal.restockDetails.fetchingCostPrice')}
+                  {t('navigation.warehouseMenu.restockModal.restockDetails.fetchingCostPrice')}
                 </p>
               )}
             </div>
@@ -285,16 +285,16 @@ const MatiereRestockModal: React.FC<RestockModalProps> = ({
             
             return (
               <div className="bg-blue-50 p-3 rounded-lg">
-                <div className="text-sm font-medium text-blue-800">{t('navigation.warehouse.restockModal.totalCost.title')}</div>
+                <div className="text-sm font-medium text-blue-800">{t('navigation.warehouseMenu.restockModal.totalCost.title')}</div>
                 <div className="text-lg font-semibold text-blue-900">
                   {formatCostPrice(totalCost)}
                 </div>
                 <div className="text-xs text-blue-700 mt-1">
                   {effectiveCostPrice > 0 
-                    ? t('navigation.warehouse.restockModal.totalCost.expenseWillBeCreated', { 
-                        usingDefault: isUsingDefault ? t('navigation.warehouse.restockModal.totalCost.usingDefault') : '' 
+                    ? t('navigation.warehouseMenu.restockModal.totalCost.expenseWillBeCreated', { 
+                        usingDefault: isUsingDefault ? t('navigation.warehouseMenu.restockModal.totalCost.usingDefault') : '' 
                       })
-                    : t('navigation.warehouse.restockModal.totalCost.noExpenseCreated')}
+                    : t('navigation.warehouseMenu.restockModal.totalCost.noExpenseCreated')}
                 </div>
               </div>
             );
@@ -304,7 +304,7 @@ const MatiereRestockModal: React.FC<RestockModalProps> = ({
         {/* Validation Errors */}
         {validationErrors.length > 0 && (
           <div className="bg-red-50 border border-red-200 p-4 rounded-lg">
-            <h4 className="text-md font-medium text-red-800 mb-2">{t('navigation.warehouse.restockModal.validation.title')}</h4>
+            <h4 className="text-md font-medium text-red-800 mb-2">{t('navigation.warehouseMenu.restockModal.validation.title')}</h4>
             <ul className="list-disc list-inside space-y-1">
               {validationErrors.map((error, index) => (
                 <li key={index} className="text-sm text-red-700">{error}</li>
@@ -316,12 +316,12 @@ const MatiereRestockModal: React.FC<RestockModalProps> = ({
         {/* Notes */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            {t('navigation.warehouse.restockModal.notes.label')}
+            {t('navigation.warehouseMenu.restockModal.notes.label')}
           </label>
           <textarea
             value={formData.notes}
             onChange={(e) => handleInputChange('notes', e.target.value)}
-            placeholder={t('navigation.warehouse.restockModal.notes.placeholder')}
+            placeholder={t('navigation.warehouseMenu.restockModal.notes.placeholder')}
             className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
             rows={3}
           />
@@ -335,15 +335,15 @@ const MatiereRestockModal: React.FC<RestockModalProps> = ({
             onClick={onClose}
             disabled={loading}
           >
-            {t('navigation.warehouse.restockModal.actions.cancel')}
+            {t('navigation.warehouseMenu.restockModal.actions.cancel')}
           </Button>
           <Button
             type="submit"
             disabled={loading}
             isLoading={loading}
-            loadingText={t('navigation.warehouse.restockModal.actions.restocking')}
+            loadingText={t('navigation.warehouseMenu.restockModal.actions.restocking')}
           >
-            {t('navigation.warehouse.restockModal.actions.restock')}
+            {t('navigation.warehouseMenu.restockModal.actions.restock')}
           </Button>
         </div>
       </form>
