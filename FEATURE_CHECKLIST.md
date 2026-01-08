@@ -43,6 +43,11 @@
   - Notes: Logout functionality works correctly
   - Tested: 2024-12-19 
 
+- [x] **View User Details**
+  - Status: ✅ Working
+  - Notes: Viewing user details works correctly
+  - Tested: 2024-12-19
+
 - [ ] **Session Management**
   - Status: 📝 Not Tested
   - Notes: 
@@ -65,10 +70,10 @@
   - Notes: 
   - Tested: 
 
-- [ ] **View Company Details**
-  - Status: 📝 Not Tested
-  - Notes: 
-  - Tested: 
+- [x] **View Company Details**
+  - Status: ✅ Working
+  - Notes: Viewing company details works correctly
+  - Tested: 2024-12-19 
 
 - [ ] **Delete Company**
   - Status: 📝 Not Tested
@@ -230,11 +235,11 @@
 
 ## 📊 Testing Summary
 
-**Total Features**: 41  
-**Working**: 6  
+**Total Features**: 42  
+**Working**: 8  
 **Not Working**: 0  
 **Partial**: 0  
-**Not Tested**: 35  
+**Not Tested**: 34  
 
 **Last Test Session**: 2024-12-19 (Updated)
 
