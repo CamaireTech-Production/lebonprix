@@ -74,6 +74,16 @@ const Contacts = () => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.replace(/\D/g, ''); // Remove non-digits
+    if (value.length <= 9) { // Only allow 9 digits after +237
+      setFormData(prev => ({
+        ...prev,
+        phone: value
+      }));
+    }
+  };
+
   const resetForm = () => {
     setFormData({
       name: '',
@@ -96,9 +106,19 @@ const Contacts = () => {
 
   const openEditModal = (customer: Customer) => {
     setCurrentCustomer(customer);
+    // Extract 9 digits from phone number (remove +237 prefix if present)
+    let phoneDigits = customer.phone || '';
+    if (phoneDigits.startsWith('+237')) {
+      phoneDigits = phoneDigits.substring(4); // Remove +237
+    } else if (phoneDigits.startsWith('237')) {
+      phoneDigits = phoneDigits.substring(3); // Remove 237
+    }
+    // Remove any non-digits
+    phoneDigits = phoneDigits.replace(/\D/g, '');
+    
     setFormData({
       name: customer.name || '',
-      phone: customer.phone || '',
+      phone: phoneDigits,
       firstName: customer.firstName || '',
       lastName: customer.lastName || '',
       quarter: customer.quarter || '',
@@ -124,8 +144,11 @@ const Contacts = () => {
 
     setIsSubmitting(true);
     try {
+      // Combine +237 with the 9 digits entered
+      const fullPhone = `+237${formData.phone}`;
+      
       await addCustomer({
-        phone: formData.phone,
+        phone: fullPhone,
         name: formData.name || undefined,
         firstName: formData.firstName || undefined,
         lastName: formData.lastName || undefined,
@@ -158,8 +181,11 @@ const Contacts = () => {
 
     setIsSubmitting(true);
     try {
+      // Combine +237 with the 9 digits entered
+      const fullPhone = `+237${formData.phone}`;
+      
       await updateCustomer(currentCustomer.id, {
-        phone: formData.phone,
+        phone: fullPhone,
         name: formData.name || undefined,
         firstName: formData.firstName || undefined,
         lastName: formData.lastName || undefined,
@@ -366,14 +392,20 @@ const Contacts = () => {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Téléphone <span className="text-red-500">*</span>
             </label>
-            <Input
-              type="tel"
-              name="phone"
-              value={formData.phone}
-              onChange={handleInputChange}
-              placeholder="+237 6XX XXX XXX"
-              required
-            />
+            <div className="flex rounded-md shadow-sm">
+              <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 sm:text-sm">
+                +237
+              </span>
+              <Input
+                type="tel"
+                name="phone"
+                value={formData.phone}
+                onChange={handlePhoneChange}
+                placeholder="678904568"
+                className="flex-1 rounded-l-none"
+                required
+              />
+            </div>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -508,14 +540,20 @@ const Contacts = () => {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Téléphone <span className="text-red-500">*</span>
             </label>
-            <Input
-              type="tel"
-              name="phone"
-              value={formData.phone}
-              onChange={handleInputChange}
-              placeholder="+237 6XX XXX XXX"
-              required
-            />
+            <div className="flex rounded-md shadow-sm">
+              <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 sm:text-sm">
+                +237
+              </span>
+              <Input
+                type="tel"
+                name="phone"
+                value={formData.phone}
+                onChange={handlePhoneChange}
+                placeholder="678904568"
+                className="flex-1 rounded-l-none"
+                required
+              />
+            </div>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
