@@ -248,8 +248,8 @@ const Settings = () => {
   }, [company?.id, company?.name, company?.phone]);
 
   // Payment method management functions
-  const handleAddPaymentMethod = (paymentMethod: PaymentMethod) => {
-    if (!orderingSettings) return;
+  const handleAddPaymentMethod = async (paymentMethod: PaymentMethod) => {
+    if (!orderingSettings || !company?.id) return;
     
     const updatedSettings = {
       ...orderingSettings,
@@ -259,10 +259,19 @@ const Settings = () => {
       }
     };
     setOrderingSettings(updatedSettings);
+    
+    // Auto-save to database
+    try {
+      await updateSellerSettings(company.id, updatedSettings);
+      showSuccessToast(t('settings.paymentMethodsAndGateways.paymentMethods.updated'));
+    } catch (error) {
+      console.error('Error saving custom payment method:', error);
+      showErrorToast(t('settings.paymentMethodsAndGateways.paymentMethods.updateFailed'));
+    }
   };
 
-  const handleUpdatePaymentMethod = (id: string, updatedMethod: Partial<PaymentMethod>) => {
-    if (!orderingSettings) return;
+  const handleUpdatePaymentMethod = async (id: string, updatedMethod: Partial<PaymentMethod>) => {
+    if (!orderingSettings || !company?.id) return;
     
     const updatedSettings = {
       ...orderingSettings,
@@ -274,10 +283,19 @@ const Settings = () => {
       }
     };
     setOrderingSettings(updatedSettings);
+    
+    // Auto-save to database
+    try {
+      await updateSellerSettings(company.id, updatedSettings);
+      showSuccessToast(t('settings.paymentMethodsAndGateways.paymentMethods.updated'));
+    } catch (error) {
+      console.error('Error updating custom payment method:', error);
+      showErrorToast(t('settings.paymentMethodsAndGateways.paymentMethods.updateFailed'));
+    }
   };
 
-  const handleDeletePaymentMethod = (id: string) => {
-    if (!orderingSettings) return;
+  const handleDeletePaymentMethod = async (id: string) => {
+    if (!orderingSettings || !company?.id) return;
     
     const updatedSettings = {
       ...orderingSettings,
@@ -287,6 +305,15 @@ const Settings = () => {
       }
     };
     setOrderingSettings(updatedSettings);
+    
+    // Auto-save to database
+    try {
+      await updateSellerSettings(company.id, updatedSettings);
+      showSuccessToast(t('settings.paymentMethodsAndGateways.paymentMethods.updated'));
+    } catch (error) {
+      console.error('Error deleting custom payment method:', error);
+      showErrorToast(t('settings.paymentMethodsAndGateways.paymentMethods.updateFailed'));
+    }
   };
   
   const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -543,6 +570,39 @@ const Settings = () => {
       setCinetpaySaving(true);
       await saveCinetPayConfig(company.id, cinetpayConfig, user?.uid);
       
+      // Auto-sync: Enable payment methods based on CinetPay channels
+      if (cinetpayConfig.isActive && checkoutSettings) {
+        const updatedPaymentMethods = { ...checkoutSettings.enabledPaymentMethods };
+        let hasChanges = false;
+
+        // If CinetPay Mobile Money channel is enabled, enable MTN Money and Orange Money
+        if (cinetpayConfig.enabledChannels.mobileMoney) {
+          if (!updatedPaymentMethods.mtnMoney) {
+            updatedPaymentMethods.mtnMoney = true;
+            hasChanges = true;
+          }
+          if (!updatedPaymentMethods.orangeMoney) {
+            updatedPaymentMethods.orangeMoney = true;
+            hasChanges = true;
+          }
+        }
+
+        // If CinetPay Credit Card channel is enabled, enable Visa Card
+        if (cinetpayConfig.enabledChannels.creditCard) {
+          if (!updatedPaymentMethods.visaCard) {
+            updatedPaymentMethods.visaCard = true;
+            hasChanges = true;
+          }
+        }
+
+        // Save updated payment methods if there are changes
+        if (hasChanges) {
+          await saveCheckoutSettings(company.id, {
+            enabledPaymentMethods: updatedPaymentMethods
+          }, user?.uid);
+        }
+      }
+      
       // Log configuration change
       await AuditLogger.logConfigChange(user?.uid || company.id, 'cinetpay_config_saved', {
         configType: 'cinetpay',
@@ -601,6 +661,29 @@ const Settings = () => {
     try {
       setCampaySaving(true);
       await saveCampayConfig(company.id, campayConfig, user?.uid);
+      
+      // Auto-sync: Enable payment methods based on Campay (MTN & Orange Money)
+      if (campayConfig.isActive && checkoutSettings) {
+        const updatedPaymentMethods = { ...checkoutSettings.enabledPaymentMethods };
+        let hasChanges = false;
+
+        // Campay supports MTN Money and Orange Money
+        if (!updatedPaymentMethods.mtnMoney) {
+          updatedPaymentMethods.mtnMoney = true;
+          hasChanges = true;
+        }
+        if (!updatedPaymentMethods.orangeMoney) {
+          updatedPaymentMethods.orangeMoney = true;
+          hasChanges = true;
+        }
+
+        // Save updated payment methods if there are changes
+        if (hasChanges) {
+          await saveCheckoutSettings(company.id, {
+            enabledPaymentMethods: updatedPaymentMethods
+          }, user?.uid);
+        }
+      }
       
       // Log configuration change
       await AuditLogger.logConfigChange(user?.uid || company.id, 'campay_config_saved', {
@@ -779,18 +862,7 @@ const Settings = () => {
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
             `}
           >
-{t('settings.tabs.ordering')}
-          </button>
-          <button
-            onClick={() => setActiveTab('catalogue')}
-            className={`
-              whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm
-              ${activeTab === 'catalogue'
-                ? 'border-emerald-500 text-emerald-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
-            `}
-          >
-{t('settings.tabs.catalogue')}
+            {t('settings.tabs.ordering')}
           </button>
           <button
             onClick={() => setActiveTab('checkout')}
@@ -801,7 +873,7 @@ const Settings = () => {
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
             `}
           >
-            Checkout Settings
+            {t('settings.tabs.checkout')}
           </button>
           <button
             onClick={() => setActiveTab('payment')}
@@ -812,7 +884,18 @@ const Settings = () => {
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
             `}
           >
-            Payment Integration
+            {t('settings.tabs.paymentMethodsAndGateways')}
+          </button>
+          <button
+            onClick={() => setActiveTab('catalogue')}
+            className={`
+              whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm
+              ${activeTab === 'catalogue'
+                ? 'border-emerald-500 text-emerald-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
+            `}
+          >
+            {t('settings.tabs.catalogue')}
           </button>
         </nav>
       </div>
@@ -1396,118 +1479,42 @@ const Settings = () => {
         </form>
       )}
       
-      {/* Ordering Settings Tab */}
+      {/* Order & Delivery Settings Tab */}
       {activeTab === 'ordering' && (
         <Card>
           <div className="max-w-xl mx-auto">
             <div className="space-y-6">
-              <h3 className="text-lg font-medium text-gray-900">Ordering and Delivery</h3>
+              <div>
+                <h3 className="text-lg font-medium text-gray-900">{t('settings.ordering.title')}</h3>
+                <p className="text-sm text-gray-600 mt-1">{t('settings.ordering.subtitle')}</p>
+              </div>
               {/* Business Info */}
               <div className="space-y-4">
                 <Input
-                  label="Business Name"
+                  label={t('settings.ordering.businessName')}
                   name="businessName"
                   value={orderingSettings?.businessName || ''}
                   onChange={(e) => setOrderingSettings(prev => prev ? { ...prev, businessName: e.target.value } : prev)}
                 />
                 <Input
-                  label="WhatsApp Number"
+                  label={t('settings.ordering.whatsappNumber')}
                   name="whatsappNumber"
                   value={orderingSettings?.whatsappNumber || ''}
                   onChange={(e) => setOrderingSettings(prev => prev ? { ...prev, whatsappNumber: e.target.value } : prev)}
-                  helpText="Include country code, e.g. +237..."
+                  helpText={t('settings.ordering.whatsappNumberHelp')}
                 />
-              </div>
-
-              {/* Payment Methods */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-sm font-medium text-gray-800">Payment Methods</h4>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setIsPaymentMethodModalOpen(true)}
-                  >
-                    <Plus className="h-4 w-4 mr-1" />
-                    Add Payment Method
-                  </Button>
-                </div>
-                
-                {/* Standard Payment Methods */}
-                <div className="space-y-3">
-                  <div className="flex items-center space-x-2">
-                    <input
-                      id="pm-mm"
-                      type="checkbox"
-                      className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded"
-                      checked={!!orderingSettings?.paymentMethods?.mobileMoney}
-                      onChange={(e) => setOrderingSettings(prev => prev ? { ...prev, paymentMethods: { ...prev.paymentMethods, mobileMoney: e.target.checked } } : prev)}
-                    />
-                    <label htmlFor="pm-mm" className="text-sm text-gray-700">Mobile Money</label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <input
-                      id="pm-bank"
-                      type="checkbox"
-                      className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded"
-                      checked={!!orderingSettings?.paymentMethods?.bankTransfer}
-                      onChange={(e) => setOrderingSettings(prev => prev ? { ...prev, paymentMethods: { ...prev.paymentMethods, bankTransfer: e.target.checked } } : prev)}
-                    />
-                    <label htmlFor="pm-bank" className="text-sm text-gray-700">Bank Transfer</label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <input
-                      id="pm-cod"
-                      type="checkbox"
-                      className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded"
-                      checked={!!orderingSettings?.paymentMethods?.cashOnDelivery}
-                      onChange={(e) => setOrderingSettings(prev => prev ? { ...prev, paymentMethods: { ...prev.paymentMethods, cashOnDelivery: e.target.checked } } : prev)}
-                    />
-                    <label htmlFor="pm-cod" className="text-sm text-gray-700">Cash on Delivery</label>
-                  </div>
-                </div>
-
-                {/* Custom Payment Methods */}
-                {orderingSettings?.paymentMethods?.customMethods && orderingSettings.paymentMethods.customMethods.length > 0 && (
-                  <div className="mt-4">
-                    <h5 className="text-xs font-medium text-gray-600 mb-2">Custom Payment Methods</h5>
-                    <div className="space-y-2">
-                      {orderingSettings.paymentMethods.customMethods.map((method) => (
-                        <div key={method.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
-                          <div className="flex items-center space-x-2">
-                            <span className={`px-2 py-1 text-xs rounded-full ${
-                              method.isActive 
-                                ? 'bg-green-100 text-green-800' 
-                                : 'bg-gray-100 text-gray-800'
-                            }`}>
-                              {method.isActive ? 'Active' : 'Inactive'}
-                            </span>
-                            <span className="text-sm font-medium text-gray-900">{method.name}</span>
-                            <span className="text-xs text-gray-500">
-                              {method.type === 'phone' && '📞'}
-                              {method.type === 'ussd' && '🔢'}
-                              {method.type === 'link' && '🔗'}
-                              {' '}{method.value}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
 
               {/* Delivery Fee and Currency */}
               <div className="grid grid-cols-2 gap-4">
                 <PriceInput
-                  label="Delivery Fee"
+                  label={t('settings.ordering.deliveryFee')}
                   name="deliveryFee"
                   value={orderingSettings?.deliveryFee ?? 0}
                   onChange={(e) => setOrderingSettings(prev => prev ? { ...prev, deliveryFee: Number(e.target.value) } : prev)}
                 />
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Currency</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('settings.ordering.currency')}</label>
                   <select
                     className="w-full rounded-md border border-gray-300 shadow-sm py-2 px-3 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
                     value={orderingSettings?.currency || 'XAF'}
@@ -1534,9 +1541,6 @@ const Settings = () => {
                       whatsappNumber: company.phone || '+237',
                       businessName: company.name || '',
                       paymentMethods: {
-                        mobileMoney: true,
-                        bankTransfer: false,
-                        cashOnDelivery: true,
                         customMethods: []
                       },
                       deliveryFee: 0,
@@ -1544,7 +1548,7 @@ const Settings = () => {
                     });
                   }}
                 >
-                  Reset
+                  {t('settings.ordering.reset')}
                 </Button>
                 <Button
                   type="button"
@@ -1555,16 +1559,16 @@ const Settings = () => {
                     try {
                       setOrderingSaving(true);
                       await updateSellerSettings(company.id, orderingSettings);
-                      showSuccessToast('Ordering settings updated');
+                      showSuccessToast(t('settings.ordering.settingsUpdated'));
                     } catch (e: unknown) {
                       console.error(e);
-                      showErrorToast((e as Error).message || 'Failed to update settings');
+                      showErrorToast((e as Error).message || t('settings.ordering.settingsUpdateFailed'));
                     } finally {
                       setOrderingSaving(false);
                     }
                   }}
                 >
-{t('settings.ordering.saveSettings')}
+                  {t('settings.ordering.saveSettings')}
                 </Button>
               </div>
             </div>
@@ -1718,7 +1722,7 @@ const Settings = () => {
             <Card>
               <div className="flex items-center justify-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
-                <span className="ml-3 text-gray-600">Loading checkout settings...</span>
+                <span className="ml-3 text-gray-600">{t('settings.checkout.loading')}</span>
               </div>
             </Card>
           ) : checkoutSettings ? (
@@ -1728,8 +1732,8 @@ const Settings = () => {
                 <div className="max-w-4xl mx-auto">
                   <div className="space-y-6">
                     <div className="text-center mb-8">
-                      <h3 className="text-2xl font-semibold text-gray-900 mb-2">Checkout Settings</h3>
-                      <p className="text-gray-600">Customize your checkout form and payment options</p>
+                      <h3 className="text-2xl font-semibold text-gray-900 mb-2">{t('settings.checkout.title')}</h3>
+                      <p className="text-gray-600">{t('settings.checkout.subtitle')}</p>
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -1739,14 +1743,14 @@ const Settings = () => {
                         <div className="bg-white rounded-lg shadow-sm border p-6">
                           <div className="flex items-center space-x-2 mb-4">
                             <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                            <h2 className="text-xl font-semibold text-gray-900">Disable Entire Sections</h2>
+                            <h2 className="text-xl font-semibold text-gray-900">{t('settings.checkout.disableSections')}</h2>
                           </div>
-                          <p className="text-sm text-gray-600 mb-6">Completely hide entire sections from the checkout form. When disabled, the entire section disappears.</p>
+                          <p className="text-sm text-gray-600 mb-6">{t('settings.checkout.disableSectionsDescription')}</p>
                           <div className="space-y-4">
                             <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                               <div>
-                                <label className="text-sm font-medium text-gray-700">Contact Section</label>
-                                <p className="text-xs text-gray-500">Hide entire contact information section</p>
+                                <label className="text-sm font-medium text-gray-700">{t('settings.checkout.contactSection')}</label>
+                                <p className="text-xs text-gray-500">{t('settings.checkout.contactSectionDescription')}</p>
                               </div>
                               <label className="relative inline-flex items-center cursor-pointer">
                                 <input
@@ -1761,8 +1765,8 @@ const Settings = () => {
 
                             <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                               <div>
-                                <label className="text-sm font-medium text-gray-700">Delivery Section</label>
-                                <p className="text-xs text-gray-500">Hide entire delivery address section</p>
+                                <label className="text-sm font-medium text-gray-700">{t('settings.checkout.deliverySection')}</label>
+                                <p className="text-xs text-gray-500">{t('settings.checkout.deliverySectionDescription')}</p>
                               </div>
                               <label className="relative inline-flex items-center cursor-pointer">
                                 <input
@@ -1777,8 +1781,8 @@ const Settings = () => {
 
                             <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                               <div>
-                                <label className="text-sm font-medium text-gray-700">Payment Section</label>
-                                <p className="text-xs text-gray-500">Hide entire payment method selection</p>
+                                <label className="text-sm font-medium text-gray-700">{t('settings.checkout.paymentSection')}</label>
+                                <p className="text-xs text-gray-500">{t('settings.checkout.paymentSectionDescription')}</p>
                               </div>
                               <label className="relative inline-flex items-center cursor-pointer">
                                 <input
@@ -1793,8 +1797,8 @@ const Settings = () => {
 
                             <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                               <div>
-                                <label className="text-sm font-medium text-gray-700">Order Summary Section</label>
-                                <p className="text-xs text-gray-500">Hide entire order summary section</p>
+                                <label className="text-sm font-medium text-gray-700">{t('settings.checkout.orderSummarySection')}</label>
+                                <p className="text-xs text-gray-500">{t('settings.checkout.orderSummarySectionDescription')}</p>
                               </div>
                               <label className="relative inline-flex items-center cursor-pointer">
                                 <input
@@ -1814,14 +1818,14 @@ const Settings = () => {
                           <div className="bg-white rounded-lg shadow-sm border p-6 ml-4 border-l-4 border-l-blue-200">
                             <div className="flex items-center space-x-2 mb-4">
                               <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                              <h3 className="text-lg font-semibold text-gray-900">Contact Section Fields</h3>
+                              <h3 className="text-lg font-semibold text-gray-900">{t('settings.checkout.contactFields')}</h3>
                             </div>
-                            <p className="text-sm text-gray-600 mb-4">Control which fields appear in the Contact section</p>
+                            <p className="text-sm text-gray-600 mb-4">{t('settings.checkout.contactFieldsDescription')}</p>
                             <div className="space-y-3">
                               <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
                                 <div>
-                                  <label className="text-sm font-medium text-gray-700">Email Field</label>
-                                  <p className="text-xs text-gray-500">Show email input field</p>
+                                  <label className="text-sm font-medium text-gray-700">{t('settings.checkout.emailField')}</label>
+                                  <p className="text-xs text-gray-500">{t('settings.checkout.emailFieldDescription')}</p>
                                 </div>
                                 <label className="relative inline-flex items-center cursor-pointer">
                                   <input
@@ -1836,8 +1840,8 @@ const Settings = () => {
 
                               <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
                                 <div>
-                                  <label className="text-sm font-medium text-gray-700">Phone Field</label>
-                                  <p className="text-xs text-gray-500">Show phone number input field</p>
+                                  <label className="text-sm font-medium text-gray-700">{t('settings.checkout.phoneField')}</label>
+                                  <p className="text-xs text-gray-500">{t('settings.checkout.phoneFieldDescription')}</p>
                                 </div>
                                 <label className="relative inline-flex items-center cursor-pointer">
                                   <input
@@ -1852,8 +1856,8 @@ const Settings = () => {
 
                               <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
                                 <div>
-                                  <label className="text-sm font-medium text-gray-700">Newsletter Opt-in</label>
-                                  <p className="text-xs text-gray-500">Show newsletter subscription checkbox</p>
+                                  <label className="text-sm font-medium text-gray-700">{t('settings.checkout.newsletterOptIn')}</label>
+                                  <p className="text-xs text-gray-500">{t('settings.checkout.newsletterOptInDescription')}</p>
                                 </div>
                                 <label className="relative inline-flex items-center cursor-pointer">
                                   <input
@@ -1874,14 +1878,14 @@ const Settings = () => {
                           <div className="bg-white rounded-lg shadow-sm border p-6 ml-4 border-l-4 border-l-green-200">
                             <div className="flex items-center space-x-2 mb-4">
                               <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                              <h3 className="text-lg font-semibold text-gray-900">Delivery Section Fields</h3>
+                              <h3 className="text-lg font-semibold text-gray-900">{t('settings.checkout.deliveryFields')}</h3>
                             </div>
-                            <p className="text-sm text-gray-600 mb-4">Control which fields appear in the Delivery section</p>
+                            <p className="text-sm text-gray-600 mb-4">{t('settings.checkout.deliveryFieldsDescription')}</p>
                             <div className="space-y-3">
                               <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
                                 <div>
-                                  <label className="text-sm font-medium text-gray-700">Country/Region</label>
-                                  <p className="text-xs text-gray-500">Show country selection dropdown</p>
+                                  <label className="text-sm font-medium text-gray-700">{t('settings.checkout.country')}</label>
+                                  <p className="text-xs text-gray-500">{t('settings.checkout.countryDescription')}</p>
                                 </div>
                                 <label className="relative inline-flex items-center cursor-pointer">
                                   <input
@@ -1896,8 +1900,8 @@ const Settings = () => {
 
                               <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
                                 <div>
-                                  <label className="text-sm font-medium text-gray-700">First Name</label>
-                                  <p className="text-xs text-gray-500">Show first name input field</p>
+                                  <label className="text-sm font-medium text-gray-700">{t('settings.checkout.firstName')}</label>
+                                  <p className="text-xs text-gray-500">{t('settings.checkout.firstNameDescription')}</p>
                                 </div>
                                 <label className="relative inline-flex items-center cursor-pointer">
                                   <input
@@ -1912,8 +1916,8 @@ const Settings = () => {
 
                               <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
                                 <div>
-                                  <label className="text-sm font-medium text-gray-700">Last Name</label>
-                                  <p className="text-xs text-gray-500">Show last name input field</p>
+                                  <label className="text-sm font-medium text-gray-700">{t('settings.checkout.lastName')}</label>
+                                  <p className="text-xs text-gray-500">{t('settings.checkout.lastNameDescription')}</p>
                                 </div>
                                 <label className="relative inline-flex items-center cursor-pointer">
                                   <input
@@ -1928,8 +1932,8 @@ const Settings = () => {
 
                               <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
                                 <div>
-                                  <label className="text-sm font-medium text-gray-700">Address</label>
-                                  <p className="text-xs text-gray-500">Show address input field</p>
+                                  <label className="text-sm font-medium text-gray-700">{t('settings.checkout.address')}</label>
+                                  <p className="text-xs text-gray-500">{t('settings.checkout.addressDescription')}</p>
                                 </div>
                                 <label className="relative inline-flex items-center cursor-pointer">
                                   <input
@@ -1944,8 +1948,8 @@ const Settings = () => {
 
                               <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
                                 <div>
-                                  <label className="text-sm font-medium text-gray-700">Apartment/Suite</label>
-                                  <p className="text-xs text-gray-500">Show apartment/suite input field</p>
+                                  <label className="text-sm font-medium text-gray-700">{t('settings.checkout.apartment')}</label>
+                                  <p className="text-xs text-gray-500">{t('settings.checkout.apartmentDescription')}</p>
                                 </div>
                                 <label className="relative inline-flex items-center cursor-pointer">
                                   <input
@@ -1960,8 +1964,8 @@ const Settings = () => {
 
                               <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
                                 <div>
-                                  <label className="text-sm font-medium text-gray-700">City</label>
-                                  <p className="text-xs text-gray-500">Show city input field</p>
+                                  <label className="text-sm font-medium text-gray-700">{t('settings.checkout.city')}</label>
+                                  <p className="text-xs text-gray-500">{t('settings.checkout.cityDescription')}</p>
                                 </div>
                                 <label className="relative inline-flex items-center cursor-pointer">
                                   <input
@@ -1976,8 +1980,8 @@ const Settings = () => {
 
                               <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
                                 <div>
-                                  <label className="text-sm font-medium text-gray-700">Delivery Instructions</label>
-                                  <p className="text-xs text-gray-500">Show delivery instructions textarea</p>
+                                  <label className="text-sm font-medium text-gray-700">{t('settings.checkout.deliveryInstructions')}</label>
+                                  <p className="text-xs text-gray-500">{t('settings.checkout.deliveryInstructionsDescription')}</p>
                                 </div>
                                 <label className="relative inline-flex items-center cursor-pointer">
                                   <input
@@ -1993,31 +1997,25 @@ const Settings = () => {
                           </div>
                         )}
 
-                        {/* Payment Methods */}
+                        {/* Payment Methods - Read Only */}
                         <div className="bg-white rounded-lg shadow-sm border p-6">
-                          <h2 className="text-xl font-semibold text-gray-900 mb-4">Payment Methods</h2>
+                          <h2 className="text-xl font-semibold text-gray-900 mb-2">{t('settings.checkout.paymentMethods')}</h2>
+                          <p className="text-xs text-gray-500 mb-4">{t('settings.checkout.paymentMethodsReadOnly')}</p>
                           <div className="space-y-4">
                             <div className="flex items-center justify-between">
                               <div className="flex items-center space-x-2">
                                 <div className="w-6 h-6 bg-yellow-500 rounded flex items-center justify-center">
                                   <span className="text-white font-bold text-xs">M</span>
                                 </div>
-                                <span className="text-sm font-medium text-gray-700">MTN Money</span>
+                                <span className="text-sm font-medium text-gray-700">{t('settings.checkout.mtnMoney')}</span>
                               </div>
-                              <label className="relative inline-flex items-center cursor-pointer">
-                                <input
-                                  type="checkbox"
-                                  checked={checkoutSettings.enabledPaymentMethods.mtnMoney}
-                                  onChange={(e) => handleCheckoutSettingsUpdate({ 
-                                    enabledPaymentMethods: { 
-                                      ...checkoutSettings.enabledPaymentMethods, 
-                                      mtnMoney: e.target.checked 
-                                    } 
-                                  })}
-                                  className="sr-only peer"
-                                />
-                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
-                              </label>
+                              <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                                checkoutSettings.enabledPaymentMethods.mtnMoney
+                                  ? 'bg-emerald-100 text-emerald-700' 
+                                  : 'bg-gray-100 text-gray-500'
+                              }`}>
+                                {checkoutSettings.enabledPaymentMethods.mtnMoney ? t('settings.checkout.enabled') : t('settings.checkout.disabled')}
+                              </span>
                             </div>
 
                             <div className="flex items-center justify-between">
@@ -2025,64 +2023,43 @@ const Settings = () => {
                                 <div className="w-6 h-6 bg-orange-500 rounded flex items-center justify-center">
                                   <span className="text-white font-bold text-xs">O</span>
                                 </div>
-                                <span className="text-sm font-medium text-gray-700">Orange Money</span>
+                                <span className="text-sm font-medium text-gray-700">{t('settings.checkout.orangeMoney')}</span>
                               </div>
-                              <label className="relative inline-flex items-center cursor-pointer">
-                                <input
-                                  type="checkbox"
-                                  checked={checkoutSettings.enabledPaymentMethods.orangeMoney}
-                                  onChange={(e) => handleCheckoutSettingsUpdate({ 
-                                    enabledPaymentMethods: { 
-                                      ...checkoutSettings.enabledPaymentMethods, 
-                                      orangeMoney: e.target.checked 
-                                    } 
-                                  })}
-                                  className="sr-only peer"
-                                />
-                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
-                              </label>
+                              <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                                checkoutSettings.enabledPaymentMethods.orangeMoney
+                                  ? 'bg-emerald-100 text-emerald-700' 
+                                  : 'bg-gray-100 text-gray-500'
+                              }`}>
+                                {checkoutSettings.enabledPaymentMethods.orangeMoney ? t('settings.checkout.enabled') : t('settings.checkout.disabled')}
+                              </span>
                             </div>
 
                             <div className="flex items-center justify-between">
                               <div className="flex items-center space-x-2">
                                 <CreditCard className="h-5 w-5 text-gray-600" />
-                                <span className="text-sm font-medium text-gray-700">Visa Card</span>
+                                <span className="text-sm font-medium text-gray-700">{t('settings.checkout.visaCard')}</span>
                               </div>
-                              <label className="relative inline-flex items-center cursor-pointer">
-                                <input
-                                  type="checkbox"
-                                  checked={checkoutSettings.enabledPaymentMethods.visaCard}
-                                  onChange={(e) => handleCheckoutSettingsUpdate({ 
-                                    enabledPaymentMethods: { 
-                                      ...checkoutSettings.enabledPaymentMethods, 
-                                      visaCard: e.target.checked 
-                                    } 
-                                  })}
-                                  className="sr-only peer"
-                                />
-                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
-                              </label>
+                              <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                                checkoutSettings.enabledPaymentMethods.visaCard
+                                  ? 'bg-emerald-100 text-emerald-700' 
+                                  : 'bg-gray-100 text-gray-500'
+                              }`}>
+                                {checkoutSettings.enabledPaymentMethods.visaCard ? t('settings.checkout.enabled') : t('settings.checkout.disabled')}
+                              </span>
                             </div>
 
                             <div className="flex items-center justify-between">
                               <div className="flex items-center space-x-2">
                                 <Truck className="h-5 w-5 text-emerald-600" />
-                                <span className="text-sm font-medium text-gray-700">Pay Onsite</span>
+                                <span className="text-sm font-medium text-gray-700">{t('settings.checkout.payOnsite')}</span>
                               </div>
-                              <label className="relative inline-flex items-center cursor-pointer">
-                                <input
-                                  type="checkbox"
-                                  checked={checkoutSettings.enabledPaymentMethods.payOnsite}
-                                  onChange={(e) => handleCheckoutSettingsUpdate({ 
-                                    enabledPaymentMethods: { 
-                                      ...checkoutSettings.enabledPaymentMethods, 
-                                      payOnsite: e.target.checked 
-                                    } 
-                                  })}
-                                  className="sr-only peer"
-                                />
-                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
-                              </label>
+                              <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                                checkoutSettings.enabledPaymentMethods.payOnsite
+                                  ? 'bg-emerald-100 text-emerald-700' 
+                                  : 'bg-gray-100 text-gray-500'
+                              }`}>
+                                {checkoutSettings.enabledPaymentMethods.payOnsite ? t('settings.checkout.enabled') : t('settings.checkout.disabled')}
+                              </span>
                             </div>
                           </div>
                         </div>
@@ -2091,14 +2068,14 @@ const Settings = () => {
                         <div className="bg-white rounded-lg shadow-sm border p-6">
                           <div className="flex items-center space-x-2 mb-4">
                             <ShoppingBag className="h-5 w-5 text-emerald-600" />
-                            <h2 className="text-xl font-semibold text-gray-900">Catalogue Display</h2>
+                            <h2 className="text-xl font-semibold text-gray-900">{t('settings.checkout.catalogueDisplay')}</h2>
                           </div>
                           
                           <div className="space-y-4">
                             <div className="flex items-center justify-between">
                               <div>
-                                <label className="text-sm font-medium text-gray-700">Show Checkout in Catalogue</label>
-                                <p className="text-xs text-gray-500">Display checkout button on catalogue page</p>
+                                <label className="text-sm font-medium text-gray-700">{t('settings.checkout.showCheckoutInCatalogue')}</label>
+                                <p className="text-xs text-gray-500">{t('settings.checkout.showCheckoutInCatalogueDescription')}</p>
                               </div>
                               <label className="relative inline-flex items-center cursor-pointer">
                                 <input
@@ -2115,7 +2092,7 @@ const Settings = () => {
                               <div className="ml-4 space-y-4 border-l-2 border-gray-200 pl-4">
                                 <div>
                                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Checkout Button Text
+                                    {t('settings.checkout.checkoutButtonText')}
                                   </label>
                                   <input
                                     type="text"
@@ -2128,7 +2105,7 @@ const Settings = () => {
 
                                 <div>
                                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Button Color
+                                    {t('settings.checkout.checkoutButtonColor')}
                                   </label>
                                   <div className="flex items-center space-x-3">
                                     <input
@@ -2146,12 +2123,12 @@ const Settings = () => {
                                     />
                                   </div>
                                   <p className="text-xs text-gray-500 mt-1">
-                                    Choose a color for the checkout button in the catalogue
+                                    {t('settings.checkout.checkoutButtonColorDescription')}
                                   </p>
                                 </div>
 
                                 <div className="bg-gray-50 rounded-lg p-4">
-                                  <p className="text-sm font-medium text-gray-700 mb-2">Preview:</p>
+                                  <p className="text-sm font-medium text-gray-700 mb-2">{t('settings.checkout.preview')}:</p>
                                   <button
                                     style={{ backgroundColor: checkoutSettings.checkoutButtonColor }}
                                     className="px-4 py-2 text-white rounded-lg font-medium"
@@ -2173,7 +2150,7 @@ const Settings = () => {
                             className="flex items-center"
                           >
                             <RotateCcw size={20} className="mr-2" />
-                            Reset to Default
+                            {t('settings.checkout.resetToDefault')}
                           </Button>
                           <Button
                             onClick={handleSaveCheckoutSettings}
@@ -2185,7 +2162,7 @@ const Settings = () => {
                             ) : (
                               <Save size={20} className="mr-2" />
                             )}
-                            Save Settings
+                            {t('settings.checkout.saveSettings')}
                           </Button>
                         </div>
                       </div>
@@ -2194,65 +2171,65 @@ const Settings = () => {
                       <div className="bg-white rounded-lg shadow-sm border p-6 h-fit">
                         <div className="flex items-center space-x-2 mb-4">
                           <Eye className="h-5 w-5 text-emerald-600" />
-                          <h3 className="text-lg font-semibold text-gray-900">Live Preview</h3>
+                          <h3 className="text-lg font-semibold text-gray-900">{t('settings.checkout.livePreview')}</h3>
                         </div>
                         
                         <div className="space-y-3 text-sm">
                           <div className="flex items-center justify-between">
-                            <span className="text-gray-600">Contact Section</span>
+                            <span className="text-gray-600">{t('settings.checkout.contactSection')}</span>
                             <span className={`px-2 py-1 rounded text-xs ${
                               checkoutSettings.showContactSection ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'
                             }`}>
-                              {checkoutSettings.showContactSection ? 'Enabled' : 'Disabled'}
+                              {checkoutSettings.showContactSection ? t('settings.checkout.enabled') : t('settings.checkout.disabled')}
                             </span>
                           </div>
                           
                           <div className="flex items-center justify-between">
-                            <span className="text-gray-600">Delivery Section</span>
+                            <span className="text-gray-600">{t('settings.checkout.deliverySection')}</span>
                             <span className={`px-2 py-1 rounded text-xs ${
                               checkoutSettings.showDeliverySection ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'
                             }`}>
-                              {checkoutSettings.showDeliverySection ? 'Enabled' : 'Disabled'}
+                              {checkoutSettings.showDeliverySection ? t('settings.checkout.enabled') : t('settings.checkout.disabled')}
                             </span>
                           </div>
                           
                           <div className="flex items-center justify-between">
-                            <span className="text-gray-600">Payment Section</span>
+                            <span className="text-gray-600">{t('settings.checkout.paymentSection')}</span>
                             <span className={`px-2 py-1 rounded text-xs ${
                               checkoutSettings.showPaymentSection ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'
                             }`}>
-                              {checkoutSettings.showPaymentSection ? 'Enabled' : 'Disabled'}
+                              {checkoutSettings.showPaymentSection ? t('settings.checkout.enabled') : t('settings.checkout.disabled')}
                             </span>
                           </div>
                           
                           <div className="flex items-center justify-between">
-                            <span className="text-gray-600">Order Summary</span>
+                            <span className="text-gray-600">{t('settings.checkout.orderSummarySection')}</span>
                             <span className={`px-2 py-1 rounded text-xs ${
                               checkoutSettings.showOrderSummary ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'
                             }`}>
-                              {checkoutSettings.showOrderSummary ? 'Enabled' : 'Disabled'}
+                              {checkoutSettings.showOrderSummary ? t('settings.checkout.enabled') : t('settings.checkout.disabled')}
                             </span>
                           </div>
 
                           {/* Individual Field Status */}
                           {checkoutSettings.showContactSection && (
                             <div className="border-t border-gray-200 pt-3">
-                              <div className="text-gray-600 mb-2">Contact Fields:</div>
+                              <div className="text-gray-600 mb-2">{t('settings.checkout.contactFieldsLabel')}</div>
                               <div className="space-y-1">
                                 <div className="flex items-center justify-between">
-                                  <span className="text-xs text-gray-500">Email</span>
+                                  <span className="text-xs text-gray-500">{t('settings.checkout.emailField')}</span>
                                   <span className={`w-2 h-2 rounded-full ${
                                     checkoutSettings.showEmail ? 'bg-emerald-500' : 'bg-gray-300'
                                   }`}></span>
                                 </div>
                                 <div className="flex items-center justify-between">
-                                  <span className="text-xs text-gray-500">Phone</span>
+                                  <span className="text-xs text-gray-500">{t('settings.checkout.phoneField')}</span>
                                   <span className={`w-2 h-2 rounded-full ${
                                     checkoutSettings.showPhone ? 'bg-emerald-500' : 'bg-gray-300'
                                   }`}></span>
                                 </div>
                                 <div className="flex items-center justify-between">
-                                  <span className="text-xs text-gray-500">Newsletter</span>
+                                  <span className="text-xs text-gray-500">{t('settings.checkout.newsletterOptIn')}</span>
                                   <span className={`w-2 h-2 rounded-full ${
                                     checkoutSettings.showNewsletter ? 'bg-emerald-500' : 'bg-gray-300'
                                   }`}></span>
@@ -2263,46 +2240,46 @@ const Settings = () => {
 
                           {checkoutSettings.showDeliverySection && (
                             <div className="border-t border-gray-200 pt-3">
-                              <div className="text-gray-600 mb-2">Delivery Fields:</div>
+                              <div className="text-gray-600 mb-2">{t('settings.checkout.deliveryFieldsLabel')}</div>
                               <div className="space-y-1">
                                 <div className="flex items-center justify-between">
-                                  <span className="text-xs text-gray-500">Country</span>
+                                  <span className="text-xs text-gray-500">{t('settings.checkout.country')}</span>
                                   <span className={`w-2 h-2 rounded-full ${
                                     checkoutSettings.showCountry ? 'bg-emerald-500' : 'bg-gray-300'
                                   }`}></span>
                                 </div>
                                 <div className="flex items-center justify-between">
-                                  <span className="text-xs text-gray-500">First Name</span>
+                                  <span className="text-xs text-gray-500">{t('settings.checkout.firstName')}</span>
                                   <span className={`w-2 h-2 rounded-full ${
                                     checkoutSettings.showFirstName ? 'bg-emerald-500' : 'bg-gray-300'
                                   }`}></span>
                                 </div>
                                 <div className="flex items-center justify-between">
-                                  <span className="text-xs text-gray-500">Last Name</span>
+                                  <span className="text-xs text-gray-500">{t('settings.checkout.lastName')}</span>
                                   <span className={`w-2 h-2 rounded-full ${
                                     checkoutSettings.showLastName ? 'bg-emerald-500' : 'bg-gray-300'
                                   }`}></span>
                                 </div>
                                 <div className="flex items-center justify-between">
-                                  <span className="text-xs text-gray-500">Address</span>
+                                  <span className="text-xs text-gray-500">{t('settings.checkout.address')}</span>
                                   <span className={`w-2 h-2 rounded-full ${
                                     checkoutSettings.showAddress ? 'bg-emerald-500' : 'bg-gray-300'
                                   }`}></span>
                                 </div>
                                 <div className="flex items-center justify-between">
-                                  <span className="text-xs text-gray-500">Apartment</span>
+                                  <span className="text-xs text-gray-500">{t('settings.checkout.apartment')}</span>
                                   <span className={`w-2 h-2 rounded-full ${
                                     checkoutSettings.showApartment ? 'bg-emerald-500' : 'bg-gray-300'
                                   }`}></span>
                                 </div>
                                 <div className="flex items-center justify-between">
-                                  <span className="text-xs text-gray-500">City</span>
+                                  <span className="text-xs text-gray-500">{t('settings.checkout.city')}</span>
                                   <span className={`w-2 h-2 rounded-full ${
                                     checkoutSettings.showCity ? 'bg-emerald-500' : 'bg-gray-300'
                                   }`}></span>
                                 </div>
                                 <div className="flex items-center justify-between">
-                                  <span className="text-xs text-gray-500">Instructions</span>
+                                  <span className="text-xs text-gray-500">{t('settings.checkout.deliveryInstructions')}</span>
                                   <span className={`w-2 h-2 rounded-full ${
                                     checkoutSettings.showDeliveryInstructions ? 'bg-emerald-500' : 'bg-gray-300'
                                   }`}></span>
@@ -2312,12 +2289,16 @@ const Settings = () => {
                           )}
                           
                           <div className="border-t border-gray-200 pt-3">
-                            <div className="text-gray-600 mb-2">Payment Methods:</div>
+                            <div className="text-gray-600 mb-2">{t('settings.checkout.paymentMethodsLabel')}</div>
                             <div className="space-y-1">
                               {Object.entries(checkoutSettings.enabledPaymentMethods).map(([method, enabled]) => (
                                 <div key={method} className="flex items-center justify-between">
                                   <span className="text-xs text-gray-500 capitalize">
-                                    {method.replace(/([A-Z])/g, ' $1').trim()}
+                                    {method === 'mtnMoney' ? t('settings.checkout.mtnMoney') :
+                                     method === 'orangeMoney' ? t('settings.checkout.orangeMoney') :
+                                     method === 'visaCard' ? t('settings.checkout.visaCard') :
+                                     method === 'payOnsite' ? t('settings.checkout.payOnsite') :
+                                     method.replace(/([A-Z])/g, ' $1').trim()}
                                   </span>
                                   <span className={`w-2 h-2 rounded-full ${
                                     enabled ? 'bg-emerald-500' : 'bg-gray-300'
@@ -2329,16 +2310,16 @@ const Settings = () => {
 
                           <div className="border-t border-gray-200 pt-3">
                             <div className="flex items-center justify-between">
-                              <span className="text-gray-600">Catalogue Checkout</span>
+                              <span className="text-gray-600">{t('settings.checkout.catalogueCheckout')}</span>
                               <span className={`px-2 py-1 rounded text-xs ${
                                 checkoutSettings.showCheckoutInCatalogue ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'
                               }`}>
-                                {checkoutSettings.showCheckoutInCatalogue ? 'Enabled' : 'Disabled'}
+                                {checkoutSettings.showCheckoutInCatalogue ? t('settings.checkout.enabled') : t('settings.checkout.disabled')}
                               </span>
                             </div>
                             {checkoutSettings.showCheckoutInCatalogue && (
                               <div className="mt-2">
-                                <div className="text-xs text-gray-500 mb-1">Button Preview:</div>
+                                <div className="text-xs text-gray-500 mb-1">{t('settings.checkout.buttonPreview')}</div>
                                 <button
                                   style={{ backgroundColor: checkoutSettings.checkoutButtonColor }}
                                   className="px-3 py-1 text-white rounded text-xs font-medium"
@@ -2358,32 +2339,294 @@ const Settings = () => {
           ) : (
             <Card>
               <div className="text-center py-8 text-gray-500">
-                <p>Failed to load checkout settings. Please try again.</p>
+                <p>{t('settings.checkout.loadFailed')}</p>
               </div>
             </Card>
           )}
         </div>
       )}
 
-      {/* Payment Integration Tab */}
+      {/* Payment Methods & Gateways Tab */}
       {activeTab === 'payment' && (
-        <div className="space-y-4 max-w-7xl mx-auto">
+        <div className="space-y-6 max-w-7xl mx-auto">
           {/* Header */}
           <div className="mb-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Payment Integration</h2>
-            <p className="text-gray-600">Configure payment gateways to accept online payments from your customers</p>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">{t('settings.paymentMethodsAndGateways.title')}</h2>
+            <p className="text-gray-600">{t('settings.paymentMethodsAndGateways.subtitle')}</p>
           </div>
 
-          {/* Loading State */}
-          {(cinetpayLoading || campayLoading) ? (
+          {/* Payment Methods Section - At the Top */}
+          {checkoutSettings && (
             <Card>
-              <div className="flex items-center justify-center py-12">
-                <div className="animate-spin rounded-full h-10 w-10 border-4 border-emerald-200 border-t-emerald-600"></div>
-                <span className="ml-3 text-gray-600 font-medium">Loading payment integration settings...</span>
+              <div className="p-6">
+                <div className="mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">{t('settings.paymentMethodsAndGateways.paymentMethods.title')}</h3>
+                  <p className="text-sm text-gray-600">{t('settings.paymentMethodsAndGateways.paymentMethods.subtitle')}</p>
+                </div>
+                
+                <div className="space-y-4">
+                  {/* MTN Money */}
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-yellow-500 rounded-lg flex items-center justify-center">
+                          <span className="text-white font-bold text-sm">M</span>
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium text-gray-900 block">
+                            {t('settings.checkout.mtnMoney')}
+                          </label>
+                          <p className="text-xs text-gray-600">{t('settings.paymentMethodsAndGateways.paymentMethods.mtnMoneyDesc')}</p>
+                        </div>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={checkoutSettings.enabledPaymentMethods.mtnMoney}
+                          onChange={async (e) => {
+                            handleCheckoutSettingsUpdate({ 
+                              enabledPaymentMethods: { 
+                                ...checkoutSettings.enabledPaymentMethods, 
+                                mtnMoney: e.target.checked 
+                              } 
+                            });
+                            if (company?.id) {
+                              try {
+                                const updated = {
+                                  ...checkoutSettings,
+                                  enabledPaymentMethods: {
+                                    ...checkoutSettings.enabledPaymentMethods,
+                                    mtnMoney: e.target.checked
+                                  }
+                                };
+                                await saveCheckoutSettings(company.id, updated, user?.uid);
+                                showSuccessToast(t('settings.paymentMethodsAndGateways.paymentMethods.updated'));
+                              } catch (error) {
+                                console.error('Error saving payment method:', error);
+                                showErrorToast(t('settings.paymentMethodsAndGateways.paymentMethods.updateFailed'));
+                              }
+                            }
+                          }}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Orange Money */}
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-orange-500 rounded-lg flex items-center justify-center">
+                          <span className="text-white font-bold text-sm">O</span>
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium text-gray-900 block">
+                            {t('settings.checkout.orangeMoney')}
+                          </label>
+                          <p className="text-xs text-gray-600">{t('settings.paymentMethodsAndGateways.paymentMethods.orangeMoneyDesc')}</p>
+                        </div>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={checkoutSettings.enabledPaymentMethods.orangeMoney}
+                          onChange={async (e) => {
+                            handleCheckoutSettingsUpdate({ 
+                              enabledPaymentMethods: { 
+                                ...checkoutSettings.enabledPaymentMethods, 
+                                orangeMoney: e.target.checked 
+                              } 
+                            });
+                            if (company?.id) {
+                              try {
+                                const updated = {
+                                  ...checkoutSettings,
+                                  enabledPaymentMethods: {
+                                    ...checkoutSettings.enabledPaymentMethods,
+                                    orangeMoney: e.target.checked
+                                  }
+                                };
+                                await saveCheckoutSettings(company.id, updated, user?.uid);
+                                showSuccessToast(t('settings.paymentMethodsAndGateways.paymentMethods.updated'));
+                              } catch (error) {
+                                console.error('Error saving payment method:', error);
+                                showErrorToast(t('settings.paymentMethodsAndGateways.paymentMethods.updateFailed'));
+                              }
+                            }
+                          }}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Visa Card */}
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                          <CreditCard className="h-5 w-5 text-blue-600" />
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium text-gray-900 block">
+                            {t('settings.checkout.visaCard')}
+                          </label>
+                          <p className="text-xs text-gray-600">{t('settings.paymentMethodsAndGateways.paymentMethods.visaCardDesc')}</p>
+                        </div>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={checkoutSettings.enabledPaymentMethods.visaCard}
+                          onChange={async (e) => {
+                            handleCheckoutSettingsUpdate({ 
+                              enabledPaymentMethods: { 
+                                ...checkoutSettings.enabledPaymentMethods, 
+                                visaCard: e.target.checked 
+                              } 
+                            });
+                            if (company?.id) {
+                              try {
+                                const updated = {
+                                  ...checkoutSettings,
+                                  enabledPaymentMethods: {
+                                    ...checkoutSettings.enabledPaymentMethods,
+                                    visaCard: e.target.checked
+                                  }
+                                };
+                                await saveCheckoutSettings(company.id, updated, user?.uid);
+                                showSuccessToast(t('settings.paymentMethodsAndGateways.paymentMethods.updated'));
+                              } catch (error) {
+                                console.error('Error saving payment method:', error);
+                                showErrorToast(t('settings.paymentMethodsAndGateways.paymentMethods.updateFailed'));
+                              }
+                            }
+                          }}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Pay Onsite */}
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center">
+                          <Truck className="h-5 w-5 text-emerald-600" />
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium text-gray-900 block">
+                            {t('settings.checkout.payOnsite')}
+                          </label>
+                          <p className="text-xs text-gray-600">{t('settings.paymentMethodsAndGateways.paymentMethods.payOnsiteDesc')}</p>
+                        </div>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={checkoutSettings.enabledPaymentMethods.payOnsite}
+                          onChange={async (e) => {
+                            handleCheckoutSettingsUpdate({ 
+                              enabledPaymentMethods: { 
+                                ...checkoutSettings.enabledPaymentMethods, 
+                                payOnsite: e.target.checked 
+                              } 
+                            });
+                            if (company?.id) {
+                              try {
+                                const updated = {
+                                  ...checkoutSettings,
+                                  enabledPaymentMethods: {
+                                    ...checkoutSettings.enabledPaymentMethods,
+                                    payOnsite: e.target.checked
+                                  }
+                                };
+                                await saveCheckoutSettings(company.id, updated, user?.uid);
+                                showSuccessToast(t('settings.paymentMethodsAndGateways.paymentMethods.updated'));
+                              } catch (error) {
+                                console.error('Error saving payment method:', error);
+                                showErrorToast(t('settings.paymentMethodsAndGateways.paymentMethods.updateFailed'));
+                              }
+                            }
+                          }}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Custom Payment Methods */}
+                  <div className="mt-6 pt-6 border-t border-gray-200">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h4 className="text-sm font-semibold text-gray-900">{t('settings.paymentMethodsAndGateways.paymentMethods.customMethods')}</h4>
+                        <p className="text-xs text-gray-600 mt-1">{t('settings.paymentMethodsAndGateways.paymentMethods.customMethodsDesc')}</p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsPaymentMethodModalOpen(true)}
+                      >
+                        <Plus className="h-4 w-4 mr-1" />
+                        {t('settings.paymentMethodsAndGateways.paymentMethods.addCustom')}
+                      </Button>
+                    </div>
+                    {orderingSettings?.paymentMethods?.customMethods && orderingSettings.paymentMethods.customMethods.length > 0 ? (
+                      <div className="space-y-2">
+                        {orderingSettings.paymentMethods.customMethods.map((method) => (
+                          <div key={method.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                            <div className="flex items-center space-x-3">
+                              <span className={`px-2 py-1 text-xs rounded-full ${
+                                method.isActive 
+                                  ? 'bg-green-100 text-green-800' 
+                                  : 'bg-gray-100 text-gray-800'
+                              }`}>
+                                {method.isActive ? t('settings.ordering.active') : t('settings.ordering.inactive')}
+                              </span>
+                              <span className="text-sm font-medium text-gray-900">{method.name}</span>
+                              <span className="text-xs text-gray-500">
+                                {method.type === 'phone' && '📞'}
+                                {method.type === 'ussd' && '🔢'}
+                                {method.type === 'link' && '🔗'}
+                                {' '}{method.value}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-500 text-center py-4">{t('settings.paymentMethodsAndGateways.paymentMethods.noCustomMethods')}</p>
+                    )}
+                  </div>
+                </div>
               </div>
             </Card>
-          ) : (
-            <div className="space-y-4">
+          )}
+
+          {/* Payment Gateways Section */}
+          <div className="space-y-4">
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">{t('settings.paymentMethodsAndGateways.gateways.title')}</h3>
+              <p className="text-sm text-gray-600">{t('settings.paymentMethodsAndGateways.gateways.subtitle')}</p>
+            </div>
+
+            {/* Loading State */}
+            {(cinetpayLoading || campayLoading) ? (
+              <Card>
+                <div className="flex items-center justify-center py-12">
+                  <div className="animate-spin rounded-full h-10 w-10 border-4 border-emerald-200 border-t-emerald-600"></div>
+                  <span className="ml-3 text-gray-600 font-medium">{t('settings.paymentGateways.loading')}</span>
+                </div>
+              </Card>
+            ) : (
+              <>
               {/* CinetPay Accordion */}
               <Card className="overflow-hidden">
                 <button
@@ -2398,8 +2641,8 @@ const Settings = () => {
                       <CreditCard className="h-6 w-6 text-blue-600" />
                     </div>
                     <div className="text-left">
-                      <h3 className="text-lg font-semibold text-gray-900">CinetPay</h3>
-                      <p className="text-sm text-gray-500">Mobile Money, Credit Cards, Wallets</p>
+                      <h3 className="text-lg font-semibold text-gray-900">{t('settings.paymentGateways.cinetpay.name')}</h3>
+                      <p className="text-sm text-gray-500">{t('settings.paymentGateways.cinetpay.description')}</p>
                     </div>
                   </div>
                   <div className="flex items-center space-x-4">
@@ -2411,7 +2654,7 @@ const Settings = () => {
                           ? 'bg-emerald-100 text-emerald-700' 
                           : 'bg-gray-100 text-gray-600'
                       }`}>
-                        {cinetpayConfig?.isActive ? 'Enabled' : 'Disabled'}
+                        {cinetpayConfig?.isActive ? t('settings.paymentGateways.cinetpay.enabled') : t('settings.paymentGateways.cinetpay.disabled')}
                       </span>
                     )}
                     {expandedProvider === 'cinetpay' ? (
@@ -2555,12 +2798,15 @@ const Settings = () => {
 
                           {/* Payment Methods */}
                           <div className="space-y-4">
-                            <h4 className="text-sm font-semibold text-gray-900">Enabled Payment Methods</h4>
+                            <div>
+                              <h4 className="text-sm font-semibold text-gray-900">{t('settings.paymentGateways.cinetpay.enabledChannels')}</h4>
+                              <p className="text-xs text-gray-500 mt-1">{t('settings.paymentMethodsAndGateways.gateways.autoSyncNote')}</p>
+                            </div>
                             <div className="space-y-3">
                               {[
-                                { key: 'mobileMoney', label: 'Mobile Money', desc: 'MTN Money, Orange Money' },
-                                { key: 'creditCard', label: 'Credit Card', desc: 'Visa, Mastercard' },
-                                { key: 'wallet', label: 'Wallet', desc: 'Electronic wallets' }
+                                { key: 'mobileMoney', label: t('settings.paymentGateways.cinetpay.mobileMoney'), desc: t('settings.paymentMethodsAndGateways.gateways.mobileMoneyDesc') },
+                                { key: 'creditCard', label: t('settings.paymentGateways.cinetpay.creditCard'), desc: t('settings.paymentMethodsAndGateways.gateways.creditCardDesc') },
+                                { key: 'wallet', label: t('settings.paymentGateways.cinetpay.wallet'), desc: t('settings.paymentMethodsAndGateways.gateways.walletDesc') }
                               ].map((method) => (
                                 <div key={method.key} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                                   <div>
@@ -2952,264 +3198,6 @@ const Settings = () => {
                   )}
                 </Card>
 
-              {/* Basic Payment Methods - Single Accordion */}
-              {checkoutSettings && (
-                <Card className="overflow-hidden">
-                  <button
-                    onClick={() => setExpandedProvider(expandedProvider === 'basic_payment_methods' ? null : 'basic_payment_methods')}
-                    className="w-full flex items-center justify-between p-6 hover:bg-gray-50 transition-colors duration-200"
-                    aria-expanded={expandedProvider === 'basic_payment_methods'}
-                    aria-controls="basic_payment_methods-content"
-                  >
-                    <div className="flex items-center space-x-4 flex-1">
-                      <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
-                        <CreditCard className="h-6 w-6 text-gray-600" />
-                      </div>
-                      <div className="text-left">
-                        <h3 className="text-lg font-semibold text-gray-900">Basic Payment Methods</h3>
-                        <p className="text-sm text-gray-500">MTN Money, Orange Money, Visa Card, Pay Onsite</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-4">
-                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
-                        {[
-                          checkoutSettings.enabledPaymentMethods.mtnMoney,
-                          checkoutSettings.enabledPaymentMethods.orangeMoney,
-                          checkoutSettings.enabledPaymentMethods.visaCard,
-                          checkoutSettings.enabledPaymentMethods.payOnsite
-                        ].filter(Boolean).length} / 4 Enabled
-                      </span>
-                      {expandedProvider === 'basic_payment_methods' ? (
-                        <ChevronUp className="h-5 w-5 text-gray-400" />
-                      ) : (
-                        <ChevronDown className="h-5 w-5 text-gray-400" />
-                      )}
-                    </div>
-                  </button>
-                  
-                  {expandedProvider === 'basic_payment_methods' && (
-                    <div 
-                      id="basic_payment_methods-content"
-                      className="border-t border-gray-200 p-6 animate-slide-down"
-                    >
-                      <div className="space-y-4">
-                        {/* MTN Money */}
-                        <div className="bg-gray-50 rounded-lg p-4">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-3">
-                              <div className="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center">
-                                <span className="text-white font-bold text-sm">M</span>
-                              </div>
-                              <div>
-                                <label className="text-sm font-medium text-gray-900 block">
-                                  MTN Money
-                                </label>
-                                <p className="text-xs text-gray-600">MTN Mobile Money payments</p>
-                              </div>
-                            </div>
-                            <label className="relative inline-flex items-center cursor-pointer">
-                              <input
-                                type="checkbox"
-                                checked={checkoutSettings.enabledPaymentMethods.mtnMoney}
-                                onChange={async (e) => {
-                                  handleCheckoutSettingsUpdate({ 
-                                    enabledPaymentMethods: { 
-                                      ...checkoutSettings.enabledPaymentMethods, 
-                                      mtnMoney: e.target.checked 
-                                    } 
-                                  });
-                                  // Auto-save immediately
-                                  if (company?.id) {
-                                    try {
-                                      const updated = {
-                                        ...checkoutSettings,
-                                        enabledPaymentMethods: {
-                                          ...checkoutSettings.enabledPaymentMethods,
-                                          mtnMoney: e.target.checked
-                                        }
-                                      };
-                                      await saveCheckoutSettings(company.id, updated, user?.uid);
-                                      showSuccessToast('Payment method updated');
-                                    } catch (error) {
-                                      console.error('Error saving payment method:', error);
-                                      showErrorToast('Failed to save payment method');
-                                    }
-                                  }
-                                }}
-                                className="sr-only peer"
-                              />
-                              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
-                            </label>
-                          </div>
-                        </div>
-
-                        {/* Orange Money */}
-                        <div className="bg-gray-50 rounded-lg p-4">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-3">
-                              <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
-                                <span className="text-white font-bold text-sm">O</span>
-                              </div>
-                              <div>
-                                <label className="text-sm font-medium text-gray-900 block">
-                                  Orange Money
-                                </label>
-                                <p className="text-xs text-gray-600">Orange Mobile Money payments</p>
-                              </div>
-                            </div>
-                            <label className="relative inline-flex items-center cursor-pointer">
-                              <input
-                                type="checkbox"
-                                checked={checkoutSettings.enabledPaymentMethods.orangeMoney}
-                                onChange={async (e) => {
-                                  handleCheckoutSettingsUpdate({ 
-                                    enabledPaymentMethods: { 
-                                      ...checkoutSettings.enabledPaymentMethods, 
-                                      orangeMoney: e.target.checked 
-                                    } 
-                                  });
-                                  // Auto-save immediately
-                                  if (company?.id) {
-                                    try {
-                                      const updated = {
-                                        ...checkoutSettings,
-                                        enabledPaymentMethods: {
-                                          ...checkoutSettings.enabledPaymentMethods,
-                                          orangeMoney: e.target.checked
-                                        }
-                                      };
-                                      await saveCheckoutSettings(company.id, updated, user?.uid);
-                                      showSuccessToast('Payment method updated');
-                                    } catch (error) {
-                                      console.error('Error saving payment method:', error);
-                                      showErrorToast('Failed to save payment method');
-                                    }
-                                  }
-                                }}
-                                className="sr-only peer"
-                              />
-                              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
-                            </label>
-                          </div>
-                        </div>
-
-                        {/* Visa Card */}
-                        <div className="bg-gray-50 rounded-lg p-4">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-3">
-                              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                                <CreditCard className="h-5 w-5 text-blue-600" />
-                              </div>
-                              <div>
-                                <label className="text-sm font-medium text-gray-900 block">
-                                  Visa Card
-                                </label>
-                                <p className="text-xs text-gray-600">Credit and debit card payments</p>
-                              </div>
-                            </div>
-                            <label className="relative inline-flex items-center cursor-pointer">
-                              <input
-                                type="checkbox"
-                                checked={checkoutSettings.enabledPaymentMethods.visaCard}
-                                onChange={async (e) => {
-                                  handleCheckoutSettingsUpdate({ 
-                                    enabledPaymentMethods: { 
-                                      ...checkoutSettings.enabledPaymentMethods, 
-                                      visaCard: e.target.checked 
-                                    } 
-                                  });
-                                  // Auto-save immediately
-                                  if (company?.id) {
-                                    try {
-                                      const updated = {
-                                        ...checkoutSettings,
-                                        enabledPaymentMethods: {
-                                          ...checkoutSettings.enabledPaymentMethods,
-                                          visaCard: e.target.checked
-                                        }
-                                      };
-                                      await saveCheckoutSettings(company.id, updated, user?.uid);
-                                      showSuccessToast('Payment method updated');
-                                    } catch (error) {
-                                      console.error('Error saving payment method:', error);
-                                      showErrorToast('Failed to save payment method');
-                                    }
-                                  }
-                                }}
-                                className="sr-only peer"
-                              />
-                              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
-                            </label>
-                          </div>
-                        </div>
-
-                        {/* Pay Onsite */}
-                        <div className="bg-gray-50 rounded-lg p-4">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-3">
-                              <div className="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center">
-                                <Truck className="h-5 w-5 text-emerald-600" />
-                              </div>
-                              <div>
-                                <label className="text-sm font-medium text-gray-900 block">
-                                  Pay Onsite
-                                </label>
-                                <p className="text-xs text-gray-600">Pay upon delivery or pickup</p>
-                              </div>
-                            </div>
-                            <label className="relative inline-flex items-center cursor-pointer">
-                              <input
-                                type="checkbox"
-                                checked={checkoutSettings.enabledPaymentMethods.payOnsite}
-                                onChange={async (e) => {
-                                  handleCheckoutSettingsUpdate({ 
-                                    enabledPaymentMethods: { 
-                                      ...checkoutSettings.enabledPaymentMethods, 
-                                      payOnsite: e.target.checked 
-                                    } 
-                                  });
-                                  // Auto-save immediately
-                                  if (company?.id) {
-                                    try {
-                                      const updated = {
-                                        ...checkoutSettings,
-                                        enabledPaymentMethods: {
-                                          ...checkoutSettings.enabledPaymentMethods,
-                                          payOnsite: e.target.checked
-                                        }
-                                      };
-                                      await saveCheckoutSettings(company.id, updated, user?.uid);
-                                      showSuccessToast('Payment method updated');
-                                    } catch (error) {
-                                      console.error('Error saving payment method:', error);
-                                      showErrorToast('Failed to save payment method');
-                                    }
-                                  }
-                                }}
-                                className="sr-only peer"
-                              />
-                              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
-                            </label>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      {/* Save Button for Basic Payment Methods */}
-                      <div className="mt-6 pt-6 border-t border-gray-200">
-                        <Button
-                          onClick={handleSaveCheckoutSettings}
-                          disabled={checkoutSaving || !checkoutSettings}
-                          className="w-full"
-                        >
-                          <Save className="h-4 w-4 mr-2" />
-                          {checkoutSaving ? 'Saving...' : 'Save Payment Methods'}
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                </Card>
-              )}
-
               {/* Error State */}
               {!cinetpayConfig && !campayConfig && !cinetpayLoading && !campayLoading && (
                 <Card>
@@ -3218,8 +3206,9 @@ const Settings = () => {
                   </div>
                 </Card>
               )}
-            </div>
-          )}
+              </>
+            )}
+          </div>
         </div>
       )}
 
