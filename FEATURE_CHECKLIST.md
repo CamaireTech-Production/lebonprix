@@ -176,6 +176,16 @@
   - Notes: 
   - Tested: 
 
+- [x] **Create Material (Matier)**
+  - Status: ✅ Working
+  - Notes: Material creation works correctly
+  - Tested: 2024-12-19
+
+- [x] **Create Material Category (Category Matier)**
+  - Status: ✅ Working
+  - Notes: Material category creation works correctly
+  - Tested: 2024-12-19 
+
 ### 👥 Customer Management
 
 - [ ] **Create Customer**
@@ -197,6 +207,16 @@
   - Status: 📝 Not Tested
   - Notes: 
   - Tested: 
+
+- [x] **Source Clientel CRUD**
+  - Status: ✅ Working
+  - Notes: Create, Read, Update, Delete operations for client sources work correctly
+  - Tested: 2024-12-19
+
+- [x] **Contact CRUD**
+  - Status: ✅ Working
+  - Notes: Create, Read, Update, Delete operations for contacts work correctly
+  - Tested: 2024-12-19 
 
 ### 👔 HR Management
 
@@ -282,8 +302,8 @@
 
 ## 📊 Testing Summary
 
-**Total Features**: 51  
-**Working**: 12  
+**Total Features**: 55  
+**Working**: 16  
 **Not Working**: 0  
 **Partial**: 0  
 **Not Tested**: 39  
