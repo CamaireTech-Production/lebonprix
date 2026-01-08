@@ -119,14 +119,14 @@ export default function EmployeeRefsTab() {
     if (!company) return;
 
     const confirmed = window.confirm(
-      `Êtes-vous sûr de vouloir retirer ${employee.firstname} ${employee.lastname} de l'entreprise ?`
+      `Êtes-vous sûr de vouloir retirer ${employee.username} de l'entreprise ?`
     );
 
     if (!confirmed) return;
 
     try {
       await removeEmployeeFromCompany(company.id, employee.id);
-      showSuccessToast(`${employee.firstname} ${employee.lastname} retiré de l'entreprise`);
+      showSuccessToast(`${employee.username} retiré de l'entreprise`);
     } catch (error: any) {
       console.error('Erreur lors de la suppression:', error);
       showErrorToast(error.message || 'Erreur lors de la suppression de l\'employé');
@@ -137,14 +137,14 @@ export default function EmployeeRefsTab() {
   const handleUpdateRole = async (employee: EmployeeRef, newRole: UserRole) => {
     if (!company) return;
 
-    console.log('🔄 [EmployeeRefsTab] handleUpdateRole appelé:', { employeeId: employee.id, employeeName: `${employee.firstname} ${employee.lastname}`, oldRole: employee.role, newRole });
+    console.log('🔄 [EmployeeRefsTab] handleUpdateRole appelé:', { employeeId: employee.id, employeeName: employee.username, oldRole: employee.role, newRole });
     
     setIsUpdating(true);
     try {
       console.log('🔄 [EmployeeRefsTab] Appel de updateEmployeeRole...');
       await updateEmployeeRole(company.id, employee.id, newRole);
       console.log('✅ [EmployeeRefsTab] updateEmployeeRole terminé avec succès');
-      showSuccessToast(`Rôle de ${employee.firstname} ${employee.lastname} mis à jour`);
+      showSuccessToast(`Rôle de ${employee.username} mis à jour`);
       setEditingEmployee(null);
     } catch (error: any) {
       console.error('❌ [EmployeeRefsTab] Erreur lors de la mise à jour du rôle:', error);
@@ -352,12 +352,12 @@ export default function EmployeeRefsTab() {
                       <div className="flex items-center">
                         <div className="h-8 w-8 bg-indigo-100 rounded-full flex items-center justify-center">
                           <span className="text-sm font-medium text-indigo-600">
-                            {employee.firstname[0]}{employee.lastname[0]}
+                            {employee.username[0]?.toUpperCase() || 'U'}
                           </span>
                         </div>
                         <div className="ml-3">
                           <div className="text-sm font-medium text-gray-900">
-                            {employee.firstname} {employee.lastname}
+                            {employee.username}
                           </div>
                         </div>
                       </div>

@@ -48,29 +48,15 @@ const normalizeEmail = (email: string | undefined | null): string => {
 };
 
 /**
- * Format full name from firstname and lastname, handling undefined/null/empty values
- * @param firstname - First name (can be undefined, null, or empty)
- * @param lastname - Last name (can be undefined, null, or empty)
- * @returns Formatted full name, or "Utilisateur" if both are empty
+ * Format display name from username
+ * @param username - Username (can be undefined, null, or empty)
+ * @returns Formatted username, or "Utilisateur" if empty
  */
-const formatFullName = (firstname?: string | null, lastname?: string | null): string => {
-  const parts: string[] = [];
-  
-  // Add firstname if it's valid
-  if (firstname && firstname.trim()) {
-    parts.push(firstname.trim());
+const formatDisplayName = (username?: string | null): string => {
+  if (username && username.trim()) {
+    return username.trim();
   }
-  
-  // Add lastname if it's valid
-  if (lastname && lastname.trim()) {
-    parts.push(lastname.trim());
-  }
-  
-  // Join parts and normalize spaces
-  const fullName = parts.join(' ').trim();
-  
-  // Return default if no valid name parts
-  return fullName || 'Utilisateur';
+  return 'Utilisateur';
 };
 
 /**
@@ -110,7 +96,7 @@ export const getUserByEmail = async (email: string, companyId?: string): Promise
     
     // If companyId not provided, just return found user
     if (!companyId) {
-      console.log('✅ User found:', userData.firstname, userData.lastname);
+      console.log('✅ User found:', userData.username);
       return { type: 'found', user: userData };
     }
     
@@ -237,9 +223,7 @@ export const sendInvitationEmailToUser = async (invitation: Invitation) => {
     
     const emailData = {
       to_email: invitation.email,
-      to_name: invitation.firstname && invitation.lastname 
-        ? formatFullName(invitation.firstname, invitation.lastname)
-        : invitation.email.split('@')[0], // Fallback to email username if name not available
+      to_name: invitation.email.split('@')[0], // Use email username as display name
       company_name: invitation.companyName,
       inviter_name: invitation.invitedByName,
       role: baseRole,
@@ -350,8 +334,7 @@ export const acceptInvitation = async (inviteId: string, userId: string): Promis
         logo: companyData.logo
       },
       {
-        firstname: user.firstname,
-        lastname: user.lastname,
+        username: user.username,
         email: user.email
       },
       baseRole,
@@ -600,8 +583,7 @@ export const handleExistingUserInvitation = async (
         logo: companyData.logo
       },
       {
-        firstname: existingUser.firstname,
-        lastname: existingUser.lastname,
+        username: existingUser.username,
         email: existingUser.email
       },
       baseRole,
@@ -611,7 +593,7 @@ export const handleExistingUserInvitation = async (
     // Send notification email
     const emailData = {
       to_email: existingUser.email,
-      to_name: formatFullName(existingUser.firstname, existingUser.lastname),
+      to_name: existingUser.username || existingUser.email.split('@')[0],
       company_name: companyName,
       inviter_name: inviterData.name,
       role: baseRole,

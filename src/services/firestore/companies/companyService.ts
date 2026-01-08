@@ -71,8 +71,7 @@ export const createCompany = async (
         logo: companyData.logo || ''
       },
       {
-        firstname: user.firstname,
-        lastname: user.lastname,
+        username: user.username,
         email: user.email
       },
       'owner'

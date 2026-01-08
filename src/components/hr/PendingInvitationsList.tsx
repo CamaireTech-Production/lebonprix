@@ -141,9 +141,7 @@ const PendingInvitationsList = ({ invitations, onInvitationCancelled }: PendingI
                       <User className="h-5 w-5 text-gray-400" />
                       <div>
                         <h4 className="text-sm font-medium text-gray-900">
-                          {invitation.firstname && invitation.lastname
-                            ? `${invitation.firstname} ${invitation.lastname}`
-                            : invitation.email.split('@')[0]}
+                          {invitation.email.split('@')[0]}
                         </h4>
                         <p className="text-sm text-gray-500">{invitation.email}</p>
                       </div>

@@ -82,7 +82,7 @@ const ProductionDetail: React.FC = () => {
         try {
           const user = await getUserById(userId);
           if (user) {
-            const fullName = `${user.firstname || ''} ${user.lastname || ''}`.trim();
+            const fullName = user.username || user.email || userId;
             namesMap.set(userId, fullName || user.email || userId);
           } else {
             namesMap.set(userId, userId); // Fallback to userId if user not found

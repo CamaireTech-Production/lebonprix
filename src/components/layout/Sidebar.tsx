@@ -430,7 +430,7 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
               // Affichage pour les employés
               <div>
                 <p className="text-sm font-medium text-gray-700 truncate">
-                  Bonjour {currentEmployee.firstname}
+                  Bonjour {currentEmployee.username}
                 </p>
                 <p className="text-xs text-gray-500 truncate">
                   {currentEmployee.role === 'staff' ? 'Vendeur' : 

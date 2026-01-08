@@ -198,7 +198,7 @@ const InviteEmployeeForm = ({ onInvitationCreated, companyId, companyName, invit
             {userChecked && existingUser && !isAlreadyMember && (
               <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
                 <p className="text-sm text-blue-800">
-                  ✅ {t('invitations.userFound', { name: `${existingUser.firstname} ${existingUser.lastname}` })}
+                  ✅ {t('invitations.userFound', { name: existingUser.username || existingUser.email?.split('@')[0] || 'User' })}
                 </p>
                 <p className="text-xs text-blue-600 mt-1">
                   An invitation will be sent to this user. They must accept it before being added to the company.

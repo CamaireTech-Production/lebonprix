@@ -240,7 +240,7 @@ export const CompaniesManagement: React.FC = () => {
           
           // Si l'utilisateur actuel est le propriétaire, utiliser ses infos
           if (company.role === 'owner' && user) {
-            const fullName = `${user.firstname || ''} ${user.lastname || ''}`.trim();
+            const fullName = user.username || user.email || 'Propriétaire';
             owners[company.companyId] = {
               name: fullName || user.email || 'Propriétaire',
               email: user.email || ''

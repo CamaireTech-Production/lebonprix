@@ -133,7 +133,7 @@ export const detectEmployeeInconsistencies = async (
     // Vérifier les employés manquants dans company.employees{}
     for (const [userId, subcollectionEmp] of subcollectionEmployeeMap) {
       if (!companyEmployeeMap.has(userId)) {
-        issues.push(`Employé ${userId} (${subcollectionEmp.firstname} ${subcollectionEmp.lastname}) présent dans sous-collection mais absent de company.employees{}`);
+        issues.push(`Employé ${userId} (${subcollectionEmp.username || 'N/A'}) présent dans sous-collection mais absent de company.employees{}`);
         details.missingInCompany.push(userId);
       }
     }
@@ -141,7 +141,7 @@ export const detectEmployeeInconsistencies = async (
     // Vérifier les employés manquants dans la sous-collection
     for (const [userId, companyEmp] of companyEmployeeMap) {
       if (!subcollectionEmployeeMap.has(userId)) {
-        issues.push(`Employé ${userId} (${companyEmp.firstname} ${companyEmp.lastname}) présent dans company.employees{} mais absent de sous-collection`);
+        issues.push(`Employé ${userId} (${companyEmp.username || 'N/A'}) présent dans company.employees{} mais absent de sous-collection`);
         details.missingInSubcollection.push(userId);
       }
     }
@@ -203,8 +203,7 @@ export const repairEmployeeSync = async (companyId: string): Promise<void> => {
     for (const emp of subcollectionEmployees) {
       newEmployees[emp.id] = {
         id: emp.id,
-        firstname: emp.firstname,
-        lastname: emp.lastname,
+        username: emp.username,
         email: emp.email,
         role: emp.role as any, // Conversion de type
         createdAt: emp.addedAt as any,
@@ -309,7 +308,7 @@ export const convertEmployeeRefToUserCompanyRef = (
   return {
     companyId,
     userId: employeeRef.id,
-    name: `${employeeRef.firstname} ${employeeRef.lastname}`,
+    name: employeeRef.username,
     description: companyData.description,
     logo: companyData.logo,
     role: employeeRef.role as 'owner' | 'admin' | 'manager' | 'staff',
@@ -362,7 +361,7 @@ export const getOwnerUserCompanyRef = async (
     return {
       companyId,
       userId: ownerId,
-      name: `${ownerUser.firstname} ${ownerUser.lastname}`,
+      name: ownerUser.username,
       description: companyData.description,
       logo: companyData.logo,
       role: 'owner',

@@ -63,18 +63,10 @@ export const signUpUser = async (
     // C'est la même approche que main branch qui utilise getFirestore(app) directement
     const freshDb = getFirestore(app);
     
-    // For email/password signup, use username for both firstname and lastname
-    // This maintains compatibility with the User model (which requires both fields)
-    // while simplifying the registration form to only require username
-    const firstname = userData.username;
-    const lastname = userData.username;
-    
     await createUser(
       userId,
       {
         username: userData.username,
-        firstname: firstname,
-        lastname: lastname,
         email: email,
         photoURL: undefined
       },
@@ -260,26 +252,12 @@ export const signInWithGoogle = async (): Promise<FirebaseUser> => {
         }
       }
       
-      // 2. Extraire firstname et lastname depuis displayName
-      // Utiliser displayName pour firstname/lastname, ou username si pas de displayName
-      let firstname = finalUsername;
-      let lastname = finalUsername;
-      
-      if (user.displayName) {
-        // Utiliser displayName tel quel pour firstname et lastname
-        // (pas de split comme demandé par l'utilisateur)
-        firstname = user.displayName;
-        lastname = user.displayName;
-      }
-      
-      // 3. Créer le document Firestore
+      // 2. Créer le document Firestore
       const freshDb = getFirestore(app);
       await createUser(
         userId,
         {
           username: finalUsername,
-          firstname: firstname,
-          lastname: lastname,
           email: user.email || '',
           photoURL: user.photoURL || undefined
         },

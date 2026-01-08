@@ -257,11 +257,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       }
       
       // Créer l'utilisateur dans le nouveau système
+      // Use displayName as username, or generate from email if not available
+      const username = firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'user' + Date.now();
       await createUser(userId, {
-        firstname: firebaseUser.displayName?.split(' ')[0] || 'Utilisateur',
-        lastname: firebaseUser.displayName?.split(' ').slice(1).join(' ') || 'Anonyme',
+        username: username,
         email: firebaseUser.email || '',
-        phone: firebaseUser.phoneNumber || undefined,
         photoURL: firebaseUser.photoURL || undefined
       });
       
@@ -509,8 +509,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           // Create CompanyEmployee from user data for currentEmployee
           const employee: CompanyEmployee = {
             id: userId, // Use userId as id
-            firstname: userData.firstname || '',
-            lastname: userData.lastname || '',
+            username: userData.username || '',
             email: userData.email || '',
             phone: userData.phone || undefined,
             role: userCompanyRef.role as UserRole,

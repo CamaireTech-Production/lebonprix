@@ -21,8 +21,7 @@ export async function addUserToCompany(
     logo?: string;
   },
   userData: {
-    firstname: string;
-    lastname: string;
+    username: string;
     email: string;
   },
   role: 'owner' | 'admin' | 'manager' | 'staff',
@@ -33,8 +32,7 @@ export async function addUserToCompany(
     // 1. Créer l'employeeRef dans companies/{companyId}/employeeRefs/{userId}
     const employeeRefData = {
       id: userId, // ID de l'utilisateur (Firebase UID)
-      firstname: userData.firstname,
-      lastname: userData.lastname,
+      username: userData.username,
       email: userData.email, // Email de l'utilisateur
       role: role,
       deleted: false,
@@ -51,8 +49,7 @@ export async function addUserToCompany(
     const companyRef = doc(db, 'companies', companyId);
     await updateDoc(companyRef, {
       [`employees.${userId}`]: {
-        firstname: userData.firstname,
-        lastname: userData.lastname,
+        username: userData.username,
         email: userData.email,
         role: role
       },

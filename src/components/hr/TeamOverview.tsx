@@ -14,8 +14,7 @@ interface TeamOverviewProps {
 
 interface TeamMember {
   id: string;
-  firstname: string;
-  lastname: string;
+  username: string;
   email: string;
   phone?: string;
   role: string;
@@ -45,8 +44,7 @@ const TeamOverview = ({ teamMembers, onRefresh, companyId }: TeamOverviewProps) 
       
       const members: TeamMember[] = teamMembers.map(member => ({
         id: member.userId || member.companyId, // Use userId if available, fallback to companyId
-        firstname: member.name.split(' ')[0] || '',
-        lastname: member.name.split(' ').slice(1).join(' ') || '',
+        username: member.name || 'Unknown User', // name field contains username now
         email: '', // Would need to fetch from user data
         role: member.role,
         joinedAt: member.joinedAt,
@@ -233,14 +231,14 @@ const TeamOverview = ({ teamMembers, onRefresh, companyId }: TeamOverviewProps) 
                 <div className="flex items-center space-x-3">
                   <div className="h-10 w-10 bg-gray-200 rounded-full flex items-center justify-center">
                     <span className="text-sm font-medium text-gray-600">
-                      {member.firstname.charAt(0)}{member.lastname.charAt(0)}
+                      {member.username.charAt(0).toUpperCase() || 'U'}
                     </span>
                   </div>
                   <div>
                     <h4 className="text-sm font-medium text-gray-900">
-                      {member.firstname} {member.lastname}
+                      {member.username}
                     </h4>
-                    <p className="text-sm text-gray-500">{member.email}</p>
+                    <p className="text-sm text-gray-500">{member.email || 'No email'}</p>
                   </div>
                 </div>
                 
@@ -304,7 +302,7 @@ const TeamOverview = ({ teamMembers, onRefresh, companyId }: TeamOverviewProps) 
         >
           <div className="text-center">
             <p className="text-gray-600 mb-4">
-              Êtes-vous sûr de vouloir supprimer {memberToDelete ? `${memberToDelete.firstname} ${memberToDelete.lastname}` : 'cet employé'} de l'entreprise ?
+              Êtes-vous sûr de vouloir supprimer {memberToDelete ? memberToDelete.username : 'cet employé'} de l'entreprise ?
             </p>
             <p className="text-sm text-red-600">
               Cette action est irréversible.

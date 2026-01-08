@@ -403,8 +403,7 @@ export type UserRole = 'admin' | 'manager' | 'staff';
 
 export interface CompanyEmployee {
   id: string; // ID unique généré automatiquement
-  firstname: string;
-  lastname: string;
+  username: string; // Username from user document
   email: string;
   phone?: string;
   role: UserRole;
@@ -418,8 +417,7 @@ export interface CompanyEmployee {
 // Nouvelle interface pour les références d'employés
 export interface EmployeeRef {
   id: string;              // firebaseUid du user
-  firstname: string;       // Dupliqué depuis users
-  lastname: string;        // Dupliqué depuis users
+  username: string;        // Username from user document
   email: string;          // Dupliqué depuis users
   role: 'admin' | 'manager' | 'staff';  // Rôle dans cette companie
   addedAt: Timestamp;     // Date d'ajout comme employé
@@ -445,9 +443,7 @@ export interface UserCompanyRef {
 // Nouveau modèle User unifié
 export interface User {
   id: string;
-  username: string; // Unique username identifier
-  firstname: string;
-  lastname: string;
+  username: string; // Unique username identifier (used for display name)
   email: string;
   photoURL?: string;
   createdAt: Timestamp;

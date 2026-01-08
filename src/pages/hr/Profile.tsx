@@ -14,8 +14,8 @@ const Profile = () => {
   
   // Form state - will be different for employee vs company
   const [formData, setFormData] = useState({
-    firstname: '',
-    lastname: '',
+    username: '', // For employee profiles
+    companyName: '', // For company profiles (using firstname field name for compatibility)
     email: '',
     phone: '',
   });
@@ -37,8 +37,8 @@ const Profile = () => {
           if (userDoc) {
             setUserData(userDoc);
             setFormData({
-              firstname: userDoc.firstname || '',
-              lastname: userDoc.lastname || '',
+              username: userDoc.username || '',
+              companyName: '', // Not used for employee profiles
               email: userDoc.email || '',
               phone: userDoc.phone || '',
             });
@@ -46,8 +46,8 @@ const Profile = () => {
         } else if (company) {
           // Load company profile data (for owners)
           setFormData({
-            firstname: company.name || '',
-            lastname: '',
+            username: '', // Not used for company profiles
+            companyName: company.name || '',
             email: company.email || '',
             phone: company.phone || '',
           });
@@ -79,15 +79,14 @@ const Profile = () => {
       if (isEmployeeProfile && userData) {
         // Update employee profile (user document)
         await updateUser(user.uid, {
-          firstname: formData.firstname,
-          lastname: formData.lastname,
+          username: formData.username,
           phone: formData.phone || undefined,
         });
         showSuccessToast('Profil employé mis à jour avec succès');
       } else if (company) {
         // Update company profile
         await updateCompanyContext({
-          name: formData.firstname, // Company name goes in firstname field
+          name: formData.companyName,
           email: formData.email,
           phone: formData.phone,
         });
@@ -148,8 +147,8 @@ const Profile = () => {
             <div>
               <h2 className="text-xl font-semibold text-gray-900">
                 {isEmployeeProfile 
-                  ? `${formData.firstname} ${formData.lastname}`.trim() || 'Employé'
-                  : formData.firstname || company?.name || 'Entreprise'}
+                  ? formData.username || 'Employé'
+                  : formData.companyName || company?.name || 'Entreprise'}
               </h2>
               {isEmployeeProfile && currentEmployee && (
                 <p className="text-sm text-gray-500 capitalize">
@@ -165,29 +164,15 @@ const Profile = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                {isEmployeeProfile ? 'Prénom' : 'Nom de l\'entreprise'}
+                {isEmployeeProfile ? 'Nom d\'utilisateur' : 'Nom de l\'entreprise'}
               </label>
               <Input
-                name="firstname"
-                value={formData.firstname}
+                name={isEmployeeProfile ? 'username' : 'companyName'}
+                value={isEmployeeProfile ? formData.username : formData.companyName}
                 onChange={handleInputChange}
-                placeholder={isEmployeeProfile ? 'Votre prénom' : 'Nom de l\'entreprise'}
+                placeholder={isEmployeeProfile ? 'Votre nom d\'utilisateur' : 'Nom de l\'entreprise'}
               />
             </div>
-
-            {isEmployeeProfile && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Nom
-                </label>
-                <Input
-                  name="lastname"
-                  value={formData.lastname}
-                  onChange={handleInputChange}
-                  placeholder="Votre nom"
-                />
-              </div>
-            )}
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">

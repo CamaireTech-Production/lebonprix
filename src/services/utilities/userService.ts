@@ -25,9 +25,7 @@ const getDocWithCache = async <T = unknown>(ref: DocumentReference<T>) => {
 };
 
 export interface UserData {
-  username: string; // Required unique username
-  firstname: string;
-  lastname: string;
+  username: string; // Required unique username (used for display name)
   email: string;
   photoURL?: string;
 }
@@ -59,8 +57,6 @@ export const createUser = async (
     const newUser: User = {
       id: userId,
       username: normalizedUsername, // Store normalized for uniqueness
-      firstname: userData.firstname,
-      lastname: userData.lastname,
       email: userData.email,
       createdAt: now,
       updatedAt: now,
