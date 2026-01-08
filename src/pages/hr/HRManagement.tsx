@@ -6,7 +6,7 @@ import InviteEmployeeForm from '@components/hr/InviteEmployeeForm';
 import PendingInvitationsList from '@components/hr/PendingInvitationsList';
 import TeamOverview from '@components/hr/TeamOverview';
 import PermissionTemplateManager from '@components/hr/PermissionTemplateManager';
-import { getPendingInvitations } from '@services/firestore/employees/invitationService';
+import { getPendingInvitations, subscribeToPendingInvitations } from '@services/firestore/employees/invitationService';
 import { getCompanyEmployees } from '@services/firestore/employees/employeeRefService';
 import { convertEmployeeRefToUserCompanyRef, getOwnerUserCompanyRef } from '@services/firestore/employees/employeeDisplayService';
 import { doc, getDoc } from 'firebase/firestore';
@@ -101,6 +101,23 @@ const HRManagement = () => {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Set up real-time listener for pending invitations
+  useEffect(() => {
+    if (!company?.id) return;
+
+    console.log('🔔 Setting up real-time listener for pending invitations');
+    const unsubscribe = subscribeToPendingInvitations(company.id, (invitations) => {
+      console.log('📬 Pending invitations updated:', invitations.length);
+      setPendingInvitations(invitations);
+    });
+
+    // Cleanup listener on unmount
+    return () => {
+      console.log('🔕 Unsubscribing from pending invitations listener');
+      unsubscribe();
+    };
+  }, [company?.id]);
 
   const handleInvitationCreated = () => {
     loadData(); // Refresh data

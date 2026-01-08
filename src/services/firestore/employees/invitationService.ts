@@ -9,7 +9,8 @@ import {
   where, 
   getDocs, 
   orderBy, 
-  Timestamp 
+  Timestamp,
+  onSnapshot
 } from 'firebase/firestore';
 import { db } from '../../core/firebase';
 import { Invitation, UserCompanyRef } from '../../../types/models';
@@ -427,6 +428,46 @@ export const getPendingInvitations = async (companyId: string): Promise<Invitati
   } catch (error) {
     console.error('❌ Error getting pending invitations:', error);
     throw error;
+  }
+};
+
+/**
+ * Subscribe to pending invitations for a company (real-time updates)
+ * @param companyId - Company ID
+ * @param callback - Callback function that receives the invitations array
+ * @returns Unsubscribe function
+ */
+export const subscribeToPendingInvitations = (
+  companyId: string,
+  callback: (invitations: Invitation[]) => void
+): (() => void) => {
+  try {
+    const invitationsRef = collection(db, 'invitations');
+    const q = query(
+      invitationsRef,
+      where('companyId', '==', companyId),
+      where('status', '==', 'pending'),
+      orderBy('createdAt', 'desc')
+    );
+    
+    return onSnapshot(
+      q,
+      (snapshot) => {
+        const invitations: Invitation[] = [];
+        snapshot.forEach((doc) => {
+          invitations.push({ id: doc.id, ...doc.data() } as Invitation);
+        });
+        callback(invitations);
+      },
+      (error) => {
+        console.error('❌ Error in pending invitations subscription:', error);
+        callback([]); // Return empty array on error
+      }
+    );
+  } catch (error) {
+    console.error('❌ Error setting up pending invitations subscription:', error);
+    // Return a no-op unsubscribe function
+    return () => {};
   }
 };
 
