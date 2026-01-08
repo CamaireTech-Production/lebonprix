@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ChevronRight, ChevronDown, Package, AlertCircle, Search } from 'lucide-react';
 import { Button, Input, Modal, LoadingScreen } from '@components/common';
 import { useMatieres } from '@hooks/business/useMatieres';
@@ -11,27 +12,27 @@ import type { Matiere, StockBatch, StockChange } from '../../types/models';
 
 const PAGE_SIZES = [10, 20, 50];
 
-// Skeleton row matching the actual table grid structure
+// Skeleton row matching the actual table flexbox structure
 const SkeletonRow = () => (
   <div className="animate-pulse border-b border-gray-200">
-    <div className="grid grid-cols-12 items-center px-4 py-3">
-      <div className="col-span-1">
+    <div className="flex items-start px-4 py-3 gap-x-4">
+      <div className="w-8 flex-shrink-0 pt-1">
         <div className="w-4 h-4 bg-gray-200 rounded" />
       </div>
-      <div className="col-span-3">
+      <div className="flex-1 min-w-[150px]">
         <div className="h-4 bg-gray-200 rounded w-3/4 mb-1" />
         <div className="h-3 bg-gray-200 rounded w-1/2" />
       </div>
-      <div className="col-span-2">
+      <div className="flex-1 min-w-[100px]">
         <div className="h-4 bg-gray-200 rounded w-2/3" />
       </div>
-      <div className="col-span-2">
+      <div className="flex-shrink-0 min-w-[100px]">
         <div className="h-4 bg-gray-200 rounded w-1/2" />
       </div>
-      <div className="col-span-2">
+      <div className="flex-shrink-0 min-w-[120px]">
         <div className="h-4 bg-gray-200 rounded w-2/3" />
       </div>
-      <div className="col-span-2 flex justify-end space-x-2">
+      <div className="flex-shrink-0 min-w-[180px] flex justify-end items-center gap-2">
         <div className="h-7 w-16 bg-gray-200 rounded" />
         <div className="h-7 w-20 bg-gray-200 rounded" />
       </div>
@@ -65,6 +66,7 @@ const formatNumber = (value: number | undefined) =>
   typeof value === 'number' ? value.toLocaleString() : '-';
 
 const Stocks = () => {
+  const { t } = useTranslation();
   const { matieres, loading, error: matieresError } = useMatieres();
   const { batches, loading: batchesLoading, error: batchesError } = useAllStockBatches('matiere');
   const { stockChanges } = useStockChanges('matiere');
@@ -201,13 +203,13 @@ const Stocks = () => {
         <div className="bg-white border border-red-200 rounded-lg shadow-sm p-8">
           <div className="flex flex-col items-center justify-center text-center">
             <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
-            <h2 className="text-xl font-semibold text-gray-900 mb-2">Error Loading Matieres</h2>
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">{t('navigation.warehouseMenu.stocksPage.messages.errorLoading')}</h2>
             <p className="text-gray-600 mb-4 max-w-md">
-              {matieresError.message || 'Failed to load matieres. Please try again.'}
+              {matieresError.message || t('navigation.warehouseMenu.stocksPage.messages.failedToLoad')}
             </p>
             <div className="flex space-x-3">
               <Button variant="outline" onClick={() => window.location.reload()}>
-                Reload Page
+                {t('navigation.warehouseMenu.stocksPage.messages.reloadPage')}
               </Button>
             </div>
           </div>
@@ -220,9 +222,9 @@ const Stocks = () => {
     <div className="p-4 space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Matiere Stocks</h1>
+          <h1 className="text-2xl font-semibold text-gray-900">{t('navigation.warehouseMenu.stocksPage.title')}</h1>
           <p className="text-sm text-gray-600">
-            Manage matiere inventory with batch visibility.
+            {t('navigation.warehouseMenu.stocksPage.subtitle')}
           </p>
         </div>
         {/* Refresh button removed - data updates automatically via Firestore subscription */}
@@ -234,12 +236,12 @@ const Stocks = () => {
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search matieres by name or reference"
+              placeholder={t('navigation.warehouseMenu.stocksPage.searchPlaceholder')}
               name="search"
             />
           </div>
           <div className="flex items-center space-x-2">
-            <label className="text-sm text-gray-600">Rows per page</label>
+            <label className="text-sm text-gray-600">{t('navigation.warehouseMenu.stocksPage.rowsPerPage')}</label>
             <select
               className="rounded-md border border-gray-300 px-2 py-1 text-sm"
               value={pageSize}
@@ -257,15 +259,15 @@ const Stocks = () => {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <div className="min-w-[960px]">
-            <div className="grid grid-cols-12 px-4 py-2 text-xs font-semibold text-gray-600 border-b border-gray-200 bg-gray-50">
-              <div className="col-span-1" />
-              <div className="col-span-3">Matiere</div>
-              <div className="col-span-2">Category</div>
-              <div className="col-span-2">Stock</div>
-              <div className="col-span-2">Batches</div>
-              <div className="col-span-2 text-right">Actions</div>
+        <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-300px)]">
+          <div className="w-full">
+            <div className="flex items-center px-4 py-2 text-xs font-semibold text-gray-600 border-b border-gray-200 bg-gray-50 sticky top-0 z-10 gap-x-4">
+              <div className="w-8 flex-shrink-0" />
+              <div className="flex-1 min-w-[150px]">{t('navigation.warehouseMenu.stocksPage.columns.matiere')}</div>
+              <div className="flex-1 min-w-[100px]">{t('navigation.warehouseMenu.stocksPage.columns.category')}</div>
+              <div className="flex-shrink-0 min-w-[100px] text-right">{t('navigation.warehouseMenu.stocksPage.columns.stock')}</div>
+              <div className="flex-shrink-0 min-w-[120px]">{t('navigation.warehouseMenu.stocksPage.columns.batches')}</div>
+              <div className="flex-shrink-0 min-w-[180px] text-right">{t('navigation.warehouseMenu.stocksPage.columns.actions')}</div>
             </div>
 
             {loading && paginatedMatieres.length === 0 ? (
@@ -283,11 +285,11 @@ const Stocks = () => {
                 const batchTotal = matiereBatches.reduce((sum, b) => sum + (b.quantity || 0), 0);
                 return (
                   <div key={matiere.id} className="border-b border-gray-200">
-                    <div className="grid grid-cols-12 items-center px-4 py-3">
+                    <div className="flex items-start px-4 py-3 gap-x-4">
                       <button
                         onClick={() => handleExpand(matiere.id)}
-                        className="col-span-1 text-gray-500 hover:text-gray-700"
-                        aria-label="Toggle batches"
+                        className="w-8 flex-shrink-0 text-gray-500 hover:text-gray-700 pt-1"
+                        aria-label={t('navigation.warehouseMenu.stocksPage.actions.toggleBatches')}
                       >
                         {expandedMatiereId === matiere.id ? (
                           <ChevronDown size={18} />
@@ -295,16 +297,16 @@ const Stocks = () => {
                           <ChevronRight size={18} />
                         )}
                       </button>
-                      <div className="col-span-3">
-                        <div className="font-medium text-gray-900">{matiere.name}</div>
+                      <div className="flex-1 min-w-[150px] pr-2 overflow-hidden">
+                        <div className="font-medium text-gray-900 break-words line-clamp-2">{matiere.name}</div>
                         {matiere.description && (
-                          <div className="text-xs text-gray-500">{matiere.description}</div>
+                          <div className="text-xs text-gray-500 break-words line-clamp-2 mt-1">{matiere.description}</div>
                         )}
                       </div>
-                      <div className="col-span-2 text-sm text-gray-700">
-                        {matiere.refCategorie || '—'}
+                      <div className="flex-1 min-w-[100px] text-sm text-gray-700 break-words pr-2 overflow-hidden">
+                        <div className="line-clamp-2">{matiere.refCategorie || '—'}</div>
                       </div>
-                      <div className="col-span-2 text-sm text-gray-900">
+                      <div className="flex-shrink-0 min-w-[100px] text-sm text-gray-900 whitespace-nowrap text-right pr-2 overflow-hidden">
                         {matiereBatches.length > 0
                           ? (
                               <>
@@ -317,22 +319,24 @@ const Stocks = () => {
                               </>
                             )}
                       </div>
-                      <div className="col-span-2 text-sm text-gray-900">
-                        {activeBatches.length} active / {depletedBatches.length} depleted
+                      <div className="flex-shrink-0 min-w-[120px] text-sm text-gray-900 break-words pr-2 overflow-hidden">
+                        <div className="line-clamp-2">{t('navigation.warehouseMenu.stocksPage.status.activeDepleted', { active: activeBatches.length, depleted: depletedBatches.length })}</div>
                       </div>
-                      <div className="col-span-2 flex justify-end space-x-2">
+                      <div className="flex-shrink-0 min-w-[180px] flex justify-end items-center gap-2">
                         <Button 
                           size="sm" 
                           variant="outline"
                           onClick={() => handleHistory(matiere)}
+                          className="whitespace-nowrap"
                         >
-                          History
+                          {t('navigation.warehouseMenu.stocksPage.actions.history')}
                         </Button>
                         <Button 
                           size="sm"
                           onClick={() => handleRestock(matiere)}
+                          className="whitespace-nowrap"
                         >
-                          Restock
+                          {t('navigation.warehouseMenu.stocksPage.actions.restock')}
                         </Button>
                       </div>
                     </div>
@@ -344,23 +348,23 @@ const Stocks = () => {
                         ) : batchesError ? (
                           <div className="flex items-center space-x-2 text-sm text-red-600">
                             <AlertCircle size={16} />
-                            <span>Error loading batches. Please try again.</span>
+                            <span>{t('navigation.warehouseMenu.stocksPage.messages.errorLoadingBatches')}</span>
                           </div>
                         ) : matiereBatches.length === 0 ? (
                           <div className="flex flex-col items-center py-6">
                             <Package className="h-8 w-8 text-gray-400 mb-2" />
-                            <p className="text-sm text-gray-600">No batches found for this matiere.</p>
-                            <p className="text-xs text-gray-500 mt-1">Create a batch by restocking this matiere.</p>
+                            <p className="text-sm text-gray-600">{t('navigation.warehouseMenu.stocksPage.messages.noBatchesFound')}</p>
+                            <p className="text-xs text-gray-500 mt-1">{t('navigation.warehouseMenu.stocksPage.messages.createBatchByRestocking')}</p>
                           </div>
                         ) : (
                           <div className="overflow-x-auto">
                             <table className="w-full min-w-[960px] table-fixed text-sm text-left text-gray-700">
                               <thead>
                                 <tr className="text-xs uppercase text-gray-500 border-b bg-white/60">
-                                  <th className="py-3 pr-4 w-52">Batch ID</th>
-                                  <th className="py-3 pr-4 w-40">Remaining / Total</th>
-                                  <th className="py-3 pr-4 w-28">Status</th>
-                                  <th className="py-3 pr-4 text-right w-48">Actions</th>
+                                  <th className="py-3 pr-4 w-52">{t('navigation.warehouseMenu.stocksPage.batchTable.batchId')}</th>
+                                  <th className="py-3 pr-4 w-40">{t('navigation.warehouseMenu.stocksPage.batchTable.remainingTotal')}</th>
+                                  <th className="py-3 pr-4 w-28">{t('navigation.warehouseMenu.stocksPage.batchTable.status')}</th>
+                                  <th className="py-3 pr-4 text-right w-48">{t('navigation.warehouseMenu.stocksPage.batchTable.actions')}</th>
                                 </tr>
                               </thead>
                               <tbody>
@@ -372,7 +376,7 @@ const Stocks = () => {
                                     <td className="py-3 pr-4">
                                       {formatNumber(batch.remainingQuantity)} / {formatNumber(batch.quantity)}
                                     </td>
-                                    <td className="py-3 pr-4 capitalize">{batch.status}</td>
+                                    <td className="py-3 pr-4 capitalize">{batch.status === 'active' ? t('navigation.warehouseMenu.stocksPage.status.active') : t('navigation.warehouseMenu.stocksPage.status.depleted')}</td>
                                     <td className="py-3 pr-4 text-right space-x-3">
                                       {batch.status === 'active' ? (
                                         <>
@@ -382,7 +386,7 @@ const Stocks = () => {
                                             className="px-3 py-1.5 text-sm"
                                             onClick={() => handleAdjust(matiere, batch)}
                                           >
-                                            Adjust
+                                            {t('navigation.warehouseMenu.stocksPage.actions.adjust')}
                                           </Button>
                                           {batch.remainingQuantity > 0 && (
                                             <Button 
@@ -391,13 +395,13 @@ const Stocks = () => {
                                               className="px-3 py-1.5 text-sm"
                                               onClick={() => handleDamage(matiere, batch)}
                                             >
-                                              Damage
+                                              {t('navigation.warehouseMenu.stocksPage.actions.damage')}
                                             </Button>
                                           )}
                                         </>
                                       ) : (
                                         <span className="inline-flex items-center justify-end text-xs text-gray-500">
-                                          No actions (depleted)
+                                          {t('navigation.warehouseMenu.stocksPage.messages.noActionsDepleted')}
                                         </span>
                                       )}
                                     </td>
@@ -419,20 +423,20 @@ const Stocks = () => {
                 {search.trim() ? (
                   <div className="flex flex-col items-center">
                     <Search className="h-12 w-12 text-gray-400 mb-4" />
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">No matieres found</h3>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">{t('navigation.warehouseMenu.stocksPage.messages.noMatieresFound')}</h3>
                     <p className="text-sm text-gray-600 mb-4 max-w-md">
-                      No matieres match your search "{search}". Try adjusting your search terms.
+                      {t('navigation.warehouseMenu.stocksPage.messages.noMatieresMatchSearch', { search })}
                     </p>
                     <Button variant="outline" onClick={() => setSearch('')}>
-                      Clear Search
+                      {t('navigation.warehouseMenu.stocksPage.messages.clearSearch')}
                     </Button>
                   </div>
                 ) : (
                   <div className="flex flex-col items-center">
                     <Package className="h-12 w-12 text-gray-400 mb-4" />
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">No matieres yet</h3>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">{t('navigation.warehouseMenu.stocksPage.messages.noMatieresYet')}</h3>
                     <p className="text-sm text-gray-600 mb-4 max-w-md">
-                      Start by adding matieres to your inventory. Once matieres are added, they will appear here with their stock information.
+                      {t('navigation.warehouseMenu.stocksPage.messages.startByAdding')}
                     </p>
                   </div>
                 )}
@@ -445,7 +449,11 @@ const Stocks = () => {
           <div className="px-4 py-3 border-t border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-sm text-gray-700">
             <div className="flex items-center space-x-2">
               <span>
-                Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, filteredMatieres.length)} of {filteredMatieres.length} matieres
+                {t('navigation.warehouseMenu.stocksPage.messages.showingResults', {
+                  from: ((currentPage - 1) * pageSize) + 1,
+                  to: Math.min(currentPage * pageSize, filteredMatieres.length),
+                  total: filteredMatieres.length
+                })}
               </span>
             </div>
             <div className="flex items-center space-x-2">
@@ -455,10 +463,10 @@ const Stocks = () => {
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={currentPage === 1 || loading}
               >
-                Previous
+                {t('navigation.warehouseMenu.stocksPage.messages.previous')}
               </Button>
               <div className="flex items-center space-x-1">
-                <span className="text-gray-600">Page</span>
+                <span className="text-gray-600">{t('navigation.warehouseMenu.stocksPage.messages.page')}</span>
                 <input
                   type="number"
                   min={1}
@@ -472,7 +480,7 @@ const Stocks = () => {
                   }}
                   className="w-16 px-2 py-1 text-sm border border-gray-300 rounded text-center"
                 />
-                <span className="text-gray-600">of {totalPages}</span>
+                <span className="text-gray-600">{t('navigation.warehouseMenu.stocksPage.messages.of')} {totalPages}</span>
               </div>
               <Button
                 variant="outline"
@@ -480,7 +488,7 @@ const Stocks = () => {
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={currentPage === totalPages || loading}
               >
-                Next
+                {t('navigation.warehouseMenu.stocksPage.messages.next')}
               </Button>
             </div>
           </div>
@@ -518,7 +526,7 @@ const Stocks = () => {
       <Modal
         isOpen={historyModalOpen}
         onClose={handleModalClose}
-        title={`Stock History - ${selectedMatiere?.name || ''}`}
+        title={t('navigation.warehouseMenu.stocksPage.historyModal.title', { name: selectedMatiere?.name || '' })}
         size="lg"
       >
         <div className="space-y-4">
@@ -526,11 +534,11 @@ const Stocks = () => {
             <div className="bg-gray-50 p-4 rounded-lg">
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <span className="font-medium text-gray-700">Matiere:</span>
+                  <span className="font-medium text-gray-700">{t('navigation.warehouseMenu.stocksPage.historyModal.matiere')}</span>
                   <p className="text-gray-900">{selectedMatiere.name}</p>
                 </div>
                 <div>
-                  <span className="font-medium text-gray-700">Current Stock:</span>
+                  <span className="font-medium text-gray-700">{t('navigation.warehouseMenu.stocksPage.historyModal.currentStock')}</span>
                   <p className="text-gray-900">
                     {batchesByMatiere.get(selectedMatiere.id)?.reduce((sum, b) => sum + (b.remainingQuantity || 0), 0) || 0} {selectedMatiere.unit || 'unité'}
                   </p>
@@ -543,19 +551,19 @@ const Stocks = () => {
             <table className="min-w-full text-sm">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="text-left px-4 py-2 text-xs font-semibold text-gray-600">Date</th>
-                  <th className="text-left px-4 py-2 text-xs font-semibold text-gray-600">Change</th>
-                  <th className="text-left px-4 py-2 text-xs font-semibold text-gray-600">Reason</th>
-                  <th className="text-left px-4 py-2 text-xs font-semibold text-gray-600">Supplier</th>
-                  <th className="text-left px-4 py-2 text-xs font-semibold text-gray-600">Payment</th>
-                  <th className="text-left px-4 py-2 text-xs font-semibold text-gray-600">Cost Price</th>
+                  <th className="text-left px-4 py-2 text-xs font-semibold text-gray-600">{t('navigation.warehouseMenu.stocksPage.historyModal.columns.date')}</th>
+                  <th className="text-left px-4 py-2 text-xs font-semibold text-gray-600">{t('navigation.warehouseMenu.stocksPage.historyModal.columns.change')}</th>
+                  <th className="text-left px-4 py-2 text-xs font-semibold text-gray-600">{t('navigation.warehouseMenu.stocksPage.historyModal.columns.reason')}</th>
+                  <th className="text-left px-4 py-2 text-xs font-semibold text-gray-600">{t('navigation.warehouseMenu.stocksPage.historyModal.columns.supplier')}</th>
+                  <th className="text-left px-4 py-2 text-xs font-semibold text-gray-600">{t('navigation.warehouseMenu.stocksPage.historyModal.columns.payment')}</th>
+                  <th className="text-left px-4 py-2 text-xs font-semibold text-gray-600">{t('navigation.warehouseMenu.stocksPage.historyModal.columns.costPrice')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {matiereStockChanges.length === 0 ? (
                   <tr>
-                    <td colSpan={3} className="px-4 py-8 text-center text-gray-500">
-                      No stock history found for this matiere.
+                    <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                      {t('navigation.warehouseMenu.stocksPage.historyModal.noHistoryFound')}
                     </td>
                   </tr>
                 ) : (

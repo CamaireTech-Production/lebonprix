@@ -69,11 +69,143 @@
     "close": "Fermer",
     "reports": "Rapports",
     "finance": "Finance",
+    "orders": "Commandes",
+    "pos": "Point de Vente",
+    "productions": "Productions",
+    "warehouse": "Magasin",
+    "contacts": "Contacts",
+    "hrManagement": "Gestion RH",
+    "myCompanies": "Mes Entreprises",
+    "createCompany": "Créer entreprise",
+    "pleaseCreateCompany": "Veuillez créer une entreprise",
+    "loadingPermissions": "Chargement des permissions...",
     "confirmCompanyExit": "Quitter l'entreprise actuelle ?",
     "confirmCompanyExitMessage": "Vous êtes sur le point de quitter le contexte de l'entreprise actuelle pour gérer vos entreprises.",
     "confirmCompanyExitQuestion": "Êtes-vous sûr de vouloir continuer ?",
     "currentCompany": "Entreprise actuelle",
-    "pos": "Point de Vente"
+    "submenus": {
+      "list": "Liste",
+      "categories": "Catégories",
+      "stocks": "Stocks",
+      "analytics": "Analyses",
+      "reports": "Rapports",
+      "steps": "Étapes",
+      "flows": "Flux",
+      "charges": "Charges",
+      "clientSources": "Sources Clientelles"
+    },
+    "warehouseMenu": {
+      "matieres": "Matières",
+      "categories": "Catégories",
+      "stocks": "Inventaire",
+      "stocksPage": {
+        "title": "Inventaire des Matières",
+        "subtitle": "Gérer l'inventaire des matières avec visibilité des lots",
+        "searchPlaceholder": "Rechercher des matières par nom ou référence",
+        "rowsPerPage": "Lignes par page",
+        "columns": {
+          "matiere": "Matière",
+          "category": "Catégorie",
+          "stock": "Stock",
+          "batches": "Lots",
+          "actions": "Actions"
+        },
+        "batchTable": {
+          "batchId": "ID du Lot",
+          "remainingTotal": "Restant / Total",
+          "status": "Statut",
+          "actions": "Actions"
+        },
+        "actions": {
+          "history": "Historique",
+          "restock": "Réapprovisionner",
+          "adjust": "Ajuster",
+          "damage": "Endommagé",
+          "toggleBatches": "Basculer les lots"
+        },
+        "status": {
+          "active": "actif",
+          "depleted": "épuisé",
+          "activeDepleted": "{{active}} actif / {{depleted}} épuisé"
+        },
+        "messages": {
+          "errorLoading": "Erreur lors du chargement des matières",
+          "failedToLoad": "Échec du chargement des matières. Veuillez réessayer.",
+          "reloadPage": "Recharger la page",
+          "errorLoadingBatches": "Erreur lors du chargement des lots. Veuillez réessayer.",
+          "noBatchesFound": "Aucun lot trouvé pour cette matière.",
+          "createBatchByRestocking": "Créez un lot en réapprovisionnant cette matière.",
+          "noActionsDepleted": "Aucune action (épuisé)",
+          "noMatieresFound": "Aucune matière trouvée",
+          "noMatieresMatchSearch": "Aucune matière ne correspond à votre recherche \"{{search}}\". Essayez d'ajuster vos termes de recherche.",
+          "clearSearch": "Effacer la recherche",
+          "noMatieresYet": "Aucune matière pour le moment",
+          "startByAdding": "Commencez par ajouter des matières à votre inventaire. Une fois les matières ajoutées, elles apparaîtront ici avec leurs informations de stock.",
+          "showingResults": "Affichage de {{from}} à {{to}} sur {{total}} matières",
+          "previous": "Précédent",
+          "next": "Suivant",
+          "page": "Page",
+          "of": "sur"
+        },
+        "historyModal": {
+          "title": "Historique du Stock - {{name}}",
+          "matiere": "Matière :",
+          "currentStock": "Stock actuel :",
+          "columns": {
+            "date": "Date",
+            "change": "Changement",
+            "reason": "Raison",
+            "supplier": "Fournisseur",
+            "payment": "Paiement",
+            "costPrice": "Prix d'achat"
+          },
+          "noHistoryFound": "Aucun historique de stock trouvé pour cette matière."
+        }
+      },
+      "restockModal": {
+        "title": "Réapprovisionner {{name}}",
+        "matiereInfo": {
+          "title": "Informations de la Matière",
+          "name": "Nom :",
+          "unit": "Unité :",
+          "currentStock": "Stock actuel :",
+          "category": "Catégorie :"
+        },
+        "restockDetails": {
+          "title": "Détails du Réapprovisionnement",
+          "quantity": "Quantité ({{unit}})",
+          "quantityPlaceholder": "Entrer la quantité",
+          "costPrice": "Prix d'achat par unité (Optionnel)",
+          "costPricePlaceholder": "Entrer le prix d'achat",
+          "loadingCostPrice": "Chargement du dernier prix d'achat...",
+          "fetchingCostPrice": "Récupération du prix d'achat du dernier lot..."
+        },
+        "totalCost": {
+          "title": "Coût Total",
+          "expenseWillBeCreated": "Une entrée de dépense sera créée pour ce réapprovisionnement{{usingDefault}}",
+          "usingDefault": " (en utilisant le prix d'achat du dernier lot)",
+          "noExpenseCreated": "Aucune entrée de dépense ne sera créée"
+        },
+        "validation": {
+          "title": "Erreurs de Validation",
+          "invalidQuantity": "Veuillez entrer une quantité valide (nombre entier supérieur à 0)",
+          "invalidCostPrice": "Veuillez entrer un prix d'achat valide (supérieur ou égal à 0)"
+        },
+        "notes": {
+          "label": "Notes (Optionnel)",
+          "placeholder": "Ajouter des notes concernant ce réapprovisionnement..."
+        },
+        "actions": {
+          "cancel": "Annuler",
+          "restock": "Réapprovisionner la Matière",
+          "restocking": "Réapprovisionnement..."
+        },
+        "messages": {
+          "success": "Matière réapprovisionnée avec succès !",
+          "error": "Échec du réapprovisionnement de la matière : {{error}}"
+        }
+      }
+    }
   },
   "header": {
     "welcome": "Bienvenue",
@@ -763,6 +895,84 @@
       "saveCategories": "Enregistrer mes catégories depuis cet import",
       "mapping": "Mapper les colonnes",
       "productsToImport": "Nombre de produits à importer : {{count}}"
+    },
+    "stocksPage": {
+      "title": "Inventaire des Produits",
+      "subtitle": "Gérer l'inventaire avec visibilité des lots. Les commandes ne déduisent pas le stock ; les ventes le font.",
+      "searchPlaceholder": "Rechercher des produits par nom ou référence",
+      "rowsPerPage": "Lignes par page",
+      "refresh": "Actualiser",
+      "columns": {
+        "product": "Produit",
+        "category": "Catégorie",
+        "stock": "Stock",
+        "batches": "Lots",
+        "actions": "Actions"
+      },
+      "batchTable": {
+        "batchId": "ID du Lot",
+        "remainingTotal": "Restant / Total",
+        "costPrice": "Prix d'achat",
+        "supplier": "Fournisseur",
+        "payment": "Paiement",
+        "status": "Statut",
+        "actions": "Actions"
+      },
+      "actions": {
+        "history": "Historique",
+        "restock": "Réapprovisionner",
+        "adjust": "Ajuster",
+        "damage": "Endommagé",
+        "toggleBatches": "Basculer les lots"
+      },
+      "status": {
+        "active": "actif",
+        "depleted": "épuisé",
+        "activeDepleted": "{{active}} actif / {{depleted}} épuisé",
+        "units": "unités"
+      },
+      "payment": {
+        "credit": "Crédit",
+        "paid": "Payé",
+        "ownPurchase": "Achat propre"
+      },
+      "messages": {
+        "errorLoading": "Erreur lors du chargement des produits",
+        "failedToLoad": "Échec du chargement des produits. Veuillez réessayer.",
+        "reloadPage": "Recharger la page",
+        "retry": "Réessayer",
+        "errorLoadingBatches": "Erreur lors du chargement des lots. Veuillez réessayer.",
+        "noBatchesFound": "Aucun lot trouvé pour ce produit.",
+        "createBatchByRestocking": "Créez un lot en réapprovisionnant ce produit.",
+        "noActionsDepleted": "Aucune action (épuisé)",
+        "noProductsFound": "Aucun produit trouvé",
+        "noProductsMatchSearch": "Aucun produit ne correspond à votre recherche \"{{search}}\". Essayez d'ajuster vos termes de recherche.",
+        "clearSearch": "Effacer la recherche",
+        "noProductsYet": "Aucun produit pour le moment",
+        "startByAdding": "Commencez par ajouter des produits à votre inventaire. Une fois les produits ajoutés, ils apparaîtront ici avec leurs informations de stock.",
+        "showingResults": "Affichage de {{from}} à {{to}} sur {{total}} produits",
+        "moreAvailable": "(Plus disponible)",
+        "previous": "Précédent",
+        "next": "Suivant",
+        "page": "Page",
+        "of": "sur",
+        "loading": "Chargement…",
+        "loadMore": "Charger plus"
+      },
+      "historyModal": {
+        "title": "Historique du Stock - {{name}}",
+        "product": "Produit :",
+        "currentStock": "Stock actuel :",
+        "columns": {
+          "date": "Date",
+          "change": "Changement",
+          "reason": "Raison",
+          "supplier": "Fournisseur",
+          "payment": "Paiement",
+          "costPrice": "Prix d'achat"
+        },
+        "noHistoryFound": "Aucun historique de stock trouvé pour ce produit."
+      }
     },
     "detailTabs": {
       "details": "Détails",

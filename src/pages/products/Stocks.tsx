@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ChevronRight, ChevronDown, RefreshCcw, Package, AlertCircle, Search } from 'lucide-react';
 import { Button, Input, Modal, LoadingScreen } from '@components/common';
 import { useInfiniteProducts } from '@hooks/data/useInfiniteProducts';
@@ -65,6 +66,7 @@ const formatNumber = (value: number | undefined) =>
   typeof value === 'number' ? value.toLocaleString() : '-';
 
 const Stocks = () => {
+  const { t } = useTranslation();
   const { products, loading, loadingMore, hasMore, loadMore, refresh, error: productsError } = useInfiniteProducts();
   const { batches, loading: batchesLoading, error: batchesError } = useAllStockBatches('product');
   const { stockChanges } = useStockChanges('product');
@@ -208,16 +210,16 @@ const Stocks = () => {
         <div className="bg-white border border-red-200 rounded-lg shadow-sm p-8">
           <div className="flex flex-col items-center justify-center text-center">
             <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
-            <h2 className="text-xl font-semibold text-gray-900 mb-2">Error Loading Products</h2>
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">{t('products.stocksPage.messages.errorLoading')}</h2>
             <p className="text-gray-600 mb-4 max-w-md">
-              {productsError.message || 'Failed to load products. Please try again.'}
+              {productsError.message || t('products.stocksPage.messages.failedToLoad')}
             </p>
             <div className="flex space-x-3">
               <Button variant="outline" onClick={() => window.location.reload()}>
-                Reload Page
+                {t('products.stocksPage.messages.reloadPage')}
               </Button>
               <Button onClick={refresh} icon={<RefreshCcw size={16} />}>
-                Retry
+                {t('products.stocksPage.messages.retry')}
               </Button>
             </div>
           </div>
@@ -230,14 +232,14 @@ const Stocks = () => {
     <div className="p-4 space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Stocks</h1>
+          <h1 className="text-2xl font-semibold text-gray-900">{t('products.stocksPage.title')}</h1>
           <p className="text-sm text-gray-600">
-            Manage inventory with batch visibility. Orders do not deduct stock; sales do.
+            {t('products.stocksPage.subtitle')}
           </p>
         </div>
         <div className="flex items-center space-x-2">
           <Button variant="outline" onClick={refresh} icon={<RefreshCcw size={16} />} disabled={loading}>
-            Refresh
+            {t('products.stocksPage.refresh')}
           </Button>
         </div>
       </div>
@@ -248,12 +250,12 @@ const Stocks = () => {
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search products by name or reference"
+              placeholder={t('products.stocksPage.searchPlaceholder')}
               name="search"
             />
           </div>
           <div className="flex items-center space-x-2">
-            <label className="text-sm text-gray-600">Rows per page</label>
+            <label className="text-sm text-gray-600">{t('products.stocksPage.rowsPerPage')}</label>
             <select
               className="rounded-md border border-gray-300 px-2 py-1 text-sm"
               value={pageSize}
@@ -275,11 +277,11 @@ const Stocks = () => {
           <div className="min-w-[960px]">
             <div className="grid grid-cols-12 px-4 py-2 text-xs font-semibold text-gray-600 border-b border-gray-200 bg-gray-50">
               <div className="col-span-1" />
-              <div className="col-span-3">Product</div>
-              <div className="col-span-2">Category</div>
-              <div className="col-span-2">Stock</div>
-              <div className="col-span-2">Batches</div>
-              <div className="col-span-2 text-right">Actions</div>
+              <div className="col-span-3">{t('products.stocksPage.columns.product')}</div>
+              <div className="col-span-2">{t('products.stocksPage.columns.category')}</div>
+              <div className="col-span-2">{t('products.stocksPage.columns.stock')}</div>
+              <div className="col-span-2">{t('products.stocksPage.columns.batches')}</div>
+              <div className="col-span-2 text-right">{t('products.stocksPage.columns.actions')}</div>
             </div>
 
             {loading && paginatedProducts.length === 0 ? (
@@ -301,7 +303,7 @@ const Stocks = () => {
                       <button
                         onClick={() => handleExpand(product.id)}
                         className="col-span-1 text-gray-500 hover:text-gray-700"
-                        aria-label="Toggle batches"
+                        aria-label={t('products.stocksPage.actions.toggleBatches')}
                       >
                         {expandedProductId === product.id ? (
                           <ChevronDown size={18} />
@@ -318,11 +320,11 @@ const Stocks = () => {
                       </div>
                       <div className="col-span-2 text-sm text-gray-900">
                         {productBatches.length > 0
-                          ? `${formatNumber(batchRemaining)} / ${formatNumber(batchTotal)} units`
-                          : '0 units'}
+                          ? `${formatNumber(batchRemaining)} / ${formatNumber(batchTotal)} ${t('products.stocksPage.status.units')}`
+                          : `0 ${t('products.stocksPage.status.units')}`}
                       </div>
                       <div className="col-span-2 text-sm text-gray-900">
-                        {activeBatches.length} active / {depletedBatches.length} depleted
+                        {t('products.stocksPage.status.activeDepleted', { active: activeBatches.length, depleted: depletedBatches.length })}
                       </div>
                       <div className="col-span-2 flex justify-end space-x-2">
                         <Button 
@@ -330,13 +332,13 @@ const Stocks = () => {
                           variant="outline"
                           onClick={() => handleHistory(product)}
                         >
-                          History
+                          {t('products.stocksPage.actions.history')}
                         </Button>
                         <Button 
                           size="sm"
                           onClick={() => handleRestock(product)}
                         >
-                          Restock
+                          {t('products.stocksPage.actions.restock')}
                         </Button>
                       </div>
                     </div>
@@ -348,26 +350,26 @@ const Stocks = () => {
                         ) : batchesError ? (
                           <div className="flex items-center space-x-2 text-sm text-red-600">
                             <AlertCircle size={16} />
-                            <span>Error loading batches. Please try again.</span>
+                            <span>{t('products.stocksPage.messages.errorLoadingBatches')}</span>
                           </div>
                         ) : productBatches.length === 0 ? (
                           <div className="flex flex-col items-center py-6">
                             <Package className="h-8 w-8 text-gray-400 mb-2" />
-                            <p className="text-sm text-gray-600">No batches found for this product.</p>
-                            <p className="text-xs text-gray-500 mt-1">Create a batch by restocking this product.</p>
+                            <p className="text-sm text-gray-600">{t('products.stocksPage.messages.noBatchesFound')}</p>
+                            <p className="text-xs text-gray-500 mt-1">{t('products.stocksPage.messages.createBatchByRestocking')}</p>
                           </div>
                         ) : (
                           <div className="overflow-x-auto">
                             <table className="w-full min-w-[960px] table-fixed text-sm text-left text-gray-700">
                               <thead>
                                 <tr className="text-xs uppercase text-gray-500 border-b bg-white/60">
-                                  <th className="py-3 pr-4 w-52">Batch ID</th>
-                                  <th className="py-3 pr-4 w-40">Remaining / Total</th>
-                                  <th className="py-3 pr-4 w-32">Cost Price</th>
-                                  <th className="py-3 pr-4 w-48">Supplier</th>
-                                  <th className="py-3 pr-4 w-28">Payment</th>
-                                  <th className="py-3 pr-4 w-28">Status</th>
-                                  <th className="py-3 pr-4 text-right w-48">Actions</th>
+                                  <th className="py-3 pr-4 w-52">{t('products.stocksPage.batchTable.batchId')}</th>
+                                  <th className="py-3 pr-4 w-40">{t('products.stocksPage.batchTable.remainingTotal')}</th>
+                                  <th className="py-3 pr-4 w-32">{t('products.stocksPage.batchTable.costPrice')}</th>
+                                  <th className="py-3 pr-4 w-48">{t('products.stocksPage.batchTable.supplier')}</th>
+                                  <th className="py-3 pr-4 w-28">{t('products.stocksPage.batchTable.payment')}</th>
+                                  <th className="py-3 pr-4 w-28">{t('products.stocksPage.batchTable.status')}</th>
+                                  <th className="py-3 pr-4 text-right w-48">{t('products.stocksPage.batchTable.actions')}</th>
                                 </tr>
                               </thead>
                               <tbody>
@@ -385,12 +387,12 @@ const Stocks = () => {
                                     <td className="py-3 pr-4">
                                       {batch.supplierId 
                                         ? (suppliersMap.get(batch.supplierId) || batch.supplierId)
-                                        : 'Own purchase'}
+                                        : t('products.stocksPage.payment.ownPurchase')}
                                     </td>
                                     <td className="py-3 pr-4">
-                                      {batch.isCredit ? 'Credit' : 'Paid'}
+                                      {batch.isCredit ? t('products.stocksPage.payment.credit') : t('products.stocksPage.payment.paid')}
                                     </td>
-                                    <td className="py-3 pr-4 capitalize">{batch.status}</td>
+                                    <td className="py-3 pr-4 capitalize">{batch.status === 'active' ? t('products.stocksPage.status.active') : t('products.stocksPage.status.depleted')}</td>
                                     <td className="py-3 pr-4 text-right space-x-3">
                                       {batch.status === 'active' ? (
                                         <>
@@ -400,7 +402,7 @@ const Stocks = () => {
                                             className="px-3 py-1.5 text-sm"
                                             onClick={() => handleAdjust(product, batch)}
                                           >
-                                            Adjust
+                                            {t('products.stocksPage.actions.adjust')}
                                           </Button>
                                           {batch.remainingQuantity > 0 && (
                                             <Button 
@@ -409,13 +411,13 @@ const Stocks = () => {
                                               className="px-3 py-1.5 text-sm"
                                               onClick={() => handleDamage(product, batch)}
                                             >
-                                              Damage
+                                              {t('products.stocksPage.actions.damage')}
                                             </Button>
                                           )}
                                         </>
                                       ) : (
                                         <span className="inline-flex items-center justify-end text-xs text-gray-500">
-                                          No actions (depleted)
+                                          {t('products.stocksPage.messages.noActionsDepleted')}
                                         </span>
                                       )}
                                     </td>
@@ -437,20 +439,20 @@ const Stocks = () => {
                 {search.trim() ? (
                   <div className="flex flex-col items-center">
                     <Search className="h-12 w-12 text-gray-400 mb-4" />
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">No products found</h3>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">{t('products.stocksPage.messages.noProductsFound')}</h3>
                     <p className="text-sm text-gray-600 mb-4 max-w-md">
-                      No products match your search "{search}". Try adjusting your search terms.
+                      {t('products.stocksPage.messages.noProductsMatchSearch', { search })}
                     </p>
                     <Button variant="outline" onClick={() => setSearch('')}>
-                      Clear Search
+                      {t('products.stocksPage.messages.clearSearch')}
                     </Button>
                   </div>
                 ) : (
                   <div className="flex flex-col items-center">
                     <Package className="h-12 w-12 text-gray-400 mb-4" />
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">No products yet</h3>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">{t('products.stocksPage.messages.noProductsYet')}</h3>
                     <p className="text-sm text-gray-600 mb-4 max-w-md">
-                      Start by adding products to your inventory. Once products are added, they will appear here with their stock information.
+                      {t('products.stocksPage.messages.startByAdding')}
                     </p>
                   </div>
                 )}
@@ -463,10 +465,14 @@ const Stocks = () => {
           <div className="px-4 py-3 border-t border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-sm text-gray-700">
             <div className="flex items-center space-x-2">
               <span>
-                Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, filteredProducts.length)} of {filteredProducts.length} products
+                {t('products.stocksPage.messages.showingResults', {
+                  from: ((currentPage - 1) * pageSize) + 1,
+                  to: Math.min(currentPage * pageSize, filteredProducts.length),
+                  total: filteredProducts.length
+                })}
               </span>
               {hasMore && (
-                <span className="text-gray-500">(More available)</span>
+                <span className="text-gray-500">{t('products.stocksPage.messages.moreAvailable')}</span>
               )}
             </div>
             <div className="flex items-center space-x-2">
@@ -476,10 +482,10 @@ const Stocks = () => {
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={currentPage === 1 || loading}
               >
-                Previous
+                {t('products.stocksPage.messages.previous')}
               </Button>
               <div className="flex items-center space-x-1">
-                <span className="text-gray-600">Page</span>
+                <span className="text-gray-600">{t('products.stocksPage.messages.page')}</span>
                 <input
                   type="number"
                   min={1}
@@ -493,7 +499,7 @@ const Stocks = () => {
                   }}
                   className="w-16 px-2 py-1 text-sm border border-gray-300 rounded text-center"
                 />
-                <span className="text-gray-600">of {totalPages}</span>
+                <span className="text-gray-600">{t('products.stocksPage.messages.of')} {totalPages}</span>
               </div>
               <Button
                 variant="outline"
@@ -501,7 +507,7 @@ const Stocks = () => {
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={currentPage === totalPages || loading}
               >
-                Next
+                {t('products.stocksPage.messages.next')}
               </Button>
               {hasMore && (
                 <Button 
@@ -510,7 +516,7 @@ const Stocks = () => {
                   onClick={loadMore} 
                   disabled={loadingMore || loading}
                 >
-                  {loadingMore ? 'Loading…' : 'Load More'}
+                  {loadingMore ? t('products.stocksPage.messages.loading') : t('products.stocksPage.messages.loadMore')}
                 </Button>
               )}
             </div>
@@ -549,7 +555,7 @@ const Stocks = () => {
       <Modal
         isOpen={historyModalOpen}
         onClose={handleModalClose}
-        title={`Stock History - ${selectedProduct?.name || ''}`}
+        title={t('products.stocksPage.historyModal.title', { name: selectedProduct?.name || '' })}
         size="lg"
       >
         <div className="space-y-4">
@@ -557,17 +563,17 @@ const Stocks = () => {
             <div className="bg-gray-50 p-4 rounded-lg">
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <span className="font-medium text-gray-700">Product:</span>
+                  <span className="font-medium text-gray-700">{t('products.stocksPage.historyModal.product')}</span>
                   <p className="text-gray-900">{selectedProduct.name}</p>
                 </div>
                 <div>
-                  <span className="font-medium text-gray-700">Current Stock:</span>
+                  <span className="font-medium text-gray-700">{t('products.stocksPage.historyModal.currentStock')}</span>
                   <p className="text-gray-900">
                     {(() => {
                       const productBatches = batchesByProduct.get(selectedProduct.id) || [];
                       const batchRemaining = productBatches.reduce((sum, b) => sum + (b.remainingQuantity || 0), 0);
                       return batchRemaining;
-                    })()} units
+                    })()} {t('products.stocksPage.status.units')}
                   </p>
                 </div>
               </div>
@@ -578,19 +584,19 @@ const Stocks = () => {
             <table className="min-w-full text-sm">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="text-left px-4 py-2 text-xs font-semibold text-gray-600">Date</th>
-                  <th className="text-left px-4 py-2 text-xs font-semibold text-gray-600">Change</th>
-                  <th className="text-left px-4 py-2 text-xs font-semibold text-gray-600">Reason</th>
-                  <th className="text-left px-4 py-2 text-xs font-semibold text-gray-600">Supplier</th>
-                  <th className="text-left px-4 py-2 text-xs font-semibold text-gray-600">Payment</th>
-                  <th className="text-left px-4 py-2 text-xs font-semibold text-gray-600">Cost Price</th>
+                  <th className="text-left px-4 py-2 text-xs font-semibold text-gray-600">{t('products.stocksPage.historyModal.columns.date')}</th>
+                  <th className="text-left px-4 py-2 text-xs font-semibold text-gray-600">{t('products.stocksPage.historyModal.columns.change')}</th>
+                  <th className="text-left px-4 py-2 text-xs font-semibold text-gray-600">{t('products.stocksPage.historyModal.columns.reason')}</th>
+                  <th className="text-left px-4 py-2 text-xs font-semibold text-gray-600">{t('products.stocksPage.historyModal.columns.supplier')}</th>
+                  <th className="text-left px-4 py-2 text-xs font-semibold text-gray-600">{t('products.stocksPage.historyModal.columns.payment')}</th>
+                  <th className="text-left px-4 py-2 text-xs font-semibold text-gray-600">{t('products.stocksPage.historyModal.columns.costPrice')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {productStockChanges.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
-                      No stock history found for this product.
+                      {t('products.stocksPage.historyModal.noHistoryFound')}
                     </td>
                   </tr>
                 ) : (
@@ -598,7 +604,7 @@ const Stocks = () => {
                     const supplierName = change.supplierId
                       ? (suppliersMap.get(change.supplierId) || change.supplierId)
                       : change.isOwnPurchase
-                      ? 'Own purchase'
+                      ? t('products.stocksPage.payment.ownPurchase')
                       : '—';
                     
                     return (
@@ -619,9 +625,9 @@ const Stocks = () => {
                           {change.isOwnPurchase ? (
                             '—'
                           ) : change.isCredit ? (
-                            <span className="text-red-600">Credit</span>
+                            <span className="text-red-600">{t('products.stocksPage.payment.credit')}</span>
                           ) : (
-                            <span className="text-green-600">Paid</span>
+                            <span className="text-green-600">{t('products.stocksPage.payment.paid')}</span>
                           )}
                         </td>
                         <td className="px-4 py-2 text-gray-700">

@@ -119,17 +119,17 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
     { name: 'Companies (op)', path: location.pathname, icon: <Building2 size={20} />, alwaysEnabled: true, disabled: false },
     { name: t('navigation.dashboard'), path: '/dashboard', icon: <LayoutDashboard size={20} />, disabled: false },
     { name: t('navigation.sales'), path: '/sales', icon: <ShoppingCart size={20} />, disabled: false },
-    { name: 'Orders', path: '/orders', icon: <ShoppingBag size={20} />, disabled: false },
-    { name: 'Expenses', path: '/expenses', icon: <Receipt size={20} />, disabled: false },
-    { name: 'Finance', path: '/finance', icon: <DollarSign size={20} />, disabled: false },
+    { name: t('navigation.orders'), path: '/orders', icon: <ShoppingBag size={20} />, disabled: false },
+    { name: t('navigation.expenses'), path: '/expenses', icon: <Receipt size={20} />, disabled: false },
+    { name: t('navigation.finance'), path: '/finance', icon: <DollarSign size={20} />, disabled: false },
     { 
       name: t('navigation.products'), 
       path: '/products', 
       icon: <Package2 size={20} />, 
       disabled: false,
       subItems: [
-        { name: 'Liste', path: '/products' },
-        { name: 'Categories', path: '/categories' },
+        { name: t('navigation.submenus.list'), path: '/products' },
+        { name: t('navigation.submenus.categories'), path: '/categories' },
       ]
     },
     { name: t('navigation.suppliers'), path: '/suppliers', icon: <Users size={20} />, disabled: false },
@@ -141,73 +141,73 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
   const normalNavigationItems = [
     // Bouton retour aux entreprises (seulement dans les routes d'entreprise)
     ...(isCompanyRoute ? [
-      { name: 'Mes Entreprises', path: '/companies', icon: <Building2 size={20} />, resource: 'dashboard' }
+      { name: t('navigation.myCompanies', 'My Companies'), path: '/companies', icon: <Building2 size={20} />, resource: 'dashboard' }
     ] : []),
     { name: t('navigation.dashboard'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/dashboard` : '/', icon: <LayoutDashboard size={20} />, resource: 'dashboard' },
     { name: t('navigation.sales'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/sales` : '/sales', icon: <ShoppingCart size={20} />, resource: 'sales' },
-    { name: 'POS', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/pos` : '/pos', icon: <ScanLine size={20} />, resource: 'sales' },
+    { name: t('navigation.pos'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/pos` : '/pos', icon: <ScanLine size={20} />, resource: 'sales' },
     { name: t('site.navigation', 'Online Catalogue'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/site` : '/site', icon: <Globe size={20} />, resource: 'settings' },
-    { name: 'Orders', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/orders` : '/orders', icon: <ShoppingBag size={20} />, resource: 'orders' },
+    { name: t('navigation.orders'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/orders` : '/orders', icon: <ShoppingBag size={20} />, resource: 'orders' },
     { 
-      name: 'Expenses', 
+      name: t('navigation.expenses'), 
       path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/expenses` : '/expenses', 
       icon: <Receipt size={20} />, 
       resource: 'expenses',
       subItems: [
-        { name: 'Liste', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/expenses/list` : '/expenses/list' },
-        { name: 'Catégories', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/expenses/categories` : '/expenses/categories' },
-        { name: 'Analyses', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/expenses/analytics` : '/expenses/analytics' },
-        { name: 'Rapports', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/expenses/reports` : '/expenses/reports' },
+        { name: t('navigation.submenus.list'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/expenses/list` : '/expenses/list' },
+        { name: t('navigation.submenus.categories'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/expenses/categories` : '/expenses/categories' },
+        { name: t('navigation.submenus.analytics'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/expenses/analytics` : '/expenses/analytics' },
+        { name: t('navigation.submenus.reports'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/expenses/reports` : '/expenses/reports' },
       ]
     },
-    { name: 'Finance', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/finance` : '/finance', icon: <DollarSign size={20} />, resource: 'finance' },
+    { name: t('navigation.finance'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/finance` : '/finance', icon: <DollarSign size={20} />, resource: 'finance' },
     { 
       name: t('navigation.products'), 
       path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/products` : '/products', 
       icon: <Package2 size={20} />, 
       resource: 'products',
       subItems: [
-        { name: 'Liste', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/products` : '/products' },
-        { name: 'Categories', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/categories` : '/categories' },
-        { name: 'Stocks', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/products/stocks` : '/products/stocks' },
+        { name: t('navigation.submenus.list'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/products` : '/products' },
+        { name: t('navigation.submenus.categories'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/categories` : '/categories' },
+        { name: t('navigation.submenus.stocks'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/products/stocks` : '/products/stocks' },
       ]
     },
     { 
-      name: 'Productions', 
+      name: t('navigation.productions'), 
       path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/productions` : '/productions', 
       icon: <Factory size={20} />, 
       resource: 'products', // Using products resource for now
       subItems: [
-        { name: 'Liste', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/productions` : '/productions' },
-        { name: 'Catégories', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/productions/categories` : '/productions/categories' },
-        { name: 'Étapes', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/productions/flow-steps` : '/productions/flow-steps' },
-        { name: 'Flux', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/productions/flows` : '/productions/flows' },
-        { name: 'Charges', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/productions/charges` : '/productions/charges' },
+        { name: t('navigation.submenus.list'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/productions` : '/productions' },
+        { name: t('navigation.submenus.categories'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/productions/categories` : '/productions/categories' },
+        { name: t('navigation.submenus.steps'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/productions/flow-steps` : '/productions/flow-steps' },
+        { name: t('navigation.submenus.flows'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/productions/flows` : '/productions/flows' },
+        { name: t('navigation.submenus.charges'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/productions/charges` : '/productions/charges' },
       ]
     },
     { 
-      name: 'Magasin', 
+      name: t('navigation.warehouse'), 
       path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/magasin` : '/magasin', 
       icon: <Warehouse size={20} />, 
       resource: RESOURCES.MAGASIN,
       subItems: [
-        { name: 'Matières', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/magasin/matieres` : '/magasin/matieres' },
-        { name: 'Catégories', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/magasin/categories` : '/magasin/categories' },
-        { name: 'Stocks', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/magasin/stocks` : '/magasin/stocks' },
+        { name: t('navigation.warehouseMenu.matieres'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/magasin/matieres` : '/magasin/matieres' },
+        { name: t('navigation.warehouseMenu.categories'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/magasin/categories` : '/magasin/categories' },
+        { name: t('navigation.warehouseMenu.stocks'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/magasin/stocks` : '/magasin/stocks' },
       ]
     },
     { name: t('navigation.suppliers'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/suppliers` : '/suppliers', icon: <Users size={20} />, resource: 'suppliers' },
     { 
-      name: 'Contacts', 
+      name: t('navigation.contacts'), 
       path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/contacts` : '/contacts', 
       icon: <Phone size={20} />, 
       resource: 'customers',
       subItems: [
-        { name: 'Liste', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/contacts` : '/contacts' },
-        { name: 'Sources Clientelles', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/contacts/sources` : '/contacts/sources' },
+        { name: t('navigation.submenus.list'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/contacts` : '/contacts' },
+        { name: t('navigation.submenus.clientSources'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/contacts/sources` : '/contacts/sources' },
       ]
     },
-    { name: 'HR Management', path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/hr` : '/hr', icon: <UserCheck size={20} />, resource: 'hr' },
+    { name: t('navigation.hrManagement'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/hr` : '/hr', icon: <UserCheck size={20} />, resource: 'hr' },
     { name: t('navigation.reports'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/reports` : '/reports', icon: <FileBarChart size={20} />, resource: 'reports' },
     { name: t('navigation.settings'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/settings` : '/settings', icon: <Settings size={20} />, resource: 'settings' },
   ];
@@ -225,7 +225,7 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
             className="flex items-center px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
           >
             <Plus className="h-4 w-4 mr-2" />
-            <span className="font-medium">Créer entreprise</span>
+            <span className="font-medium">{t('navigation.createCompany', 'Create Company')}</span>
           </button>
         ) : (
           <Link to="/" className="flex items-center">
@@ -247,7 +247,7 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
           <div className="flex flex-col items-center justify-center h-full py-8">
             <Loader2 className="h-8 w-8 text-emerald-500 animate-spin mb-4" />
             <p className="text-sm text-gray-500 text-center px-4">
-              Chargement des permissions...
+              {t('navigation.loadingPermissions', 'Loading permissions...')}
             </p>
           </div>
         ) : (
@@ -307,11 +307,11 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
             
             // Check if this item has subItems (expansible menu)
             const hasSubItems = (item as any).subItems && Array.isArray((item as any).subItems);
-            const isExpensesItem = item.name === 'Expenses';
-            const isContactsItem = item.name === 'Contacts';
+            const isExpensesItem = item.name === t('navigation.expenses');
+            const isContactsItem = item.name === t('navigation.contacts');
             const isProductsItem = item.name === t('navigation.products');
-            const isMagasinItem = item.name === 'Magasin';
-            const isProductionsItem = item.name === 'Productions';
+            const isMagasinItem = item.name === t('navigation.warehouse');
+            const isProductionsItem = item.name === t('navigation.productions');
             const isExpanded = (isExpensesItem && expensesMenuExpanded) || (isContactsItem && contactsMenuExpanded) || (isProductsItem && productsMenuExpanded) || (isMagasinItem && magasinMenuExpanded) || (isProductionsItem && productionsMenuExpanded);
             
             return (
@@ -449,7 +449,7 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
                       {company?.name || t('header.welcome')}
                     </p>
                   ) : <p className="text-sm font-medium text-gray-700 truncate">
-                    veuillez creer une entreprise
+                    {t('navigation.pleaseCreateCompany', 'Please create a company')}
                   </p>
                 }
               </div>
