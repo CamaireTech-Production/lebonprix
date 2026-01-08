@@ -33,7 +33,7 @@ const ProductRestockModal: React.FC<RestockModalProps> = ({
     quantity: '',
     costPrice: '',
     supplierId: '',
-    isOwnPurchase: false,
+    isOwnPurchase: true, // Default to own purchase
     paymentType: 'paid' as 'paid' | 'credit', // Always require payment type
     notes: ''
   });
@@ -72,7 +72,7 @@ const ProductRestockModal: React.FC<RestockModalProps> = ({
             quantity: '',
             costPrice: latestCostPrice,
             supplierId: '',
-            isOwnPurchase: false,
+            isOwnPurchase: true, // Default to own purchase
             paymentType: 'paid',
             notes: ''
           });
@@ -83,7 +83,7 @@ const ProductRestockModal: React.FC<RestockModalProps> = ({
             quantity: '',
             costPrice: product.costPrice > 0 ? product.costPrice.toString() : '',
             supplierId: '',
-            isOwnPurchase: false,
+            isOwnPurchase: true, // Default to own purchase
             paymentType: 'paid',
             notes: ''
           });
@@ -281,19 +281,27 @@ const ProductRestockModal: React.FC<RestockModalProps> = ({
         <div className="space-y-4">
           <h3 className="text-lg font-medium text-gray-900">Purchase Information</h3>
           
-          {/* Purchase Type Selection */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex items-center">
+          {/* Purchase Type Selection - Made more visible */}
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg p-4">
+            <div className="flex items-center space-x-3">
               <input
                 type="checkbox"
                 id="isOwnPurchase"
                 checked={formData.isOwnPurchase}
                 onChange={(e) => handleInputChange('isOwnPurchase', e.target.checked)}
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
               />
-              <label htmlFor="isOwnPurchase" className="ml-2 block text-sm text-gray-900">
-                Own Purchase
+              <label htmlFor="isOwnPurchase" className="flex-1 cursor-pointer">
+                <span className="text-base font-semibold text-gray-900">Own Purchase</span>
+                <p className="text-sm text-gray-600 mt-1">
+                  Purchase made directly by the company (no supplier involved)
+                </p>
               </label>
+              {formData.isOwnPurchase && (
+                <span className="px-3 py-1 bg-blue-600 text-white text-sm font-medium rounded-full">
+                  Selected
+                </span>
+              )}
             </div>
           </div>
 
