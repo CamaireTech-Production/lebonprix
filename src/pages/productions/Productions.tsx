@@ -41,6 +41,7 @@ const Productions: React.FC = () => {
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [selectedFlow, setSelectedFlow] = useState<string>('all');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedStep, setSelectedStep] = useState<string>('all');
   const [dateRange, setDateRange] = useState<{ start: string; end: string }>({ start: '', end: '' });
   const [costRange, setCostRange] = useState<{ min: string; max: string }>({ min: '', max: '' });
   const [showFilters, setShowFilters] = useState(false);
@@ -72,6 +73,12 @@ const Productions: React.FC = () => {
     if (!categoryId) return '-';
     const category = categories.find(c => c.id === categoryId);
     return category?.name || 'N/A';
+  };
+
+  const getStepName = (stepId?: string) => {
+    if (!stepId) return '-';
+    const step = flowSteps.find(s => s.id === stepId);
+    return step?.name || 'N/A';
   };
 
   const handleDeleteProduction = async (production: Production, e: React.MouseEvent) => {
@@ -194,6 +201,11 @@ const Productions: React.FC = () => {
       filtered = filtered.filter(p => p.categoryId === selectedCategory);
     }
 
+    // Step filter
+    if (selectedStep !== 'all') {
+      filtered = filtered.filter(p => p.currentStepId === selectedStep);
+    }
+
     // Date range filter
     if (dateRange.start) {
       const startDate = new Date(dateRange.start);
@@ -226,7 +238,7 @@ const Productions: React.FC = () => {
     }
 
     return filtered;
-  }, [productions, searchQuery, selectedStatus, selectedFlow, selectedCategory, dateRange, costRange]);
+  }, [productions, searchQuery, selectedStatus, selectedFlow, selectedCategory, selectedStep, dateRange, costRange]);
 
 
   const activeFiltersCount = useMemo(() => {
@@ -234,16 +246,18 @@ const Productions: React.FC = () => {
     if (selectedStatus !== 'all') count++;
     if (selectedFlow !== 'all') count++;
     if (selectedCategory !== 'all') count++;
+    if (selectedStep !== 'all') count++;
     if (dateRange.start || dateRange.end) count++;
     if (costRange.min || costRange.max) count++;
     return count;
-  }, [selectedStatus, selectedFlow, selectedCategory, dateRange, costRange]);
+  }, [selectedStatus, selectedFlow, selectedCategory, selectedStep, dateRange, costRange]);
 
   const clearFilters = () => {
     setSearchQuery('');
     setSelectedStatus('all');
     setSelectedFlow('all');
     setSelectedCategory('all');
+    setSelectedStep('all');
     setDateRange({ start: '', end: '' });
     setCostRange({ min: '', max: '' });
   };
@@ -364,6 +378,23 @@ const Productions: React.FC = () => {
               </select>
             </div>
 
+            {/* Step Filter */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Étape
+              </label>
+              <select
+                value={selectedStep}
+                onChange={(e) => setSelectedStep(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="all">Toutes les étapes</option>
+                {flowSteps.map(step => (
+                  <option key={step.id} value={step.id}>{step.name}</option>
+                ))}
+              </select>
+            </div>
+
             {/* Date Range */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -462,6 +493,9 @@ const Productions: React.FC = () => {
                   Flux
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Étape
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Statut
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -503,6 +537,9 @@ const Productions: React.FC = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-500">{getFlowName(production.flowId)}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-500">{getStepName(production.currentStepId)}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     {getStatusBadge(production.status)}
