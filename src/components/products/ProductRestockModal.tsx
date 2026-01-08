@@ -112,28 +112,28 @@ const ProductRestockModal: React.FC<RestockModalProps> = ({
     // Validate quantity
     const quantity = parseInt(formData.quantity, 10);
     if (isNaN(quantity) || quantity <= 0) {
-      errors.push('Please enter a valid quantity (whole number greater than 0)');
+      errors.push(t('products.restockModal.validation.invalidQuantity'));
     }
     
     // Validate cost price
     const costPrice = parseFloat(formData.costPrice);
     if (isNaN(costPrice) || costPrice < 0) {
-      errors.push('Please enter a valid cost price (greater than or equal to 0)');
+      errors.push(t('products.restockModal.validation.invalidCostPrice'));
     }
     
     // Validate supplier selection for non-own purchases
     if (!formData.isOwnPurchase && !formData.supplierId) {
-      errors.push('Please select a supplier for non-own purchases');
+      errors.push(t('products.restockModal.validation.supplierRequired'));
     }
     
     // Validate own purchase vs supplier selection
     if (formData.isOwnPurchase && formData.supplierId) {
-      errors.push('Own purchase cannot have a supplier selected');
+      errors.push(t('products.restockModal.validation.ownPurchaseCannotHaveSupplier'));
     }
     
     // Validate payment type for credit purchases
     if (formData.paymentType === 'credit' && formData.isOwnPurchase) {
-      errors.push('Own purchases cannot be on credit');
+      errors.push(t('products.restockModal.validation.ownPurchaseCannotBeCredit'));
     }
     
     return errors;
@@ -169,13 +169,13 @@ const ProductRestockModal: React.FC<RestockModalProps> = ({
         formData.notes || undefined
       );
 
-      showSuccessToast('Product restocked successfully!');
+      showSuccessToast(t('products.restockModal.messages.success'));
       onSuccess?.();
       onClose();
     } catch (error) {
       console.error('Error restocking product:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      showErrorToast(`Failed to restock product: ${errorMessage}`);
+      showErrorToast(t('products.restockModal.messages.error', { error: errorMessage }));
     } finally {
       setLoading(false);
     }
@@ -189,7 +189,7 @@ const ProductRestockModal: React.FC<RestockModalProps> = ({
 
   const getSupplierOptions = () => {
     return [
-      { value: '', label: 'Select supplier (required for non-own purchases)' },
+      { value: '', label: t('products.restockModal.purchaseInfo.selectSupplier') },
       ...suppliers.map(supplier => ({
         value: supplier.id,
         label: supplier.name
@@ -199,8 +199,8 @@ const ProductRestockModal: React.FC<RestockModalProps> = ({
 
   const getPaymentTypeOptions = () => {
     return [
-      { value: 'paid', label: 'Paid' },
-      { value: 'credit', label: 'Credit' }
+      { value: 'paid', label: t('products.restockModal.purchaseInfo.paid') },
+      { value: 'credit', label: t('products.restockModal.purchaseInfo.credit') }
     ];
   };
 
@@ -210,24 +210,24 @@ const ProductRestockModal: React.FC<RestockModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={`Restock ${product.name}`}
+      title={t('products.restockModal.title', { name: product.name })}
       size="lg"
     >
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Product Information */}
         <div className="bg-gray-50 p-4 rounded-lg">
-          <h3 className="text-lg font-medium text-gray-900 mb-2">Product Information</h3>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">{t('products.restockModal.productInfo.title')}</h3>
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
-              <span className="font-medium text-gray-700">Name:</span>
+              <span className="font-medium text-gray-700">{t('products.restockModal.productInfo.name')}</span>
               <p className="text-gray-900">{product.name}</p>
             </div>
             <div>
-              <span className="font-medium text-gray-700">Reference:</span>
+              <span className="font-medium text-gray-700">{t('products.restockModal.productInfo.reference')}</span>
               <p className="text-gray-900">{product.reference}</p>
             </div>
             <div>
-              <span className="font-medium text-gray-700">Current Stock:</span>
+              <span className="font-medium text-gray-700">{t('products.restockModal.productInfo.currentStock')}</span>
               <p className="text-gray-900">
                 {derivedTotal !== undefined
                   ? `${derivedRemaining} / ${derivedTotal}`
@@ -235,7 +235,7 @@ const ProductRestockModal: React.FC<RestockModalProps> = ({
               </p>
             </div>
             <div>
-              <span className="font-medium text-gray-700">Selling Price:</span>
+              <span className="font-medium text-gray-700">{t('products.restockModal.productInfo.sellingPrice')}</span>
               <p className="text-gray-900">{formatCostPrice(product.sellingPrice)}</p>
             </div>
           </div>
@@ -243,26 +243,26 @@ const ProductRestockModal: React.FC<RestockModalProps> = ({
 
         {/* Restock Details */}
         <div className="space-y-4">
-          <h3 className="text-lg font-medium text-gray-900">Restock Details</h3>
+          <h3 className="text-lg font-medium text-gray-900">{t('products.restockModal.restockDetails.title')}</h3>
           
           <div className="grid grid-cols-2 gap-4">
             <Input
-              label="Quantity"
+              label={t('products.restockModal.restockDetails.quantity')}
               type="number"
               value={formData.quantity}
             onChange={(e) => handleInputChange('quantity', e.target.value)}
-              placeholder="Enter quantity"
+              placeholder={t('products.restockModal.restockDetails.quantityPlaceholder')}
               required
               min="1"
               step="1"
             />
             
             <PriceInput
-              label="Cost Price per Unit"
+              label={t('products.restockModal.restockDetails.costPrice')}
               name="costPrice"
               value={formData.costPrice}
               onChange={(e) => handleInputChange('costPrice', e.target.value)}
-              placeholder="Enter cost price"
+              placeholder={t('products.restockModal.restockDetails.costPricePlaceholder')}
               required
               allowDecimals={true}
             />
@@ -270,7 +270,7 @@ const ProductRestockModal: React.FC<RestockModalProps> = ({
 
           {/* Total Cost Display */}
           <div className="bg-blue-50 p-3 rounded-lg">
-            <div className="text-sm font-medium text-blue-800">Total Cost</div>
+            <div className="text-sm font-medium text-blue-800">{t('products.restockModal.restockDetails.totalCost')}</div>
             <div className="text-lg font-semibold text-blue-900">
               {formatCostPrice(calculateTotalCost())}
             </div>
@@ -279,7 +279,7 @@ const ProductRestockModal: React.FC<RestockModalProps> = ({
 
         {/* Purchase Type and Supplier Information */}
         <div className="space-y-4">
-          <h3 className="text-lg font-medium text-gray-900">Purchase Information</h3>
+          <h3 className="text-lg font-medium text-gray-900">{t('products.restockModal.purchaseInfo.title')}</h3>
           
           {/* Purchase Type Selection - Made more visible */}
           <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg p-4">
@@ -292,14 +292,14 @@ const ProductRestockModal: React.FC<RestockModalProps> = ({
                 className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
               />
               <label htmlFor="isOwnPurchase" className="flex-1 cursor-pointer">
-                <span className="text-base font-semibold text-gray-900">Own Purchase</span>
+                <span className="text-base font-semibold text-gray-900">{t('products.restockModal.purchaseInfo.ownPurchase')}</span>
                 <p className="text-sm text-gray-600 mt-1">
-                  Purchase made directly by the company (no supplier involved)
+                  {t('products.restockModal.purchaseInfo.ownPurchaseDescription')}
                 </p>
               </label>
               {formData.isOwnPurchase && (
                 <span className="px-3 py-1 bg-blue-600 text-white text-sm font-medium rounded-full">
-                  Selected
+                  {t('products.restockModal.purchaseInfo.selected')}
                 </span>
               )}
             </div>
@@ -307,7 +307,7 @@ const ProductRestockModal: React.FC<RestockModalProps> = ({
 
           {/* Supplier Selection */}
           <Select
-            label="Supplier"
+            label={t('products.restockModal.purchaseInfo.supplier')}
             value={formData.supplierId}
             onChange={(e) => handleInputChange('supplierId', e.target.value)}
             options={getSupplierOptions()}
@@ -316,7 +316,7 @@ const ProductRestockModal: React.FC<RestockModalProps> = ({
 
           {/* Payment Type Selection */}
           <Select
-            label="Payment Type"
+            label={t('products.restockModal.purchaseInfo.paymentType')}
             value={formData.paymentType}
             onChange={(e) => handleInputChange('paymentType', e.target.value)}
             options={getPaymentTypeOptions()}
@@ -326,19 +326,19 @@ const ProductRestockModal: React.FC<RestockModalProps> = ({
           {/* Information Messages */}
           {formData.isOwnPurchase && (
             <div className="text-sm text-gray-600 bg-yellow-50 p-2 rounded">
-              Own purchase selected - no supplier debt will be created
+              {t('products.restockModal.purchaseInfo.ownPurchaseSelected')}
             </div>
           )}
 
           {formData.paymentType === 'credit' && !formData.isOwnPurchase && formData.supplierId && (
             <div className="text-sm text-gray-600 bg-blue-50 p-2 rounded">
-              Credit purchase selected - supplier debt will be created
+              {t('products.restockModal.purchaseInfo.creditSelected')}
             </div>
           )}
 
           {formData.paymentType === 'paid' && !formData.isOwnPurchase && formData.supplierId && (
             <div className="text-sm text-gray-600 bg-green-50 p-2 rounded">
-              Paid purchase selected - no supplier debt will be created
+              {t('products.restockModal.purchaseInfo.paidSelected')}
             </div>
           )}
         </div>
@@ -346,7 +346,7 @@ const ProductRestockModal: React.FC<RestockModalProps> = ({
         {/* Validation Errors */}
         {validationErrors.length > 0 && (
           <div className="bg-red-50 border border-red-200 p-4 rounded-lg">
-            <h4 className="text-md font-medium text-red-800 mb-2">Validation Errors</h4>
+            <h4 className="text-md font-medium text-red-800 mb-2">{t('products.restockModal.validation.title')}</h4>
             <ul className="list-disc list-inside space-y-1">
               {validationErrors.map((error, index) => (
                 <li key={index} className="text-sm text-red-700">{error}</li>
@@ -358,12 +358,12 @@ const ProductRestockModal: React.FC<RestockModalProps> = ({
         {/* Notes */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Notes (Optional)
+            {t('products.restockModal.notes.label')}
           </label>
           <textarea
             value={formData.notes}
             onChange={(e) => handleInputChange('notes', e.target.value)}
-            placeholder="Add any notes about this restock..."
+            placeholder={t('products.restockModal.notes.placeholder')}
             className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
             rows={3}
           />
@@ -377,13 +377,13 @@ const ProductRestockModal: React.FC<RestockModalProps> = ({
             onClick={onClose}
             disabled={loading}
           >
-            Cancel
+            {t('products.restockModal.actions.cancel')}
           </Button>
           <Button
             type="submit"
             disabled={loading}
           >
-            {loading ? 'Restocking...' : 'Restock Product'}
+            {loading ? t('products.restockModal.actions.restocking') : t('products.restockModal.actions.restock')}
           </Button>
         </div>
       </form>

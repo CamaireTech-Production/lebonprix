@@ -189,7 +189,24 @@
         "validation": {
           "title": "Erreurs de Validation",
           "invalidQuantity": "Veuillez entrer une quantité valide (nombre entier supérieur à 0)",
-          "invalidCostPrice": "Veuillez entrer un prix d'achat valide (supérieur ou égal à 0)"
+          "invalidCostPrice": "Veuillez entrer un prix d'achat valide (supérieur ou égal à 0)",
+          "supplierRequired": "Veuillez sélectionner un fournisseur pour les achats non personnels",
+          "ownPurchaseCannotHaveSupplier": "L'achat personnel ne peut pas avoir de fournisseur sélectionné",
+          "ownPurchaseCannotBeCredit": "Les achats personnels ne peuvent pas être à crédit"
+        },
+        "purchaseInfo": {
+          "title": "Informations d'Achat",
+          "ownPurchase": "Achat Personnel",
+          "ownPurchaseDescription": "Achat effectué directement par l'entreprise (aucun fournisseur impliqué)",
+          "selected": "Sélectionné",
+          "supplier": "Fournisseur",
+          "selectSupplier": "Sélectionner un fournisseur (requis pour les achats non personnels)",
+          "paymentType": "Type de Paiement",
+          "paid": "Payé",
+          "credit": "Crédit",
+          "ownPurchaseSelected": "Achat personnel sélectionné - aucune dette fournisseur ne sera créée",
+          "creditSelected": "Achat à crédit sélectionné - une dette fournisseur sera créée",
+          "paidSelected": "Achat payé sélectionné - aucune dette fournisseur ne sera créée"
         },
         "notes": {
           "label": "Notes (Optionnel)",
@@ -972,6 +989,59 @@
           "costPrice": "Prix d'achat"
         },
         "noHistoryFound": "Aucun historique de stock trouvé pour ce produit."
+      }
+    },
+    "restockModal": {
+      "title": "Réapprovisionner {{name}}",
+      "productInfo": {
+        "title": "Informations du Produit",
+        "name": "Nom :",
+        "reference": "Référence :",
+        "currentStock": "Stock Actuel :",
+        "sellingPrice": "Prix de Vente :"
+      },
+      "restockDetails": {
+        "title": "Détails du Réapprovisionnement",
+        "quantity": "Quantité",
+        "quantityPlaceholder": "Entrer la quantité",
+        "costPrice": "Prix d'achat par Unité",
+        "costPricePlaceholder": "Entrer le prix d'achat",
+        "totalCost": "Coût Total"
+      },
+      "purchaseInfo": {
+        "title": "Informations d'Achat",
+        "ownPurchase": "Achat Personnel",
+        "ownPurchaseDescription": "Achat effectué directement par l'entreprise (aucun fournisseur impliqué)",
+        "selected": "Sélectionné",
+        "supplier": "Fournisseur",
+        "selectSupplier": "Sélectionner un fournisseur (requis pour les achats non personnels)",
+        "paymentType": "Type de Paiement",
+        "paid": "Payé",
+        "credit": "Crédit",
+        "ownPurchaseSelected": "Achat personnel sélectionné - aucune dette fournisseur ne sera créée",
+        "creditSelected": "Achat à crédit sélectionné - une dette fournisseur sera créée",
+        "paidSelected": "Achat payé sélectionné - aucune dette fournisseur ne sera créée"
+      },
+      "validation": {
+        "title": "Erreurs de Validation",
+        "invalidQuantity": "Veuillez entrer une quantité valide (nombre entier supérieur à 0)",
+        "invalidCostPrice": "Veuillez entrer un prix d'achat valide (supérieur ou égal à 0)",
+        "supplierRequired": "Veuillez sélectionner un fournisseur pour les achats non personnels",
+        "ownPurchaseCannotHaveSupplier": "L'achat personnel ne peut pas avoir de fournisseur sélectionné",
+        "ownPurchaseCannotBeCredit": "Les achats personnels ne peuvent pas être à crédit"
+      },
+      "notes": {
+        "label": "Notes (Optionnel)",
+        "placeholder": "Ajouter des notes concernant ce réapprovisionnement..."
+      },
+      "actions": {
+        "cancel": "Annuler",
+        "restock": "Réapprovisionner le Produit",
+        "restocking": "Réapprovisionnement..."
+      },
+      "messages": {
+        "success": "Produit réapprovisionné avec succès !",
+        "error": "Échec du réapprovisionnement du produit : {{error}}"
       }
     },
     "detailTabs": {

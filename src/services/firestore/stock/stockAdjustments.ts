@@ -119,7 +119,10 @@ export const restockMatiere = async (
   quantity: number,
   companyId: string,
   notes?: string,
-  costPrice?: number
+  costPrice?: number,
+  supplierId?: string,
+  isOwnPurchase?: boolean,
+  isCredit?: boolean
 ): Promise<void> => {
   const batch = writeBatch(db);
   
@@ -169,6 +172,9 @@ export const restockMatiere = async (
     matiereId,
     quantity,
     costPrice: actualCostPrice, // Use actual cost price if provided
+    ...(supplierId && { supplierId }),
+    ...(isOwnPurchase !== undefined && { isOwnPurchase }),
+    ...(isCredit !== undefined && { isCredit }),
     createdAt: serverTimestamp(),
     userId,
     companyId, // Ensure companyId is set
@@ -187,9 +193,9 @@ export const restockMatiere = async (
     userId,
     companyId,
     'matiere', // Set type to matiere
-    undefined, // No supplier for matieres
-    undefined, // No own purchase flag for matieres
-    undefined, // No credit flag for matieres
+    supplierId, // Include supplier if provided
+    isOwnPurchase, // Include own purchase flag
+    isCredit, // Include credit flag
     actualCostPrice > 0 ? actualCostPrice : undefined, // Include cost price if provided
     stockBatchRef.id
   );
@@ -216,6 +222,23 @@ export const restockMatiere = async (
   }
   
   await batch.commit();
+  
+  // Create supplier debt if credit purchase (after batch commit)
+  if (supplierId && isCredit && !isOwnPurchase && stockBatchRef) {
+    try {
+      const debtAmount = quantity * actualCostPrice;
+      await addSupplierDebt(
+        supplierId,
+        debtAmount,
+        `Credit purchase for ${quantity} ${currentMatiere.unit || 'units'} of matiere ${currentMatiere.name}`,
+        companyId,
+        stockBatchRef.id
+      );
+    } catch (error) {
+      logError('Error creating supplier debt after matiere restock', error);
+      // Don't throw - stock was restocked successfully, debt can be fixed manually
+    }
+  }
 };
 
 /**

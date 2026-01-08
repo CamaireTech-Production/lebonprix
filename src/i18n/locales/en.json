@@ -186,7 +186,24 @@
         "validation": {
           "title": "Validation Errors",
           "invalidQuantity": "Please enter a valid quantity (whole number greater than 0)",
-          "invalidCostPrice": "Please enter a valid cost price (greater than or equal to 0)"
+          "invalidCostPrice": "Please enter a valid cost price (greater than or equal to 0)",
+          "supplierRequired": "Please select a supplier for non-own purchases",
+          "ownPurchaseCannotHaveSupplier": "Own purchase cannot have a supplier selected",
+          "ownPurchaseCannotBeCredit": "Own purchases cannot be on credit"
+        },
+        "purchaseInfo": {
+          "title": "Purchase Information",
+          "ownPurchase": "Own Purchase",
+          "ownPurchaseDescription": "Purchase made directly by the company (no supplier involved)",
+          "selected": "Selected",
+          "supplier": "Supplier",
+          "selectSupplier": "Select supplier (required for non-own purchases)",
+          "paymentType": "Payment Type",
+          "paid": "Paid",
+          "credit": "Credit",
+          "ownPurchaseSelected": "Own purchase selected - no supplier debt will be created",
+          "creditSelected": "Credit purchase selected - supplier debt will be created",
+          "paidSelected": "Paid purchase selected - no supplier debt will be created"
         },
         "notes": {
           "label": "Notes (Optional)",
@@ -1026,6 +1043,59 @@
           "costPrice": "Cost Price"
         },
         "noHistoryFound": "No stock history found for this product."
+      }
+    },
+    "restockModal": {
+      "title": "Restock {{name}}",
+      "productInfo": {
+        "title": "Product Information",
+        "name": "Name:",
+        "reference": "Reference:",
+        "currentStock": "Current Stock:",
+        "sellingPrice": "Selling Price:"
+      },
+      "restockDetails": {
+        "title": "Restock Details",
+        "quantity": "Quantity",
+        "quantityPlaceholder": "Enter quantity",
+        "costPrice": "Cost Price per Unit",
+        "costPricePlaceholder": "Enter cost price",
+        "totalCost": "Total Cost"
+      },
+      "purchaseInfo": {
+        "title": "Purchase Information",
+        "ownPurchase": "Own Purchase",
+        "ownPurchaseDescription": "Purchase made directly by the company (no supplier involved)",
+        "selected": "Selected",
+        "supplier": "Supplier",
+        "selectSupplier": "Select supplier (required for non-own purchases)",
+        "paymentType": "Payment Type",
+        "paid": "Paid",
+        "credit": "Credit",
+        "ownPurchaseSelected": "Own purchase selected - no supplier debt will be created",
+        "creditSelected": "Credit purchase selected - supplier debt will be created",
+        "paidSelected": "Paid purchase selected - no supplier debt will be created"
+      },
+      "validation": {
+        "title": "Validation Errors",
+        "invalidQuantity": "Please enter a valid quantity (whole number greater than 0)",
+        "invalidCostPrice": "Please enter a valid cost price (greater than or equal to 0)",
+        "supplierRequired": "Please select a supplier for non-own purchases",
+        "ownPurchaseCannotHaveSupplier": "Own purchase cannot have a supplier selected",
+        "ownPurchaseCannotBeCredit": "Own purchases cannot be on credit"
+      },
+      "notes": {
+        "label": "Notes (Optional)",
+        "placeholder": "Add any notes about this restock..."
+      },
+      "actions": {
+        "cancel": "Cancel",
+        "restock": "Restock Product",
+        "restocking": "Restocking..."
+      },
+      "messages": {
+        "success": "Product restocked successfully!",
+        "error": "Failed to restock product: {{error}}"
       }
     }
   },
