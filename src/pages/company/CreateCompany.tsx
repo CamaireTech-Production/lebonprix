@@ -3,10 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@contexts/AuthContext';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '@services/core/firebase';
-import { Card, Button } from '@components/common';
+import { Card, Button, Input } from '@components/common';
 import { Building2, Upload, ArrowLeft } from 'lucide-react';
 import { showWarningToast } from '@utils/core/toast';
 import { useTranslation } from 'react-i18next';
+import { validateCameroonPhone, normalizePhoneNumber } from '@utils/core/phoneUtils';
 
 interface CompanyFormData {
   name: string;
@@ -55,6 +56,24 @@ export default function CreateCompany() {
     }
   };
 
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.replace(/\D/g, ''); // Remove non-digits
+    if (value.length <= 9) { // Only allow 9 digits after +237
+      setFormData(prev => ({
+        ...prev,
+        phone: value
+      }));
+      
+      // Clear error when user starts typing
+      if (errors.phone) {
+        setErrors(prev => ({
+          ...prev,
+          phone: undefined
+        }));
+      }
+    }
+  };
+
   const validateForm = (): boolean => {
     const newErrors: Partial<CompanyFormData> = {};
 
@@ -64,8 +83,17 @@ export default function CreateCompany() {
 
     if (!formData.phone.trim()) {
       newErrors.phone = 'Le téléphone est requis';
-    } else if (!/^[\d\s\-\+\(\)]+$/.test(formData.phone)) {
-      newErrors.phone = 'Format de téléphone invalide';
+    } else {
+      // Combine +237 with the 9 digits entered
+      const fullPhone = `+237${formData.phone}`;
+      // Validate using the existing phone validation utility
+      if (!validateCameroonPhone(fullPhone)) {
+        if (formData.phone.length !== 9) {
+          newErrors.phone = 'Le numéro de téléphone doit contenir 9 chiffres';
+        } else {
+          newErrors.phone = 'Format de téléphone invalide. Le numéro doit commencer par 6, 7, 8 ou 9';
+        }
+      }
     }
 
     if (!formData.email.trim()) {
@@ -120,11 +148,14 @@ export default function CreateCompany() {
       // Import the correct createCompany function
       const { createCompany } = await import('@services/firestore/companies/companyService');
       
+      // Normalize phone number before saving (combine +237 with the 9 digits)
+      const normalizedPhone = normalizePhoneNumber(`+237${formData.phone.trim()}`);
+      
       // Create company using the standardized function
       const company = await createCompany(currentUser.uid, {
         name: formData.name.trim(),
         description: formData.description.trim(),
-        phone: formData.phone.trim(),
+        phone: normalizedPhone,
         email: formData.email.trim(),
         report_mail: formData.report_mail.trim(),
         report_time: reportTime,
@@ -355,20 +386,25 @@ export default function CreateCompany() {
                 <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
                   Téléphone *
                 </label>
-                <input
-                  type="tel"
-                  id="phone"
-                  name="phone"
-                  value={formData.phone}
-                  onChange={handleInputChange}
-                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
-                    errors.phone ? 'border-red-300' : 'border-gray-300'
-                  }`}
-                  placeholder="01 23 45 67 89"
-                />
-                {errors.phone && (
-                  <p className="mt-1 text-sm text-red-600">{errors.phone}</p>
-                )}
+                <div className="flex rounded-md shadow-sm">
+                  <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 sm:text-sm">
+                    +237
+                  </span>
+                  <Input
+                    type="tel"
+                    id="phone"
+                    name="phone"
+                    value={formData.phone}
+                    onChange={handlePhoneChange}
+                    placeholder="678904568"
+                    className={`flex-1 rounded-l-none ${
+                      errors.phone ? 'border-red-300' : ''
+                    }`}
+                    error={errors.phone}
+                    helpText="9 chiffres après +237"
+                    required
+                  />
+                </div>
               </div>
 
               <div>
