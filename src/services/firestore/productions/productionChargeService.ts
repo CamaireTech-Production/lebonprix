@@ -22,6 +22,63 @@ import { createFinanceEntry } from '../finance/financeService';
 const COLLECTION_NAME = 'productionCharges';
 
 // ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+/**
+ * Get charge category label in French
+ */
+const getChargeCategoryLabel = (category?: string): string => {
+  const categoryLabels: Record<string, string> = {
+    main_oeuvre: 'Main d\'œuvre',
+    overhead: 'Frais généraux',
+    transport: 'Transport',
+    packaging: 'Emballage',
+    utilities: 'Services publics',
+    equipment: 'Équipement',
+    other: 'Autre'
+  };
+  return category ? (categoryLabels[category] || category) : '';
+};
+
+/**
+ * Create finance entry for a production charge
+ * This is called when an article is published and uses this charge
+ */
+export const createFinanceEntryForCharge = async (
+  charge: ProductionCharge,
+  articleName: string,
+  productionName: string,
+  companyId: string,
+  userId: string
+): Promise<import('../../../types/models').FinanceEntry> => {
+  const categoryLabel = getChargeCategoryLabel(charge.category);
+  // ProductionCharge has description (required), not name
+  const chargeName = (charge as any).name || charge.description || 'Charge sans nom';
+  const description = `Charge de production "${chargeName}"${categoryLabel ? ` (${categoryLabel})` : ''} - Article: ${articleName} - Production: ${productionName}`;
+  
+  const financeEntry = await createFinanceEntry({
+    userId,
+    companyId,
+    sourceType: 'expense',
+    sourceId: charge.id,
+    type: `production_charge_${charge.category || 'other'}`,
+    amount: -Math.abs(charge.amount),
+    description,
+    date: charge.date,
+    isDeleted: false
+  });
+
+  // Link finance entry to charge
+  const chargeRef = doc(db, COLLECTION_NAME, charge.id);
+  await updateDoc(chargeRef, {
+    financeEntryId: financeEntry.id
+  });
+
+  return financeEntry;
+};
+
+// ============================================================================
 // PRODUCTION CHARGE SUBSCRIPTIONS
 // ============================================================================
 
@@ -117,23 +174,7 @@ export const createProductionCharge = async (
     const chargeRef = doc(collection(db, COLLECTION_NAME));
     batch.set(chargeRef, chargeData);
 
-    // Create FinanceEntry for this charge
-    const financeEntry = await createFinanceEntry({
-      userId: data.userId || companyId,
-      companyId,
-      sourceType: 'expense', // Using expense type for production charges
-      sourceId: chargeRef.id,
-      type: `production_charge_${data.category}`,
-      amount: -Math.abs(data.amount), // Negative for expenses
-      description: `Production Charge: ${data.description}`,
-      date: chargeDate,
-      isDeleted: false
-    });
-
-    // Link finance entry to charge
-    batch.update(chargeRef, {
-      financeEntryId: financeEntry.id
-    });
+    // Finance entries will be created when articles are published, not when charge is created
 
     // Update production chargeIds array and recalculate cost
     const productionRef = doc(db, 'productions', data.productionId);
@@ -184,7 +225,6 @@ export const createProductionCharge = async (
       id: chargeRef.id,
       ...data,
       date: chargeDate,
-      financeEntryId: financeEntry.id,
       companyId,
       createdAt: { seconds: now, nanoseconds: 0 },
       updatedAt: { seconds: now, nanoseconds: 0 },
@@ -232,13 +272,34 @@ export const updateProductionCharge = async (
       }
     }
 
-    // Update FinanceEntry if amount changed
-    if (data.amount !== undefined && currentData.financeEntryId) {
+    // Update FinanceEntry if charge has been published (has finance entry)
+    if (currentData.financeEntryId) {
       const { updateFinanceEntry } = await import('../finance/financeService');
-      await updateFinanceEntry(currentData.financeEntryId, {
-        amount: -Math.abs(data.amount),
-        description: data.description ? `Production Charge: ${data.description}` : undefined
-      });
+      
+      // Build updated description
+      // Handle both Charge model (has name) and ProductionCharge model (has description only)
+      const chargeName = (data as any).name || (currentData as any).name || data.description || currentData.description || 'Charge sans nom';
+      const categoryLabel = getChargeCategoryLabel(data.category || currentData.category);
+      const description = `Charge de production "${chargeName}"${categoryLabel ? ` (${categoryLabel})` : ''}`;
+      
+      // Build updated type
+      const chargeType = `production_charge_${data.category || currentData.category || 'other'}`;
+      
+      // Update finance entry
+      const updateData: any = {};
+      if (data.amount !== undefined) {
+        updateData.amount = -Math.abs(data.amount);
+      }
+      if (data.description !== undefined || data.name !== undefined || data.category !== undefined) {
+        updateData.description = description;
+      }
+      if (data.category !== undefined) {
+        updateData.type = chargeType;
+      }
+      
+      if (Object.keys(updateData).length > 0) {
+        await updateFinanceEntry(currentData.financeEntryId, updateData);
+      }
     }
 
     // Recalculate production cost if amount changed
@@ -310,13 +371,12 @@ export const deleteProductionCharge = async (
       throw new Error('Unauthorized: Charge belongs to different company');
     }
 
-    const batch = writeBatch(db);
-
-    // Soft delete FinanceEntry if exists
+    // Prevent deletion if finance entry exists (charge has been used in published articles)
     if (currentData.financeEntryId) {
-      const { softDeleteFinanceEntry } = await import('../finance/financeService');
-      await softDeleteFinanceEntry(currentData.financeEntryId);
+      throw new Error('Cannot delete charge: This charge has been used in published articles and has an associated finance entry. Please delete the finance entry first if you need to remove it.');
     }
+
+    const batch = writeBatch(db);
 
     // Remove from production chargeIds array and recalculate cost
     const productionRef = doc(db, 'productions', currentData.productionId);
