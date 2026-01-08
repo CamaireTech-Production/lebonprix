@@ -5,6 +5,7 @@ import type { UserCompanyRef } from '../../types/models';
 import TemplateAssignment from './TemplateAssignment';
 import { removeUserFromCompany } from '@services/firestore/companies/userCompanySyncService';
 import { getTemplateById } from '@services/firestore/employees/permissionTemplateService';
+import { getUserById } from '@services/utilities/userService';
 
 interface TeamOverviewProps {
   teamMembers: UserCompanyRef[];
@@ -38,23 +39,37 @@ const TeamOverview = ({ teamMembers, onRefresh, companyId }: TeamOverviewProps) 
     try {
       setLoading(true);
       
-      // This is a simplified implementation
-      // In a real scenario, you'd query users who have access to the current company
-      // For now, we'll show the team members from the props
+      // Fetch user data for each team member to get email addresses
+      const membersWithData: TeamMember[] = await Promise.all(
+        teamMembers.map(async (member) => {
+          const userId = member.userId || member.companyId;
+          
+          // Fetch user document to get email
+          let email = '';
+          try {
+            const userData = await getUserById(userId);
+            if (userData) {
+              email = userData.email || '';
+            }
+          } catch (error) {
+            console.error(`Error fetching user ${userId}:`, error);
+          }
+          
+          return {
+            id: userId,
+            username: member.name || 'Unknown User',
+            email: email,
+            role: member.role,
+            joinedAt: member.joinedAt,
+            permissionTemplateId: member.permissionTemplateId,
+            userId: member.userId
+          };
+        })
+      );
       
-      const members: TeamMember[] = teamMembers.map(member => ({
-        id: member.userId || member.companyId, // Use userId if available, fallback to companyId
-        username: member.name || 'Unknown User', // name field contains username now
-        email: '', // Would need to fetch from user data
-        role: member.role,
-        joinedAt: member.joinedAt,
-        permissionTemplateId: member.permissionTemplateId,
-        userId: member.userId // Store userId separately for deletion
-      }));
-      
-      // Charger les noms des templates pour les membres qui en ont un
+      // Load template names for members who have one
       const membersWithTemplateNames = await Promise.all(
-        members.map(async (member) => {
+        membersWithData.map(async (member) => {
           if (member.permissionTemplateId && companyId) {
             try {
               const template = await getTemplateById(companyId, member.permissionTemplateId);
@@ -238,7 +253,7 @@ const TeamOverview = ({ teamMembers, onRefresh, companyId }: TeamOverviewProps) 
                     <h4 className="text-sm font-medium text-gray-900">
                       {member.username}
                     </h4>
-                    <p className="text-sm text-gray-500">{member.email || 'No email'}</p>
+                    <p className="text-sm text-gray-500">{member.email || 'Email not available'}</p>
                   </div>
                 </div>
                 

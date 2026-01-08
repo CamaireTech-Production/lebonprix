@@ -7,12 +7,12 @@ import PendingInvitationsList from '@components/hr/PendingInvitationsList';
 import TeamOverview from '@components/hr/TeamOverview';
 import PermissionTemplateManager from '@components/hr/PermissionTemplateManager';
 import { getPendingInvitations, subscribeToPendingInvitations } from '@services/firestore/employees/invitationService';
-import { getCompanyEmployees } from '@services/firestore/employees/employeeRefService';
+import { getCompanyEmployees, subscribeToEmployeeRefs } from '@services/firestore/employees/employeeRefService';
 import { convertEmployeeRefToUserCompanyRef, getOwnerUserCompanyRef } from '@services/firestore/employees/employeeDisplayService';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@services/core/firebase';
 import { logError } from '@utils/core/logger';
-import type { Invitation, UserCompanyRef } from '../../types/models';
+import type { Invitation, UserCompanyRef, EmployeeRef } from '../../types/models';
 
 const HRManagement = () => {
   const { company, user, effectiveRole, isOwner } = useAuth();
@@ -118,6 +118,86 @@ const HRManagement = () => {
       unsubscribe();
     };
   }, [company?.id]);
+
+  // Set up real-time listener for employeeRefs to update team members dynamically
+  useEffect(() => {
+    if (!company?.id) return;
+
+    console.log('🔔 Setting up real-time listener for employeeRefs');
+    let isUpdating = false; // Prevent recursive updates
+    
+    const unsubscribe = subscribeToEmployeeRefs(company.id, async (employees: EmployeeRef[]) => {
+      if (isUpdating) {
+        console.log('⏭️  Skipping update - already processing');
+        return; // Skip if already updating
+      }
+      
+      console.log('📬 EmployeeRefs updated, refreshing team members:', employees.length);
+      isUpdating = true;
+      
+      try {
+        // Convert EmployeeRefs to UserCompanyRefs
+        const companyData = {
+          name: company.name || '',
+          description: company.description,
+          logo: company.logo
+        };
+        
+        // Get permissionTemplateId from users.companies[] for each employee
+        const teamMembersList: UserCompanyRef[] = await Promise.all(
+          employees.map(async (emp) => {
+            try {
+              const userDoc = await getDoc(doc(db, 'users', emp.id));
+              if (userDoc.exists()) {
+                const userData = userDoc.data();
+                const companies = userData?.companies;
+                
+                if (Array.isArray(companies)) {
+                  const userCompanyRef = companies.find((c: any) => c.companyId === company.id);
+                  const permissionTemplateId = userCompanyRef?.permissionTemplateId;
+                  
+                  return convertEmployeeRefToUserCompanyRef(emp, company.id, companyData, permissionTemplateId);
+                }
+              }
+            } catch (error) {
+              logError(`Error fetching template for employee ${emp.id}`, error);
+            }
+            
+            return convertEmployeeRefToUserCompanyRef(emp, company.id, companyData);
+          })
+        );
+        
+        // Add owner if not in list
+        if (company.companyId) {
+          const ownerExistsInEmployees = employees.some(emp => emp.id === company.companyId);
+          
+          if (!ownerExistsInEmployees) {
+            const ownerUserCompanyRef = await getOwnerUserCompanyRef(
+              company.companyId,
+              company.id,
+              companyData
+            );
+            
+            if (ownerUserCompanyRef) {
+              teamMembersList.unshift(ownerUserCompanyRef);
+            }
+          }
+        }
+        
+        setTeamMembers(teamMembersList);
+      } catch (error) {
+        logError('Error updating team members from real-time listener', error);
+      } finally {
+        isUpdating = false;
+      }
+    });
+
+    // Cleanup listener on unmount
+    return () => {
+      console.log('🔕 Unsubscribing from employeeRefs listener');
+      unsubscribe();
+    };
+  }, [company?.id, company?.companyId, company?.name, company?.description, company?.logo]);
 
   const handleInvitationCreated = () => {
     loadData(); // Refresh data
