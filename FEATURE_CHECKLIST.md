@@ -124,6 +124,16 @@
   - Notes: 
   - Tested: 
 
+- [x] **Add Custom Payment Method**
+  - Status: ✅ Working
+  - Notes: Adding custom payment methods in settings works correctly
+  - Tested: 2024-12-19
+
+- [x] **Set Active/Desactive Default Payment Methods**
+  - Status: ✅ Working
+  - Notes: Activating and deactivating default payment methods works correctly
+  - Tested: 2024-12-19
+
 - [ ] **Payment Processing**
   - Status: 📝 Not Tested
   - Notes: 
@@ -220,6 +230,11 @@
   - Notes: 
   - Tested: 
 
+- [x] **Send Invitation**
+  - Status: ✅ Working
+  - Notes: Sending invitations works correctly
+  - Tested: 2024-12-19
+
 ### 📊 Reports & Analytics
 
 - [ ] **Sales Reports**
@@ -267,8 +282,8 @@
 
 ## 📊 Testing Summary
 
-**Total Features**: 48  
-**Working**: 9  
+**Total Features**: 51  
+**Working**: 12  
 **Not Working**: 0  
 **Partial**: 0  
 **Not Tested**: 39  

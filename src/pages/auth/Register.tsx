@@ -1,5 +1,5 @@
 import { useState, FormEvent, useEffect, useCallback } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@contexts/AuthContext';
 import { Button, Input, LoadingScreen } from '@components/common';
 import { FirebaseError } from 'firebase/app';
@@ -7,6 +7,7 @@ import { signUpUser } from '@services/auth/authService';
 import { showErrorToast, showSuccessToast } from '@utils/core/toast';
 import { validateUsername } from '@utils/validation/usernameValidation';
 import { checkUsernameAvailability } from '@services/utilities/userService';
+import { getInvitation } from '@services/firestore/employees/invitationService';
 
 const Register = () => {
   // User form state
@@ -29,6 +30,8 @@ const Register = () => {
   
   const { currentUser, loading, signOut, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const inviteId = searchParams.get('invite');
 
   // Déconnecter automatiquement l'utilisateur s'il est déjà connecté
   useEffect(() => {
@@ -36,6 +39,24 @@ const Register = () => {
       signOut();
     }
   }, [currentUser, loading, signOut]);
+
+  // Pre-fill email from invitation if present
+  useEffect(() => {
+    if (inviteId && !email) {
+      const loadInvitationEmail = async () => {
+        try {
+          const invitation = await getInvitation(inviteId);
+          if (invitation && invitation.email) {
+            setEmail(invitation.email);
+          }
+        } catch (error) {
+          console.error('Error loading invitation email:', error);
+          // Silently fail - user can still enter email manually
+        }
+      };
+      loadInvitationEmail();
+    }
+  }, [inviteId, email]);
 
   // Debounced username availability check
   useEffect(() => {

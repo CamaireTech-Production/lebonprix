@@ -8,6 +8,7 @@ import { Building2, Upload, ArrowLeft } from 'lucide-react';
 import { showWarningToast } from '@utils/core/toast';
 import { useTranslation } from 'react-i18next';
 import { validateCameroonPhone, normalizePhoneNumber } from '@utils/core/phoneUtils';
+import PendingInvitationsBanner from '@components/invitations/PendingInvitationsBanner';
 
 interface CompanyFormData {
   name: string;
@@ -38,7 +39,7 @@ export default function CreateCompany() {
   const [success, setSuccess] = useState(false);
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const navigate = useNavigate();
-  const { currentUser } = useAuth();
+  const { currentUser, user } = useAuth();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -253,6 +254,13 @@ export default function CreateCompany() {
           </div>
         </div>
       </div>
+
+      {/* Pending Invitations Banner */}
+      {user?.email && (
+        <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
+          <PendingInvitationsBanner userEmail={user.email} />
+        </div>
+      )}
 
       {/* Form */}
       <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

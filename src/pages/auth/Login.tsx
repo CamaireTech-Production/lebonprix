@@ -18,6 +18,24 @@ const Login = () => {
   
   const { loading, signIn, signInWithGoogle, user, companyLoading } = useAuth();
 
+  // Pre-fill email from invitation if present
+  useEffect(() => {
+    if (inviteId && !email) {
+      const loadInvitationEmail = async () => {
+        try {
+          const invitation = await getInvitation(inviteId);
+          if (invitation && invitation.email) {
+            setEmail(invitation.email);
+          }
+        } catch (error) {
+          console.error('Error loading invitation email:', error);
+          // Silently fail - user can still enter email manually
+        }
+      };
+      loadInvitationEmail();
+    }
+  }, [inviteId, email]);
+
   // Check localStorage session on mount and redirect if already logged in
   useEffect(() => {
     if (!loading && hasActiveSession()) {

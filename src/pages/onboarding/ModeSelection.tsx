@@ -2,12 +2,13 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, Building2, ArrowRight } from 'lucide-react';
 import { useAuth } from '@contexts/AuthContext';
+import PendingInvitationsBanner from '@components/invitations/PendingInvitationsBanner';
 
 const ModeSelection: React.FC = () => {
   const [selectedMode, setSelectedMode] = useState<'employee' | 'company' | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-  const { userCompanies } = useAuth();
+  const { userCompanies, user } = useAuth();
 
   const handleModeSelect = async (mode: 'employee' | 'company') => {
     setIsLoading(true);
@@ -54,6 +55,11 @@ const ModeSelection: React.FC = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-emerald-50 flex items-center justify-center p-4">
       <div className="max-w-4xl w-full">
+        {/* Pending Invitations Banner */}
+        {user?.email && (
+          <PendingInvitationsBanner userEmail={user.email} compact />
+        )}
+
         {/* Header */}
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">

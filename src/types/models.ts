@@ -388,8 +388,8 @@ export interface Invitation {
   invitedBy: string;
   invitedByName: string;
   email: string;
-  firstname: string;
-  lastname: string;
+  firstname?: string; // Optional - will be filled when user registers
+  lastname?: string; // Optional - will be filled when user registers
   phone?: string;
   status: 'pending' | 'accepted' | 'rejected' | 'expired';
   createdAt: Timestamp;

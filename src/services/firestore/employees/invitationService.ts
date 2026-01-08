@@ -159,9 +159,6 @@ export const createInvitation = async (
   inviterData: { id: string; name: string },
   employeeData: {
     email: string;
-    firstname: string;
-    lastname: string;
-    phone?: string;
     permissionTemplateId: string;
   }
 ): Promise<Invitation> => {
@@ -185,9 +182,7 @@ export const createInvitation = async (
       invitedBy: inviterData.id,
       invitedByName: inviterData.name,
       email: normalizedEmail,
-      firstname: employeeData.firstname,
-      lastname: employeeData.lastname,
-      phone: employeeData.phone,
+      // firstname and lastname will be filled when user registers
       status: 'pending',
       createdAt: Timestamp.now(),
       expiresAt: Timestamp.fromDate(expiresAt),
@@ -241,7 +236,9 @@ export const sendInvitationEmailToUser = async (invitation: Invitation) => {
     
     const emailData = {
       to_email: invitation.email,
-      to_name: formatFullName(invitation.firstname, invitation.lastname),
+      to_name: invitation.firstname && invitation.lastname 
+        ? formatFullName(invitation.firstname, invitation.lastname)
+        : invitation.email.split('@')[0], // Fallback to email username if name not available
       company_name: invitation.companyName,
       inviter_name: invitation.invitedByName,
       role: baseRole,
@@ -434,6 +431,46 @@ export const getPendingInvitations = async (companyId: string): Promise<Invitati
 };
 
 /**
+ * Get all pending invitations for a user by email
+ * @param userEmail - User email address
+ * @returns Array of pending invitations
+ */
+export const getPendingInvitationsByEmail = async (userEmail: string): Promise<Invitation[]> => {
+  try {
+    const normalizedEmail = normalizeEmail(userEmail);
+    console.log('🔍 Getting pending invitations for email:', normalizedEmail);
+    
+    const invitationsRef = collection(db, 'invitations');
+    const q = query(
+      invitationsRef,
+      where('email', '==', normalizedEmail),
+      where('status', '==', 'pending'),
+      orderBy('createdAt', 'desc')
+    );
+    
+    const querySnapshot = await getDocs(q);
+    const invitations: Invitation[] = [];
+    
+    querySnapshot.forEach((doc) => {
+      const invitation = { id: doc.id, ...doc.data() } as Invitation;
+      
+      // Check if invitation is expired
+      const now = new Date();
+      const expiresAt = (invitation.expiresAt as Timestamp).seconds * 1000;
+      if (now.getTime() <= expiresAt) {
+        invitations.push(invitation);
+      }
+    });
+    
+    console.log(`✅ Found ${invitations.length} pending invitations for ${normalizedEmail}`);
+    return invitations;
+  } catch (error) {
+    console.error('❌ Error getting pending invitations by email:', error);
+    throw error;
+  }
+};
+
+/**
  * Cancel/revoke invitation
  * @param inviteId - Invitation ID
  * @returns Success result
@@ -471,9 +508,6 @@ export const handleExistingUserInvitation = async (
   inviterData: { id: string; name: string },
   employeeData: {
     email: string;
-    firstname: string;
-    lastname: string;
-    phone?: string;
     permissionTemplateId: string;
   },
   existingUser: import('../../../types/models').User

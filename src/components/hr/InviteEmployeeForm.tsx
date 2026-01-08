@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card, Button, Input } from '@components/common';
-import { getUserByEmail, createInvitation, sendInvitationEmailToUser, handleExistingUserInvitation, getInvitationLink } from '@services/firestore/employees/invitationService';
+import { getUserByEmail, createInvitation, sendInvitationEmailToUser, getInvitationLink } from '@services/firestore/employees/invitationService';
 import { getCompanyTemplates } from '@services/firestore/employees/permissionTemplateService';
 import { PermissionTemplate } from '../../types/permissions';
 import { showErrorToast, showSuccessToast } from '@utils/core/toast';
@@ -21,9 +21,6 @@ interface InviteEmployeeFormProps {
 const InviteEmployeeForm = ({ onInvitationCreated, companyId, companyName, inviterData }: InviteEmployeeFormProps) => {
   const { t } = useTranslation();
   const [email, setEmail] = useState('');
-  const [firstname, setFirstname] = useState('');
-  const [lastname, setLastname] = useState('');
-  const [phone, setPhone] = useState('');
   const [permissionTemplateId, setPermissionTemplateId] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [isCheckingUser, setIsCheckingUser] = useState(false);
@@ -69,10 +66,6 @@ const InviteEmployeeForm = ({ onInvitationCreated, companyId, companyName, invit
         case 'found':
           setExistingUser(result.user);
           setIsAlreadyMember(false);
-          // Pre-fill form with existing user data
-          setFirstname(result.user.firstname || '');
-          setLastname(result.user.lastname || '');
-          setPhone(result.user.phone || '');
           break;
           
         case 'already_member':
@@ -99,8 +92,8 @@ const InviteEmployeeForm = ({ onInvitationCreated, companyId, companyName, invit
     e.preventDefault();
     
     // Validate required fields
-    if (!email || !firstname || !lastname) {
-      showErrorToast(t('invitations.requiredFields'));
+    if (!email) {
+      showErrorToast('Email is required');
       return;
     }
     
@@ -126,22 +119,14 @@ const InviteEmployeeForm = ({ onInvitationCreated, companyId, companyName, invit
 
     setIsLoading(true);
     try {
-      if (existingUser && !isAlreadyMember) {
-        // User exists - add to company immediately
-        await handleExistingUserInvitation(
-          companyId,
-          companyName,
-          inviterData,
-          { email, firstname, lastname, phone, permissionTemplateId },
-          existingUser
-        );
-      } else if (!isAlreadyMember) {
-        // User doesn't exist - create invitation
+      if (!isAlreadyMember) {
+        // Always create invitation - both for existing and new users
+        // Users must accept invitation before being added to company
         const invitation = await createInvitation(
           companyId,
           companyName,
           inviterData,
-          { email, firstname, lastname, phone, permissionTemplateId }
+          { email, permissionTemplateId }
         );
         
         // Send invitation email
@@ -153,9 +138,6 @@ const InviteEmployeeForm = ({ onInvitationCreated, companyId, companyName, invit
       
       // Reset form
       setEmail('');
-      setFirstname('');
-      setLastname('');
-      setPhone('');
       setPermissionTemplateId('');
       setExistingUser(null);
       setUserChecked(false);
@@ -219,7 +201,7 @@ const InviteEmployeeForm = ({ onInvitationCreated, companyId, companyName, invit
                   ✅ {t('invitations.userFound', { name: `${existingUser.firstname} ${existingUser.lastname}` })}
                 </p>
                 <p className="text-xs text-blue-600 mt-1">
-                  {t('invitations.userFoundDescription')}
+                  An invitation will be sent to this user. They must accept it before being added to the company.
                 </p>
               </div>
             )}
@@ -238,32 +220,6 @@ const InviteEmployeeForm = ({ onInvitationCreated, companyId, companyName, invit
               </div>
             )}
           </div>
-
-          {/* Name Fields */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Input
-              label="First Name *"
-              value={firstname}
-              onChange={(e) => setFirstname(e.target.value)}
-              required
-              disabled={isLoading}
-            />
-            <Input
-              label="Last Name *"
-              value={lastname}
-              onChange={(e) => setLastname(e.target.value)}
-              required
-              disabled={isLoading}
-            />
-          </div>
-
-          {/* Phone Field */}
-          <Input
-            label="Phone Number"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            disabled={isLoading}
-          />
 
           {/* Permission Template Selection */}
           <div>
@@ -319,9 +275,8 @@ const InviteEmployeeForm = ({ onInvitationCreated, companyId, companyName, invit
                 <p className="text-sm text-green-700 mt-1">
                   An invitation email has been sent to{' '}
                   <span className="font-medium">
-                    {lastCreatedInvitation.firstname} {lastCreatedInvitation.lastname}
-                  </span>{' '}
-                  ({lastCreatedInvitation.email})
+                    {lastCreatedInvitation.email}
+                  </span>
                 </p>
               </div>
               <button
