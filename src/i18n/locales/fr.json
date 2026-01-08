@@ -860,8 +860,8 @@
       "account": "Paramètres du compte",
       "activity": "Journaux d'activité",
       "ordering": "Paramètres de commande et livraison",
-      "checkout": "Paramètres de paiement",
-      "paymentMethodsAndGateways": "Méthodes de paiement et passerelles",
+      "checkout": "Paramètres de commande",
+      "paymentMethodsAndGateways": "Passerelles de paiement",
       "catalogue": "Liens du catalogue"
     },
     "account": {
@@ -994,6 +994,7 @@
       "contactFieldsLabel": "Champs de contact :",
       "deliveryFieldsLabel": "Champs de livraison :",
       "paymentMethodsLabel": "Méthodes de paiement :",
+      "paymentGateways": "Passerelles de paiement",
       "catalogueCheckout": "Paiement du catalogue",
       "buttonPreview": "Aperçu du bouton :",
       "resetToDefault": "Réinitialiser par défaut",
@@ -1015,7 +1016,10 @@
         "addCustom": "Ajouter une méthode personnalisée",
         "noCustomMethods": "Aucune méthode de paiement personnalisée ajoutée pour le moment",
         "updated": "Méthode de paiement mise à jour",
-        "updateFailed": "Échec de la mise à jour de la méthode de paiement"
+        "updateFailed": "Échec de la mise à jour de la méthode de paiement",
+        "edit": "Modifier",
+        "delete": "Supprimer",
+        "deleteConfirm": "Êtes-vous sûr de vouloir supprimer cette méthode de paiement ?"
       },
       "gateways": {
         "title": "Passerelles de paiement",

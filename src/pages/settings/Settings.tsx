@@ -16,7 +16,7 @@ import type { CinetPayConfig, CinetPayConfigUpdate } from '../../types/cinetpay'
 import type { CampayConfig, CampayConfigUpdate } from '../../types/campay';
 import PaymentMethodModal from '../../components/settings/PaymentMethodModal';
 import { combineActivities } from '@utils/business/activityUtils';
-import { Plus, Copy, Check, ExternalLink, CreditCard, Truck, ShoppingBag, Save, RotateCcw, Eye, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Copy, Check, ExternalLink, CreditCard, Truck, ShoppingBag, Save, RotateCcw, Eye, Trash2, ChevronDown, ChevronUp, Edit2, Phone, Hash, Link } from 'lucide-react';
 
 function normalizeWebsite(raw: string): string | undefined {
   const url = (raw || '').trim();
@@ -196,6 +196,7 @@ const Settings = () => {
   const [orderingLoading, setOrderingLoading] = useState(false);
   const [orderingSaving, setOrderingSaving] = useState(false);
   const [isPaymentMethodModalOpen, setIsPaymentMethodModalOpen] = useState(false);
+  const [editingPaymentMethodId, setEditingPaymentMethodId] = useState<string | null>(null);
   
   // Catalogue links state
   const [copiedLinks, setCopiedLinks] = useState<Set<string>>(new Set());
@@ -273,15 +274,20 @@ const Settings = () => {
   const handleUpdatePaymentMethod = async (id: string, updatedMethod: Partial<PaymentMethod>) => {
     if (!orderingSettings || !company?.id) return;
     
+    // Create a completely new object to ensure React detects the change
+    const updatedCustomMethods = (orderingSettings.paymentMethods.customMethods || []).map(method =>
+      method.id === id ? { ...method, ...updatedMethod } : { ...method }
+    );
+    
     const updatedSettings = {
       ...orderingSettings,
       paymentMethods: {
         ...orderingSettings.paymentMethods,
-        customMethods: (orderingSettings.paymentMethods.customMethods || []).map(method =>
-          method.id === id ? { ...method, ...updatedMethod } : method
-        )
+        customMethods: updatedCustomMethods
       }
     };
+    
+    // Update state immediately for instant UI feedback
     setOrderingSettings(updatedSettings);
     
     // Auto-save to database
@@ -291,6 +297,13 @@ const Settings = () => {
     } catch (error) {
       console.error('Error updating custom payment method:', error);
       showErrorToast(t('settings.paymentMethodsAndGateways.paymentMethods.updateFailed'));
+      // Reload settings on error to revert to server state
+      try {
+        const settings = await getSellerSettings(company.id);
+        if (settings) setOrderingSettings(settings);
+      } catch (reloadError) {
+        console.error('Error reloading settings:', reloadError);
+      }
     }
   };
 
@@ -2061,6 +2074,77 @@ const Settings = () => {
                                 {checkoutSettings.enabledPaymentMethods.payOnsite ? t('settings.checkout.enabled') : t('settings.checkout.disabled')}
                               </span>
                             </div>
+
+                            {/* Active Custom Payment Methods */}
+                            {orderingSettings?.paymentMethods?.customMethods && orderingSettings.paymentMethods.customMethods.filter(m => m.isActive).length > 0 && (
+                              <>
+                                {orderingSettings.paymentMethods.customMethods
+                                  .filter(m => m.isActive)
+                                  .map((method) => (
+                                    <div key={method.id} className="flex items-center justify-between">
+                                      <div className="flex items-center space-x-2">
+                                        <div className="w-6 h-6 bg-purple-100 rounded flex items-center justify-center">
+                                          {method.type === 'phone' && <Phone className="h-4 w-4 text-purple-600" />}
+                                          {method.type === 'ussd' && <Hash className="h-4 w-4 text-purple-600" />}
+                                          {method.type === 'link' && <Link className="h-4 w-4 text-purple-600" />}
+                                        </div>
+                                        <div>
+                                          <span className="text-sm font-medium text-gray-700 block">{method.name}</span>
+                                          <span className="text-xs text-gray-500">
+                                            {method.type === 'phone' && '📞'}
+                                            {method.type === 'ussd' && '🔢'}
+                                            {method.type === 'link' && '🔗'}
+                                            {' '}{method.value}
+                                          </span>
+                                        </div>
+                                      </div>
+                                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
+                                        {t('settings.checkout.enabled')}
+                                      </span>
+                                    </div>
+                                  ))}
+                              </>
+                            )}
+
+                            {/* Payment Gateways Status */}
+                            <div className="pt-4 mt-4 border-t border-gray-200">
+                              <h3 className="text-sm font-semibold text-gray-700 mb-3">{t('settings.checkout.paymentGateways')}</h3>
+                              <div className="space-y-3">
+                                {/* CinetPay Status */}
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center space-x-2">
+                                    <div className="w-6 h-6 bg-blue-100 rounded flex items-center justify-center">
+                                      <CreditCard className="h-4 w-4 text-blue-600" />
+                                    </div>
+                                    <span className="text-sm font-medium text-gray-700">{t('settings.paymentGateways.cinetpay.name')}</span>
+                                  </div>
+                                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                                    cinetpayConfig?.isActive
+                                      ? 'bg-emerald-100 text-emerald-700' 
+                                      : 'bg-gray-100 text-gray-500'
+                                  }`}>
+                                    {cinetpayConfig?.isActive ? t('settings.checkout.enabled') : t('settings.checkout.disabled')}
+                                  </span>
+                                </div>
+
+                                {/* Campay Status */}
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center space-x-2">
+                                    <div className="w-6 h-6 bg-emerald-100 rounded flex items-center justify-center">
+                                      <span className="text-emerald-600 font-bold text-xs">CP</span>
+                                    </div>
+                                    <span className="text-sm font-medium text-gray-700">{t('settings.paymentGateways.campay.name')}</span>
+                                  </div>
+                                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                                    campayConfig?.isActive
+                                      ? 'bg-emerald-100 text-emerald-700' 
+                                      : 'bg-gray-100 text-gray-500'
+                                  }`}>
+                                    {campayConfig?.isActive ? t('settings.checkout.enabled') : t('settings.checkout.disabled')}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
                           </div>
                         </div>
 
@@ -2561,7 +2645,50 @@ const Settings = () => {
                     </div>
                   </div>
 
-                  {/* Custom Payment Methods */}
+                  {/* Active Custom Payment Methods - Show as toggles in main list */}
+                  {orderingSettings?.paymentMethods?.customMethods && orderingSettings.paymentMethods.customMethods.filter(m => m.isActive).length > 0 && (
+                    <>
+                      {orderingSettings.paymentMethods.customMethods
+                        .filter(m => m.isActive)
+                        .map((method) => (
+                        <div key={method.id} className="bg-gray-50 rounded-lg p-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-3">
+                              <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                                {method.type === 'phone' && <Phone className="h-5 w-5 text-purple-600" />}
+                                {method.type === 'ussd' && <Hash className="h-5 w-5 text-purple-600" />}
+                                {method.type === 'link' && <Link className="h-5 w-5 text-purple-600" />}
+                              </div>
+                              <div>
+                                <label className="text-sm font-medium text-gray-900 block">
+                                  {method.name}
+                                </label>
+                                <p className="text-xs text-gray-600">
+                                  {method.type === 'phone' && '📞'}
+                                  {method.type === 'ussd' && '🔢'}
+                                  {method.type === 'link' && '🔗'}
+                                  {' '}{method.value}
+                                </p>
+                              </div>
+                            </div>
+                            <label className="relative inline-flex items-center cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={method.isActive}
+                                onChange={async (e) => {
+                                  await handleUpdatePaymentMethod(method.id, { isActive: e.target.checked });
+                                }}
+                                className="sr-only peer"
+                              />
+                              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                            </label>
+                          </div>
+                        </div>
+                      ))}
+                    </>
+                  )}
+
+                  {/* Custom Payment Methods Management */}
                   <div className="mt-6 pt-6 border-t border-gray-200">
                     <div className="flex items-center justify-between mb-4">
                       <div>
@@ -2572,7 +2699,10 @@ const Settings = () => {
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={() => setIsPaymentMethodModalOpen(true)}
+                        onClick={() => {
+                          setEditingPaymentMethodId(null);
+                          setIsPaymentMethodModalOpen(true);
+                        }}
                       >
                         <Plus className="h-4 w-4 mr-1" />
                         {t('settings.paymentMethodsAndGateways.paymentMethods.addCustom')}
@@ -2582,21 +2712,58 @@ const Settings = () => {
                       <div className="space-y-2">
                         {orderingSettings.paymentMethods.customMethods.map((method) => (
                           <div key={method.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                            <div className="flex items-center space-x-3 flex-1">
+                              <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                                {method.type === 'phone' && <Phone className="h-4 w-4 text-purple-600" />}
+                                {method.type === 'ussd' && <Hash className="h-4 w-4 text-purple-600" />}
+                                {method.type === 'link' && <Link className="h-4 w-4 text-purple-600" />}
+                              </div>
+                              <div className="flex-1">
+                                <span className="text-sm font-medium text-gray-900 block">{method.name}</span>
+                                <span className="text-xs text-gray-500">
+                                  {method.type === 'phone' && '📞'}
+                                  {method.type === 'ussd' && '🔢'}
+                                  {method.type === 'link' && '🔗'}
+                                  {' '}{method.value}
+                                </span>
+                              </div>
+                            </div>
                             <div className="flex items-center space-x-3">
-                              <span className={`px-2 py-1 text-xs rounded-full ${
-                                method.isActive 
-                                  ? 'bg-green-100 text-green-800' 
-                                  : 'bg-gray-100 text-gray-800'
-                              }`}>
-                                {method.isActive ? t('settings.ordering.active') : t('settings.ordering.inactive')}
-                              </span>
-                              <span className="text-sm font-medium text-gray-900">{method.name}</span>
-                              <span className="text-xs text-gray-500">
-                                {method.type === 'phone' && '📞'}
-                                {method.type === 'ussd' && '🔢'}
-                                {method.type === 'link' && '🔗'}
-                                {' '}{method.value}
-                              </span>
+                              {/* Toggle Switch */}
+                              <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={method.isActive}
+                                  onChange={async (e) => {
+                                    await handleUpdatePaymentMethod(method.id, { isActive: e.target.checked });
+                                  }}
+                                  className="sr-only peer"
+                                />
+                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                              </label>
+                              {/* Edit Button */}
+                              <button
+                                onClick={() => {
+                                  setEditingPaymentMethodId(method.id);
+                                  setIsPaymentMethodModalOpen(true);
+                                }}
+                                className="text-gray-500 hover:text-emerald-600 p-1"
+                                title={t('settings.paymentMethodsAndGateways.paymentMethods.edit')}
+                              >
+                                <Edit2 className="h-4 w-4" />
+                              </button>
+                              {/* Delete Button */}
+                              <button
+                                onClick={async () => {
+                                  if (window.confirm(t('settings.paymentMethodsAndGateways.paymentMethods.deleteConfirm'))) {
+                                    await handleDeletePaymentMethod(method.id);
+                                  }
+                                }}
+                                className="text-gray-500 hover:text-red-600 p-1"
+                                title={t('settings.paymentMethodsAndGateways.paymentMethods.delete')}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
                             </div>
                           </div>
                         ))}
@@ -3215,11 +3382,15 @@ const Settings = () => {
       {/* Payment Method Modal */}
       <PaymentMethodModal
         isOpen={isPaymentMethodModalOpen}
-        onClose={() => setIsPaymentMethodModalOpen(false)}
+        onClose={() => {
+          setIsPaymentMethodModalOpen(false);
+          setEditingPaymentMethodId(null);
+        }}
         onSave={handleAddPaymentMethod}
         onUpdate={handleUpdatePaymentMethod}
         onDelete={handleDeletePaymentMethod}
         paymentMethods={orderingSettings?.paymentMethods?.customMethods || []}
+        editingMethodId={editingPaymentMethodId}
       />
     </div>
   );
