@@ -69,7 +69,6 @@ const Productions: React.FC = () => {
   type ViewMode = 'list' | 'steps' | 'flows';
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [selectedFlowForStepsView, setSelectedFlowForStepsView] = useState<string>('all');
-  const [visibleColumnsStart, setVisibleColumnsStart] = useState(0);
   
   // Mobile detection
   const [isMobile, setIsMobile] = useState(false);
@@ -81,9 +80,6 @@ const Productions: React.FC = () => {
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
-  
-  // Adaptive column limits based on screen size
-  const MAX_VISIBLE_COLUMNS = isMobile ? 2 : 5; // 2 columns on mobile, 5 on desktop
   
   // Drag and drop sensors - optimized for mobile touch
   const sensors = useSensors(
@@ -540,7 +536,7 @@ const Productions: React.FC = () => {
               title="Vue par étapes"
             >
               <Columns size={16} className="inline mr-1" />
-              {isMobile ? '' : 'Étapes'}
+              Étapes
             </button>
             <button
               onClick={() => setViewMode('flows')}
@@ -552,7 +548,7 @@ const Productions: React.FC = () => {
               title="Vue par flux"
             >
               <Workflow size={16} className="inline mr-1" />
-              {isMobile ? '' : 'Flux'}
+              Flux
             </button>
           </div>
           <Button
@@ -929,7 +925,7 @@ const Productions: React.FC = () => {
           onDragEnd={handleDragEnd}
         >
           <div className={`bg-white rounded-lg shadow ${isMobile ? 'p-2' : 'p-4'}`}>
-            <div className={`flex items-center justify-between ${isMobile ? 'mb-2 flex-col gap-2' : 'mb-4'}`}>
+            <div className={`flex items-center justify-between ${isMobile ? 'mb-2' : 'mb-4'}`}>
               <h2 className={`font-semibold text-gray-900 ${isMobile ? 'text-base' : 'text-lg'}`}>
                 {isMobile ? 'Étapes' : 'Vue par Étapes'}
                 {selectedFlowForStepsView !== 'all' && (
@@ -938,44 +934,21 @@ const Productions: React.FC = () => {
                   </span>
                 )}
               </h2>
-              {productionsByStep.steps.length > MAX_VISIBLE_COLUMNS && (
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setVisibleColumnsStart(Math.max(0, visibleColumnsStart - 1))}
-                    disabled={visibleColumnsStart === 0}
-                    className={`bg-gray-100 rounded-md disabled:opacity-50 ${isMobile ? 'px-2 py-1 text-xs' : 'px-3 py-1 text-sm'}`}
-                  >
-                    ←
-                  </button>
-                  <span className={`text-gray-600 ${isMobile ? 'px-2 py-1 text-xs' : 'px-3 py-1 text-sm'}`}>
-                    {visibleColumnsStart + 1}-{Math.min(visibleColumnsStart + MAX_VISIBLE_COLUMNS, productionsByStep.steps.length)} / {productionsByStep.steps.length}
-                  </span>
-                  <button
-                    onClick={() => setVisibleColumnsStart(Math.min(productionsByStep.steps.length - MAX_VISIBLE_COLUMNS, visibleColumnsStart + 1))}
-                    disabled={visibleColumnsStart >= productionsByStep.steps.length - MAX_VISIBLE_COLUMNS}
-                    className={`bg-gray-100 rounded-md disabled:opacity-50 ${isMobile ? 'px-2 py-1 text-xs' : 'px-3 py-1 text-sm'}`}
-                  >
-                    →
-                  </button>
-                </div>
-              )}
             </div>
-            <div className="overflow-x-auto -mx-2 px-2" style={{ WebkitOverflowScrolling: 'touch' }}>
-              <div className="flex">
+            <div className="overflow-x-auto overflow-y-hidden -mx-2 px-2 pb-2" style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'thin' }}>
+              <div className="flex min-w-max">
                 <SortableContext
-                  items={productionsByStep.steps.slice(visibleColumnsStart, visibleColumnsStart + MAX_VISIBLE_COLUMNS).map(s => s.id)}
+                  items={productionsByStep.steps.map(s => s.id)}
                   strategy={horizontalListSortingStrategy}
                 >
-                  {productionsByStep.steps
-                    .slice(visibleColumnsStart, visibleColumnsStart + MAX_VISIBLE_COLUMNS)
-                    .map(step => (
-                      <StepColumn
-                        key={step.id}
-                        stepId={step.id}
-                        stepName={step.name}
-                        productions={productionsByStep.grouped[step.id] || []}
-                      />
-                    ))}
+                  {productionsByStep.steps.map(step => (
+                    <StepColumn
+                      key={step.id}
+                      stepId={step.id}
+                      stepName={step.name}
+                      productions={productionsByStep.grouped[step.id] || []}
+                    />
+                  ))}
                 </SortableContext>
               </div>
             </div>
@@ -995,11 +968,9 @@ const Productions: React.FC = () => {
           <h2 className={`font-semibold text-gray-900 ${isMobile ? 'text-base mb-2' : 'text-lg mb-4'}`}>
             {isMobile ? 'Flux' : 'Vue par Flux'}
           </h2>
-          <div className="overflow-x-auto -mx-2 px-2" style={{ WebkitOverflowScrolling: 'touch' }}>
-            <div className={`flex ${isMobile ? 'gap-2' : 'gap-4'}`}>
-              {Object.entries(productionsByFlow)
-                .slice(visibleColumnsStart, visibleColumnsStart + MAX_VISIBLE_COLUMNS)
-                .map(([flowId, { flow, productions: flowProductions }]) => {
+          <div className="overflow-x-auto overflow-y-hidden -mx-2 px-2 pb-2" style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'thin' }}>
+            <div className={`flex min-w-max ${isMobile ? 'gap-2' : 'gap-4'}`}>
+              {Object.entries(productionsByFlow).map(([flowId, { flow, productions: flowProductions }]) => {
                   // Group productions by step within this flow
                   const byStep: Record<string, Production[]> = {};
                   flowProductions.forEach(prod => {
@@ -1064,27 +1035,6 @@ const Productions: React.FC = () => {
                 })}
             </div>
           </div>
-          {Object.keys(productionsByFlow).length > MAX_VISIBLE_COLUMNS && (
-            <div className={`flex justify-center gap-2 ${isMobile ? 'mt-2' : 'mt-4'}`}>
-              <button
-                onClick={() => setVisibleColumnsStart(Math.max(0, visibleColumnsStart - 1))}
-                disabled={visibleColumnsStart === 0}
-                className={`bg-gray-100 rounded-md disabled:opacity-50 ${isMobile ? 'px-2 py-1 text-xs' : 'px-3 py-1 text-sm'}`}
-              >
-                ←
-              </button>
-              <span className={`text-gray-600 ${isMobile ? 'px-2 py-1 text-xs' : 'px-3 py-1 text-sm'}`}>
-                {visibleColumnsStart + 1}-{Math.min(visibleColumnsStart + MAX_VISIBLE_COLUMNS, Object.keys(productionsByFlow).length)} / {Object.keys(productionsByFlow).length}
-              </span>
-              <button
-                onClick={() => setVisibleColumnsStart(Math.min(Object.keys(productionsByFlow).length - MAX_VISIBLE_COLUMNS, visibleColumnsStart + 1))}
-                disabled={visibleColumnsStart >= Object.keys(productionsByFlow).length - MAX_VISIBLE_COLUMNS}
-                className={`bg-gray-100 rounded-md disabled:opacity-50 ${isMobile ? 'px-2 py-1 text-xs' : 'px-3 py-1 text-sm'}`}
-              >
-                →
-              </button>
-            </div>
-          )}
         </div>
       )}
 
