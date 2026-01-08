@@ -19,6 +19,7 @@ export default defineConfig(({ mode }) => {
         '@types': path.resolve(__dirname, './src/types'),
         '@constants': path.resolve(__dirname, './src/constants'),
       },
+      dedupe: ['@dnd-kit/core', '@dnd-kit/sortable', '@dnd-kit/utilities'],
     },
     plugins: [
       react(),
@@ -183,6 +184,7 @@ export default defineConfig(({ mode }) => {
     ],
     optimizeDeps: {
       exclude: ['lucide-react'],
+      include: ['@dnd-kit/core', '@dnd-kit/sortable', '@dnd-kit/utilities'],
     },
     define: {
       'process.env': env,
