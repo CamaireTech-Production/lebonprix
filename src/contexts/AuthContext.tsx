@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { auth, db } from '../services/firebase';
+import { auth, db } from '@services/core/firebase';
 import { 
   User as FirebaseUser, 
   signInWithEmailAndPassword, 
@@ -8,17 +8,18 @@ import {
   onAuthStateChanged,
   updatePassword
 } from 'firebase/auth';
-import { doc, getDoc, updateDoc, Timestamp, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, getDocFromCache, updateDoc, Timestamp, onSnapshot, type DocumentReference } from 'firebase/firestore';
 import type { Company, UserRole, UserCompanyRef, CompanyEmployee } from '../types/models';
-import { ensureDefaultFinanceEntryTypes } from '../services/firestore';
-import CompanyManager from '../services/storage/CompanyManager';
-import FinanceTypesManager from '../services/storage/FinanceTypesManager';
-import BackgroundSyncService from '../services/backgroundSync';
-import { saveCompanyToCache, getCompanyFromCache, clearCompanyCache } from '../utils/companyCache';
-import { getUserById, updateUserLastLogin, createUser } from '../services/userService';
-import { saveUserSession, getUserSession, clearUserSession} from '../utils/userSession';
-import { clearUserDataOnLogout } from '../utils/logoutCleanup';
-import { logError } from '../utils/logger';
+import { ensureDefaultFinanceEntryTypes } from '@services/firestore/finance/financeService';
+import CompanyManager from '@services/storage/CompanyManager';
+import FinanceTypesManager from '@services/storage/FinanceTypesManager';
+import BackgroundSyncService from '@services/utilities/backgroundSync';
+import { saveCompanyToCache, getCompanyFromCache, clearCompanyCache } from '@utils/storage/companyCache';
+import { getUserById, updateUserLastLogin, createUser } from '@services/utilities/userService';
+import { saveUserSession, getUserSession, clearUserSession} from '@utils/storage/userSession';
+import { clearUserDataOnLogout } from '@utils/core/logoutCleanup';
+import { logError, logWarning } from '@utils/core/logger';
+import { signInWithGoogle as signInWithGoogleService } from '@services/auth/authService';
 
 interface AuthContextType {
   user: FirebaseUser | null;
@@ -33,6 +34,7 @@ interface AuthContextType {
   selectedCompanyId: string | null; // Entreprise actuellement sélectionnée
   signUp: (email: string, password: string, companyData: Omit<Company, 'id' | 'createdAt' | 'updatedAt' | 'companyId'>) => Promise<FirebaseUser>;
   signIn: (email: string, password: string) => Promise<FirebaseUser>;
+  signInWithGoogle: () => Promise<FirebaseUser>;
   signOut: () => Promise<void>;
   updateCompany: (data: Partial<Omit<Company, 'id' | 'createdAt' | 'updatedAt' | 'companyId'>>) => Promise<void>;
   updateUserPassword: (currentPassword: string, newPassword: string) => Promise<void>;
@@ -40,6 +42,27 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
+
+const isOfflineFirestoreError = (error: any) => {
+  if (!error) return false;
+  const message = typeof error.message === 'string' ? error.message.toLowerCase() : '';
+  return error.code === 'unavailable' || message.includes('offline');
+};
+
+const getDocWithCache = async <T = unknown>(ref: DocumentReference<T>) => {
+  try {
+    return await getDoc(ref);
+  } catch (error: any) {
+    if (isOfflineFirestoreError(error)) {
+      try {
+        return await getDocFromCache(ref);
+      } catch (cacheError) {
+        logError('Firestore cache miss', cacheError);
+      }
+    }
+    throw error;
+  }
+};
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
@@ -65,9 +88,19 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [userCompanies, setUserCompanies] = useState<UserCompanyRef[]>([]);
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
   const isInitialLoginRef = useRef(false);
+  
+  // Stabilize userCompanies to prevent unnecessary re-renders in useRolePermissions
+  // Only recalculate when the actual data changes (by comparing companyId, role, permissionTemplateId)
+  const memoizedUserCompanies = useMemo(() => {
+    return userCompanies;
+  }, [
+    userCompanies.length,
+    userCompanies.map(c => `${c.companyId}-${c.role}-${c.permissionTemplateId || ''}`).join(',')
+  ]);
   const isSigningInRef = useRef(false); // Track if signIn is in progress to prevent duplicate clicks
 
   // Mémoriser les informations de la compagnie pour les restaurer lors de la reconnexion
+  // Solution 4: Stabilize company object reference by only depending on id and name
   const memoizedCompany = useMemo(() => {
     if (company) {
       // Sauvegarder les informations de la compagnie dans le cache
@@ -82,7 +115,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     }
     
     return null;
-  }, [company]);
+  }, [company?.id, company?.name]); // Only depend on id and name, not the whole object
 
   // Check localStorage session on mount and wait for Firebase auth to restore
   useEffect(() => {
@@ -130,6 +163,15 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       if (user) {
         // 🚀 IMMEDIATE UI RENDER: Set loading to false right away
         setLoading(false);
+        
+        // 💾 Save session IMMEDIATELY when user is detected (before background loading)
+        // This ensures session is always available, even during signup flow
+        // The session will be updated with companies data by loadUserAndCompanyDataInBackground
+        saveUserSession(
+          user.uid,
+          user.email || '',
+          [] // Empty companies array initially (will be updated by background loading)
+        );
         
         // 🚀 RESTORE COMPANY FROM CACHE: Try to restore company data immediately
         const cachedCompany = getCompanyFromCache();
@@ -224,11 +266,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       }
       
       // Créer l'utilisateur dans le nouveau système
+      // Use displayName as username, or generate from email if not available
+      const username = firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'user' + Date.now();
       await createUser(userId, {
-        firstname: firebaseUser.displayName?.split(' ')[0] || 'Utilisateur',
-        lastname: firebaseUser.displayName?.split(' ').slice(1).join(' ') || 'Anonyme',
+        username: username,
         email: firebaseUser.email || '',
-        phone: firebaseUser.phoneNumber || undefined,
         photoURL: firebaseUser.photoURL || undefined
       });
       
@@ -244,7 +286,15 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     
     try {
       // 1. Charger les données utilisateur depuis le système unifié
-      const userData = await getUserById(userId);
+      // Retry logic to handle race condition during signup (document might be creating)
+      let userData = await getUserById(userId);
+      
+      // If user document doesn't exist, wait a bit and retry (might be during signup)
+      if (!userData) {
+        // Wait 500ms and retry once - document might be in the process of being created
+        await new Promise(resolve => setTimeout(resolve, 500));
+        userData = await getUserById(userId);
+      }
       
       if (userData) {
         setUserCompanies(userData.companies || []);
@@ -303,33 +353,50 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           }
         }
       } else {
-        // Créer l'utilisateur dans le nouveau système s'il n'existe pas
-        await migrateUserToNewSystem(userId);
-        // Puis recharger les données
-        const userData = await getUserById(userId);
-        if (userData) {
-          setUserCompanies(userData.companies || []);
-          // Handle routing after migration
-          if (isInitialLoginRef.current) {
-            if (userData.companies && userData.companies.length > 0) {
-              // User has companies - auto-select and go to dashboard
-              // Find first company where user is owner or admin
-              const ownerOrAdminCompany = userData.companies.find((company: UserCompanyRef) => 
-                company.role === 'owner' || company.role === 'admin'
-              );
-              
-              if (ownerOrAdminCompany) {
-                navigate(`/company/${ownerOrAdminCompany.companyId}/dashboard`);
-              } else {
-                // User is only employee - show company selection
-                navigate(`/companies/me/${userId}`);
+        // User document still doesn't exist after retry
+        // This might be a legacy user or the document creation failed
+        // Only try migration if we have Firebase Auth user data (legacy scenario)
+        const firebaseUser = auth.currentUser;
+        if (firebaseUser && firebaseUser.displayName) {
+          // Legacy user - try migration
+          try {
+            await migrateUserToNewSystem(userId);
+            // Retry loading after migration
+            userData = await getUserById(userId);
+            if (userData) {
+              setUserCompanies(userData.companies || []);
+              // Handle routing after migration
+              if (isInitialLoginRef.current) {
+                if (userData.companies && userData.companies.length > 0) {
+                  const ownerOrAdminCompany = userData.companies.find((company: UserCompanyRef) => 
+                    company.role === 'owner' || company.role === 'admin'
+                  );
+                  
+                  if (ownerOrAdminCompany) {
+                    navigate(`/company/${ownerOrAdminCompany.companyId}/dashboard`);
+                  } else {
+                    navigate(`/companies/me/${userId}`);
+                  }
+                } else {
+                  navigate('/mode-selection');
+                }
+                
+                isInitialLoginRef.current = false;
               }
-            } else {
-              // User has no companies - show mode selection
-              navigate('/mode-selection');
             }
-            
-            isInitialLoginRef.current = false; // Reset après redirection
+          } catch (migrationError) {
+            // Migration failed - might be during signup, just route to mode selection
+            if (isInitialLoginRef.current) {
+              navigate('/mode-selection');
+              isInitialLoginRef.current = false;
+            }
+          }
+        } else {
+          // New user signup in progress - document will be created by signUpUser
+          // Just route to mode selection
+          if (isInitialLoginRef.current) {
+            navigate('/mode-selection');
+            isInitialLoginRef.current = false;
           }
         }
       }
@@ -369,7 +436,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     
     // 3. FALLBACK: No localStorage data, fetch from Firebase
     try {
-      const companyDoc = await getDoc(doc(db, 'companies', userId));
+      const companyDoc = await getDocWithCache(doc(db, 'companies', userId));
       
       if (companyDoc.exists()) {
         const companyData = { id: companyDoc.id, ...companyDoc.data() } as Company;
@@ -394,7 +461,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   // Charger les données d'une entreprise spécifique
   const loadCompanyData = async (companyId: string, userId: string) => {
     try {
-      const companyDoc = await getDoc(doc(db, 'companies', companyId));
+      const companyDoc = await getDocWithCache(doc(db, 'companies', companyId));
       
       if (companyDoc.exists()) {
         const companyData = { id: companyDoc.id, ...companyDoc.data() } as Company;
@@ -431,7 +498,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       }
       
       // 2. Check users[].companies[] for employee roles (new system)
-      const userDocForRole = await getDoc(doc(db, 'users', userId));
+      const userDocForRole = await getDocWithCache(doc(db, 'users', userId));
       if (userDocForRole.exists()) {
         const userData = userDocForRole.data();
         const userCompanyRef = userData.companies?.find((c: UserCompanyRef) => c.companyId === companyData.id);
@@ -451,8 +518,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           // Create CompanyEmployee from user data for currentEmployee
           const employee: CompanyEmployee = {
             id: userId, // Use userId as id
-            firstname: userData.firstname || '',
-            lastname: userData.lastname || '',
+            username: userData.username || '',
             email: userData.email || '',
             phone: userData.phone || undefined,
             role: userCompanyRef.role as UserRole,
@@ -483,7 +549,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       }
       
       // 4. Si pas d'employé, chercher dans users/{uid} pour le rôle
-      const userDocForFallback = await getDoc(doc(db, 'users', userId));
+      const userDocForFallback = await getDocWithCache(doc(db, 'users', userId));
       if (userDocForFallback.exists()) {
         const userData = userDocForFallback.data();
         const role = userData.role as UserRole;
@@ -607,6 +673,37 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     }
   };
 
+  const signInWithGoogle = async (): Promise<FirebaseUser> => {
+    // Prevent duplicate login attempts
+    if (isSigningInRef.current) {
+      throw new Error('Une tentative de connexion est déjà en cours. Veuillez patienter...');
+    }
+    
+    // Marquer AVANT le try pour garantir son exécution même en cas d'erreur précoce
+    isInitialLoginRef.current = true;
+    isSigningInRef.current = true;
+    
+    try {
+      // Call the Google sign-in service
+      const user = await signInWithGoogleService();
+      
+      // The onAuthStateChanged listener will handle the routing and reset isSigningInRef
+      // Let the background loading handle routing based on user's companies
+      
+      // Note: isSigningInRef will be reset in onAuthStateChanged to prevent duplicate clicks
+      // The loading state will be maintained until onAuthStateChanged completes
+      
+      return user;
+    } catch (error: any) {
+      logError('Google sign in error', error);
+      isInitialLoginRef.current = false; // Reset on error
+      isSigningInRef.current = false; // Reset on error
+      
+      // Re-throw the error (it already has user-friendly messages from authService)
+      throw error;
+    }
+  };
+
   const signOut = (): Promise<void> => {
     // Get userId before clearing state
     const currentUserId = user?.uid;
@@ -714,10 +811,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     effectiveRole,
     isOwner,
     currentEmployee,
-    userCompanies,
+    userCompanies: memoizedUserCompanies, // Use memoized version to prevent unnecessary re-renders
     selectedCompanyId,
     signUp,
     signIn,
+    signInWithGoogle,
     signOut,
     updateCompany,
     updateUserPassword,

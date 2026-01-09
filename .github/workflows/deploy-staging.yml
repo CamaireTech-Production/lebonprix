@@ -1,0 +1,64 @@
+name: Deploy to Staging
+
+on:
+  push:
+    branches:
+      - 'preRelease'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        
+    - name: Verify repository structure
+      run: |
+        pwd
+        ls -la
+        if [ -f "package.json" ]; then
+          echo "✅ package.json found"
+          cat package.json | head -5
+        else
+          echo "❌ package.json NOT found"
+          exit 1
+        fi
+
+    - name: Create .env file
+      run: |
+        echo "VITE_FIREBASE_ENV=prod" >> .env
+        echo "VITE_FIREBASE_API_KEY=${{ secrets.VITE_FIREBASE_API_KEY_PROD }}" >> .env
+        echo "VITE_FIREBASE_AUTH_DOMAIN=${{ secrets.VITE_FIREBASE_AUTH_DOMAIN_PROD }}" >> .env
+        echo "VITE_FIREBASE_PROJECT_ID=${{ secrets.VITE_FIREBASE_PROJECT_ID_PROD }}" >> .env
+        echo "VITE_FIREBASE_STORAGE_BUCKET=${{ secrets.VITE_FIREBASE_STORAGE_BUCKET_PROD }}" >> .env
+        echo "VITE_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID_PROD }}" >> .env
+        echo "VITE_FIREBASE_APP_ID=${{ secrets.VITE_FIREBASE_APP_ID_PROD }}" >> .env
+        echo "VITE_FIREBASE_MEASUREMENT_ID=${{ secrets.VITE_FIREBASE_MEASUREMENT_ID_PROD }}" >> .env
+
+        
+    - name: Clean and install dependencies
+      run: |
+        rm -rf node_modules package-lock.json
+        npm install --include=optional
+
+    - name: Build project
+      run: npm run build
+      
+    - name: Deploy to FTP (Staging)
+      uses: SamKirkland/FTP-Deploy-Action@4.3.0
+      with:
+        server: ftp.camairetech.com
+        username: ${{ secrets.FTP_USERNAME_STAGING }}
+        password: ${{ secrets.FTP_PASSWORD_STAGING }}
+        local-dir: dist/
+        server-dir: /
+        protocol: ftps
+        timeout: 30000
+        dangerous-clean-slate: false
+

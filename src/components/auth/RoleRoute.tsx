@@ -1,9 +1,9 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react';
 import { Navigate, useParams } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext';
-import { useRolePermissions } from '../../hooks/useRolePermissions';
-import LoadingScreen from '../common/LoadingScreen';
-import { showErrorToast } from '../../utils/toast';
+import { useAuth } from '@contexts/AuthContext';
+import { useRolePermissions } from '@hooks/business/useRolePermissions';
+import { LoadingScreen } from '@components/common';
+import { showErrorToast } from '@utils/core/toast';
 
 interface RoleRouteProps {
   children: React.ReactNode;
@@ -18,19 +18,57 @@ const RoleRoute = ({ children, allowedRoles, requiredResource, fallbackPath }: R
   const { canAccess, canAccessFinance, canAccessHR, canAccessSettings, templateLoading, template } = useRolePermissions(company?.id);
   // Note: canAccessFinance, canAccessHR, canAccessSettings are computed from canView for backward compatibility
   const hasShownError = useRef(false);
+  const hasLoadedOnceRef = useRef(false);
 
   // Reset error flag when resource changes - DOIT être avant tous les returns conditionnels
   useEffect(() => {
     hasShownError.current = false;
   }, [requiredResource]);
 
-  if (loading || companyLoading || templateLoading) {
+  // Track if we've loaded permissions at least once
+  useEffect(() => {
+    if (!templateLoading && template) {
+      hasLoadedOnceRef.current = true;
+    }
+  }, [templateLoading, template]);
+
+  // Memoize isActualOwner to prevent unnecessary recalculations
+  const isActualOwner = useMemo(() => {
+    return isOwner || effectiveRole === 'owner';
+  }, [isOwner, effectiveRole]);
+
+  // For initial loading (auth or company), show loading screen
+  if (loading || companyLoading) {
     return <LoadingScreen />;
   }
 
-  // Si pas owner et pas de template chargé, afficher un loader ou un message d'erreur
-  const isActualOwner = isOwner || effectiveRole === 'owner';
-  if (!isActualOwner && !template) {
+  // For employees: Show loading overlay instead of unmounting children
+  // This prevents LivePreview from being unmounted during template loading
+  // After first load, always keep children mounted to prevent iframe reloads
+  if (!isActualOwner && (templateLoading || !template)) {
+    // If we've loaded once before, keep children mounted and show overlay
+    if (hasLoadedOnceRef.current) {
+      return (
+        <div style={{ position: 'relative', minHeight: '100vh' }}>
+          <div style={{ 
+            position: 'absolute', 
+            top: 0, 
+            left: 0, 
+            right: 0, 
+            bottom: 0, 
+            zIndex: 1000,
+            backgroundColor: 'rgba(255, 255, 255, 0.9)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            <LoadingScreen message={templateLoading ? "Chargement des permissions..." : "Permissions en cours de chargement..."} />
+          </div>
+          {children}
+        </div>
+      );
+    }
+    // First time loading, show full loading screen (only on initial mount)
     return <LoadingScreen message="Chargement des permissions..." />;
   }
 

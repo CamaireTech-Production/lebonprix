@@ -13,7 +13,7 @@ interface ImageWithSkeletonProps {
   onLoad?: () => void;
 }
 
-export const ImageWithSkeleton: React.FC<ImageWithSkeletonProps> = ({
+const ImageWithSkeleton: React.FC<ImageWithSkeletonProps> = ({
   src,
   alt,
   className = '',
@@ -119,3 +119,5 @@ export const ImageWithSkeleton: React.FC<ImageWithSkeletonProps> = ({
     </div>
   );
 };
+
+export default ImageWithSkeleton;

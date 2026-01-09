@@ -17,26 +17,26 @@ export default function RoleBasedAccess({
   companyId,
   fallback = null 
 }: RoleBasedAccessProps) {
-  const { currentUser } = useAuth();
+  const { user, userCompanies, effectiveRole, isOwner } = useAuth();
 
   // Si pas d'utilisateur connecté
-  if (!currentUser) {
+  if (!user) {
     return <>{fallback}</>;
   }
 
   // Si pas de company spécifiée, vérifier dans les companies de l'utilisateur
   if (!companyId) {
     // Vérifier si l'utilisateur a au moins une company avec un rôle autorisé
-    const hasAuthorizedRole = currentUser.companies?.some(company => 
+    const hasAuthorizedRole = userCompanies?.some((company: { role: string }) => 
       allowedRoles.includes(company.role)
-    );
+    ) || (isOwner && allowedRoles.includes('owner')) || (effectiveRole && allowedRoles.includes(effectiveRole));
 
     if (!hasAuthorizedRole) {
       return <>{fallback}</>;
     }
   } else {
     // Vérifier le rôle dans la company spécifiée
-    const companyRole = currentUser.companies?.find(c => c.companyId === companyId)?.role;
+    const companyRole = userCompanies?.find((c: { companyId: string; role: string }) => c.companyId === companyId)?.role;
     
     if (!companyRole || !allowedRoles.includes(companyRole)) {
       return <>{fallback}</>;
@@ -50,55 +50,55 @@ export default function RoleBasedAccess({
  * Hook pour vérifier les permissions d'un utilisateur
  */
 export function usePermissions(companyId?: string) {
-  const { currentUser } = useAuth();
+  const { user, userCompanies, effectiveRole, isOwner } = useAuth();
 
   const hasRole = (roles: string[]): boolean => {
-    if (!currentUser) return false;
+    if (!user) return false;
 
     if (!companyId) {
       // Vérifier dans toutes les companies
-      return currentUser.companies?.some(company => 
+      return userCompanies?.some((company: { role: string }) => 
         roles.includes(company.role)
-      ) || false;
+      ) || (isOwner && roles.includes('owner')) || (effectiveRole && roles.includes(effectiveRole)) || false;
     }
 
     // Vérifier dans la company spécifiée
-    const companyRole = currentUser.companies?.find(c => c.companyId === companyId)?.role;
+    const companyRole = userCompanies?.find((c: { companyId: string; role: string }) => c.companyId === companyId)?.role;
     return companyRole ? roles.includes(companyRole) : false;
   };
 
   const canView = (resource: string): boolean => {
-    if (!currentUser) return false;
+    if (!user) return false;
 
     const role = getCurrentRole(companyId);
     if (!role) return false;
 
     const permissions = getRolePermissions(role);
-    return permissions.canView.includes('all') || permissions.canView.includes(resource);
+    return (permissions.canView as string[]).includes('all') || (permissions.canView as string[]).includes(resource);
   };
 
   const canEdit = (resource: string): boolean => {
-    if (!currentUser) return false;
+    if (!user) return false;
 
     const role = getCurrentRole(companyId);
     if (!role) return false;
 
     const permissions = getRolePermissions(role);
-    return permissions.canEdit.includes('all') || permissions.canEdit.includes(resource);
+    return (permissions.canEdit as string[]).includes('all') || (permissions.canEdit as string[]).includes(resource);
   };
 
   const canDelete = (resource: string): boolean => {
-    if (!currentUser) return false;
+    if (!user) return false;
 
     const role = getCurrentRole(companyId);
     if (!role) return false;
 
     const permissions = getRolePermissions(role);
-    return permissions.canDelete.includes('all') || permissions.canDelete.includes(resource);
+    return (permissions.canDelete as string[]).includes('all') || (permissions.canDelete as string[]).includes(resource);
   };
 
   const canManageEmployees = (targetRole?: string): boolean => {
-    if (!currentUser) return false;
+    if (!user) return false;
 
     const role = getCurrentRole(companyId);
     if (!role) return false;
@@ -106,24 +106,26 @@ export function usePermissions(companyId?: string) {
     const permissions = getRolePermissions(role);
     
     if (targetRole) {
-      return permissions.canManageEmployees.includes('all') || 
-             permissions.canManageEmployees.includes(targetRole);
+      return (permissions.canManageEmployees as string[]).includes('all') || 
+             (permissions.canManageEmployees as string[]).includes(targetRole);
     }
 
-    return permissions.canManageEmployees.length > 0;
+    return (permissions.canManageEmployees as string[]).length > 0;
   };
 
   const getCurrentRole = (companyId?: string): string | null => {
-    if (!currentUser) return null;
+    if (!user) return null;
 
     if (!companyId) {
       // Retourner le rôle le plus élevé
-      const roles = currentUser.companies?.map(c => c.role) || [];
+      const roles = userCompanies?.map((c: { role: string }) => c.role) || [];
+      if (isOwner) return 'owner';
+      if (effectiveRole) return effectiveRole;
       return getHighestRole(roles);
     }
 
     // Retourner le rôle dans la company spécifiée
-    return currentUser.companies?.find(c => c.companyId === companyId)?.role || null;
+    return userCompanies?.find((c: { companyId: string; role: string }) => c.companyId === companyId)?.role || null;
   };
 
   const getHighestRole = (roles: string[]): string => {

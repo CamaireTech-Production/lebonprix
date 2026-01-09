@@ -1,8 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
-import Card from '../common/Card';
-import Button from '../common/Button';
-import Input from '../common/Input';
-import { useAuth } from '../../contexts/AuthContext';
+import { Card, Button, Input } from '@components/common';
+import { useAuth } from '@contexts/AuthContext';
 import { EmployeeRef, User, UserRole } from '../../types/models';
 import { 
   searchUserByEmail, 
@@ -11,8 +9,8 @@ import {
   updateEmployeeRole,
   getCompanyEmployees,
   subscribeToEmployeeRefs 
-} from '../../services/employeeRefService';
-import { showErrorToast, showSuccessToast } from '../../utils/toast';
+} from '@services/firestore/employees/employeeRefService';
+import { showErrorToast, showSuccessToast } from '@utils/core/toast';
 import { User as UserIcon, Plus, Trash2, Edit3, Search } from 'lucide-react';
 
 const roleOptions: { value: UserRole; label: string }[] = [
@@ -121,14 +119,14 @@ export default function EmployeeRefsTab() {
     if (!company) return;
 
     const confirmed = window.confirm(
-      `Êtes-vous sûr de vouloir retirer ${employee.firstname} ${employee.lastname} de l'entreprise ?`
+      `Êtes-vous sûr de vouloir retirer ${employee.username} de l'entreprise ?`
     );
 
     if (!confirmed) return;
 
     try {
       await removeEmployeeFromCompany(company.id, employee.id);
-      showSuccessToast(`${employee.firstname} ${employee.lastname} retiré de l'entreprise`);
+      showSuccessToast(`${employee.username} retiré de l'entreprise`);
     } catch (error: any) {
       console.error('Erreur lors de la suppression:', error);
       showErrorToast(error.message || 'Erreur lors de la suppression de l\'employé');
@@ -139,14 +137,14 @@ export default function EmployeeRefsTab() {
   const handleUpdateRole = async (employee: EmployeeRef, newRole: UserRole) => {
     if (!company) return;
 
-    console.log('🔄 [EmployeeRefsTab] handleUpdateRole appelé:', { employeeId: employee.id, employeeName: `${employee.firstname} ${employee.lastname}`, oldRole: employee.role, newRole });
+    console.log('🔄 [EmployeeRefsTab] handleUpdateRole appelé:', { employeeId: employee.id, employeeName: employee.username, oldRole: employee.role, newRole });
     
     setIsUpdating(true);
     try {
       console.log('🔄 [EmployeeRefsTab] Appel de updateEmployeeRole...');
       await updateEmployeeRole(company.id, employee.id, newRole);
       console.log('✅ [EmployeeRefsTab] updateEmployeeRole terminé avec succès');
-      showSuccessToast(`Rôle de ${employee.firstname} ${employee.lastname} mis à jour`);
+      showSuccessToast(`Rôle de ${employee.username} mis à jour`);
       setEditingEmployee(null);
     } catch (error: any) {
       console.error('❌ [EmployeeRefsTab] Erreur lors de la mise à jour du rôle:', error);
@@ -354,12 +352,12 @@ export default function EmployeeRefsTab() {
                       <div className="flex items-center">
                         <div className="h-8 w-8 bg-indigo-100 rounded-full flex items-center justify-center">
                           <span className="text-sm font-medium text-indigo-600">
-                            {employee.firstname[0]}{employee.lastname[0]}
+                            {employee.username[0]?.toUpperCase() || 'U'}
                           </span>
                         </div>
                         <div className="ml-3">
                           <div className="text-sm font-medium text-gray-900">
-                            {employee.firstname} {employee.lastname}
+                            {employee.username}
                           </div>
                         </div>
                       </div>
@@ -390,7 +388,7 @@ export default function EmployeeRefsTab() {
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {employee.addedAt?.toDate?.()?.toLocaleDateString() || 'N/A'}
+                      {employee.addedAt ? (employee.addedAt instanceof Date ? employee.addedAt.toLocaleDateString() : (employee.addedAt as any)?.toDate?.()?.toLocaleDateString()) : 'N/A'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex items-center justify-end space-x-2">

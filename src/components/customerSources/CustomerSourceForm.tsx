@@ -1,9 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import Modal from '../common/Modal';
-import Button from '../common/Button';
-import Input from '../common/Input';
-import Textarea from '../common/Textarea';
-import { showErrorToast } from '../../utils/toast';
+import { Modal, Button, Input, Textarea } from '@components/common';
+import { showErrorToast } from '@utils/core/toast';
 import type { CustomerSource } from '../../types/models';
 
 interface CustomerSourceFormProps {
@@ -176,6 +173,7 @@ const CustomerSourceForm = ({ source, isOpen, onClose, onSave }: CustomerSourceF
 };
 
 export default CustomerSourceForm;
+
 
 
 

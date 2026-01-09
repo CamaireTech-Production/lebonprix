@@ -1,13 +1,12 @@
 import { useState, useEffect } from 'react';
-import Card from '../common/Card';
-import Button from '../common/Button';
-import { cancelInvitation, sendInvitationEmailToUser, getInvitationLink } from '../../services/invitationService';
-import { getTemplateById } from '../../services/permissionTemplateService';
+import { Card, Button } from '@components/common';
+import { cancelInvitation, sendInvitationEmailToUser, getInvitationLink } from '@services/firestore/employees/invitationService';
+import { getTemplateById } from '@services/firestore/employees/permissionTemplateService';
 import { formatDistanceToNow } from 'date-fns';
 import { Mail, Clock, User, Trash2, RefreshCw, Copy } from 'lucide-react';
 import type { Invitation } from '../../types/models';
 import type { PermissionTemplate } from '../../types/permissions';
-import { showSuccessToast, showErrorToast } from '../../utils/toast';
+import { showSuccessToast, showErrorToast } from '@utils/core/toast';
 
 interface PendingInvitationsListProps {
   invitations: Invitation[];
@@ -142,7 +141,7 @@ const PendingInvitationsList = ({ invitations, onInvitationCancelled }: PendingI
                       <User className="h-5 w-5 text-gray-400" />
                       <div>
                         <h4 className="text-sm font-medium text-gray-900">
-                          {invitation.firstname} {invitation.lastname}
+                          {invitation.email.split('@')[0]}
                         </h4>
                         <p className="text-sm text-gray-500">{invitation.email}</p>
                       </div>
@@ -156,7 +155,7 @@ const PendingInvitationsList = ({ invitations, onInvitationCancelled }: PendingI
                       <span className="flex items-center">
                         <Clock className="h-4 w-4 mr-1" />
                         <span>
-                          {expired ? 'Expired' : `Expires ${formatDistanceToNow(invitation.expiresAt.toDate(), { addSuffix: true })}`}
+                          {expired ? 'Expired' : `Expires ${formatDistanceToNow(invitation.expiresAt instanceof Date ? invitation.expiresAt : (invitation.expiresAt as any).toDate?.() || new Date((invitation.expiresAt as any).seconds * 1000), { addSuffix: true })}`}
                         </span>
                       </span>
                     </div>
@@ -184,8 +183,10 @@ const PendingInvitationsList = ({ invitations, onInvitationCancelled }: PendingI
                           onClick={() => handleCopyLink(invitation.id)}
                           className="shrink-0"
                         >
-                          <Copy className="h-4 w-4 mr-1" />
-                          {copiedId === invitation.id ? 'Copié !' : 'Copier'}
+                          <span className="flex items-center">
+                            <Copy className="h-4 w-4 mr-1.5" />
+                            <span>{copiedId === invitation.id ? 'Copié !' : 'Copier'}</span>
+                          </span>
                         </Button>
                       </div>
                     </div>
@@ -200,8 +201,10 @@ const PendingInvitationsList = ({ invitations, onInvitationCancelled }: PendingI
                         isLoading={resendingId === invitation.id}
                         disabled={resendingId === invitation.id}
                       >
-                        <RefreshCw className="h-4 w-4 mr-1" />
-                        Resend
+                        <span className="flex items-center">
+                          <RefreshCw className="h-4 w-4 mr-1.5" />
+                          <span>Resend</span>
+                        </span>
                       </Button>
                     )}
                     
@@ -213,8 +216,10 @@ const PendingInvitationsList = ({ invitations, onInvitationCancelled }: PendingI
                       disabled={cancellingId === invitation.id}
                       className="text-red-600 hover:text-red-700 hover:bg-red-50"
                     >
-                      <Trash2 className="h-4 w-4 mr-1" />
-                      Cancel
+                      <span className="flex items-center">
+                        <Trash2 className="h-4 w-4 mr-1.5" />
+                        <span>Cancel</span>
+                      </span>
                     </Button>
                   </div>
                 </div>

@@ -1,22 +1,15 @@
 import { Outlet } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
 
 const AuthLayout = () => {
-  const { company } = useAuth();
   const { t } = useTranslation();
 
-  // Get dashboard colors
-  const getDashboardColors = () => {
-    const colors = {
-      primary: company?.dashboardColors?.primary || company?.primaryColor || '#183524',
-      secondary: company?.dashboardColors?.secondary || company?.secondaryColor || '#e2b069',
-      tertiary: company?.dashboardColors?.tertiary || company?.tertiaryColor || '#2a4a3a'
-    };
-    return colors;
+  // Use default colors for auth pages (user is not authenticated yet)
+  const colors = {
+    primary: '#183524',
+    secondary: '#e2b069',
+    tertiary: '#2a4a3a'
   };
-  
-  const colors = getDashboardColors();
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">

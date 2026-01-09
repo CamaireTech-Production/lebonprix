@@ -1,10 +1,9 @@
 import { useState } from 'react';
-import Modal from '../common/Modal';
-import Button from '../common/Button';
+import { Modal, Button } from '@components/common';
 import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
 import type { ProfitPeriodType } from '../../types/models';
-import { getPeriodStartDate, getPeriodLabel } from '../../utils/profitPeriodUtils';
+import { getPeriodStartDate, getPeriodLabel } from '@utils/calculations/profitPeriodUtils';
 
 interface ProfitPeriodModalProps {
   isOpen: boolean;

@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Select, { components, MenuProps, GroupBase, OptionProps } from 'react-select';
-import { useLocationSearch, type LocationOption } from '../../hooks/useLocationSearch';
+import { useLocationSearch, type LocationOption } from '../../hooks/business/useLocationSearch';
 
 interface LocationAutocompleteProps {
   value: string;
@@ -60,33 +60,33 @@ const LocationAutocomplete: React.FC<LocationAutocompleteProps> = ({
   };
 
   // Gérer la création d'une nouvelle option (saisie libre)
-  const handleCreateOption = (inputValue: string) => {
+  const handleCreateOption = async (inputValue: string) => {
     if (!inputValue.trim()) return;
     
+    const trimmedValue = inputValue.trim();
+    
+    // Add to LocationService custom locations
+    try {
+      const LocationService = (await import('@services/utilities/locationService')).default;
+      LocationService.addCustomLocation(trimmedValue);
+    } catch (error) {
+      console.warn('Could not add custom location to service:', error);
+    }
+    
     const newOption: LocationOption = {
-      value: inputValue.trim(),
-      label: inputValue.trim(),
+      value: trimmedValue,
+      label: trimmedValue,
     };
     
     setSelectedOption(newOption);
-    onChange(inputValue.trim());
+    onChange(trimmedValue);
   };
 
-  // Format personnalisé pour afficher le nom, la région et le département
-  const formatOptionLabel = ({ label, region, department }: LocationOption) => {
+  // Format personnalisé pour afficher le nom
+  const formatOptionLabel = ({ label }: LocationOption) => {
     return (
       <div className="flex flex-col">
         <span className="font-medium text-gray-900">{label}</span>
-        {(region || department) && (
-          <div className="flex flex-col gap-0.5 mt-0.5">
-            {region && (
-              <span className="text-xs text-gray-500">{region}</span>
-            )}
-            {department && (
-              <span className="text-xs text-gray-400">{department}</span>
-            )}
-          </div>
-        )}
       </div>
     );
   };

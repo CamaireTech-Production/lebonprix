@@ -1,16 +1,15 @@
 // src/pages/expenses/shared/ExpenseFormModal.tsx
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useAuth } from '../../../contexts/AuthContext';
-import Modal, { ModalFooter } from '../../../components/common/Modal';
-import Input from '../../../components/common/Input';
-import CreatableSelect from '../../../components/common/CreatableSelect';
-import { createExpense, updateExpense, syncFinanceEntryWithExpense } from '../../../services/firestore';
-import { showSuccessToast, showErrorToast, showWarningToast } from '../../../utils/toast';
-import { logError, logWarning } from '../../../utils/logger';
-import { useExpenseCategories } from '../../../hooks/useExpenseCategories';
-import { getUserById } from '../../../services/userService';
-import { getCurrentEmployeeRef } from '../../../utils/employeeUtils';
+import { useAuth } from '@contexts/AuthContext';
+import { Modal, ModalFooter, Input, PriceInput, CreatableSelect } from '@components/common';
+import { createExpense, updateExpense } from '@services/firestore/expenses/expenseService';
+import { syncFinanceEntryWithExpense } from '@services/firestore/finance/financeService';
+import { showSuccessToast, showErrorToast, showWarningToast } from '@utils/core/toast';
+import { logError, logWarning } from '@utils/core/logger';
+import { useExpenseCategories } from '@hooks/business/useExpenseCategories';
+import { getUserById } from '@services/utilities/userService';
+import { getCurrentEmployeeRef } from '@utils/business/employeeUtils';
 import type { Expense} from '../../../types/models';
 
 interface ExpenseFormModalProps {
@@ -35,38 +34,40 @@ const ExpenseFormModal = ({ isOpen, mode, expense, onClose, onSuccess }: Expense
   const [selectedType, setSelectedType] = useState<{ label: string; value: string } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Load expense data when editing
+  // Load expense data when editing or reset when opening in add mode
   useEffect(() => {
-    if (mode === 'edit' && expense) {
-      // Convert date to string format for input
-      let dateValue = new Date().toISOString().split('T')[0];
-      if (expense.date?.seconds) {
-        dateValue = new Date(expense.date.seconds * 1000).toISOString().split('T')[0];
-      } else if (expense.createdAt?.seconds) {
-        dateValue = new Date(expense.createdAt.seconds * 1000).toISOString().split('T')[0];
+    if (isOpen) {
+      if (mode === 'edit' && expense) {
+        // Convert date to string format for input
+        let dateValue = new Date().toISOString().split('T')[0];
+        if (expense.date?.seconds) {
+          dateValue = new Date(expense.date.seconds * 1000).toISOString().split('T')[0];
+        } else if (expense.createdAt?.seconds) {
+          dateValue = new Date(expense.createdAt.seconds * 1000).toISOString().split('T')[0];
+        }
+        
+        setFormData({
+          description: expense.description,
+          amount: expense.amount.toString(),
+          category: expense.category,
+          date: dateValue,
+        });
+        setSelectedType({ 
+          label: t(`expenses.categories.${expense.category}`, expense.category), 
+          value: expense.category 
+        });
+      } else {
+        // Reset form for add mode
+        setFormData({
+          description: '',
+          amount: '',
+          category: 'transportation',
+          date: new Date().toISOString().split('T')[0],
+        });
+        setSelectedType(null);
       }
-      
-      setFormData({
-        description: expense.description,
-        amount: expense.amount.toString(),
-        category: expense.category,
-        date: dateValue,
-      });
-      setSelectedType({ 
-        label: t(`expenses.categories.${expense.category}`, expense.category), 
-        value: expense.category 
-      });
-    } else {
-      // Reset form for add mode
-      setFormData({
-        description: '',
-        amount: '',
-        category: 'transportation',
-        date: new Date().toISOString().split('T')[0],
-      });
-      setSelectedType(null);
     }
-  }, [mode, expense, t]);
+  }, [isOpen, mode, expense, t]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -160,7 +161,7 @@ const ExpenseFormModal = ({ isOpen, mode, expense, onClose, onSuccess }: Expense
           category: typeValue,
           userId: user.uid,
           companyId: company.id,
-          date: expenseDate,
+          date: expenseDate as any,
         }, company.id, createdBy);
         
         // Verify createdBy is in the returned expense
@@ -171,28 +172,14 @@ const ExpenseFormModal = ({ isOpen, mode, expense, onClose, onSuccess }: Expense
         }
         
         await syncFinanceEntryWithExpense(newExpense);
-        onSuccess(newExpense);
         resetForm();
+        onSuccess(newExpense);
         showSuccessToast(t('expenses.messages.addSuccess'));
       } else {
         // Edit mode
         if (!expense) return;
         
-        const originalExpense = expense;
         const transactionDate = expenseDate;
-        
-        // Optimistic update data
-        const updatedExpenseData = {
-          ...expense,
-          description: formData.description.trim(),
-          amount: amount,
-          category: typeValue,
-          companyId: company.id,
-          userId: user.uid,
-          date: transactionDate,
-          createdAt: expense.createdAt, // Preserve createdAt
-          updatedAt: { seconds: Math.floor(Date.now() / 1000), nanoseconds: 0 }
-        };
         
         try {
           await updateExpense(expense.id, {
@@ -200,10 +187,20 @@ const ExpenseFormModal = ({ isOpen, mode, expense, onClose, onSuccess }: Expense
             amount: amount,
             category: typeValue,
             userId: user.uid,
-            date: transactionDate,
+            date: transactionDate as any,
           }, company.id);
           
-          onSuccess(updatedExpenseData as Expense);
+          // Construct updated expense for optimistic update
+          const updatedExpense: Expense = {
+            ...expense,
+            description: formData.description.trim(),
+            amount: amount,
+            category: typeValue,
+            date: expense.date || expense.createdAt, // Keep existing date or createdAt
+            updatedAt: { seconds: Math.floor(Date.now() / 1000), nanoseconds: 0 }
+          };
+          
+          onSuccess(updatedExpense);
           showSuccessToast(t('expenses.messages.updateSuccess'));
         } catch (error) {
           // Rollback would be handled by parent component
@@ -211,7 +208,7 @@ const ExpenseFormModal = ({ isOpen, mode, expense, onClose, onSuccess }: Expense
         }
       }
       
-      onClose();
+      handleClose();
     } catch (err) {
       logError(`Failed to ${mode} expense`, err);
       showErrorToast(
@@ -224,14 +221,22 @@ const ExpenseFormModal = ({ isOpen, mode, expense, onClose, onSuccess }: Expense
     }
   };
 
+  const handleClose = () => {
+    // Reset form when closing
+    if (mode === 'add') {
+      resetForm();
+    }
+    onClose();
+  };
+
   return (
     <Modal
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={handleClose}
       title={mode === 'add' ? t('expenses.modals.add.title') : t('expenses.modals.edit.title')}
       footer={
         <ModalFooter 
-          onCancel={onClose}
+          onCancel={handleClose}
           onConfirm={handleSubmit}
           confirmText={mode === 'add' ? t('expenses.modals.add.confirm') : t('expenses.modals.edit.confirm')}
           isLoading={isSubmitting}
@@ -247,12 +252,13 @@ const ExpenseFormModal = ({ isOpen, mode, expense, onClose, onSuccess }: Expense
           required
         />
         
-        <Input
+        <PriceInput
           label={t('expenses.form.amount')}
           name="amount"
-          type="number"
           value={formData.amount}
-          onChange={handleInputChange}
+          onChange={(e: { target: { name: string; value: string } }) => {
+            setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+          }}
           required
         />
         

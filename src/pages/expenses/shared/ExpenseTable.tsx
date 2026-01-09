@@ -1,9 +1,8 @@
 // src/pages/expenses/shared/ExpenseTable.tsx
 import { Edit2, Trash2, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import Table from '../../../components/common/Table';
-import Badge from '../../../components/common/Badge';
-import { formatCreatorName } from '../../../utils/employeeUtils';
+import { Table, Badge } from '@components/common';
+import { formatCreatorName } from '@utils/business/employeeUtils';
 import type { Expense } from '../../../types/models';
 
 interface ExpenseTableProps {
@@ -15,7 +14,7 @@ interface ExpenseTableProps {
   deleteLoadingId?: string;
 }
 
-const ExpenseTable = ({ expenses, onEdit, onDelete, loading, deleteLoading, deleteLoadingId }: ExpenseTableProps) => {
+const ExpenseTable = ({ expenses, onEdit, onDelete, deleteLoading, deleteLoadingId }: ExpenseTableProps) => {
   const { t } = useTranslation();
 
   const columns = [

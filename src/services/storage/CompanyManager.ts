@@ -1,5 +1,5 @@
 // src/services/storage/CompanyManager.ts
-import localStorageService from '../localStorageService';
+import localStorageService from '@services/utilities/localStorageService';
 import type { Company } from '../../types/models';
 
 const COMPANY_PREFIX = 'company_';

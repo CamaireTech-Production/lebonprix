@@ -1,5 +1,5 @@
 // src/services/storage/FinanceEntryTypesManager.ts
-import localStorageService from '../localStorageService';
+import localStorageService from '@services/utilities/localStorageService';
 import type { FinanceEntryType } from '../../types/models';
 
 const FINANCE_ENTRY_TYPES_PREFIX = 'finance_entry_types_';

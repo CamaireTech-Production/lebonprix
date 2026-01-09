@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
-import { Calculator, Delete, RotateCcw } from 'lucide-react';
+import { Delete, RotateCcw } from 'lucide-react';
 
 interface POSCalculatorProps {
   onApplyValue?: (value: number) => void;
