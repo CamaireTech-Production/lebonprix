@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { ShoppingBag, X, Plus, Minus, CheckCircle2 } from 'lucide-react';
 import { useCart } from '../../contexts/CartContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -12,9 +12,10 @@ interface FloatingCartButtonProps {
 }
 
 const FloatingCartButton: React.FC<FloatingCartButtonProps> = ({ className = '' }) => {
-  const { companyId } = useParams<{ companyId: string }>();
   const navigate = useNavigate();
-  const { cart, updateCartItem, getCartItemCount, getCartTotal } = useCart();
+  const location = useLocation();
+  const params = useParams<{ companyId?: string }>();
+  const { cart, updateCartItem, getCartItemCount, getCartTotal, currentCompanyId } = useCart();
   const { company } = useAuth();
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [showAddedAnimation, setShowAddedAnimation] = useState(false);
@@ -25,20 +26,19 @@ const FloatingCartButton: React.FC<FloatingCartButtonProps> = ({ className = '' 
       primary: company?.catalogueColors?.primary || company?.primaryColor || '#183524',
       secondary: company?.catalogueColors?.secondary || company?.secondaryColor || '#e2b069',
       tertiary: company?.catalogueColors?.tertiary || company?.tertiaryColor || '#2a4a3a',
-      headerText: company?.catalogueColors?.headerText || '#ffffff',
     };
     return colors;
   };
 
-  const handleUpdateQuantity = (productId: string, quantity: number, selectedColor?: string, selectedSize?: string) => {
-    updateCartItem(productId, quantity, selectedColor, selectedSize);
+  const handleUpdateQuantity = (productId: string, newQuantity: number, selectedColor?: string, selectedSize?: string) => {
+    updateCartItem(productId, newQuantity, selectedColor, selectedSize);
   };
 
-  // Listen for cart item added events
+      // Listen for cart item added events
   useEffect(() => {
     const handleCartItemAdded = (event: Event) => {
       const customEvent = event as CustomEvent;
-      const { product, quantity, isUpdate } = customEvent.detail;
+      const { product, isUpdate } = customEvent.detail;
       
       // Show success animation on the button
       setShowAddedAnimation(true);
@@ -211,7 +211,28 @@ const FloatingCartButton: React.FC<FloatingCartButtonProps> = ({ className = '' 
                 <button
                   onClick={() => {
                     setIsCartOpen(false);
-                    navigate('/checkout');
+                    
+                    // Try multiple sources for companyId:
+                    // 1. From cart context (set when items are added to cart)
+                    // 2. From auth context (if user is logged in)
+                    // 3. From URL params (if on catalogue page)
+                    // 4. Parse from URL pathname as fallback
+                    let companyIdToUse = currentCompanyId || company?.id || params.companyId;
+                    
+                    // If still not found, try to extract from URL pathname
+                    if (!companyIdToUse && location.pathname) {
+                      // Pattern: /catalogue/:companyName/:companyId
+                      const catalogueMatch = location.pathname.match(/\/catalogue\/[^/]+\/([^/]+)/);
+                      if (catalogueMatch && catalogueMatch[1]) {
+                        companyIdToUse = catalogueMatch[1];
+                      }
+                    }
+                    
+                    if (companyIdToUse) {
+                      navigate(`/checkout/${companyIdToUse}`);
+                    } else {
+                      toast.error('Unable to determine company. Please add items to cart from catalogue.');
+                    }
                   }}
                   className="w-full text-white py-3 rounded-lg font-semibold transition-colors"
                   style={{backgroundColor: getCompanyColors().primary}}

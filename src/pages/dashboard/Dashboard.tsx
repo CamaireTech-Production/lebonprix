@@ -1,0 +1,368 @@
+import { useState, useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useNavigate, useParams } from 'react-router-dom';
+import { startOfMonth } from 'date-fns';
+import { LoadingScreen, SkeletonTable, SkeletonObjectivesBar, DateRangePicker } from '@components/common';
+import { useSales, useExpenses, useProducts, useStockChanges } from '@hooks/data/useFirestore';
+import { subscribeToAllSales } from '@services/firestore/sales/saleService';
+import { useAuth } from '@contexts/AuthContext';
+import type { Sale, SaleProduct } from '../../types/models';
+import { useCustomerSources } from '@hooks/business/useCustomerSources';
+import { useProfitPeriod } from '@hooks/business/useProfitPeriod';
+import { calculateTotalDeliveryFee, calculateTotalOrders, calculateTotalProductsSold } from '@utils/calculations/financialCalculations';
+import ObjectivesBar from '../../components/objectives/ObjectivesBar';
+import ObjectivesModal from '../../components/objectives/ObjectivesModal';
+import ProfitPeriodModal from '../../components/dashboard/ProfitPeriodModal';
+import DashboardHeader from '../../components/dashboard/DashboardHeader';
+import StatsSection from '../../components/dashboard/StatsSection';
+import DonutChartsSection from '../../components/dashboard/DonutChartsSection';
+import DataLoadingStatus from '../../components/dashboard/DataLoadingStatus';
+import CalculationsModal from '../../components/dashboard/CalculationsModal';
+import TopSales from '../../components/dashboard/TopSales';
+import BestClients from '../../components/dashboard/BestClients';
+import BestProductsList from '../../components/dashboard/BestProductsList';
+import LatestOrdersTable from '../../components/dashboard/LatestOrdersTable';
+import { useFilteredDashboardData } from '@hooks/business/useFilteredDashboardData';
+import { useDashboardCharts } from '@hooks/business/useDashboardCharts';
+import { useDashboardStats } from '@hooks/business/useDashboardStats';
+
+const Dashboard = () => {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const { companyId } = useParams<{ companyId: string }>();
+  
+  // 🚀 PROGRESSIVE LOADING: Load essential data first
+  const { sales, loading: salesLoading } = useSales();
+  const { products, loading: productsLoading } = useProducts();
+  
+  // 🔄 BACKGROUND LOADING: Load all sales in background after initial render
+  const [allSales, setAllSales] = useState<Sale[]>([]);
+  const [loadingAllSales, setLoadingAllSales] = useState(false);
+  const { user, company } = useAuth();
+  
+  // 🔄 BACKGROUND LOADING: Load secondary data in background (don't block UI)
+  const { expenses, loading: expensesLoading } = useExpenses();
+  const { stockChanges, loading: stockChangesLoading } = useStockChanges();
+  const { sources } = useCustomerSources();
+  
+  // 💰 PROFIT PERIOD: Load profit period preference
+  const { preference: profitPeriodPreference, setPeriod, clearPeriod } = useProfitPeriod();
+  
+  // 🎯 ESSENTIAL DATA: Only block UI for critical data (sales + products)
+  const essentialDataLoading = salesLoading || productsLoading;
+
+  // State
+  const [showCalculationsModal, setShowCalculationsModal] = useState(false);
+  const [dateRange, setDateRange] = useState({
+    from: startOfMonth(new Date()), // Start of current month
+    to: new Date(), // Current date
+  });
+  const [showObjectivesModal, setShowObjectivesModal] = useState(false);
+  const [applyDateFilter, setApplyDateFilter] = useState(true);
+  const [showProfitPeriodModal, setShowProfitPeriodModal] = useState(false);
+
+  // 🔄 LOAD ALL SALES IN BACKGROUND: After initial UI renders
+  useEffect(() => {
+    if (!user || !company || essentialDataLoading) return;
+    
+    setLoadingAllSales(true);
+    
+    const unsubscribe = subscribeToAllSales(company.id, (allSalesData) => {
+      setAllSales(allSalesData);
+      setLoadingAllSales(false);
+    });
+    
+    // Cleanup function
+    return () => {
+      unsubscribe();
+    };
+  }, [user, company, essentialDataLoading]);
+
+  // Use filtered data hook
+  const { filteredSales, filteredExpenses, previousPeriodSales } = useFilteredDashboardData({
+    sales,
+    expenses,
+    dateRange,
+    allSales
+  });
+
+  // Calculate stats for objectives
+  const totalOrders = calculateTotalOrders(filteredSales);
+  const totalDeliveryFee = calculateTotalDeliveryFee(filteredSales);
+  const totalProductsSold = calculateTotalProductsSold(filteredSales);
+
+  const statsMap = useMemo(() => {
+    // We need profit and totalExpenses for statsMap, but they're calculated in useDashboardStats
+    // For now, we'll calculate them here for statsMap, but ideally this should be refactored
+    return {
+      profit: 0, // Will be calculated in ObjectivesBar
+      totalExpenses: 0, // Will be calculated in ObjectivesBar
+      totalProductsSold,
+      deliveryFee: totalDeliveryFee,
+      totalSalesAmount: 0, // Will be calculated in ObjectivesBar
+      totalSalesCount: totalOrders,
+    };
+  }, [totalProductsSold, totalDeliveryFee, totalOrders]);
+
+  // Use dashboard charts hook
+  const {
+    salesByCategoryData,
+    expensesByCategoryData,
+    salesBySourceData,
+    salesByPaymentStatusData
+  } = useDashboardCharts({
+    filteredSales,
+    filteredExpenses,
+    products,
+    sources
+  });
+
+  // Use dashboard stats hook
+  const { statCards } = useDashboardStats({
+    filteredSales,
+    filteredExpenses,
+    previousPeriodSales,
+    products,
+    stockChanges,
+    expenses,
+    dateRange,
+    profitPeriodPreference,
+    salesLoading,
+    expensesLoading,
+    stockChangesLoading
+  });
+
+  // Calculate custom date for profit period modal
+  const customDate = profitPeriodPreference?.periodStartDate 
+    ? new Date((profitPeriodPreference.periodStartDate as { seconds: number }).seconds * 1000)
+    : null;
+
+  // Top sales (highest value sales)
+  const topSalesData = useMemo(() => {
+    return [...filteredSales]
+      .sort((a, b) => b.totalAmount - a.totalAmount)
+      .slice(0, 5);
+  }, [filteredSales]);
+
+  // Calculate best clients
+  const bestClientsData = useMemo(() => {
+    const clientMap: Record<string, { name: string; phone: string; orders: number; totalSpent: number }> = {};
+    
+    filteredSales.forEach(sale => {
+      const phone = sale.customerInfo?.phone;
+      if (!phone) return;
+      
+      if (!clientMap[phone]) {
+        clientMap[phone] = {
+          name: sale.customerInfo?.name || 'Aucun client',
+          phone,
+          orders: 0,
+          totalSpent: 0
+        };
+      }
+      
+      clientMap[phone].orders += 1;
+      clientMap[phone].totalSpent += sale.totalAmount;
+    });
+    
+    return Object.values(clientMap)
+      .sort((a, b) => b.totalSpent - a.totalSpent)
+      .slice(0, 5)
+      .map(client => ({
+        initials: client.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase(),
+        name: client.name,
+        orders: client.orders,
+        totalSpent: client.totalSpent
+      }));
+  }, [filteredSales]);
+
+  // Latest orders (most recent 5)
+  const latestOrders = useMemo(() => {
+    return [...filteredSales]
+      .sort((a, b) => {
+        const aTime = a.createdAt?.seconds || 0;
+        const bTime = b.createdAt?.seconds || 0;
+        return bTime - aTime;
+      })
+      .slice(0, 5);
+  }, [filteredSales]);
+
+  // Best selling products for list (with product IDs)
+  const productSalesMap = useMemo(() => {
+    const map: Record<string, { name: string; quantity: number; sales: number }> = {};
+    filteredSales.forEach(sale => {
+      sale.products.forEach((product: SaleProduct) => {
+        const productData = products?.find(p => p.id === product.productId);
+        if (!productData) return;
+        if (!map[product.productId]) {
+          map[product.productId] = { name: productData.name, quantity: 0, sales: 0 };
+        }
+        map[product.productId].quantity += product.quantity;
+        map[product.productId].sales += (product.negotiatedPrice || product.basePrice) * product.quantity;
+      });
+    });
+    return map;
+  }, [filteredSales, products]);
+
+  const bestProductsListData = useMemo(() => {
+    return Object.entries(productSalesMap)
+      .map(([productId, data]) => ({
+        productId,
+        name: data.name,
+        orders: filteredSales.filter(sale => 
+          sale.products.some((p: SaleProduct) => p.productId === productId)
+        ).length,
+        revenue: data.sales
+      }))
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 3);
+  }, [productSalesMap, filteredSales]);
+
+  const metricsOptions = [
+    { value: 'profit', label: t('dashboard.stats.profit') },
+    { value: 'totalExpenses', label: t('dashboard.stats.totalExpenses') },
+    { value: 'totalProductsSold', label: t('dashboard.stats.totalProductsSold') },
+    { value: 'deliveryFee', label: t('dashboard.stats.deliveryFee') },
+    { value: 'totalSalesAmount', label: t('dashboard.stats.totalSalesAmount') },
+    { value: 'totalSalesCount', label: t('dashboard.stats.totalSalesCount') },
+  ];
+
+  // 🚀 SHOW UI IMMEDIATELY: Only block for essential data
+  if (essentialDataLoading) {
+    return <LoadingScreen />;
+  }
+
+  return (
+    <div className="pb-16 md:pb-0">
+      {/* Dashboard Header */}
+      <DashboardHeader
+        onViewReports={() => navigate(`/company/${companyId}/reports?period=today`)}
+        onShowGuide={() => setShowCalculationsModal(true)}
+      />
+
+      {/* Main Layout: 70% / 30% split after header */}
+      <div className="grid grid-cols-1 lg:grid-cols-10 gap-6">
+        {/* Left Column - 70% (7 columns) */}
+        <div className="lg:col-span-7 space-y-6">
+          {/* Objectives global bar */}
+          {(expensesLoading || stockChangesLoading) ? (
+            <SkeletonObjectivesBar />
+          ) : (
+            <ObjectivesBar
+              onAdd={() => { setShowObjectivesModal(true); }}
+              onView={() => { setShowObjectivesModal(true); }}
+              stats={statsMap}
+              dateRange={dateRange}
+              applyDateFilter={applyDateFilter}
+              onToggleFilter={setApplyDateFilter}
+              sales={sales}
+              expenses={expenses}
+              products={products}
+              stockChanges={stockChanges}
+            />
+          )}
+          {showObjectivesModal && (
+            <ObjectivesModal
+              isOpen={showObjectivesModal}
+              onClose={() => setShowObjectivesModal(false)}
+              stats={statsMap}
+              dateRange={dateRange}
+              metricsOptions={metricsOptions}
+              applyDateFilter={applyDateFilter}
+              sales={sales}
+              expenses={expenses}
+              products={products}
+              stockChanges={stockChanges}
+              onAfterAdd={() => setApplyDateFilter(false)}
+            />
+          )}
+
+          {/* Period Filter */}
+          <div>
+            <DateRangePicker 
+              onChange={(range) => {
+                setDateRange(range);
+              }}
+              className="w-full" 
+            />
+          </div>
+
+          {/* Profit Period Modal */}
+          {showProfitPeriodModal && (
+            <ProfitPeriodModal
+              isOpen={showProfitPeriodModal}
+              onClose={() => setShowProfitPeriodModal(false)}
+              currentPeriodType={profitPeriodPreference?.periodType}
+              currentCustomDate={customDate}
+              onSetPeriod={setPeriod}
+              onClearPeriod={clearPeriod}
+            />
+          )}
+          
+          {/* Stats section */}
+          <StatsSection statCards={statCards} />
+          
+          {/* Data Loading Status */}
+          <DataLoadingStatus
+            loadingAllSales={loadingAllSales}
+            allSalesCount={allSales.length}
+            recentSalesCount={sales?.length || 0}
+          />
+
+          {/* Donut Charts */}
+          <DonutChartsSection
+            salesByCategoryData={salesByCategoryData}
+            expensesByCategoryData={expensesByCategoryData}
+            salesBySourceData={salesBySourceData}
+            salesByPaymentStatusData={salesByPaymentStatusData}
+            loading={{
+              sales: salesLoading,
+              products: productsLoading,
+              expenses: expensesLoading
+            }}
+          />
+        </div>
+
+        {/* Right Column - 30% (3 columns) - All Tables */}
+        <div className="lg:col-span-3 space-y-6">
+          {/* Top Sales */}
+          <TopSales
+            sales={topSalesData}
+            onViewMore={() => navigate(`/company/${companyId}/sales`)}
+          />
+
+          {/* Best Clients */}
+          <BestClients
+            clients={bestClientsData}
+            onViewMore={() => navigate(`/company/${companyId}/contacts`)}
+          />
+
+          {/* Best Products */}
+          <BestProductsList
+            products={bestProductsListData}
+            allProducts={products || []}
+            onViewAll={() => navigate(`/company/${companyId}/products`)}
+          />
+
+          {/* Latest Orders Table */}
+          {(salesLoading || loadingAllSales) ? (
+            <SkeletonTable rows={5} />
+          ) : (
+            <LatestOrdersTable
+              orders={latestOrders}
+              onOrderClick={(order: Sale) => navigate(`/company/${companyId}/sales?orderId=${order.id}`)}
+            />
+          )}
+        </div>
+      </div>
+
+      {/* Calculations Modal */}
+      <CalculationsModal
+        isOpen={showCalculationsModal}
+        onClose={() => setShowCalculationsModal(false)}
+      />
+    </div>
+  );
+};
+
+export default Dashboard;

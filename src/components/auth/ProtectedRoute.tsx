@@ -1,7 +1,7 @@
 import { Navigate, Outlet } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext';
-import LoadingScreen from '../common/LoadingScreen';
-import { getUserSession, hasActiveSession } from '../../utils/userSession';
+import { useAuth } from '@contexts/AuthContext';
+import { LoadingScreen } from '@components/common';
+import { getUserSession, hasActiveSession } from '@utils/storage/userSession';
 import { useEffect, useState } from 'react';
 
 const ProtectedRoute = () => {

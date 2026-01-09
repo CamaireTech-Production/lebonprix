@@ -15,7 +15,6 @@ interface ExpenseFiltersProps {
 const ExpenseFilters = ({ 
   searchQuery, 
   onSearchChange, 
-  dateRange, 
   onDateRangeChange,
   showDateRange = true 
 }: ExpenseFiltersProps) => {

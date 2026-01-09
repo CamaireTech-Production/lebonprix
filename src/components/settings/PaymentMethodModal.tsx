@@ -11,6 +11,7 @@ interface PaymentMethodModalProps {
   onUpdate: (id: string, paymentMethod: Partial<PaymentMethod>) => void;
   onDelete: (id: string) => void;
   paymentMethods: PaymentMethod[];
+  editingMethodId?: string | null;
 }
 
 const PaymentMethodModal: React.FC<PaymentMethodModalProps> = ({
@@ -19,7 +20,8 @@ const PaymentMethodModal: React.FC<PaymentMethodModalProps> = ({
   onSave,
   onUpdate,
   onDelete,
-  paymentMethods
+  paymentMethods,
+  editingMethodId
 }) => {
   const [editingMethod, setEditingMethod] = useState<PaymentMethod | null>(null);
   const [formData, setFormData] = useState({
@@ -29,6 +31,16 @@ const PaymentMethodModal: React.FC<PaymentMethodModalProps> = ({
     isActive: true
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    // If editingMethodId is provided, find and set the method to edit
+    if (editingMethodId && !editingMethod) {
+      const methodToEdit = paymentMethods.find(m => m.id === editingMethodId);
+      if (methodToEdit) {
+        setEditingMethod(methodToEdit);
+      }
+    }
+  }, [editingMethodId, paymentMethods, editingMethod]);
 
   useEffect(() => {
     if (editingMethod) {
@@ -65,8 +77,8 @@ const PaymentMethodModal: React.FC<PaymentMethodModalProps> = ({
       newErrors.value = 'Please enter a valid phone number';
     }
 
-    if (formData.type === 'ussd' && !/^\*[\d\*#]+#$/.test(formData.value)) {
-      newErrors.value = 'USSD code should start with * and end with # (e.g., *126#)';
+    if (formData.type === 'ussd' && !/^[*#][\d\*#]+#$/.test(formData.value)) {
+      newErrors.value = 'USSD code should start with * or # and end with # (e.g., *126# or #150*678903456#)';
     }
 
     if (formData.type === 'link' && !/^https?:\/\/.+/.test(formData.value)) {
@@ -100,6 +112,13 @@ const PaymentMethodModal: React.FC<PaymentMethodModalProps> = ({
     }
 
     setEditingMethod(null);
+    setFormData({
+      name: '',
+      type: 'phone',
+      value: '',
+      isActive: true
+    });
+    setErrors({});
     onClose();
   };
 
@@ -115,6 +134,13 @@ const PaymentMethodModal: React.FC<PaymentMethodModalProps> = ({
 
   const handleCancel = () => {
     setEditingMethod(null);
+    setFormData({
+      name: '',
+      type: 'phone',
+      value: '',
+      isActive: true
+    });
+    setErrors({});
     onClose();
   };
 
@@ -149,7 +175,7 @@ const PaymentMethodModal: React.FC<PaymentMethodModalProps> = ({
       case 'phone':
         return '+237 6XX XXX XXX';
       case 'ussd':
-        return '*126#';
+        return '*126# or #150*678903456#';
       case 'link':
         return 'https://payment.example.com';
       default:

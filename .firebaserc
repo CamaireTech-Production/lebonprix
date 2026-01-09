@@ -1,0 +1,8 @@
+{
+  "projects": {
+    "default": "le-bon-prix-finances",
+    "dev": "geskap-9a696",
+    "prod": "le-bon-prix-finances"
+  }
+}
+

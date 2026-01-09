@@ -1,5 +1,5 @@
 // src/services/storage/FinanceTypesManager.ts
-import localStorageService from '../localStorageService';
+import localStorageService from '@services/utilities/localStorageService';
 
 const FINANCE_TYPES_SETUP_PREFIX = 'finance_types_setup_';
 const FINANCE_TYPES_SETUP_TTL = 365 * 24 * 60 * 60 * 1000; // 1 year (setup is permanent)

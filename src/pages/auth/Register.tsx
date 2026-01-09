@@ -1,26 +1,37 @@
-import { useState, FormEvent, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext';
-import Button from '../../components/common/Button';
-import Input from '../../components/common/Input';
+import { useState, FormEvent, useEffect, useCallback } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useAuth } from '@contexts/AuthContext';
+import { Button, Input, LoadingScreen } from '@components/common';
 import { FirebaseError } from 'firebase/app';
-import LoadingScreen from '../../components/common/LoadingScreen';
-import { signUpUser } from '../../services/authService';
+import { signUpUser } from '@services/auth/authService';
+import { showErrorToast, showSuccessToast } from '@utils/core/toast';
+import { validateUsername } from '@utils/validation/usernameValidation';
+import { checkUsernameAvailability } from '@services/utilities/userService';
+import { getInvitation } from '@services/firestore/employees/invitationService';
 
 const Register = () => {
-  // User form state only
-  const [firstname, setFirstname] = useState('');
-  const [lastname, setLastname] = useState('');
+  // User form state
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [agreeTerms, setAgreeTerms] = useState(false);
-  const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   
-  const { currentUser, loading, signOut, signIn } = useAuth();
+  // Field errors state
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  
+  // Username availability check state
+  const [usernameAvailability, setUsernameAvailability] = useState<{
+    checking: boolean;
+    available: boolean | null;
+    message: string;
+  }>({ checking: false, available: null, message: '' });
+  
+  const { currentUser, loading, signOut, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const inviteId = searchParams.get('invite');
 
   // Déconnecter automatiquement l'utilisateur s'il est déjà connecté
   useEffect(() => {
@@ -29,72 +40,136 @@ const Register = () => {
     }
   }, [currentUser, loading, signOut]);
 
+  // Pre-fill email from invitation if present
+  useEffect(() => {
+    if (inviteId && !email) {
+      const loadInvitationEmail = async () => {
+        try {
+          const invitation = await getInvitation(inviteId);
+          if (invitation && invitation.email) {
+            setEmail(invitation.email);
+          }
+        } catch (error) {
+          console.error('Error loading invitation email:', error);
+          // Silently fail - user can still enter email manually
+        }
+      };
+      loadInvitationEmail();
+    }
+  }, [inviteId, email]);
+
+  // Debounced username availability check
+  useEffect(() => {
+    if (!username || username.trim().length === 0) {
+      setUsernameAvailability({ checking: false, available: null, message: '' });
+      return;
+    }
+
+    // Validate format first
+    const validation = validateUsername(username);
+    if (!validation.valid) {
+      setUsernameAvailability({
+        checking: false,
+        available: false,
+        message: validation.error || 'Format invalide'
+      });
+      return;
+    }
+
+    // Debounce the availability check
+    const timeoutId = setTimeout(async () => {
+      setUsernameAvailability({ checking: true, available: null, message: 'Vérification...' });
+      try {
+        const isAvailable = await checkUsernameAvailability(username);
+        setUsernameAvailability({
+          checking: false,
+          available: isAvailable,
+          message: isAvailable ? 'Nom d\'utilisateur disponible' : 'Ce nom d\'utilisateur est déjà utilisé'
+        });
+      } catch (error) {
+        setUsernameAvailability({
+          checking: false,
+          available: null,
+          message: 'Erreur lors de la vérification'
+        });
+      }
+    }, 500); // 500ms debounce
+
+    return () => clearTimeout(timeoutId);
+  }, [username]);
+
   if (loading) {
     return <LoadingScreen />;
   }
 
-  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.replace(/\D/g, ''); // Remove non-digits
-    if (value.length <= 9) { // Only allow 9 digits after +237
-      setPhone(value);
-    }
-  };
-
   const validateForm = () => {
-    const errors: string[] = [];
+    const errors: Record<string, string> = {};
+    let hasErrors = false;
 
-    // Required fields validation
-    if (!firstname.trim()) {
-      errors.push('Le prénom est requis');
+    // Required fields validation with individual error messages
+    if (!username.trim()) {
+      errors.username = 'Le nom d\'utilisateur est requis';
+      hasErrors = true;
+    } else {
+      const usernameValidation = validateUsername(username);
+      if (!usernameValidation.valid) {
+        errors.username = usernameValidation.error || 'Nom d\'utilisateur invalide';
+        hasErrors = true;
+      } else if (usernameAvailability.available === false) {
+        errors.username = 'Ce nom d\'utilisateur est déjà utilisé';
+        hasErrors = true;
+      } else if (usernameAvailability.checking) {
+        errors.username = 'Vérification du nom d\'utilisateur en cours...';
+        hasErrors = true;
+      }
     }
-    if (!lastname.trim()) {
-      errors.push('Le nom est requis');
-    }
+
     if (!email.trim()) {
-      errors.push('L\'adresse email est requise');
+      errors.email = 'L\'adresse email est requise';
+      hasErrors = true;
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      errors.push('Veuillez entrer une adresse email valide');
+      errors.email = 'Veuillez entrer une adresse email valide';
+      hasErrors = true;
     }
+
     if (!password) {
-      errors.push('Le mot de passe est requis');
+      errors.password = 'Le mot de passe est requis';
+      hasErrors = true;
     } else if (password.length < 6) {
-      errors.push('Le mot de passe doit contenir au moins 6 caractères');
+      errors.password = 'Le mot de passe doit contenir au moins 6 caractères';
+      hasErrors = true;
+    } else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(password)) {
+      errors.password = 'Le mot de passe doit contenir au moins une majuscule, une minuscule et un chiffre';
+      hasErrors = true;
     }
+
     if (!confirmPassword) {
-      errors.push('La confirmation du mot de passe est requise');
+      errors.confirmPassword = 'La confirmation du mot de passe est requise';
+      hasErrors = true;
+    } else if (password !== confirmPassword) {
+      errors.confirmPassword = 'Les mots de passe ne correspondent pas';
+      hasErrors = true;
     }
-    
-    if (password !== confirmPassword) {
-      errors.push('Les mots de passe ne correspondent pas');
-    }
-    
+
     if (!agreeTerms) {
-      errors.push('Vous devez accepter les conditions d\'utilisation');
+      errors.agreeTerms = 'Vous devez accepter les conditions d\'utilisation';
+      hasErrors = true;
     }
 
-    // Validate phone number format (9 digits after +237) - only if provided
-    if (phone && phone.length !== 9) {
-      errors.push('Le numéro de téléphone doit contenir 9 chiffres après +237');
-    }
+    // Set field errors for highlighting
+    setFieldErrors(errors);
 
-    // Validate name length
-    if (firstname.length < 2) {
-      errors.push('Le prénom doit contenir au moins 2 caractères');
-    }
-    if (lastname.length < 2) {
-      errors.push('Le nom doit contenir au moins 2 caractères');
-    }
-
-    // Validate password strength
-    if (password && !/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(password)) {
-      errors.push('Le mot de passe doit contenir au moins une majuscule, une minuscule et un chiffre');
-    }
-    
-    if (errors.length > 0) {
-      setError(errors.join('\n'));
+    if (hasErrors) {
+      // Show toast with first error or summary
+      const firstError = Object.values(errors)[0];
+      if (firstError) {
+        showErrorToast(firstError);
+      } else {
+        showErrorToast('Veuillez corriger les erreurs dans le formulaire');
+      }
       return false;
     }
-    
+
     return true;
   };
 
@@ -106,47 +181,58 @@ const Register = () => {
     }
     
     try {
-      setError('');
       setIsLoading(true);
 
       const userData = {
-        firstname: firstname.trim(),
-        lastname: lastname.trim(),
-        phone: phone ? `+237${phone}` : undefined
+        username: username.trim()
       };
 
       await signUpUser(email, password, userData);
       
-      // Connexion automatique après inscription
-      await signIn(email, password);
+      // Note: L'utilisateur est déjà connecté après signUpUser
+      // Pas besoin de signIn() car createUserWithEmailAndPassword connecte automatiquement
+      // onAuthStateChanged dans AuthContext gérera la redirection
+      
+      // Show success message
+      showSuccessToast('Compte créé avec succès ! Redirection en cours...');
+      
+      // Petite attente pour laisser le temps à onAuthStateChanged de traiter
+      await new Promise(resolve => setTimeout(resolve, 100));
       
       // Redirection vers la page de sélection de mode
+      // (onAuthStateChanged peut aussi gérer cela, mais on le fait ici pour être sûr)
       navigate('/mode-selection');
-    } catch (err) {
-      if (err instanceof FirebaseError) {
-        switch (err.code) {
+    } catch (err: any) {
+      // Check for Firebase error code (works for both FirebaseError and errors with code property)
+      const errorCode = err?.code || (err instanceof FirebaseError ? err.code : null);
+      
+      if (errorCode) {
+        switch (errorCode) {
           case 'auth/email-already-in-use':
-            setError(
-              'Cette adresse email est déjà utilisée. ' +
-              'Veuillez vous connecter si vous avez déjà un compte, ' +
-              'ou utiliser une autre adresse email.'
+            showErrorToast(
+              '❌ Cette adresse email est déjà utilisée. Veuillez vous connecter avec votre compte existant.'
             );
             break;
           case 'auth/invalid-email':
-            setError('L\'adresse email n\'est pas valide');
+            showErrorToast('❌ L\'adresse email n\'est pas valide. Veuillez vérifier votre email.');
             break;
           case 'auth/operation-not-allowed':
-            setError('L\'inscription par email n\'est pas activée. Veuillez contacter le support.');
+            showErrorToast('❌ L\'inscription par email n\'est pas activée. Veuillez contacter le support.');
             break;
           case 'auth/weak-password':
-            setError('Le mot de passe est trop faible. Veuillez utiliser un mot de passe plus fort.');
+            showErrorToast('❌ Le mot de passe est trop faible. Veuillez utiliser un mot de passe plus fort.');
+            break;
+          case 'auth/network-request-failed':
+            showErrorToast('❌ Erreur de connexion. Vérifiez votre connexion internet et réessayez.');
             break;
           default:
-            setError('Une erreur est survenue lors de la création du compte. Veuillez réessayer.');
+            showErrorToast(`❌ Erreur lors de la création du compte: ${err?.message || 'Erreur inconnue'}. Veuillez réessayer.`);
             console.error('Registration error:', err);
         }
       } else {
-        setError('Une erreur inattendue est survenue. Veuillez réessayer.');
+        // Handle non-Firebase errors
+        const errorMessage = err?.message || 'Une erreur inattendue est survenue';
+        showErrorToast(`❌ ${errorMessage}. Veuillez réessayer.`);
         console.error('Unexpected error:', err);
       }
     } finally {
@@ -158,112 +244,108 @@ const Register = () => {
     <div>
       <h2 className="text-2xl font-bold text-gray-900 mb-6">Créer votre compte</h2>
       
-      {error && (
-        <div className="bg-red-50 text-red-800 p-4 rounded-md mb-4">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <div className="ml-3">
-              <h3 className="text-sm font-medium text-red-800">Erreur d'inscription</h3>
-              <div className="mt-2 text-sm text-red-700 whitespace-pre-line">
-                {error}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-      
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Personal Information Section */}
+        {/* Account Information Section */}
         <div className="space-y-4">
-          <h3 className="text-lg font-medium text-gray-900">Informations personnelles</h3>
-          
-          <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">
+              Nom d'utilisateur <span className="text-red-500">*</span>
+            </label>
             <Input
-              label="Prénom"
-              id="firstname"
-              name="firstname"
+              id="username"
+              name="username"
               type="text"
-              value={firstname}
-              onChange={(e) => setFirstname(e.target.value)}
+              autoComplete="username"
+              value={username}
+              onChange={(e) => {
+                setUsername(e.target.value);
+                // Clear error when user starts typing
+                if (fieldErrors.username) {
+                  setFieldErrors(prev => ({ ...prev, username: '' }));
+                }
+              }}
+              error={fieldErrors.username}
+              helpText={
+                usernameAvailability.checking
+                  ? 'Vérification...'
+                  : usernameAvailability.available === true
+                  ? '✓ Nom d\'utilisateur disponible'
+                  : usernameAvailability.available === false
+                  ? '✗ Ce nom d\'utilisateur est déjà utilisé'
+                  : '3-30 caractères, lettres, chiffres, tirets et underscores'
+              }
+              className={fieldErrors.username ? 'border-red-500' : ''}
               required
-              helpText="Minimum 2 caractères"
-            />
-            
-            <Input
-              label="Nom"
-              id="lastname"
-              name="lastname"
-              type="text"
-              value={lastname}
-              onChange={(e) => setLastname(e.target.value)}
-              required
-              helpText="Minimum 2 caractères"
             />
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Numéro de téléphone
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+              Email <span className="text-red-500">*</span>
             </label>
-            <div className="flex rounded-md shadow-sm">
-              <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 sm:text-sm">
-                +237
-              </span>
-              <Input
-                type="tel"
-                name="phone"
-                value={phone}
-                onChange={handlePhoneChange}
-                placeholder="678904568"
-                className="flex-1 rounded-l-none"
-                helpText="9 chiffres après +237 (optionnel)"
-              />
-            </div>
+            <Input
+              id="email"
+              name="email"
+              type="email"
+              autoComplete="email"
+              value={email}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                if (fieldErrors.email) {
+                  setFieldErrors(prev => ({ ...prev, email: '' }));
+                }
+              }}
+              error={fieldErrors.email}
+              helpText="Une adresse email valide"
+              className={fieldErrors.email ? 'border-red-500' : ''}
+              required
+            />
           </div>
-        </div>
-
-        {/* Account Information Section */}
-        <div className="space-y-4">
-          <h3 className="text-lg font-medium text-gray-900">Informations du compte</h3>
           
-          <Input
-            label="Email"
-            id="email"
-            name="email"
-            type="email"
-            autoComplete="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            helpText="Une adresse email valide"
-          />
+          <div>
+            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+              Mot de passe <span className="text-red-500">*</span>
+            </label>
+            <Input
+              id="password"
+              name="password"
+              type="password"
+              autoComplete="new-password"
+              value={password}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                if (fieldErrors.password) {
+                  setFieldErrors(prev => ({ ...prev, password: '' }));
+                }
+              }}
+              error={fieldErrors.password}
+              helpText="Minimum 6 caractères, incluant une majuscule, une minuscule et un chiffre"
+              className={fieldErrors.password ? 'border-red-500' : ''}
+              required
+            />
+          </div>
           
-          <Input
-            label="Mot de passe"
-            id="password"
-            name="password"
-            type="password"
-            autoComplete="new-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            helpText="Minimum 6 caractères, incluant une majuscule, une minuscule et un chiffre"
-          />
-          
-          <Input
-            label="Confirmer le mot de passe"
-            id="confirm-password"
-            name="confirmPassword"
-            type="password"
-            autoComplete="new-password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            required
-          />
+          <div>
+            <label htmlFor="confirm-password" className="block text-sm font-medium text-gray-700 mb-1">
+              Confirmer le mot de passe <span className="text-red-500">*</span>
+            </label>
+            <Input
+              id="confirm-password"
+              name="confirmPassword"
+              type="password"
+              autoComplete="new-password"
+              value={confirmPassword}
+              onChange={(e) => {
+                setConfirmPassword(e.target.value);
+                if (fieldErrors.confirmPassword) {
+                  setFieldErrors(prev => ({ ...prev, confirmPassword: '' }));
+                }
+              }}
+              error={fieldErrors.confirmPassword}
+              className={fieldErrors.confirmPassword ? 'border-red-500' : ''}
+              required
+            />
+          </div>
         </div>
         
         <div className="flex items-start">
@@ -272,19 +354,30 @@ const Register = () => {
               id="agree-terms"
               name="agreeTerms"
               type="checkbox"
-              className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded"
+              className={`h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded ${
+                fieldErrors.agreeTerms ? 'border-red-500' : ''
+              }`}
               checked={agreeTerms}
-              onChange={(e) => setAgreeTerms(e.target.checked)}
+              onChange={(e) => {
+                setAgreeTerms(e.target.checked);
+                if (fieldErrors.agreeTerms) {
+                  setFieldErrors(prev => ({ ...prev, agreeTerms: '' }));
+                }
+              }}
               required
             />
           </div>
           <div className="ml-3 text-sm">
-            <label htmlFor="agree-terms" className="text-gray-700">
+            <label htmlFor="agree-terms" className={`${fieldErrors.agreeTerms ? 'text-red-600' : 'text-gray-700'}`}>
               J'accepte les{' '}
               <a href="#" className="text-indigo-600 hover:text-indigo-500">
                 conditions d'utilisation
-              </a>
+              </a>{' '}
+              <span className="text-red-500">*</span>
             </label>
+            {fieldErrors.agreeTerms && (
+              <p className="mt-1 text-sm text-red-500">{fieldErrors.agreeTerms}</p>
+            )}
           </div>
         </div>
         
@@ -297,6 +390,67 @@ const Register = () => {
           Créer mon compte
         </Button>
       </form>
+
+      {/* Divider */}
+      <div className="mt-6">
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-gray-300"></div>
+          </div>
+          <div className="relative flex justify-center text-sm">
+            <span className="px-2 bg-white text-gray-500">Ou</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Google Sign In Button */}
+      <div className="mt-6">
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full border-gray-300 hover:bg-gray-50"
+          icon={
+            <svg className="w-5 h-5" viewBox="0 0 24 24">
+              <path
+                fill="#4285F4"
+                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+              />
+              <path
+                fill="#34A853"
+                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+              />
+              <path
+                fill="#FBBC05"
+                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+              />
+              <path
+                fill="#EA4335"
+                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+              />
+            </svg>
+          }
+          onClick={async () => {
+            if (isLoading) return;
+            try {
+              setIsLoading(true);
+              await signInWithGoogle();
+              showSuccessToast('Inscription avec Google réussie ! Redirection en cours...');
+              // Small delay to let onAuthStateChanged handle routing
+              await new Promise(resolve => setTimeout(resolve, 100));
+              navigate('/mode-selection');
+            } catch (err: any) {
+              console.error('Google sign in error:', err);
+              setIsLoading(false);
+              showErrorToast(err.message || 'Erreur lors de l\'inscription avec Google. Veuillez réessayer.');
+            }
+          }}
+          isLoading={isLoading}
+          loadingText="Inscription en cours..."
+          disabled={isLoading}
+        >
+          Continuer avec Google
+        </Button>
+      </div>
       
       <div className="mt-6">
         <p className="text-center text-sm text-gray-600">

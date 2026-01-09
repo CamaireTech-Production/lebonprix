@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode, startTransition } from 'react';
 import type { Product } from '../types/models';
-import { loadCartData, saveCheckoutData, clearCheckoutData } from '../utils/checkoutPersistence';
+import { loadCartData, saveCheckoutData, clearCheckoutData } from '@utils/storage/checkoutPersistence';
 
 // Cart item interface (following the documentation structure)
 interface CartItem {
@@ -17,7 +17,7 @@ interface CartItem {
 // Cart context interface
 interface CartContextType {
   cart: CartItem[];
-  addToCart: (product: Product, quantity?: number, selectedColor?: string, selectedSize?: string) => void;
+  addToCart: (product: Product, quantity?: number, selectedColor?: string, selectedSize?: string, companyId?: string) => void;
   updateCartItem: (productId: string, quantity: number, selectedColor?: string, selectedSize?: string) => void;
   removeFromCart: (productId: string, selectedColor?: string, selectedSize?: string) => void;
   clearCart: () => void;
@@ -50,7 +50,8 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     product: Product, 
     quantity: number = 1, 
     selectedColor?: string, 
-    selectedSize?: string
+    selectedSize?: string,
+    companyId?: string
   ) => {
     const itemKey = getItemKey(product.id, selectedColor, selectedSize);
     
@@ -69,7 +70,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         
         // Dispatch event to open cart drawer
         window.dispatchEvent(new CustomEvent('cart:itemAdded', { 
-          detail: { product, quantity, isUpdate: true } 
+          detail: { product, quantity, isUpdate: true, companyId } 
         }));
         
         return updatedCart;
@@ -88,13 +89,20 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         
         // Dispatch event to open cart drawer
         window.dispatchEvent(new CustomEvent('cart:itemAdded', { 
-          detail: { product, quantity, isUpdate: false } 
+          detail: { product, quantity, isUpdate: false, companyId } 
         }));
         
         return [...prevCart, newItem];
       }
     });
-  }, []);
+    
+    // Set currentCompanyId if provided (use startTransition to avoid render warning)
+    if (companyId && companyId !== currentCompanyId) {
+      startTransition(() => {
+        setCurrentCompanyId(companyId);
+      });
+    }
+  }, [currentCompanyId]);
 
   // Update cart item quantity
   const updateCartItem = useCallback((

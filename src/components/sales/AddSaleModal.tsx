@@ -1,18 +1,18 @@
-import { useAddSaleForm } from '../../hooks/useAddSaleForm';
-import Modal, { ModalFooter } from '../common/Modal';
-import Input from '../common/Input';
-import Button from '../common/Button';
+import { useAddSaleForm } from '@hooks/forms/useAddSaleForm';
+import { Modal, ModalFooter, Input, PriceInput, Button, ImageWithSkeleton, LocationAutocomplete } from '@components/common';
 import Select from 'react-select';
 import { Plus, Trash2, Info, ChevronDown, ChevronUp} from 'lucide-react';
-import { ImageWithSkeleton } from '../common/ImageWithSkeleton';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { logError } from '../../utils/logger';
+import { logError } from '@utils/core/logger';
+import { formatPrice } from '@utils/formatting/formatPrice';
 import type { Sale, StockBatch } from '../../types/models';
 import SaleDetailsModal from './SaleDetailsModal';
-import { getProductStockBatches } from '../../services/firestore';
-import { showWarningToast } from '../../utils/toast';
-import LocationAutocomplete from '../common/LocationAutocomplete';
+import { getProductStockBatches } from '@services/firestore/stock/stockService';
+import { showWarningToast } from '@utils/core/toast';
+import { useAuth } from '@contexts/AuthContext';
+import { useAllStockBatches } from '@hooks/business/useStockBatches';
+import { buildProductStockMap, getEffectiveProductStock } from '@utils/inventory/stockHelpers';
 
 const LOW_STOCK_THRESHOLD = 5;
 
@@ -31,6 +31,16 @@ interface ProductStockInfo {
 
 const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdded }) => {
   const { t } = useTranslation();
+  const { company } = useAuth();
+  
+  // Load all stock batches to display stock in product selection list
+  const { batches: allBatches, loading: batchesLoading } = useAllStockBatches('product');
+  
+  // Build stock map from batches for quick stock lookup
+  const stockMap = useMemo(
+    () => buildProductStockMap(allBatches || []),
+    [allBatches]
+  );
 
   const {
     formData,
@@ -38,10 +48,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
     isSubmitting,
     autoSaveCustomer,
     setAutoSaveCustomer,
-    foundCustomer,
-    isSavingCustomer,
     showCustomerDropdown,
-    setShowCustomerDropdown,
     customerSearch,
 
     phoneInputRef,
@@ -59,7 +66,6 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
     calculateProductTotal,
     calculateTotal,
     handleAddSale,
-    handleSaveCustomer,
     handleSelectCustomer,
   } = useAddSaleForm();
 
@@ -83,7 +89,10 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
     setLoadingStockInfo(prev => new Set(prev).add(productId));
     
     try {
-      const batches = await getProductStockBatches(productId);
+      if (!company?.id) {
+        throw new Error('Company ID not available');
+      }
+      const batches = await getProductStockBatches(productId, company.id);
       const availableBatches = batches.filter(batch => batch.remainingQuantity > 0 && batch.status === 'active');
       const totalStock = availableBatches.reduce((sum, batch) => sum + batch.remainingQuantity, 0);
       const totalValue = availableBatches.reduce((sum, batch) => sum + (batch.costPrice * batch.remainingQuantity), 0);
@@ -118,7 +127,8 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
 
 
   // Product options for react-select
-  const availableProducts = products?.filter(p => p.isAvailable && p.stock > 0) || [];
+  // Filter by availability only - stock is checked from batches dynamically
+  const availableProducts = products?.filter(p => p.isAvailable) || [];
   const filteredProducts = (productSearchQuery
     ? availableProducts.filter(product =>
         product.name.toLowerCase().includes(productSearchQuery.toLowerCase())
@@ -138,7 +148,19 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
         <div>
           <div className="font-medium">{product.name}</div>
           <div className="text-sm text-gray-500">
-            {product.stock} in stock - {product.sellingPrice.toLocaleString()} XAF
+            {(() => {
+              // First check if we have detailed stock info (for products already added to form)
+              const stockInfo = productStockInfo.get(product.id);
+              if (stockInfo) {
+                return `${stockInfo.totalStock} in stock`;
+              }
+              // Otherwise, use stockMap from batches (already loaded)
+              if (!batchesLoading && stockMap) {
+                const stock = getEffectiveProductStock(product, stockMap);
+                return `${stock} in stock`;
+              }
+              return 'Loading stock...';
+            })()} - {formatPrice(product.sellingPrice)} XAF
           </div>
         </div>
       </div>
@@ -177,7 +199,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
     }
 
     const batchInfo = stockInfo.batches.map(batch => 
-      `${batch.remainingQuantity} at ${batch.costPrice.toLocaleString()} XAF`
+      `${batch.remainingQuantity} at ${formatPrice(batch.costPrice)} XAF`
     ).join(', ');
 
     return `${stockInfo.totalStock} units total (${batchInfo})`;
@@ -192,9 +214,16 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
   const onProductChange = (index: number, option: any) => {
     handleProductChange(index, option);
     if (option && option.value) {
-      const remainingAfter = (option.value.stock || 0) - 1;
+      const productId = option.value.id;
+      const stockInfo = productStockInfo.get(productId);
+      const currentStock = stockInfo?.totalStock ?? 0;
+      const remainingAfter = currentStock - 1;
       if (remainingAfter <= LOW_STOCK_THRESHOLD && remainingAfter >= 0) {
         showWarningToast(`Low stock: ${remainingAfter} left for ${option.value.name}`);
+      }
+      // Load stock info if not already loaded
+      if (!stockInfo && !loadingStockInfo.has(productId)) {
+        loadProductStockInfo(productId);
       }
     }
   };
@@ -205,7 +234,9 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
     const product = fp?.product;
     const qty = field === 'quantity' ? parseInt(value || '0', 10) : parseInt(fp?.quantity || '0', 10);
     if (product && !isNaN(qty) && qty > 0) {
-      const remainingAfter = (product.stock || 0) - qty;
+      const stockInfo = productStockInfo.get(product.id);
+      const currentStock = stockInfo?.totalStock ?? 0;
+      const remainingAfter = currentStock - qty;
       if (remainingAfter <= LOW_STOCK_THRESHOLD && remainingAfter >= 0) {
         showWarningToast(`Low stock: ${remainingAfter} left for ${product.name}`);
       }
@@ -541,7 +572,18 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                         <div className="flex-1">
                           <p className="font-medium">{product.product.name}</p>
                           <p className="text-sm text-gray-500">
-                            {product.product.stock} in stock - {product.product.sellingPrice.toLocaleString()} XAF
+                            {(() => {
+                              const stockInfo = productStockInfo.get(product.product.id);
+                              if (stockInfo) {
+                                return `${stockInfo.totalStock} in stock`;
+                              }
+                              // Use stockMap from batches if available
+                              if (!batchesLoading && stockMap) {
+                                const stock = getEffectiveProductStock(product.product, stockMap);
+                                return `${stock} in stock`;
+                              }
+                              return 'Loading stock...';
+                            })()} - {formatPrice(product.product.sellingPrice)} XAF
                           </p>
                         </div>
                         <button
@@ -570,7 +612,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                                 {formatStockBatchInfo(stockInfo)}
                                 {stockInfo.averageCostPrice > 0 && (
                                   <div className="mt-1 text-xs text-blue-600">
-                                    Average cost: {stockInfo.averageCostPrice.toLocaleString()} XAF
+                                    Average cost: {formatPrice(stockInfo.averageCostPrice)} XAF
                                   </div>
                                 )}
                               </div>
@@ -586,15 +628,22 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                           label="Quantity"
                           type="number"
                           min="1"
-                          max={product.product.stock.toString()}
+                          max={(() => {
+                            const stockInfo = productStockInfo.get(product.product.id);
+                            return (stockInfo?.totalStock ?? 0).toString();
+                          })()}
                           value={product.quantity}
                           onChange={(e) => onProductInputChange(index, 'quantity', e.target.value)}
                           required
-                          helpText={`Cannot exceed ${product.product.stock}`}
+                          helpText={(() => {
+                            const stockInfo = productStockInfo.get(product.product.id);
+                            const stock = stockInfo?.totalStock ?? 0;
+                            return `Cannot exceed ${stock}`;
+                          })()}
                         />
-                        <Input
+                        <PriceInput
                           label="Negotiated Price"
-                          type="number"
+                          name={`negotiatedPrice-${index}`}
                           value={product.negotiatedPrice}
                           onChange={(e) => onProductInputChange(index, 'negotiatedPrice', e.target.value)}
                           // helpText="Enter the negotiated price (can exceed standard price)"
@@ -604,7 +653,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                       {product.quantity && (
                         <div className="p-3 bg-blue-50 rounded-md">
                           <span className="text-sm font-medium text-blue-700">Product Total:</span>
-                          <span className="ml-2 text-blue-900">{calculateProductTotal(product).toLocaleString()} XAF</span>
+                          <span className="ml-2 text-blue-900">{formatPrice(calculateProductTotal(product))} XAF</span>
                         </div>
                       )}
                     </div>
@@ -657,11 +706,16 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                     <div className="grid grid-cols-2 gap-4 p-3 bg-gray-50 rounded-md">
                       <div>
                           <span className="text-sm font-medium text-gray-700">Standard Price:</span>
-                        <span className="ml-2">{product.product.sellingPrice.toLocaleString()} XAF</span>
+                        <span className="ml-2">{formatPrice(product.product.sellingPrice)} XAF</span>
                       </div>
                       <div>
                           <span className="text-sm font-medium text-gray-700">Available Stock:</span>
-                        <span className="ml-2">{product.product.stock}</span>
+                        <span className="ml-2">
+                          {(() => {
+                            const stockInfo = productStockInfo.get(product.product.id);
+                            return stockInfo?.totalStock ?? 0;
+                          })()}
+                        </span>
                       </div>
                     </div>
                     
@@ -699,15 +753,23 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                           label="Quantity"
                         type="number"
                         min="1"
-                        max={product.product.stock.toString()}
+                        step="1"
+                        max={(() => {
+                          const stockInfo = productStockInfo.get(product.product.id);
+                          return (stockInfo?.totalStock ?? 0).toString();
+                        })()}
                         value={product.quantity}
                         onChange={(e) => onProductInputChange(index, 'quantity', e.target.value)}
                         required
-                          helpText={`Cannot exceed ${product.product.stock}`}
+                          helpText={(() => {
+                            const stockInfo = productStockInfo.get(product.product.id);
+                            const stock = stockInfo?.totalStock ?? 0;
+                            return `Cannot exceed ${stock}`;
+                          })()}
                       />
-                      <Input
+                      <PriceInput
                           label="Negotiated Price"
-                        type="number"
+                        name={`negotiatedPrice-${index}`}
                         value={product.negotiatedPrice}
                         onChange={(e) => onProductInputChange(index, 'negotiatedPrice', e.target.value)}
                           // helpText="Enter the negotiated price (can exceed standard price)"
@@ -717,7 +779,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                     {product.quantity && (
                         <div className="p-3 bg-blue-50 rounded-md">
                           <span className="text-sm font-medium text-blue-700">Product Total:</span>
-                          <span className="ml-2 text-blue-900">{calculateProductTotal(product).toLocaleString()} XAF</span>
+                          <span className="ml-2 text-blue-900">{formatPrice(calculateProductTotal(product))} XAF</span>
                       </div>
                     )}
                   </>
@@ -728,7 +790,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
             {formData.products.some(p => p.quantity) && (
                 <div className="p-4 bg-green-50 rounded-md">
                   <span className="text-lg font-medium text-green-700">Total Amount:</span>
-                  <span className="ml-2 text-green-900 text-lg">{calculateTotal().toLocaleString()} XAF</span>
+                  <span className="ml-2 text-green-900 text-lg">{formatPrice(calculateTotal())} XAF</span>
               </div>
             )}
           </div>
@@ -745,12 +807,11 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
           </div>
           {/* Delivery Fee and Status */}
           <div className="grid grid-cols-2 gap-4">
-            <Input
+            <PriceInput
                 label="Delivery Fee"
               name="deliveryFee"
-              type="number"
               value={formData.deliveryFee}
-              onChange={handleInputChange}
+              onChange={(e) => handleInputChange({ target: { name: e.target.name, value: e.target.value } } as any)}
             />
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -760,7 +821,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                 name="status"
                 className="w-full rounded-md border border-gray-300 shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                 value={formData.status}
-                onChange={handleInputChange}
+                onChange={(e) => handleInputChange({ target: { name: e.target.name, value: e.target.value } } as any)}
               >
                   <option value="commande">Commande</option>
                   <option value="under_delivery">Under Delivery</option>
@@ -854,7 +915,19 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-sm truncate">{product.name}</p>
                       <p className="text-sm text-gray-500">
-                            {product.stock} in stock - {product.sellingPrice.toLocaleString()} XAF
+                            {(() => {
+                              // First check if we have detailed stock info (for products already added to form)
+                              const stockInfo = productStockInfo.get(product.id);
+                              if (stockInfo) {
+                                return `${stockInfo.totalStock} in stock`;
+                              }
+                              // Otherwise, use stockMap from batches (already loaded)
+                              if (!batchesLoading && stockMap) {
+                                const stock = getEffectiveProductStock(product, stockMap);
+                                return `${stock} in stock`;
+                              }
+                              return 'Loading stock...';
+                            })()} - {formatPrice(product.sellingPrice)} XAF
                       </p>
                     </div>
                   </div>
@@ -875,7 +948,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
             {formData.products.some(p => p.quantity) && (
                 <div className="mt-6 p-4 bg-green-50 rounded-md">
                   <span className="text-lg font-medium text-green-700">Total Amount:</span>
-                  <span className="ml-2 text-green-900 text-lg">{calculateTotal().toLocaleString()} XAF</span>
+                  <span className="ml-2 text-green-900 text-lg">{formatPrice(calculateTotal())} XAF</span>
               </div>
             )}
           </div>

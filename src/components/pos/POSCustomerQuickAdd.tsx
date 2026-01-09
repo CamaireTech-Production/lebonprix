@@ -2,7 +2,7 @@ import React from 'react';
 import { User, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { Customer } from '../../types/models';
-import { normalizePhoneForComparison } from '../../utils/phoneUtils';
+import { normalizePhoneForComparison } from '@utils/core/phoneUtils';
 
 interface POSCustomerQuickAddProps {
   customer: { name: string; phone: string; quarter?: string } | null;

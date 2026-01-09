@@ -1,12 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
-import Card from '../common/Card';
-import Button from '../common/Button';
-import Modal, { ModalFooter } from '../common/Modal';
+import { Card, Button, Modal, ModalFooter } from '@components/common';
 import { Users, UserPlus, RefreshCw, Settings, Trash2 } from 'lucide-react';
 import type { UserCompanyRef } from '../../types/models';
 import TemplateAssignment from './TemplateAssignment';
-import { removeUserFromCompany } from '../../services/userCompanySyncService';
-import { getTemplateById } from '../../services/permissionTemplateService';
+import { removeUserFromCompany } from '@services/firestore/companies/userCompanySyncService';
+import { getTemplateById } from '@services/firestore/employees/permissionTemplateService';
+import { getUserById } from '@services/utilities/userService';
 
 interface TeamOverviewProps {
   teamMembers: UserCompanyRef[];
@@ -16,8 +15,7 @@ interface TeamOverviewProps {
 
 interface TeamMember {
   id: string;
-  firstname: string;
-  lastname: string;
+  username: string;
   email: string;
   phone?: string;
   role: string;
@@ -41,24 +39,37 @@ const TeamOverview = ({ teamMembers, onRefresh, companyId }: TeamOverviewProps) 
     try {
       setLoading(true);
       
-      // This is a simplified implementation
-      // In a real scenario, you'd query users who have access to the current company
-      // For now, we'll show the team members from the props
+      // Fetch user data for each team member to get email addresses
+      const membersWithData: TeamMember[] = await Promise.all(
+        teamMembers.map(async (member) => {
+          const userId = member.userId || member.companyId;
+          
+          // Fetch user document to get email
+          let email = '';
+          try {
+            const userData = await getUserById(userId);
+            if (userData) {
+              email = userData.email || '';
+            }
+          } catch (error) {
+            console.error(`Error fetching user ${userId}:`, error);
+          }
+          
+          return {
+            id: userId,
+            username: member.name || 'Unknown User',
+            email: email,
+            role: member.role,
+            joinedAt: member.joinedAt,
+            permissionTemplateId: member.permissionTemplateId,
+            userId: member.userId
+          };
+        })
+      );
       
-      const members: TeamMember[] = teamMembers.map(member => ({
-        id: member.userId || member.companyId, // Use userId if available, fallback to companyId
-        firstname: member.name.split(' ')[0] || '',
-        lastname: member.name.split(' ').slice(1).join(' ') || '',
-        email: '', // Would need to fetch from user data
-        role: member.role,
-        joinedAt: member.joinedAt,
-        permissionTemplateId: member.permissionTemplateId,
-        userId: member.userId // Store userId separately for deletion
-      }));
-      
-      // Charger les noms des templates pour les membres qui en ont un
+      // Load template names for members who have one
       const membersWithTemplateNames = await Promise.all(
-        members.map(async (member) => {
+        membersWithData.map(async (member) => {
           if (member.permissionTemplateId && companyId) {
             try {
               const template = await getTemplateById(companyId, member.permissionTemplateId);
@@ -235,14 +246,14 @@ const TeamOverview = ({ teamMembers, onRefresh, companyId }: TeamOverviewProps) 
                 <div className="flex items-center space-x-3">
                   <div className="h-10 w-10 bg-gray-200 rounded-full flex items-center justify-center">
                     <span className="text-sm font-medium text-gray-600">
-                      {member.firstname.charAt(0)}{member.lastname.charAt(0)}
+                      {member.username.charAt(0).toUpperCase() || 'U'}
                     </span>
                   </div>
                   <div>
                     <h4 className="text-sm font-medium text-gray-900">
-                      {member.firstname} {member.lastname}
+                      {member.username}
                     </h4>
-                    <p className="text-sm text-gray-500">{member.email}</p>
+                    <p className="text-sm text-gray-500">{member.email || 'Email not available'}</p>
                   </div>
                 </div>
                 
@@ -306,7 +317,7 @@ const TeamOverview = ({ teamMembers, onRefresh, companyId }: TeamOverviewProps) 
         >
           <div className="text-center">
             <p className="text-gray-600 mb-4">
-              Êtes-vous sûr de vouloir supprimer {memberToDelete ? `${memberToDelete.firstname} ${memberToDelete.lastname}` : 'cet employé'} de l'entreprise ?
+              Êtes-vous sûr de vouloir supprimer {memberToDelete ? memberToDelete.username : 'cet employé'} de l'entreprise ?
             </p>
             <p className="text-sm text-red-600">
               Cette action est irréversible.

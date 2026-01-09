@@ -1,0 +1,3399 @@
+import { useState, ChangeEvent, useEffect } from 'react';
+import { useAuth } from '@contexts/AuthContext';
+import { Card, Button, Input, PriceInput } from '@components/common';
+import ActivityList from '../../components/dashboard/ActivityList';
+import { showSuccessToast, showErrorToast, showWarningToast } from '@utils/core/toast';
+import { useTranslation } from 'react-i18next';
+import { useSales, useExpenses, useAuditLogs, useProducts } from '@hooks/data/useFirestore';
+import { getSellerSettings, updateSellerSettings } from '@services/firestore/firestore';
+import { getCheckoutSettingsWithDefaults, saveCheckoutSettings, resetCheckoutSettings, subscribeToCheckoutSettings } from '@services/utilities/checkoutSettingsService';
+import { saveCinetPayConfig, subscribeToCinetPayConfig, validateCinetPayCredentials, initializeCinetPayConfig } from '@services/payment/cinetpayService';
+import { saveCampayConfig, subscribeToCampayConfig, validateCampayCredentials, initializeCampayConfig } from '@services/payment/campayService';
+import { AuditLogger } from '@utils/core/auditLogger';
+import type { SellerSettings, PaymentMethod } from '../../types/order';
+import type { CheckoutSettings, CheckoutSettingsUpdate } from '../../types/checkoutSettings';
+import type { CinetPayConfig, CinetPayConfigUpdate } from '../../types/cinetpay';
+import type { CampayConfig, CampayConfigUpdate } from '../../types/campay';
+import PaymentMethodModal from '../../components/settings/PaymentMethodModal';
+import { combineActivities } from '@utils/business/activityUtils';
+import { Plus, Copy, Check, ExternalLink, CreditCard, Truck, ShoppingBag, Save, RotateCcw, Eye, Trash2, ChevronDown, ChevronUp, Edit2, Phone, Hash, Link } from 'lucide-react';
+
+function normalizeWebsite(raw: string): string | undefined {
+  const url = (raw || '').trim();
+  if (!url) return undefined;
+  if (/^https?:\/\//i.test(url)) return url;
+  return `https://${url.replace(/^\/+/, '')}`;
+}
+
+const Settings = () => {
+  const { t, i18n } = useTranslation();
+  const [activeTab, setActiveTab] = useState('colors');
+  const { company, updateCompany, updateUserPassword, user, isOwner, effectiveRole } = useAuth();
+  
+  // Checkout settings state
+  const [checkoutSettings, setCheckoutSettings] = useState<CheckoutSettings | null>(null);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [checkoutSaving, setCheckoutSaving] = useState(false);
+  
+  // CinetPay settings state
+  const [cinetpayConfig, setCinetpayConfig] = useState<CinetPayConfig | null>(null);
+  const [cinetpayLoading, setCinetpayLoading] = useState(true);
+  const [cinetpaySaving, setCinetpaySaving] = useState(false);
+  const [cinetpayTesting, setCinetpayTesting] = useState(false);
+
+  // Campay settings state
+  const [campayConfig, setCampayConfig] = useState<CampayConfig | null>(null);
+  const [campayLoading, setCampayLoading] = useState(true);
+  const [campaySaving, setCampaySaving] = useState(false);
+  const [campayTesting, setCampayTesting] = useState(false);
+  
+  // Accordion state for payment providers
+  const [expandedProvider, setExpandedProvider] = useState<string | null>(null);
+  
+  // Only fetch data if user is authenticated
+  const { sales } = useSales();
+  const { expenses } = useExpenses();
+  const { auditLogs } = useAuditLogs();
+  const { products } = useProducts();
+  
+  // Combine and sort recent activities using the new activity system
+  const activities = user ? combineActivities(sales, expenses, auditLogs, t) : [];
+
+  // Form state for company settings
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    phone: '',
+    location: '',
+    email: '',
+    report_mail: '',
+    report_time: '',
+    logo: '',
+    website: '',
+    // Catalogue colors
+    cataloguePrimaryColor: '#183524',
+    catalogueSecondaryColor: '#e2b069',
+    catalogueTertiaryColor: '#2a4a3a',
+    // Dashboard colors
+    dashboardPrimaryColor: '#183524',
+    dashboardSecondaryColor: '#e2b069',
+    dashboardTertiaryColor: '#2a4a3a',
+    dashboardHeaderTextColor: '#ffffff',
+    // Legacy colors (for backward compatibility)
+    primaryColor: '#183524',
+    secondaryColor: '#e2b069',
+    tertiaryColor: '#2a4a3a',
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
+
+  // Update form data when company data becomes available
+  useEffect(() => {
+    if (company) {
+      setFormData(prev => ({
+        ...prev,
+        name: company.name || '',
+        description: company.description || '',
+        phone: company.phone?.replace('+237', '') || '',
+        location: company.location || '',
+        email: company.email || '',
+        report_mail: company.report_mail || '',
+        report_time: company.report_time?.toString() || '8',
+        logo: company.logo || '',
+        website: company.website || '',
+        // Catalogue colors
+        cataloguePrimaryColor: company.catalogueColors?.primary || company.primaryColor || '#183524',
+        catalogueSecondaryColor: company.catalogueColors?.secondary || company.secondaryColor || '#e2b069',
+        catalogueTertiaryColor: company.catalogueColors?.tertiary || company.tertiaryColor || '#2a4a3a',
+        // Dashboard colors
+        dashboardPrimaryColor: company.dashboardColors?.primary || company.primaryColor || '#183524',
+        dashboardSecondaryColor: company.dashboardColors?.secondary || company.secondaryColor || '#e2b069',
+        dashboardTertiaryColor: company.dashboardColors?.tertiary || company.tertiaryColor || '#2a4a3a',
+        dashboardHeaderTextColor: company.dashboardColors?.headerText || '#ffffff',
+        // Legacy colors (for backward compatibility)
+        primaryColor: company.primaryColor || '#183524',
+        secondaryColor: company.secondaryColor || '#e2b069',
+        tertiaryColor: company.tertiaryColor || '#2a4a3a',
+      }));
+    }
+  }, [company]);
+
+  // Real-time checkout settings subscription (company-oriented)
+  useEffect(() => {
+    if (!company?.id) return;
+
+    const unsubscribe = subscribeToCheckoutSettings(company.id, (settings) => {
+      if (settings) {
+        setCheckoutSettings(settings);
+        setCheckoutLoading(false);
+      } else {
+        // If no settings exist, get defaults
+        getCheckoutSettingsWithDefaults(company.id, user?.uid).then(settings => {
+          setCheckoutSettings(settings);
+          setCheckoutLoading(false);
+        });
+      }
+    });
+
+    return () => unsubscribe();
+  }, [company?.id, user?.uid]);
+
+  // Real-time CinetPay settings subscription
+  useEffect(() => {
+    if (!company?.id) return;
+
+    setCinetpayLoading(true);
+
+    const unsubscribe = subscribeToCinetPayConfig(company.id, (config) => {
+      if (config) {
+        setCinetpayConfig(config);
+        setCinetpayLoading(false);
+      } else {
+        // If no config exists, initialize with defaults
+        initializeCinetPayConfig(company.id, user?.uid).then(config => {
+          setCinetpayConfig(config);
+          setCinetpayLoading(false);
+        }).catch(error => {
+          console.error('Error initializing CinetPay config:', error);
+          setCinetpayLoading(false);
+        });
+      }
+    });
+
+    return () => unsubscribe();
+  }, [company?.id, user?.uid]);
+
+  // Real-time Campay settings subscription
+  useEffect(() => {
+    if (!company?.id) return;
+
+    setCampayLoading(true);
+
+    const unsubscribe = subscribeToCampayConfig(company.id, (config) => {
+      if (config) {
+        setCampayConfig(config);
+        setCampayLoading(false);
+      } else {
+        // If no config exists, don't auto-initialize - let user click the button
+        setCampayLoading(false);
+      }
+    }, (error) => {
+      // Handle subscription errors (like permission errors)
+      console.error('Error subscribing to Campay config:', error);
+      setCampayLoading(false);
+      // Don't set config to null on error - allow user to try initializing
+    });
+
+    return () => unsubscribe();
+  }, [company?.id, user?.uid]);
+  
+  const [isLoading, setIsLoading] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
+
+  // Ordering settings state
+  const [orderingSettings, setOrderingSettings] = useState<SellerSettings | null>(null);
+  const [orderingLoading, setOrderingLoading] = useState(false);
+  const [orderingSaving, setOrderingSaving] = useState(false);
+  const [isPaymentMethodModalOpen, setIsPaymentMethodModalOpen] = useState(false);
+  const [editingPaymentMethodId, setEditingPaymentMethodId] = useState<string | null>(null);
+  
+  // Catalogue links state
+  const [copiedLinks, setCopiedLinks] = useState<Set<string>>(new Set());
+
+  // Copy to clipboard function
+  const copyToClipboard = async (text: string, linkId: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedLinks(prev => new Set(prev).add(linkId));
+      showSuccessToast('Link copied to clipboard!');
+      
+      // Reset the copied state after 2 seconds
+      setTimeout(() => {
+        setCopiedLinks(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(linkId);
+          return newSet;
+        });
+      }, 2000);
+    } catch {
+      showErrorToast('Failed to copy link');
+    }
+  };
+
+  useEffect(() => {
+    const loadSettings = async () => {
+      if (!company?.id) return;
+      setOrderingLoading(true);
+      try {
+        const settings = await getSellerSettings(company.id);
+        setOrderingSettings(settings || {
+          whatsappNumber: company.phone || '+237',
+          businessName: company.name || '',
+          paymentMethods: {
+            mobileMoney: true,
+            bankTransfer: false,
+            cashOnDelivery: true,
+            customMethods: []
+          },
+          deliveryFee: 0,
+          currency: 'XAF'
+        });
+      } catch (e) {
+        console.error('Failed to load seller settings', e);
+      } finally {
+        setOrderingLoading(false);
+      }
+    };
+    loadSettings();
+  }, [company?.id, company?.name, company?.phone]);
+
+  // Payment method management functions
+  const handleAddPaymentMethod = async (paymentMethod: PaymentMethod) => {
+    if (!orderingSettings || !company?.id) return;
+    
+    const updatedSettings = {
+      ...orderingSettings,
+      paymentMethods: {
+        ...orderingSettings.paymentMethods,
+        customMethods: [...(orderingSettings.paymentMethods.customMethods || []), paymentMethod]
+      }
+    };
+    setOrderingSettings(updatedSettings);
+    
+    // Auto-save to database
+    try {
+      await updateSellerSettings(company.id, updatedSettings);
+      showSuccessToast(t('settings.paymentMethodsAndGateways.paymentMethods.updated'));
+    } catch (error) {
+      console.error('Error saving custom payment method:', error);
+      showErrorToast(t('settings.paymentMethodsAndGateways.paymentMethods.updateFailed'));
+    }
+  };
+
+  const handleUpdatePaymentMethod = async (id: string, updatedMethod: Partial<PaymentMethod>) => {
+    if (!orderingSettings || !company?.id) return;
+    
+    // Create a completely new object to ensure React detects the change
+    const updatedCustomMethods = (orderingSettings.paymentMethods.customMethods || []).map(method =>
+      method.id === id ? { ...method, ...updatedMethod } : { ...method }
+    );
+    
+    const updatedSettings = {
+      ...orderingSettings,
+      paymentMethods: {
+        ...orderingSettings.paymentMethods,
+        customMethods: updatedCustomMethods
+      }
+    };
+    
+    // Update state immediately for instant UI feedback
+    setOrderingSettings(updatedSettings);
+    
+    // Auto-save to database
+    try {
+      await updateSellerSettings(company.id, updatedSettings);
+      showSuccessToast(t('settings.paymentMethodsAndGateways.paymentMethods.updated'));
+    } catch (error) {
+      console.error('Error updating custom payment method:', error);
+      showErrorToast(t('settings.paymentMethodsAndGateways.paymentMethods.updateFailed'));
+      // Reload settings on error to revert to server state
+      try {
+        const settings = await getSellerSettings(company.id);
+        if (settings) setOrderingSettings(settings);
+      } catch (reloadError) {
+        console.error('Error reloading settings:', reloadError);
+      }
+    }
+  };
+
+  const handleDeletePaymentMethod = async (id: string) => {
+    if (!orderingSettings || !company?.id) return;
+    
+    const updatedSettings = {
+      ...orderingSettings,
+      paymentMethods: {
+        ...orderingSettings.paymentMethods,
+        customMethods: (orderingSettings.paymentMethods.customMethods || []).filter(method => method.id !== id)
+      }
+    };
+    setOrderingSettings(updatedSettings);
+    
+    // Auto-save to database
+    try {
+      await updateSellerSettings(company.id, updatedSettings);
+      showSuccessToast(t('settings.paymentMethodsAndGateways.paymentMethods.updated'));
+    } catch (error) {
+      console.error('Error deleting custom payment method:', error);
+      showErrorToast(t('settings.paymentMethodsAndGateways.paymentMethods.updateFailed'));
+    }
+  };
+  
+  const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+    // Clear password error when user starts typing
+    if (name.startsWith('password') || name === 'currentPassword') {
+      setPasswordError('');
+    }
+  };
+  
+  const handlePhoneChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.replace(/\D/g, ''); // Remove non-digits
+    if (value.length <= 9) { // Only allow 9 digits after +237
+      setFormData(prev => ({ ...prev, phone: value }));
+    }
+  };
+  
+  
+  
+  const handleLogoChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFormData(prev => ({ ...prev, logo: reader.result as string }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+  
+  const handleWebsiteChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value || '';
+    const domain = raw.replace(/^\s+/, '').replace(/^https?:\/\//i, '').replace(/^\/+/, '');
+    setFormData(prev => ({
+      ...prev,
+      website: domain ? `https://${domain}` : ''
+    }));
+  };
+  
+  const validatePasswordChange = () => {
+    if (!formData.currentPassword && (formData.newPassword || formData.confirmPassword)) {
+      setPasswordError(t('settings.messages.currentPasswordRequired'));
+      return false;
+    }
+    
+    if (formData.newPassword !== formData.confirmPassword) {
+      setPasswordError(t('settings.messages.passwordsDoNotMatch'));
+      return false;
+    }
+    
+    if (formData.newPassword && formData.newPassword.length < 6) {
+      setPasswordError(t('settings.messages.passwordTooShort'));
+      return false;
+    }
+    
+    return true;
+  };
+  
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!validatePasswordChange()) {
+      return;
+    }
+    
+    setIsLoading(true);
+    
+    try {
+      const normalizedWebsite = normalizeWebsite(formData.website);
+      if (normalizedWebsite) {
+        try {
+          new URL(normalizedWebsite);
+        } catch {
+          showErrorToast('URL de site web invalide (doit être http/https)');
+          setIsLoading(false);
+          return;
+        }
+      }
+      
+      // Handle report_time: default to 8 if empty, show warning
+      let reportTime = 8;
+      if (formData.report_time && formData.report_time.trim() !== '') {
+        const parsedTime = parseInt(formData.report_time);
+        if (!isNaN(parsedTime) && parsedTime >= 0 && parsedTime <= 23) {
+          reportTime = parsedTime;
+        }
+      } else {
+        showWarningToast(t('settings.messages.reportTimeDefault'));
+      }
+      
+      // Update company information
+      const companyData = {
+        name: formData.name,
+        description: formData.description || undefined,
+        phone: `+237${formData.phone}`,
+        location: formData.location || undefined,
+        logo: formData.logo || undefined,
+        email: formData.email,
+        report_mail: formData.report_mail || undefined,
+        report_time: reportTime,
+        website: normalizedWebsite,
+        // New color schemes
+        catalogueColors: {
+          primary: formData.cataloguePrimaryColor,
+          secondary: formData.catalogueSecondaryColor,
+          tertiary: formData.catalogueTertiaryColor
+        },
+        dashboardColors: {
+          primary: formData.dashboardPrimaryColor,
+          secondary: formData.dashboardSecondaryColor,
+          tertiary: formData.dashboardTertiaryColor,
+          headerText: formData.dashboardHeaderTextColor
+        },
+        // Legacy colors (for backward compatibility)
+        primaryColor: formData.primaryColor,
+        secondaryColor: formData.secondaryColor,
+        tertiaryColor: formData.tertiaryColor
+      };
+
+      try {
+        await updateCompany(companyData);
+      } catch (error: any) {
+        // Si l'erreur concerne report_mail, continuer avec les autres champs
+        if (error.message && error.message.includes('report_mail')) {
+          showWarningToast('Email de rapport non sauvegardé (les autres modifications sont OK)');
+          // Retirer report_mail et réessayer
+          const { report_mail, ...companyDataWithoutReportMail } = companyData;
+          await updateCompany(companyDataWithoutReportMail);
+        } else {
+          throw error;
+        }
+      }
+
+      // Update password if provided
+      if (formData.currentPassword && formData.newPassword) {
+        await updateUserPassword(formData.currentPassword, formData.newPassword);
+      }
+
+      showSuccessToast(t('settings.messages.settingsUpdated'));
+      
+      // Reset password fields after successful update
+      setFormData(prev => ({
+        ...prev,
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: '',
+      }));
+    } catch (error: unknown) {
+      console.error('Error updating settings:', error);
+      showErrorToast((error as Error).message || t('settings.messages.updateFailed'));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCancel = () => {
+    if (company) {
+      setFormData(prev => ({
+        ...prev,
+        name: company.name || '',
+        description: company.description || '',
+        phone: company.phone?.replace('+237', '') || '',
+        location: company.location || '',
+        email: company.email || '',
+        report_time: company.report_time?.toString() || '8',
+        logo: company.logo || '',
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: '',
+      }));
+    }
+    setPasswordError('');
+  };
+
+  // Language change handler
+  const handleLanguageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    i18n.changeLanguage(e.target.value);
+  };
+
+  // Checkout settings handlers
+  const handleCheckoutSettingsUpdate = (updates: CheckoutSettingsUpdate) => {
+    if (!checkoutSettings) return;
+    setCheckoutSettings(prev => {
+      if (!prev) return null;
+      const merged = { ...prev, ...updates };
+      // Ensure enabledPaymentMethods is properly merged
+      if (updates.enabledPaymentMethods) {
+        merged.enabledPaymentMethods = {
+          ...prev.enabledPaymentMethods,
+          ...updates.enabledPaymentMethods
+        };
+      }
+      return merged as CheckoutSettings;
+    });
+  };
+
+  const handleSaveCheckoutSettings = async () => {
+    if (!company?.id || !checkoutSettings) return;
+    
+    try {
+      setCheckoutSaving(true);
+      await saveCheckoutSettings(company.id, checkoutSettings, user?.uid);
+      showSuccessToast('Checkout settings saved successfully!');
+    } catch (error) {
+      console.error('Error saving checkout settings:', error);
+      showErrorToast('Failed to save checkout settings');
+    } finally {
+      setCheckoutSaving(false);
+    }
+  };
+
+  const handleResetCheckoutSettings = async () => {
+    if (!company?.id) return;
+    
+    if (window.confirm('Are you sure you want to reset all checkout settings to default?')) {
+      try {
+        setCheckoutSaving(true);
+        await resetCheckoutSettings(company.id, user?.uid);
+        const settings = await getCheckoutSettingsWithDefaults(company.id, user?.uid);
+        setCheckoutSettings(settings);
+        showSuccessToast('Checkout settings reset to default!');
+      } catch (error) {
+        console.error('Error resetting checkout settings:', error);
+        showErrorToast('Failed to reset checkout settings');
+      } finally {
+        setCheckoutSaving(false);
+      }
+    }
+  };
+
+  // CinetPay settings handlers
+  const handleCinetpayConfigUpdate = (updates: CinetPayConfigUpdate) => {
+    if (!cinetpayConfig) return;
+    setCinetpayConfig(prev => {
+      if (!prev) return null;
+      const merged = { ...prev, ...updates };
+      // Ensure enabledChannels is properly merged with all required boolean values
+      if (updates.enabledChannels) {
+        merged.enabledChannels = {
+          mobileMoney: updates.enabledChannels.mobileMoney ?? prev.enabledChannels.mobileMoney,
+          creditCard: updates.enabledChannels.creditCard ?? prev.enabledChannels.creditCard,
+          wallet: updates.enabledChannels.wallet ?? prev.enabledChannels.wallet
+        };
+      }
+      return merged as CinetPayConfig;
+    });
+  };
+
+  const handleSaveCinetpayConfig = async () => {
+    if (!company?.id || !cinetpayConfig) return;
+    
+    try {
+      setCinetpaySaving(true);
+      await saveCinetPayConfig(company.id, cinetpayConfig, user?.uid);
+      
+      // Auto-sync: Enable payment methods based on CinetPay channels
+      if (cinetpayConfig.isActive && checkoutSettings) {
+        const updatedPaymentMethods = { ...checkoutSettings.enabledPaymentMethods };
+        let hasChanges = false;
+
+        // If CinetPay Mobile Money channel is enabled, enable MTN Money and Orange Money
+        if (cinetpayConfig.enabledChannels.mobileMoney) {
+          if (!updatedPaymentMethods.mtnMoney) {
+            updatedPaymentMethods.mtnMoney = true;
+            hasChanges = true;
+          }
+          if (!updatedPaymentMethods.orangeMoney) {
+            updatedPaymentMethods.orangeMoney = true;
+            hasChanges = true;
+          }
+        }
+
+        // If CinetPay Credit Card channel is enabled, enable Visa Card
+        if (cinetpayConfig.enabledChannels.creditCard) {
+          if (!updatedPaymentMethods.visaCard) {
+            updatedPaymentMethods.visaCard = true;
+            hasChanges = true;
+          }
+        }
+
+        // Save updated payment methods if there are changes
+        if (hasChanges) {
+          await saveCheckoutSettings(company.id, {
+            enabledPaymentMethods: updatedPaymentMethods
+          }, user?.uid);
+        }
+      }
+      
+      // Log configuration change
+      await AuditLogger.logConfigChange(user?.uid || company.id, 'cinetpay_config_saved', {
+        configType: 'cinetpay',
+        changes: {
+          isActive: cinetpayConfig.isActive,
+          testMode: cinetpayConfig.testMode,
+          enabledChannels: cinetpayConfig.enabledChannels
+        }
+      });
+      
+      showSuccessToast('Payment integration settings saved');
+    } catch (error) {
+      console.error('Error saving CinetPay config:', error);
+      showErrorToast('Failed to save payment integration settings');
+    } finally {
+      setCinetpaySaving(false);
+    }
+  };
+
+  const handleTestCinetpayConnection = async () => {
+    if (!cinetpayConfig?.siteId || !cinetpayConfig?.apiKey) {
+      showErrorToast('Please enter Site ID and API Key first');
+      return;
+    }
+    
+    try {
+      setCinetpayTesting(true);
+      const result = await validateCinetPayCredentials(cinetpayConfig.siteId, cinetpayConfig.apiKey);
+      
+      if (result.isValid) {
+        showSuccessToast('Connection successful! Credentials are valid.');
+      } else {
+        showErrorToast(`Connection failed: ${result.message}`);
+      }
+    } catch (error) {
+      console.error('Error testing CinetPay connection:', error);
+      showErrorToast('Failed to test connection');
+    } finally {
+      setCinetpayTesting(false);
+    }
+  };
+
+  // Campay settings handlers
+  const handleCampayConfigUpdate = (updates: CampayConfigUpdate) => {
+    if (!campayConfig) return;
+    setCampayConfig(prev => {
+      if (!prev) return null;
+      const merged = { ...prev, ...updates };
+      return merged as CampayConfig;
+    });
+  };
+
+  const handleSaveCampayConfig = async () => {
+    if (!company?.id || !campayConfig) return;
+    
+    try {
+      setCampaySaving(true);
+      await saveCampayConfig(company.id, campayConfig, user?.uid);
+      
+      // Auto-sync: Enable payment methods based on Campay (MTN & Orange Money)
+      if (campayConfig.isActive && checkoutSettings) {
+        const updatedPaymentMethods = { ...checkoutSettings.enabledPaymentMethods };
+        let hasChanges = false;
+
+        // Campay supports MTN Money and Orange Money
+        if (!updatedPaymentMethods.mtnMoney) {
+          updatedPaymentMethods.mtnMoney = true;
+          hasChanges = true;
+        }
+        if (!updatedPaymentMethods.orangeMoney) {
+          updatedPaymentMethods.orangeMoney = true;
+          hasChanges = true;
+        }
+
+        // Save updated payment methods if there are changes
+        if (hasChanges) {
+          await saveCheckoutSettings(company.id, {
+            enabledPaymentMethods: updatedPaymentMethods
+          }, user?.uid);
+        }
+      }
+      
+      // Log configuration change
+      await AuditLogger.logConfigChange(user?.uid || company.id, 'campay_config_saved', {
+        configType: 'campay',
+        changes: {
+          isActive: campayConfig.isActive,
+          environment: campayConfig.environment,
+          minAmount: campayConfig.minAmount,
+          maxAmount: campayConfig.maxAmount
+        }
+      });
+      
+      showSuccessToast('Campay payment settings saved');
+    } catch (error) {
+      console.error('Error saving Campay config:', error);
+      showErrorToast('Failed to save Campay payment settings');
+    } finally {
+      setCampaySaving(false);
+    }
+  };
+
+  const handleTestCampayConnection = async () => {
+    if (!campayConfig?.appId) {
+      showErrorToast('Please enter App ID first');
+      return;
+    }
+    
+    try {
+      setCampayTesting(true);
+      const result = await validateCampayCredentials(
+        campayConfig.appId, 
+        campayConfig.environment || 'demo'
+      );
+      
+      if (result.isValid) {
+        showSuccessToast('Connection successful! Credentials are valid.');
+      } else {
+        showErrorToast(`Connection failed: ${result.message}`);
+      }
+    } catch (error) {
+      console.error('Error testing Campay connection:', error);
+      showErrorToast('Failed to test connection');
+    } finally {
+      setCampayTesting(false);
+    }
+  };
+
+  const handleClearCampayCredentials = async () => {
+    if (!company?.id || !campayConfig) return;
+
+    // Show confirmation dialog
+    const confirmed = window.confirm(
+      'Are you sure you want to clear your Campay credentials?\n\n' +
+      'This will remove your App ID. You will need to re-enter it to use Campay payments.\n\n' +
+      'This action cannot be undone.'
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setCampaySaving(true);
+      await saveCampayConfig(company.id, { appId: '', isActive: false }, user?.uid);
+      showSuccessToast('Campay credentials cleared');
+      
+      // Reload config
+      const updatedConfig = await initializeCampayConfig(company.id, user?.uid);
+      setCampayConfig(updatedConfig);
+    } catch (error) {
+      console.error('Error clearing Campay credentials:', error);
+      showErrorToast('Failed to clear credentials');
+    } finally {
+      setCampaySaving(false);
+    }
+  };
+
+  const handleClearCinetpayCredentials = async () => {
+    if (!company?.id || !cinetpayConfig) return;
+
+    // Show confirmation dialog
+    const confirmed = window.confirm(
+      'Are you sure you want to clear your CinetPay credentials?\n\n' +
+      'This will remove your Site ID and API Key. You will need to re-enter them to use online payments.\n\n' +
+      'This action cannot be undone.'
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setCinetpaySaving(true);
+      
+      // Clear credentials by setting them to empty strings
+      await saveCinetPayConfig(company.id, {
+        siteId: '',
+        apiKey: '',
+        isActive: false, // Also disable the integration
+        testMode: cinetpayConfig.testMode,
+        enabledChannels: cinetpayConfig.enabledChannels
+      }, user?.uid);
+
+      // Log the action
+      await AuditLogger.logConfigChange(user?.uid || company.id, 'cinetpay_credentials_cleared', {
+        configType: 'cinetpay',
+        changes: {
+          credentialsCleared: true,
+          integrationDisabled: true
+        }
+      });
+
+      showSuccessToast('CinetPay credentials cleared successfully');
+    } catch (error) {
+      console.error('Error clearing CinetPay credentials:', error);
+      showErrorToast('Failed to clear credentials');
+    } finally {
+      setCinetpaySaving(false);
+    }
+  };
+
+  // Show loading if company data is not yet available
+  if (!company && !user) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="pb-16 md:pb-0">
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold text-gray-900">{t('settings.title')}</h1>
+        <p className="text-gray-600">{t('settings.subtitle')}</p>
+      </div>
+      
+      {/* Tabs */}
+      <div className="mb-6 border-b border-gray-200">
+        <nav className="-mb-px flex space-x-8">
+          <button
+            onClick={() => setActiveTab('colors')}
+            className={`
+              whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm
+              ${activeTab === 'colors'
+                ? 'border-emerald-500 text-emerald-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
+            `}
+          >
+{t('settings.tabs.colors')}
+          </button>
+          <button
+            onClick={() => setActiveTab('account')}
+            className={`
+              whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm
+              ${activeTab === 'account'
+                ? 'border-emerald-500 text-emerald-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
+            `}
+          >
+            {t('settings.tabs.account')}
+          </button>
+          <button
+            onClick={() => setActiveTab('activity')}
+            className={`
+              whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm
+              ${activeTab === 'activity'
+                ? 'border-emerald-500 text-emerald-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
+            `}
+          >
+            {t('settings.tabs.activity')}
+          </button>
+          <button
+            onClick={() => setActiveTab('ordering')}
+            className={`
+              whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm
+              ${activeTab === 'ordering'
+                ? 'border-emerald-500 text-emerald-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
+            `}
+          >
+            {t('settings.tabs.ordering')}
+          </button>
+          <button
+            onClick={() => setActiveTab('checkout')}
+            className={`
+              whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm
+              ${activeTab === 'checkout'
+                ? 'border-emerald-500 text-emerald-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
+            `}
+          >
+            {t('settings.tabs.checkout')}
+          </button>
+          <button
+            onClick={() => setActiveTab('payment')}
+            className={`
+              whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm
+              ${activeTab === 'payment'
+                ? 'border-emerald-500 text-emerald-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
+            `}
+          >
+            {t('settings.tabs.paymentMethodsAndGateways')}
+          </button>
+          <button
+            onClick={() => setActiveTab('catalogue')}
+            className={`
+              whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm
+              ${activeTab === 'catalogue'
+                ? 'border-emerald-500 text-emerald-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
+            `}
+          >
+            {t('settings.tabs.catalogue')}
+          </button>
+        </nav>
+      </div>
+      
+      {/* Colors Tab */}
+      {activeTab === 'colors' && (
+        <form onSubmit={handleSubmit}>
+          <Card>
+            <div className="max-w-4xl mx-auto">
+              <div className="space-y-6">
+                <div className="text-center mb-8">
+                  <h2 className="text-2xl font-bold text-gray-900 mb-2">🎨 Color Customization</h2>
+                  <p className="text-gray-600">
+                    Customize colors for different parts of your platform. You can have different color schemes for your catalogue and dashboard.
+                  </p>
+                </div>
+                
+                {/* Catalogue Colors */}
+                <div className="bg-blue-50 p-6 rounded-lg">
+                  <div className="flex items-center mb-4">
+                    <h3 className="text-lg font-semibold text-gray-800">Catalogue Colors</h3>
+                    <span className="ml-3 text-xs bg-blue-100 text-blue-800 px-3 py-1 rounded-full font-medium">Public</span>
+                  </div>
+                  <p className="text-sm text-gray-600 mb-6">
+                    Colors used on your public catalogue page that customers see.
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* Catalogue Primary Color */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Primary Color
+                      </label>
+                      <div className="flex items-center space-x-3">
+                        <input
+                          type="color"
+                          name="cataloguePrimaryColor"
+                          value={formData.cataloguePrimaryColor}
+                          onChange={handleInputChange}
+                          className="h-12 w-16 rounded border border-gray-300 cursor-pointer"
+                        />
+                        <input
+                          type="text"
+                          name="cataloguePrimaryColor"
+                          value={formData.cataloguePrimaryColor}
+                          onChange={handleInputChange}
+                          className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm font-mono"
+                          placeholder="#183524"
+                        />
+                      </div>
+                      <p className="text-xs text-gray-500 mt-2">Headers, buttons, highlights</p>
+                    </div>
+                    
+                    {/* Catalogue Secondary Color */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Secondary Color
+                      </label>
+                      <div className="flex items-center space-x-3">
+                        <input
+                          type="color"
+                          name="catalogueSecondaryColor"
+                          value={formData.catalogueSecondaryColor}
+                          onChange={handleInputChange}
+                          className="h-12 w-16 rounded border border-gray-300 cursor-pointer"
+                        />
+                        <input
+                          type="text"
+                          name="catalogueSecondaryColor"
+                          value={formData.catalogueSecondaryColor}
+                          onChange={handleInputChange}
+                          className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm font-mono"
+                          placeholder="#e2b069"
+                        />
+                      </div>
+                      <p className="text-xs text-gray-500 mt-2">Prices, accents, add to cart</p>
+                    </div>
+                    
+                    {/* Catalogue Tertiary Color */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Tertiary Color
+                      </label>
+                      <div className="flex items-center space-x-3">
+                        <input
+                          type="color"
+                          name="catalogueTertiaryColor"
+                          value={formData.catalogueTertiaryColor}
+                          onChange={handleInputChange}
+                          className="h-12 w-16 rounded border border-gray-300 cursor-pointer"
+                        />
+                        <input
+                          type="text"
+                          name="catalogueTertiaryColor"
+                          value={formData.catalogueTertiaryColor}
+                          onChange={handleInputChange}
+                          className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm font-mono"
+                          placeholder="#2a4a3a"
+                        />
+                      </div>
+                      <p className="text-xs text-gray-500 mt-2">Gradients, hover effects</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Dashboard Colors */}
+                <div className="bg-green-50 p-6 rounded-lg">
+                  <div className="flex items-center mb-4">
+                    <h3 className="text-lg font-semibold text-gray-800">Dashboard Colors</h3>
+                    <span className="ml-3 text-xs bg-green-100 text-green-800 px-3 py-1 rounded-full font-medium">Admin</span>
+                  </div>
+                  <p className="text-sm text-gray-600 mb-6">
+                    Colors used on your admin dashboard for internal management.
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* Dashboard Primary Color */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Primary Color
+                      </label>
+                      <div className="flex items-center space-x-3">
+                        <input
+                          type="color"
+                          name="dashboardPrimaryColor"
+                          value={formData.dashboardPrimaryColor}
+                          onChange={handleInputChange}
+                          className="h-12 w-16 rounded border border-gray-300 cursor-pointer"
+                        />
+                        <input
+                          type="text"
+                          name="dashboardPrimaryColor"
+                          value={formData.dashboardPrimaryColor}
+                          onChange={handleInputChange}
+                          className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm font-mono"
+                          placeholder="#183524"
+                        />
+                      </div>
+                      <p className="text-xs text-gray-500 mt-2">Headers, values, primary buttons</p>
+                    </div>
+                    
+                    {/* Dashboard Secondary Color */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Secondary Color
+                      </label>
+                      <div className="flex items-center space-x-3">
+                        <input
+                          type="color"
+                          name="dashboardSecondaryColor"
+                          value={formData.dashboardSecondaryColor}
+                          onChange={handleInputChange}
+                          className="h-12 w-16 rounded border border-gray-300 cursor-pointer"
+                        />
+                        <input
+                          type="text"
+                          name="dashboardSecondaryColor"
+                          value={formData.dashboardSecondaryColor}
+                          onChange={handleInputChange}
+                          className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm font-mono"
+                          placeholder="#e2b069"
+                        />
+                      </div>
+                      <p className="text-xs text-gray-500 mt-2">Trends, secondary buttons</p>
+                    </div>
+                    
+                    {/* Dashboard Tertiary Color */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Tertiary Color
+                      </label>
+                      <div className="flex items-center space-x-3">
+                        <input
+                          type="color"
+                          name="dashboardTertiaryColor"
+                          value={formData.dashboardTertiaryColor}
+                          onChange={handleInputChange}
+                          className="h-12 w-16 rounded border border-gray-300 cursor-pointer"
+                        />
+                        <input
+                          type="text"
+                          name="dashboardTertiaryColor"
+                          value={formData.dashboardTertiaryColor}
+                          onChange={handleInputChange}
+                          className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm font-mono"
+                          placeholder="#2a4a3a"
+                        />
+                      </div>
+                      <p className="text-xs text-gray-500 mt-2">Gradients, expenses, delivery</p>
+                    </div>
+                    
+                    {/* Dashboard Header Text Color */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Header Text Color
+                      </label>
+                      <div className="flex items-center space-x-3">
+                        <input
+                          type="color"
+                          name="dashboardHeaderTextColor"
+                          value={formData.dashboardHeaderTextColor}
+                          onChange={handleInputChange}
+                          className="h-12 w-16 rounded border border-gray-300 cursor-pointer"
+                        />
+                        <input
+                          type="text"
+                          name="dashboardHeaderTextColor"
+                          value={formData.dashboardHeaderTextColor}
+                          onChange={handleInputChange}
+                          className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm font-mono"
+                          placeholder="#ffffff"
+                        />
+                      </div>
+                      <p className="text-xs text-gray-500 mt-2">Text color for dashboard header</p>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Firebase Integration Info */}
+                <div className="bg-blue-50 p-6 rounded-lg">
+                  <h3 className="text-lg font-semibold text-blue-800 mb-4">{t('settings.firebaseIntegration.title')}</h3>
+                  <p className="text-sm text-blue-700 mb-4">
+                    {t('settings.firebaseIntegration.description')}
+                  </p>
+                  <div className="bg-white p-4 rounded-lg border border-blue-200">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-gray-700 mb-1">{t('settings.firebaseIntegration.companyId')}</p>
+                        <code className="text-sm bg-gray-100 px-3 py-2 rounded font-mono text-gray-800">
+                          {user?.uid || 'Loading...'}
+                        </code>
+                      </div>
+                      <button 
+                        onClick={() => {
+                          if (user?.uid) {
+                            navigator.clipboard.writeText(user.uid);
+                            showSuccessToast(t('settings.firebaseIntegration.copySuccess'));
+                          }
+                        }}
+                        className="ml-4 px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors"
+                        disabled={!user?.uid}
+                      >
+{t('settings.firebaseIntegration.copyId')}
+                      </button>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-2">
+                      {t('settings.firebaseIntegration.helpText')}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Color Preview */}
+                <div className="bg-gray-50 p-6 rounded-lg">
+                  <h3 className="text-lg font-semibold text-gray-800 mb-4">Live Preview</h3>
+                  
+                  {/* Catalogue Preview */}
+                  <div className="mb-6">
+                    <h4 className="text-sm font-medium text-gray-600 mb-3">Catalogue Preview</h4>
+                    <div className="flex items-center space-x-4">
+                      <div 
+                        className="px-4 py-3 rounded-lg text-white text-sm font-medium shadow-sm"
+                        style={{ backgroundColor: formData.cataloguePrimaryColor }}
+                      >
+                        Header
+                      </div>
+                      <div 
+                        className="px-4 py-3 rounded-lg text-white text-sm font-medium shadow-sm"
+                        style={{ backgroundColor: formData.catalogueSecondaryColor }}
+                      >
+                        Price
+                      </div>
+                      <div 
+                        className="px-4 py-3 rounded-lg text-white text-sm font-medium shadow-sm"
+                        style={{ backgroundColor: formData.catalogueTertiaryColor }}
+                      >
+                        Button
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Dashboard Preview */}
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-600 mb-3">Dashboard Preview</h4>
+                    <div className="flex items-center space-x-4">
+                      <div 
+                        className="px-4 py-3 rounded-lg text-white text-sm font-medium shadow-sm"
+                        style={{ backgroundColor: formData.dashboardPrimaryColor }}
+                      >
+                        Value
+                      </div>
+                      <div 
+                        className="px-4 py-3 rounded-lg text-white text-sm font-medium shadow-sm"
+                        style={{ backgroundColor: formData.dashboardSecondaryColor }}
+                      >
+                        Trend
+                      </div>
+                      <div 
+                        className="px-4 py-3 rounded-lg text-white text-sm font-medium shadow-sm"
+                        style={{ backgroundColor: formData.dashboardTertiaryColor }}
+                      >
+                        Icon
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Form Actions */}
+                <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200">
+                  <Button 
+                    type="button" 
+                    variant="outline"
+                    onClick={() => setActiveTab('account')}
+                    disabled={isLoading}
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    type="submit" 
+                    isLoading={isLoading}
+                    disabled={isLoading}
+                  >
+                    Save Colors
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </Card>
+        </form>
+      )}
+      
+      {/* Account Settings Tab */}
+      {activeTab === 'account' && (
+        <form onSubmit={handleSubmit}>
+          <Card>
+            <div className="max-w-xl mx-auto">
+              <div className="space-y-6">
+                {/* Company Logo */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {t('settings.account.companyLogo')}
+                  </label>
+                  <div className="mt-1 flex items-center space-x-4">
+                    <div className="flex-shrink-0">
+                      {formData.logo ? (
+                        <img
+                          src={formData.logo}
+                          alt="Company logo"
+                          className="h-16 w-16 object-cover rounded-lg"
+                        />
+                      ) : (
+                        <div className="h-16 w-16 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center">
+                          <span className="text-gray-400">{t('settings.account.noLogo')}</span>
+                        </div>
+                      )}
+                    </div>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleLogoChange}
+                      className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border file:border-gray-300 file:text-sm file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
+                    />
+                  </div>
+                </div>
+
+                {/* Company Information */}
+                <div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">{t('settings.account.companyInformation')}</h3>
+                  <div className="space-y-4">
+                    <Input
+                      label={t('settings.account.companyName')}
+                      name="name"
+                      value={formData.name}
+                      onChange={handleInputChange}
+                      required
+                    />
+                    <Input
+                      label={t('settings.account.description')}
+                      name="description"
+                      value={formData.description}
+                      onChange={handleInputChange}
+                      helpText={t('settings.account.descriptionHelp')}
+                    />
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        {t('settings.account.phoneNumber')}
+                      </label>
+                      <div className="flex rounded-md shadow-sm">
+                        <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 sm:text-sm">
+                          +237
+                        </span>
+                        <Input
+                          type="tel"
+                          name="phone"
+                          value={formData.phone}
+                          onChange={handlePhoneChange}
+                          placeholder="678904568"
+                          className="flex-1 rounded-l-none"
+                          required
+                          helpText={t('settings.account.phoneHelp')}
+                        />
+                      </div>
+                    </div>
+                    <Input
+                      label={t('settings.account.location')}
+                      name="location"
+                      value={formData.location}
+                      onChange={handleInputChange}
+                      helpText={t('settings.account.locationHelp')}
+                    />
+                    <div>
+                      <Input
+                        label={t('settings.account.emailAddress')}
+                        name="email"
+                        type="email"
+                        value={formData.email}
+                        onChange={handleInputChange}
+                        required
+                        disabled
+                      />
+                      <p className="mt-1 text-xs text-gray-500">
+                        {t('settings.account.emailDisabledHelp') || 'Email cannot be changed as it is used for critical operations and reports.'}
+                      </p>
+                    </div>
+                    {(isOwner || effectiveRole !== 'vendeur') && (
+                      <Input
+                        label={t('settings.account.reportMail')}
+                        name="report_mail"
+                        type="email"
+                        value={formData.report_mail}
+                        onChange={handleInputChange}
+                        onBlur={() => {
+                          if (formData.report_mail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.report_mail)) {
+                            // Validation silencieuse
+                          }
+                        }}
+                        placeholder="rapports@entreprise.com"
+                        helpText={t('settings.account.reportMailHelp')}
+                      />
+                    )}
+                    {(isOwner || effectiveRole !== 'vendeur') && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          {t('settings.account.reportTime')}
+                        </label>
+                        <div className="flex rounded-md shadow-sm">
+                          <input
+                            type="number"
+                            name="report_time"
+                            min="0"
+                            max="23"
+                            value={formData.report_time}
+                            onChange={handleInputChange}
+                            className="flex-1 min-w-0 block w-full px-3 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
+                            placeholder="8"
+                          />
+                          <span className="inline-flex items-center px-3 rounded-r-md border border-l-0 border-gray-300 bg-gray-50 text-gray-500 sm:text-sm">
+                            h
+                          </span>
+                        </div>
+                        <p className="mt-1 text-sm text-gray-500">
+                          {t('settings.account.reportTimeHelp')}
+                        </p>
+                      </div>
+                    )}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Site web</label>
+                      <div className="flex rounded-md shadow-sm">
+                        <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 sm:text-sm">
+                          https://
+                        </span>
+                        <input
+                          type="text"
+                          name="website"
+                          value={(formData.website || '').replace(/^https?:\/\//i, '')}
+                          onChange={handleWebsiteChange}
+                          placeholder="mon-entreprise.com"
+                          className="flex-1 rounded-l-none border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        />
+                      </div>
+                      <p className="mt-1 text-sm text-gray-500">URL publique de votre entreprise (facultatif)</p>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Password Change */}
+                <div className="pt-5 border-t border-gray-200">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">{t('settings.account.changePassword')}</h3>
+                  {passwordError && (
+                    <div className="mb-4 bg-red-50 text-red-800 p-3 rounded-md text-sm">
+                      {passwordError}
+                    </div>
+                  )}
+                  <div className="space-y-4">
+                    <Input
+                      label={t('settings.account.currentPassword')}
+                      name="currentPassword"
+                      type="password"
+                      value={formData.currentPassword}
+                      onChange={handleInputChange}
+                      helpText={t('settings.account.currentPasswordHelp')}
+                    />
+                    <Input
+                      label={t('settings.account.newPassword')}
+                      name="newPassword"
+                      type="password"
+                      value={formData.newPassword}
+                      onChange={handleInputChange}
+                      helpText={t('settings.account.newPasswordHelp')}
+                    />
+                    <Input
+                      label={t('settings.account.confirmNewPassword')}
+                      name="confirmPassword"
+                      type="password"
+                      value={formData.confirmPassword}
+                      onChange={handleInputChange}
+                      helpText={t('settings.account.confirmNewPasswordHelp')}
+                    />
+                  </div>
+                </div>
+                
+                {/* Preferences */}
+                <div className="pt-5 border-t border-gray-200">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">{t('settings.account.preferences')}</h3>
+                  <div className="space-y-4">
+                    <div className="flex items-start">
+                      <div className="flex items-center h-5">
+                        <input
+                          id="email-notifications"
+                          name="email-notifications"
+                          type="checkbox"
+                          className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded"
+                          defaultChecked
+                        />
+                      </div>
+                      <div className="ml-3">
+                        <label htmlFor="email-notifications" className="text-sm font-medium text-gray-700">
+                          {t('settings.account.emailNotifications')}
+                        </label>
+                        <p className="text-sm text-gray-500">
+                          {t('settings.account.emailNotificationsHelp')}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        {t('settings.account.language')}
+                      </label>
+                      <select
+                        className="w-full rounded-md border border-gray-300 shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                        value={i18n.language}
+                        onChange={handleLanguageChange}
+                      >
+                        <option value="en">{t('languages.en')}</option>
+                        <option value="fr">{t('languages.fr')}</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+                
+                
+                {/* Form Actions */}
+                <div className="flex justify-end space-x-3">
+                  <Button 
+                    type="button" 
+                    variant="outline"
+                    onClick={handleCancel}
+                    disabled={isLoading}
+                  >
+                    {t('settings.account.cancel')}
+                  </Button>
+                  <Button 
+                    type="submit" 
+                    isLoading={isLoading}
+                    disabled={isLoading}
+                  >
+                    {t('settings.account.saveChanges')}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </Card>
+        </form>
+      )}
+      
+      {/* Order & Delivery Settings Tab */}
+      {activeTab === 'ordering' && (
+        <Card>
+          <div className="max-w-xl mx-auto">
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-lg font-medium text-gray-900">{t('settings.ordering.title')}</h3>
+                <p className="text-sm text-gray-600 mt-1">{t('settings.ordering.subtitle')}</p>
+              </div>
+              {/* Business Info */}
+              <div className="space-y-4">
+                <Input
+                  label={t('settings.ordering.businessName')}
+                  name="businessName"
+                  value={orderingSettings?.businessName || ''}
+                  onChange={(e) => setOrderingSettings(prev => prev ? { ...prev, businessName: e.target.value } : prev)}
+                />
+                <Input
+                  label={t('settings.ordering.whatsappNumber')}
+                  name="whatsappNumber"
+                  value={orderingSettings?.whatsappNumber || ''}
+                  onChange={(e) => setOrderingSettings(prev => prev ? { ...prev, whatsappNumber: e.target.value } : prev)}
+                  helpText={t('settings.ordering.whatsappNumberHelp')}
+                />
+              </div>
+
+              {/* Delivery Fee and Currency */}
+              <div className="grid grid-cols-2 gap-4">
+                <PriceInput
+                  label={t('settings.ordering.deliveryFee')}
+                  name="deliveryFee"
+                  value={orderingSettings?.deliveryFee ?? 0}
+                  onChange={(e) => setOrderingSettings(prev => prev ? { ...prev, deliveryFee: Number(e.target.value) } : prev)}
+                />
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('settings.ordering.currency')}</label>
+                  <select
+                    className="w-full rounded-md border border-gray-300 shadow-sm py-2 px-3 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
+                    value={orderingSettings?.currency || 'XAF'}
+                    onChange={(e) => setOrderingSettings(prev => prev ? { ...prev, currency: e.target.value } : prev)}
+                  >
+                    <option value="XAF">XAF</option>
+                    <option value="XOF">XOF</option>
+                    <option value="USD">USD</option>
+                    <option value="EUR">EUR</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex justify-end space-x-3">
+                <Button
+                  variant="outline"
+                  type="button"
+                  disabled={orderingSaving || orderingLoading}
+                  onClick={() => {
+                    // Reset from server/company defaults
+                    if (!company) return;
+                    setOrderingSettings({
+                      whatsappNumber: company.phone || '+237',
+                      businessName: company.name || '',
+                      paymentMethods: {
+                        customMethods: []
+                      },
+                      deliveryFee: 0,
+                      currency: 'XAF'
+                    });
+                  }}
+                >
+                  {t('settings.ordering.reset')}
+                </Button>
+                <Button
+                  type="button"
+                  isLoading={orderingSaving}
+                  disabled={orderingSaving || orderingLoading || !orderingSettings}
+                  onClick={async () => {
+                    if (!company?.id || !orderingSettings) return;
+                    try {
+                      setOrderingSaving(true);
+                      await updateSellerSettings(company.id, orderingSettings);
+                      showSuccessToast(t('settings.ordering.settingsUpdated'));
+                    } catch (e: unknown) {
+                      console.error(e);
+                      showErrorToast((e as Error).message || t('settings.ordering.settingsUpdateFailed'));
+                    } finally {
+                      setOrderingSaving(false);
+                    }
+                  }}
+                >
+                  {t('settings.ordering.saveSettings')}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
+      {/* Activity Logs Tab */}
+      {activeTab === 'activity' && (
+        <ActivityList activities={activities} />
+      )}
+
+      {/* Catalogue Links Tab */}
+      {activeTab === 'catalogue' && (
+        <Card>
+          <div className="max-w-4xl mx-auto">
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">{t('settings.catalogue.title')}</h3>
+                <p className="text-sm text-gray-600">
+                  Generate shareable links for your product categories to use on your external landing pages.
+                </p>
+              </div>
+
+              {/* Base Catalogue URL */}
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h4 className="font-medium text-gray-900 mb-2">Your Catalogue URL</h4>
+                <div className="flex items-center space-x-2">
+                  <code className="flex-1 bg-white p-2 rounded border text-sm font-mono">
+                    {typeof window !== 'undefined' 
+                      ? `${window.location.origin}/catalogue/${company?.name?.toLowerCase().replace(/\s+/g, '-')}/${user?.uid}`
+                      : 'Loading...'
+                    }
+                  </code>
+                  <Button
+                    size="sm"
+                    onClick={() => copyToClipboard(
+                      `${window.location.origin}/catalogue/${company?.name?.toLowerCase().replace(/\s+/g, '-')}/${user?.uid}`,
+                      'base-catalogue'
+                    )}
+                  >
+                    {copiedLinks.has('base-catalogue') ? (
+                      <Check className="h-4 w-4" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              {/* Category Links */}
+              <div>
+                <h4 className="font-medium text-gray-900 mb-4">Category-Specific Links</h4>
+                {(() => {
+                  const categories = Array.from(new Set(products.map(p => p.category))).sort();
+                  
+                  if (categories.length === 0) {
+                    return (
+                      <div className="text-center py-8 text-gray-500">
+                        <p>No products found. Add some products to generate category links.</p>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="space-y-3">
+                      {categories.map(category => {
+                        const categoryProducts = products.filter(p => p.category === category);
+                        const categoryUrl = `${window.location.origin}/catalogue/${company?.name?.toLowerCase().replace(/\s+/g, '-')}/${user?.uid}?categories=${encodeURIComponent(category)}`;
+                        const linkId = `category-${category}`;
+                        
+                        return (
+                          <div key={category} className="bg-white border rounded-lg p-4">
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1">
+                                <h5 className="font-medium text-gray-900">{category}</h5>
+                                <p className="text-sm text-gray-500">
+                                  {categoryProducts.length} product{categoryProducts.length !== 1 ? 's' : ''}
+                                </p>
+                                <code className="text-xs text-gray-600 mt-1 block font-mono">
+                                  {categoryUrl}
+                                </code>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => window.open(categoryUrl, '_blank')}
+                                >
+                                  <ExternalLink className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  onClick={() => copyToClipboard(categoryUrl, linkId)}
+                                >
+                                  {copiedLinks.has(linkId) ? (
+                                    <Check className="h-4 w-4" />
+                                  ) : (
+                                    <Copy className="h-4 w-4" />
+                                  )}
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* Multi-Category Links */}
+              {(() => {
+                const categories = Array.from(new Set(products.map(p => p.category))).sort();
+                return categories.length > 1;
+              })() && (
+                <div>
+                  <h4 className="font-medium text-gray-900 mb-4">Multi-Category Links</h4>
+                  <div className="bg-yellow-50 p-4 rounded-lg mb-4">
+                    <p className="text-sm text-yellow-800">
+                      You can combine multiple categories in one link by separating them with commas.
+                    </p>
+                    <div className="mt-2">
+                      <code className="text-xs bg-white p-2 rounded border font-mono">
+                        {window.location.origin}/catalogue/{company?.name?.toLowerCase().replace(/\s+/g, '-')}/{user?.uid}?categories=Category1,Category2
+                      </code>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Usage Instructions */}
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <h4 className="font-medium text-blue-900 mb-2">How to Use</h4>
+                <ul className="text-sm text-blue-800 space-y-1">
+                  <li>• Copy the base catalogue URL to link to your full product catalog</li>
+                  <li>• Copy category-specific links to showcase particular product types</li>
+                  <li>• Combine multiple categories by adding commas: ?categories=Electronics,Clothing</li>
+                  <li>• Paste these links into your external landing pages or websites</li>
+                  <li>• When customers click these links, they'll see your products in your POS system</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Checkout Settings Tab */}
+      {activeTab === 'checkout' && (
+        <div className="space-y-6">
+          {checkoutLoading ? (
+            <Card>
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
+                <span className="ml-3 text-gray-600">{t('settings.checkout.loading')}</span>
+              </div>
+            </Card>
+          ) : checkoutSettings ? (
+            <>
+              {/* General Sections */}
+              <Card>
+                <div className="max-w-4xl mx-auto">
+                  <div className="space-y-6">
+                    <div className="text-center mb-8">
+                      <h3 className="text-2xl font-semibold text-gray-900 mb-2">{t('settings.checkout.title')}</h3>
+                      <p className="text-gray-600">{t('settings.checkout.subtitle')}</p>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                      {/* Settings Controls */}
+                      <div className="space-y-6">
+                        {/* Section-Level Controls */}
+                        <div className="bg-white rounded-lg shadow-sm border p-6">
+                          <div className="flex items-center space-x-2 mb-4">
+                            <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                            <h2 className="text-xl font-semibold text-gray-900">{t('settings.checkout.disableSections')}</h2>
+                          </div>
+                          <p className="text-sm text-gray-600 mb-6">{t('settings.checkout.disableSectionsDescription')}</p>
+                          <div className="space-y-4">
+                            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                              <div>
+                                <label className="text-sm font-medium text-gray-700">{t('settings.checkout.contactSection')}</label>
+                                <p className="text-xs text-gray-500">{t('settings.checkout.contactSectionDescription')}</p>
+                              </div>
+                              <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={checkoutSettings.showContactSection}
+                                  onChange={(e) => handleCheckoutSettingsUpdate({ showContactSection: e.target.checked })}
+                                  className="sr-only peer"
+                                />
+                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                              </label>
+                            </div>
+
+                            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                              <div>
+                                <label className="text-sm font-medium text-gray-700">{t('settings.checkout.deliverySection')}</label>
+                                <p className="text-xs text-gray-500">{t('settings.checkout.deliverySectionDescription')}</p>
+                              </div>
+                              <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={checkoutSettings.showDeliverySection}
+                                  onChange={(e) => handleCheckoutSettingsUpdate({ showDeliverySection: e.target.checked })}
+                                  className="sr-only peer"
+                                />
+                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                              </label>
+                            </div>
+
+                            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                              <div>
+                                <label className="text-sm font-medium text-gray-700">{t('settings.checkout.paymentSection')}</label>
+                                <p className="text-xs text-gray-500">{t('settings.checkout.paymentSectionDescription')}</p>
+                              </div>
+                              <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={checkoutSettings.showPaymentSection}
+                                  onChange={(e) => handleCheckoutSettingsUpdate({ showPaymentSection: e.target.checked })}
+                                  className="sr-only peer"
+                                />
+                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                              </label>
+                            </div>
+
+                            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                              <div>
+                                <label className="text-sm font-medium text-gray-700">{t('settings.checkout.orderSummarySection')}</label>
+                                <p className="text-xs text-gray-500">{t('settings.checkout.orderSummarySectionDescription')}</p>
+                              </div>
+                              <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={checkoutSettings.showOrderSummary}
+                                  onChange={(e) => handleCheckoutSettingsUpdate({ showOrderSummary: e.target.checked })}
+                                  className="sr-only peer"
+                                />
+                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                              </label>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Contact Section Field Controls */}
+                        {checkoutSettings.showContactSection && (
+                          <div className="bg-white rounded-lg shadow-sm border p-6 ml-4 border-l-4 border-l-blue-200">
+                            <div className="flex items-center space-x-2 mb-4">
+                              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                              <h3 className="text-lg font-semibold text-gray-900">{t('settings.checkout.contactFields')}</h3>
+                            </div>
+                            <p className="text-sm text-gray-600 mb-4">{t('settings.checkout.contactFieldsDescription')}</p>
+                            <div className="space-y-3">
+                              <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                                <div>
+                                  <label className="text-sm font-medium text-gray-700">{t('settings.checkout.emailField')}</label>
+                                  <p className="text-xs text-gray-500">{t('settings.checkout.emailFieldDescription')}</p>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={checkoutSettings.showEmail}
+                                    onChange={(e) => handleCheckoutSettingsUpdate({ showEmail: e.target.checked })}
+                                    className="sr-only peer"
+                                  />
+                                  <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                                </label>
+                              </div>
+
+                              <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                                <div>
+                                  <label className="text-sm font-medium text-gray-700">{t('settings.checkout.phoneField')}</label>
+                                  <p className="text-xs text-gray-500">{t('settings.checkout.phoneFieldDescription')}</p>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={checkoutSettings.showPhone}
+                                    onChange={(e) => handleCheckoutSettingsUpdate({ showPhone: e.target.checked })}
+                                    className="sr-only peer"
+                                  />
+                                  <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                                </label>
+                              </div>
+
+                              <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                                <div>
+                                  <label className="text-sm font-medium text-gray-700">{t('settings.checkout.newsletterOptIn')}</label>
+                                  <p className="text-xs text-gray-500">{t('settings.checkout.newsletterOptInDescription')}</p>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={checkoutSettings.showNewsletter}
+                                    onChange={(e) => handleCheckoutSettingsUpdate({ showNewsletter: e.target.checked })}
+                                    className="sr-only peer"
+                                  />
+                                  <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                                </label>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Delivery Section Field Controls */}
+                        {checkoutSettings.showDeliverySection && (
+                          <div className="bg-white rounded-lg shadow-sm border p-6 ml-4 border-l-4 border-l-green-200">
+                            <div className="flex items-center space-x-2 mb-4">
+                              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                              <h3 className="text-lg font-semibold text-gray-900">{t('settings.checkout.deliveryFields')}</h3>
+                            </div>
+                            <p className="text-sm text-gray-600 mb-4">{t('settings.checkout.deliveryFieldsDescription')}</p>
+                            <div className="space-y-3">
+                              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                                <div>
+                                  <label className="text-sm font-medium text-gray-700">{t('settings.checkout.country')}</label>
+                                  <p className="text-xs text-gray-500">{t('settings.checkout.countryDescription')}</p>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={checkoutSettings.showCountry}
+                                    onChange={(e) => handleCheckoutSettingsUpdate({ showCountry: e.target.checked })}
+                                    className="sr-only peer"
+                                  />
+                                  <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
+                                </label>
+                              </div>
+
+                              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                                <div>
+                                  <label className="text-sm font-medium text-gray-700">{t('settings.checkout.firstName')}</label>
+                                  <p className="text-xs text-gray-500">{t('settings.checkout.firstNameDescription')}</p>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={checkoutSettings.showFirstName}
+                                    onChange={(e) => handleCheckoutSettingsUpdate({ showFirstName: e.target.checked })}
+                                    className="sr-only peer"
+                                  />
+                                  <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
+                                </label>
+                              </div>
+
+                              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                                <div>
+                                  <label className="text-sm font-medium text-gray-700">{t('settings.checkout.lastName')}</label>
+                                  <p className="text-xs text-gray-500">{t('settings.checkout.lastNameDescription')}</p>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={checkoutSettings.showLastName}
+                                    onChange={(e) => handleCheckoutSettingsUpdate({ showLastName: e.target.checked })}
+                                    className="sr-only peer"
+                                  />
+                                  <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
+                                </label>
+                              </div>
+
+                              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                                <div>
+                                  <label className="text-sm font-medium text-gray-700">{t('settings.checkout.address')}</label>
+                                  <p className="text-xs text-gray-500">{t('settings.checkout.addressDescription')}</p>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={checkoutSettings.showAddress}
+                                    onChange={(e) => handleCheckoutSettingsUpdate({ showAddress: e.target.checked })}
+                                    className="sr-only peer"
+                                  />
+                                  <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
+                                </label>
+                              </div>
+
+                              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                                <div>
+                                  <label className="text-sm font-medium text-gray-700">{t('settings.checkout.apartment')}</label>
+                                  <p className="text-xs text-gray-500">{t('settings.checkout.apartmentDescription')}</p>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={checkoutSettings.showApartment}
+                                    onChange={(e) => handleCheckoutSettingsUpdate({ showApartment: e.target.checked })}
+                                    className="sr-only peer"
+                                  />
+                                  <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
+                                </label>
+                              </div>
+
+                              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                                <div>
+                                  <label className="text-sm font-medium text-gray-700">{t('settings.checkout.city')}</label>
+                                  <p className="text-xs text-gray-500">{t('settings.checkout.cityDescription')}</p>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={checkoutSettings.showCity}
+                                    onChange={(e) => handleCheckoutSettingsUpdate({ showCity: e.target.checked })}
+                                    className="sr-only peer"
+                                  />
+                                  <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
+                                </label>
+                              </div>
+
+                              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                                <div>
+                                  <label className="text-sm font-medium text-gray-700">{t('settings.checkout.deliveryInstructions')}</label>
+                                  <p className="text-xs text-gray-500">{t('settings.checkout.deliveryInstructionsDescription')}</p>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={checkoutSettings.showDeliveryInstructions}
+                                    onChange={(e) => handleCheckoutSettingsUpdate({ showDeliveryInstructions: e.target.checked })}
+                                    className="sr-only peer"
+                                  />
+                                  <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
+                                </label>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Payment Methods - Read Only */}
+                        <div className="bg-white rounded-lg shadow-sm border p-6">
+                          <h2 className="text-xl font-semibold text-gray-900 mb-2">{t('settings.checkout.paymentMethods')}</h2>
+                          <p className="text-xs text-gray-500 mb-4">{t('settings.checkout.paymentMethodsReadOnly')}</p>
+                          <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-2">
+                                <div className="w-6 h-6 bg-yellow-500 rounded flex items-center justify-center">
+                                  <span className="text-white font-bold text-xs">M</span>
+                                </div>
+                                <span className="text-sm font-medium text-gray-700">{t('settings.checkout.mtnMoney')}</span>
+                              </div>
+                              <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                                checkoutSettings.enabledPaymentMethods.mtnMoney
+                                  ? 'bg-emerald-100 text-emerald-700' 
+                                  : 'bg-gray-100 text-gray-500'
+                              }`}>
+                                {checkoutSettings.enabledPaymentMethods.mtnMoney ? t('settings.checkout.enabled') : t('settings.checkout.disabled')}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-2">
+                                <div className="w-6 h-6 bg-orange-500 rounded flex items-center justify-center">
+                                  <span className="text-white font-bold text-xs">O</span>
+                                </div>
+                                <span className="text-sm font-medium text-gray-700">{t('settings.checkout.orangeMoney')}</span>
+                              </div>
+                              <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                                checkoutSettings.enabledPaymentMethods.orangeMoney
+                                  ? 'bg-emerald-100 text-emerald-700' 
+                                  : 'bg-gray-100 text-gray-500'
+                              }`}>
+                                {checkoutSettings.enabledPaymentMethods.orangeMoney ? t('settings.checkout.enabled') : t('settings.checkout.disabled')}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-2">
+                                <CreditCard className="h-5 w-5 text-gray-600" />
+                                <span className="text-sm font-medium text-gray-700">{t('settings.checkout.visaCard')}</span>
+                              </div>
+                              <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                                checkoutSettings.enabledPaymentMethods.visaCard
+                                  ? 'bg-emerald-100 text-emerald-700' 
+                                  : 'bg-gray-100 text-gray-500'
+                              }`}>
+                                {checkoutSettings.enabledPaymentMethods.visaCard ? t('settings.checkout.enabled') : t('settings.checkout.disabled')}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-2">
+                                <Truck className="h-5 w-5 text-emerald-600" />
+                                <span className="text-sm font-medium text-gray-700">{t('settings.checkout.payOnsite')}</span>
+                              </div>
+                              <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                                checkoutSettings.enabledPaymentMethods.payOnsite
+                                  ? 'bg-emerald-100 text-emerald-700' 
+                                  : 'bg-gray-100 text-gray-500'
+                              }`}>
+                                {checkoutSettings.enabledPaymentMethods.payOnsite ? t('settings.checkout.enabled') : t('settings.checkout.disabled')}
+                              </span>
+                            </div>
+
+                            {/* Active Custom Payment Methods */}
+                            {orderingSettings?.paymentMethods?.customMethods && orderingSettings.paymentMethods.customMethods.filter(m => m.isActive).length > 0 && (
+                              <>
+                                {orderingSettings.paymentMethods.customMethods
+                                  .filter(m => m.isActive)
+                                  .map((method) => (
+                                    <div key={method.id} className="flex items-center justify-between">
+                                      <div className="flex items-center space-x-2">
+                                        <div className="w-6 h-6 bg-purple-100 rounded flex items-center justify-center">
+                                          {method.type === 'phone' && <Phone className="h-4 w-4 text-purple-600" />}
+                                          {method.type === 'ussd' && <Hash className="h-4 w-4 text-purple-600" />}
+                                          {method.type === 'link' && <Link className="h-4 w-4 text-purple-600" />}
+                                        </div>
+                                        <div>
+                                          <span className="text-sm font-medium text-gray-700 block">{method.name}</span>
+                                          <span className="text-xs text-gray-500">
+                                            {method.type === 'phone' && '📞'}
+                                            {method.type === 'ussd' && '🔢'}
+                                            {method.type === 'link' && '🔗'}
+                                            {' '}{method.value}
+                                          </span>
+                                        </div>
+                                      </div>
+                                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
+                                        {t('settings.checkout.enabled')}
+                                      </span>
+                                    </div>
+                                  ))}
+                              </>
+                            )}
+
+                            {/* Payment Gateways Status */}
+                            <div className="pt-4 mt-4 border-t border-gray-200">
+                              <h3 className="text-sm font-semibold text-gray-700 mb-3">{t('settings.checkout.paymentGateways')}</h3>
+                              <div className="space-y-3">
+                                {/* CinetPay Status */}
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center space-x-2">
+                                    <div className="w-6 h-6 bg-blue-100 rounded flex items-center justify-center">
+                                      <CreditCard className="h-4 w-4 text-blue-600" />
+                                    </div>
+                                    <span className="text-sm font-medium text-gray-700">{t('settings.paymentGateways.cinetpay.name')}</span>
+                                  </div>
+                                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                                    cinetpayConfig?.isActive
+                                      ? 'bg-emerald-100 text-emerald-700' 
+                                      : 'bg-gray-100 text-gray-500'
+                                  }`}>
+                                    {cinetpayConfig?.isActive ? t('settings.checkout.enabled') : t('settings.checkout.disabled')}
+                                  </span>
+                                </div>
+
+                                {/* Campay Status */}
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center space-x-2">
+                                    <div className="w-6 h-6 bg-emerald-100 rounded flex items-center justify-center">
+                                      <span className="text-emerald-600 font-bold text-xs">CP</span>
+                                    </div>
+                                    <span className="text-sm font-medium text-gray-700">{t('settings.paymentGateways.campay.name')}</span>
+                                  </div>
+                                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                                    campayConfig?.isActive
+                                      ? 'bg-emerald-100 text-emerald-700' 
+                                      : 'bg-gray-100 text-gray-500'
+                                  }`}>
+                                    {campayConfig?.isActive ? t('settings.checkout.enabled') : t('settings.checkout.disabled')}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Catalogue Display Settings */}
+                        <div className="bg-white rounded-lg shadow-sm border p-6">
+                          <div className="flex items-center space-x-2 mb-4">
+                            <ShoppingBag className="h-5 w-5 text-emerald-600" />
+                            <h2 className="text-xl font-semibold text-gray-900">{t('settings.checkout.catalogueDisplay')}</h2>
+                          </div>
+                          
+                          <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <label className="text-sm font-medium text-gray-700">{t('settings.checkout.showCheckoutInCatalogue')}</label>
+                                <p className="text-xs text-gray-500">{t('settings.checkout.showCheckoutInCatalogueDescription')}</p>
+                              </div>
+                              <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={checkoutSettings.showCheckoutInCatalogue}
+                                  onChange={(e) => handleCheckoutSettingsUpdate({ showCheckoutInCatalogue: e.target.checked })}
+                                  className="sr-only peer"
+                                />
+                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                              </label>
+                            </div>
+
+                            {checkoutSettings.showCheckoutInCatalogue && (
+                              <div className="ml-4 space-y-4 border-l-2 border-gray-200 pl-4">
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    {t('settings.checkout.checkoutButtonText')}
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={checkoutSettings.checkoutButtonText}
+                                    onChange={(e) => handleCheckoutSettingsUpdate({ checkoutButtonText: e.target.value })}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                    placeholder="Checkout Now"
+                                  />
+                                </div>
+
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    {t('settings.checkout.checkoutButtonColor')}
+                                  </label>
+                                  <div className="flex items-center space-x-3">
+                                    <input
+                                      type="color"
+                                      value={checkoutSettings.checkoutButtonColor}
+                                      onChange={(e) => handleCheckoutSettingsUpdate({ checkoutButtonColor: e.target.value })}
+                                      className="w-12 h-8 border border-gray-300 rounded cursor-pointer"
+                                    />
+                                    <input
+                                      type="text"
+                                      value={checkoutSettings.checkoutButtonColor}
+                                      onChange={(e) => handleCheckoutSettingsUpdate({ checkoutButtonColor: e.target.value })}
+                                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                      placeholder="#10b981"
+                                    />
+                                  </div>
+                                  <p className="text-xs text-gray-500 mt-1">
+                                    {t('settings.checkout.checkoutButtonColorDescription')}
+                                  </p>
+                                </div>
+
+                                <div className="bg-gray-50 rounded-lg p-4">
+                                  <p className="text-sm font-medium text-gray-700 mb-2">{t('settings.checkout.preview')}:</p>
+                                  <button
+                                    style={{ backgroundColor: checkoutSettings.checkoutButtonColor }}
+                                    className="px-4 py-2 text-white rounded-lg font-medium"
+                                  >
+                                    {checkoutSettings.checkoutButtonText}
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex justify-end space-x-4">
+                          <Button
+                            onClick={handleResetCheckoutSettings}
+                            disabled={checkoutSaving}
+                            variant="outline"
+                            className="flex items-center"
+                          >
+                            <RotateCcw size={20} className="mr-2" />
+                            {t('settings.checkout.resetToDefault')}
+                          </Button>
+                          <Button
+                            onClick={handleSaveCheckoutSettings}
+                            disabled={checkoutSaving}
+                            className="flex items-center"
+                          >
+                            {checkoutSaving ? (
+                              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                            ) : (
+                              <Save size={20} className="mr-2" />
+                            )}
+                            {t('settings.checkout.saveSettings')}
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Preview Panel */}
+                      <div className="bg-white rounded-lg shadow-sm border p-6 h-fit">
+                        <div className="flex items-center space-x-2 mb-4">
+                          <Eye className="h-5 w-5 text-emerald-600" />
+                          <h3 className="text-lg font-semibold text-gray-900">{t('settings.checkout.livePreview')}</h3>
+                        </div>
+                        
+                        <div className="space-y-3 text-sm">
+                          <div className="flex items-center justify-between">
+                            <span className="text-gray-600">{t('settings.checkout.contactSection')}</span>
+                            <span className={`px-2 py-1 rounded text-xs ${
+                              checkoutSettings.showContactSection ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'
+                            }`}>
+                              {checkoutSettings.showContactSection ? t('settings.checkout.enabled') : t('settings.checkout.disabled')}
+                            </span>
+                          </div>
+                          
+                          <div className="flex items-center justify-between">
+                            <span className="text-gray-600">{t('settings.checkout.deliverySection')}</span>
+                            <span className={`px-2 py-1 rounded text-xs ${
+                              checkoutSettings.showDeliverySection ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'
+                            }`}>
+                              {checkoutSettings.showDeliverySection ? t('settings.checkout.enabled') : t('settings.checkout.disabled')}
+                            </span>
+                          </div>
+                          
+                          <div className="flex items-center justify-between">
+                            <span className="text-gray-600">{t('settings.checkout.paymentSection')}</span>
+                            <span className={`px-2 py-1 rounded text-xs ${
+                              checkoutSettings.showPaymentSection ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'
+                            }`}>
+                              {checkoutSettings.showPaymentSection ? t('settings.checkout.enabled') : t('settings.checkout.disabled')}
+                            </span>
+                          </div>
+                          
+                          <div className="flex items-center justify-between">
+                            <span className="text-gray-600">{t('settings.checkout.orderSummarySection')}</span>
+                            <span className={`px-2 py-1 rounded text-xs ${
+                              checkoutSettings.showOrderSummary ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'
+                            }`}>
+                              {checkoutSettings.showOrderSummary ? t('settings.checkout.enabled') : t('settings.checkout.disabled')}
+                            </span>
+                          </div>
+
+                          {/* Individual Field Status */}
+                          {checkoutSettings.showContactSection && (
+                            <div className="border-t border-gray-200 pt-3">
+                              <div className="text-gray-600 mb-2">{t('settings.checkout.contactFieldsLabel')}</div>
+                              <div className="space-y-1">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs text-gray-500">{t('settings.checkout.emailField')}</span>
+                                  <span className={`w-2 h-2 rounded-full ${
+                                    checkoutSettings.showEmail ? 'bg-emerald-500' : 'bg-gray-300'
+                                  }`}></span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs text-gray-500">{t('settings.checkout.phoneField')}</span>
+                                  <span className={`w-2 h-2 rounded-full ${
+                                    checkoutSettings.showPhone ? 'bg-emerald-500' : 'bg-gray-300'
+                                  }`}></span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs text-gray-500">{t('settings.checkout.newsletterOptIn')}</span>
+                                  <span className={`w-2 h-2 rounded-full ${
+                                    checkoutSettings.showNewsletter ? 'bg-emerald-500' : 'bg-gray-300'
+                                  }`}></span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {checkoutSettings.showDeliverySection && (
+                            <div className="border-t border-gray-200 pt-3">
+                              <div className="text-gray-600 mb-2">{t('settings.checkout.deliveryFieldsLabel')}</div>
+                              <div className="space-y-1">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs text-gray-500">{t('settings.checkout.country')}</span>
+                                  <span className={`w-2 h-2 rounded-full ${
+                                    checkoutSettings.showCountry ? 'bg-emerald-500' : 'bg-gray-300'
+                                  }`}></span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs text-gray-500">{t('settings.checkout.firstName')}</span>
+                                  <span className={`w-2 h-2 rounded-full ${
+                                    checkoutSettings.showFirstName ? 'bg-emerald-500' : 'bg-gray-300'
+                                  }`}></span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs text-gray-500">{t('settings.checkout.lastName')}</span>
+                                  <span className={`w-2 h-2 rounded-full ${
+                                    checkoutSettings.showLastName ? 'bg-emerald-500' : 'bg-gray-300'
+                                  }`}></span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs text-gray-500">{t('settings.checkout.address')}</span>
+                                  <span className={`w-2 h-2 rounded-full ${
+                                    checkoutSettings.showAddress ? 'bg-emerald-500' : 'bg-gray-300'
+                                  }`}></span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs text-gray-500">{t('settings.checkout.apartment')}</span>
+                                  <span className={`w-2 h-2 rounded-full ${
+                                    checkoutSettings.showApartment ? 'bg-emerald-500' : 'bg-gray-300'
+                                  }`}></span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs text-gray-500">{t('settings.checkout.city')}</span>
+                                  <span className={`w-2 h-2 rounded-full ${
+                                    checkoutSettings.showCity ? 'bg-emerald-500' : 'bg-gray-300'
+                                  }`}></span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs text-gray-500">{t('settings.checkout.deliveryInstructions')}</span>
+                                  <span className={`w-2 h-2 rounded-full ${
+                                    checkoutSettings.showDeliveryInstructions ? 'bg-emerald-500' : 'bg-gray-300'
+                                  }`}></span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                          
+                          <div className="border-t border-gray-200 pt-3">
+                            <div className="text-gray-600 mb-2">{t('settings.checkout.paymentMethodsLabel')}</div>
+                            <div className="space-y-1">
+                              {Object.entries(checkoutSettings.enabledPaymentMethods).map(([method, enabled]) => (
+                                <div key={method} className="flex items-center justify-between">
+                                  <span className="text-xs text-gray-500 capitalize">
+                                    {method === 'mtnMoney' ? t('settings.checkout.mtnMoney') :
+                                     method === 'orangeMoney' ? t('settings.checkout.orangeMoney') :
+                                     method === 'visaCard' ? t('settings.checkout.visaCard') :
+                                     method === 'payOnsite' ? t('settings.checkout.payOnsite') :
+                                     method.replace(/([A-Z])/g, ' $1').trim()}
+                                  </span>
+                                  <span className={`w-2 h-2 rounded-full ${
+                                    enabled ? 'bg-emerald-500' : 'bg-gray-300'
+                                  }`}></span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="border-t border-gray-200 pt-3">
+                            <div className="flex items-center justify-between">
+                              <span className="text-gray-600">{t('settings.checkout.catalogueCheckout')}</span>
+                              <span className={`px-2 py-1 rounded text-xs ${
+                                checkoutSettings.showCheckoutInCatalogue ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'
+                              }`}>
+                                {checkoutSettings.showCheckoutInCatalogue ? t('settings.checkout.enabled') : t('settings.checkout.disabled')}
+                              </span>
+                            </div>
+                            {checkoutSettings.showCheckoutInCatalogue && (
+                              <div className="mt-2">
+                                <div className="text-xs text-gray-500 mb-1">{t('settings.checkout.buttonPreview')}</div>
+                                <button
+                                  style={{ backgroundColor: checkoutSettings.checkoutButtonColor }}
+                                  className="px-3 py-1 text-white rounded text-xs font-medium"
+                                >
+                                  {checkoutSettings.checkoutButtonText}
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            </>
+          ) : (
+            <Card>
+              <div className="text-center py-8 text-gray-500">
+                <p>{t('settings.checkout.loadFailed')}</p>
+              </div>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {/* Payment Methods & Gateways Tab */}
+      {activeTab === 'payment' && (
+        <div className="space-y-6 max-w-7xl mx-auto">
+          {/* Header */}
+          <div className="mb-6">
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">{t('settings.paymentMethodsAndGateways.title')}</h2>
+            <p className="text-gray-600">{t('settings.paymentMethodsAndGateways.subtitle')}</p>
+          </div>
+
+          {/* Payment Methods Section - At the Top */}
+          {checkoutSettings && (
+            <Card>
+              <div className="p-6">
+                <div className="mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">{t('settings.paymentMethodsAndGateways.paymentMethods.title')}</h3>
+                  <p className="text-sm text-gray-600">{t('settings.paymentMethodsAndGateways.paymentMethods.subtitle')}</p>
+                </div>
+                
+                <div className="space-y-4">
+                  {/* MTN Money */}
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-yellow-500 rounded-lg flex items-center justify-center">
+                          <span className="text-white font-bold text-sm">M</span>
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium text-gray-900 block">
+                            {t('settings.checkout.mtnMoney')}
+                          </label>
+                          <p className="text-xs text-gray-600">{t('settings.paymentMethodsAndGateways.paymentMethods.mtnMoneyDesc')}</p>
+                        </div>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={checkoutSettings.enabledPaymentMethods.mtnMoney}
+                          onChange={async (e) => {
+                            handleCheckoutSettingsUpdate({ 
+                              enabledPaymentMethods: { 
+                                ...checkoutSettings.enabledPaymentMethods, 
+                                mtnMoney: e.target.checked 
+                              } 
+                            });
+                            if (company?.id) {
+                              try {
+                                const updated = {
+                                  ...checkoutSettings,
+                                  enabledPaymentMethods: {
+                                    ...checkoutSettings.enabledPaymentMethods,
+                                    mtnMoney: e.target.checked
+                                  }
+                                };
+                                await saveCheckoutSettings(company.id, updated, user?.uid);
+                                showSuccessToast(t('settings.paymentMethodsAndGateways.paymentMethods.updated'));
+                              } catch (error) {
+                                console.error('Error saving payment method:', error);
+                                showErrorToast(t('settings.paymentMethodsAndGateways.paymentMethods.updateFailed'));
+                              }
+                            }
+                          }}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Orange Money */}
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-orange-500 rounded-lg flex items-center justify-center">
+                          <span className="text-white font-bold text-sm">O</span>
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium text-gray-900 block">
+                            {t('settings.checkout.orangeMoney')}
+                          </label>
+                          <p className="text-xs text-gray-600">{t('settings.paymentMethodsAndGateways.paymentMethods.orangeMoneyDesc')}</p>
+                        </div>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={checkoutSettings.enabledPaymentMethods.orangeMoney}
+                          onChange={async (e) => {
+                            handleCheckoutSettingsUpdate({ 
+                              enabledPaymentMethods: { 
+                                ...checkoutSettings.enabledPaymentMethods, 
+                                orangeMoney: e.target.checked 
+                              } 
+                            });
+                            if (company?.id) {
+                              try {
+                                const updated = {
+                                  ...checkoutSettings,
+                                  enabledPaymentMethods: {
+                                    ...checkoutSettings.enabledPaymentMethods,
+                                    orangeMoney: e.target.checked
+                                  }
+                                };
+                                await saveCheckoutSettings(company.id, updated, user?.uid);
+                                showSuccessToast(t('settings.paymentMethodsAndGateways.paymentMethods.updated'));
+                              } catch (error) {
+                                console.error('Error saving payment method:', error);
+                                showErrorToast(t('settings.paymentMethodsAndGateways.paymentMethods.updateFailed'));
+                              }
+                            }
+                          }}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Visa Card */}
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                          <CreditCard className="h-5 w-5 text-blue-600" />
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium text-gray-900 block">
+                            {t('settings.checkout.visaCard')}
+                          </label>
+                          <p className="text-xs text-gray-600">{t('settings.paymentMethodsAndGateways.paymentMethods.visaCardDesc')}</p>
+                        </div>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={checkoutSettings.enabledPaymentMethods.visaCard}
+                          onChange={async (e) => {
+                            handleCheckoutSettingsUpdate({ 
+                              enabledPaymentMethods: { 
+                                ...checkoutSettings.enabledPaymentMethods, 
+                                visaCard: e.target.checked 
+                              } 
+                            });
+                            if (company?.id) {
+                              try {
+                                const updated = {
+                                  ...checkoutSettings,
+                                  enabledPaymentMethods: {
+                                    ...checkoutSettings.enabledPaymentMethods,
+                                    visaCard: e.target.checked
+                                  }
+                                };
+                                await saveCheckoutSettings(company.id, updated, user?.uid);
+                                showSuccessToast(t('settings.paymentMethodsAndGateways.paymentMethods.updated'));
+                              } catch (error) {
+                                console.error('Error saving payment method:', error);
+                                showErrorToast(t('settings.paymentMethodsAndGateways.paymentMethods.updateFailed'));
+                              }
+                            }
+                          }}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Pay Onsite */}
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center">
+                          <Truck className="h-5 w-5 text-emerald-600" />
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium text-gray-900 block">
+                            {t('settings.checkout.payOnsite')}
+                          </label>
+                          <p className="text-xs text-gray-600">{t('settings.paymentMethodsAndGateways.paymentMethods.payOnsiteDesc')}</p>
+                        </div>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={checkoutSettings.enabledPaymentMethods.payOnsite}
+                          onChange={async (e) => {
+                            handleCheckoutSettingsUpdate({ 
+                              enabledPaymentMethods: { 
+                                ...checkoutSettings.enabledPaymentMethods, 
+                                payOnsite: e.target.checked 
+                              } 
+                            });
+                            if (company?.id) {
+                              try {
+                                const updated = {
+                                  ...checkoutSettings,
+                                  enabledPaymentMethods: {
+                                    ...checkoutSettings.enabledPaymentMethods,
+                                    payOnsite: e.target.checked
+                                  }
+                                };
+                                await saveCheckoutSettings(company.id, updated, user?.uid);
+                                showSuccessToast(t('settings.paymentMethodsAndGateways.paymentMethods.updated'));
+                              } catch (error) {
+                                console.error('Error saving payment method:', error);
+                                showErrorToast(t('settings.paymentMethodsAndGateways.paymentMethods.updateFailed'));
+                              }
+                            }
+                          }}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Active Custom Payment Methods - Show as toggles in main list */}
+                  {orderingSettings?.paymentMethods?.customMethods && orderingSettings.paymentMethods.customMethods.filter(m => m.isActive).length > 0 && (
+                    <>
+                      {orderingSettings.paymentMethods.customMethods
+                        .filter(m => m.isActive)
+                        .map((method) => (
+                        <div key={method.id} className="bg-gray-50 rounded-lg p-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-3">
+                              <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                                {method.type === 'phone' && <Phone className="h-5 w-5 text-purple-600" />}
+                                {method.type === 'ussd' && <Hash className="h-5 w-5 text-purple-600" />}
+                                {method.type === 'link' && <Link className="h-5 w-5 text-purple-600" />}
+                              </div>
+                              <div>
+                                <label className="text-sm font-medium text-gray-900 block">
+                                  {method.name}
+                                </label>
+                                <p className="text-xs text-gray-600">
+                                  {method.type === 'phone' && '📞'}
+                                  {method.type === 'ussd' && '🔢'}
+                                  {method.type === 'link' && '🔗'}
+                                  {' '}{method.value}
+                                </p>
+                              </div>
+                            </div>
+                            <label className="relative inline-flex items-center cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={method.isActive}
+                                onChange={async (e) => {
+                                  await handleUpdatePaymentMethod(method.id, { isActive: e.target.checked });
+                                }}
+                                className="sr-only peer"
+                              />
+                              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                            </label>
+                          </div>
+                        </div>
+                      ))}
+                    </>
+                  )}
+
+                  {/* Custom Payment Methods Management */}
+                  <div className="mt-6 pt-6 border-t border-gray-200">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h4 className="text-sm font-semibold text-gray-900">{t('settings.paymentMethodsAndGateways.paymentMethods.customMethods')}</h4>
+                        <p className="text-xs text-gray-600 mt-1">{t('settings.paymentMethodsAndGateways.paymentMethods.customMethodsDesc')}</p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setEditingPaymentMethodId(null);
+                          setIsPaymentMethodModalOpen(true);
+                        }}
+                      >
+                        <Plus className="h-4 w-4 mr-1" />
+                        {t('settings.paymentMethodsAndGateways.paymentMethods.addCustom')}
+                      </Button>
+                    </div>
+                    {orderingSettings?.paymentMethods?.customMethods && orderingSettings.paymentMethods.customMethods.length > 0 ? (
+                      <div className="space-y-2">
+                        {orderingSettings.paymentMethods.customMethods.map((method) => (
+                          <div key={method.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                            <div className="flex items-center space-x-3 flex-1">
+                              <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                                {method.type === 'phone' && <Phone className="h-4 w-4 text-purple-600" />}
+                                {method.type === 'ussd' && <Hash className="h-4 w-4 text-purple-600" />}
+                                {method.type === 'link' && <Link className="h-4 w-4 text-purple-600" />}
+                              </div>
+                              <div className="flex-1">
+                                <span className="text-sm font-medium text-gray-900 block">{method.name}</span>
+                                <span className="text-xs text-gray-500">
+                                  {method.type === 'phone' && '📞'}
+                                  {method.type === 'ussd' && '🔢'}
+                                  {method.type === 'link' && '🔗'}
+                                  {' '}{method.value}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="flex items-center space-x-3">
+                              {/* Toggle Switch */}
+                              <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={method.isActive}
+                                  onChange={async (e) => {
+                                    await handleUpdatePaymentMethod(method.id, { isActive: e.target.checked });
+                                  }}
+                                  className="sr-only peer"
+                                />
+                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                              </label>
+                              {/* Edit Button */}
+                              <button
+                                onClick={() => {
+                                  setEditingPaymentMethodId(method.id);
+                                  setIsPaymentMethodModalOpen(true);
+                                }}
+                                className="text-gray-500 hover:text-emerald-600 p-1"
+                                title={t('settings.paymentMethodsAndGateways.paymentMethods.edit')}
+                              >
+                                <Edit2 className="h-4 w-4" />
+                              </button>
+                              {/* Delete Button */}
+                              <button
+                                onClick={async () => {
+                                  if (window.confirm(t('settings.paymentMethodsAndGateways.paymentMethods.deleteConfirm'))) {
+                                    await handleDeletePaymentMethod(method.id);
+                                  }
+                                }}
+                                className="text-gray-500 hover:text-red-600 p-1"
+                                title={t('settings.paymentMethodsAndGateways.paymentMethods.delete')}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-500 text-center py-4">{t('settings.paymentMethodsAndGateways.paymentMethods.noCustomMethods')}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </Card>
+          )}
+
+          {/* Payment Gateways Section */}
+          <div className="space-y-4">
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">{t('settings.paymentMethodsAndGateways.gateways.title')}</h3>
+              <p className="text-sm text-gray-600">{t('settings.paymentMethodsAndGateways.gateways.subtitle')}</p>
+            </div>
+
+            {/* Loading State */}
+            {(cinetpayLoading || campayLoading) ? (
+              <Card>
+                <div className="flex items-center justify-center py-12">
+                  <div className="animate-spin rounded-full h-10 w-10 border-4 border-emerald-200 border-t-emerald-600"></div>
+                  <span className="ml-3 text-gray-600 font-medium">{t('settings.paymentGateways.loading')}</span>
+                </div>
+              </Card>
+            ) : (
+              <>
+              {/* CinetPay Accordion */}
+              <Card className="overflow-hidden">
+                <button
+                  onClick={() => setExpandedProvider(expandedProvider === 'cinetpay' ? null : 'cinetpay')}
+                  className="w-full flex items-center justify-between p-6 hover:bg-gray-50 transition-colors duration-200"
+                  aria-expanded={expandedProvider === 'cinetpay'}
+                  aria-controls="cinetpay-content"
+                  disabled={cinetpayLoading}
+                >
+                  <div className="flex items-center space-x-4 flex-1">
+                    <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                      <CreditCard className="h-6 w-6 text-blue-600" />
+                    </div>
+                    <div className="text-left">
+                      <h3 className="text-lg font-semibold text-gray-900">{t('settings.paymentGateways.cinetpay.name')}</h3>
+                      <p className="text-sm text-gray-500">{t('settings.paymentGateways.cinetpay.description')}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-4">
+                    {cinetpayLoading ? (
+                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-600 border-t-transparent"></div>
+                    ) : (
+                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                        cinetpayConfig?.isActive 
+                          ? 'bg-emerald-100 text-emerald-700' 
+                          : 'bg-gray-100 text-gray-600'
+                      }`}>
+                        {cinetpayConfig?.isActive ? t('settings.paymentGateways.cinetpay.enabled') : t('settings.paymentGateways.cinetpay.disabled')}
+                      </span>
+                    )}
+                    {expandedProvider === 'cinetpay' ? (
+                      <ChevronUp className="h-5 w-5 text-gray-400" />
+                    ) : (
+                      <ChevronDown className="h-5 w-5 text-gray-400" />
+                    )}
+                  </div>
+                </button>
+                
+                {expandedProvider === 'cinetpay' && (
+                  <div 
+                    id="cinetpay-content"
+                    className="border-t border-gray-200 p-6 animate-slide-down"
+                  >
+                    {cinetpayLoading ? (
+                      <div className="flex items-center justify-center py-8">
+                        <div className="animate-spin rounded-full h-8 w-8 border-4 border-blue-200 border-t-blue-600"></div>
+                        <span className="ml-3 text-gray-600">Loading CinetPay settings...</span>
+                      </div>
+                    ) : !cinetpayConfig ? (
+                      <div className="text-center py-8">
+                        <p className="text-gray-600 mb-4">CinetPay configuration not found. Initializing...</p>
+                        <Button
+                          onClick={async () => {
+                            if (company?.id && user?.uid) {
+                              try {
+                                setCinetpayLoading(true);
+                                const config = await initializeCinetPayConfig(company.id, user.uid);
+                                setCinetpayConfig(config);
+                              } catch (error) {
+                                console.error('Error initializing CinetPay:', error);
+                              } finally {
+                                setCinetpayLoading(false);
+                              }
+                            }
+                          }}
+                        >
+                          Initialize CinetPay Configuration
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {/* Left Column - Configuration */}
+                        <div className="space-y-6">
+                          {/* Enable/Disable Toggle */}
+                          <div className="bg-gray-50 rounded-lg p-4">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <label className="text-sm font-medium text-gray-900 block mb-1">
+                                  Enable CinetPay Payments
+                                </label>
+                                <p className="text-xs text-gray-600">Activate CinetPay payment processing</p>
+                              </div>
+                              <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={cinetpayConfig.isActive}
+                                  onChange={(e) => handleCinetpayConfigUpdate({ isActive: e.target.checked })}
+                                  className="sr-only peer"
+                                />
+                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                              </label>
+                            </div>
+                          </div>
+
+                          {/* Test Mode Toggle */}
+                          <div className="bg-gray-50 rounded-lg p-4">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <label className="text-sm font-medium text-gray-900 block mb-1">
+                                  Test Mode
+                                </label>
+                                <p className="text-xs text-gray-600">Use sandbox environment for testing</p>
+                              </div>
+                              <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={cinetpayConfig.testMode}
+                                  onChange={(e) => handleCinetpayConfigUpdate({ testMode: e.target.checked })}
+                                  className="sr-only peer"
+                                />
+                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                              </label>
+                            </div>
+                            {cinetpayConfig.testMode && (
+                              <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-800">
+                                ⚠️ All payments will be processed in sandbox mode
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Credentials */}
+                          <div className="space-y-4">
+                            <h4 className="text-sm font-semibold text-gray-900">Credentials</h4>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">Site ID</label>
+                              <Input
+                                type="text"
+                                value={cinetpayConfig.siteId}
+                                onChange={(e) => handleCinetpayConfigUpdate({ siteId: e.target.value })}
+                                placeholder="Enter your CinetPay Site ID"
+                                className="w-full"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">API Key</label>
+                              <Input
+                                type="password"
+                                value={cinetpayConfig.apiKey}
+                                onChange={(e) => handleCinetpayConfigUpdate({ apiKey: e.target.value })}
+                                placeholder="Enter your CinetPay API Key"
+                                className="w-full"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">Currency</label>
+                              <div className="px-3 py-2 bg-gray-100 border border-gray-300 rounded-md text-sm text-gray-600">
+                                XAF (Cameroon Franc) - Fixed
+                              </div>
+                            </div>
+                            <div className="flex gap-3">
+                              <Button
+                                onClick={handleTestCinetpayConnection}
+                                disabled={cinetpayTesting || !cinetpayConfig.siteId || !cinetpayConfig.apiKey}
+                                className="flex-1"
+                              >
+                                {cinetpayTesting ? 'Testing...' : 'Test Connection'}
+                              </Button>
+                              <Button
+                                onClick={handleClearCinetpayCredentials}
+                                disabled={cinetpaySaving || !cinetpayConfig.siteId || !cinetpayConfig.apiKey}
+                                variant="outline"
+                                className="flex-1 bg-red-50 border-red-200 text-red-700 hover:bg-red-100"
+                              >
+                                <Trash2 className="w-4 h-4 mr-2" />
+                                Clear
+                              </Button>
+                            </div>
+                          </div>
+
+                          {/* Payment Methods */}
+                          <div className="space-y-4">
+                            <div>
+                              <h4 className="text-sm font-semibold text-gray-900">{t('settings.paymentGateways.cinetpay.enabledChannels')}</h4>
+                              <p className="text-xs text-gray-500 mt-1">{t('settings.paymentMethodsAndGateways.gateways.autoSyncNote')}</p>
+                            </div>
+                            <div className="space-y-3">
+                              {[
+                                { key: 'mobileMoney', label: t('settings.paymentGateways.cinetpay.mobileMoney'), desc: t('settings.paymentMethodsAndGateways.gateways.mobileMoneyDesc') },
+                                { key: 'creditCard', label: t('settings.paymentGateways.cinetpay.creditCard'), desc: t('settings.paymentMethodsAndGateways.gateways.creditCardDesc') },
+                                { key: 'wallet', label: t('settings.paymentGateways.cinetpay.wallet'), desc: t('settings.paymentMethodsAndGateways.gateways.walletDesc') }
+                              ].map((method) => (
+                                <div key={method.key} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                  <div>
+                                    <label className="text-sm font-medium text-gray-700">{method.label}</label>
+                                    <p className="text-xs text-gray-500">{method.desc}</p>
+                                  </div>
+                                  <label className="relative inline-flex items-center cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={cinetpayConfig.enabledChannels[method.key as keyof typeof cinetpayConfig.enabledChannels]}
+                                      onChange={(e) => handleCinetpayConfigUpdate({ 
+                                        enabledChannels: { 
+                                          ...cinetpayConfig.enabledChannels, 
+                                          [method.key]: e.target.checked 
+                                        } 
+                                      })}
+                                      className="sr-only peer"
+                                    />
+                                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                                  </label>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Save Button */}
+                          <Button
+                            onClick={handleSaveCinetpayConfig}
+                            disabled={cinetpaySaving}
+                            className="w-full"
+                          >
+                            <Save className="h-4 w-4 mr-2" />
+                            {cinetpaySaving ? 'Saving...' : 'Save CinetPay Settings'}
+                          </Button>
+                        </div>
+
+                        {/* Right Column - Preview */}
+                        <div>
+                          <div className="bg-gray-50 rounded-lg p-6 sticky top-4">
+                            <h4 className="text-sm font-semibold text-gray-900 mb-4">Configuration Preview</h4>
+                            <div className="space-y-3 text-sm">
+                              <div className="flex justify-between">
+                                <span className="text-gray-600">Status</span>
+                                <span className={`px-2 py-1 rounded text-xs font-medium ${
+                                  cinetpayConfig.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600'
+                                }`}>
+                                  {cinetpayConfig.isActive ? 'Enabled' : 'Disabled'}
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-600">Environment</span>
+                                <span className={`px-2 py-1 rounded text-xs font-medium ${
+                                  cinetpayConfig.testMode ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'
+                                }`}>
+                                  {cinetpayConfig.testMode ? 'Test Mode' : 'Live Mode'}
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-600">Site ID</span>
+                                <span className="text-gray-900 font-mono text-xs">
+                                  {cinetpayConfig.siteId ? `${cinetpayConfig.siteId.substring(0, 8)}...` : 'Not set'}
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-600">API Key</span>
+                                <span className="text-gray-900 text-xs">
+                                  {cinetpayConfig.apiKey ? '••••••••' : 'Not set'}
+                                </span>
+                              </div>
+                              <div className="border-t border-gray-200 pt-3 mt-3">
+                                <div className="text-gray-600 mb-2 text-xs font-medium">Enabled Methods:</div>
+                                <div className="space-y-1">
+                                  {Object.entries(cinetpayConfig.enabledChannels).map(([channel, enabled]) => (
+                                    <div key={channel} className="flex items-center justify-between text-xs">
+                                      <span className="text-gray-600 capitalize">
+                                        {channel.replace(/([A-Z])/g, ' $1').trim()}
+                                      </span>
+                                      <span className={`w-2 h-2 rounded-full ${
+                                        enabled ? 'bg-emerald-500' : 'bg-gray-300'
+                                      }`}></span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </Card>
+
+              {/* Campay Accordion */}
+              <Card className="overflow-hidden">
+                <button
+                  onClick={() => setExpandedProvider(expandedProvider === 'campay' ? null : 'campay')}
+                  className="w-full flex items-center justify-between p-6 hover:bg-gray-50 transition-colors duration-200"
+                  aria-expanded={expandedProvider === 'campay'}
+                  aria-controls="campay-content"
+                  disabled={campayLoading}
+                >
+                  <div className="flex items-center space-x-4 flex-1">
+                    <div className="w-12 h-12 bg-emerald-100 rounded-lg flex items-center justify-center">
+                      <span className="text-emerald-600 font-bold text-lg">CP</span>
+                    </div>
+                    <div className="text-left">
+                      <h3 className="text-lg font-semibold text-gray-900">Campay</h3>
+                      <p className="text-sm text-gray-500">MTN Mobile Money, Orange Money</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-4">
+                    {campayLoading ? (
+                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-emerald-600 border-t-transparent"></div>
+                    ) : (
+                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                        campayConfig?.isActive 
+                          ? 'bg-emerald-100 text-emerald-700' 
+                          : 'bg-gray-100 text-gray-600'
+                      }`}>
+                        {campayConfig?.isActive ? 'Enabled' : 'Disabled'}
+                      </span>
+                    )}
+                    {expandedProvider === 'campay' ? (
+                      <ChevronUp className="h-5 w-5 text-gray-400" />
+                    ) : (
+                      <ChevronDown className="h-5 w-5 text-gray-400" />
+                    )}
+                  </div>
+                </button>
+                
+                {expandedProvider === 'campay' && (
+                  <div 
+                    id="campay-content"
+                    className="border-t border-gray-200 p-6 animate-slide-down"
+                  >
+                    {campayLoading ? (
+                      <div className="flex items-center justify-center py-8">
+                        <div className="animate-spin rounded-full h-8 w-8 border-4 border-emerald-200 border-t-emerald-600"></div>
+                        <span className="ml-3 text-gray-600">Loading Campay settings...</span>
+                      </div>
+                    ) : !campayConfig ? (
+                      <div className="text-center py-8">
+                        <p className="text-gray-600 mb-2">Campay configuration not found.</p>
+                        <p className="text-sm text-gray-500 mb-4">Click the button below to initialize with default settings.</p>
+                        <Button
+                          onClick={async () => {
+                            if (company?.id && user?.uid) {
+                              try {
+                                setCampayLoading(true);
+                                const config = await initializeCampayConfig(company.id, user.uid);
+                                setCampayConfig(config);
+                                showSuccessToast('Campay configuration initialized successfully');
+                              } catch (error: any) {
+                                console.error('Error initializing Campay:', error);
+                                const errorMessage = error?.message || 'Failed to initialize Campay configuration';
+                                if (errorMessage.includes('permission') || errorMessage.includes('Permission')) {
+                                  showErrorToast('Permission denied. Please check Firestore security rules.');
+                                } else {
+                                  showErrorToast(`Error: ${errorMessage}`);
+                                }
+                              } finally {
+                                setCampayLoading(false);
+                              }
+                            }
+                          }}
+                          disabled={campayLoading}
+                        >
+                          {campayLoading ? 'Initializing...' : 'Initialize Campay Configuration'}
+                        </Button>
+                      </div>
+                    ) : (
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                          {/* Left Column - Configuration */}
+                          <div className="space-y-6">
+                            {/* Enable/Disable Toggle */}
+                            <div className="bg-gray-50 rounded-lg p-4">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <label className="text-sm font-medium text-gray-900 block mb-1">
+                                    Enable Campay Payments
+                                  </label>
+                                  <p className="text-xs text-gray-600">Activate Campay payment processing</p>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={campayConfig.isActive}
+                                    onChange={(e) => handleCampayConfigUpdate({ isActive: e.target.checked })}
+                                    className="sr-only peer"
+                                  />
+                                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                                </label>
+                              </div>
+                            </div>
+
+                            {/* Environment Mode */}
+                            <div className="bg-gray-50 rounded-lg p-4">
+                              <h4 className="text-sm font-semibold text-gray-900 mb-3">Environment Mode</h4>
+                              <div className="space-y-2">
+                                <label className="flex items-center space-x-3 p-3 bg-white rounded-lg cursor-pointer border-2 border-transparent hover:border-emerald-200 transition-colors">
+                                  <input
+                                    type="radio"
+                                    name="campay-environment"
+                                    value="demo"
+                                    checked={campayConfig.environment === 'demo'}
+                                    onChange={() => handleCampayConfigUpdate({ environment: 'demo' })}
+                                    className="h-4 w-4 text-emerald-600 focus:ring-emerald-500"
+                                  />
+                                  <div className="flex-1">
+                                    <div className="text-sm font-medium text-gray-700">Demo</div>
+                                    <div className="text-xs text-gray-500">Max 10 XAF per transaction</div>
+                                  </div>
+                                </label>
+                                <label className="flex items-center space-x-3 p-3 bg-white rounded-lg cursor-pointer border-2 border-transparent hover:border-emerald-200 transition-colors">
+                                  <input
+                                    type="radio"
+                                    name="campay-environment"
+                                    value="production"
+                                    checked={campayConfig.environment === 'production'}
+                                    onChange={() => handleCampayConfigUpdate({ environment: 'production' })}
+                                    className="h-4 w-4 text-emerald-600 focus:ring-emerald-500"
+                                  />
+                                  <div className="flex-1">
+                                    <div className="text-sm font-medium text-gray-700">Production</div>
+                                    <div className="text-xs text-gray-500">For live payments</div>
+                                  </div>
+                                </label>
+                              </div>
+                              {campayConfig.environment === 'demo' && (
+                                <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-800">
+                                  ⚠️ Demo mode: Maximum 10 XAF per transaction
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Credentials */}
+                            <div className="space-y-4">
+                              <h4 className="text-sm font-semibold text-gray-900">Credentials</h4>
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                  App ID <span className="text-red-500">*</span>
+                                </label>
+                                <div className="relative">
+                                  <Input
+                                    type="password"
+                                    value={campayConfig.appId}
+                                    onChange={(e) => handleCampayConfigUpdate({ appId: e.target.value })}
+                                    placeholder="Enter your Campay App ID"
+                                    className="w-full pr-10"
+                                  />
+                                  {campayConfig.appId && campayConfig.appId.length >= 10 && (
+                                    <Check className="absolute right-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-emerald-500" />
+                                  )}
+                                </div>
+                                <p className="text-xs text-gray-500 mt-1">
+                                  Get your App ID from{' '}
+                                  <a href="https://dashboard.campay.net" target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:underline">
+                                    Campay dashboard
+                                  </a>
+                                  {' '}(min 10 characters)
+                                </p>
+                              </div>
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Currency</label>
+                                <div className="px-3 py-2 bg-gray-100 border border-gray-300 rounded-md text-sm text-gray-600">
+                                  XAF (Cameroon Franc) - Fixed
+                                </div>
+                              </div>
+                              <div className="flex gap-3">
+                                <Button
+                                  onClick={handleTestCampayConnection}
+                                  disabled={campayTesting || !campayConfig.appId || campayConfig.appId.length < 10}
+                                  className="flex-1"
+                                >
+                                  {campayTesting ? 'Testing...' : 'Test Connection'}
+                                </Button>
+                                <Button
+                                  onClick={handleClearCampayCredentials}
+                                  disabled={campaySaving || !campayConfig.appId}
+                                  variant="outline"
+                                  className="flex-1 bg-red-50 border-red-200 text-red-700 hover:bg-red-100"
+                                >
+                                  <Trash2 className="w-4 h-4 mr-2" />
+                                  Clear
+                                </Button>
+                              </div>
+                            </div>
+
+                            {/* Amount Limits */}
+                            <div className="space-y-4">
+                              <h4 className="text-sm font-semibold text-gray-900">Amount Limits</h4>
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Minimum Amount (XAF)</label>
+                                <PriceInput
+                                  name="minAmount"
+                                  value={campayConfig.minAmount}
+                                  onChange={(e) => handleCampayConfigUpdate({ minAmount: Number(e.target.value.replace(/\s/g, '')) || 0 })}
+                                  placeholder="Enter minimum amount"
+                                  className="w-full"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Maximum Amount (XAF)</label>
+                                <PriceInput
+                                  name="maxAmount"
+                                  value={campayConfig.maxAmount}
+                                  onChange={(e) => handleCampayConfigUpdate({ maxAmount: Number(e.target.value.replace(/\s/g, '')) || 0 })}
+                                  placeholder="Enter maximum amount"
+                                  className="w-full"
+                                />
+                              </div>
+                            </div>
+
+                            {/* Save Button */}
+                            <Button
+                              onClick={handleSaveCampayConfig}
+                              disabled={campaySaving}
+                              className="w-full"
+                            >
+                              <Save className="h-4 w-4 mr-2" />
+                              {campaySaving ? 'Saving...' : 'Save Campay Settings'}
+                            </Button>
+                          </div>
+
+                          {/* Right Column - Preview */}
+                          <div>
+                            <div className="bg-gray-50 rounded-lg p-6 sticky top-4">
+                              <h4 className="text-sm font-semibold text-gray-900 mb-4">Configuration Preview</h4>
+                              <div className="space-y-3 text-sm">
+                                <div className="flex justify-between">
+                                  <span className="text-gray-600">Status</span>
+                                  <span className={`px-2 py-1 rounded text-xs font-medium ${
+                                    campayConfig.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600'
+                                  }`}>
+                                    {campayConfig.isActive ? 'Enabled' : 'Disabled'}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-gray-600">Environment</span>
+                                  <span className={`px-2 py-1 rounded text-xs font-medium ${
+                                    campayConfig.environment === 'demo' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'
+                                  }`}>
+                                    {campayConfig.environment === 'demo' ? 'Demo' : 'Production'}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-gray-600">App ID</span>
+                                  <span className="text-gray-900 font-mono text-xs">
+                                    {campayConfig.appId ? `${campayConfig.appId.substring(0, 8)}...` : 'Not set'}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-gray-600">Min Amount</span>
+                                  <span className="text-gray-900 text-xs">{campayConfig.minAmount} XAF</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-gray-600">Max Amount</span>
+                                  <span className="text-gray-900 text-xs">{campayConfig.maxAmount.toLocaleString()} XAF</span>
+                                </div>
+                                <div className="border-t border-gray-200 pt-3 mt-3">
+                                  <div className="text-gray-600 mb-2 text-xs font-medium">Supported Methods:</div>
+                                  <div className="space-y-1">
+                                    {campayConfig.supportedMethods?.map((method) => (
+                                      <div key={method} className="flex items-center justify-between text-xs">
+                                        <span className="text-gray-600">{method}</span>
+                                        <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                      </div>
+                                    )) || (
+                                      <>
+                                        <div className="flex items-center justify-between text-xs">
+                                          <span className="text-gray-600">MTN Mobile Money</span>
+                                          <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                        </div>
+                                        <div className="flex items-center justify-between text-xs">
+                                          <span className="text-gray-600">Orange Money</span>
+                                          <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                        </div>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </Card>
+
+              {/* Error State */}
+              {!cinetpayConfig && !campayConfig && !cinetpayLoading && !campayLoading && (
+                <Card>
+                  <div className="text-center py-8 text-gray-500">
+                    <p>Failed to load payment integration settings. Please refresh the page.</p>
+                  </div>
+                </Card>
+              )}
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Payment Method Modal */}
+      <PaymentMethodModal
+        isOpen={isPaymentMethodModalOpen}
+        onClose={() => {
+          setIsPaymentMethodModalOpen(false);
+          setEditingPaymentMethodId(null);
+        }}
+        onSave={handleAddPaymentMethod}
+        onUpdate={handleUpdatePaymentMethod}
+        onDelete={handleDeletePaymentMethod}
+        paymentMethods={orderingSettings?.paymentMethods?.customMethods || []}
+        editingMethodId={editingPaymentMethodId}
+      />
+    </div>
+  );
+};
+
+export default Settings;

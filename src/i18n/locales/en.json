@@ -66,10 +66,160 @@
     "menu": "Menu",
     "close": "Close",
     "finance": "Finance",
+    "orders": "Orders",
+    "pos": "POS",
+    "productions": "Productions",
+    "warehouse": "Warehouse",
+    "contacts": "Contacts",
+    "hrManagement": "HR Management",
+    "myCompanies": "My Companies",
+    "createCompany": "Create Company",
+    "pleaseCreateCompany": "Please create a company",
+    "loadingPermissions": "Loading permissions...",
     "confirmCompanyExit": "Leave Current Company?",
     "confirmCompanyExitMessage": "You are about to leave the current company context to manage your companies.",
     "confirmCompanyExitQuestion": "Are you sure you want to continue?",
-    "currentCompany": "Current Company"
+    "currentCompany": "Current Company",
+    "submenus": {
+      "list": "List",
+      "categories": "Categories",
+      "stocks": "Stocks",
+      "analytics": "Analytics",
+      "reports": "Reports",
+      "steps": "Steps",
+      "flows": "Flows",
+      "charges": "Charges",
+      "clientSources": "Client Sources"
+    },
+    "warehouseMenu": {
+      "matieres": "Raw Materials",
+      "categories": "Categories",
+      "stocks": "Stocks",
+      "stocksPage": {
+        "title": "Matiere Stocks",
+        "subtitle": "Manage matiere inventory with batch visibility",
+        "searchPlaceholder": "Search matieres by name or reference",
+        "rowsPerPage": "Rows per page",
+        "columns": {
+          "matiere": "Matiere",
+          "category": "Category",
+          "stock": "Stock",
+          "batches": "Batches",
+          "actions": "Actions"
+        },
+        "batchTable": {
+          "batchId": "Batch ID",
+          "remainingTotal": "Remaining / Total",
+          "status": "Status",
+          "actions": "Actions"
+        },
+        "actions": {
+          "history": "History",
+          "restock": "Restock",
+          "adjust": "Adjust",
+          "damage": "Damage",
+          "toggleBatches": "Toggle batches"
+        },
+        "status": {
+          "active": "active",
+          "depleted": "depleted",
+          "activeDepleted": "{{active}} active / {{depleted}} depleted"
+        },
+        "messages": {
+          "errorLoading": "Error Loading Matieres",
+          "failedToLoad": "Failed to load matieres. Please try again.",
+          "reloadPage": "Reload Page",
+          "errorLoadingBatches": "Error loading batches. Please try again.",
+          "noBatchesFound": "No batches found for this matiere.",
+          "createBatchByRestocking": "Create a batch by restocking this matiere.",
+          "noActionsDepleted": "No actions (depleted)",
+          "noMatieresFound": "No matieres found",
+          "noMatieresMatchSearch": "No matieres match your search \"{{search}}\". Try adjusting your search terms.",
+          "clearSearch": "Clear Search",
+          "noMatieresYet": "No matieres yet",
+          "startByAdding": "Start by adding matieres to your inventory. Once matieres are added, they will appear here with their stock information.",
+          "showingResults": "Showing {{from}} to {{to}} of {{total}} matieres",
+          "previous": "Previous",
+          "next": "Next",
+          "page": "Page",
+          "of": "of"
+        },
+        "historyModal": {
+          "title": "Stock History - {{name}}",
+          "matiere": "Matiere:",
+          "currentStock": "Current Stock:",
+          "columns": {
+            "date": "Date",
+            "change": "Change",
+            "reason": "Reason",
+            "supplier": "Supplier",
+            "payment": "Payment",
+            "costPrice": "Cost Price"
+          },
+          "noHistoryFound": "No stock history found for this matiere."
+        }
+      },
+      "restockModal": {
+        "title": "Restock {{name}}",
+        "matiereInfo": {
+          "title": "Matiere Information",
+          "name": "Name:",
+          "unit": "Unit:",
+          "currentStock": "Current Stock:",
+          "category": "Category:"
+        },
+        "restockDetails": {
+          "title": "Restock Details",
+          "quantity": "Quantity ({{unit}})",
+          "quantityPlaceholder": "Enter quantity",
+          "costPrice": "Cost Price per Unit (Optional)",
+          "costPricePlaceholder": "Enter cost price",
+          "loadingCostPrice": "Loading latest cost price...",
+          "fetchingCostPrice": "Fetching latest batch cost price..."
+        },
+        "totalCost": {
+          "title": "Total Cost",
+          "expenseWillBeCreated": "An expense entry will be created for this restock{{usingDefault}}",
+          "usingDefault": " (using latest batch cost price)",
+          "noExpenseCreated": "No expense entry will be created"
+        },
+        "validation": {
+          "title": "Validation Errors",
+          "invalidQuantity": "Please enter a valid quantity (whole number greater than 0)",
+          "invalidCostPrice": "Please enter a valid cost price (greater than or equal to 0)",
+          "supplierRequired": "Please select a supplier for non-own purchases",
+          "ownPurchaseCannotHaveSupplier": "Own purchase cannot have a supplier selected",
+          "ownPurchaseCannotBeCredit": "Own purchases cannot be on credit"
+        },
+        "purchaseInfo": {
+          "title": "Purchase Information",
+          "ownPurchase": "Own Purchase",
+          "ownPurchaseDescription": "Purchase made directly by the company (no supplier involved)",
+          "selected": "Selected",
+          "supplier": "Supplier",
+          "selectSupplier": "Select supplier (required for non-own purchases)",
+          "paymentType": "Payment Type",
+          "paid": "Paid",
+          "credit": "Credit",
+          "ownPurchaseSelected": "Own purchase selected - no supplier debt will be created",
+          "creditSelected": "Credit purchase selected - supplier debt will be created",
+          "paidSelected": "Paid purchase selected - no supplier debt will be created"
+        },
+        "notes": {
+          "label": "Notes (Optional)",
+          "placeholder": "Add any notes about this restock..."
+        },
+        "actions": {
+          "cancel": "Cancel",
+          "restock": "Restock Matiere",
+          "restocking": "Restocking..."
+        },
+        "messages": {
+          "success": "Matiere restocked successfully!",
+          "error": "Failed to restock matiere: {{error}}"
+        }
+      }
+    }
   },
   "header": {
     "welcome": "Welcome",
@@ -106,7 +256,8 @@
       "solde": "Balance",
       "profit": "Profit",
       "expenses": "Expenses",
-      "productsSold": "Products Sold"
+      "productsSold": "Products Sold",
+      "clients": "Clients"
     },
     "profit": {
       "periodSettings": "Profit Period Settings",
@@ -149,6 +300,24 @@
       "quantitySold": "Quantity Sold",
       "totalSales": "Total Sales",
       "noData": "No sales data available"
+    },
+    "salesByCategory": {
+      "title": "Sales by Product Category"
+    },
+    "expensesByCategory": {
+      "title": "Expenses by Category"
+    },
+    "salesBySource": {
+      "title": "Sales by Source"
+    },
+    "salesByPaymentStatus": {
+      "title": "Sales by Payment Status"
+    },
+    "period": {
+      "thisYear": "This Year",
+      "thisMonth": "This Month",
+      "last30Days": "Last 30 Days",
+      "custom": "Custom"
     },
     "calculations": {
       "title": "Dashboard Calculations Explained",
@@ -253,6 +422,15 @@
         "objectiveUpdated": "Objective updated",
         "objectiveDeleted": "Objective deleted"
       }
+    },
+    "latestOrders": {
+      "title": "Latest Orders",
+      "reference": "Reference",
+      "date": "Date",
+      "status": "Status",
+      "client": "Client",
+      "noData": "No recent orders",
+      "noClient": "No client"
     },
     "makeSale": "Make a Sale"
   },
@@ -788,6 +966,137 @@
       "saveCategories": "Save my categories from this import",
       "mapping": "Map Columns",
       "productsToImport": "Products to import: {{count}}"
+    },
+    "stocksPage": {
+      "title": "Product Stocks",
+      "subtitle": "Manage inventory with batch visibility. Orders do not deduct stock; sales do.",
+      "searchPlaceholder": "Search products by name or reference",
+      "rowsPerPage": "Rows per page",
+      "refresh": "Refresh",
+      "columns": {
+        "product": "Product",
+        "category": "Category",
+        "stock": "Stock",
+        "batches": "Batches",
+        "actions": "Actions"
+      },
+      "batchTable": {
+        "batchId": "Batch ID",
+        "remainingTotal": "Remaining / Total",
+        "costPrice": "Cost Price",
+        "supplier": "Supplier",
+        "payment": "Payment",
+        "status": "Status",
+        "actions": "Actions"
+      },
+      "actions": {
+        "history": "History",
+        "restock": "Restock",
+        "adjust": "Adjust",
+        "damage": "Damage",
+        "toggleBatches": "Toggle batches"
+      },
+      "status": {
+        "active": "active",
+        "depleted": "depleted",
+        "activeDepleted": "{{active}} active / {{depleted}} depleted",
+        "units": "units"
+      },
+      "payment": {
+        "credit": "Credit",
+        "paid": "Paid",
+        "ownPurchase": "Own purchase"
+      },
+      "messages": {
+        "errorLoading": "Error Loading Products",
+        "failedToLoad": "Failed to load products. Please try again.",
+        "reloadPage": "Reload Page",
+        "retry": "Retry",
+        "errorLoadingBatches": "Error loading batches. Please try again.",
+        "noBatchesFound": "No batches found for this product.",
+        "createBatchByRestocking": "Create a batch by restocking this product.",
+        "noActionsDepleted": "No actions (depleted)",
+        "noProductsFound": "No products found",
+        "noProductsMatchSearch": "No products match your search \"{{search}}\". Try adjusting your search terms.",
+        "clearSearch": "Clear Search",
+        "noProductsYet": "No products yet",
+        "startByAdding": "Start by adding products to your inventory. Once products are added, they will appear here with their stock information.",
+        "showingResults": "Showing {{from}} to {{to}} of {{total}} products",
+        "moreAvailable": "(More available)",
+        "previous": "Previous",
+        "next": "Next",
+        "page": "Page",
+        "of": "of",
+        "loading": "Loading…",
+        "loadMore": "Load More"
+      },
+      "historyModal": {
+        "title": "Stock History - {{name}}",
+        "product": "Product:",
+        "currentStock": "Current Stock:",
+        "columns": {
+          "date": "Date",
+          "change": "Change",
+          "reason": "Reason",
+          "supplier": "Supplier",
+          "payment": "Payment",
+          "costPrice": "Cost Price"
+        },
+        "noHistoryFound": "No stock history found for this product."
+      }
+    },
+    "restockModal": {
+      "title": "Restock {{name}}",
+      "productInfo": {
+        "title": "Product Information",
+        "name": "Name:",
+        "reference": "Reference:",
+        "currentStock": "Current Stock:",
+        "sellingPrice": "Selling Price:"
+      },
+      "restockDetails": {
+        "title": "Restock Details",
+        "quantity": "Quantity",
+        "quantityPlaceholder": "Enter quantity",
+        "costPrice": "Cost Price per Unit",
+        "costPricePlaceholder": "Enter cost price",
+        "totalCost": "Total Cost"
+      },
+      "purchaseInfo": {
+        "title": "Purchase Information",
+        "ownPurchase": "Own Purchase",
+        "ownPurchaseDescription": "Purchase made directly by the company (no supplier involved)",
+        "selected": "Selected",
+        "supplier": "Supplier",
+        "selectSupplier": "Select supplier (required for non-own purchases)",
+        "paymentType": "Payment Type",
+        "paid": "Paid",
+        "credit": "Credit",
+        "ownPurchaseSelected": "Own purchase selected - no supplier debt will be created",
+        "creditSelected": "Credit purchase selected - supplier debt will be created",
+        "paidSelected": "Paid purchase selected - no supplier debt will be created"
+      },
+      "validation": {
+        "title": "Validation Errors",
+        "invalidQuantity": "Please enter a valid quantity (whole number greater than 0)",
+        "invalidCostPrice": "Please enter a valid cost price (greater than or equal to 0)",
+        "supplierRequired": "Please select a supplier for non-own purchases",
+        "ownPurchaseCannotHaveSupplier": "Own purchase cannot have a supplier selected",
+        "ownPurchaseCannotBeCredit": "Own purchases cannot be on credit"
+      },
+      "notes": {
+        "label": "Notes (Optional)",
+        "placeholder": "Add any notes about this restock..."
+      },
+      "actions": {
+        "cancel": "Cancel",
+        "restock": "Restock Product",
+        "restocking": "Restocking..."
+      },
+      "messages": {
+        "success": "Product restocked successfully!",
+        "error": "Failed to restock product: {{error}}"
+      }
     }
   },
   "expenses": {
@@ -930,7 +1239,9 @@
       "colors": "🎨 Colors",
       "account": "Account Settings",
       "activity": "Activity Logs",
-      "ordering": "Ordering Settings",
+      "ordering": "Order & Delivery Settings",
+      "checkout": "Order Settings",
+      "paymentMethodsAndGateways": "Payment Gateways",
       "catalogue": "Catalogue Links"
     },
     "account": {
@@ -984,7 +1295,157 @@
       "helpText": "Share this ID with developers to integrate your categories into external applications."
     },
     "ordering": {
-      "saveSettings": "Save Ordering Settings"
+      "title": "Order & Delivery Settings",
+      "subtitle": "Configure your order processing and delivery options",
+      "businessName": "Business Name",
+      "whatsappNumber": "WhatsApp Number",
+      "whatsappNumberHelp": "Include country code, e.g. +237...",
+      "paymentMethods": "Payment Methods",
+      "addPaymentMethod": "Add Payment Method",
+      "mobileMoney": "Mobile Money",
+      "bankTransfer": "Bank Transfer",
+      "cashOnDelivery": "Cash on Delivery",
+      "customPaymentMethods": "Custom Payment Methods",
+      "active": "Active",
+      "inactive": "Inactive",
+      "deliveryFee": "Delivery Fee",
+      "currency": "Currency",
+      "reset": "Reset",
+      "saveSettings": "Save Order & Delivery Settings",
+      "settingsUpdated": "Ordering settings updated",
+      "settingsUpdateFailed": "Failed to update settings"
+    },
+    "checkout": {
+      "title": "Checkout Settings",
+      "subtitle": "Customize your checkout form and payment options",
+      "loading": "Loading checkout settings...",
+      "loadFailed": "Failed to load checkout settings. Please try again.",
+      "disableSections": "Disable Entire Sections",
+      "disableSectionsDescription": "Completely hide entire sections from the checkout form. When disabled, the entire section disappears.",
+      "contactSection": "Contact Section",
+      "contactSectionDescription": "Hide entire contact information section",
+      "deliverySection": "Delivery Section",
+      "deliverySectionDescription": "Hide entire delivery address section",
+      "paymentSection": "Payment Section",
+      "paymentSectionDescription": "Hide entire payment method selection",
+      "orderSummarySection": "Order Summary Section",
+      "orderSummarySectionDescription": "Hide entire order summary section",
+      "contactFields": "Contact Section Fields",
+      "contactFieldsDescription": "Control which fields appear in the Contact section",
+      "emailField": "Email Field",
+      "emailFieldDescription": "Show email input field",
+      "phoneField": "Phone Field",
+      "phoneFieldDescription": "Show phone number input field",
+      "newsletterOptIn": "Newsletter Opt-in",
+      "newsletterOptInDescription": "Show newsletter subscription checkbox",
+      "deliveryFields": "Delivery Section Fields",
+      "deliveryFieldsDescription": "Control which fields appear in the Delivery section",
+      "country": "Country/Region",
+      "countryDescription": "Show country selection dropdown",
+      "firstName": "First Name",
+      "firstNameDescription": "Show first name input field",
+      "lastName": "Last Name",
+      "lastNameDescription": "Show last name input field",
+      "address": "Address",
+      "addressDescription": "Show address input field",
+      "apartment": "Apartment/Suite",
+      "apartmentDescription": "Show apartment/suite input field",
+      "city": "City",
+      "cityDescription": "Show city input field",
+      "deliveryInstructions": "Delivery Instructions",
+      "deliveryInstructionsDescription": "Show delivery instructions textarea",
+      "paymentMethods": "Payment Methods",
+      "paymentMethodsReadOnly": "Payment methods are configured in Order & Delivery Settings",
+      "mtnMoney": "MTN Money",
+      "orangeMoney": "Orange Money",
+      "visaCard": "Visa Card",
+      "payOnsite": "Pay Onsite",
+      "catalogueDisplay": "Catalogue Display",
+      "showCheckoutInCatalogue": "Show Checkout in Catalogue",
+      "showCheckoutInCatalogueDescription": "Display checkout button on catalogue page",
+      "checkoutButtonText": "Checkout Button Text",
+      "checkoutButtonColor": "Button Color",
+      "checkoutButtonColorDescription": "Choose a color for the checkout button in the catalogue",
+      "preview": "Preview",
+      "livePreview": "Live Preview",
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "contactFieldsLabel": "Contact Fields:",
+      "deliveryFieldsLabel": "Delivery Fields:",
+      "paymentMethodsLabel": "Payment Methods:",
+      "paymentGateways": "Payment Gateways",
+      "catalogueCheckout": "Catalogue Checkout",
+      "buttonPreview": "Button Preview:",
+      "resetToDefault": "Reset to Default",
+      "saveSettings": "Save Settings",
+      "saving": "Saving..."
+    },
+    "paymentMethodsAndGateways": {
+      "title": "Payment Methods & Gateways",
+      "subtitle": "Enable payment methods and configure payment gateways to accept online payments",
+      "paymentMethods": {
+        "title": "Payment Methods",
+        "subtitle": "Enable or disable payment methods available to your customers",
+        "mtnMoneyDesc": "MTN Mobile Money payments",
+        "orangeMoneyDesc": "Orange Mobile Money payments",
+        "visaCardDesc": "Credit and debit card payments",
+        "payOnsiteDesc": "Pay upon delivery or pickup",
+        "customMethods": "Custom Payment Methods",
+        "customMethodsDesc": "Add custom payment methods like phone numbers, USSD codes, or payment links",
+        "addCustom": "Add Custom Method",
+        "noCustomMethods": "No custom payment methods added yet",
+        "updated": "Payment method updated",
+        "updateFailed": "Failed to update payment method",
+        "edit": "Edit",
+        "delete": "Delete",
+        "deleteConfirm": "Are you sure you want to delete this payment method?"
+      },
+      "gateways": {
+        "title": "Payment Gateways",
+        "subtitle": "Configure payment gateway integrations. When enabled, gateway channels automatically enable corresponding payment methods above.",
+        "autoSyncNote": "Enabling channels will automatically enable the corresponding payment methods above when you save.",
+        "mobileMoneyDesc": "Auto-enables MTN Money and Orange Money",
+        "creditCardDesc": "Auto-enables Visa Card",
+        "walletDesc": "Electronic wallets"
+      }
+    },
+    "paymentGateways": {
+      "title": "Payment Gateways",
+      "subtitle": "Configure payment gateways to accept online payments from your customers",
+      "loading": "Loading payment integration settings...",
+      "cinetpay": {
+        "name": "CinetPay",
+        "description": "Mobile Money, Credit Cards, Wallets",
+        "disabled": "Disabled",
+        "enabled": "Enabled",
+        "testMode": "Test Mode",
+        "productionMode": "Production Mode",
+        "siteId": "Site ID",
+        "apiKey": "API Key",
+        "save": "Save Configuration",
+        "testConnection": "Test Connection",
+        "clearCredentials": "Clear Credentials",
+        "enabledChannels": "Enabled Channels",
+        "mobileMoney": "Mobile Money",
+        "creditCard": "Credit Cards",
+        "wallet": "Wallets"
+      },
+      "campay": {
+        "name": "Campay",
+        "description": "MTN Mobile Money, Orange Money",
+        "disabled": "Disabled",
+        "enabled": "Enabled",
+        "appId": "App ID",
+        "save": "Save Configuration",
+        "testConnection": "Test Connection",
+        "clearCredentials": "Clear Credentials"
+      },
+      "basicPaymentMethods": {
+        "name": "Basic Payment Methods",
+        "description": "MTN Money, Orange Money, Visa Card, Pay Onsite",
+        "enabled": "Enabled",
+        "disabled": "Disabled"
+      }
     },
     "catalogue": {
       "title": "Catalogue Links"
@@ -996,6 +1457,99 @@
       "productStockDescription": "Updated stock for Product XYZ",
       "newExpenseAdded": "New Expense Added",
       "newExpenseDescription": "Added delivery expense of 5000 XAF"
+    }
+  },
+  "site": {
+    "title": "Online Catalogue",
+    "subtitle": "Manage your online catalogue",
+    "navigation": "Online Catalogue",
+    "tabs": {
+      "preview": "Preview",
+      "share": "Share",
+      "analytics": "Analytics",
+      "seo": "SEO Settings"
+    },
+    "preview": {
+      "title": "Live Preview",
+      "refresh": "Refresh",
+      "openInNewTab": "Open in New Tab",
+      "desktop": "Desktop",
+      "mobile": "Mobile",
+      "previewUrl": "Preview URL",
+      "loadingPreview": "Loading preview...",
+      "companyNotAvailable": "Company information not available"
+    },
+    "share": {
+      "title": "Share Your Catalogue",
+      "catalogueUrl": "Your Catalogue URL",
+      "copy": "Copy",
+      "copied": "Copied!",
+      "open": "Open",
+      "qrCode": "QR Code",
+      "qrCodeDescription": "Scan this QR code to open your catalogue on mobile devices",
+      "socialShare": "Share on Social Media",
+      "whatsapp": "WhatsApp",
+      "facebook": "Facebook",
+      "twitter": "Twitter",
+      "howToShare": "How to Share",
+      "howToShareItem1": "Copy the URL and paste it anywhere (email, messages, etc.)",
+      "howToShareItem2": "Use the QR code for easy mobile sharing",
+      "howToShareItem3": "Share directly on social media using the buttons above",
+      "howToShareItem4": "The link works on all devices and browsers",
+      "linkCopied": "Link copied to clipboard!",
+      "linkCopyFailed": "Failed to copy link",
+      "shareText": "Check out {{companyName}} catalogue!",
+      "companyNotAvailable": "Company information not available"
+    },
+    "analytics": {
+      "title": "Analytics Dashboard",
+      "dateRange": "Date Range",
+      "totalViews": "Total Views",
+      "uniqueVisitors": "Unique Visitors",
+      "avgViewsPerDay": "Avg. Views/Day",
+      "popularProducts": "Popular Products",
+      "viewsOverTime": "Views Over Time",
+      "deviceTypes": "Device Types",
+      "trafficSources": "Traffic Sources",
+      "noData": "No data available for selected period",
+      "noDataAvailable": "No data available",
+      "noReferrerData": "No referrer data available",
+      "product": "Product",
+      "views": "Views",
+      "visits": "Visits",
+      "viewsLabel": "Views",
+      "uniqueVisitorsLabel": "Unique Visitors",
+      "direct": "Direct"
+    },
+    "seo": {
+      "title": "SEO Settings",
+      "metaTitle": "Meta Title",
+      "metaTitleDescription": "The title that appears in search engine results and browser tabs",
+      "metaTitlePlaceholder": "Your Catalogue - Best Products Online",
+      "metaDescription": "Meta Description",
+      "metaDescriptionDescription": "A brief description that appears in search engine results",
+      "metaDescriptionPlaceholder": "Discover our amazing collection of products...",
+      "metaKeywords": "Meta Keywords",
+      "metaKeywordsDescription": "Keywords that describe your catalogue (comma-separated)",
+      "metaKeywordsPlaceholder": "Add keywords (press Enter to add)",
+      "ogImage": "Open Graph Image URL",
+      "ogImageDescription": "Image URL that appears when sharing on social media (recommended: 1200x630px)",
+      "ogImagePlaceholder": "https://example.com/image.jpg",
+      "ogImagePreview": "OG Image Preview",
+      "twitterCard": "Twitter Card Type",
+      "twitterCardDescription": "How your catalogue appears when shared on Twitter",
+      "twitterCardSummary": "Summary",
+      "twitterCardLarge": "Summary with Large Image",
+      "preview": "Preview",
+      "previewTitle": "Preview",
+      "save": "Save SEO Settings",
+      "saving": "Saving...",
+      "characters": "characters",
+      "validation": {
+        "titleTooLong": "Meta title should be 60 characters or less",
+        "descriptionTooLong": "Meta description should be 160 characters or less",
+        "fixErrors": "Please fix the validation errors"
+      }
     }
   },
   "languages": {
@@ -1032,7 +1586,8 @@
       "manual": "Manual",
       "sale": "Sale",
       "expense": "Expense",
-      "supplier": "Supplier"
+      "supplier": "Supplier",
+      "matiere": "Material"
     },
     "types": {
       "loan": "Loan",
@@ -1042,8 +1597,32 @@
       "debt": "Debt",
       "supplier_debt": "Supplier Debt",
       "supplier_refund": "Supplier Refund",
-        "sortie": "Withdrawal",
-      "other": "Associated Entry"
+      "matiere_purchase": "Material Purchase",
+      "sortie": "Withdrawal",
+      "other": "Associated Entry",
+      "production_charge_main_oeuvre": "Production Charge - Labor",
+      "production_charge_overhead": "Production Charge - Overhead",
+      "production_charge_transport": "Production Charge - Transport",
+      "production_charge_packaging": "Production Charge - Packaging",
+      "production_charge_utilities": "Production Charge - Utilities",
+      "production_charge_equipment": "Production Charge - Equipment",
+      "production_charge_other": "Production Charge - Other",
+      "charge_fixed_main_oeuvre": "Fixed Charge - Labor",
+      "charge_fixed_overhead": "Fixed Charge - Overhead",
+      "charge_fixed_transport": "Fixed Charge - Transport",
+      "charge_fixed_packaging": "Fixed Charge - Packaging",
+      "charge_fixed_utilities": "Fixed Charge - Utilities",
+      "charge_fixed_equipment": "Fixed Charge - Equipment",
+      "charge_fixed_other": "Fixed Charge - Other",
+      "charge_fixed_undefined": "Fixed Charge",
+      "charge_custom_main_oeuvre": "Custom Charge - Labor",
+      "charge_custom_overhead": "Custom Charge - Overhead",
+      "charge_custom_transport": "Custom Charge - Transport",
+      "charge_custom_packaging": "Custom Charge - Packaging",
+      "charge_custom_utilities": "Custom Charge - Utilities",
+      "charge_custom_equipment": "Custom Charge - Equipment",
+      "charge_custom_other": "Custom Charge - Other",
+      "charge_custom_undefined": "Custom Charge"
     },
     "messages": {
       "addSuccess": "Financial entry added successfully.",
@@ -1080,7 +1659,8 @@
       "editSupplier": "Edit Supplier",
       "deleteSupplier": "Delete Supplier",
       "viewDebtHistory": "View Debt History",
-      "addRefund": "Add Refund"
+      "addRefund": "Add Refund",
+      "addDebt": "Add Debt"
     },
     "form": {
       "name": "Supplier Name",
@@ -1146,6 +1726,16 @@
       "refundExceeds": "Refund amount exceeds remaining debt!",
       "success": "Refund added successfully",
       "error": "Failed to add refund"
+    },
+    "debt": {
+      "addTitle": "Add Debt",
+      "addButton": "Add Debt",
+      "supplier": "Supplier",
+      "amount": "Debt Amount",
+      "description": "Description",
+      "descriptionPlaceholder": "Reason for debt (e.g., Purchase of goods, Loan, etc.)",
+      "addSuccess": "Debt added successfully",
+      "addError": "Error adding debt"
     }
   },
   "checkout": {
@@ -1348,7 +1938,8 @@
       "preparing": "Preparing",
       "ready": "Ready",
       "delivered": "Delivered",
-      "cancelled": "Cancelled"
+      "cancelled": "Cancelled",
+      "commande": "Order"
     },
     "paymentStatus": {
       "pending": "Pending",
