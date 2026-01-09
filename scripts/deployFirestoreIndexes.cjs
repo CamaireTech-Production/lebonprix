@@ -29,8 +29,8 @@ console.log(`🚀 Déploiement des index Firestore vers ${environment.toUpperCas
 
 // Déterminer le fichier de clé Firebase selon l'environnement
 const keyFileMap = {
-  dev: 'new-firebase-key.json',
-  prod: 'old-firebase-key.json'
+  dev: 'old-firebase-key.json',
+  prod: 'new-firebase-key.json'
 };
 
 const keyFilePath = path.join(__dirname, '..', 'firebase-keys', keyFileMap[environment]);
