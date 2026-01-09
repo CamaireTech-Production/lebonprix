@@ -164,6 +164,15 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         // 🚀 IMMEDIATE UI RENDER: Set loading to false right away
         setLoading(false);
         
+        // 💾 Save session IMMEDIATELY when user is detected (before background loading)
+        // This ensures session is always available, even during signup flow
+        // The session will be updated with companies data by loadUserAndCompanyDataInBackground
+        saveUserSession(
+          user.uid,
+          user.email || '',
+          [] // Empty companies array initially (will be updated by background loading)
+        );
+        
         // 🚀 RESTORE COMPANY FROM CACHE: Try to restore company data immediately
         const cachedCompany = getCompanyFromCache();
         if (cachedCompany) {

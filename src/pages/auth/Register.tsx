@@ -8,6 +8,8 @@ import { showErrorToast, showSuccessToast } from '@utils/core/toast';
 import { validateUsername } from '@utils/validation/usernameValidation';
 import { checkUsernameAvailability } from '@services/utilities/userService';
 import { getInvitation } from '@services/firestore/employees/invitationService';
+import { saveUserSession } from '@utils/storage/userSession';
+import { auth } from '@services/core/firebase';
 
 const Register = () => {
   // User form state
@@ -189,15 +191,23 @@ const Register = () => {
 
       await signUpUser(email, password, userData);
       
-      // Note: L'utilisateur est déjà connecté après signUpUser
-      // Pas besoin de signIn() car createUserWithEmailAndPassword connecte automatiquement
-      // onAuthStateChanged dans AuthContext gérera la redirection
+      // 💾 Save session IMMEDIATELY after signup to prevent race condition
+      // This ensures ProtectedRoute can verify authentication even if onAuthStateChanged hasn't fired yet
+      const firebaseUser = auth.currentUser;
+      if (firebaseUser) {
+        saveUserSession(
+          firebaseUser.uid,
+          firebaseUser.email || email,
+          [] // Empty companies array for new users (will be updated by AuthContext background loading)
+        );
+      }
       
       // Show success message
       showSuccessToast('Compte créé avec succès ! Redirection en cours...');
       
-      // Petite attente pour laisser le temps à onAuthStateChanged de traiter
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Wait for onAuthStateChanged to fire and update the auth state
+      // Increased timeout to ensure auth state is properly propagated
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       // Redirection vers la page de sélection de mode
       // (onAuthStateChanged peut aussi gérer cela, mais on le fait ici pour être sûr)
