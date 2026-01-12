@@ -272,15 +272,12 @@ const Products = () => {
     }
   };
   
-  const handleStep2InputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleStep2InputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement> | { target: { name: string; value: string } }) => {
     const { name, value } = e.target;
     
-    // Filter out decimals for price fields
-    const filteredValue = ['stockCostPrice', 'sellingPrice', 'cataloguePrice'].includes(name) 
-      ? value.replace(/[^0-9]/g, '') 
-      : value;
-    
-    setStep2Data(prev => ({ ...prev, [name]: filteredValue }));
+    // PriceInput already handles formatting and returns numeric value
+    // No need to filter price fields - PriceInput component handles that
+    setStep2Data(prev => ({ ...prev, [name]: value }));
     // Clear error when user starts typing
     if (step2Errors[name]) {
       setStep2Errors(prev => {
@@ -2202,33 +2199,33 @@ const Products = () => {
               )}
               
               {/* These price fields are ALWAYS visible */}
-              <Input
+              <PriceInput
                 label={t('products.form.step2.stockCostPrice')}
                 name="stockCostPrice"
-                type="number"
                 value={step2Data.stockCostPrice}
                 onChange={handleStep2InputChange}
                 error={step2Errors.stockCostPrice}
                 helpText={step2Errors.stockCostPrice ? undefined : t('products.form.step2.stockCostPriceHelp')}
+                allowDecimals={true}
                 required
               />
-              <Input
+              <PriceInput
                 label={t('products.form.step2.sellingPrice')}
                 name="sellingPrice"
-                type="number"
                 value={step2Data.sellingPrice}
                 onChange={handleStep2InputChange}
                 error={step2Errors.sellingPrice}
                 helpText={step2Errors.sellingPrice ? undefined : t('products.form.step2.sellingPriceHelp')}
+                allowDecimals={false}
                 required
               />
-              <Input
+              <PriceInput
                 label={t('products.form.step2.cataloguePrice')}
                 name="cataloguePrice"
-                type="number"
                 value={step2Data.cataloguePrice}
                 onChange={handleStep2InputChange}
                 helpText={t('products.form.step2.cataloguePriceHelp')}
+                allowDecimals={false}
               />
               
               <div className="flex justify-between pt-4">

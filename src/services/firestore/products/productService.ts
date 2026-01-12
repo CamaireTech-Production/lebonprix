@@ -140,9 +140,12 @@ export const createProduct = async (
     
     // Add initial stock change and create stock batch if initial stock provided
     const initialStock = stock || 0;
+    // Declare stockBatchRef in outer scope so it's accessible after batch commit
+    let stockBatchRef: ReturnType<typeof doc> | null = null;
+    
     if (initialStock > 0) {
       if (supplierInfo?.costPrice) {
-        const stockBatchRef = doc(collection(db, 'stockBatches'));
+        stockBatchRef = doc(collection(db, 'stockBatches'));
         const stockBatchData = {
           id: stockBatchRef.id,
           type: 'product' as const, // Always product for product batches
