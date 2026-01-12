@@ -6,7 +6,6 @@ import { FirebaseError } from 'firebase/app';
 import { signUpUser } from '@services/auth/authService';
 import { showErrorToast, showSuccessToast } from '@utils/core/toast';
 import { validateUsername } from '@utils/validation/usernameValidation';
-import { checkUsernameAvailability } from '@services/utilities/userService';
 import { getInvitation } from '@services/firestore/employees/invitationService';
 import { saveUserSession } from '@utils/storage/userSession';
 import { auth } from '@services/core/firebase';
@@ -19,17 +18,12 @@ const Register = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  
+
   // Field errors state
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  
-  // Username availability check state
-  const [usernameAvailability, setUsernameAvailability] = useState<{
-    checking: boolean;
-    available: boolean | null;
-    message: string;
-  }>({ checking: false, available: null, message: '' });
-  
+
+
+
   const { currentUser, loading, signOut, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -60,45 +54,7 @@ const Register = () => {
     }
   }, [inviteId, email]);
 
-  // Debounced username availability check
-  useEffect(() => {
-    if (!username || username.trim().length === 0) {
-      setUsernameAvailability({ checking: false, available: null, message: '' });
-      return;
-    }
 
-    // Validate format first
-    const validation = validateUsername(username);
-    if (!validation.valid) {
-      setUsernameAvailability({
-        checking: false,
-        available: false,
-        message: validation.error || 'Format invalide'
-      });
-      return;
-    }
-
-    // Debounce the availability check
-    const timeoutId = setTimeout(async () => {
-      setUsernameAvailability({ checking: true, available: null, message: 'Vérification...' });
-      try {
-        const isAvailable = await checkUsernameAvailability(username);
-        setUsernameAvailability({
-          checking: false,
-          available: isAvailable,
-          message: isAvailable ? 'Nom d\'utilisateur disponible' : 'Ce nom d\'utilisateur est déjà utilisé'
-        });
-      } catch (error) {
-        setUsernameAvailability({
-          checking: false,
-          available: null,
-          message: 'Erreur lors de la vérification'
-        });
-      }
-    }, 500); // 500ms debounce
-
-    return () => clearTimeout(timeoutId);
-  }, [username]);
 
   if (loading) {
     return <LoadingScreen />;
@@ -117,13 +73,8 @@ const Register = () => {
       if (!usernameValidation.valid) {
         errors.username = usernameValidation.error || 'Nom d\'utilisateur invalide';
         hasErrors = true;
-      } else if (usernameAvailability.available === false) {
-        errors.username = 'Ce nom d\'utilisateur est déjà utilisé';
-        hasErrors = true;
-      } else if (usernameAvailability.checking) {
-        errors.username = 'Vérification du nom d\'utilisateur en cours...';
-        hasErrors = true;
       }
+      // Note: Username availability check removed - username is not used for authentication
     }
 
     if (!email.trim()) {
@@ -177,11 +128,11 @@ const Register = () => {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
-    
+
     try {
       setIsLoading(true);
 
@@ -190,7 +141,7 @@ const Register = () => {
       };
 
       await signUpUser(email, password, userData);
-      
+
       // 💾 Save session IMMEDIATELY after signup to prevent race condition
       // This ensures ProtectedRoute can verify authentication even if onAuthStateChanged hasn't fired yet
       const firebaseUser = auth.currentUser;
@@ -201,21 +152,21 @@ const Register = () => {
           [] // Empty companies array for new users (will be updated by AuthContext background loading)
         );
       }
-      
+
       // Show success message
       showSuccessToast('Compte créé avec succès ! Redirection en cours...');
-      
+
       // Wait for onAuthStateChanged to fire and update the auth state
       // Increased timeout to ensure auth state is properly propagated
       await new Promise(resolve => setTimeout(resolve, 500));
-      
+
       // Redirection vers la page de sélection de mode
       // (onAuthStateChanged peut aussi gérer cela, mais on le fait ici pour être sûr)
       navigate('/mode-selection');
     } catch (err: any) {
       // Check for Firebase error code (works for both FirebaseError and errors with code property)
       const errorCode = err?.code || (err instanceof FirebaseError ? err.code : null);
-      
+
       if (errorCode) {
         switch (errorCode) {
           case 'auth/email-already-in-use':
@@ -253,7 +204,7 @@ const Register = () => {
   return (
     <div>
       <h2 className="text-2xl font-bold text-gray-900 mb-6">Créer votre compte</h2>
-      
+
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Account Information Section */}
         <div className="space-y-4">
@@ -275,20 +226,12 @@ const Register = () => {
                 }
               }}
               error={fieldErrors.username}
-              helpText={
-                usernameAvailability.checking
-                  ? 'Vérification...'
-                  : usernameAvailability.available === true
-                  ? '✓ Nom d\'utilisateur disponible'
-                  : usernameAvailability.available === false
-                  ? '✗ Ce nom d\'utilisateur est déjà utilisé'
-                  : '3-30 caractères, lettres, chiffres, tirets et underscores'
-              }
+              helpText="3-30 caractères, lettres, chiffres, tirets et underscores"
               className={fieldErrors.username ? 'border-red-500' : ''}
               required
             />
           </div>
-          
+
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
               Email <span className="text-red-500">*</span>
@@ -311,7 +254,7 @@ const Register = () => {
               required
             />
           </div>
-          
+
           <div>
             <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
               Mot de passe <span className="text-red-500">*</span>
@@ -334,7 +277,7 @@ const Register = () => {
               required
             />
           </div>
-          
+
           <div>
             <label htmlFor="confirm-password" className="block text-sm font-medium text-gray-700 mb-1">
               Confirmer le mot de passe <span className="text-red-500">*</span>
@@ -357,16 +300,15 @@ const Register = () => {
             />
           </div>
         </div>
-        
+
         <div className="flex items-start">
           <div className="flex items-center h-5">
             <input
               id="agree-terms"
               name="agreeTerms"
               type="checkbox"
-              className={`h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded ${
-                fieldErrors.agreeTerms ? 'border-red-500' : ''
-              }`}
+              className={`h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded ${fieldErrors.agreeTerms ? 'border-red-500' : ''
+                }`}
               checked={agreeTerms}
               onChange={(e) => {
                 setAgreeTerms(e.target.checked);
@@ -390,7 +332,7 @@ const Register = () => {
             )}
           </div>
         </div>
-        
+
         <Button
           type="submit"
           className="w-full"
@@ -461,7 +403,7 @@ const Register = () => {
           Continuer avec Google
         </Button>
       </div>
-      
+
       <div className="mt-6">
         <p className="text-center text-sm text-gray-600">
           Vous avez déjà un compte ?{' '}
