@@ -83,7 +83,38 @@ export const printPOSBillDirect = (
       ? new Date(sale.createdAt.seconds * 1000).toLocaleDateString()
       : new Date().toLocaleDateString();
 
-    // Create print window
+    // Helper function to convert image to base64 for print compatibility
+    const getImageAsBase64 = (url: string): Promise<string> => {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.crossOrigin = 'Anonymous';
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          ctx?.drawImage(img, 0, 0);
+          resolve(canvas.toDataURL('image/png'));
+        };
+        img.onerror = () => resolve('');
+        img.src = url;
+      });
+    };
+
+    // Load logo as base64 if available
+    const loadLogo = async (): Promise<string> => {
+      if (!company.logo) return '';
+      try {
+        const base64 = await getImageAsBase64(company.logo);
+        return base64;
+      } catch (error) {
+        console.warn('Failed to load logo for printing:', error);
+        return '';
+      }
+    };
+
+    // Load logo and create print window
+    loadLogo().then((logoBase64) => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
       showErrorToast('Please allow pop-ups to print the bill');
@@ -142,6 +173,13 @@ export const printPOSBillDirect = (
             }
             .company-info {
               flex: 1;
+            }
+            .company-info img {
+              display: block;
+              object-fit: contain;
+              max-width: 80px;
+              max-height: 60px;
+              margin-bottom: 10px;
             }
             .company-name {
               font-size: 18px;
@@ -211,6 +249,7 @@ export const printPOSBillDirect = (
         <body>
           <div class="header">
             <div class="company-info">
+              ${logoBase64 ? `<img src="${logoBase64}" alt="${company.name || 'Company Logo'}" />` : ''}
               <div class="company-name">${company.name || ''}</div>
               <div>${company.location || ''}</div>
               <div>Phone: ${company.phone || ''}</div>
@@ -292,6 +331,10 @@ export const printPOSBillDirect = (
         };
       }, 250);
     };
+    }).catch((error) => {
+      console.error('Error loading logo for printing:', error);
+      showErrorToast('Failed to print bill. Please try again.');
+    });
   } catch (error) {
     console.error('Error printing bill directly:', error);
     showErrorToast('Failed to print bill. Please try again.');

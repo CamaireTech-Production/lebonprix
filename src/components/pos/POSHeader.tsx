@@ -64,7 +64,16 @@ export const POSHeader: React.FC<POSHeaderProps> = ({ companyName }) => {
           <ArrowLeft size={16} />
           <span>Back</span>
         </button>
-        <h1 className="text-xl font-bold" style={{ color: colors.headerText }}>{companyName}</h1>
+        <h1 className="text-xl font-bold flex items-center space-x-3" style={{ color: colors.headerText }}>
+          {company?.logo && (
+            <img 
+              src={company.logo} 
+              alt={`${company.name} Logo`}
+              className="h-8 w-8 object-contain rounded"
+            />
+          )}
+          <span>{companyName}</span>
+        </h1>
         <div className="flex items-center space-x-2 text-sm" style={{ color: colors.headerText }}>
           <span className="opacity-90">Cashier:</span>
           <span className="font-semibold">{cashierName}</span>
