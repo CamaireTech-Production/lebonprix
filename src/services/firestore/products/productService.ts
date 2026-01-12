@@ -32,13 +32,13 @@ const createStockChange = (batch: WriteBatch, productId: string, change: number,
     productId,
     createdAt: serverTimestamp(),
   };
-  
+
   if (typeof supplierId !== 'undefined') stockChangeData.supplierId = supplierId;
   if (typeof isOwnPurchase !== 'undefined') stockChangeData.isOwnPurchase = isOwnPurchase;
   if (typeof isCredit !== 'undefined') stockChangeData.isCredit = isCredit;
   if (typeof costPrice !== 'undefined') stockChangeData.costPrice = costPrice;
   if (typeof batchId !== 'undefined') stockChangeData.batchId = batchId;
-  
+
   batch.set(stockChangeRef, stockChangeData);
   return stockChangeRef.id;
 };
@@ -53,13 +53,13 @@ export const subscribeToProducts = (companyId: string, callback: (products: Prod
     where('companyId', '==', companyId),
     orderBy('createdAt', 'desc')
   );
-  
+
   return onSnapshot(q, (snapshot) => {
     const products = snapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
     })) as Product[];
-    callback(products.filter(product => 
+    callback(products.filter(product =>
       product.isAvailable !== false && product.isDeleted !== true
     ));
   });
@@ -91,22 +91,22 @@ export const createProduct = async (
     }
 
     const batch = writeBatch(db);
-    
+
     // Create product document first to get the ID for barcode generation
     const productRef = doc(collection(db, 'products'));
     const productId = productRef.id;
-    
+
     // Generate barcode automatically if not provided
     let barCode = data.barCode;
     if (!barCode) {
       const { generateEAN13 } = await import('@services/utilities/barcodeService');
       barCode = generateEAN13(productId);
     }
-    
+
     // Set default inventory settings
     // Remove stock field - batches are the source of truth
     const { stock, ...dataWithoutStock } = data;
-    
+
     // Filter out undefined values (Firestore doesn't accept undefined)
     const cleanData: any = {};
     Object.keys(dataWithoutStock).forEach(key => {
@@ -115,7 +115,7 @@ export const createProduct = async (
         cleanData[key] = value;
       }
     });
-    
+
     const productData: any = {
       ...cleanData,
       barCode,
@@ -126,25 +126,25 @@ export const createProduct = async (
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     };
-    
+
     // Add createdBy if provided
     if (createdBy) {
       productData.createdBy = createdBy;
     }
-    
+
     // Get userId from data if available, otherwise use companyId for audit
     const userId = data.userId || companyId;
-    
+
     // Set product data
     batch.set(productRef, productData);
-    
+
     // Add initial stock change and create stock batch if initial stock provided
     const initialStock = stock || 0;
     // Declare stockBatchRef in outer scope so it's accessible after batch commit
     let stockBatchRef: ReturnType<typeof doc> | null = null;
-    
+
     if (initialStock > 0) {
-      if (supplierInfo?.costPrice) {
+      if (supplierInfo?.costPrice !== undefined) {
         stockBatchRef = doc(collection(db, 'stockBatches'));
         const stockBatchData = {
           id: stockBatchRef.id,
@@ -162,7 +162,7 @@ export const createProduct = async (
           status: 'active'
         };
         batch.set(stockBatchRef, stockBatchData);
-        
+
         // Create stock change with batch reference
         createStockChange(
           batch,
@@ -171,25 +171,23 @@ export const createProduct = async (
           'creation',
           userId,
           companyId,
-          'product',
           supplierInfo.supplierId,
           supplierInfo.isOwnPurchase,
           supplierInfo.isCredit,
           supplierInfo.costPrice,
           stockBatchRef.id
         );
-        
+
         // Note: Supplier debt will be created after batch commit (see below)
       } else {
         // Create stock change without batch (should not happen, but keep for safety)
         createStockChange(
-          batch, 
-          productRef.id, 
-          initialStock, 
-          'creation', 
+          batch,
+          productRef.id,
+          initialStock,
+          'creation',
           userId,
           companyId,
-          'product',
           supplierInfo?.supplierId,
           supplierInfo?.isOwnPurchase,
           supplierInfo?.isCredit,
@@ -200,22 +198,22 @@ export const createProduct = async (
 
     // Create audit log
     createAuditLog(batch, 'create', 'product', productRef.id, productData, userId);
-    
+
     try {
       await batch.commit();
     } catch (error) {
       logError('Batch commit failed', error);
       throw error;
     }
-    
+
     // Create supplier debt if credit purchase (after batch commit)
     if (supplierInfo?.supplierId && supplierInfo.isCredit === true && supplierInfo.isOwnPurchase === false && stockBatchRef) {
       try {
-        const debtAmount = data.stock * supplierInfo.costPrice;
+        const debtAmount = initialStock * (supplierInfo.costPrice || 0);
         await addSupplierDebt(
           supplierInfo.supplierId,
           debtAmount,
-          `Initial stock purchase for ${data.name} (${data.stock} units)`,
+          `Initial stock purchase for ${data.name} (${initialStock} units)`,
           companyId,
           stockBatchRef.id
         );
@@ -224,7 +222,7 @@ export const createProduct = async (
         // Don't throw - product was created successfully, debt can be fixed manually
       }
     }
-    
+
     // Update category product count after successful product creation
     if (data.category) {
       try {
@@ -233,7 +231,7 @@ export const createProduct = async (
         logError('Error updating category product count', error);
       }
     }
-    
+
     return {
       id: productRef.id,
       ...productData,
@@ -262,21 +260,21 @@ export const updateProduct = async (
   try {
     const batch = writeBatch(db);
     const productRef = doc(db, 'products', id);
-    
+
     // Get current product data
     const productSnap = await getDoc(productRef);
     if (!productSnap.exists()) {
       throw new Error('Product not found');
     }
-    
+
     const currentProduct = productSnap.data() as Product;
     if (currentProduct.companyId !== companyId) {
       throw new Error('Unauthorized: Product belongs to different company');
     }
-    
+
     const userId = currentProduct.userId || companyId;
     const updateFields: any = {};
-    
+
     // Handle stock changes (batches are source of truth, don't update product.stock)
     if (stockChange !== undefined && stockReason) {
       // Validate stock change doesn't make stock negative (check batches)
@@ -293,9 +291,9 @@ export const updateProduct = async (
           throw new Error('Stock cannot be negative');
         }
       }
-      
+
       // Handle stock batch creation for restock
-      if (stockChange > 0 && stockReason === 'restock' && supplierInfo?.costPrice) {
+      if (stockChange > 0 && stockReason === 'restock' && supplierInfo?.costPrice !== undefined) {
         const stockBatchRef = doc(collection(db, 'stockBatches'));
         const stockBatchData = {
           id: stockBatchRef.id,
@@ -313,7 +311,7 @@ export const updateProduct = async (
           status: 'active'
         };
         batch.set(stockBatchRef, stockBatchData);
-        
+
         // Create stock change with batch reference
         createStockChange(
           batch,
@@ -328,7 +326,7 @@ export const updateProduct = async (
           supplierInfo.costPrice,
           stockBatchRef.id
         );
-        
+
         // Create supplier debt if credit purchase
         if (supplierInfo.supplierId && supplierInfo.isCredit && !supplierInfo.isOwnPurchase) {
           const debtAmount = stockChange * supplierInfo.costPrice;
@@ -367,23 +365,23 @@ export const updateProduct = async (
         );
       }
     }
-    
+
     // Merge other product data
     if (Object.keys(data).length > 0) {
       const { stock: _, ...dataWithoutStock } = data;
       Object.assign(updateFields, stockChange !== undefined ? dataWithoutStock : data);
     }
-    
+
     updateFields.updatedAt = serverTimestamp();
-    
+
     if (Object.keys(updateFields).length > 0) {
       batch.update(productRef, updateFields);
     }
-    
+
     createAuditLog(batch, 'update', 'product', id, { ...data, stockChange, stockReason }, userId);
-    
+
     await batch.commit();
-    
+
     // Update category product counts if category changed
     if (data.category && data.category !== currentProduct.category) {
       try {
@@ -397,7 +395,7 @@ export const updateProduct = async (
         logError('Error updating category product counts', error);
       }
     }
-    
+
     // Update category product counts if visibility changed
     if (data.isVisible !== undefined && data.isVisible !== currentProduct.isVisible) {
       try {
@@ -420,27 +418,27 @@ export const softDeleteProduct = async (id: string, userId: string): Promise<voi
   try {
     const productRef = doc(db, 'products', id);
     const productSnap = await getDoc(productRef);
-    
+
     if (!productSnap.exists()) {
       throw new Error('Product not found');
     }
-    
+
     const currentProduct = productSnap.data() as Product;
     if (currentProduct.userId !== userId) {
       throw new Error('Unauthorized to delete this product');
     }
-    
+
     const batch = writeBatch(db);
-    
+
     batch.update(productRef, {
       isDeleted: true,
       updatedAt: serverTimestamp()
     });
-    
+
     createAuditLog(batch, 'delete', 'product', id, { isDeleted: true }, userId);
-    
+
     await batch.commit();
-    
+
     // Update category product count
     if (currentProduct.category) {
       try {
@@ -468,7 +466,7 @@ export const getLowStockProducts = async (companyId: string, threshold?: number)
 
   const snapshot = await getDocs(q);
   const products = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Product[];
-  
+
   // Calculate stock from batches for each product
   const { getProductStockBatches } = await import('../stock/stockService');
   const productsWithStock = await Promise.all(
@@ -478,7 +476,7 @@ export const getLowStockProducts = async (companyId: string, threshold?: number)
       return { product, stock };
     })
   );
-  
+
   const stockThreshold = threshold || 10;
   return productsWithStock
     .filter(({ stock }) => stock <= stockThreshold)
@@ -499,12 +497,12 @@ export const getProductPerformance = async (companyId: string, productId: string
 
   const snapshot = await getDocs(q);
   const sales = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Sale[];
-  
+
   let totalSales = 0;
   let totalRevenue = 0;
   let totalProfit = 0;
   let totalQuantity = 0;
-  
+
   sales.forEach(sale => {
     sale.products.forEach(product => {
       if (product.productId === productId) {
