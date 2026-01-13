@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ChevronRight, ChevronDown, RefreshCcw, Package, AlertCircle, Search } from 'lucide-react';
+import { ChevronRight, ChevronDown, RefreshCcw, Package, AlertCircle, Search, Trash2, Settings, AlertTriangle } from 'lucide-react';
 import { Button, Input, Modal, LoadingScreen } from '@components/common';
 import { useInfiniteProducts } from '@hooks/data/useInfiniteProducts';
 import { useAllStockBatches } from '@hooks/business/useStockBatches';
@@ -8,6 +8,7 @@ import { useStockChanges, useSuppliers } from '@hooks/data/useFirestore';
 import ProductRestockModal from '../../components/products/ProductRestockModal';
 import ManualAdjustmentModal from '../../components/products/ManualAdjustmentModal';
 import DamageAdjustmentModal from '../../components/products/DamageAdjustmentModal';
+import BatchDeleteModal from '../../components/common/BatchDeleteModal';
 import type { Product, StockBatch, StockChange } from '../../types/models';
 
 const PAGE_SIZES = [10, 20, 50];
@@ -82,6 +83,7 @@ const Stocks = () => {
   const [adjustModalOpen, setAdjustModalOpen] = useState(false);
   const [damageModalOpen, setDamageModalOpen] = useState(false);
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [selectedBatch, setSelectedBatch] = useState<StockBatch | null>(null);
   const [selectedBatchTotals, setSelectedBatchTotals] = useState<{ remaining: number; total: number } | undefined>(undefined);
@@ -168,12 +170,19 @@ const Stocks = () => {
     setHistoryModalOpen(true);
   };
 
+  const handleDelete = (product: Product, batch: StockBatch) => {
+    setSelectedProduct(product);
+    setSelectedBatch(batch);
+    setDeleteModalOpen(true);
+  };
+
   const handleModalSuccess = () => {
     refresh();
     setRestockModalOpen(false);
     setAdjustModalOpen(false);
     setDamageModalOpen(false);
     setHistoryModalOpen(false);
+    setDeleteModalOpen(false);
     setSelectedProduct(null);
     setSelectedBatch(null);
   };
@@ -183,6 +192,7 @@ const Stocks = () => {
     setAdjustModalOpen(false);
     setDamageModalOpen(false);
     setHistoryModalOpen(false);
+    setDeleteModalOpen(false);
     setSelectedProduct(null);
     setSelectedBatch(null);
   };
@@ -401,8 +411,9 @@ const Stocks = () => {
                                             variant="outline"
                                             className="px-3 py-1.5 text-sm"
                                             onClick={() => handleAdjust(product, batch)}
+                                            title={t('products.stocksPage.actions.adjust')}
                                           >
-                                            {t('products.stocksPage.actions.adjust')}
+                                            <Settings className="w-4 h-4" />
                                           </Button>
                                           {batch.remainingQuantity > 0 && (
                                             <Button 
@@ -410,15 +421,37 @@ const Stocks = () => {
                                               variant="outline"
                                               className="px-3 py-1.5 text-sm"
                                               onClick={() => handleDamage(product, batch)}
+                                              title={t('products.stocksPage.actions.damage')}
                                             >
-                                              {t('products.stocksPage.actions.damage')}
+                                              <AlertTriangle className="w-4 h-4" />
                                             </Button>
                                           )}
+                                          <Button 
+                                            size="sm" 
+                                            variant="outline"
+                                            className="px-3 py-1.5 text-sm text-red-600 border-red-300 hover:bg-red-50"
+                                            onClick={() => handleDelete(product, batch)}
+                                            disabled={batch.remainingQuantity > 0}
+                                            title={batch.remainingQuantity > 0 ? "Can only delete batches with zero remaining stock" : "Delete batch"}
+                                          >
+                                            <Trash2 size={14} />
+                                          </Button>
                                         </>
                                       ) : (
-                                        <span className="inline-flex items-center justify-end text-xs text-gray-500">
-                                          {t('products.stocksPage.messages.noActionsDepleted')}
-                                        </span>
+                                        <div className="flex items-center justify-end space-x-3">
+                                          <span className="inline-flex items-center justify-end text-xs text-gray-500">
+                                            {t('products.stocksPage.messages.noActionsDepleted')}
+                                          </span>
+                                          <Button 
+                                            size="sm" 
+                                            variant="outline"
+                                            className="px-3 py-1.5 text-sm text-red-600 border-red-300 hover:bg-red-50"
+                                            onClick={() => handleDelete(product, batch)}
+                                            title="Delete batch"
+                                          >
+                                            <Trash2 size={14} />
+                                          </Button>
+                                        </div>
                                       )}
                                     </td>
                                   </tr>
@@ -642,6 +675,15 @@ const Stocks = () => {
           </div>
         </div>
       </Modal>
+
+      {/* Batch Delete Modal */}
+      <BatchDeleteModal
+        isOpen={deleteModalOpen}
+        batch={selectedBatch}
+        itemName={selectedProduct?.name || ''}
+        onClose={handleModalClose}
+        onSuccess={handleModalSuccess}
+      />
     </div>
   );
 };
