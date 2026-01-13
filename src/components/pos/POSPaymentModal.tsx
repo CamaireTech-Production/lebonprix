@@ -80,6 +80,9 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
   const { activeSources } = useCustomerSources();
   const { products } = useProducts();
   
+  // State for logo base64
+  const [logoBase64, setLogoBase64] = useState<string>('');
+  
   // State for all form fields
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'mobile_money' | 'card' | null>(null);
   const [isPrinting, setIsPrinting] = useState<boolean>(false);
@@ -129,6 +132,37 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
   };
 
   const colors = getCompanyColors();
+
+  // Load company logo as base64 for consistent display
+  useEffect(() => {
+    const loadLogo = async () => {
+      if (!company?.logo) {
+        setLogoBase64('');
+        return;
+      }
+
+      try {
+        const img = new Image();
+        img.crossOrigin = 'Anonymous';
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          ctx?.drawImage(img, 0, 0);
+          const base64 = canvas.toDataURL('image/png');
+          setLogoBase64(base64);
+        };
+        img.onerror = () => setLogoBase64('');
+        img.src = company.logo;
+      } catch (error) {
+        console.warn('Failed to load company logo:', error);
+        setLogoBase64('');
+      }
+    };
+
+    loadLogo();
+  }, [company?.logo]);
 
   // Reset all form fields when modal opens or closes
   const resetForm = () => {
@@ -407,37 +441,68 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
   // Handle print from preview - print directly without opening new tab
   const handlePrintFromPreview = () => {
     if (!completedSale || !company) return;
-    
-    try {
-      // Create a hidden iframe for printing
-      const printIframe = document.createElement('iframe');
-      printIframe.style.position = 'absolute';
-      printIframe.style.width = '0';
-      printIframe.style.height = '0';
-      printIframe.style.border = 'none';
-      printIframe.style.left = '-9999px';
-      
-      if (document.body) {
-        document.body.appendChild(printIframe);
+
+    // Helper function to convert image to base64 for print compatibility
+    const getImageAsBase64 = (url: string): Promise<string> => {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.crossOrigin = 'Anonymous';
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          ctx?.drawImage(img, 0, 0);
+          resolve(canvas.toDataURL('image/png'));
+        };
+        img.onerror = () => resolve('');
+        img.src = url;
+      });
+    };
+
+    // Load logo as base64 if available
+    const loadLogo = async (): Promise<string> => {
+      if (!company.logo) return '';
+      try {
+        const base64 = await getImageAsBase64(company.logo);
+        return base64;
+      } catch (error) {
+        console.warn('Failed to load logo for printing:', error);
+        return '';
       }
-      
-      // Flag to ensure we only print once
-      let hasPrinted = false;
-      
-      const printOnce = () => {
-        if (hasPrinted || !printIframe.contentWindow) return;
-        hasPrinted = true;
-        printIframe.contentWindow.print();
-        // Remove iframe after printing
-        setTimeout(() => {
-          if (printIframe.parentNode) {
-            document.body.removeChild(printIframe);
-          }
-        }, 1000);
-      };
-      
-      // Build invoice HTML content
-      const invoiceContent = `
+    };
+
+    // Load logo and create print content
+    loadLogo().then((logoBase64) => {
+      // Create a hidden iframe for printing
+        const printIframe = document.createElement('iframe');
+        printIframe.style.position = 'absolute';
+        printIframe.style.width = '0';
+        printIframe.style.height = '0';
+        printIframe.style.border = 'none';
+        printIframe.style.left = '-9999px';
+
+        if (document.body) {
+          document.body.appendChild(printIframe);
+        }
+
+        // Flag to ensure we only print once
+        let hasPrinted = false;
+
+        const printOnce = () => {
+          if (hasPrinted || !printIframe.contentWindow) return;
+          hasPrinted = true;
+          printIframe.contentWindow.print();
+          // Remove iframe after printing
+          setTimeout(() => {
+            if (printIframe.parentNode) {
+              document.body.removeChild(printIframe);
+            }
+          }, 1000);
+        };
+
+        // Build invoice HTML content with logo
+        const invoiceContent = `
         <!DOCTYPE html>
         <html>
           <head>
@@ -458,6 +523,7 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
           </head>
           <body>
             <div style="width: 80mm; margin: 0 auto; padding: 10px;">
+              ${logoBase64 ? `<div style="text-align: center; margin-bottom: 10px;"><img src="${logoBase64}" alt="${company.name || 'Company Logo'}" style="max-width: 60px; max-height: 40px; object-fit: contain;" /></div>` : ''}
               <h2 style="text-align: center; margin-bottom: 10px;">${company.name}</h2>
               <p style="text-align: center; margin-bottom: 5px;">${company.location || ''}</p>
               <p style="text-align: center; margin-bottom: 15px;">Tel: ${company.phone || ''}</p>
@@ -540,10 +606,10 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
       }
       
       showSuccessToast(t('pos.payment.printSuccess') || 'Bill printed successfully');
-    } catch (error) {
-      console.error('Error printing from preview:', error);
+    }).catch((error) => {
+      console.error('Error loading logo for printing:', error);
       showErrorToast(t('pos.payment.printError') || 'Failed to print bill');
-    }
+    });
   };
 
   // Store handlePrintFromPreview in ref so it can be called from useEffect
@@ -576,9 +642,18 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
               {/* Invoice Header */}
               <div className="flex justify-between items-start mb-6 pb-4 border-b-2 border-gray-300">
                 <div>
-                  <h3 className="text-2xl font-bold mb-2" style={{ color: colors.primary }}>
-                    {company?.name || ''}
-                  </h3>
+                  <div className="flex items-center space-x-3 mb-2">
+                    {logoBase64 && (
+                      <img 
+                        src={logoBase64} 
+                        alt={`${company?.name} Logo`}
+                        className="h-12 w-12 object-contain rounded"
+                      />
+                    )}
+                    <h3 className="text-2xl font-bold" style={{ color: colors.primary }}>
+                      {company?.name || ''}
+                    </h3>
+                  </div>
                   {company?.location && <p className="text-sm text-gray-600">{company.location}</p>}
                   {company?.phone && <p className="text-sm text-gray-600">{t('common.phone')}: {company.phone}</p>}
                   {company?.email && <p className="text-sm text-gray-600">{t('common.email')}: {company.email}</p>}

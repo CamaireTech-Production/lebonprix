@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Package } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import ImageWithSkeleton from '../common/ImageWithSkeleton';
@@ -23,32 +23,49 @@ export const POSProductGrid: React.FC<POSProductGridProps> = ({
   stockMap,
 }) => {
   const { t } = useTranslation();
+
+  // Calculate product count per category (only counting products with stock > 0)
+  const categoryProductCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    
+    products.forEach(product => {
+      if (product.category && product.isAvailable !== false) {
+        const stock = getEffectiveProductStock(product, stockMap);
+        if (stock > 0) {
+          counts[product.category] = (counts[product.category] || 0) + 1;
+        }
+      }
+    });
+    
+    return counts;
+  }, [products, stockMap]);
+
   return (
     <div className="h-full flex flex-col">
       {/* Category Filter */}
       {categories.length > 0 && (
-        <div className="mb-4 flex flex-wrap gap-2">
+        <div className="mb-4 flex flex-nowrap gap-2 overflow-x-auto pb-2 [&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-gray-300 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:hover:bg-gray-400">
             <button
             onClick={() => onCategoryChange(null)}
-            className={`px-4 py-2 rounded-lg transition-colors ${
+            className={`px-4 py-2 rounded-lg transition-colors whitespace-nowrap ${
               selectedCategory === null
                 ? 'bg-emerald-600 text-white'
                 : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
             }`}
           >
-            {t('pos.products.all')}
+            {t('pos.products.all')} ({products.filter(p => p.isAvailable !== false && getEffectiveProductStock(p, stockMap) > 0).length})
           </button>
           {categories.map(category => (
             <button
               key={category}
               onClick={() => onCategoryChange(category)}
-              className={`px-4 py-2 rounded-lg transition-colors ${
+              className={`px-4 py-2 rounded-lg transition-colors whitespace-nowrap ${
                 selectedCategory === category
                   ? 'bg-emerald-600 text-white'
                   : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
               }`}
             >
-              {category}
+              {category} ({categoryProductCounts[category] || 0})
             </button>
           ))}
         </div>

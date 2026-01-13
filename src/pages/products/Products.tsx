@@ -19,7 +19,7 @@ import imageCompression from 'browser-image-compression';
 import * as Papa from 'papaparse';
 import type { Product, ProductTag, StockChange } from '../../types/models';
 import type { ParseResult } from 'papaparse';
-import { getLatestCostPrice} from '@utils/business/productUtils';
+import { getLatestCostPrice } from '@utils/business/productUtils';
 import { getProductBatchesForAdjustment } from '@services/firestore/stock/stockService';
 import type { StockBatch } from '../../types/models';
 import CostPriceCarousel from '../../components/products/CostPriceCarousel';
@@ -35,22 +35,22 @@ const Products = () => {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
-  
+
   // Check if we're in a company route
   const isCompanyRoute = location.pathname.startsWith('/company/');
   const companyId = isCompanyRoute ? location.pathname.split('/')[2] : null;
   // Use infinite scroll for products instead of limited loading
-  const { 
-    products: infiniteProducts, 
-    loading: infiniteLoading, 
-    loadingMore, 
+  const {
+    products: infiniteProducts,
+    loading: infiniteLoading,
+    loadingMore,
     syncing: infiniteSyncing, // Add syncing state
-    hasMore, 
-    error: infiniteError, 
-    loadMore, 
-    refresh 
+    hasMore,
+    error: infiniteError,
+    loadMore,
+    refresh
   } = useInfiniteProducts();
-  
+
   // Keep original hook for adding/updating products
   const { addProduct, updateProductData } = useProducts();
   const { stockChanges } = useStockChanges();
@@ -58,7 +58,7 @@ const Products = () => {
   const { suppliers } = useSuppliers();
   const { batches: allStockBatches, loading: batchesLoading } = useAllStockBatches();
   const { user, company, currentEmployee, isOwner } = useAuth();
-  
+
   // Set up infinite scroll
   useInfiniteScroll({
     hasMore,
@@ -83,22 +83,22 @@ const Products = () => {
       window.removeEventListener('products:refresh', handleProductsRefresh as EventListener);
     };
   }, [company?.id, refresh]);
-  
+
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState(t('products.filters.allCategories'));
-  
+
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [currentProduct, setCurrentProduct] = useState<Product | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
+
   // Local state to track visibility changes for immediate UI updates
   const [visibilityOverrides, setVisibilityOverrides] = useState<Record<string, boolean>>({});
-  
+
   // Two-step form state
   const [currentStep, setCurrentStep] = useState<1 | 2>(1);
-  
+
   // Step 1: Basic product info
   // Images can be File objects (new uploads) or string URLs (existing images)
   const [step1Data, setStep1Data] = useState<{
@@ -118,7 +118,7 @@ const Products = () => {
     isVisible: true, // Default to visible
     barCode: '', // Optional barcode field
   });
-  
+
   // Step 2: Initial stock and supply info
   const [step2Data, setStep2Data] = useState({
     stock: '',
@@ -148,7 +148,7 @@ const Products = () => {
       setStep2Errors({});
     }
   }, [isEditModalOpen]);
-  
+
   // Quick add supplier state
   const [isQuickAddSupplierOpen, setIsQuickAddSupplierOpen] = useState(false);
   const [quickSupplierData, setQuickSupplierData] = useState({
@@ -158,27 +158,27 @@ const Products = () => {
   });
   const [isUploadingImages, setIsUploadingImages] = useState(false);
   const [isAddingSupplier, setIsAddingSupplier] = useState(false);
-  
+
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [csvData, setCsvData] = useState<CsvRow[]>([]);
   const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
   const [columnMapping, setColumnMapping] = useState<Record<string, string>>({});
   const [isImporting, setIsImporting] = useState(false);
   const [importProgress, setImportProgress] = useState(0);
-  
+
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  
+
   const [editTab, setEditTab] = useState<'info' | 'stock' | 'pricing'>('info');
-  
+
   // Barcode/QR Code modal state
   const [isBarcodeModalOpen, setIsBarcodeModalOpen] = useState(false);
   const [selectedProductForBarcode, setSelectedProductForBarcode] = useState<Product | null>(null);
   // State for stock adjustment tab
   const [, setStockAdjustment] = useState('');
   const [stockReason, setStockReason] = useState<'restock' | 'adjustment' | 'damage'>('restock');
-  
+
   // State for stock adjustment supplier info
   const [, setStockAdjustmentSupplier] = useState({
     supplyType: 'ownPurchase' as 'ownPurchase' | 'fromSupplier',
@@ -192,7 +192,7 @@ const Products = () => {
   const [, setSelectedBatchId] = useState('');
   const [, setSelectedBatch] = useState<StockBatch | null>(null);
   const [, setLoadingBatches] = useState(false);
-  
+
   // Scenario 2: Manual Adjustment - Enhanced with purchase method editing
   const [tempBatchEdits, setTempBatchEdits] = useState<Array<{
     batchId: string;
@@ -206,7 +206,7 @@ const Products = () => {
     timestamp: Date;
     scenario: 'adjustment' | 'damage';
   }>>([]);
-  
+
   const [, setBatchEditForm] = useState({
     stock: '',
     costPrice: '',
@@ -214,16 +214,16 @@ const Products = () => {
     supplierId: '',
     paymentType: 'paid' as 'paid' | 'credit'
   });
-  
+
   // Scenario 3: Damage State
   const [, setBatchDamageForm] = useState({
     damagedQuantity: ''
   });
-  
+
   const [isBulkSelection, setIsBulkSelection] = useState(false);
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
-  
+
   // Add state for saveCategories
   const [saveCategories, setSaveCategories] = useState(false);
 
@@ -240,7 +240,7 @@ const Products = () => {
   const [stockHistoryFilterType, setStockHistoryFilterType] = useState<string>('');
   const [stockHistoryFilterSupplier, setStockHistoryFilterSupplier] = useState<string>('');
   const [stockHistorySearch, setStockHistorySearch] = useState('');
-  
+
   // --- State for image gallery per product ---
   const [mainImageIndexes, setMainImageIndexes] = useState<Record<string, number>>({});
   const handleSetMainImage = (productId: string, idx: number) => {
@@ -258,7 +258,7 @@ const Products = () => {
       return { ...prev, [productId]: (current + 1) % images.length };
     });
   };
-  
+
   const handleStep1InputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setStep1Data(prev => ({ ...prev, [name]: value }));
@@ -271,10 +271,10 @@ const Products = () => {
       });
     }
   };
-  
+
   const handleStep2InputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement> | { target: { name: string; value: string } }) => {
     const { name, value } = e.target;
-    
+
     // PriceInput already handles formatting and returns numeric value
     // No need to filter price fields - PriceInput component handles that
     setStep2Data(prev => ({ ...prev, [name]: value }));
@@ -287,12 +287,12 @@ const Products = () => {
       });
     }
   };
-  
+
   const handleQuickSupplierInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setQuickSupplierData(prev => ({ ...prev, [name]: value }));
   };
-  
+
   const resetForm = () => {
     setStep1Data({
       name: '',
@@ -319,11 +319,11 @@ const Products = () => {
   // Get unique categories from products (filter out empty/undefined categories)
   const categories = [t('products.filters.allCategories'), ...new Set(infiniteProducts?.filter(p => p.category).map(p => p.category!) || [])];
 
-  
+
   const compressImage = async (file: File): Promise<File> => {
     try {
       console.log('Compressing image:', file.name, 'Type:', file.type, 'Size:', file.size);
-      
+
       const options = {
         maxSizeMB: 0.5,
         maxWidthOrHeight: 600,
@@ -335,7 +335,7 @@ const Products = () => {
 
       const compressedFile = await imageCompression(file, options);
       console.log('Compressed file:', compressedFile.name, 'Type:', compressedFile.type, 'Size:', compressedFile.size);
-      
+
       // Ensure we return a File object (imageCompression should return File, but ensure it)
       if (compressedFile instanceof File) {
         return compressedFile;
@@ -365,16 +365,16 @@ const Products = () => {
     if (!step2Data.stock || step2Data.stock.trim() === '') {
       step2Errs.stock = t('products.form.step2.stock') + ' ' + t('common.required');
       isValid = false;
-    } else if (parseInt(step2Data.stock) <= 0) {
-      step2Errs.stock = t('products.form.step2.stock') + ' ' + (t('common.mustBeGreaterThanZero') || 'must be greater than zero');
+    } else if (parseInt(step2Data.stock) < 0) {
+      step2Errs.stock = t('products.form.step2.stock') + ' ' + (t('common.mustBeGreaterThanOrEqualToZero') || 'must be greater than or equal to zero');
       isValid = false;
     }
 
     if (!step2Data.stockCostPrice || step2Data.stockCostPrice.trim() === '') {
       step2Errs.stockCostPrice = t('products.form.step2.stockCostPrice') + ' ' + t('common.required');
       isValid = false;
-    } else if (parseFloat(step2Data.stockCostPrice) <= 0) {
-      step2Errs.stockCostPrice = t('products.form.step2.stockCostPrice') + ' ' + (t('common.mustBeGreaterThanZero') || 'must be greater than zero');
+    } else if (parseFloat(step2Data.stockCostPrice) < 0) {
+      step2Errs.stockCostPrice = t('products.form.step2.stockCostPrice') + ' ' + (t('common.mustBeGreaterThanOrEqualToZero') || 'must be greater than or equal to zero');
       isValid = false;
     }
 
@@ -428,36 +428,36 @@ const Products = () => {
 
   const handleAddProduct = async () => {
     if (!user?.uid) return;
-    
+
     // Validate form with specific field errors
     if (!validateForm()) {
       return;
     }
-    
+
     setIsSubmitting(true);
-    
+
     try {
       let reference = step1Data.reference.trim();
-    if (!reference) {
-      // Auto-generate reference: first 3 uppercase letters of name + 3-digit number
+      if (!reference) {
+        // Auto-generate reference: first 3 uppercase letters of name + 3-digit number
         const prefix = step1Data.name.substring(0, 3).toUpperCase();
-      // Count existing products with this prefix
-      const samePrefixCount = infiniteProducts.filter(p => p.reference && p.reference.startsWith(prefix)).length;
-      const nextNumber = (samePrefixCount + 1).toString().padStart(3, '0');
-      reference = `${prefix}${nextNumber}`;
-    }
-      
+        // Count existing products with this prefix
+        const samePrefixCount = infiniteProducts.filter(p => p.reference && p.reference.startsWith(prefix)).length;
+        const nextNumber = (samePrefixCount + 1).toString().padStart(3, '0');
+        reference = `${prefix}${nextNumber}`;
+      }
+
       const stockQuantity = parseInt(step2Data.stock);
       const stockCostPrice = step2Data.stockCostPrice ? parseFloat(step2Data.stockCostPrice) : 0;
-      
+
       // Initialize image variables first
       let imageUrls: string[] = [];
       let imagePaths: string[] = [];
-      
+
       // Upload images to Firebase Storage first if any
       // Filter only File objects (new uploads), exclude existing URLs
       const imageFiles = step1Data.images.filter((img): img is File => img instanceof File);
-      
+
       if (imageFiles.length > 0) {
         try {
           const storageService = new FirebaseStorageService();
@@ -468,7 +468,7 @@ const Products = () => {
             user.uid,
             tempId
           );
-          
+
           imageUrls = uploadResults.map((result: { url: string; path: string }) => result.url);
           imagePaths = uploadResults.map((result: { url: string; path: string }) => result.path);
         } catch (error) {
@@ -495,17 +495,17 @@ const Products = () => {
         userId: user.uid,
         updatedAt: { seconds: 0, nanoseconds: 0 }
       };
-      
+
       // Include barcode if provided (otherwise will be auto-generated)
       if (step1Data.barCode && step1Data.barCode.trim()) {
         productData.barCode = step1Data.barCode.trim();
       }
-      
+
       // Only include category if it's not empty (Firestore doesn't accept undefined)
       if (step1Data.category && step1Data.category.trim()) {
         productData.category = step1Data.category.trim();
       }
-      
+
       // Create supplier info for the product creation
       const supplierInfo = step2Data.supplyType === 'fromSupplier' ? {
         supplierId: step2Data.supplierId,
@@ -538,11 +538,11 @@ const Products = () => {
       try {
         createdProduct = await addProduct(productData, supplierInfo, createdBy);
         console.log('Created product result:', createdProduct);
-        
+
         if (!createdProduct) {
           throw new Error('addProduct returned undefined');
         }
-        
+
         if (!createdProduct.id) {
           throw new Error('addProduct returned product without ID');
         }
@@ -551,7 +551,7 @@ const Products = () => {
         showErrorToast('Failed to create product');
         return;
       }
-      
+
       // Recalculate category product counts after adding product
       try {
         await recalculateCategoryProductCounts(user.uid);
@@ -559,14 +559,14 @@ const Products = () => {
         console.error('Error recalculating category counts:', error);
         // Don't show error to user as product creation was successful
       }
-      
+
       // Refresh the product list to show the new product
       refresh();
-      
+
       setIsAddModalOpen(false);
       resetForm();
       showSuccessToast(t('products.messages.productAdded'));
-      
+
     } catch (err) {
       console.error('Error adding product:', err);
       showErrorToast(t('products.messages.errors.addProduct'));
@@ -575,7 +575,7 @@ const Products = () => {
       setIsSubmitting(false);
     }
   };
-  
+
   // Step navigation functions
   const nextStep = () => {
     if (currentStep === 1) {
@@ -630,12 +630,12 @@ const Products = () => {
         }
         createdBy = getCurrentEmployeeRef(currentEmployee, user, isOwner, userData);
       }
-      
+
       if (!company) {
         showErrorToast('Company not found');
         return;
       }
-      
+
       const newSupplier = await createSupplier({
         name: quickSupplierData.name,
         contact: quickSupplierData.contact,
@@ -646,7 +646,7 @@ const Products = () => {
 
       // Set the new supplier as selected
       setStep2Data(prev => ({
-      ...prev,
+        ...prev,
         supplierId: newSupplier.id
       }));
 
@@ -669,12 +669,12 @@ const Products = () => {
   // Enhanced Manual Adjustment Functions
   const loadBatchesForAdjustment = async (productId: string) => {
     if (!productId) return;
-    
+
     setLoadingBatches(true);
     try {
       const batches = await getProductBatchesForAdjustment(productId);
       // Filter out batches that are already in temp edits
-      const filteredBatches = batches.filter(batch => 
+      const filteredBatches = batches.filter(batch =>
         !tempBatchEdits.some(edit => edit.batchId === batch.id)
       );
       setAvailableBatches(filteredBatches);
@@ -718,12 +718,12 @@ const Products = () => {
         }
         createdBy = getCurrentEmployeeRef(currentEmployee, user, isOwner, userData);
       }
-      
+
       if (!company) {
         showErrorToast('Company not found');
         return;
       }
-      
+
       const newSupplier = await createSupplier({
         name: quickSupplierData.name,
         contact: quickSupplierData.contact,
@@ -752,14 +752,14 @@ const Products = () => {
       setIsAddingSupplier(false);
     }
   };
-  
+
   // Add state for editable prices
   const [editPrices, setEditPrices] = useState({
     sellingPrice: '',
     cataloguePrice: '',
     costPrice: ''
   });
-  
+
   // In openEditModal, initialize editPrices from product and latest stock change
   const openEditModal = (product: Product) => {
     setCurrentProduct(product);
@@ -781,13 +781,13 @@ const Products = () => {
       cataloguePrice: product.cataloguePrice?.toString() || '',
       costPrice: latestStockChange?.costPrice?.toString() || ''
     });
-    
+
     // Reset enhancement states for all scenarios
     setTempBatchEdits([]);
     setSelectedBatchId('');
     setSelectedBatch(null);
-    setBatchEditForm({ 
-      stock: '', 
+    setBatchEditForm({
+      stock: '',
       costPrice: '',
       supplyType: 'ownPurchase',
       supplierId: '',
@@ -795,12 +795,12 @@ const Products = () => {
     });
     setBatchDamageForm({ damagedQuantity: '' });
     setStockReason('restock');
-    
+
     setIsEditModalOpen(true);
     setEditTab('info');
     setStockAdjustment('');
   };
-  
+
   const validateEditForm = (): boolean => {
     const step1Errs: Record<string, string> = {};
     let isValid = true;
@@ -834,12 +834,12 @@ const Products = () => {
     if (!currentProduct || !user?.uid) {
       return;
     }
-    
+
     // Validate form with specific field errors
     if (!validateEditForm()) {
       return;
     }
-    
+
     setIsSubmitting(true);
     const safeProduct = {
       ...currentProduct,
@@ -860,7 +860,7 @@ const Products = () => {
       // Include barcode if provided
       ...(step1Data.barCode && step1Data.barCode.trim() && { barCode: step1Data.barCode.trim() }),
     };
-    
+
     // Only include category if it's not empty
     // Omit the field entirely if empty to preserve existing value
     if (step1Data.category && step1Data.category.trim()) {
@@ -870,16 +870,16 @@ const Products = () => {
     if (step1Data.reference && step1Data.reference.trim() !== '') {
       updateData.reference = step1Data.reference;
     }
-    
+
     try {
       // Update product info only (stock management moved to dedicated Stocks page)
-        await updateProductData(currentProduct.id, updateData);
-      
+      await updateProductData(currentProduct.id, updateData);
+
       // Handle base64 to Firebase Storage conversion for images
       // Separate existing URLs from new File objects
       const existingImages: string[] = [];
       const newImageFiles: File[] = [];
-      
+
       step1Data.images.forEach(img => {
         if (img instanceof File) {
           // New file to upload
@@ -897,7 +897,7 @@ const Products = () => {
           newImageFiles.push(file);
         }
       });
-      
+
       if (newImageFiles.length > 0) {
         try {
           const storageService = new FirebaseStorageService();
@@ -906,16 +906,16 @@ const Products = () => {
             user.uid,
             currentProduct.id
           );
-          
+
           // Merge new image URLs with existing ones
           const newImageUrls = uploadResults.map(result => result.url);
           const newImagePaths = uploadResults.map(result => result.path);
           const allImageUrls = [...existingImages, ...newImageUrls];
-          
+
           // Get existing imagePaths and merge with new ones
           const existingImagePaths = currentProduct.imagePaths || [];
           const allImagePaths = [...existingImagePaths, ...newImagePaths];
-          
+
           // Debug: Check userId before updating
           console.log('Updating product images:', {
             productId: currentProduct.id,
@@ -923,7 +923,7 @@ const Products = () => {
             currentUserId: user.uid,
             imagesCount: allImageUrls.length
           });
-          
+
           // Verify userId matches before updating
           // If product has a userId set, it must match the current user
           if (currentProduct.userId && currentProduct.userId !== user.uid) {
@@ -935,27 +935,27 @@ const Products = () => {
             showErrorToast('Cannot update: Product ownership mismatch. Please refresh the product list.');
             return;
           }
-          
+
           // Ensure userId is set when updating (for legacy products without userId)
           const imageUpdateData: Partial<Product> = {
             images: allImageUrls,
             imagePaths: allImagePaths
           };
-          
+
           // If product doesn't have userId, set it to current user (for legacy compatibility)
           if (!currentProduct.userId) {
             imageUpdateData.userId = user.uid;
             console.log('Setting userId for legacy product:', currentProduct.id);
           }
-          
+
           // Update the product with merged image URLs and paths
           await updateProductData(currentProduct.id, imageUpdateData);
         } catch (error) {
           console.error('Error uploading images:', error);
           showErrorToast('Product updated but images failed to upload');
         }
-      } else if (existingImages.length !== currentProduct.images?.length || 
-                 JSON.stringify(existingImages.sort()) !== JSON.stringify((currentProduct.images || []).sort())) {
+      } else if (existingImages.length !== currentProduct.images?.length ||
+        JSON.stringify(existingImages.sort()) !== JSON.stringify((currentProduct.images || []).sort())) {
         // Images were reordered or some were removed, update with current selection
         // Extract existing imagePaths for remaining images
         const remainingImagePaths: string[] = [];
@@ -966,7 +966,7 @@ const Products = () => {
             remainingImagePaths.push(currentProduct.imagePaths[currentIndex]);
           }
         });
-        
+
         await updateProductData(currentProduct.id, {
           images: existingImages,
           imagePaths: remainingImagePaths
@@ -987,7 +987,7 @@ const Products = () => {
           );
         }
       }
-      
+
       // Recalculate category product counts after updating product
       try {
         await recalculateCategoryProductCounts(user.uid);
@@ -995,10 +995,10 @@ const Products = () => {
         console.error('Error recalculating category counts:', error);
         // Don't show error to user as product update was successful
       }
-      
+
       // Refresh the product list to show the updated product
       refresh();
-      
+
       setIsEditModalOpen(false);
       resetForm();
       showSuccessToast(t('products.messages.productUpdated'));
@@ -1042,7 +1042,7 @@ const Products = () => {
       setVisibilityOverrides(prev => {
         const newOverrides = { ...prev };
         let hasChanges = false;
-        
+
         // Only remove overrides when the server data actually matches our override
         Object.keys(newOverrides).forEach(productId => {
           const product = infiniteProducts.find((p: Product) => p.id === productId);
@@ -1053,11 +1053,11 @@ const Products = () => {
             hasChanges = true;
           }
         });
-        
+
         if (hasChanges) {
           console.log('Updated overrides:', newOverrides);
         }
-        
+
         return hasChanges ? newOverrides : prev;
       });
     }
@@ -1106,7 +1106,7 @@ const Products = () => {
         const updateData = { isAvailable: false, images: safeProduct.images, userId: safeProduct.userId, updatedAt: { seconds: 0, nanoseconds: 0 } };
         await updateProductData(id, updateData);
       }
-      
+
       // Recalculate category product counts after bulk deletion
       try {
         await recalculateCategoryProductCounts(user.uid);
@@ -1114,10 +1114,10 @@ const Products = () => {
         console.error('Error recalculating category counts:', error);
         // Don't show error to user as product deletion was successful
       }
-      
+
       // Refresh the product list to remove the deleted products
       refresh();
-      
+
       showSuccessToast(t('products.messages.bulkDeleteSuccess', { count: selectedProducts.length }));
       setIsBulkDeleteModalOpen(false);
       setSelectedProducts([]);
@@ -1143,7 +1143,7 @@ const Products = () => {
     try {
       setIsDeleting(true);
       await updateProductData(productToDelete.id, updateData);
-      
+
       // Recalculate category product counts after deletion
       try {
         await recalculateCategoryProductCounts(user.uid);
@@ -1151,10 +1151,10 @@ const Products = () => {
         console.error('Error recalculating category counts:', error);
         // Don't show error to user as product deletion was successful
       }
-      
+
       // Refresh the product list to remove the deleted product
       refresh();
-      
+
       showSuccessToast(t('products.messages.productDeleted'));
       setIsDeleteModalOpen(false);
       setProductToDelete(null);
@@ -1184,7 +1184,7 @@ const Products = () => {
     setStep1Data(prev => ({ ...prev, images: [...prev.images, ...newImages] }));
     setIsUploadingImages(false);
   };
-  
+
   const handleRemoveImage = (idx: number) => {
     setStep1Data(prev => ({ ...prev, images: prev.images.filter((_, i) => i !== idx) }));
   };
@@ -1192,11 +1192,11 @@ const Products = () => {
   // Toggle product visibility
   const handleToggleVisibility = async (product: Product) => {
     if (!user?.uid) return;
-    
+
     try {
       const currentEffectiveVisibility = getEffectiveVisibility(product);
       const newVisibility = !currentEffectiveVisibility;
-      
+
       console.log('Toggle visibility:', {
         productId: product.id,
         originalVisibility: product.isVisible,
@@ -1204,25 +1204,25 @@ const Products = () => {
         newVisibility,
         currentOverrides: visibilityOverrides
       });
-      
+
       // Optimistic update - immediately update the local state for instant UI feedback
       setVisibilityOverrides(prev => ({
         ...prev,
         [product.id]: newVisibility
       }));
-      
+
       await updateProductData(product.id, { isVisible: newVisibility });
-      
+
       showSuccessToast(
-        newVisibility 
-          ? t('products.messages.productShown') 
+        newVisibility
+          ? t('products.messages.productShown')
           : t('products.messages.productHidden')
       );
-      
+
     } catch (error) {
       console.error('Error toggling product visibility:', error);
       showErrorToast(t('products.messages.errors.toggleVisibility'));
-      
+
       // Revert the optimistic update on error
       setVisibilityOverrides(prev => {
         const newOverrides = { ...prev };
@@ -1251,7 +1251,7 @@ const Products = () => {
     const batches = getProductBatches(productId);
     const activeBatches = batches.filter(batch => batch.status === 'active' && batch.remainingQuantity > 0);
     if (activeBatches.length === 0) return undefined;
-    
+
     // Sort by updatedAt (most recently modified first), fallback to createdAt if updatedAt is not available
     // This ensures that when a batch's cost price is corrected, it's recognized as the latest
     const sortedBatches = activeBatches.sort((a, b) => {
@@ -1266,14 +1266,14 @@ const Products = () => {
       const createdB = b.createdAt?.seconds || 0;
       return createdB - createdA;
     });
-    
+
     return sortedBatches[0]?.costPrice || undefined;
   };
 
   // Helper function to get the effective visibility state (considering optimistic updates)
   const getEffectiveVisibility = (product: Product): boolean => {
-    return visibilityOverrides[product.id] !== undefined 
-      ? visibilityOverrides[product.id] 
+    return visibilityOverrides[product.id] !== undefined
+      ? visibilityOverrides[product.id]
       : product.isVisible !== false;
   };
 
@@ -1281,9 +1281,9 @@ const Products = () => {
   const filteredProducts: Product[] = infiniteProducts?.filter((product: Product) => {
     if (typeof product.isAvailable !== 'undefined' && product.isAvailable === false) return false;
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         product.reference.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === t('products.filters.allCategories') || 
-                            product.category === selectedCategory;
+      product.reference.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = selectedCategory === t('products.filters.allCategories') ||
+      product.category === selectedCategory;
     return matchesSearch && matchesCategory;
   }) || [];
 
@@ -1328,7 +1328,7 @@ const Products = () => {
       }
       createdBy = getCurrentEmployeeRef(currentEmployee, user, isOwner, userData);
     }
-    
+
     if (!company) {
       showErrorToast('Company not found');
       return;
@@ -1477,7 +1477,7 @@ const Products = () => {
           <h1 className="text-2xl font-semibold text-gray-900">{t('products.title')}</h1>
           <p className="text-gray-600">{t('products.subtitle')}</p>
         </div>
-        
+
         <div className="mt-4 md:mt-0 flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
           <div className="flex space-x-1">
             <button
@@ -1495,24 +1495,24 @@ const Products = () => {
               <List size={18} />
             </button>
           </div>
-          
-          <Button 
+
+          <Button
             icon={<Upload size={16} />}
             onClick={() => setIsImportModalOpen(true)}
             variant="outline"
           >
             {t('products.actions.importCSV')}
           </Button>
-          
-          <Button 
+
+          <Button
             icon={<Plus size={16} />}
             onClick={() => setIsAddModalOpen(true)}
           >
             {t('products.actions.addProduct')}
           </Button>
-          
+
           {/* Temporary refresh button to clear old cached data */}
-          <Button 
+          <Button
             variant="outline"
             onClick={() => {
               refresh();
@@ -1523,7 +1523,7 @@ const Products = () => {
           </Button>
         </div>
       </div>
-      
+
       {/* Search and filters */}
       <div className="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-2 mb-6">
         <div className="relative flex-grow">
@@ -1538,14 +1538,14 @@ const Products = () => {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        
+
         {/* Sync Indicator */}
-        <SyncIndicator 
-          isSyncing={infiniteSyncing} 
-          message="Updating products..." 
+        <SyncIndicator
+          isSyncing={infiniteSyncing}
+          message="Updating products..."
           className="mb-4"
         />
-        
+
         <div className="flex space-x-2">
           <select
             className="rounded-md border border-gray-300 shadow-sm py-2 px-3 bg-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
@@ -1558,7 +1558,7 @@ const Products = () => {
           </select>
         </div>
       </div>
-      
+
       {/* Bulk selection actions below filters */}
       <div className="flex space-x-2 mb-6">
         <Button
@@ -1587,7 +1587,7 @@ const Products = () => {
           </Button>
         )}
       </div>
-      
+
       {/* Products */}
       {viewMode === 'grid' ? (
         <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -1611,8 +1611,8 @@ const Products = () => {
                     const images = product.images ?? [];
                     const mainIdx = mainImageIndexes[product.id] ?? 0;
                     const mainImg = images.length > 0 ? images[mainIdx] : '/placeholder.png';
-                    
-                    
+
+
                     return (
                       <ImageWithSkeleton
                         src={mainImg}
@@ -1709,11 +1709,10 @@ const Products = () => {
                   )}
                   <button
                     onClick={() => handleToggleVisibility(product)}
-                    className={`px-2 py-1 text-xs rounded-full border transition-colors ${
-                      getEffectiveVisibility(product)
-                        ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100' 
-                        : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
-                    }`}
+                    className={`px-2 py-1 text-xs rounded-full border transition-colors ${getEffectiveVisibility(product)
+                      ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100'
+                      : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
+                      }`}
                     title={getEffectiveVisibility(product) ? t('products.actions.hideFromCatalogue') : t('products.actions.showInCatalogue')}
                   >
                     {getEffectiveVisibility(product) ? 'Visible on catalogue' : 'Hidden from catalogue'}
@@ -1888,11 +1887,10 @@ const Products = () => {
                         )}
                         <button
                           onClick={() => handleToggleVisibility(product)}
-                          className={`px-2 py-1 text-xs rounded-full border transition-colors ${
-                            getEffectiveVisibility(product)
-                              ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100' 
-                              : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
-                          }`}
+                          className={`px-2 py-1 text-xs rounded-full border transition-colors ${getEffectiveVisibility(product)
+                            ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100'
+                            : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
+                            }`}
                           title={getEffectiveVisibility(product) ? t('products.actions.hideFromCatalogue') : t('products.actions.showInCatalogue')}
                         >
                           {getEffectiveVisibility(product) ? 'Visible on catalogue' : 'Hidden from catalogue'}
@@ -1920,7 +1918,7 @@ const Products = () => {
           </div>
         </Card>
       )}
-      
+
       {/* Infinite Scroll Loading Indicator */}
       {loadingMore && (
         <div className="flex justify-center items-center py-8">
@@ -1928,14 +1926,14 @@ const Products = () => {
           <span className="ml-3 text-gray-600">Loading more products...</span>
         </div>
       )}
-      
+
       {/* End of products indicator */}
       {!hasMore && infiniteProducts.length > 0 && (
         <div className="text-center py-6 text-gray-500">
           <p>✅ All products loaded ({infiniteProducts.length} total)</p>
         </div>
       )}
-      
+
       {/* Add Product Modal */}
       <Modal
         isOpen={isAddModalOpen}
@@ -1945,7 +1943,7 @@ const Products = () => {
         }}
         title={t('products.actions.addProduct')}
         footer={
-          <ModalFooter 
+          <ModalFooter
             onCancel={() => {
               setIsAddModalOpen(false);
               resetForm();
@@ -1976,54 +1974,54 @@ const Products = () => {
 
           {currentStep === 1 ? (
             /* Step 1: Basic Product Information */
-        <div className="space-y-4">
-          <Input
-            label={t('products.form.step1.name')}
-            name="name"
-            value={step1Data.name}
-            onChange={handleStep1InputChange}
-            error={step1Errors.name}
-            required
-          />
-          
-          <Input
-            label={t('products.form.step1.reference')}
-            name="reference"
+            <div className="space-y-4">
+              <Input
+                label={t('products.form.step1.name')}
+                name="name"
+                value={step1Data.name}
+                onChange={handleStep1InputChange}
+                error={step1Errors.name}
+                required
+              />
+
+              <Input
+                label={t('products.form.step1.reference')}
+                name="reference"
                 value={step1Data.reference}
                 onChange={handleStep1InputChange}
-          />
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              {t('products.form.step1.category')}
-            </label>
-            <CategorySelector
-              value={step1Data.category}
-              onChange={(category: string) => setStep1Data(prev => ({ ...prev, category }))}
-              showImages={true}
-              placeholder={t('products.form.step1.categoryPlaceholder')}
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">{t('products.form.step1.image')}</label>
-            <div className="flex items-center space-x-2 pb-2">
-              <label className="w-20 h-20 flex items-center justify-center border-2 border-dashed border-gray-300 rounded-md cursor-pointer bg-gray-50 hover:bg-gray-100 transition-all duration-200 relative flex-shrink-0">
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  className="absolute inset-0 opacity-0 cursor-pointer"
-                  onChange={handleImagesUpload}
-                  disabled={isUploadingImages}
+              />
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {t('products.form.step1.category')}
+                </label>
+                <CategorySelector
+                  value={step1Data.category}
+                  onChange={(category: string) => setStep1Data(prev => ({ ...prev, category }))}
+                  showImages={true}
+                  placeholder={t('products.form.step1.categoryPlaceholder')}
                 />
-                {isUploadingImages ? (
-                  <span className="animate-spin text-emerald-500"><Upload size={28} /></span>
-                ) : (
-                  <Upload size={28} className="text-gray-400" />
-                )}
-              </label>
-              <div className="flex overflow-x-auto custom-scrollbar space-x-2 py-1">
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('products.form.step1.image')}</label>
+                <div className="flex items-center space-x-2 pb-2">
+                  <label className="w-20 h-20 flex items-center justify-center border-2 border-dashed border-gray-300 rounded-md cursor-pointer bg-gray-50 hover:bg-gray-100 transition-all duration-200 relative flex-shrink-0">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="absolute inset-0 opacity-0 cursor-pointer"
+                      onChange={handleImagesUpload}
+                      disabled={isUploadingImages}
+                    />
+                    {isUploadingImages ? (
+                      <span className="animate-spin text-emerald-500"><Upload size={28} /></span>
+                    ) : (
+                      <Upload size={28} className="text-gray-400" />
+                    )}
+                  </label>
+                  <div className="flex overflow-x-auto custom-scrollbar space-x-2 py-1">
                     {(step1Data.images ?? []).map((img: File | string, idx: number) => {
                       // Handle both File objects and existing URLs
                       let imageSrc: string;
@@ -2038,7 +2036,7 @@ const Products = () => {
                         console.warn('Invalid image object:', img);
                         imageSrc = '/placeholder.png';
                       }
-                      
+
                       return (
                         <div key={idx} className="relative w-20 h-20 flex-shrink-0 rounded-md overflow-hidden group">
                           <ImageWithSkeleton
@@ -2057,66 +2055,64 @@ const Products = () => {
                         </div>
                       );
                     })}
-              </div>
-            </div>
-            <p className="mt-1 text-sm text-gray-500">{t('products.form.step1.imageHelp')}</p>
-          </div>
-          
-          <Input
-            label="Code-barres EAN-13 (optionnel)"
-            name="barCode"
-            value={step1Data.barCode || ''}
-            onChange={handleStep1InputChange}
-            placeholder="Laissez vide pour génération automatique"
-            helpText="Si vide, un code-barres EAN-13 sera généré automatiquement"
-          />
-
-          {/* Product Tags Manager */}
-          <ProductTagsManager
-            tags={step1Data.tags}
-            onTagsChange={(tags: ProductTag[]) => setStep1Data(prev => ({ ...prev, tags }))}
-            images={step1Data.images
-              .map((img: File | string) => typeof img === 'string' ? img : URL.createObjectURL(img))
-              .filter((url): url is string => typeof url === 'string')
-            }
-          />
-
-          {/* Visibility Toggle */}
-          <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="flex items-center space-x-2">
-                  {step1Data.isVisible ? (
-                    <Eye className="h-5 w-5 text-green-600" />
-                  ) : (
-                    <EyeOff className="h-5 w-5 text-gray-400" />
-                  )}
-                  <span className="text-sm font-medium text-gray-900">
-                    {t('products.form.step1.visibility')}
-                  </span>
+                  </div>
                 </div>
-                <span className="text-xs text-gray-500">
-                  {step1Data.isVisible 
-                    ? t('products.form.step1.visibleInCatalogue') 
-                    : t('products.form.step1.hiddenFromCatalogue')
-                  }
-                </span>
+                <p className="mt-1 text-sm text-gray-500">{t('products.form.step1.imageHelp')}</p>
               </div>
-              <button
-                type="button"
-                onClick={() => setStep1Data(prev => ({ ...prev, isVisible: !prev.isVisible }))}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 ${
-                  step1Data.isVisible ? 'bg-emerald-600' : 'bg-gray-200'
-                }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    step1Data.isVisible ? 'translate-x-6' : 'translate-x-1'
-                  }`}
-                />
-              </button>
-            </div>
-          </div>
+
+              <Input
+                label="Code-barres EAN-13 (optionnel)"
+                name="barCode"
+                value={step1Data.barCode || ''}
+                onChange={handleStep1InputChange}
+                placeholder="Laissez vide pour génération automatique"
+                helpText="Si vide, un code-barres EAN-13 sera généré automatiquement"
+              />
+
+              {/* Product Tags Manager */}
+              <ProductTagsManager
+                tags={step1Data.tags}
+                onTagsChange={(tags: ProductTag[]) => setStep1Data(prev => ({ ...prev, tags }))}
+                images={step1Data.images
+                  .map((img: File | string) => typeof img === 'string' ? img : URL.createObjectURL(img))
+                  .filter((url): url is string => typeof url === 'string')
+                }
+              />
+
+              {/* Visibility Toggle */}
+              <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="flex items-center space-x-2">
+                      {step1Data.isVisible ? (
+                        <Eye className="h-5 w-5 text-green-600" />
+                      ) : (
+                        <EyeOff className="h-5 w-5 text-gray-400" />
+                      )}
+                      <span className="text-sm font-medium text-gray-900">
+                        {t('products.form.step1.visibility')}
+                      </span>
+                    </div>
+                    <span className="text-xs text-gray-500">
+                      {step1Data.isVisible
+                        ? t('products.form.step1.visibleInCatalogue')
+                        : t('products.form.step1.hiddenFromCatalogue')
+                      }
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setStep1Data(prev => ({ ...prev, isVisible: !prev.isVisible }))}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 ${step1Data.isVisible ? 'bg-emerald-600' : 'bg-gray-200'
+                      }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${step1Data.isVisible ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                    />
+                  </button>
+                </div>
+              </div>
             </div>
           ) : (
             /* Step 2: Initial Stock and Supply Information */
@@ -2130,7 +2126,7 @@ const Products = () => {
                 error={step2Errors.stock}
                 required
               />
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   {t('products.form.step2.supplyType')}
@@ -2145,7 +2141,7 @@ const Products = () => {
                   <option value="fromSupplier">{t('products.form.step2.fromSupplier')}</option>
                 </select>
               </div>
-              
+
               {/* Only supplier fields are conditional */}
               {step2Data.supplyType === 'fromSupplier' && (
                 <>
@@ -2158,9 +2154,8 @@ const Products = () => {
                         name="supplierId"
                         value={step2Data.supplierId}
                         onChange={handleStep2InputChange}
-                        className={`flex-1 rounded-md border ${
-                          step2Errors.supplierId ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-emerald-500 focus:ring-emerald-500'
-                        } shadow-sm focus:outline-none focus:ring-1 sm:text-sm px-3 py-2`}
+                        className={`flex-1 rounded-md border ${step2Errors.supplierId ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-emerald-500 focus:ring-emerald-500'
+                          } shadow-sm focus:outline-none focus:ring-1 sm:text-sm px-3 py-2`}
                       >
                         <option value="">{t('common.select')}</option>
                         {suppliers.filter((s: { isDeleted?: boolean }) => !s.isDeleted).map((supplier: { id: string; name: string }) => (
@@ -2197,7 +2192,7 @@ const Products = () => {
                   </div>
                 </>
               )}
-              
+
               {/* These price fields are ALWAYS visible */}
               <PriceInput
                 label={t('products.form.step2.stockCostPrice')}
@@ -2227,7 +2222,7 @@ const Products = () => {
                 helpText={t('products.form.step2.cataloguePriceHelp')}
                 allowDecimals={false}
               />
-              
+
               <div className="flex justify-between pt-4">
                 <Button variant="outline" onClick={prevStep}>
                   {t('products.actions.previousStep')}
@@ -2237,7 +2232,7 @@ const Products = () => {
           )}
         </div>
       </Modal>
-      
+
       {/* Edit Product Modal */}
       <Modal
         isOpen={isEditModalOpen}
@@ -2245,7 +2240,7 @@ const Products = () => {
         title={t('products.actions.editProduct')}
         size="lg"
         footer={
-          <ModalFooter 
+          <ModalFooter
             onCancel={() => setIsEditModalOpen(false)}
             onConfirm={handleEditProduct}
             confirmText={t('products.actions.editProduct')}
@@ -2255,10 +2250,10 @@ const Products = () => {
       >
         {/* Tab navigation */}
         <div className="flex border-b mb-4">
-                      <button
+          <button
             className={`px-4 py-2 ${editTab === 'info' ? 'font-bold border-b-2 border-emerald-500' : 'text-gray-500'}`}
             onClick={() => setEditTab('info')}
-                        type="button"
+            type="button"
           >
             {t('products.editTabs.info')}
           </button>
@@ -2276,7 +2271,7 @@ const Products = () => {
           >
             {t('products.editTabs.stock')}
           </button>
-                    </div>
+        </div>
         {/* Tab content */}
         {editTab === 'info' && (
           <div className="space-y-6">
@@ -2285,17 +2280,17 @@ const Products = () => {
               <svg className="w-5 h-5 text-blue-400 mt-0.5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M12 20a8 8 0 100-16 8 8 0 000 16z" /></svg>
               <div className="text-sm text-blue-800">
                 {t('products.editTabs.infoBox', 'The product name and reference help you identify this item in your catalog. Categories help you organize products for easier filtering and reporting.')}
-                </div>
               </div>
+            </div>
             {/* Product Name */}
-          <Input
+            <Input
               label={t('products.form.name')}
               name="name"
               value={step1Data.name}
               onChange={handleStep1InputChange}
               error={step1Errors.name}
-            required
-          />
+              required
+            />
             {/* Reference */}
             <Input
               label={t('products.form.reference')}
@@ -2347,7 +2342,7 @@ const Products = () => {
                         console.warn('Invalid image object:', image);
                         imageSrc = '/placeholder.png';
                       }
-                      
+
                       return (
                         <div key={idx} className="relative group">
                           <div className="aspect-square rounded-lg overflow-hidden border border-gray-200">
@@ -2429,8 +2424,8 @@ const Products = () => {
                     </span>
                   </div>
                   <span className="text-xs text-gray-500">
-                    {step1Data.isVisible 
-                      ? t('products.form.step1.visibleInCatalogue') 
+                    {step1Data.isVisible
+                      ? t('products.form.step1.visibleInCatalogue')
                       : t('products.form.step1.hiddenFromCatalogue')
                     }
                   </span>
@@ -2438,14 +2433,12 @@ const Products = () => {
                 <button
                   type="button"
                   onClick={() => setStep1Data(prev => ({ ...prev, isVisible: !prev.isVisible }))}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 ${
-                    step1Data.isVisible ? 'bg-emerald-600' : 'bg-gray-200'
-                  }`}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 ${step1Data.isVisible ? 'bg-emerald-600' : 'bg-gray-200'
+                    }`}
                 >
                   <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      step1Data.isVisible ? 'translate-x-6' : 'translate-x-1'
-                    }`}
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${step1Data.isVisible ? 'translate-x-6' : 'translate-x-1'
+                      }`}
                   />
                 </button>
               </div>
@@ -2524,7 +2517,7 @@ const Products = () => {
                       console.warn('Invalid image object:', img);
                       imageSrc = '/placeholder.png';
                     }
-                    
+
                     return (
                       <div key={idx} className="relative w-20 h-20 flex-shrink-0 rounded-md overflow-hidden group">
                         <ImageWithSkeleton
@@ -2546,7 +2539,7 @@ const Products = () => {
                 </div>
               </div>
               <p className="mt-1 text-sm text-gray-500">{t('products.form.imageHelp', 'Add clear images to help identify this product. You can upload multiple images.')}</p>
-        </div>
+            </div>
           </div>
         )}
         {editTab === 'stock' && (
@@ -2567,26 +2560,26 @@ const Products = () => {
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900">Current Stock Level</h3>
                   <p className="text-sm text-gray-600">Total available units for this product</p>
-              </div>
+                </div>
                 <div className="text-right">
                   <div className="text-3xl font-bold text-blue-600">{currentProduct?.id ? getProductStockFromBatches(currentProduct.id) : 0}</div>
                   <div className="text-sm text-gray-500">units</div>
-            </div>
+                </div>
               </div>
             </div>
 
             {/* Link to Stocks Page */}
             <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
               <div className="flex items-center justify-between">
-                    <div>
+                <div>
                   <h4 className="font-semibold text-emerald-900 mb-1">Manage Stock in Inventory Page</h4>
                   <p className="text-sm text-emerald-700">
                     Use the dedicated Stocks page to restock, adjust batches, record damage, and view complete stock history.
                   </p>
-                    </div>
-                    <Button
+                </div>
+                <Button
                   onClick={() => {
-                    const stocksPath = isCompanyRoute && companyId 
+                    const stocksPath = isCompanyRoute && companyId
                       ? `/company/${companyId}/products/stocks`
                       : '/products/stocks';
                     navigate(stocksPath);
@@ -2595,89 +2588,89 @@ const Products = () => {
                   icon={<ExternalLink size={16} />}
                 >
                   Go to Stocks
-                    </Button>
-                  </div>
-                </div>
+                </Button>
+              </div>
+            </div>
 
             {/* Read-only Stock Information */}
-                  <div className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
                 <div className="bg-gray-50 p-4 rounded-lg">
                   <div className="text-sm font-medium text-gray-700 mb-1">Product Name</div>
                   <div className="text-lg font-semibold text-gray-900">{currentProduct?.name || '—'}</div>
-                        </div>
-                        <div className="bg-gray-50 p-4 rounded-lg">
+                </div>
+                <div className="bg-gray-50 p-4 rounded-lg">
                   <div className="text-sm font-medium text-gray-700 mb-1">Reference</div>
                   <div className="text-lg font-semibold text-gray-900">{currentProduct?.reference || '—'}</div>
-                              </div>
-                            </div>
+                </div>
+              </div>
 
               {/* Mini Stock History Table (last 2 changes) - Read Only */}
-             <div className="mt-6">
+              <div className="mt-6">
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="font-semibold">{t('products.actions.stockHistory')}</h4>
                   <span className="text-xs text-gray-500">Last 2 changes</span>
                 </div>
-               {(() => {
-                 const history = (stockChanges as StockChange[]).filter((sc: StockChange) => sc.productId === currentProduct?.id).slice(-2).reverse();
-                 if (history.length === 0) {
-                   return <span className="text-sm text-gray-500">{t('products.messages.noStockHistory')}</span>;
-                 }
-                 return (
-                   <table className="min-w-full text-sm border rounded-md overflow-hidden">
-                     <thead className="bg-gray-50">
-                       <tr>
-                         <th className="text-left px-2 py-1">{t('products.actions.date')}</th>
-                         <th className="text-left px-2 py-1">{t('products.actions.change')}</th>
-                         <th className="text-left px-2 py-1">{t('products.actions.reason')}</th>
-                         <th className="text-left px-2 py-1">{t('products.form.step2.supplier')}</th>
-                         <th className="text-left px-2 py-1">{t('products.form.step2.paymentType')}</th>
-                         <th className="text-left px-2 py-1">{t('products.form.step2.stockCostPrice')}</th>
-                       </tr>
-                     </thead>
-                     <tbody>
-                       {history.map(sc => {
-                         const supplier = sc.supplierId ? suppliers.find((s: { id: string }) => s.id === sc.supplierId) : null;
-                         return (
-                           <tr key={sc.id} className="border-b last:border-b-0">
-                             <td className="px-2 py-1">{sc.createdAt?.seconds ? new Date(sc.createdAt.seconds * 1000).toLocaleString() : ''}</td>
-                             <td className="px-2 py-1">{sc.change > 0 ? '+' : ''}{sc.change}</td>
-                             <td className="px-2 py-1">{t('products.actions.' + sc.reason)}</td>
-                             <td className="px-2 py-1">
-                               {sc.isOwnPurchase ? (
-                                 <span className="text-gray-500">{t('products.form.step2.ownPurchase')}</span>
-                               ) : supplier ? (
-                                 <span className={supplier.isDeleted ? 'text-red-500 line-through' : ''}>
-                                   {supplier.name}
-                                   {supplier.isDeleted && ' (Deleted)'}
-                                 </span>
-                               ) : (
-                                 <span className="text-gray-400">Unknown</span>
-                               )}
-                             </td>
-                             <td className="px-2 py-1">
-                               {sc.isOwnPurchase ? (
-                                 <span className="text-gray-500">-</span>
-                               ) : sc.isCredit ? (
-                                 <span className="text-red-600">{t('products.form.step2.credit')}</span>
-                               ) : (
-                                 <span className="text-green-600">{t('products.form.step2.paid')}</span>
-                               )}
-                             </td>
-                             <td className="px-2 py-1">
-                               {sc.costPrice ? `${sc.costPrice.toLocaleString()} XAF` : '-'}
-                             </td>
-                           </tr>
-                         );
-                       })}
-                     </tbody>
-                   </table>
-                 );
-               })()}
-               <div className="mt-2 text-right">
+                {(() => {
+                  const history = (stockChanges as StockChange[]).filter((sc: StockChange) => sc.productId === currentProduct?.id).slice(-2).reverse();
+                  if (history.length === 0) {
+                    return <span className="text-sm text-gray-500">{t('products.messages.noStockHistory')}</span>;
+                  }
+                  return (
+                    <table className="min-w-full text-sm border rounded-md overflow-hidden">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="text-left px-2 py-1">{t('products.actions.date')}</th>
+                          <th className="text-left px-2 py-1">{t('products.actions.change')}</th>
+                          <th className="text-left px-2 py-1">{t('products.actions.reason')}</th>
+                          <th className="text-left px-2 py-1">{t('products.form.step2.supplier')}</th>
+                          <th className="text-left px-2 py-1">{t('products.form.step2.paymentType')}</th>
+                          <th className="text-left px-2 py-1">{t('products.form.step2.stockCostPrice')}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {history.map(sc => {
+                          const supplier = sc.supplierId ? suppliers.find((s: { id: string }) => s.id === sc.supplierId) : null;
+                          return (
+                            <tr key={sc.id} className="border-b last:border-b-0">
+                              <td className="px-2 py-1">{sc.createdAt?.seconds ? new Date(sc.createdAt.seconds * 1000).toLocaleString() : ''}</td>
+                              <td className="px-2 py-1">{sc.change > 0 ? '+' : ''}{sc.change}</td>
+                              <td className="px-2 py-1">{t('products.actions.' + sc.reason)}</td>
+                              <td className="px-2 py-1">
+                                {sc.isOwnPurchase ? (
+                                  <span className="text-gray-500">{t('products.form.step2.ownPurchase')}</span>
+                                ) : supplier ? (
+                                  <span className={supplier.isDeleted ? 'text-red-500 line-through' : ''}>
+                                    {supplier.name}
+                                    {supplier.isDeleted && ' (Deleted)'}
+                                  </span>
+                                ) : (
+                                  <span className="text-gray-400">Unknown</span>
+                                )}
+                              </td>
+                              <td className="px-2 py-1">
+                                {sc.isOwnPurchase ? (
+                                  <span className="text-gray-500">-</span>
+                                ) : sc.isCredit ? (
+                                  <span className="text-red-600">{t('products.form.step2.credit')}</span>
+                                ) : (
+                                  <span className="text-green-600">{t('products.form.step2.paid')}</span>
+                                )}
+                              </td>
+                              <td className="px-2 py-1">
+                                {sc.costPrice ? `${sc.costPrice.toLocaleString()} XAF` : '-'}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  );
+                })()}
+                <div className="mt-2 text-right">
                   <button
                     onClick={() => {
-                      const stocksPath = isCompanyRoute && companyId 
+                      const stocksPath = isCompanyRoute && companyId
                         ? `/company/${companyId}/products/stocks`
                         : '/products/stocks';
                       navigate(stocksPath);
@@ -2688,9 +2681,9 @@ const Products = () => {
                     {t('products.actions.viewAllHistory', 'View All History in Stocks Page')}
                   </button>
                 </div>
-               </div>
-             </div>
-           </div>
+              </div>
+            </div>
+          </div>
         )}
       </Modal>
 
@@ -2704,7 +2697,7 @@ const Products = () => {
         title={t('products.import.title')}
         size="lg"
         footer={
-          <ModalFooter 
+          <ModalFooter
             onCancel={() => {
               setIsImportModalOpen(false);
               resetImportState();
@@ -2851,7 +2844,7 @@ const Products = () => {
         }}
         title={t('products.actions.deleteProduct')}
         footer={
-          <ModalFooter 
+          <ModalFooter
             onCancel={() => {
               setIsDeleteModalOpen(false);
               setProductToDelete(null);
@@ -2865,9 +2858,9 @@ const Products = () => {
       >
         <div className="text-center">
           <p className="text-gray-600 mb-4">
-            {t('products.messages.deleteConfirmation', { 
+            {t('products.messages.deleteConfirmation', {
               name: productToDelete?.name,
-              reference: productToDelete?.reference 
+              reference: productToDelete?.reference
             })}
           </p>
           <p className="text-sm text-red-600">
@@ -2912,7 +2905,7 @@ const Products = () => {
         onClose={() => setIsQuickAddSupplierOpen(false)}
         title={t('suppliers.actions.addSupplier')}
         footer={
-          <ModalFooter 
+          <ModalFooter
             onCancel={() => setIsQuickAddSupplierOpen(false)}
             onConfirm={isEditModalOpen ? handleQuickAddSupplierForStock : handleQuickAddSupplier}
             confirmText={t('suppliers.actions.addSupplier')}
@@ -2928,7 +2921,7 @@ const Products = () => {
             onChange={handleQuickSupplierInputChange}
             required
           />
-          
+
           <Input
             label={t('suppliers.form.contact')}
             name="contact"
@@ -2936,7 +2929,7 @@ const Products = () => {
             onChange={handleQuickSupplierInputChange}
             required
           />
-          
+
           <Input
             label={t('suppliers.form.location')}
             name="location"
@@ -3066,7 +3059,7 @@ const Products = () => {
                 <div>
                   <label className="block text-sm font-medium text-gray-700">{t('products.detailTabs.createdAt', 'Created')}</label>
                   <p className="mt-1 text-sm text-gray-900">
-                    {detailProduct?.createdAt?.seconds 
+                    {detailProduct?.createdAt?.seconds
                       ? new Date(detailProduct.createdAt.seconds * 1000).toLocaleDateString()
                       : 'Unknown'
                     }
@@ -3075,7 +3068,7 @@ const Products = () => {
                 <div>
                   <label className="block text-sm font-medium text-gray-700">{t('products.detailTabs.lastUpdated', 'Last Updated')}</label>
                   <p className="mt-1 text-sm text-gray-900">
-                    {detailProduct?.updatedAt?.seconds 
+                    {detailProduct?.updatedAt?.seconds
                       ? new Date(detailProduct.updatedAt.seconds * 1000).toLocaleDateString()
                       : 'Unknown'
                     }
@@ -3146,12 +3139,12 @@ const Products = () => {
             {(() => {
               // Filter stock changes for this product
               let filteredStockChanges = (stockChanges as StockChange[]).filter((sc: StockChange) => sc.productId === detailProduct?.id);
-              
+
               // Apply type filter
               if (stockHistoryFilterType) {
                 filteredStockChanges = filteredStockChanges.filter((sc: StockChange) => sc.reason === stockHistoryFilterType);
               }
-              
+
               // Apply supplier filter
               if (stockHistoryFilterSupplier) {
                 if (stockHistoryFilterSupplier === 'ownPurchase') {
@@ -3160,7 +3153,7 @@ const Products = () => {
                   filteredStockChanges = filteredStockChanges.filter((sc: StockChange) => sc.supplierId === stockHistoryFilterSupplier);
                 }
               }
-              
+
               // Apply search filter
               if (stockHistorySearch) {
                 const searchLower = stockHistorySearch.toLowerCase();
@@ -3172,11 +3165,11 @@ const Products = () => {
                   );
                 });
               }
-              
+
               // Sort stock changes
               filteredStockChanges.sort((a: StockChange, b: StockChange) => {
                 let aValue: number | string, bValue: number | string;
-                
+
                 switch (stockHistorySortBy) {
                   case 'date':
                     aValue = a.createdAt?.seconds || 0;
@@ -3194,19 +3187,19 @@ const Products = () => {
                     aValue = a.createdAt?.seconds || 0;
                     bValue = b.createdAt?.seconds || 0;
                 }
-                
+
                 if (stockHistorySortOrder === 'asc') {
                   return aValue > bValue ? 1 : -1;
                 } else {
                   return aValue < bValue ? 1 : -1;
                 }
               });
-              
+
               // Pagination
               const totalPages = Math.ceil(filteredStockChanges.length / stockHistoryPerPage);
               const startIndex = (stockHistoryPage - 1) * stockHistoryPerPage;
               const paginatedStockChanges = filteredStockChanges.slice(startIndex, startIndex + stockHistoryPerPage);
-              
+
               return (
                 <div className="max-h-96 overflow-y-auto">
                   {/* Table */}
@@ -3214,7 +3207,7 @@ const Products = () => {
                     <table className="min-w-full divide-y divide-gray-200">
                       <thead className="bg-gray-50 sticky top-0 z-10">
                         <tr>
-                          <th 
+                          <th
                             className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                             onClick={() => {
                               if (stockHistorySortBy === 'date') {
@@ -3232,7 +3225,7 @@ const Products = () => {
                               </span>
                             )}
                           </th>
-                          <th 
+                          <th
                             className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                             onClick={() => {
                               if (stockHistorySortBy === 'change') {
@@ -3250,7 +3243,7 @@ const Products = () => {
                               </span>
                             )}
                           </th>
-                          <th 
+                          <th
                             className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                             onClick={() => {
                               if (stockHistorySortBy === 'reason') {
@@ -3285,7 +3278,7 @@ const Products = () => {
                           return (
                             <tr key={stockChange.id} className="hover:bg-gray-50">
                               <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                                {stockChange.createdAt?.seconds 
+                                {stockChange.createdAt?.seconds
                                   ? new Date(stockChange.createdAt.seconds * 1000).toLocaleString()
                                   : '-'
                                 }
