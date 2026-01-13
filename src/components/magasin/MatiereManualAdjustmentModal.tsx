@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '@contexts/AuthContext';
 import { getMatiereBatchesForAdjustment, adjustMatiereStockManually } from '@services/firestore/stock/stockAdjustments';
 import { validateBatchAdjustment } from '@services/firestore/stock/stockService';
-import type { Matiere, StockBatch } from '../../types/models';
-import { Modal, Button, Input, Select } from '@components/common';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
+import { Modal, Button, Input, Select, PriceInput } from '@components/common';
+import { formatCostPrice } from '@utils/inventory/inventoryManagement';
+import type { Matiere, StockBatch } from '../../types/models';
 
 interface ManualAdjustmentModalProps {
   isOpen: boolean;
@@ -36,8 +37,12 @@ const MatiereManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
   const [formData, setFormData] = useState({
     batchId: '',
     newStock: '',
+    newCostPrice: '',
     notes: ''
   });
+
+  // Adjustment mode: 'correction' or 'addition'
+  const [adjustmentMode, setAdjustmentMode] = useState<'correction' | 'addition'>('correction');
 
   // Load available batches when modal opens
   useEffect(() => {
@@ -56,7 +61,8 @@ const MatiereManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
         setSelectedBatch(match);
         setFormData(prev => ({
           ...prev,
-          batchId: match.id
+          batchId: match.id,
+          newCostPrice: match.costPrice?.toString() || ''
         }));
       }
     }
@@ -68,8 +74,10 @@ const MatiereManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
       setFormData({
         batchId: '',
         newStock: '',
+        newCostPrice: '',
         notes: ''
       });
+      setAdjustmentMode('correction');
       setSelectedBatch(selectedBatchProp ?? null);
       setValidationErrors([]);
     }
@@ -100,6 +108,28 @@ const MatiereManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
     if (field === 'batchId') {
       const batch = batches.find(b => b.id === value);
       setSelectedBatch(batch || null);
+      
+      // Pre-fill current cost price
+      if (batch) {
+        setFormData(prev => ({
+          ...prev,
+          newCostPrice: batch.costPrice?.toString() || ''
+        }));
+      }
+    }
+
+    // Auto-determine adjustment mode when new stock is entered
+    if (field === 'newStock' && selectedBatch && value.trim() !== '') {
+      const inputStock = parseInt(value, 10);
+      if (!isNaN(inputStock) && inputStock >= 0) {
+        // If entered value is greater than current remaining, it's likely an addition
+        // If entered value is less than or equal to current remaining, it's likely a correction
+        if (inputStock > selectedBatch.remainingQuantity) {
+          setAdjustmentMode('addition');
+        } else {
+          setAdjustmentMode('correction');
+        }
+      }
     }
 
     // Validate on input change with delay to avoid too many validations
@@ -115,12 +145,15 @@ const MatiereManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
       errors.push('Please select a batch');
     }
 
-    // New stock value is required
-    if (!formData.newStock) {
-      errors.push('Enter the new stock quantity');
-    }
-
-    if (formData.newStock) {
+    // Check if any field has a value (including 0)
+    const hasNewStock = formData.newStock.trim() !== '';
+    const hasNewCostPrice = formData.newCostPrice.trim() !== '';
+    
+    // If both fields are empty, it's not a validation error - we'll handle it in submit
+    // But we still validate individual fields if they have values
+    
+    // Validate new stock only if provided
+    if (hasNewStock) {
       // Check if input contains decimal point
       if (formData.newStock.includes('.')) {
         errors.push('New stock must be a whole number (no decimals)');
@@ -132,14 +165,28 @@ const MatiereManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
       }
     }
 
-    // Validate with selected batch (no cost price validation for matieres)
-    if (selectedBatch && formData.newStock && !formData.newStock.includes('.')) {
-      const newStock = parseInt(formData.newStock, 10);
-      if (!isNaN(newStock) && newStock >= 0) {
-        const quantityChange = newStock - selectedBatch.remainingQuantity;
-        const validation = validateBatchAdjustment(selectedBatch, quantityChange, undefined);
-        errors.push(...validation.errors);
+    // Validate new cost price only if provided
+    if (hasNewCostPrice) {
+      const newCostPrice = parseFloat(formData.newCostPrice);
+      if (isNaN(newCostPrice) || newCostPrice < 0) {
+        errors.push('New cost price must be a valid positive number');
       }
+    }
+
+    // Validate with selected batch - only validate fields that are being changed
+    if (selectedBatch) {
+      const newCostPrice = hasNewCostPrice ? parseFloat(formData.newCostPrice) : selectedBatch.costPrice;
+      
+      // Only validate quantity change if it's being modified
+      if (hasNewStock && !formData.newStock.includes('.')) {
+        const newStock = parseInt(formData.newStock, 10);
+        if (!isNaN(newStock) && newStock >= 0) {
+          const quantityChange = newStock - selectedBatch.remainingQuantity;
+          const validation = validateBatchAdjustment(selectedBatch, quantityChange, newCostPrice);
+          errors.push(...validation.errors);
+        }
+      }
+      // If only price is being changed, we don't need to validate quantity constraints
     }
 
     setValidationErrors(errors);
@@ -149,37 +196,60 @@ const MatiereManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!matiere || !user?.uid || !selectedBatch) return;
+    if (!matiere || !user?.uid) return;
 
     if (!validateForm()) {
       showErrorToast('Please fix the validation errors before submitting');
       return;
     }
 
-    // Check if input contains decimal point
-    if (formData.newStock.includes('.')) {
-      showErrorToast('New stock must be a whole number (no decimals)');
+    // Check if both fields are empty (no adjustment)
+    const hasNewStock = formData.newStock.trim() !== '';
+    const hasNewCostPrice = formData.newCostPrice.trim() !== '';
+    
+    if (!hasNewStock && !hasNewCostPrice) {
+      showErrorToast('No changes specified. Please enter stock quantity and/or cost price to adjust.');
       return;
     }
 
-    const newStock = parseInt(formData.newStock, 10);
-    if (isNaN(newStock) || newStock < 0) {
-      showErrorToast('Invalid new stock value. Must be a whole number greater than or equal to 0.');
-      return;
+    // Calculate quantity change based on adjustment mode
+    let quantityChange: number | undefined = undefined;
+    if (hasNewStock) {
+      // Check if input contains decimal point
+      if (formData.newStock.includes('.')) {
+        showErrorToast('New stock must be a whole number (no decimals)');
+        return;
+      }
+      
+      const inputStock = parseInt(formData.newStock, 10);
+      if (isNaN(inputStock) || inputStock < 0) {
+        showErrorToast('Invalid stock value. Must be a whole number greater than or equal to 0.');
+        return;
+      }
+      
+      if (adjustmentMode === 'correction') {
+        // Correction mode: input is the new remaining quantity
+        quantityChange = inputStock - selectedBatch!.remainingQuantity;
+      } else {
+        // Addition mode: input is the quantity to add
+        quantityChange = inputStock;
+      }
     }
-
-    // Calculate quantity change: newStock - currentBatchStock
-    const quantityChange = newStock - selectedBatch.remainingQuantity;
+    
+    const newCostPrice = hasNewCostPrice 
+      ? parseFloat(formData.newCostPrice) 
+      : undefined;
 
     setLoading(true);
 
     try {
       await adjustMatiereStockManually(
         matiere.id,
-        selectedBatch.id,
-        quantityChange,
+        selectedBatch!.id,
+        quantityChange || 0,
         company?.id || '',
-        formData.notes || undefined
+        formData.notes || undefined,
+        adjustmentMode
       );
 
       showSuccessToast('Stock adjusted successfully!');
@@ -199,13 +269,13 @@ const MatiereManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
       { value: '', label: 'Select a batch to adjust' },
       ...batches.map(batch => ({
         value: batch.id,
-        label: `Batch ${batch.id.slice(-8)} - ${batch.remainingQuantity}`
+        label: `Batch ${batch.id.slice(-8)} - ${batch.remainingQuantity} @ ${formatCostPrice(batch.costPrice || 0)}`
       }))
     ];
   };
 
   const calculateNewMatiereStock = () => {
-    if (!selectedBatch || !formData.newStock) return derivedRemaining;
+    if (!selectedBatch || formData.newStock.trim() === '') return derivedRemaining;
     const newStock = parseInt(formData.newStock, 10);
     if (isNaN(newStock)) return derivedRemaining;
     
@@ -282,6 +352,51 @@ const MatiereManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
         <div className="space-y-4">
           <h3 className="text-lg font-medium text-gray-900">Adjustment Details</h3>
           
+          {/* Adjustment Mode Selection - Only show when new stock is entered */}
+          {selectedBatch && formData.newStock.trim() !== '' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Adjustment Type
+              </label>
+              <div className="flex space-x-4">
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    name="adjustmentMode"
+                    value="correction"
+                    checked={adjustmentMode === 'correction'}
+                    onChange={(e) => setAdjustmentMode(e.target.value as 'correction' | 'addition')}
+                    className="mr-2"
+                  />
+                  <span className="text-sm text-gray-700">
+                    <strong>Correct existing stock</strong>
+                    <br />
+                    <span className="text-xs text-gray-500">
+                      Set actual stock count ({selectedBatch.remainingQuantity}/{selectedBatch.quantity} → {formData.newStock.trim() !== '' ? parseInt(formData.newStock, 10) : selectedBatch.remainingQuantity}/{selectedBatch.quantity})
+                    </span>
+                  </span>
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    name="adjustmentMode"
+                    value="addition"
+                    checked={adjustmentMode === 'addition'}
+                    onChange={(e) => setAdjustmentMode(e.target.value as 'correction' | 'addition')}
+                    className="mr-2"
+                  />
+                  <span className="text-sm text-gray-700">
+                    <strong>Add to batch</strong>
+                    <br />
+                    <span className="text-xs text-gray-500">
+                      Add new units ({selectedBatch.remainingQuantity}/{selectedBatch.quantity} → {formData.newStock.trim() !== '' ? selectedBatch.remainingQuantity + parseInt(formData.newStock, 10) : selectedBatch.remainingQuantity}/{selectedBatch.quantity + (formData.newStock.trim() !== '' ? parseInt(formData.newStock, 10) : 0)})
+                    </span>
+                  </span>
+                </label>
+              </div>
+            </div>
+          )}
+          
           {selectedBatch && (
             <div className="bg-gray-50 p-3 rounded-lg mb-4">
               <p className="text-sm text-gray-600">
@@ -291,35 +406,79 @@ const MatiereManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
             </div>
           )}
           
-          <Input
-            label={`New Stock Quantity`}
-            type="number"
-            value={formData.newStock}
-            onChange={(e) => handleInputChange('newStock', e.target.value)}
-            placeholder={selectedBatch ? `Enter new stock (current: ${selectedBatch.remainingQuantity})` : "Enter new stock"}
-            required
-            min="0"
-            step="1"
-          />
-          {matiere.unit && (
-            <p className="text-xs text-gray-500 mt-1">
-              Unit: {matiere.unit}
-            </p>
-          )}
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label="New Stock Quantity (Optional)"
+              type="number"
+              value={formData.newStock}
+              onChange={(e) => handleInputChange('newStock', e.target.value)}
+              placeholder={selectedBatch ? `Enter quantity (current: ${selectedBatch.remainingQuantity})` : "Enter quantity"}
+              helpText="Enter quantity to adjust stock"
+              min="0"
+              step="1"
+            />
+            
+            <PriceInput
+              label="New Cost Price (Optional)"
+              name="newCostPrice"
+              value={formData.newCostPrice}
+              onChange={(e) => handleInputChange('newCostPrice', e.target.value)}
+              placeholder="Leave empty to keep current price"
+              helpText="Leave empty for no adjustment (0 is valid)"
+              allowDecimals={true}
+            />
+          </div>
 
           {/* Preview Changes */}
-          {selectedBatch && formData.newStock && !formData.newStock.includes('.') && !isNaN(parseInt(formData.newStock, 10)) && parseInt(formData.newStock, 10) >= 0 && (
+          {selectedBatch && (formData.newStock.trim() !== '' || formData.newCostPrice.trim() !== '') && (
             <div className="bg-green-50 p-4 rounded-lg">
               <h4 className="text-md font-medium text-green-800 mb-2">Preview Changes</h4>
               <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="font-medium text-green-700">New Batch Quantity:</span>
-                  <p className="text-green-900">{parseInt(formData.newStock, 10).toLocaleString()}</p>
+                {formData.newStock.trim() !== '' && !formData.newStock.includes('.') && !isNaN(parseInt(formData.newStock, 10)) && parseInt(formData.newStock, 10) >= 0 && (
+                  <>
+                    <div>
+                      <span className="font-medium text-green-700">
+                        {adjustmentMode === 'correction' ? 'New Batch Quantity:' : 'New Batch Total:'}
+                      </span>
+                      <p className="text-green-900">
+                        {adjustmentMode === 'correction' 
+                          ? parseInt(formData.newStock, 10).toLocaleString()
+                          : (selectedBatch.remainingQuantity + parseInt(formData.newStock, 10)).toLocaleString()
+                        }
+                      </p>
+                    </div>
+                    <div>
+                      <span className="font-medium text-green-700">New Batch Remaining:</span>
+                      <p className="text-green-900">
+                        {adjustmentMode === 'correction' 
+                          ? parseInt(formData.newStock, 10).toLocaleString()
+                          : (selectedBatch.remainingQuantity + parseInt(formData.newStock, 10)).toLocaleString()
+                        }
+                        <span className="text-xs text-gray-600 ml-1">
+                          ({adjustmentMode === 'correction' 
+                            ? `${parseInt(formData.newStock, 10) - selectedBatch.remainingQuantity > 0 ? '+' : ''}${parseInt(formData.newStock, 10) - selectedBatch.remainingQuantity}`
+                            : `+${parseInt(formData.newStock, 10)}`
+                          })
+                        </span>
+                      </p>
+                    </div>
+                  </>
+                )}
+                <div className={formData.newStock.trim() === '' ? 'col-span-2' : ''}>
+                  <span className="font-medium text-green-700">New Cost Price:</span>
+                  <p className="text-green-900">
+                    {formData.newCostPrice.trim() !== '' 
+                      ? formatCostPrice(parseFloat(formData.newCostPrice))
+                      : formatCostPrice(selectedBatch.costPrice || 0) + ' (unchanged)'
+                    }
+                  </p>
                 </div>
-                <div>
-                  <span className="font-medium text-green-700">New Matiere Stock:</span>
-                  <p className="text-green-900">{Math.round(calculateNewMatiereStock()).toLocaleString()}</p>
-                </div>
+                {formData.newStock.trim() === '' && (
+                  <div className="col-span-2">
+                    <span className="font-medium text-green-700">Batch Quantity:</span>
+                    <p className="text-green-900">{selectedBatch.remainingQuantity} (unchanged)</p>
+                  </div>
+                )}
               </div>
               {matiere.unit && (
                 <p className="text-xs text-gray-600 mt-2">
@@ -369,7 +528,7 @@ const MatiereManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
           
           <Button
             type="submit"
-            disabled={loading || validationErrors.length > 0 || !selectedBatch}
+            disabled={loading || validationErrors.length > 0 || !selectedBatch || (!formData.newStock.trim() && !formData.newCostPrice.trim())}
             isLoading={loading}
             loadingText="Processing..."
           >

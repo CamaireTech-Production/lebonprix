@@ -191,10 +191,10 @@ export const useAllStockBatches = (type?: 'product' | 'matiere') => {
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
-        const stockBatches = snapshot.docs.map(doc => ({
+        const stockBatches = (snapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
-        })) as StockBatch[];
+        })) as StockBatch[]).filter((batch) => batch.isDeleted !== true); // Only exclude explicitly deleted batches
         setBatches(stockBatches);
         setLoading(false);
       },

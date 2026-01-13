@@ -268,7 +268,7 @@ export interface StockChange {
   productId?: string; // Only if type === 'product'
   matiereId?: string; // Only if type === 'matiere'
   change: number; // + for restock, - for sale, etc.
-  reason: 'sale' | 'restock' | 'adjustment' | 'creation' | 'cost_correction' | 'damage' | 'manual_adjustment' | 'production';
+  reason: 'sale' | 'restock' | 'adjustment' | 'creation' | 'cost_correction' | 'damage' | 'manual_adjustment' | 'production' | 'batch_deletion';
   supplierId?: string; // Reference to supplier if applicable
   isOwnPurchase?: boolean; // true if own purchase, false if from supplier
   isCredit?: boolean; // true if on credit, false if paid (only relevant if from supplier)
@@ -278,6 +278,7 @@ export interface StockChange {
   createdAt: Timestamp;
   userId: string; // Legacy field - kept for audit trail
   companyId: string; // Reference to the company this stock change belongs to
+  notes?: string; // Optional notes for the stock change
   // NEW: Detailed batch consumption tracking
   batchConsumptions?: Array<{
     batchId: string;
@@ -304,8 +305,11 @@ export interface StockBatch {
   companyId: string; // Reference to the company this stock batch belongs to
   remainingQuantity: number; // How many units left from this batch
   damagedQuantity?: number; // How many units damaged from this batch
-  status: 'active' | 'depleted' | 'corrected'; // Batch status
+  status: 'active' | 'depleted' | 'corrected' | 'deleted'; // Batch status
   notes?: string; // Optional notes for the batch
+  isDeleted?: boolean; // Soft delete flag
+  deletedAt?: Timestamp; // When the batch was deleted
+  deletedBy?: string; // User who deleted the batch
 }
 
 export interface Supplier extends BaseModel {
