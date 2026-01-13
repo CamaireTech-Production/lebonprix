@@ -60,6 +60,9 @@ const ManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
     notes: ''
   });
 
+  // Adjustment mode: 'correction' or 'addition'
+  const [adjustmentMode, setAdjustmentMode] = useState<'correction' | 'addition'>('correction');
+
   // Load available batches when modal opens
   useEffect(() => {
     if (isOpen && product && company) {
@@ -93,6 +96,7 @@ const ManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
         newCostPrice: '',
         notes: ''
       });
+      setAdjustmentMode('correction');
       setSelectedBatch(selectedBatchProp ?? null);
       setValidationErrors([]);
       setTempEdits([]);
@@ -132,6 +136,20 @@ const ManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
           ...prev,
           newCostPrice: batch.costPrice.toString()
         }));
+      }
+    }
+
+    // Auto-determine adjustment mode when new stock is entered
+    if (field === 'newStock' && selectedBatch && value.trim() !== '') {
+      const inputStock = parseInt(value, 10);
+      if (!isNaN(inputStock) && inputStock >= 0) {
+        // If entered value is greater than current remaining, it's likely an addition
+        // If entered value is less than or equal to current remaining, it's likely a correction
+        if (inputStock > selectedBatch.remainingQuantity) {
+          setAdjustmentMode('addition');
+        } else {
+          setAdjustmentMode('correction');
+        }
       }
     }
 
@@ -183,9 +201,16 @@ const ManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
       
       // Only validate quantity change if it's being modified
       if (hasNewStock && !formData.newStock.includes('.')) {
-        const newStock = parseInt(formData.newStock, 10);
-        if (!isNaN(newStock) && newStock >= 0) {
-          const quantityChange = newStock - selectedBatch.remainingQuantity;
+        const inputStock = parseInt(formData.newStock, 10);
+        if (!isNaN(inputStock) && inputStock >= 0) {
+          let quantityChange: number;
+          if (adjustmentMode === 'correction') {
+            // Correction mode: input is the new remaining quantity
+            quantityChange = inputStock - selectedBatch.remainingQuantity;
+          } else {
+            // Addition mode: input is the quantity to add
+            quantityChange = inputStock;
+          }
           const validation = validateBatchAdjustment(selectedBatch, quantityChange, newCostPrice);
           errors.push(...validation.errors);
         }
@@ -211,9 +236,15 @@ const ManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
         showErrorToast('New stock must be a whole number (no decimals)');
         return;
       }
-      const newStock = parseInt(formData.newStock, 10);
-      if (!isNaN(newStock) && newStock >= 0) {
-        quantityChange = newStock - selectedBatch.remainingQuantity;
+      const inputStock = parseInt(formData.newStock, 10);
+      if (!isNaN(inputStock) && inputStock >= 0) {
+        if (adjustmentMode === 'correction') {
+          // Correction mode: input is the new remaining quantity
+          quantityChange = inputStock - selectedBatch.remainingQuantity;
+        } else {
+          // Addition mode: input is the quantity to add
+          quantityChange = inputStock;
+        }
       }
     }
     
@@ -329,14 +360,19 @@ const ManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
         return;
       }
       
-      const newStock = parseInt(formData.newStock, 10);
-      if (isNaN(newStock) || newStock < 0) {
-        showErrorToast('Invalid new stock value. Must be a whole number greater than or equal to 0.');
+      const inputStock = parseInt(formData.newStock, 10);
+      if (isNaN(inputStock) || inputStock < 0) {
+        showErrorToast('Invalid stock value. Must be a whole number greater than or equal to 0.');
         return;
       }
       
-      // Calculate quantity change: newStock - currentBatchStock
-      quantityChange = newStock - selectedBatch.remainingQuantity;
+      if (adjustmentMode === 'correction') {
+        // Correction mode: input is the new remaining quantity
+        quantityChange = inputStock - selectedBatch.remainingQuantity;
+      } else {
+        // Addition mode: input is the quantity to add
+        quantityChange = inputStock;
+      }
     }
     
     const newCostPrice = formData.newCostPrice.trim() !== '' 
@@ -352,7 +388,8 @@ const ManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
         quantityChange,
         newCostPrice,
         company?.id || '',
-        formData.notes || undefined
+        formData.notes || undefined,
+        adjustmentMode
       );
 
       showSuccessToast('Stock adjusted successfully!');
@@ -552,6 +589,51 @@ const ManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
         <div className="space-y-4">
           <h3 className="text-lg font-medium text-gray-900">Adjustment Details</h3>
           
+          {/* Adjustment Mode Selection - Only show when new stock is entered */}
+          {selectedBatch && formData.newStock.trim() !== '' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Adjustment Type
+              </label>
+              <div className="flex space-x-4">
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    name="adjustmentMode"
+                    value="correction"
+                    checked={adjustmentMode === 'correction'}
+                    onChange={(e) => setAdjustmentMode(e.target.value as 'correction' | 'addition')}
+                    className="mr-2"
+                  />
+                  <span className="text-sm text-gray-700">
+                    <strong>Correct existing stock</strong>
+                    <br />
+                    <span className="text-xs text-gray-500">
+                      Set actual stock count ({selectedBatch.remainingQuantity}/{selectedBatch.quantity} → {formData.newStock.trim() !== '' ? parseInt(formData.newStock, 10) : selectedBatch.remainingQuantity}/{selectedBatch.quantity})
+                    </span>
+                  </span>
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    name="adjustmentMode"
+                    value="addition"
+                    checked={adjustmentMode === 'addition'}
+                    onChange={(e) => setAdjustmentMode(e.target.value as 'correction' | 'addition')}
+                    className="mr-2"
+                  />
+                  <span className="text-sm text-gray-700">
+                    <strong>Add to batch</strong>
+                    <br />
+                    <span className="text-xs text-gray-500">
+                      Add new units ({selectedBatch.remainingQuantity}/{selectedBatch.quantity} → {formData.newStock.trim() !== '' ? selectedBatch.remainingQuantity + parseInt(formData.newStock, 10) : selectedBatch.remainingQuantity}/{selectedBatch.quantity + (formData.newStock.trim() !== '' ? parseInt(formData.newStock, 10) : 0)})
+                    </span>
+                  </span>
+                </label>
+              </div>
+            </div>
+          )}
+          
           {selectedBatch && (
             <div className="bg-gray-50 p-3 rounded-lg mb-4">
               <p className="text-sm text-gray-600">
@@ -566,8 +648,8 @@ const ManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
               type="number"
               value={formData.newStock}
               onChange={(e) => handleInputChange('newStock', e.target.value)}
-              placeholder={selectedBatch ? `Enter new stock (current: ${selectedBatch.remainingQuantity})` : "Enter new stock"}
-              helpText="Leave empty if you only want to change the price"
+              placeholder={selectedBatch ? `Enter quantity (current: ${selectedBatch.remainingQuantity})` : "Enter quantity"}
+              helpText="Enter quantity to adjust stock"
               min="0"
               step="1"
             />

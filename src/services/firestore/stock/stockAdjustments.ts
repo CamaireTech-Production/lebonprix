@@ -251,7 +251,8 @@ export const adjustStockManually = async (
   quantityChange: number | undefined,
   newCostPrice: number | undefined,
   companyId: string,
-  notes?: string
+  notes?: string,
+  adjustmentMode?: 'correction' | 'addition'
 ): Promise<void> => {
   const batch = writeBatch(db);
   
@@ -294,10 +295,18 @@ export const adjustStockManually = async (
     batchUpdates.remainingQuantity = newRemainingQuantity;
     batchUpdates.status = newRemainingQuantity === 0 ? 'depleted' : 'active';
     
-    // If new remaining quantity exceeds original quantity, update original quantity too
-    // This ensures the display shows correct values (e.g., 30/30 instead of 30/23)
-    if (newRemainingQuantity > batchData.quantity) {
-      batchUpdates.quantity = newRemainingQuantity;
+    // Handle different adjustment modes
+    if (adjustmentMode === 'addition') {
+      // Addition mode: update both remaining and total quantity
+      const newTotalQuantity = batchData.quantity + (quantityChange || 0);
+      batchUpdates.quantity = newTotalQuantity;
+    } else {
+      // Correction mode (default): only update remaining quantity
+      // If new remaining quantity exceeds original quantity, update original quantity too
+      // This ensures the display shows correct values (e.g., 30/30 instead of 30/23)
+      if (newRemainingQuantity > batchData.quantity) {
+        batchUpdates.quantity = newRemainingQuantity;
+      }
     }
   }
   
@@ -397,7 +406,8 @@ export const adjustMatiereStockManually = async (
   batchId: string,
   quantityChange: number,
   companyId: string,
-  notes?: string
+  notes?: string,
+  adjustmentMode?: 'correction' | 'addition'
 ): Promise<void> => {
   const batch = writeBatch(db);
   
@@ -434,10 +444,18 @@ export const adjustMatiereStockManually = async (
     updatedAt: serverTimestamp()
   };
   
-  // If new remaining quantity exceeds original quantity, update original quantity too
-  // This ensures the display shows correct values (e.g., 30/30 instead of 30/23)
-  if (newRemainingQuantity > batchData.quantity) {
-    batchUpdates.quantity = newRemainingQuantity;
+  // Handle different adjustment modes
+  if (adjustmentMode === 'addition') {
+    // Addition mode: update both remaining and total quantity
+    const newTotalQuantity = batchData.quantity + quantityChange;
+    batchUpdates.quantity = newTotalQuantity;
+  } else {
+    // Correction mode (default): only update remaining quantity
+    // If new remaining quantity exceeds original quantity, update original quantity too
+    // This ensures the display shows correct values (e.g., 30/30 instead of 30/23)
+    if (newRemainingQuantity > batchData.quantity) {
+      batchUpdates.quantity = newRemainingQuantity;
+    }
   }
   
   if (notes) {
