@@ -118,6 +118,20 @@ const MatiereManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
       }
     }
 
+    // Auto-determine adjustment mode when new stock is entered
+    if (field === 'newStock' && selectedBatch && value.trim() !== '') {
+      const inputStock = parseInt(value, 10);
+      if (!isNaN(inputStock) && inputStock >= 0) {
+        // If entered value is greater than current remaining, it's likely an addition
+        // If entered value is less than or equal to current remaining, it's likely a correction
+        if (inputStock > selectedBatch.remainingQuantity) {
+          setAdjustmentMode('addition');
+        } else {
+          setAdjustmentMode('correction');
+        }
+      }
+    }
+
     // Validate on input change with delay to avoid too many validations
     setTimeout(() => {
       validateForm();
@@ -338,48 +352,50 @@ const MatiereManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
         <div className="space-y-4">
           <h3 className="text-lg font-medium text-gray-900">Adjustment Details</h3>
           
-          {/* Adjustment Mode Selection */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Adjustment Type
-            </label>
-            <div className="flex space-x-4">
-              <label className="flex items-center">
-                <input
-                  type="radio"
-                  name="adjustmentMode"
-                  value="correction"
-                  checked={adjustmentMode === 'correction'}
-                  onChange={(e) => setAdjustmentMode(e.target.value as 'correction' | 'addition')}
-                  className="mr-2"
-                />
-                <span className="text-sm text-gray-700">
-                  <strong>Correct existing stock</strong>
-                  <br />
-                  <span className="text-xs text-gray-500">
-                    Set actual stock count (10/20 → 12/20)
-                  </span>
-                </span>
+          {/* Adjustment Mode Selection - Only show when new stock is entered */}
+          {selectedBatch && formData.newStock.trim() !== '' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Adjustment Type
               </label>
-              <label className="flex items-center">
-                <input
-                  type="radio"
-                  name="adjustmentMode"
-                  value="addition"
-                  checked={adjustmentMode === 'addition'}
-                  onChange={(e) => setAdjustmentMode(e.target.value as 'correction' | 'addition')}
-                  className="mr-2"
-                />
-                <span className="text-sm text-gray-700">
-                  <strong>Add to batch</strong>
-                  <br />
-                  <span className="text-xs text-gray-500">
-                    Add new units (10/20 → 22/22)
+              <div className="flex space-x-4">
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    name="adjustmentMode"
+                    value="correction"
+                    checked={adjustmentMode === 'correction'}
+                    onChange={(e) => setAdjustmentMode(e.target.value as 'correction' | 'addition')}
+                    className="mr-2"
+                  />
+                  <span className="text-sm text-gray-700">
+                    <strong>Correct existing stock</strong>
+                    <br />
+                    <span className="text-xs text-gray-500">
+                      Set actual stock count ({selectedBatch.remainingQuantity}/{selectedBatch.quantity} → {formData.newStock.trim() !== '' ? parseInt(formData.newStock, 10) : selectedBatch.remainingQuantity}/{selectedBatch.quantity})
+                    </span>
                   </span>
-                </span>
-              </label>
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    name="adjustmentMode"
+                    value="addition"
+                    checked={adjustmentMode === 'addition'}
+                    onChange={(e) => setAdjustmentMode(e.target.value as 'correction' | 'addition')}
+                    className="mr-2"
+                  />
+                  <span className="text-sm text-gray-700">
+                    <strong>Add to batch</strong>
+                    <br />
+                    <span className="text-xs text-gray-500">
+                      Add new units ({selectedBatch.remainingQuantity}/{selectedBatch.quantity} → {formData.newStock.trim() !== '' ? selectedBatch.remainingQuantity + parseInt(formData.newStock, 10) : selectedBatch.remainingQuantity}/{selectedBatch.quantity + (formData.newStock.trim() !== '' ? parseInt(formData.newStock, 10) : 0)})
+                    </span>
+                  </span>
+                </label>
+              </div>
             </div>
-          </div>
+          )}
           
           {selectedBatch && (
             <div className="bg-gray-50 p-3 rounded-lg mb-4">
@@ -392,18 +408,12 @@ const MatiereManualAdjustmentModal: React.FC<ManualAdjustmentModalProps> = ({
           
           <div className="grid grid-cols-2 gap-4">
             <Input
-              label={adjustmentMode === 'correction' ? 'Actual Stock Count (Optional)' : 'Quantity to Add (Optional)'}
+              label="New Stock Quantity (Optional)"
               type="number"
               value={formData.newStock}
               onChange={(e) => handleInputChange('newStock', e.target.value)}
-              placeholder={adjustmentMode === 'correction' 
-                ? (selectedBatch ? `Enter actual count (current: ${selectedBatch.remainingQuantity})` : "Enter actual count")
-                : "Enter quantity to add"
-              }
-              helpText={adjustmentMode === 'correction' 
-                ? "Leave empty for no adjustment (0 is valid)"
-                : "Leave empty for no adjustment (0 is valid)"
-              }
+              placeholder={selectedBatch ? `Enter quantity (current: ${selectedBatch.remainingQuantity})` : "Enter quantity"}
+              helpText="Enter quantity to adjust stock"
               min="0"
               step="1"
             />
