@@ -4,6 +4,7 @@ import { getMatiereBatchesForAdjustment } from '@services/firestore/stock/stockA
 import { adjustMatiereStockForDamage } from '@services/firestore/stock/stockAdjustments';
 import type { Matiere, StockBatch } from '../../types/models';
 import { Modal, Button, Input, Select } from '@components/common';
+import { formatCostPrice } from '@utils/inventory/inventoryManagement';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
 
 interface DamageAdjustmentModalProps {
@@ -165,7 +166,7 @@ const MatiereDamageAdjustmentModal: React.FC<DamageAdjustmentModalProps> = ({
       { value: '', label: 'Select a batch to record damage' },
       ...batches.map(batch => ({
         value: batch.id,
-        label: `Batch ${batch.id.slice(-8)} - ${batch.remainingQuantity} ${matiere?.unit || ''}`
+        label: `Batch ${batch.id.slice(-8)} - ${batch.remainingQuantity} ${matiere?.unit || ''} @ ${formatCostPrice(batch.costPrice || 0)}`
       }))
     ];
   };
@@ -174,6 +175,12 @@ const MatiereDamageAdjustmentModal: React.FC<DamageAdjustmentModalProps> = ({
     if (!selectedBatch) return 0;
     const damagedQuantity = parseInt(formData.damagedQuantity || '0', 10) || 0;
     return selectedBatch.remainingQuantity - damagedQuantity;
+  };
+
+  const calculateDamagedValue = () => {
+    if (!selectedBatch) return 0;
+    const damagedQuantity = parseInt(formData.damagedQuantity, 10) || 0;
+    return damagedQuantity * (selectedBatch.costPrice || 0);
   };
 
   const calculateNewStock = () => {
@@ -283,9 +290,19 @@ const MatiereDamageAdjustmentModal: React.FC<DamageAdjustmentModalProps> = ({
                 <p className="text-blue-900">{selectedBatch.remainingQuantity} {matiere.unit || 'unité'}</p>
               </div>
               <div>
+                <span className="font-medium text-blue-700">Cost Price:</span>
+                <p className="text-blue-900">{formatCostPrice(selectedBatch.costPrice || 0)}</p>
+              </div>
+              <div>
                 <span className="font-medium text-blue-700">Status:</span>
                 <p className="text-blue-900 capitalize">{selectedBatch.status}</p>
               </div>
+              {selectedBatch.supplierId && (
+                <div className="col-span-2">
+                  <span className="font-medium text-blue-700">Supplier:</span>
+                  <p className="text-blue-900">{selectedBatch.supplierId}</p>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -318,6 +335,10 @@ const MatiereDamageAdjustmentModal: React.FC<DamageAdjustmentModalProps> = ({
                 <div>
                   <span className="font-medium text-red-700">New Matiere Stock:</span>
                   <p className="text-red-900">{calculateNewStock()} {matiere.unit || 'unité'}</p>
+                </div>
+                <div>
+                  <span className="font-medium text-red-700">Damaged Value:</span>
+                  <p className="text-red-900">{formatCostPrice(calculateDamagedValue())}</p>
                 </div>
                 <div>
                   <span className="font-medium text-red-700">Supplier Debt:</span>
