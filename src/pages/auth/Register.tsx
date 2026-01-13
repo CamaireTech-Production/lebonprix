@@ -29,12 +29,8 @@ const Register = () => {
   const [searchParams] = useSearchParams();
   const inviteId = searchParams.get('invite');
 
-  // Déconnecter automatiquement l'utilisateur s'il est déjà connecté
-  useEffect(() => {
-    if (currentUser && !loading) {
-      signOut();
-    }
-  }, [currentUser, loading, signOut]);
+  // If you want to prevent already-logged-in users from accessing the register page,
+  // you can redirect them instead of signing them out. For now, we remove the signOut effect.
 
   // Pre-fill email from invitation if present
   useEffect(() => {
@@ -46,7 +42,6 @@ const Register = () => {
             setEmail(invitation.email);
           }
         } catch (error) {
-          console.error('Error loading invitation email:', error);
           // Silently fail - user can still enter email manually
         }
       };
@@ -141,28 +136,8 @@ const Register = () => {
       };
 
       await signUpUser(email, password, userData);
-
-      // 💾 Save session IMMEDIATELY after signup to prevent race condition
-      // This ensures ProtectedRoute can verify authentication even if onAuthStateChanged hasn't fired yet
-      const firebaseUser = auth.currentUser;
-      if (firebaseUser) {
-        saveUserSession(
-          firebaseUser.uid,
-          firebaseUser.email || email,
-          [] // Empty companies array for new users (will be updated by AuthContext background loading)
-        );
-      }
-
-      // Show success message
-      showSuccessToast('Compte créé avec succès ! Redirection en cours...');
-
-      // Wait for onAuthStateChanged to fire and update the auth state
-      // Increased timeout to ensure auth state is properly propagated
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      // Redirection vers la page de sélection de mode
-      // (onAuthStateChanged peut aussi gérer cela, mais on le fait ici pour être sûr)
-      navigate('/mode-selection');
+      // Show success message (navigation will be handled by AuthContext/onAuthStateChanged)
+      showSuccessToast('Compte créé avec succès ! Veuillez patienter...');
     } catch (err: any) {
       // Check for Firebase error code (works for both FirebaseError and errors with code property)
       const errorCode = err?.code || (err instanceof FirebaseError ? err.code : null);
@@ -188,13 +163,11 @@ const Register = () => {
             break;
           default:
             showErrorToast(`❌ Erreur lors de la création du compte: ${err?.message || 'Erreur inconnue'}. Veuillez réessayer.`);
-            console.error('Registration error:', err);
         }
       } else {
         // Handle non-Firebase errors
         const errorMessage = err?.message || 'Une erreur inattendue est survenue';
         showErrorToast(`❌ ${errorMessage}. Veuillez réessayer.`);
-        console.error('Unexpected error:', err);
       }
     } finally {
       setIsLoading(false);
@@ -391,7 +364,6 @@ const Register = () => {
               await new Promise(resolve => setTimeout(resolve, 100));
               navigate('/mode-selection');
             } catch (err: any) {
-              console.error('Google sign in error:', err);
               setIsLoading(false);
               showErrorToast(err.message || 'Erreur lors de l\'inscription avec Google. Veuillez réessayer.');
             }

@@ -155,57 +155,42 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   // NOTE: placed after function declarations to avoid "cannot access before initialization"
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      // Reset signing in flag when auth state changes
       isSigningInRef.current = false;
-      
+      console.log('[AuthContext] onAuthStateChanged fired:', { user });
       setUser(user);
-      
       if (user) {
-        // 🚀 IMMEDIATE UI RENDER: Set loading to false right away
-        setLoading(false);
-        
-        // 💾 Save session IMMEDIATELY when user is detected (before background loading)
-        // This ensures session is always available, even during signup flow
-        // The session will be updated with companies data by loadUserAndCompanyDataInBackground
-        saveUserSession(
-          user.uid,
-          user.email || '',
-          [] // Empty companies array initially (will be updated by background loading)
-        );
-        
-        // 🚀 RESTORE COMPANY FROM CACHE: Try to restore company data immediately
-        const cachedCompany = getCompanyFromCache();
-        if (cachedCompany) {
-          setCompany(cachedCompany);
-          
-          // Déterminer le rôle immédiatement si on a les données
-          determineUserRole(cachedCompany, user.uid);
+        // Detect if this is a first login/signup (not a page refresh or token refresh)
+        const sessionKey = `lebonprix_first_login_${user.uid}`;
+        let isFirstLogin = false;
+        if (!sessionStorage.getItem(sessionKey)) {
+          isFirstLogin = true;
+          sessionStorage.setItem(sessionKey, 'true');
         }
-        
-        // 🔄 BACKGROUND LOADING: Start user and company data fetch in background
-        // Ensure the background loading happens
+        isInitialLoginRef.current = isFirstLogin;
+        console.log('[AuthContext] User detected. isFirstLogin:', isFirstLogin, 'isInitialLoginRef:', isInitialLoginRef.current, 'sessionKey:', sessionKey);
         try {
           await loadUserAndCompanyDataInBackground(user.uid);
         } catch (error) {
           logError('Error in background loading', error);
         }
-        
-        // 🔄 BACKGROUND LOADING: Start finance types in background
         loadFinanceTypesInBackground();
-        
       } else {
         setCompany(null);
         setEffectiveRole(null);
         setIsOwner(false);
         setCurrentEmployee(null);
         setLoading(false);
-        // Nettoyer le cache lors de la déconnexion
         clearCompanyCache();
-        // Clear user session (no userId means clear all - but we know user is null)
         clearUserSession();
+        // Clear all first login flags on logout
+        Object.keys(sessionStorage).forEach(key => {
+          if (key.startsWith('lebonprix_first_login_')) {
+            sessionStorage.removeItem(key);
+          }
+        });
+        console.log('[AuthContext] User is null. Cleared session and first login flags.');
       }
     });
-
     return unsubscribe;
   }, []);
 
@@ -283,23 +268,16 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   // 🚀 INSTANT user and company data loading from localStorage with background sync
   const loadUserAndCompanyDataInBackground = async (userId: string) => {
     setCompanyLoading(true);
-    
+    console.log('[AuthContext] loadUserAndCompanyDataInBackground START', { userId, isInitialLogin: isInitialLoginRef.current });
     try {
-      // 1. Charger les données utilisateur depuis le système unifié
-      // Retry logic to handle race condition during signup (document might be creating)
       let userData = await getUserById(userId);
-      
-      // If user document doesn't exist, wait a bit and retry (might be during signup)
       if (!userData) {
-        // Wait 500ms and retry once - document might be in the process of being created
         await new Promise(resolve => setTimeout(resolve, 500));
         userData = await getUserById(userId);
       }
-      
+      console.log('[AuthContext] userData loaded:', userData);
       if (userData) {
         setUserCompanies(userData.companies || []);
-        
-        // 💾 Save user session to localStorage
         const currentUser = auth.currentUser;
         if (currentUser) {
           saveUserSession(
@@ -312,89 +290,62 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             }))
           );
         }
-        
-        // Mettre à jour la dernière connexion
         await updateUserLastLogin(userId);
-        
-        // 2. Handle routing based on user's companies
         if (isInitialLoginRef.current) {
           if (userData.companies && userData.companies.length > 0) {
-            // User has companies - auto-select and go to dashboard
-            // Find first company where user is owner or admin
             const ownerOrAdminCompany = userData.companies.find((company: UserCompanyRef) => 
               company.role === 'owner' || company.role === 'admin'
             );
-            
             if (ownerOrAdminCompany) {
+              console.log('[AuthContext] Navigating to owner/admin dashboard:', ownerOrAdminCompany.companyId);
               navigate(`/company/${ownerOrAdminCompany.companyId}/dashboard`);
             } else {
-              // User is only employee - show company selection
+              console.log('[AuthContext] Navigating to companies listing for employee:', userId);
               navigate(`/companies/me/${userId}`);
             }
           } else {
-            // User has no companies - show mode selection
+            console.log('[AuthContext] Navigating to mode-selection for new user:', userId);
             navigate('/mode-selection');
           }
-          
-          isInitialLoginRef.current = false; // Reset après redirection
-        } else {
-          // Still save session even if not initial login (for page refresh scenarios)
-          const currentUser = auth.currentUser;
-          if (currentUser) {
-            saveUserSession(
-              userId,
-              currentUser.email || userData.email,
-              userData.companies?.map(c => ({
-                companyId: c.companyId,
-                name: c.name,
-                role: c.role
-              }))
-            );
-          }
+          isInitialLoginRef.current = false;
         }
       } else {
-        // User document still doesn't exist after retry
-        // This might be a legacy user or the document creation failed
-        // Only try migration if we have Firebase Auth user data (legacy scenario)
         const firebaseUser = auth.currentUser;
         if (firebaseUser && firebaseUser.displayName) {
-          // Legacy user - try migration
           try {
             await migrateUserToNewSystem(userId);
-            // Retry loading after migration
             userData = await getUserById(userId);
             if (userData) {
               setUserCompanies(userData.companies || []);
-              // Handle routing after migration
               if (isInitialLoginRef.current) {
                 if (userData.companies && userData.companies.length > 0) {
                   const ownerOrAdminCompany = userData.companies.find((company: UserCompanyRef) => 
                     company.role === 'owner' || company.role === 'admin'
                   );
-                  
                   if (ownerOrAdminCompany) {
+                    console.log('[AuthContext] Navigating to owner/admin dashboard after migration:', ownerOrAdminCompany.companyId);
                     navigate(`/company/${ownerOrAdminCompany.companyId}/dashboard`);
                   } else {
+                    console.log('[AuthContext] Navigating to companies listing for employee after migration:', userId);
                     navigate(`/companies/me/${userId}`);
                   }
                 } else {
+                  console.log('[AuthContext] Navigating to mode-selection after migration:', userId);
                   navigate('/mode-selection');
                 }
-                
                 isInitialLoginRef.current = false;
               }
             }
           } catch (migrationError) {
-            // Migration failed - might be during signup, just route to mode selection
             if (isInitialLoginRef.current) {
+              console.log('[AuthContext] Navigating to mode-selection after migration error:', userId);
               navigate('/mode-selection');
               isInitialLoginRef.current = false;
             }
           }
         } else {
-          // New user signup in progress - document will be created by signUpUser
-          // Just route to mode selection
           if (isInitialLoginRef.current) {
+            console.log('[AuthContext] Navigating to mode-selection for new user (no userData):', userId);
             navigate('/mode-selection');
             isInitialLoginRef.current = false;
           }
@@ -402,10 +353,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       }
     } catch (error) {
       logError('Error loading user data', error);
-      // Fallback vers l'ancien système
       await loadCompanyDataLegacy(userId);
     } finally {
       setCompanyLoading(false);
+      setLoading(false);
+      console.log('[AuthContext] loadUserAndCompanyDataInBackground END', { userId, isInitialLogin: isInitialLoginRef.current });
     }
   };
 
