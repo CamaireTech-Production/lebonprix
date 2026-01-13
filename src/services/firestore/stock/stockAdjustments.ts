@@ -12,7 +12,7 @@ import {
 import { db } from '../../core/firebase';
 import type { Product, Matiere, StockBatch, StockChange } from '../../../types/models';
 import { createStockChange, getMatiereStockBatches } from './stockService';
-import { addSupplierDebt, addSupplierRefund, updateSupplierDebtEntry, removeSupplierDebtEntry, getSupplierDebt } from '../suppliers/supplierDebtService';
+import { addSupplierDebt, addSupplierRefund, removeSupplierDebtEntry, getSupplierDebt } from '../suppliers/supplierDebtService';
 import { logError } from '@utils/core/logger';
 
 /**
@@ -251,7 +251,8 @@ export const adjustStockManually = async (
   quantityChange: number | undefined,
   newCostPrice: number | undefined,
   companyId: string,
-  notes?: string
+  notes?: string,
+  adjustmentMode?: 'correction' | 'addition'
 ): Promise<void> => {
   const batch = writeBatch(db);
   
@@ -294,10 +295,18 @@ export const adjustStockManually = async (
     batchUpdates.remainingQuantity = newRemainingQuantity;
     batchUpdates.status = newRemainingQuantity === 0 ? 'depleted' : 'active';
     
-    // If new remaining quantity exceeds original quantity, update original quantity too
-    // This ensures the display shows correct values (e.g., 30/30 instead of 30/23)
-    if (newRemainingQuantity > batchData.quantity) {
-      batchUpdates.quantity = newRemainingQuantity;
+    // Handle different adjustment modes
+    if (adjustmentMode === 'addition') {
+      // Addition mode: update both remaining and total quantity
+      const newTotalQuantity = batchData.quantity + (quantityChange || 0);
+      batchUpdates.quantity = newTotalQuantity;
+    } else {
+      // Correction mode (default): only update remaining quantity
+      // If new remaining quantity exceeds original quantity, update original quantity too
+      // This ensures the display shows correct values (e.g., 30/30 instead of 30/23)
+      if (newRemainingQuantity > batchData.quantity) {
+        batchUpdates.quantity = newRemainingQuantity;
+      }
     }
   }
   
@@ -355,8 +364,16 @@ export const adjustStockManually = async (
   await batch.commit();
   
   // Handle supplier debt adjustment for credit purchases (after batch commit)
-  if (batchData.supplierId && batchData.isCredit && !batchData.isOwnPurchase) {
+  if (batchData.supplierId && batchData.isCredit && !batchData.isOwnPurchase && quantityChange !== undefined) {
     try {
+      // Get product data for name in descriptions
+      const productRef = doc(db, 'products', productId);
+      const productSnap = await getDoc(productRef);
+      if (!productSnap.exists()) {
+        throw new Error('Product not found');
+      }
+      const currentProduct = productSnap.data() as Product;
+      
       const debtChange = quantityChange * (newCostPrice || batchData.costPrice);
       
       if (debtChange > 0) {
@@ -397,7 +414,8 @@ export const adjustMatiereStockManually = async (
   batchId: string,
   quantityChange: number,
   companyId: string,
-  notes?: string
+  notes?: string,
+  adjustmentMode?: 'correction' | 'addition'
 ): Promise<void> => {
   const batch = writeBatch(db);
   
@@ -434,10 +452,18 @@ export const adjustMatiereStockManually = async (
     updatedAt: serverTimestamp()
   };
   
-  // If new remaining quantity exceeds original quantity, update original quantity too
-  // This ensures the display shows correct values (e.g., 30/30 instead of 30/23)
-  if (newRemainingQuantity > batchData.quantity) {
-    batchUpdates.quantity = newRemainingQuantity;
+  // Handle different adjustment modes
+  if (adjustmentMode === 'addition') {
+    // Addition mode: update both remaining and total quantity
+    const newTotalQuantity = batchData.quantity + quantityChange;
+    batchUpdates.quantity = newTotalQuantity;
+  } else {
+    // Correction mode (default): only update remaining quantity
+    // If new remaining quantity exceeds original quantity, update original quantity too
+    // This ensures the display shows correct values (e.g., 30/30 instead of 30/23)
+    if (newRemainingQuantity > batchData.quantity) {
+      batchUpdates.quantity = newRemainingQuantity;
+    }
   }
   
   if (notes) {
@@ -724,7 +750,6 @@ export const adjustMultipleBatchesManually = async (
   let totalStockChange = 0;
   const batchUpdates: Array<{ ref: any; updates: any }> = [];
   const stockChanges: Array<any> = [];
-  const financeEntries: Array<any> = [];
   
   // Process each adjustment
   for (const adjustment of adjustments) {
@@ -901,7 +926,6 @@ export const adjustBatchWithDebtManagement = async (
   let totalStockChange = 0;
   const batchUpdates: Array<{ ref: any; updates: any }> = [];
   const stockChanges: Array<any> = [];
-  const financeEntries: Array<any> = [];
   
   // Process each adjustment
   for (const adjustment of adjustments) {
@@ -1156,5 +1180,109 @@ const handleBatchDebtManagement = async (
   } catch (error) {
     logError(`Error handling batch debt management for batch ${adjustment.batchId}`, error);
     // Don't throw - stock was adjusted successfully, debt can be fixed manually
+  }
+};
+
+/**
+ * Delete a stock batch with proper validation and cleanup
+ * Uses soft delete to preserve data integrity and audit trail
+ */
+export const deleteStockBatch = async (
+  batchId: string,
+  companyId: string,
+  userId: string
+): Promise<void> => {
+  const batch = writeBatch(db);
+  
+  // Get batch details
+  const batchRef = doc(db, 'stockBatches', batchId);
+  const batchSnap = await getDoc(batchRef);
+  if (!batchSnap.exists()) {
+    throw new Error('Stock batch not found');
+  }
+  
+  const batchData = batchSnap.data() as StockBatch;
+  // Verify batch belongs to company
+  if (batchData.companyId !== companyId) {
+    throw new Error('Unauthorized: Batch belongs to different company');
+  }
+  
+  // Validation: Can only delete batches with no remaining stock
+  if (batchData.remainingQuantity > 0) {
+    throw new Error('Cannot delete batch with remaining stock. Please adjust stock to 0 first.');
+  }
+  
+  // Get product/matiere details for descriptions
+  let itemDetails: { name: string; type: 'product' | 'matiere' };
+  if (batchData.type === 'product' && batchData.productId) {
+    const productRef = doc(db, 'products', batchData.productId);
+    const productSnap = await getDoc(productRef);
+    if (!productSnap.exists()) {
+      throw new Error('Associated product not found');
+    }
+    const product = productSnap.data() as Product;
+    itemDetails = { name: product.name, type: 'product' };
+  } else if (batchData.type === 'matiere' && batchData.matiereId) {
+    const matiereRef = doc(db, 'matieres', batchData.matiereId);
+    const matiereSnap = await getDoc(matiereRef);
+    if (!matiereSnap.exists()) {
+      throw new Error('Associated matiere not found');
+    }
+    const matiere = matiereSnap.data() as Matiere;
+    itemDetails = { name: matiere.name, type: 'matiere' };
+  } else {
+    throw new Error('Invalid batch type or missing reference');
+  }
+  
+  // Soft delete the batch (preserve data for audit)
+  batch.update(batchRef, {
+    isDeleted: true,
+    status: 'deleted',
+    deletedAt: serverTimestamp(),
+    deletedBy: userId,
+    updatedAt: serverTimestamp()
+  });
+  
+  // Create stock change record for the deletion
+  const stockChangeRef = doc(collection(db, 'stockChanges'));
+  const stockChangeData = {
+    id: stockChangeRef.id,
+    type: batchData.type,
+    ...(batchData.productId && { productId: batchData.productId }),
+    ...(batchData.matiereId && { matiereId: batchData.matiereId }),
+    change: 0, // No quantity change for deletion
+    reason: 'batch_deletion' as StockChange['reason'],
+    ...(batchData.supplierId && { supplierId: batchData.supplierId }),
+    ...(batchData.isOwnPurchase !== undefined && { isOwnPurchase: batchData.isOwnPurchase }),
+    ...(batchData.isCredit !== undefined && { isCredit: batchData.isCredit }),
+    costPrice: batchData.costPrice,
+    batchId,
+    createdAt: serverTimestamp(),
+    userId,
+    companyId,
+    notes: `Batch deleted: ${batchData.id} - ${itemDetails.name}`
+  };
+  batch.set(stockChangeRef, stockChangeData);
+  
+  await batch.commit();
+  
+  // Handle supplier debt cleanup (after batch commit)
+  if (batchData.supplierId && batchData.isCredit && !batchData.isOwnPurchase) {
+    try {
+      // Check if there's outstanding debt for this batch
+      const supplierDebt = await getSupplierDebt(batchData.supplierId, companyId);
+      if (supplierDebt && supplierDebt.outstanding > 0) {
+        // Note: We don't automatically clear debt on batch deletion to preserve financial records
+        // The debt remains as a financial obligation even if the batch is deleted
+        logError('Batch deletion warning: Outstanding supplier debt remains for deleted batch', {
+          batchId,
+          supplierId: batchData.supplierId,
+          outstandingDebt: supplierDebt.outstanding
+        });
+      }
+    } catch (error) {
+      logError('Error checking supplier debt for deleted batch', error);
+      // Don't throw - batch was deleted successfully
+    }
   }
 };
