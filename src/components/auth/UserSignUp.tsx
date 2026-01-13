@@ -48,22 +48,20 @@ export const UserSignUp: React.FC = () => {
       setIsLoading(true);
       
       // 1. Créer le compte utilisateur
+      // Generate username from firstname and lastname
+      const username = `${formData.firstname.toLowerCase()}.${formData.lastname.toLowerCase()}`.replace(/[^a-z0-9._-]/g, '');
+      
       await signUpUser(formData.email, formData.password, {
-        firstname: formData.firstname,
-        lastname: formData.lastname,
-        phone: formData.phone || undefined
+        username: username
       });
 
       // 2. Se connecter automatiquement
       await signIn(formData.email, formData.password);
       
-      console.log('✅ Inscription et connexion réussies');
-      
       // 3. Rediriger vers la page de sélection de mode
       navigate('/mode-selection');
       
     } catch (error: any) {
-      console.error('❌ Erreur lors de l\'inscription:', error);
       setError(error.message || 'Une erreur est survenue');
     } finally {
       setIsLoading(false);

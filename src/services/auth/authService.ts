@@ -74,7 +74,6 @@ export const signUpUser = async (
     return user;
 
   } catch (error: any) {
-    console.error('❌ Erreur lors de l\'inscription de l\'utilisateur:', error);
     throw error;
   }
 };
@@ -90,7 +89,6 @@ export const userHasCompanies = async (userId: string): Promise<boolean> => {
     const user = await getUserById(userId);
     return !!(user?.companies && user.companies.length > 0);
   } catch (error) {
-    console.error('❌ Erreur lors de la vérification des entreprises:', error);
     return false;
   }
 };
@@ -106,7 +104,6 @@ export const getUserCompaniesCount = async (userId: string): Promise<number> => 
     const user = await getUserById(userId);
     return user?.companies?.length || 0;
   } catch (error) {
-    console.error('❌ Erreur lors du comptage des entreprises:', error);
     return 0;
   }
 };
@@ -127,7 +124,6 @@ export const isUserOwnerOfCompany = async (userId: string, companyId: string): P
       company.companyId === companyId && company.role === 'owner'
     );
   } catch (error) {
-    console.error('❌ Erreur lors de la vérification de propriété:', error);
     return false;
   }
 };
@@ -150,7 +146,6 @@ export const getUserRoleInCompany = async (
     const company = user.companies.find(c => c.companyId === companyId);
     return company?.role || null;
   } catch (error) {
-    console.error('❌ Erreur lors de la récupération du rôle:', error);
     return null;
   }
 };
@@ -244,7 +239,6 @@ export const signInWithGoogle = async (): Promise<FirebaseUser> => {
     return user;
 
   } catch (error: any) {
-    console.error('❌ Erreur lors de la connexion avec Google:', error);
 
     // Gérer les erreurs spécifiques de Google Auth
     if (error.code === 'auth/popup-closed-by-user') {
