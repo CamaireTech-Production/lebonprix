@@ -7,12 +7,13 @@ import { showSuccessToast, showErrorToast, showWarningToast } from '@utils/core/
 import { getCurrentEmployeeRef, formatCreatorName } from '@utils/business/employeeUtils';
 import { getUserById } from '@services/utilities/userService';
 import { validateSaleData, normalizeSaleData } from '@utils/calculations/saleUtils';
-import type { OrderStatus, Customer, Product} from '../types/models';
+import type { OrderStatus, Customer, Product } from '../../types/models';
 import { logError } from '@utils/core/logger';
 import { normalizePhoneForComparison } from '@utils/core/phoneUtils';
 import { saveDraft as saveDraftToStorage, getDrafts, deleteDraft, type POSDraft } from '@utils/pos/posDraftStorage';
 import { useAllStockBatches } from '@hooks/business/useStockBatches';
 import { buildProductStockMap, getEffectiveProductStock } from '@utils/inventory/stockHelpers';
+import { useCheckoutSettings } from '@hooks/data/useCheckoutSettings';
 
 export interface CartItem {
   product: Product;
@@ -43,6 +44,7 @@ export function usePOS() {
   const { activeSources } = useCustomerSources();
   const { user, company, currentEmployee, isOwner } = useAuth();
   const { batches: allBatches } = useAllStockBatches();
+  const { settings: checkoutSettings } = useCheckoutSettings();
 
   const [state, setState] = useState<POSState>({
     cart: [],
@@ -242,7 +244,7 @@ export function usePOS() {
     setState(prev => ({
       ...prev,
       customer: {
-        name: t('sales.modals.add.customerInfo.divers'),
+        name: 'Client de passage',
         phone: '',
         quarter: '',
       },
@@ -266,7 +268,7 @@ export function usePOS() {
   }, []);
 
   // Complete sale
-  const completeSale = useCallback(async (paymentData?: import('../components/pos/POSPaymentModal').POSPaymentData) => {
+  const completeSale = useCallback(async (paymentData?: any) => {
     if (state.cart.length === 0) {
       showWarningToast(t('pos.messages.emptyCart'));
       return null;
@@ -307,7 +309,7 @@ export function usePOS() {
         address: '',
         town: '',
       } : {
-        name: t('sales.modals.add.customerInfo.divers'),
+        name: 'Client de passage',
         phone: '',
         quarter: '',
         address: '',
@@ -331,7 +333,7 @@ export function usePOS() {
           ? 'paid' as const 
           : 'pending' as const,
         customerInfo: {
-          name: customerInfo.name || t('sales.modals.add.customerInfo.divers'),
+          name: customerInfo.name || 'Client de passage',
           phone: customerInfo.phone || '',
           quarter: customerInfo.quarter || '',
         },
@@ -368,18 +370,18 @@ export function usePOS() {
 
       const newSale = await addSale(normalizedData, createdBy);
 
-      // Auto-save customer if enabled (phone is optional for POS)
-      if (autoSaveCustomer && customerInfo.name && company?.id) {
+      // Auto-save customer if enabled (only when phone is provided)
+      if (autoSaveCustomer && customerInfo.phone && company?.id) {
         try {
           // Only check for existing customer if phone is provided
-          const existing = customerInfo.phone ? customers.find(c => 
+          const existing = customers.find(c => 
             c.phone && normalizePhoneForComparison(c.phone) === normalizePhoneForComparison(customerInfo.phone)
-          ) : null;
+          );
 
           if (!existing) {
             await addCustomer({
-              phone: customerInfo.phone || '',
-              name: customerInfo.name,
+              phone: customerInfo.phone,
+              name: customerInfo.name || 'Divers',
               quarter: customerInfo.quarter || paymentData?.customerQuarter || '',
               address: customerInfo.address || paymentData?.customerAddress || '',
               town: customerInfo.town || paymentData?.customerTown || '',
@@ -418,7 +420,7 @@ export function usePOS() {
   }, [state, cartTotals, user, company, currentEmployee, isOwner, autoSaveCustomer, customers, addSale, addCustomer, clearCart, clearCustomer, t]);
 
   // Save draft (save without completing sale) - now uses localStorage
-  const saveDraft = useCallback(async (paymentData?: import('../components/pos/POSPaymentModal').POSPaymentData) => {
+  const saveDraft = useCallback(async (paymentData?: any) => {
     if (state.cart.length === 0) {
       showWarningToast(t('pos.messages.emptyCart'));
       return null;
@@ -516,18 +518,18 @@ export function usePOS() {
         }
       );
 
-      // Auto-save customer if enabled (phone is optional for POS)
-      if (autoSaveCustomer && customerInfo && customerInfo.name && company?.id) {
+      // Auto-save customer if enabled (only when phone is provided)
+      if (autoSaveCustomer && customerInfo && customerInfo.phone && company?.id) {
         try {
           // Only check for existing customer if phone is provided
-          const existing = customerInfo.phone ? customers.find(c => 
+          const existing = customers.find(c => 
             c.phone && normalizePhoneForComparison(c.phone) === normalizePhoneForComparison(customerInfo.phone)
-          ) : null;
+          );
 
           if (!existing) {
             await addCustomer({
-              phone: customerInfo.phone || '',
-              name: customerInfo.name,
+              phone: customerInfo.phone,
+              name: customerInfo.name || 'Divers',
               quarter: customerInfo.quarter || '',
               address: customerInfo.address || '',
               town: customerInfo.town || '',
@@ -679,6 +681,7 @@ export function usePOS() {
     customers,
     activeSources,
     products,
+    checkoutSettings,
 
     // Refs
     searchInputRef,

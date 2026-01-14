@@ -61,6 +61,9 @@ interface POSPaymentModalProps {
   onComplete: (data: POSPaymentData) => Promise<any> | void;
   onSaveDraft?: (data: POSPaymentData) => void;
   isSubmitting: boolean;
+  checkoutSettings?: {
+    posCalculatorEnabled: boolean;
+  } | null;
 }
 
 export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
@@ -73,6 +76,7 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
   onComplete,
   onSaveDraft,
   isSubmitting,
+  checkoutSettings,
 }) => {
   // ✅ ALL HOOKS MUST BE CALLED FIRST - BEFORE ANY CONDITIONAL RETURNS
   const { t } = useTranslation();
@@ -115,11 +119,21 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
   // UI State
   const [showCustomerSection, setShowCustomerSection] = useState<boolean>(false);
   const [showSaleInfoSection, setShowSaleInfoSection] = useState<boolean>(false);
-  const [activeTab, setActiveTab] = useState<'calculator' | 'additional'>('calculator'); // Calculator is default
+  const [activeTab, setActiveTab] = useState<'calculator' | 'additional'>(
+    checkoutSettings?.posCalculatorEnabled ? 'calculator' : 'additional'
+  ); // Default to calculator if enabled, otherwise additional
   const [isProcessingPayment, setIsProcessingPayment] = useState<boolean>(false);
   const [completedSale, setCompletedSale] = useState<any>(null); // Store completed sale for preview
   const [hasAutoPrinted, setHasAutoPrinted] = useState(false); // Track if auto-print has been triggered
   const printFromPreviewRef = useRef<(() => void) | null>(null); // Ref to store handlePrintFromPreview function
+
+  // Handle tab state when calculator is disabled
+  useEffect(() => {
+    if (!checkoutSettings?.posCalculatorEnabled && activeTab === 'calculator') {
+      // If calculator is disabled and current tab is calculator, switch to additional
+      setActiveTab('additional');
+    }
+  }, [checkoutSettings?.posCalculatorEnabled, activeTab]);
 
   // Get company colors
   const getCompanyColors = () => {
@@ -1027,20 +1041,24 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
           <div className="lg:col-span-1 flex flex-col overflow-hidden">
             {/* Tabs Header */}
             <div className="flex border-b border-gray-200 mb-4 flex-shrink-0">
-              <button
-                onClick={() => setActiveTab('calculator')}
-                className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
-                  activeTab === 'calculator'
-                    ? 'border-b-2 text-gray-900 font-semibold'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-                style={activeTab === 'calculator' ? { borderBottomColor: colors.primary } : {}}
-              >
-                {t('pos.payment.calculator')}
-              </button>
+              {checkoutSettings?.posCalculatorEnabled && (
+                <button
+                  onClick={() => setActiveTab('calculator')}
+                  className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                    activeTab === 'calculator'
+                      ? 'border-b-2 text-gray-900 font-semibold'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                  style={activeTab === 'calculator' ? { borderBottomColor: colors.primary } : {}}
+                >
+                  {t('pos.payment.calculator')}
+                </button>
+              )}
               <button
                 onClick={() => setActiveTab('additional')}
-                className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                className={`${
+                  checkoutSettings?.posCalculatorEnabled ? 'flex-1' : 'flex-1'
+                } px-4 py-3 text-sm font-medium transition-colors ${
                   activeTab === 'additional'
                     ? 'border-b-2 text-gray-900 font-semibold'
                     : 'text-gray-500 hover:text-gray-700'
@@ -1054,7 +1072,7 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
             {/* Tab Content */}
             <div className="flex-1 overflow-y-auto pr-2">
               {/* Calculator Tab */}
-              {activeTab === 'calculator' && (
+              {activeTab === 'calculator' && checkoutSettings?.posCalculatorEnabled && (
                 <div className="h-full">
                   <POSCalculator
                     onApplyValue={(value) => {

@@ -53,6 +53,7 @@ export const POSScreen: React.FC = () => {
     setAutoSaveCustomer,
     setShowCustomerDropdown,
     stockMap,
+    checkoutSettings,
   } = usePOS();
 
   // Get unique categories from products
@@ -185,6 +186,7 @@ export const POSScreen: React.FC = () => {
         onComplete={handlePaymentComplete}
         onSaveDraft={handleSaveDraft}
         isSubmitting={isSubmitting}
+        checkoutSettings={checkoutSettings}
       />
     </div>
   );
