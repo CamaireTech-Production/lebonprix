@@ -7,9 +7,26 @@ import autoTable from 'jspdf-autotable';
 import { ReportField, ExportOptions } from '../../types/reports';
 
 /**
+ * Format number with spaces for thousands separator (PDF-safe, no special characters)
+ */
+const formatNumberForPDF = (value: number): string => {
+  // Convert to integer string
+  const numStr = Math.round(value).toString();
+
+  // Add space every 3 digits from the right
+  const parts = [];
+  for (let i = numStr.length; i > 0; i -= 3) {
+    const start = Math.max(0, i - 3);
+    parts.unshift(numStr.substring(start, i));
+  }
+
+  return parts.join(' ');
+};
+
+/**
  * Format a value based on its field type
  */
-export const formatFieldValue = (value: any, field: ReportField): string => {
+export const formatFieldValue = (value: any, field: ReportField, forPDF: boolean = false): string => {
   if (value === null || value === undefined) return '-';
 
   // Use custom formatter if provided
@@ -19,9 +36,17 @@ export const formatFieldValue = (value: any, field: ReportField): string => {
 
   switch (field.type) {
     case 'currency':
+      if (forPDF) {
+        // For PDF: use ASCII spaces only to avoid encoding issues
+        return formatNumberForPDF(Number(value)) + ' FCFA';
+      }
+      // For CSV/display: use proper French locale with non-breaking spaces
       return `${Number(value).toLocaleString('fr-FR')} FCFA`;
 
     case 'number':
+      if (forPDF) {
+        return formatNumberForPDF(Number(value));
+      }
       return Number(value).toLocaleString('fr-FR');
 
     case 'date':
@@ -162,10 +187,10 @@ export const generateReportPDF = <T extends Record<string, any>>(
     yPos += 10;
   }
 
-  // Prepare table data
+  // Prepare table data with PDF-safe formatting
   const headers = fields.map(field => field.label);
   const rows = data.map(row =>
-    fields.map(field => formatFieldValue(row[field.key], field))
+    fields.map(field => formatFieldValue(row[field.key], field, true))
   );
 
   // Add table
@@ -177,6 +202,7 @@ export const generateReportPDF = <T extends Record<string, any>>(
     styles: {
       fontSize: 9,
       cellPadding: 3,
+      font: 'helvetica',
     },
     headStyles: {
       fillColor: [59, 130, 246], // Blue
