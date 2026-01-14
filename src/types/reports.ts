@@ -115,6 +115,8 @@ export interface MatiereReportData {
   quantity: number;
   costPrice?: number;
   supplier?: string;
+  description?: string;
+  createdAt?: Date;
 }
 
 // Stock report types
