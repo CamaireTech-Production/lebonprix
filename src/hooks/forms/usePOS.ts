@@ -7,12 +7,13 @@ import { showSuccessToast, showErrorToast, showWarningToast } from '@utils/core/
 import { getCurrentEmployeeRef, formatCreatorName } from '@utils/business/employeeUtils';
 import { getUserById } from '@services/utilities/userService';
 import { validateSaleData, normalizeSaleData } from '@utils/calculations/saleUtils';
-import type { OrderStatus, Customer, Product} from '../../types/models';
+import type { OrderStatus, Customer, Product } from '../../types/models';
 import { logError } from '@utils/core/logger';
 import { normalizePhoneForComparison } from '@utils/core/phoneUtils';
 import { saveDraft as saveDraftToStorage, getDrafts, deleteDraft, type POSDraft } from '@utils/pos/posDraftStorage';
 import { useAllStockBatches } from '@hooks/business/useStockBatches';
 import { buildProductStockMap, getEffectiveProductStock } from '@utils/inventory/stockHelpers';
+import { useCheckoutSettings } from '@hooks/data/useCheckoutSettings';
 import type { POSPaymentData } from '../../components/pos/POSPaymentModal';
 
 export interface CartItem {
@@ -34,6 +35,8 @@ interface POSState {
   deliveryFee: number;
   status: OrderStatus;
   inventoryMethod: 'fifo' | 'lifo';
+  applyTVA: boolean;
+  tvaRate: number;
 }
 
 export function usePOS() {
@@ -44,6 +47,7 @@ export function usePOS() {
   const { activeSources } = useCustomerSources();
   const { user, company, currentEmployee, isOwner } = useAuth();
   const { batches: allBatches } = useAllStockBatches();
+  const { settings: checkoutSettings } = useCheckoutSettings();
 
   const [state, setState] = useState<POSState>({
     cart: [],
@@ -53,6 +57,8 @@ export function usePOS() {
     deliveryFee: 0,
     status: 'commande',
     inventoryMethod: 'fifo',
+    applyTVA: false,
+    tvaRate: 19.24,
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -104,10 +110,11 @@ export function usePOS() {
       return sum + (price * item.quantity);
     }, 0);
     
-    const total = subtotal + state.deliveryFee;
+    const tvaAmount = state.applyTVA ? subtotal * (state.tvaRate / 100) : 0;
+    const total = subtotal + state.deliveryFee + tvaAmount;
     
-    return { subtotal, total };
-  }, [state.cart, state.deliveryFee]);
+    return { subtotal, tvaAmount, total };
+  }, [state.cart, state.deliveryFee, state.applyTVA, state.tvaRate]);
 
   // Add product to cart
   const addToCart = useCallback((product: Product, quantity: number = 1, negotiatedPrice?: number) => {
@@ -243,7 +250,7 @@ export function usePOS() {
     setState(prev => ({
       ...prev,
       customer: {
-        name: t('sales.modals.add.customerInfo.divers'),
+        name: 'Client de passage',
         phone: '',
         quarter: '',
       },
@@ -259,6 +266,11 @@ export function usePOS() {
       customer: null,
     }));
     setCustomerSearch('');
+  }, []);
+
+  // Toggle TVA
+  const toggleTVA = useCallback((apply: boolean) => {
+    setState(prev => ({ ...prev, applyTVA: apply }));
   }, []);
 
   // Update state
@@ -308,7 +320,7 @@ export function usePOS() {
         address: '',
         town: '',
       } : {
-        name: t('sales.modals.add.customerInfo.divers'),
+        name: 'Client de passage',
         phone: '',
         quarter: '',
         address: '',
@@ -317,8 +329,8 @@ export function usePOS() {
 
       // Calculate final total with discount and tax
       const discountAmount = paymentData?.discountValue || 0;
-      const taxAmount = paymentData?.tax || 0;
-      const finalTotal = cartTotals.subtotal + (paymentData?.deliveryFee ?? state.deliveryFee) - discountAmount + taxAmount;
+      const tvaAmount = state.applyTVA ? cartTotals.subtotal * (state.tvaRate / 100) : 0;
+      const finalTotal = cartTotals.subtotal + (paymentData?.deliveryFee ?? state.deliveryFee) - discountAmount + tvaAmount;
 
       // Prepare raw sale data for validation
       // Note: products will be enriched with costPrice, profit, profitMargin by createSale
@@ -332,7 +344,7 @@ export function usePOS() {
           ? 'paid' as const 
           : 'pending' as const,
         customerInfo: {
-          name: customerInfo.name || t('sales.modals.add.customerInfo.divers'),
+          name: customerInfo.name || 'Client de passage',
           phone: customerInfo.phone || '',
           quarter: customerInfo.quarter || '',
         },
@@ -343,6 +355,9 @@ export function usePOS() {
         paymentMethod: paymentData?.paymentMethod || '',
         transactionReference: paymentData?.transactionReference || '',
         notes: paymentData?.notes || '',
+        tax: tvaAmount, // TVA amount
+        tvaRate: state.applyTVA ? state.tvaRate : 0, // TVA percentage rate
+        tvaApplied: state.applyTVA, // Whether TVA was applied
       };
 
       // Validate sale data with translations
@@ -369,25 +384,28 @@ export function usePOS() {
 
       const newSale = await addSale(normalizedData, createdBy);
 
-      // Auto-save customer if enabled (phone is optional for POS)
-      if (autoSaveCustomer && customerInfo.name && company?.id) {
+      // Auto-save customer if enabled (only when phone is provided)
+      if (autoSaveCustomer && customerInfo.phone && company?.id) {
         try {
           // Only check for existing customer if phone is provided
-          const existing = customerInfo.phone ? customers.find(c => 
+          const existing = customers.find(c => 
             c.phone && normalizePhoneForComparison(c.phone) === normalizePhoneForComparison(customerInfo.phone)
-          ) : null;
+          );
 
           if (!existing) {
             await addCustomer({
-              phone: customerInfo.phone || '',
-              name: customerInfo.name,
+              phone: customerInfo.phone,
+              name: customerInfo.name || 'Divers',
               quarter: customerInfo.quarter || paymentData?.customerQuarter || '',
               address: customerInfo.address || paymentData?.customerAddress || '',
               town: customerInfo.town || paymentData?.customerTown || '',
               customerSourceId: paymentData?.customerSourceId || state.customer?.sourceId || '',
               userId: user.uid,
               companyId: company.id,
-              createdAt: new Date(),
+              createdAt: {
+                seconds: Math.floor(Date.now() / 1000),
+                nanoseconds: (Date.now() % 1000) * 1000000
+              },
             });
           }
         } catch (error: any) {
@@ -457,8 +475,8 @@ export function usePOS() {
 
       // Calculate final total with discount and tax
       const discountAmount = paymentData?.discountValue || 0;
-      const taxAmount = paymentData?.tax || 0;
-      const finalTotal = cartTotals.subtotal + (paymentData?.deliveryFee ?? state.deliveryFee) - discountAmount + taxAmount;
+      const tvaAmount = state.applyTVA ? cartTotals.subtotal * (state.tvaRate / 100) : 0;
+      const finalTotal = cartTotals.subtotal + (paymentData?.deliveryFee ?? state.deliveryFee) - discountAmount + tvaAmount;
 
       // Get createdBy employee reference for metadata
       let createdBy: { id: string; name: string } | null = null;
@@ -517,25 +535,28 @@ export function usePOS() {
         }
       );
 
-      // Auto-save customer if enabled (phone is optional for POS)
-      if (autoSaveCustomer && customerInfo && customerInfo.name && company?.id) {
+      // Auto-save customer if enabled (only when phone is provided)
+      if (autoSaveCustomer && customerInfo && customerInfo.phone && company?.id) {
         try {
           // Only check for existing customer if phone is provided
-          const existing = customerInfo.phone ? customers.find(c => 
+          const existing = customers.find(c => 
             c.phone && normalizePhoneForComparison(c.phone) === normalizePhoneForComparison(customerInfo.phone)
-          ) : null;
+          );
 
           if (!existing) {
             await addCustomer({
-              phone: customerInfo.phone || '',
-              name: customerInfo.name,
+              phone: customerInfo.phone,
+              name: customerInfo.name || 'Divers',
               quarter: customerInfo.quarter || '',
               address: customerInfo.address || '',
               town: customerInfo.town || '',
               customerSourceId: customerInfo.sourceId || '',
               userId: user.uid,
               companyId: company.id,
-              createdAt: new Date(),
+              createdAt: {
+                seconds: Math.floor(Date.now() / 1000),
+                nanoseconds: (Date.now() % 1000) * 1000000
+              },
             });
           }
         } catch (error: any) {
@@ -591,7 +612,10 @@ export function usePOS() {
           customerSourceId: draft.customer.sourceId,
           userId: user?.uid || '',
           companyId: company?.id || '',
-          createdAt: new Date(),
+          createdAt: {
+            seconds: Math.floor(Date.now() / 1000),
+            nanoseconds: (Date.now() % 1000) * 1000000
+          },
         };
         selectCustomer(tempCustomer);
       } else {
@@ -671,6 +695,8 @@ export function usePOS() {
     deliveryFee: state.deliveryFee,
     status: state.status,
     inventoryMethod: state.inventoryMethod,
+    applyTVA: state.applyTVA,
+    tvaRate: state.tvaRate,
     filteredProducts,
     cartTotals,
     isSubmitting,
@@ -680,6 +706,7 @@ export function usePOS() {
     customers,
     activeSources,
     products,
+    checkoutSettings,
 
     // Refs
     searchInputRef,
@@ -696,6 +723,7 @@ export function usePOS() {
     clearCustomer,
     handleCustomerSearch,
     updateState,
+    toggleTVA,
     completeSale,
     saveDraft,
     resumeDraft,

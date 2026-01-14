@@ -7,7 +7,7 @@ import { showSuccessToast, showErrorToast, showWarningToast } from '@utils/core/
 import { getCurrentEmployeeRef } from '@utils/business/employeeUtils';
 import { getUserById } from '@services/utilities/userService';
 import { validateSaleData, normalizeSaleData } from '@utils/calculations/saleUtils';
-import type { OrderStatus, SaleProduct, Customer, Product, Sale } from '../types/models';
+import type { OrderStatus, SaleProduct, Customer, Product, Sale } from '../../types/models';
 import { logError } from '@utils/core/logger';
 import { normalizePhoneForComparison } from '@utils/core/phoneUtils';
 import { useAllStockBatches } from '@hooks/business/useStockBatches';
@@ -38,7 +38,7 @@ interface FormState {
   products: FormProduct[];
 }
 
-export function useAddSaleForm(onSaleAdded?: (sale: Sale) => void) {
+export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
   const { t } = useTranslation();
   const { addSale } = useSales();
   const { products } = useProducts();

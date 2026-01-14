@@ -72,12 +72,15 @@ export const printPOSBillDirect = (
     // Get discount amount (can be from discountValue field or calculated)
     const discountAmount = (sale as any).discountValue || 0;
     
-    // Get tax amount
-    const taxAmount = (sale as any).tax || 0;
+    // Get TVA amount
+    const tvaAmount = (sale as any).tvaApplied ? (sale as any).tax || 0 : 0;
     
-    // Calculate total: subtotal + deliveryFee - discount + tax
-    // If totalAmount is already set, use it (it should already include discount and tax)
-    const total = sale.totalAmount || (subtotal + (sale.deliveryFee || 0) - discountAmount + taxAmount);
+    // Get other tax amount
+    const taxAmount = (sale as any).tvaApplied ? 0 : ((sale as any).tax || 0);
+    
+    // Calculate total: subtotal + deliveryFee - discount + TVA + other tax
+    // If totalAmount is already set, use it (it should already include discount and taxes)
+    const total = sale.totalAmount || (subtotal + (sale.deliveryFee || 0) - discountAmount + tvaAmount + taxAmount);
 
     // Get payment method and amount received for change calculation
     const salePaymentMethod = paymentMethod || (sale as any).paymentMethod || 'cash';
@@ -298,6 +301,12 @@ export const printPOSBillDirect = (
               <span>Subtotal:</span>
               <span>${subtotal.toLocaleString()} XAF</span>
             </div>
+            ${(sale as any).tvaApplied && tvaAmount > 0 ? `
+            <div class="total-row">
+              <span>TVA (${((sale as any).tvaRate || 19.24)}%):</span>
+              <span>${tvaAmount.toLocaleString()} XAF</span>
+            </div>
+            ` : ''}
             ${sale.deliveryFee && sale.deliveryFee > 0 ? `
             <div class="total-row">
               <span>Delivery Fee:</span>
