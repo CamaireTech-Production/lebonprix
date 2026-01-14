@@ -424,12 +424,15 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
         deliveryFee: deliveryFee,
         discountType: discountType,
         discountValue: discountAmount,
+        discountOriginalValue: discountValue ? parseFloat(discountValue) : undefined,
         tax: taxAmount,
+        paymentMethod: paymentMethod,
+        amountReceived: paymentMethod === 'cash' && amountReceived ? parseFloat(amountReceived) : undefined,
         createdAt: { seconds: Math.floor(new Date(saleDate).getTime() / 1000), nanoseconds: 0 },
       };
 
       // Use direct print (browser print dialog)
-      printPOSBillDirect(tempSale as any, products || [], company);
+      printPOSBillDirect(tempSale as any, products || [], company, paymentMethod);
     } catch (error) {
       console.error('Error printing bill:', error);
       showErrorToast(t('pos.payment.printError') || 'Failed to print bill');
@@ -560,10 +563,25 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
                 </tbody>
               </table>
               <hr style="border-top: 1px dashed #000; margin: 10px 0;">
-              <p style="text-align: right;"><strong>Sous-total:</strong> ${subtotal.toLocaleString()} XAF</p>
+              <p style="text-align: right;"><strong>Sous-total:</strong> ${(() => {
+                // Calculate subtotal from completed sale products instead of current cart
+                const saleSubtotal = completedSale.products?.reduce((sum: number, item: any) => {
+                  const itemPrice = item.negotiatedPrice || item.basePrice;
+                  return sum + (itemPrice * item.quantity);
+                }, 0) || 0;
+                return saleSubtotal.toLocaleString();
+              })()} XAF</p>
               ${completedSale.deliveryFee > 0 ? `<p style="text-align: right;"><strong>Frais de livraison:</strong> ${completedSale.deliveryFee.toLocaleString()} XAF</p>` : ''}
-              ${discountAmount > 0 ? `<p style="text-align: right;"><strong>Remise:</strong> -${discountAmount.toLocaleString()} XAF</p>` : ''}
-              ${taxAmount > 0 ? `<p style="text-align: right;"><strong>Taxe:</strong> ${taxAmount.toLocaleString()} XAF</p>` : ''}
+              ${(() => {
+                // Calculate discount from completed sale data
+                const saleDiscountAmount = completedSale.discountValue || 0;
+                return saleDiscountAmount > 0 ? `<p style="text-align: right;"><strong>Remise:</strong> -${saleDiscountAmount.toLocaleString()} XAF</p>` : '';
+              })()}
+              ${(() => {
+                // Calculate tax from completed sale data
+                const saleTaxAmount = completedSale.tax || 0;
+                return saleTaxAmount > 0 ? `<p style="text-align: right;"><strong>Taxe:</strong> ${saleTaxAmount.toLocaleString()} XAF</p>` : '';
+              })()}
               <h3 style="text-align: right; margin-top: 10px;">Total: ${completedSale.totalAmount?.toLocaleString() || total.toLocaleString()} XAF</h3>
               ${paymentMethod === 'cash' && amountReceived && parseFloat(amountReceived) !== (completedSale.totalAmount || total) ? `<p style="text-align: right;"><strong>Montant reçu:</strong> ${parseFloat(amountReceived).toLocaleString()} XAF</p>` : ''}
               ${(() => {
@@ -718,7 +736,14 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
                   <div className="w-64 space-y-2">
                     <div className="flex justify-between text-sm">
                       <span>{t('pos.payment.subtotal')}:</span>
-                      <span>{formatPrice(subtotal)} XAF</span>
+                      <span>{(() => {
+                        // Calculate subtotal from completed sale products instead of current cart
+                        const saleSubtotal = completedSale.products?.reduce((sum: number, item: any) => {
+                          const itemPrice = item.negotiatedPrice || item.basePrice;
+                          return sum + (itemPrice * item.quantity);
+                        }, 0) || 0;
+                        return formatPrice(saleSubtotal);
+                      })()} XAF</span>
                     </div>
                     {completedSale.deliveryFee > 0 && (
                       <div className="flex justify-between text-sm">
@@ -726,18 +751,26 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
                         <span>{formatPrice(completedSale.deliveryFee)} XAF</span>
                       </div>
                     )}
-                    {discountAmount > 0 && (
-                      <div className="flex justify-between text-sm text-red-600">
-                        <span>{t('pos.payment.discount')}:</span>
-                        <span>-{formatPrice(discountAmount)} XAF</span>
-                      </div>
-                    )}
-                    {taxAmount > 0 && (
-                      <div className="flex justify-between text-sm">
-                        <span>{t('pos.payment.tax')}:</span>
-                        <span>{formatPrice(taxAmount)} XAF</span>
-                      </div>
-                    )}
+                    {(() => {
+                      // Calculate discount from completed sale data
+                      const saleDiscountAmount = completedSale.discountValue || 0;
+                      return saleDiscountAmount > 0 ? (
+                        <div className="flex justify-between text-sm text-red-600">
+                          <span>{t('pos.payment.discount')}:</span>
+                          <span>-{formatPrice(saleDiscountAmount)} XAF</span>
+                        </div>
+                      ) : null;
+                    })()}
+                    {(() => {
+                      // Calculate tax from completed sale data
+                      const saleTaxAmount = completedSale.tax || 0;
+                      return saleTaxAmount > 0 ? (
+                        <div className="flex justify-between text-sm">
+                          <span>{t('pos.payment.tax')}:</span>
+                          <span>{formatPrice(saleTaxAmount)} XAF</span>
+                        </div>
+                      ) : null;
+                    })()}
                     <div className="flex justify-between text-xl font-bold pt-2 border-t border-gray-300" style={{ color: colors.primary }}>
                       <span>{t('pos.payment.totalAmount')}:</span>
                       <span>{formatPrice(completedSale.totalAmount || total)} XAF</span>

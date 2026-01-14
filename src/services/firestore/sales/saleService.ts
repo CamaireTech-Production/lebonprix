@@ -24,6 +24,7 @@ import { createAuditLog } from '../shared';
 // Temporary imports from firestore.ts - will be moved to stock/ and finance/ later
 // These functions will be imported from their respective services after refactoring
 const getAvailableStockBatches = async (productId: string, companyId: string): Promise<StockBatch[]> => {
+  // Query without isDeleted filter to get all batches (including old ones without field)
   const q = query(
     collection(db, 'stockBatches'),
     where('companyId', '==', companyId),
@@ -31,11 +32,14 @@ const getAvailableStockBatches = async (productId: string, companyId: string): P
     where('productId', '==', productId),
     where('remainingQuantity', '>', 0),
     where('status', '==', 'active'),
-    where('isDeleted', '!=', true), // Exclude deleted batches
     orderBy('createdAt', 'asc')
   );
+  
   const snapshot = await getDocs(q);
-  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as StockBatch[];
+  const allBatches = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as StockBatch[];
+  
+  // Filter client-side to exclude only explicitly deleted batches (like useAllStockBatches does)
+  return allBatches.filter(batch => batch.isDeleted !== true);
 };
 
 const consumeStockFromBatches = async (
@@ -270,6 +274,7 @@ export const createSale = async (
       // Check stock from batches (source of truth)
       const availableBatches = await getAvailableStockBatches(product.productId, companyId);
       const availableStock = availableBatches.reduce((sum, b) => sum + (b.remainingQuantity || 0), 0);
+      
       if (availableStock < product.quantity) {
         throw new Error(`Insufficient stock for product ${productData.name}. Available: ${availableStock}, Requested: ${product.quantity}`);
       }

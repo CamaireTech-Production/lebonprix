@@ -123,12 +123,15 @@ export const getAvailableStockBatches = async (productId: string): Promise<Stock
     where('productId', '==', productId),
     where('remainingQuantity', '>', 0),
     where('status', '==', 'active'),
-    where('isDeleted', '!=', true), // Exclude deleted batches
+    // Removed isDeleted filter - will filter client-side
     orderBy('createdAt', 'asc')
   );
   
   const snapshot = await getDocs(q);
-  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as StockBatch[];
+  const allBatches = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as StockBatch[];
+  
+  // Filter client-side to exclude only explicitly deleted batches
+  return allBatches.filter(batch => batch.isDeleted !== true);
 };
 
 /**
@@ -1736,7 +1739,7 @@ export const useSales = () => {
   useEffect(() => {
     // This hook cannot work without companyId - it's legacy code
     // The proper hook is in hooks/useFirestore.ts
-    console.warn('useSales from firestore.ts is deprecated. Use the one from hooks/useFirestore.ts');
+    console.log('useSales from firestore.ts is deprecated. Use the one from hooks/useFirestore.ts');
     // eslint-disable-next-line @typescript-eslint/no-empty-function
     return () => {};
   }, []);
