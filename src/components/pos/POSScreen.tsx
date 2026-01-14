@@ -187,6 +187,7 @@ export const POSScreen: React.FC = () => {
         onSaveDraft={handleSaveDraft}
         isSubmitting={isSubmitting}
         checkoutSettings={checkoutSettings}
+        customers={customers}
       />
     </div>
   );

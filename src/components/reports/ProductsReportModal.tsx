@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FileDown, Filter, Eye, Download } from 'lucide-react';
+import { Eye, Download } from 'lucide-react';
 import Modal from '../common/Modal';
 import Button from '../common/Button';
 import DateRangePicker from './DateRangePicker';
@@ -44,6 +44,7 @@ const ProductsReportModal: React.FC<ProductsReportModalProps> = ({
 }) => {
   // Report configuration state
   const [reportFormat, setReportFormat] = useState<ReportFormat>('csv');
+  const [periodType, setPeriodType] = useState<'all' | 'today' | 'week' | 'month' | 'year' | 'custom'>('all');
   const [dateRange, setDateRange] = useState<DateRangeFilter>({
     startDate: null,
     endDate: null
@@ -63,6 +64,7 @@ const ProductsReportModal: React.FC<ProductsReportModalProps> = ({
   const [showPreview, setShowPreview] = useState(false);
   const [previewData, setPreviewData] = useState<ProductReportData[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
   // Get unique category and supplier names
   const categoryNames = categories
@@ -179,7 +181,45 @@ const ProductsReportModal: React.FC<ProductsReportModalProps> = ({
     setShowPreview(!showPreview);
   };
 
+  const handlePeriodChange = (period: 'all' | 'today' | 'week' | 'month' | 'year' | 'custom') => {
+    setPeriodType(period);
+
+    const now = new Date();
+    let startDate: Date | null = null;
+    let endDate: Date | null = null;
+
+    switch (period) {
+      case 'today':
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+        break;
+      case 'week':
+        const startOfWeek = new Date(now);
+        startOfWeek.setDate(now.getDate() - now.getDay());
+        startOfWeek.setHours(0, 0, 0, 0);
+        startDate = startOfWeek;
+        endDate = new Date();
+        break;
+      case 'month':
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        endDate = new Date();
+        break;
+      case 'year':
+        startDate = new Date(now.getFullYear(), 0, 1);
+        endDate = new Date();
+        break;
+      case 'all':
+      case 'custom':
+        startDate = null;
+        endDate = null;
+        break;
+    }
+
+    setDateRange({ startDate, endDate });
+  };
+
   const resetFilters = () => {
+    setPeriodType('all');
     setDateRange({ startDate: null, endDate: null });
     setSelectedCategories([]);
     setSelectedSuppliers([]);
@@ -225,26 +265,75 @@ const ProductsReportModal: React.FC<ProductsReportModalProps> = ({
           </div>
         </div>
 
-        {/* Date Range Filter */}
-        <DateRangePicker
-          dateRange={dateRange}
-          onChange={setDateRange}
-          label="Période de création"
-        />
+        {/* Period Selection */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Période de création
+          </label>
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 mb-3">
+            {[
+              { value: 'all', label: 'Tout' },
+              { value: 'today', label: 'Aujourd\'hui' },
+              { value: 'week', label: 'Cette semaine' },
+              { value: 'month', label: 'Ce mois' },
+              { value: 'year', label: 'Cette année' },
+              { value: 'custom', label: 'Personnalisé' }
+            ].map(period => (
+              <button
+                key={period.value}
+                onClick={() => handlePeriodChange(period.value as any)}
+                className={`px-3 py-2 rounded-md text-xs font-medium transition-colors ${
+                  periodType === period.value
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                {period.label}
+              </button>
+            ))}
+          </div>
 
-        {/* Filters Section */}
-        <div className="border border-gray-200 rounded-md p-4 space-y-4 bg-gray-50">
-          <div className="flex items-center justify-between">
+          {/* Custom Date Range */}
+          {periodType === 'custom' && (
+            <DateRangePicker
+              dateRange={dateRange}
+              onChange={setDateRange}
+              label=""
+            />
+          )}
+        </div>
+
+        {/* Advanced Filters Section */}
+        <div className="border border-gray-200 rounded-md bg-gray-50">
+          <button
+            onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+            className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-gray-100 transition-colors"
+          >
             <h4 className="text-sm font-medium text-gray-700">
               Filtres avancés
             </h4>
-            <button
-              onClick={resetFilters}
-              className="text-xs text-emerald-600 hover:text-emerald-700 font-medium"
+            <svg
+              className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${
+                showAdvancedFilters ? 'rotate-180' : ''
+              }`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
             >
-              Réinitialiser
-            </button>
-          </div>
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          
+          {showAdvancedFilters && (
+            <div className="px-4 pb-4 space-y-4 border-t border-gray-200">
+              <div className="flex justify-end pt-3">
+                <button
+                  onClick={resetFilters}
+                  className="text-xs text-emerald-600 hover:text-emerald-700 font-medium"
+                >
+                  Réinitialiser
+                </button>
+              </div>
 
           {/* Category Filter */}
           {categoryNames.length > 0 && (
@@ -359,6 +448,8 @@ const ProductsReportModal: React.FC<ProductsReportModalProps> = ({
               ))}
             </div>
           </div>
+            </div>
+          )}
         </div>
 
         {/* Field Selection */}
@@ -406,8 +497,8 @@ const ProductsReportModal: React.FC<ProductsReportModalProps> = ({
           <Button
             onClick={handleTogglePreview}
             variant="outline"
+            icon={<Eye className="w-4 h-4" />}
           >
-            <Eye className="w-4 h-4 mr-2" />
             {showPreview ? 'Masquer l\'aperçu' : 'Aperçu'}
           </Button>
 
@@ -421,18 +512,13 @@ const ProductsReportModal: React.FC<ProductsReportModalProps> = ({
             <Button
               onClick={handleGenerateReport}
               disabled={isGenerating || selectedFields.length === 0}
-            >
-              {isGenerating ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2" />
-                  Génération...
-                </>
+              icon={isGenerating ? (
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
               ) : (
-                <>
-                  <Download className="w-4 h-4 mr-2" />
-                  Générer
-                </>
+                <Download className="w-4 h-4" />
               )}
+            >
+              {isGenerating ? 'Génération...' : 'Générer'}
             </Button>
           </div>
         </div>
