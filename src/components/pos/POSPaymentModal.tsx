@@ -66,6 +66,9 @@ interface POSPaymentModalProps {
     posCalculatorEnabled: boolean;
   } | null;
   customers?: Customer[];
+  applyTVA?: boolean;
+  tvaRate?: number;
+  onTVAToggle?: (apply: boolean) => void;
 }
 
 export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
@@ -80,6 +83,9 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
   isSubmitting,
   checkoutSettings,
   customers,
+  applyTVA = false,
+  tvaRate = 19.24,
+  onTVAToggle,
 }) => {
   // ✅ ALL HOOKS MUST BE CALLED FIRST - BEFORE ANY CONDITIONAL RETURNS
   const { t } = useTranslation();
@@ -305,8 +311,14 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
       : (subtotal * parseFloat(discountValue)) / 100
   ) : 0;
   
+  // Calculate tax amount (other taxes, not TVA)
   const taxAmount = tax ? parseFloat(tax) : 0;
-  const total = subtotal + deliveryFee - discountAmount + taxAmount;
+  
+  // Calculate TVA amount
+  const tvaAmount = applyTVA ? (subtotal * (tvaRate / 100)) : 0;
+  
+  // Calculate total: subtotal + deliveryFee - discount + TVA + other tax
+  const total = subtotal + (completedSale?.deliveryFee || 0) - discountAmount + tvaAmount + taxAmount;
   // Calculate change: if no amount received entered, assume exact amount (change = 0)
   // If amount received > total, calculate change
   const change = paymentMethod === 'cash' && amountReceived && parseFloat(amountReceived) > total
@@ -357,7 +369,7 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
       discountType: discountValue ? discountType : undefined,
       discountValue: discountValue ? parseFloat(discountValue) : undefined,
       promoCode: promoCode || '',
-      tax: tax ? parseFloat(tax) : undefined,
+      tax: applyTVA ? (subtotal * (tvaRate / 100)) : (tax ? parseFloat(tax) : undefined),
       notes: notes || '',
       printReceipt,
     };
@@ -634,10 +646,11 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
               </table>
               <hr style="border-top: 1px dashed #000; margin: 10px 0;">
               <p style="text-align: right;"><strong>Sous-total:</strong> ${subtotal.toLocaleString()} XAF</p>
-              ${completedSale.deliveryFee > 0 ? `<p style="text-align: right;"><strong>Frais de livraison:</strong> ${completedSale.deliveryFee.toLocaleString()} XAF</p>` : ''}
+              ${completedSale?.deliveryFee && completedSale.deliveryFee > 0 ? `<p style="text-align: right;"><strong>Frais de livraison:</strong> ${completedSale.deliveryFee.toLocaleString()} XAF</p>` : ''}
+              ${applyTVA ? `<p style="text-align: right;"><strong>TVA (${tvaRate}%):</strong> ${formatPrice(subtotal * (tvaRate / 100))} XAF</p>` : ''}
               ${discountAmount > 0 ? `<p style="text-align: right;"><strong>Remise:</strong> -${discountAmount.toLocaleString()} XAF</p>` : ''}
               ${taxAmount > 0 ? `<p style="text-align: right;"><strong>Taxe:</strong> ${taxAmount.toLocaleString()} XAF</p>` : ''}
-              <h3 style="text-align: right; margin-top: 10px;">Total: ${completedSale.totalAmount?.toLocaleString() || total.toLocaleString()} XAF</h3>
+              <h3 style="text-align: right; margin-top: 10px;">Total: ${(subtotal + (completedSale?.deliveryFee || 0) + (applyTVA ? (subtotal * (tvaRate / 100)) : 0) - discountAmount + taxAmount).toLocaleString()} XAF</h3>
               ${paymentMethod === 'cash' && amountReceived && parseFloat(amountReceived) !== (completedSale.totalAmount || total) ? `<p style="text-align: right;"><strong>Montant reçu:</strong> ${parseFloat(amountReceived).toLocaleString()} XAF</p>` : ''}
               ${(() => {
                 if (paymentMethod === 'cash' && amountReceived) {
@@ -799,6 +812,12 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
                         <span>{formatPrice(completedSale.deliveryFee)} XAF</span>
                       </div>
                     )}
+                    {applyTVA && (
+                      <div className="flex justify-between text-sm">
+                        <span>TVA ({tvaRate}%):</span>
+                        <span>{formatPrice(subtotal * (tvaRate / 100))} XAF</span>
+                      </div>
+                    )}
                     {discountAmount > 0 && (
                       <div className="flex justify-between text-sm text-red-600">
                         <span>{t('pos.payment.discount')}:</span>
@@ -958,6 +977,12 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
                     <span className="text-gray-600">{t('pos.payment.deliveryFee')}</span>
                     <span className="font-semibold">{formatPrice(deliveryFee)} XAF</span>
                   </div>
+                  {applyTVA && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">TVA ({tvaRate}%)</span>
+                      <span className="font-semibold">{formatPrice(subtotal * (tvaRate / 100))} XAF</span>
+                    </div>
+                  )}
                   {discountAmount > 0 && (
                     <div className="flex justify-between">
                       <span className="text-gray-600">{t('pos.payment.discount')}</span>
@@ -1417,6 +1442,28 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
                   <div className="border border-gray-200 rounded-lg p-4">
                     <h3 className="text-lg font-semibold mb-4">{t('pos.payment.additionalOptions')}</h3>
                     <div className="space-y-4">
+                      {/* TVA Toggle */}
+                      <div className="flex items-center justify-between">
+                        <label className="text-sm font-medium text-gray-700">TVA Cameroun ({tvaRate}%):</label>
+                        <button
+                          onClick={() => onTVAToggle && onTVAToggle(!applyTVA)}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                            applyTVA ? 'bg-emerald-600' : 'bg-gray-200'
+                          }`}
+                        >
+                          <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                            applyTVA ? 'translate-x-6' : 'translate-x-1'
+                          }`} />
+                        </button>
+                      </div>
+                      
+                      {/* TVA Amount Display */}
+                      {applyTVA && (
+                        <div className="text-sm text-gray-600">
+                          TVA: {formatPrice(subtotal * (tvaRate / 100))} XAF
+                        </div>
+                      )}
+                      
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                           {t('pos.payment.tax')}

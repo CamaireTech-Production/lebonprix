@@ -12,7 +12,8 @@ import {
   Info,
   ChevronsLeft,
   ChevronLeft,
-  ChevronsRight
+  ChevronsRight,
+  FileText
 } from 'lucide-react';
 import Select from 'react-select';
 import { Modal, ModalFooter, Input, PriceInput, Badge, Button, Card, ImageWithSkeleton, LoadingScreen, SyncIndicator, DateRangePicker } from '@components/common';
@@ -38,6 +39,7 @@ import { createPortal } from 'react-dom';
 import AddSaleModal from '../../components/sales/AddSaleModal';
 import SaleDetailsModal from '../../components/sales/SaleDetailsModal';
 import ProfitDetailsModal from '../../components/sales/ProfitDetailsModal';
+import SalesReportModal from '../../components/reports/SalesReportModal';
 import { format } from 'date-fns';
 
 interface FormProduct {
@@ -91,6 +93,7 @@ const Sales: React.FC = () => {
   const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isProfitModalOpen, setIsProfitModalOpen] = useState(false);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [currentSale, setCurrentSale] = useState<Sale | null>(null);
   const [viewedSale, setViewedSale] = useState<Sale | null>(null);
   const [profitSale, setProfitSale] = useState<Sale | null>(null);
@@ -799,6 +802,13 @@ const Sales: React.FC = () => {
             <option value="under_delivery">{t('sales.filters.status.under_delivery')}</option>
             <option value="paid">{t('sales.filters.status.paid')}</option>
           </select>
+          <Button
+            icon={<FileText size={16} />}
+            onClick={() => setIsReportModalOpen(true)}
+            variant="outline"
+          >
+            Générer un rapport
+          </Button>
           <Button icon={<Plus size={16} />} onClick={() => setIsAddModalOpen(true)}>
             {t('sales.actions.addSale')}
           </Button>
@@ -1292,6 +1302,15 @@ const Sales: React.FC = () => {
         onClose={() => setIsProfitModalOpen(false)}
         sale={profitSale}
         products={products || []}
+      />
+
+      <SalesReportModal
+        isOpen={isReportModalOpen}
+        onClose={() => setIsReportModalOpen(false)}
+        sales={sales}
+        products={products}
+        companyName={company?.name}
+        companyLogo={company?.logo}
       />
     </div>
   );

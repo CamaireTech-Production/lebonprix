@@ -16,14 +16,17 @@ import {
   Legend,
   ChartOptions
 } from 'chart.js';
-import { useProducts, useSales, useExpenses, useCategories } from '@hooks/data/useFirestore';
+import { useProducts, useSales, useExpenses, useCategories, useSuppliers } from '@hooks/data/useFirestore';
 import { useCustomerSources } from '@hooks/business/useCustomerSources';
+import { useMatieres } from '@hooks/business/useMatieres';
+import { useAllStockBatches } from '@hooks/business/useStockBatches';
 import type { Timestamp, Product, Sale, Expense } from '../../types/models';
 import ComparisonIndicator from '../../components/reports/ComparisonIndicator';
 import KPICard from '../../components/reports/KPICard';
 import QuickReportsBar from '../../components/reports/QuickReportsBar';
 import SavedReportsManager, { SavedReport } from '../../components/reports/SavedReportsManager';
 import AllProductsSold from '../../components/reports/AllProductsSold';
+import ConsolidatedReportModal from '../../components/reports/ConsolidatedReportModal';
 import { useAuth } from '@contexts/AuthContext';
 import { logWarning } from '@utils/core/logger';
 import { formatPrice } from '@utils/formatting/formatPrice';
@@ -79,8 +82,14 @@ const Reports = () => {
   const { expenses } = useExpenses();
   const { products } = useProducts();
   const { categories } = useCategories();
+  const { suppliers } = useSuppliers();
+  const { matieres } = useMatieres();
+  const { batches: allStockBatches } = useAllStockBatches();
+  const { batches: matiereStockBatches } = useAllStockBatches('matiere');
   const { sources } = useCustomerSources();
   const { company } = useAuth();
+
+  const [showConsolidatedModal, setShowConsolidatedModal] = useState(false);
 
   const toDate = (ts?: Timestamp) => (ts?.seconds ? new Date(ts.seconds * 1000) : null);
   const start = useMemo(() => {
@@ -678,6 +687,7 @@ const Reports = () => {
       name: string;
       quantity: number;
       customers: Set<string>;
+      salesIds: Set<string>;
       totalSales: number;
       totalCOGS: number;
     }>();
@@ -701,12 +711,14 @@ const Reports = () => {
           name: product.name,
           quantity: 0,
           customers: new Set<string>(),
+          salesIds: new Set<string>(),
           totalSales: 0,
           totalCOGS: 0
         };
 
         entry.quantity += sp.quantity || 0;
         entry.customers.add(customerName);
+        entry.salesIds.add(s.id); // Track unique sales
 
         // Calculate total sales for this product
         const unitPrice = sp.negotiatedPrice || sp.basePrice || 0;
@@ -730,6 +742,7 @@ const Reports = () => {
         name: v.name,
         quantity: v.quantity,
         customersCount: v.customers.size,
+        salesCount: v.salesIds.size,
         totalSales: v.totalSales,
         grossProfit,
         profitMargin
@@ -866,31 +879,8 @@ const Reports = () => {
   }, [filteredSales]);
 
   const handleExport = () => {
-    // Enhanced CSV escaping function
-    const escapeCSV = (field: string): string => {
-      if (field.includes(',') || field.includes('"') || field.includes('\n')) {
-        return `"${field.replace(/"/g, '""')}"`;
-      }
-      return field;
-    };
-
-    const header = ['Date', 'Sales', 'Cost of Goods Sold', 'Expenses', 'Net Profit'];
-    const rows = dateKeys.map((key, i) => [
-      key,
-      String(series.salesData[i] || 0),
-      String(series.costOfGoodsSoldData[i] || 0),
-      String(series.expensesData[i] || 0),
-      String(series.profitData[i] || 0),
-    ]);
-    rows.push(['TOTAL', String(totalSales), String(totalCostOfGoodsSold), String(totalExpenses), String(netProfit)]);
-    const csv = [header, ...rows].map(r => r.map(escapeCSV).join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `report_${startDate}_to_${endDate}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    // Open the consolidated report modal instead of direct CSV export
+    setShowConsolidatedModal(true);
   };
 
   return (
@@ -1584,6 +1574,22 @@ const Reports = () => {
           </div>
         </div>
       </Card>
+
+      {/* Consolidated Report Modal */}
+      <ConsolidatedReportModal
+        isOpen={showConsolidatedModal}
+        onClose={() => setShowConsolidatedModal(false)}
+        products={products}
+        expenses={expenses}
+        sales={sales}
+        matieres={matieres}
+        categories={categories}
+        suppliers={suppliers}
+        productStockBatches={allStockBatches}
+        matiereStockBatches={matiereStockBatches}
+        companyName={company?.name}
+        companyLogo={company?.logo}
+      />
     </div>
   );
 };

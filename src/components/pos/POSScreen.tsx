@@ -23,14 +23,14 @@ export const POSScreen: React.FC = () => {
     searchQuery,
     selectedCategory,
     deliveryFee,
+    applyTVA,
+    tvaRate,
     filteredProducts,
     cartTotals,
     isSubmitting,
-    autoSaveCustomer,
     showCustomerDropdown,
     customerSearch,
     customers,
-    activeSources,
     searchInputRef,
     customerInputRef,
     addToCart,
@@ -43,6 +43,7 @@ export const POSScreen: React.FC = () => {
     clearCustomer,
     handleCustomerSearch,
     updateState,
+    toggleTVA,
     completeSale,
     saveDraft,
     resumeDraft,
@@ -50,8 +51,6 @@ export const POSScreen: React.FC = () => {
     deleteDraftById,
     handleBarcodeScan,
     focusSearch,
-    setAutoSaveCustomer,
-    setShowCustomerDropdown,
     stockMap,
     checkoutSettings,
   } = usePOS();
@@ -188,6 +187,9 @@ export const POSScreen: React.FC = () => {
         isSubmitting={isSubmitting}
         checkoutSettings={checkoutSettings}
         customers={customers}
+        applyTVA={applyTVA}
+        tvaRate={tvaRate}
+        onTVAToggle={toggleTVA}
       />
     </div>
   );

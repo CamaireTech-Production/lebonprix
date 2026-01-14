@@ -9,7 +9,7 @@ import { ReportField, ExportOptions } from '../../types/reports';
 /**
  * Format number with spaces for thousands separator (PDF-safe, no special characters)
  */
-const formatNumberForPDF = (value: number): string => {
+export const formatNumberForPDF = (value: number): string => {
   // Convert to integer string
   const numStr = Math.round(value).toString();
 

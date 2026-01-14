@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
-import { FileText, Package, DollarSign, ShoppingCart, Factory, Box, TrendingUp } from 'lucide-react';
+import { FileText, Package, DollarSign, ShoppingCart, Factory, Box, TrendingUp, Layers } from 'lucide-react';
 import { Card, Button } from '@components/common';
 import ProductsReportModal from '../../components/reports/ProductsReportModal';
 import ExpensesReportModal from '../../components/reports/ExpensesReportModal';
-import { useProducts, useExpenses, useSuppliers, useCategories } from '@hooks/data/useFirestore';
+import MatiereReportModal from '../../components/reports/MatiereReportModal';
+import ConsolidatedReportModal from '../../components/reports/ConsolidatedReportModal';
+import { useProducts, useExpenses, useSuppliers, useCategories, useSales } from '@hooks/data/useFirestore';
+import { useMatieres } from '@hooks/business/useMatieres';
 import { useAllStockBatches } from '@hooks/business/useStockBatches';
 import { useAuth } from '@contexts/AuthContext';
 
@@ -15,10 +18,15 @@ const ReportGeneration = () => {
   // Data hooks
   const { products } = useProducts();
   const { expenses } = useExpenses();
+  const { sales } = useSales();
+  const { matieres } = useMatieres();
   const { suppliers } = useSuppliers();
   const { categories } = useCategories();
   const { batches: allStockBatches } = useAllStockBatches();
+  const { batches: matiereStockBatches } = useAllStockBatches('matiere');
   const { company } = useAuth();
+
+  const [showConsolidatedModal, setShowConsolidatedModal] = useState(false);
 
   const reportModules = [
     {
@@ -51,7 +59,7 @@ const ReportGeneration = () => {
       description: 'État des stocks de matières premières et approvisionnement',
       icon: Box,
       color: 'amber',
-      available: false
+      available: true
     },
     {
       id: 'stocks' as ReportModule,
@@ -99,13 +107,24 @@ const ReportGeneration = () => {
     <div className="pb-16 md:pb-0">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-gray-900 flex items-center gap-2">
-          <FileText className="w-6 h-6" />
-          Génération de Rapports
-        </h1>
-        <p className="text-gray-600 mt-1">
-          Générez et exportez des rapports personnalisés pour chaque section de votre activité
-        </p>
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-semibold text-gray-900 flex items-center gap-2">
+              <FileText className="w-6 h-6" />
+              Génération de Rapports
+            </h1>
+            <p className="text-gray-600 mt-1">
+              Générez et exportez des rapports personnalisés pour chaque section de votre activité
+            </p>
+          </div>
+          <Button
+            onClick={() => setShowConsolidatedModal(true)}
+            icon={<Layers className="w-5 h-5" />}
+            className="whitespace-nowrap"
+          >
+            Rapport Consolidé
+          </Button>
+        </div>
       </div>
 
       {/* Report Modules Grid */}
@@ -209,8 +228,37 @@ const ReportGeneration = () => {
         />
       )}
 
+      {activeModal === 'matiere' && (
+        <MatiereReportModal
+          isOpen={true}
+          onClose={() => setActiveModal(null)}
+          matieres={matieres}
+          stockBatches={matiereStockBatches}
+          categories={categories}
+          suppliers={suppliers}
+          companyName={company?.name}
+          companyLogo={company?.logo}
+        />
+      )}
+
+      {/* Consolidated Report Modal */}
+      <ConsolidatedReportModal
+        isOpen={showConsolidatedModal}
+        onClose={() => setShowConsolidatedModal(false)}
+        products={products}
+        expenses={expenses}
+        sales={sales}
+        matieres={matieres}
+        categories={categories}
+        suppliers={suppliers}
+        productStockBatches={allStockBatches}
+        matiereStockBatches={matiereStockBatches}
+        companyName={company?.name}
+        companyLogo={company?.logo}
+      />
+
       {/* TODO: Add other report modals when implemented */}
-      {/* ProductionReportModal, MatiereReportModal, StocksReportModal, SalesReportModal */}
+      {/* ProductionReportModal, StocksReportModal, SalesReportModal */}
     </div>
   );
 };

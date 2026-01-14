@@ -9,6 +9,7 @@ interface ProductSoldData {
   name: string;
   quantity: number;
   customersCount: number;
+  salesCount: number;
   totalSales: number;
   profitMargin: number;
   grossProfit: number;
@@ -18,7 +19,7 @@ interface AllProductsSoldProps {
   productsData: ProductSoldData[];
 }
 
-type SortField = 'name' | 'quantity' | 'customersCount' | 'totalSales' | 'profitMargin';
+type SortField = 'name' | 'quantity' | 'customersCount' | 'salesCount' | 'totalSales' | 'profitMargin';
 type SortDirection = 'asc' | 'desc';
 
 const AllProductsSold = ({ productsData }: AllProductsSoldProps) => {
@@ -61,6 +62,10 @@ const AllProductsSold = ({ productsData }: AllProductsSoldProps) => {
         case 'customersCount':
           aValue = a.customersCount;
           bValue = b.customersCount;
+          break;
+        case 'salesCount':
+          aValue = a.salesCount;
+          bValue = b.salesCount;
           break;
         case 'totalSales':
           aValue = a.totalSales;
@@ -136,6 +141,7 @@ const AllProductsSold = ({ productsData }: AllProductsSoldProps) => {
     const header = [
       t('reports.tables.allProductsSold.product'),
       t('reports.tables.allProductsSold.quantity'),
+      t('reports.tables.allProductsSold.salesCount'),
       t('reports.tables.allProductsSold.customers'),
       t('reports.tables.allProductsSold.sales'),
       t('reports.tables.allProductsSold.profit'),
@@ -145,6 +151,7 @@ const AllProductsSold = ({ productsData }: AllProductsSoldProps) => {
     const rows = sortedProducts.map(p => [
       p.name,
       p.quantity,
+      p.salesCount,
       p.customersCount,
       `${p.totalSales} XAF`,
       `${p.grossProfit} XAF`,
@@ -277,6 +284,7 @@ const AllProductsSold = ({ productsData }: AllProductsSoldProps) => {
             onChange={(e) => setSortField(e.target.value as SortField)}
           >
             <option value="quantity">{t('reports.tables.allProductsSold.sortByQuantity')}</option>
+            <option value="salesCount">{t('reports.tables.allProductsSold.sortBySalesCount')}</option>
             <option value="totalSales">{t('reports.tables.allProductsSold.sortBySales')}</option>
             <option value="profitMargin">{t('reports.tables.allProductsSold.sortByMargin')}</option>
             <option value="customersCount">{t('reports.tables.allProductsSold.sortByCustomers')}</option>
@@ -328,6 +336,16 @@ const AllProductsSold = ({ productsData }: AllProductsSoldProps) => {
               <th
                 scope="col"
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                onClick={() => handleSort('salesCount')}
+              >
+                <div className="flex items-center">
+                  {t('reports.tables.allProductsSold.salesCount')}
+                  <SortIcon field="salesCount" />
+                </div>
+              </th>
+              <th
+                scope="col"
+                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                 onClick={() => handleSort('customersCount')}
               >
                 <div className="flex items-center">
@@ -366,7 +384,7 @@ const AllProductsSold = ({ productsData }: AllProductsSoldProps) => {
           <tbody className="bg-white divide-y divide-gray-200">
             {paginatedProducts.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-6 py-8 text-center text-sm text-gray-500">
+                <td colSpan={7} className="px-6 py-8 text-center text-sm text-gray-500">
                   {searchQuery
                     ? t('reports.tables.allProductsSold.noResults')
                     : t('reports.tables.allProductsSold.noData')
@@ -381,6 +399,9 @@ const AllProductsSold = ({ productsData }: AllProductsSoldProps) => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {product.quantity.toLocaleString()} {t('reports.tables.allProductsSold.units')}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {product.salesCount}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {product.customersCount}

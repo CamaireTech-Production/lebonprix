@@ -170,6 +170,9 @@ export interface Sale extends BaseModel {
   totalCost?: number;
   totalProfit?: number;
   averageProfitMargin?: number;
+  tax?: number; // TVA amount
+  tvaRate?: number; // TVA percentage rate
+  tvaApplied?: boolean; // Whether TVA was applied
 }
 
 export interface Expense extends BaseModel {
