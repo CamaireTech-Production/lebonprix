@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { FileText, Package, DollarSign, ShoppingCart, Factory, Box, TrendingUp } from 'lucide-react';
 import { Card, Button } from '@components/common';
 import ProductsReportModal from '../../components/reports/ProductsReportModal';
+import ExpensesReportModal from '../../components/reports/ExpensesReportModal';
 import { useProducts, useExpenses, useSuppliers, useCategories } from '@hooks/data/useFirestore';
 import { useAllStockBatches } from '@hooks/business/useStockBatches';
 import { useAuth } from '@contexts/AuthContext';
@@ -34,7 +35,7 @@ const ReportGeneration = () => {
       description: 'Exporter l\'historique des dépenses par catégorie et période',
       icon: DollarSign,
       color: 'red',
-      available: false
+      available: true
     },
     {
       id: 'production' as ReportModule,
@@ -197,8 +198,19 @@ const ReportGeneration = () => {
         />
       )}
 
+      {activeModal === 'expenses' && (
+        <ExpensesReportModal
+          isOpen={true}
+          onClose={() => setActiveModal(null)}
+          expenses={expenses}
+          categories={categories}
+          companyName={company?.name}
+          companyLogo={company?.logo}
+        />
+      )}
+
       {/* TODO: Add other report modals when implemented */}
-      {/* ExpensesReportModal, ProductionReportModal, etc. */}
+      {/* ProductionReportModal, MatiereReportModal, StocksReportModal, SalesReportModal */}
     </div>
   );
 };

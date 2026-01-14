@@ -1,15 +1,18 @@
 // src/pages/expenses/ExpensesList.tsx
 import { useState, useMemo } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, FileText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Card, Button, SyncIndicator, LoadingScreen } from '@components/common';
 import { useInfiniteExpenses } from '@hooks/data/useInfiniteExpenses';
 import { useInfiniteScroll } from '@hooks/data/useInfiniteScroll';
 import { useExpenseStats } from '@hooks/business/useExpenseStats';
+import { useCategories } from '@hooks/data/useFirestore';
+import { useAuth } from '@contexts/AuthContext';
 import ExpenseFilters from './shared/ExpenseFilters';
 import ExpenseTable from './shared/ExpenseTable';
 import ExpenseFormModal from './shared/ExpenseFormModal';
 import ExpenseDeleteModal from './shared/ExpenseDeleteModal';
+import ExpensesReportModal from '../../components/reports/ExpensesReportModal';
 import type { Expense } from '../../types/models';
 
 const ExpensesList = () => {
@@ -37,8 +40,13 @@ const ExpensesList = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [currentExpense, setCurrentExpense] = useState<Expense | null>(null);
   const [expenseToDelete, setExpenseToDelete] = useState<Expense | null>(null);
+
+  // Get categories and auth context for report
+  const { categories } = useCategories('product');
+  const { company } = useAuth();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>({
@@ -113,13 +121,22 @@ const ExpensesList = () => {
           <h1 className="text-2xl font-semibold text-gray-900">{t('expenses.title')}</h1>
           <p className="text-gray-600">{t('expenses.subtitle')}</p>
         </div>
-        
-        <Button 
-          icon={<Plus size={16} />}
-          onClick={() => setIsAddModalOpen(true)}
-        >
-          {t('expenses.actions.add')}
-        </Button>
+
+        <div className="flex gap-2 mt-4 md:mt-0">
+          <Button
+            icon={<FileText size={16} />}
+            onClick={() => setIsReportModalOpen(true)}
+            variant="outline"
+          >
+            Générer un rapport
+          </Button>
+          <Button
+            icon={<Plus size={16} />}
+            onClick={() => setIsAddModalOpen(true)}
+          >
+            {t('expenses.actions.add')}
+          </Button>
+        </div>
       </div>
 
       {/* Sync Indicator */}
@@ -225,6 +242,15 @@ const ExpensesList = () => {
           setExpenseToDelete(null);
         }}
         onSuccess={handleDeleteSuccess}
+      />
+
+      <ExpensesReportModal
+        isOpen={isReportModalOpen}
+        onClose={() => setIsReportModalOpen(false)}
+        expenses={visibleExpenses}
+        categories={categories}
+        companyName={company?.name}
+        companyLogo={company?.logo}
       />
     </div>
   );

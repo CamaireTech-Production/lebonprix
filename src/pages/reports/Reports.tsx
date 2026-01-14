@@ -23,6 +23,7 @@ import ComparisonIndicator from '../../components/reports/ComparisonIndicator';
 import KPICard from '../../components/reports/KPICard';
 import QuickReportsBar from '../../components/reports/QuickReportsBar';
 import SavedReportsManager, { SavedReport } from '../../components/reports/SavedReportsManager';
+import AllProductsSold from '../../components/reports/AllProductsSold';
 import { useAuth } from '@contexts/AuthContext';
 import { logWarning } from '@utils/core/logger';
 import { formatPrice } from '@utils/formatting/formatPrice';
@@ -661,12 +662,78 @@ const Reports = () => {
       .map(v => ({ name: v.name, quantity: v.quantity, customersCount: v.customers.size, totalSales: v.totalSales }))
       .sort((a, b) => b.quantity - a.quantity)
       .slice(0, 5);
-    
+
     // Calculate cumulative sales
     let cumulative = 0;
     return sorted.map(item => {
       cumulative += item.totalSales;
       return { ...item, cumulativeSales: cumulative };
+    });
+  }, [filteredSales, products, selectedProduct]);
+
+  // All products sold (without limit, for the comprehensive view)
+  const allProductsSold = useMemo(() => {
+    const byId = new Map<string, {
+      id: string;
+      name: string;
+      quantity: number;
+      customers: Set<string>;
+      totalSales: number;
+      totalCOGS: number;
+    }>();
+
+    const productById: Record<string, Product> = Object.fromEntries(
+      products
+        .filter(p => p.isAvailable !== false && p.isDeleted !== true)
+        .map(p => [p.id, p])
+    );
+
+    for (const s of filteredSales) {
+      const customerName = s.customerInfo?.name || 'Unknown';
+      for (const sp of s.products) {
+        if (selectedProduct !== 'all' && sp.productId !== selectedProduct) continue;
+
+        const product = productById[sp.productId];
+        if (!product) continue;
+
+        const entry = byId.get(sp.productId) || {
+          id: sp.productId,
+          name: product.name,
+          quantity: 0,
+          customers: new Set<string>(),
+          totalSales: 0,
+          totalCOGS: 0
+        };
+
+        entry.quantity += sp.quantity || 0;
+        entry.customers.add(customerName);
+
+        // Calculate total sales for this product
+        const unitPrice = sp.negotiatedPrice || sp.basePrice || 0;
+        const costPrice = sp.costPrice ?? product.costPrice ?? 0;
+        const quantity = sp.quantity || 0;
+
+        entry.totalSales += unitPrice * quantity;
+        entry.totalCOGS += costPrice * quantity;
+
+        byId.set(sp.productId, entry);
+      }
+    }
+
+    // Convert to array and calculate profit metrics
+    return Array.from(byId.values()).map(v => {
+      const grossProfit = v.totalSales - v.totalCOGS;
+      const profitMargin = v.totalSales > 0 ? (grossProfit / v.totalSales) * 100 : 0;
+
+      return {
+        id: v.id,
+        name: v.name,
+        quantity: v.quantity,
+        customersCount: v.customers.size,
+        totalSales: v.totalSales,
+        grossProfit,
+        profitMargin
+      };
     });
   }, [filteredSales, products, selectedProduct]);
 
@@ -1165,6 +1232,9 @@ const Reports = () => {
           </div>
         </Card>
       </div>
+
+      {/* All Products Sold - Comprehensive View with Pagination */}
+      <AllProductsSold productsData={allProductsSold} />
 
       {/* Expenses List */}
       <Card title={t('reports.tables.expenses.title')} className="mb-6">

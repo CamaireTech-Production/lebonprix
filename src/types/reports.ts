@@ -62,7 +62,6 @@ export interface ExpenseReportConfig extends BaseReportConfig {
     categories?: string[];
     amountMin?: number;
     amountMax?: number;
-    paymentMethod?: string[];
   };
 }
 
@@ -72,8 +71,8 @@ export interface ExpenseReportData {
   amount: number;
   category: string;
   date: Date;
-  paymentMethod?: string;
-  reference?: string;
+  createdAt?: Date;
+  createdBy?: string;
 }
 
 // Production report types

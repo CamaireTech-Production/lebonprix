@@ -4,41 +4,34 @@ import Modal from '../common/Modal';
 import Button from '../common/Button';
 import DateRangePicker from './DateRangePicker';
 import FieldSelector from './FieldSelector';
-import { Product, StockBatch, Stock, Category, Supplier } from '../../types/models';
+import { Expense, Category } from '../../types/models';
 import {
-  ProductReportConfig,
-  ProductReportData,
-  DateRangeFilter,
-  ReportFormat
+  ExpenseReportConfig,
+  ExpenseReportData,
+  ReportFormat,
+  DateRangeFilter
 } from '../../types/reports';
 import {
-  PRODUCT_REPORT_FIELDS,
-  generateProductReport,
-  transformProductsToReportData,
-  filterProductReportData
-} from '../../services/reports/productReportService';
-import { showSuccessToast, showErrorToast } from '../../utils/core/toast';
+  EXPENSE_REPORT_FIELDS,
+  transformExpensesToReportData,
+  filterExpenseReportData,
+  generateExpenseReport
+} from '../../services/reports/expenseReportService';
 
-interface ProductsReportModalProps {
+interface ExpensesReportModalProps {
   isOpen: boolean;
   onClose: () => void;
-  products: Product[];
-  stockBatches: StockBatch[];
-  stocks: Stock[];
+  expenses: Expense[];
   categories: Category[];
-  suppliers: Supplier[];
   companyName?: string;
   companyLogo?: string;
 }
 
-const ProductsReportModal: React.FC<ProductsReportModalProps> = ({
+const ExpensesReportModal: React.FC<ExpensesReportModalProps> = ({
   isOpen,
   onClose,
-  products,
-  stockBatches,
-  stocks,
+  expenses,
   categories,
-  suppliers,
   companyName = '',
   companyLogo = ''
 }) => {
@@ -50,125 +43,92 @@ const ProductsReportModal: React.FC<ProductsReportModalProps> = ({
     endDate: null
   });
   const [selectedFields, setSelectedFields] = useState<string[]>(
-    PRODUCT_REPORT_FIELDS.filter(f => f.defaultSelected).map(f => f.key)
+    EXPENSE_REPORT_FIELDS.filter(f => f.defaultSelected).map(f => f.key)
   );
 
-  // Filters state
+  // Filter state
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [selectedSuppliers, setSelectedSuppliers] = useState<string[]>([]);
-  const [stockLevelMin, setStockLevelMin] = useState<number | undefined>(undefined);
-  const [stockLevelMax, setStockLevelMax] = useState<number | undefined>(undefined);
-  const [availability, setAvailability] = useState<'all' | 'available' | 'unavailable'>('all');
+  const [amountMin, setAmountMin] = useState<number | undefined>(undefined);
+  const [amountMax, setAmountMax] = useState<number | undefined>(undefined);
 
   // Preview state
   const [showPreview, setShowPreview] = useState(false);
-  const [previewData, setPreviewData] = useState<ProductReportData[]>([]);
+  const [previewData, setPreviewData] = useState<ExpenseReportData[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
-  // Get unique category and supplier names
+  // Get unique category names (only expense categories)
   const categoryNames = categories
     .filter(c => c.type === 'product' && !c.isActive === false)
     .map(c => c.name);
-  const supplierNames = suppliers
-    .filter(s => !s.isDeleted)
-    .map(s => s.name);
 
   // Update preview when filters change
   useEffect(() => {
     if (showPreview) {
       updatePreview();
     }
-  }, [
-    dateRange,
-    selectedCategories,
-    selectedSuppliers,
-    stockLevelMin,
-    stockLevelMax,
-    availability,
-    showPreview
-  ]);
+  }, [dateRange, selectedCategories, amountMin, amountMax, expenses, categories]);
 
   const updatePreview = () => {
-    const config: ProductReportConfig = {
-      title: 'Rapport des Produits',
+    const config: ExpenseReportConfig = {
+      title: 'Rapport des Dépenses',
       format: reportFormat,
       dateRange,
       selectedFields,
       includeHeaders: true,
       filters: {
         categories: selectedCategories.length > 0 ? selectedCategories : undefined,
-        suppliers: selectedSuppliers.length > 0 ? selectedSuppliers : undefined,
-        stockLevelMin,
-        stockLevelMax,
-        availability
+        amountMin,
+        amountMax
       }
     };
 
-    const reportData = transformProductsToReportData(
-      products.filter(p => !p.isDeleted),
-      stockBatches,
-      stocks,
-      categories,
-      suppliers
-    );
+    // Filter expenses (only non-deleted)
+    const activeExpenses = expenses.filter(e => e.isAvailable !== false);
 
-    const filtered = filterProductReportData(reportData, config);
-    setPreviewData(filtered.slice(0, 10)); // Show first 10 items
+    const reportData = transformExpensesToReportData(activeExpenses, categories);
+    const filteredData = filterExpenseReportData(reportData, config);
+    setPreviewData(filteredData);
   };
 
   const handleGenerateReport = async () => {
-    if (selectedFields.length === 0) {
-      showErrorToast('Veuillez sélectionner au moins un champ');
-      return;
-    }
-
     setIsGenerating(true);
 
     try {
-      const config: ProductReportConfig = {
-        title: 'Rapport des Produits',
+      const config: ExpenseReportConfig = {
+        title: 'Rapport des Dépenses',
         format: reportFormat,
         dateRange,
         selectedFields,
         includeHeaders: true,
         filters: {
           categories: selectedCategories.length > 0 ? selectedCategories : undefined,
-          suppliers: selectedSuppliers.length > 0 ? selectedSuppliers : undefined,
-          stockLevelMin,
-          stockLevelMax,
-          availability
+          amountMin,
+          amountMax
         }
       };
 
-      const result = generateProductReport(
-        products.filter(p => !p.isDeleted),
-        stockBatches,
-        stocks,
+      // Filter expenses (only non-deleted)
+      const activeExpenses = expenses.filter(e => e.isAvailable !== false);
+
+      const result = generateExpenseReport(
+        activeExpenses,
         categories,
-        suppliers,
         config,
         {
-          filename: '',
+          filename: `rapport_depenses_${new Date().toISOString().split('T')[0]}`,
           companyName,
           companyLogo,
-          includeTimestamp: true,
-          includeFooter: true,
-          orientation: 'landscape'
+          includeTimestamp: true
         }
       );
 
-      if (result.success) {
-        showSuccessToast(
-          `Rapport généré avec succès! ${result.recordCount} produit(s) exporté(s)`
-        );
-        onClose();
-      } else {
-        showErrorToast(result.error || 'Erreur lors de la génération du rapport');
+      if (!result.success) {
+        alert(result.error || 'Erreur lors de la génération du rapport');
       }
     } catch (error) {
       console.error('Error generating report:', error);
-      showErrorToast('Erreur lors de la génération du rapport');
+      alert('Une erreur est survenue lors de la génération du rapport');
     } finally {
       setIsGenerating(false);
     }
@@ -222,17 +182,15 @@ const ProductsReportModal: React.FC<ProductsReportModalProps> = ({
     setPeriodType('all');
     setDateRange({ startDate: null, endDate: null });
     setSelectedCategories([]);
-    setSelectedSuppliers([]);
-    setStockLevelMin(undefined);
-    setStockLevelMax(undefined);
-    setAvailability('all');
+    setAmountMin(undefined);
+    setAmountMax(undefined);
   };
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Générer un rapport des produits"
+      title="Générer un rapport des dépenses"
       size="xl"
     >
       <div className="space-y-5">
@@ -268,7 +226,7 @@ const ProductsReportModal: React.FC<ProductsReportModalProps> = ({
         {/* Period Selection */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Période de création
+            Période
           </label>
           <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 mb-3">
             {[
@@ -323,7 +281,7 @@ const ProductsReportModal: React.FC<ProductsReportModalProps> = ({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
           </button>
-          
+
           {showAdvancedFilters && (
             <div className="px-4 pb-4 space-y-4 border-t border-gray-200">
               <div className="flex justify-end pt-3">
@@ -365,47 +323,17 @@ const ProductsReportModal: React.FC<ProductsReportModalProps> = ({
             </div>
           )}
 
-          {/* Supplier Filter */}
-          {supplierNames.length > 0 && (
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-2">
-                Fournisseurs
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {supplierNames.slice(0, 5).map(sup => (
-                  <button
-                    key={sup}
-                    onClick={() => {
-                      setSelectedSuppliers(prev =>
-                        prev.includes(sup)
-                          ? prev.filter(s => s !== sup)
-                          : [...prev, sup]
-                      );
-                    }}
-                    className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                      selectedSuppliers.includes(sup)
-                        ? 'bg-emerald-600 text-white'
-                        : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                    }`}
-                  >
-                    {sup}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Stock Level Filter */}
+          {/* Amount Range Filter */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">
-                Stock minimum
+                Montant minimum
               </label>
               <input
                 type="number"
                 min="0"
-                value={stockLevelMin ?? ''}
-                onChange={e => setStockLevelMin(e.target.value ? Number(e.target.value) : undefined)}
+                value={amountMin ?? ''}
+                onChange={e => setAmountMin(e.target.value ? Number(e.target.value) : undefined)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white
                          focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
                 placeholder="0"
@@ -413,39 +341,17 @@ const ProductsReportModal: React.FC<ProductsReportModalProps> = ({
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">
-                Stock maximum
+                Montant maximum
               </label>
               <input
                 type="number"
                 min="0"
-                value={stockLevelMax ?? ''}
-                onChange={e => setStockLevelMax(e.target.value ? Number(e.target.value) : undefined)}
+                value={amountMax ?? ''}
+                onChange={e => setAmountMax(e.target.value ? Number(e.target.value) : undefined)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white
                          focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
                 placeholder="∞"
               />
-            </div>
-          </div>
-
-          {/* Availability Filter */}
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-2">
-              Disponibilité
-            </label>
-            <div className="grid grid-cols-3 gap-2">
-              {(['all', 'available', 'unavailable'] as const).map(option => (
-                <button
-                  key={option}
-                  onClick={() => setAvailability(option)}
-                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                    availability === option
-                      ? 'bg-emerald-600 text-white'
-                      : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                  }`}
-                >
-                  {option === 'all' ? 'Tous' : option === 'available' ? 'Disponibles' : 'Indisponibles'}
-                </button>
-              ))}
             </div>
           </div>
             </div>
@@ -454,7 +360,7 @@ const ProductsReportModal: React.FC<ProductsReportModalProps> = ({
 
         {/* Field Selection */}
         <FieldSelector
-          fields={PRODUCT_REPORT_FIELDS}
+          fields={EXPENSE_REPORT_FIELDS}
           selectedFields={selectedFields}
           onChange={setSelectedFields}
         />
@@ -463,13 +369,13 @@ const ProductsReportModal: React.FC<ProductsReportModalProps> = ({
         {showPreview && (
           <div className="border border-gray-200 rounded-md p-4 bg-white">
             <h4 className="text-sm font-medium text-gray-700 mb-3">
-              Aperçu ({previewData.length} produits trouvés)
+              Aperçu ({previewData.length} dépenses trouvées)
             </h4>
             <div className="overflow-x-auto max-h-60 overflow-y-auto border border-gray-200 rounded">
               <table className="min-w-full text-xs divide-y divide-gray-200">
                 <thead className="bg-gray-50 sticky top-0">
                   <tr>
-                    {PRODUCT_REPORT_FIELDS.filter(f => selectedFields.includes(f.key)).map(field => (
+                    {EXPENSE_REPORT_FIELDS.filter(f => selectedFields.includes(f.key)).map(field => (
                       <th key={field.key} className="px-3 py-2 text-left font-medium text-gray-700">{field.label}</th>
                     ))}
                   </tr>
@@ -477,11 +383,13 @@ const ProductsReportModal: React.FC<ProductsReportModalProps> = ({
                 <tbody className="bg-white divide-y divide-gray-200">
                   {previewData.slice(0, 5).map((item, idx) => (
                     <tr key={idx}>
-                      {PRODUCT_REPORT_FIELDS.filter(f => selectedFields.includes(f.key)).map(field => (
+                      {EXPENSE_REPORT_FIELDS.filter(f => selectedFields.includes(f.key)).map(field => (
                         <td key={field.key} className="px-3 py-2 text-gray-600">
                           {field.type === 'currency'
-                            ? `${Number(item[field.key as keyof ProductReportData]).toLocaleString('fr-FR')} F`
-                            : String(item[field.key as keyof ProductReportData] ?? '-')}
+                            ? `${Number(item[field.key as keyof ExpenseReportData]).toLocaleString('fr-FR')} F`
+                            : field.type === 'date' && item[field.key as keyof ExpenseReportData]
+                            ? new Date(item[field.key as keyof ExpenseReportData] as Date).toLocaleDateString('fr-FR')
+                            : String(item[field.key as keyof ExpenseReportData] ?? '-')}
                         </td>
                       ))}
                     </tr>
@@ -525,4 +433,4 @@ const ProductsReportModal: React.FC<ProductsReportModalProps> = ({
   );
 };
 
-export default ProductsReportModal;
+export default ExpensesReportModal;
