@@ -199,7 +199,7 @@ const Register = () => {
                 }
               }}
               error={fieldErrors.username}
-              helpText="3-30 caractères, lettres, chiffres, tirets et underscores"
+              helpText="3-30 caractères"
               className={fieldErrors.username ? 'border-red-500' : ''}
               required
             />

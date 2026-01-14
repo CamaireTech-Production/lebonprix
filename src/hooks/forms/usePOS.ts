@@ -14,6 +14,7 @@ import { saveDraft as saveDraftToStorage, getDrafts, deleteDraft, type POSDraft 
 import { useAllStockBatches } from '@hooks/business/useStockBatches';
 import { buildProductStockMap, getEffectiveProductStock } from '@utils/inventory/stockHelpers';
 import { useCheckoutSettings } from '@hooks/data/useCheckoutSettings';
+import type { POSPaymentData } from '../../components/pos/POSPaymentModal';
 
 export interface CartItem {
   product: Product;
@@ -88,8 +89,8 @@ export function usePOS() {
     if (state.searchQuery) {
       const query = state.searchQuery.toLowerCase();
       filtered = filtered.filter(p => 
-        p.name.toLowerCase().includes(query) ||
-        p.reference.toLowerCase().includes(query) ||
+        (p.name || '').toLowerCase().includes(query) ||
+        (p.reference || '').toLowerCase().includes(query) ||
         (p.barCode && p.barCode.includes(query))
       );
     }
@@ -278,7 +279,7 @@ export function usePOS() {
   }, []);
 
   // Complete sale
-  const completeSale = useCallback(async (paymentData?: any) => {
+  const completeSale = useCallback(async (paymentData?: POSPaymentData) => {
     if (state.cart.length === 0) {
       showWarningToast(t('pos.messages.emptyCart'));
       return null;
@@ -436,7 +437,7 @@ export function usePOS() {
   }, [state, cartTotals, user, company, currentEmployee, isOwner, autoSaveCustomer, customers, addSale, addCustomer, clearCart, clearCustomer, t]);
 
   // Save draft (save without completing sale) - now uses localStorage
-  const saveDraft = useCallback(async (paymentData?: any) => {
+  const saveDraft = useCallback(async (paymentData?: import('../../components/pos/POSPaymentModal').POSPaymentData) => {
     if (state.cart.length === 0) {
       showWarningToast(t('pos.messages.emptyCart'));
       return null;
