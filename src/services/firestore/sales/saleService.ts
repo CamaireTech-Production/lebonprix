@@ -31,6 +31,7 @@ const getAvailableStockBatches = async (productId: string, companyId: string): P
     where('productId', '==', productId),
     where('remainingQuantity', '>', 0),
     where('status', '==', 'active'),
+    where('isDeleted', '!=', true), // Exclude deleted batches
     orderBy('createdAt', 'asc')
   );
   const snapshot = await getDocs(q);
@@ -539,7 +540,7 @@ export const deleteSale = async (saleId: string, companyId: string): Promise<voi
     
     // Restore the stock
     batch.update(productRef, {
-      stock: productData.stock + product.quantity,
+      stock: (productData.stock || 0) + product.quantity,
       updatedAt: serverTimestamp()
     });
 

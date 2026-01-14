@@ -123,6 +123,7 @@ export const getAvailableStockBatches = async (productId: string): Promise<Stock
     where('productId', '==', productId),
     where('remainingQuantity', '>', 0),
     where('status', '==', 'active'),
+    where('isDeleted', '!=', true), // Exclude deleted batches
     orderBy('createdAt', 'asc')
   );
   

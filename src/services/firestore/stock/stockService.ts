@@ -113,6 +113,7 @@ export const getAvailableStockBatches = async (
     where('type', '==', type),
     where('remainingQuantity', '>', 0),
     where('status', '==', 'active'),
+    where('isDeleted', '!=', true), // Exclude deleted batches
   ];
 
   // Add the appropriate ID filter based on type
