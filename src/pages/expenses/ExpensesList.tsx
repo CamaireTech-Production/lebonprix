@@ -207,7 +207,7 @@ const ExpensesList = () => {
         )}
         {!expensesHasMore && expenses.length > 0 && (
           <div className="text-center py-6 text-gray-500">
-            <p>✅ Toutes les dépenses chargées ({expenses.length} au total)</p>
+            <p>✅ Toutes les dépenses chargées ({filteredExpenses.length} au total)</p>
           </div>
         )}
       </Card>

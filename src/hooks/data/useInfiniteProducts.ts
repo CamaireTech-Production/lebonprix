@@ -5,7 +5,7 @@ import { db } from '@services/core/firebase';
 import { devLog, logError } from '@utils/core/logger';
 import ProductsManager from '@services/storage/ProductsManager';
 import BackgroundSyncService from '@services/utilities/backgroundSync';
-import type { Product } from '../types/models';
+import type { Product } from '../../types/models';
 
 interface UseInfiniteProductsReturn {
   products: Product[];

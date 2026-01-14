@@ -42,7 +42,9 @@ export const transformExpensesToReportData = (
   expenses: Expense[],
   categories: Category[]
 ): ExpenseReportData[] => {
-  return expenses.map(expense => {
+  return expenses
+    .filter(expense => expense.isAvailable !== false)
+    .map(expense => {
     // Get category name
     const category = categories.find(c => c.name === expense.category)?.name || expense.category || '-';
 
@@ -54,7 +56,7 @@ export const transformExpensesToReportData = (
     const createdAt = expense.createdAt ? new Date(expense.createdAt.seconds * 1000) : undefined;
 
     // Get created by user (employee name if available)
-    const createdBy = expense.createdBy?.name || '-';
+    const createdBy = expense.createdBy?.username || '-';
 
     return {
       id: expense.id,
