@@ -38,6 +38,8 @@ export interface POSPaymentData {
   // Additional
   discountType?: 'amount' | 'percentage';
   discountValue?: number;
+  discountAmount?: number; // Calculated discount amount
+  discountOriginalValue?: number; // Original discount value (for percentage display)
   promoCode: string; // Empty string if not provided
   tax?: number;
   notes: string; // Empty string if not provided
@@ -308,8 +310,11 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
       deliveryFee,
       status,
       inventoryMethod,
-      discountType: discountValue ? discountType : undefined,
-      discountValue: discountValue ? parseFloat(discountValue) : undefined,
+      // Simplified discount data - save exactly what we have
+      discountType: discountAmount > 0 ? discountType : undefined,
+      discountValue: discountAmount > 0 ? parseFloat(discountValue) : undefined,
+      discountAmount: discountAmount > 0 ? discountAmount : undefined,
+      discountOriginalValue: discountAmount > 0 ? parseFloat(discountValue) : undefined,
       promoCode: promoCode || '',
       tax: tax ? parseFloat(tax) : undefined,
       notes: notes || '',
@@ -322,6 +327,23 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
     try {
       // Call onComplete and wait for the sale to be created
       const sale = await onComplete(paymentData);
+      
+      // WORKAROUND: If backend ignored discount data, manually add it to the sale object
+      if (sale && discountAmount > 0 && !sale.discountAmount) {
+        sale.discountAmount = discountAmount;
+        sale.discountType = discountType;
+        sale.discountValue = parseFloat(discountValue);
+        sale.discountOriginalValue = parseFloat(discountValue);
+        
+        // Recalculate total if backend got it wrong
+        const expectedTotal = subtotal + deliveryFee - discountAmount + (tax ? parseFloat(tax) : 0);
+        if (sale.totalAmount !== expectedTotal) {
+          sale.totalAmount = expectedTotal;
+        }
+      }
+      
+      // Success notification
+      showSuccessToast(t('pos.payment.paymentSuccess') || 'Payment completed successfully!');
       
       // Store completed sale for preview
       if (sale) {
@@ -363,6 +385,8 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
       inventoryMethod,
       discountType: discountValue ? discountType : undefined,
       discountValue: discountValue ? parseFloat(discountValue) : undefined,
+      discountAmount: discountAmount,
+      discountOriginalValue: discountValue ? parseFloat(discountValue) : undefined,
       promoCode: promoCode || '',
       tax: tax ? parseFloat(tax) : undefined,
       notes: notes || '',
@@ -432,7 +456,7 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
       };
 
       // Use direct print (browser print dialog)
-      printPOSBillDirect(tempSale as any, products || [], company, paymentMethod);
+      printPOSBillDirect(tempSale as any, products || [], company, paymentMethod || undefined);
     } catch (error) {
       console.error('Error printing bill:', error);
       showErrorToast(t('pos.payment.printError') || 'Failed to print bill');
@@ -574,8 +598,59 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
               ${completedSale.deliveryFee > 0 ? `<p style="text-align: right;"><strong>Frais de livraison:</strong> ${completedSale.deliveryFee.toLocaleString()} XAF</p>` : ''}
               ${(() => {
                 // Calculate discount from completed sale data
-                const saleDiscountAmount = completedSale.discountValue || 0;
-                return saleDiscountAmount > 0 ? `<p style="text-align: right;"><strong>Remise:</strong> -${saleDiscountAmount.toLocaleString()} XAF</p>` : '';
+                const saleDiscountAmount = completedSale.discountAmount || 0;
+                const saleDiscountType = completedSale.discountType;
+                const saleDiscountOriginalValue = completedSale.discountOriginalValue;
+                const saleDiscountValue = completedSale.discountValue;
+                
+                // Calculate subtotal for discount calculation
+                const saleSubtotal = completedSale.products?.reduce((sum: number, item: any) => {
+                  const itemPrice = item.negotiatedPrice || item.basePrice;
+                  return sum + (itemPrice * item.quantity);
+                }, 0) || 0;
+                
+                // Calculate expected discount based on subtotal, delivery fee, and total
+                const expectedTotal = saleSubtotal + (completedSale.deliveryFee || 0);
+                const calculatedDiscount = expectedTotal - (completedSale.totalAmount || 0);
+                
+                // Show discount if we have discount data OR if there's a calculated discount
+                const hasDiscount = saleDiscountAmount > 0 || saleDiscountValue > 0 || calculatedDiscount > 0;
+                
+                if (hasDiscount) {
+                  // Use stored discount amount if available, otherwise use calculated discount
+                  let displayAmount = saleDiscountAmount;
+                  let displayType = saleDiscountType;
+                  let displayOriginalValue = saleDiscountOriginalValue;
+                  
+                  // If no stored discount but we have a calculated difference
+                  if (!displayAmount && calculatedDiscount > 0) {
+                    displayAmount = calculatedDiscount;
+                    displayType = 'amount'; // Default to amount type
+                    displayOriginalValue = undefined;
+                  }
+                  
+                  // If still no amount but we have saleDiscountValue, calculate it
+                  if (!displayAmount && saleDiscountValue) {
+                    if (saleDiscountType === 'percentage' && saleDiscountOriginalValue) {
+                      displayAmount = (saleSubtotal * saleDiscountOriginalValue) / 100;
+                    } else {
+                      displayAmount = saleDiscountValue || 0;
+                    }
+                  }
+                  
+                  // Ensure we have correct display values for percentage type if only saleDiscountValue was present
+                  if (saleDiscountType === 'percentage' && !displayOriginalValue && saleDiscountValue) {
+                    displayOriginalValue = parseFloat(saleDiscountValue);
+                    if (!displayAmount) {
+                      displayAmount = (saleSubtotal * displayOriginalValue) / 100;
+                    }
+                  }
+                  
+                  if (displayAmount && displayAmount > 0) {
+                    return `<p style="text-align: right;"><strong>Remise ${displayType === 'percentage' && displayOriginalValue ? `(${displayOriginalValue}%)` : ''}:</strong> -${displayAmount.toLocaleString()} XAF</p>`;
+                  }
+                }
+                return '';
               })()}
               ${(() => {
                 // Calculate tax from completed sale data
@@ -734,42 +809,89 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
               <div className="border-t-2 border-gray-300 pt-4">
                 <div className="flex justify-end">
                   <div className="w-64 space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>{t('pos.payment.subtotal')}:</span>
-                      <span>{(() => {
-                        // Calculate subtotal from completed sale products instead of current cart
-                        const saleSubtotal = completedSale.products?.reduce((sum: number, item: any) => {
-                          const itemPrice = item.negotiatedPrice || item.basePrice;
-                          return sum + (itemPrice * item.quantity);
-                        }, 0) || 0;
-                        return formatPrice(saleSubtotal);
-                      })()} XAF</span>
-                    </div>
-                    {completedSale.deliveryFee > 0 && (
-                      <div className="flex justify-between text-sm">
-                        <span>{t('pos.payment.deliveryFee')}:</span>
-                        <span>{formatPrice(completedSale.deliveryFee)} XAF</span>
-                      </div>
-                    )}
                     {(() => {
-                      // Calculate discount from completed sale data
-                      const saleDiscountAmount = completedSale.discountValue || 0;
-                      return saleDiscountAmount > 0 ? (
-                        <div className="flex justify-between text-sm text-red-600">
-                          <span>{t('pos.payment.discount')}:</span>
-                          <span>-{formatPrice(saleDiscountAmount)} XAF</span>
-                        </div>
-                      ) : null;
-                    })()}
-                    {(() => {
-                      // Calculate tax from completed sale data
-                      const saleTaxAmount = completedSale.tax || 0;
-                      return saleTaxAmount > 0 ? (
-                        <div className="flex justify-between text-sm">
-                          <span>{t('pos.payment.tax')}:</span>
-                          <span>{formatPrice(saleTaxAmount)} XAF</span>
-                        </div>
-                      ) : null;
+                      // Calculate subtotal from completed sale products once and reuse
+                      const saleSubtotal = completedSale.products?.reduce((sum: number, item: any) => {
+                        const itemPrice = item.negotiatedPrice || item.basePrice;
+                        return sum + (itemPrice * item.quantity);
+                      }, 0) || 0;
+                      
+                      return (
+                        <>
+                          <div className="flex justify-between text-sm">
+                            <span>{t('pos.payment.subtotal')}:</span>
+                            <span>{formatPrice(saleSubtotal)} XAF</span>
+                          </div>
+                          {completedSale.deliveryFee > 0 && (
+                            <div className="flex justify-between text-sm">
+                              <span>{t('pos.payment.deliveryFee')}:</span>
+                              <span>{formatPrice(completedSale.deliveryFee)} XAF</span>
+                            </div>
+                          )}
+                          {(() => {
+                            // Calculate discount from completed sale data
+                            const saleDiscountAmount = completedSale.discountAmount || 0;
+                            const saleDiscountType = completedSale.discountType;
+                            const saleDiscountOriginalValue = completedSale.discountOriginalValue;
+                            const saleDiscountValue = completedSale.discountValue;
+                            
+                            // Calculate expected discount based on subtotal, delivery fee, and total
+                            const expectedTotal = saleSubtotal + (completedSale.deliveryFee || 0);
+                            const calculatedDiscount = expectedTotal - (completedSale.totalAmount || 0);
+                            
+                            // Show discount if we have discount data OR if there's a calculated discount
+                            const hasDiscount = saleDiscountAmount > 0 || saleDiscountValue > 0 || calculatedDiscount > 0;
+                            
+                            if (hasDiscount) {
+                              // Use stored discount amount if available, otherwise use calculated discount
+                              let displayAmount = saleDiscountAmount;
+                              let displayType = saleDiscountType;
+                              let displayOriginalValue = saleDiscountOriginalValue;
+                              
+                              // If no stored discount amount but we have saleDiscountValue, use it to determine type
+                              if (!displayAmount && saleDiscountValue) {
+                                displayType = saleDiscountType || 'amount';
+                                displayOriginalValue = saleDiscountType === 'percentage' ? parseFloat(saleDiscountValue) : undefined;
+                                
+                                // Calculate display amount based on type
+                                if (saleDiscountType === 'percentage' && displayOriginalValue) {
+                                  displayAmount = (saleSubtotal * displayOriginalValue) / 100;
+                                } else {
+                                  displayAmount = parseFloat(saleDiscountValue) || 0;
+                                }
+                              }
+                              
+                              // Ensure we have correct display values for percentage type if only saleDiscountValue was present
+                              if (displayType === 'percentage' && !displayOriginalValue && saleDiscountValue) {
+                                displayOriginalValue = parseFloat(saleDiscountValue);
+                                if (!displayAmount) {
+                                  displayAmount = (saleSubtotal * displayOriginalValue) / 100;
+                                }
+                              }
+                              
+                              if (displayAmount && displayAmount > 0) {
+                                return (
+                                  <div className="flex justify-between text-sm text-red-600">
+                                    <span>{t('pos.payment.discount')} {displayType === 'percentage' && displayOriginalValue ? `(${displayOriginalValue}%)` : ''}:</span>
+                                    <span>-{formatPrice(displayAmount)} XAF</span>
+                                  </div>
+                                );
+                              }
+                            }
+                            return null;
+                          })()}
+                          {(() => {
+                            // Calculate tax from completed sale data
+                            const saleTaxAmount = completedSale.tax || 0;
+                            return saleTaxAmount > 0 ? (
+                              <div className="flex justify-between text-sm">
+                                <span>{t('pos.payment.tax')}:</span>
+                                <span>{formatPrice(saleTaxAmount)} XAF</span>
+                              </div>
+                            ) : null;
+                          })()}
+                        </>
+                      );
                     })()}
                     <div className="flex justify-between text-xl font-bold pt-2 border-t border-gray-300" style={{ color: colors.primary }}>
                       <span>{t('pos.payment.totalAmount')}:</span>
@@ -920,7 +1042,9 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
                   </div>
                   {discountAmount > 0 && (
                     <div className="flex justify-between">
-                      <span className="text-gray-600">{t('pos.payment.discount')}</span>
+                      <span className="text-gray-600">
+                        {t('pos.payment.discount')} {discountType === 'percentage' ? `(${discountValue}%)` : ''}
+                      </span>
                       <span className="font-semibold text-red-600">-{formatPrice(discountAmount)} XAF</span>
                     </div>
                   )}
