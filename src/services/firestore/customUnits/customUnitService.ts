@@ -88,7 +88,7 @@ export const createCustomUnit = async (
       collection(db, 'customUnits'),
       where('companyId', '==', companyId),
       where('value', '==', normalizedValue),
-      where('isDeleted', '!=', true)
+      where('isDeleted', 'in', [false, null])
     );
     const existingSnapshot = await getDocs(existingQuery);
 
@@ -171,7 +171,7 @@ export const updateCustomUnit = async (
         collection(db, 'customUnits'),
         where('companyId', '==', companyId),
         where('value', '==', normalizedValue),
-        where('isDeleted', '!=', true)
+        where('isDeleted', 'in', [false, null])
       );
       const existingSnapshot = await getDocs(existingQuery);
 

@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { validateUsername } from '@utils/validation/usernameValidation';
 import { signUpUser } from '@services/auth/authService';
 import { useAuth } from '@contexts/AuthContext';
-import { User, Mail, Phone, Lock } from 'lucide-react';
+import { User, Mail, Lock } from 'lucide-react';
 
 /**
  * Composant d'inscription utilisateur (sans entreprise)
@@ -18,13 +19,54 @@ export const UserSignUp: React.FC = () => {
   
   // Données du formulaire
   const [formData, setFormData] = useState({
-    firstname: '',
-    lastname: '',
+    username: '',
     email: '',
     password: '',
-    confirmPassword: '',
-    phone: ''
+    confirmPassword: ''
   });
+
+  // Field errors state
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  const validateForm = () => {
+    const errors: Record<string, string> = {};
+    let hasErrors = false;
+
+    // Username validation
+    if (!formData.username.trim()) {
+      errors.username = 'Le nom d\'utilisateur est requis';
+      hasErrors = true;
+    } else {
+      const usernameValidation = validateUsername(formData.username);
+      if (!usernameValidation.valid) {
+        errors.username = usernameValidation.error || 'Nom d\'utilisateur invalide';
+        hasErrors = true;
+      }
+    }
+
+    // Email validation
+    if (!formData.email.trim()) {
+      errors.email = 'L\'adresse email est requise';
+      hasErrors = true;
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      errors.email = 'Veuillez entrer une adresse email valide';
+      hasErrors = true;
+    }
+
+    // Password validation
+    if (formData.password.length < 6) {
+      errors.password = 'Le mot de passe doit contenir au moins 6 caractères';
+      hasErrors = true;
+    }
+
+    if (formData.password !== formData.confirmPassword) {
+      errors.confirmPassword = 'Les mots de passe ne correspondent pas';
+      hasErrors = true;
+    }
+
+    setFieldErrors(errors);
+    return !hasErrors;
+  };
 
   /**
    * Gérer la soumission du formulaire
@@ -33,26 +75,15 @@ export const UserSignUp: React.FC = () => {
     e.preventDefault();
     setError(null);
 
-    // Validation côté client
-    if (formData.password !== formData.confirmPassword) {
-      setError('Les mots de passe ne correspondent pas');
-      return;
-    }
-
-    if (formData.password.length < 6) {
-      setError('Le mot de passe doit contenir au moins 6 caractères');
+    if (!validateForm()) {
       return;
     }
 
     try {
       setIsLoading(true);
       
-      // 1. Créer le compte utilisateur
-      // Generate username from firstname and lastname
-      const username = `${formData.firstname.toLowerCase()}.${formData.lastname.toLowerCase()}`.replace(/[^a-z0-9._-]/g, '');
-      
       await signUpUser(formData.email, formData.password, {
-        username: username
+        username: formData.username.trim()
       });
 
       // 2. Se connecter automatiquement
@@ -77,6 +108,11 @@ export const UserSignUp: React.FC = () => {
       ...prev,
       [name]: value
     }));
+    
+    // Clear error when user starts typing
+    if (fieldErrors[name]) {
+      setFieldErrors(prev => ({ ...prev, [name]: '' }));
+    }
   };
 
   return (
@@ -95,49 +131,32 @@ export const UserSignUp: React.FC = () => {
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
           <form className="space-y-6" onSubmit={handleSubmit}>
-            {/* Nom et Prénom */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="firstname" className="block text-sm font-medium text-gray-700">
-                  Prénom *
-                </label>
-                <div className="mt-1 relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <User className="h-5 w-5 text-gray-400" />
-                  </div>
-                  <input
-                    id="firstname"
-                    name="firstname"
-                    type="text"
-                    required
-                    value={formData.firstname}
-                    onChange={handleChange}
-                    className="appearance-none block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Jean"
-                  />
+            {/* Username */}
+            <div>
+              <label htmlFor="username" className="block text-sm font-medium text-gray-700">
+                Nom d'utilisateur *
+              </label>
+              <div className="mt-1 relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <User className="h-5 w-5 text-gray-400" />
                 </div>
+                <input
+                  id="username"
+                  name="username"
+                  type="text"
+                  required
+                  value={formData.username}
+                  onChange={handleChange}
+                  className={`appearance-none block w-full pl-10 pr-3 py-2 border rounded-md placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${
+                    fieldErrors.username ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                  placeholder="Kinno Meli"
+                />
               </div>
-
-              <div>
-                <label htmlFor="lastname" className="block text-sm font-medium text-gray-700">
-                  Nom *
-                </label>
-                <div className="mt-1 relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <User className="h-5 w-5 text-gray-400" />
-                  </div>
-                  <input
-                    id="lastname"
-                    name="lastname"
-                    type="text"
-                    required
-                    value={formData.lastname}
-                    onChange={handleChange}
-                    className="appearance-none block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Dupont"
-                  />
-                </div>
-              </div>
+              {fieldErrors.username && (
+                <p className="mt-1 text-sm text-red-600">{fieldErrors.username}</p>
+              )}
+              <p className="mt-1 text-sm text-gray-500">3-30 caractères</p>
             </div>
 
             {/* Email */}
@@ -156,32 +175,17 @@ export const UserSignUp: React.FC = () => {
                   required
                   value={formData.email}
                   onChange={handleChange}
-                  className="appearance-none block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  className={`appearance-none block w-full pl-10 pr-3 py-2 border rounded-md placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${
+                    fieldErrors.email ? 'border-red-500' : 'border-gray-300'
+                  }`}
                   placeholder="jean.dupont@example.com"
                 />
               </div>
+              {fieldErrors.email && (
+                <p className="mt-1 text-sm text-red-600">{fieldErrors.email}</p>
+              )}
             </div>
 
-            {/* Téléphone */}
-            <div>
-              <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
-                Téléphone
-              </label>
-              <div className="mt-1 relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Phone className="h-5 w-5 text-gray-400" />
-                </div>
-                <input
-                  id="phone"
-                  name="phone"
-                  type="tel"
-                  value={formData.phone}
-                  onChange={handleChange}
-                  className="appearance-none block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="+33 1 23 45 67 89"
-                />
-              </div>
-            </div>
 
             {/* Mot de passe */}
             <div>
@@ -199,10 +203,16 @@ export const UserSignUp: React.FC = () => {
                   required
                   value={formData.password}
                   onChange={handleChange}
-                  className="appearance-none block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  className={`appearance-none block w-full pl-10 pr-3 py-2 border rounded-md placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${
+                    fieldErrors.password ? 'border-red-500' : 'border-gray-300'
+                  }`}
                   placeholder="••••••••"
                 />
               </div>
+              {fieldErrors.password && (
+                <p className="mt-1 text-sm text-red-600">{fieldErrors.password}</p>
+              )}
+              <p className="mt-1 text-sm text-gray-500">Minimum 6 caractères</p>
             </div>
 
             {/* Confirmation mot de passe */}
@@ -221,10 +231,15 @@ export const UserSignUp: React.FC = () => {
                   required
                   value={formData.confirmPassword}
                   onChange={handleChange}
-                  className="appearance-none block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  className={`appearance-none block w-full pl-10 pr-3 py-2 border rounded-md placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${
+                    fieldErrors.confirmPassword ? 'border-red-500' : 'border-gray-300'
+                  }`}
                   placeholder="••••••••"
                 />
               </div>
+              {fieldErrors.confirmPassword && (
+                <p className="mt-1 text-sm text-red-600">{fieldErrors.confirmPassword}</p>
+              )}
             </div>
 
             {/* Message d'erreur */}

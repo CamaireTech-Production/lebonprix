@@ -157,6 +157,13 @@ export interface Sale extends BaseModel {
   };
   customerSourceId?: string; // Source clientelle de la vente (optionnel pour rétrocompatibilité)
   deliveryFee?: number;
+  discountType?: 'amount' | 'percentage'; // Type de remise
+  discountValue?: number; // Montant de la remise
+  discountOriginalValue?: number; // Valeur originale (pourcentage si applicable)
+  tax?: number; // Taxe appliquée
+  paymentMethod?: 'cash' | 'mobile_money' | 'card'; // Méthode de paiement
+  amountReceived?: number; // Montant reçu (pour calculer la monnaie)
+  change?: number; // Monnaie à rendre
   statusHistory?: Array<{ status: string; timestamp: string }>;
   isAvailable?: boolean;
   inventoryMethod?: 'FIFO' | 'LIFO';
