@@ -7,6 +7,7 @@ import { getEffectiveProductStock, type ProductStockTotals } from '@utils/invent
 
 interface POSProductGridProps {
   products: Product[];
+  allProducts: Product[];
   onAddToCart: (product: Product) => void;
   selectedCategory: string | null;
   onCategoryChange: (category: string | null) => void;
@@ -16,6 +17,7 @@ interface POSProductGridProps {
 
 export const POSProductGrid: React.FC<POSProductGridProps> = ({
   products,
+  allProducts,
   onAddToCart,
   selectedCategory,
   onCategoryChange,
@@ -28,7 +30,7 @@ export const POSProductGrid: React.FC<POSProductGridProps> = ({
   const categoryProductCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     
-    products.forEach(product => {
+    allProducts.forEach(product => {
       if (product.category && product.isAvailable !== false) {
         const stock = getEffectiveProductStock(product, stockMap);
         if (stock > 0) {
@@ -38,7 +40,7 @@ export const POSProductGrid: React.FC<POSProductGridProps> = ({
     });
     
     return counts;
-  }, [products, stockMap]);
+  }, [allProducts, stockMap]);
 
   return (
     <div className="h-full flex flex-col">
@@ -53,7 +55,7 @@ export const POSProductGrid: React.FC<POSProductGridProps> = ({
                 : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
             }`}
           >
-            {t('pos.products.all')} ({products.filter(p => p.isAvailable !== false && getEffectiveProductStock(p, stockMap) > 0).length})
+            {t('pos.products.all')} ({allProducts.filter(p => p.isAvailable !== false && getEffectiveProductStock(p, stockMap) > 0).length})
           </button>
           {categories.map(category => (
             <button

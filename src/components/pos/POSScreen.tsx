@@ -11,6 +11,7 @@ import { POSTransactionsSidebar } from './POSTransactionsSidebar';
 import { useAuth } from '@contexts/AuthContext';
 import { useParams } from 'react-router-dom';
 import type { Sale } from '../../types/models';
+import { getEffectiveProductStock } from '@utils/inventory/stockHelpers';
 
 export const POSScreen: React.FC = () => {
   const { company } = useAuth();
@@ -53,17 +54,23 @@ export const POSScreen: React.FC = () => {
     setAutoSaveCustomer,
     setShowCustomerDropdown,
     stockMap,
+    products,
   } = usePOS();
 
-  // Get unique categories from products
+  // Get unique categories from all available products (not filtered)
   const categories = useMemo(() => {
-    if (!filteredProducts) return [];
+    if (!products) return [];
     const cats = new Set<string>();
-    filteredProducts.forEach(p => {
-      if (p.category) cats.add(p.category);
+    products.forEach(p => {
+      if (p.category && p.isAvailable !== false) {
+        const stock = getEffectiveProductStock(p, stockMap);
+        if (stock > 0) {
+          cats.add(p.category);
+        }
+      }
     });
     return Array.from(cats).sort();
-  }, [filteredProducts]);
+  }, [products, stockMap]);
 
   const handleCompleteSaleClick = () => {
     setShowPaymentModal(true);
@@ -160,6 +167,7 @@ export const POSScreen: React.FC = () => {
           <div className="flex-1 overflow-hidden">
             <POSProductGrid
               products={filteredProducts}
+              allProducts={products}
               onAddToCart={addToCart}
               selectedCategory={selectedCategory}
               onCategoryChange={(category) => updateState({ selectedCategory: category })}
