@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@contexts/AuthContext';
 import { Modal, ModalFooter } from '@components/common';
-import { softDeleteExpense } from '@services/firestore/expenses/expenseService';
+import { softDeleteExpenseWithImage } from '@services/firestore/expenses/expenseService';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
 import { logError } from '@utils/core/logger';
 import type { Expense } from '../../../types/models';
@@ -27,7 +27,7 @@ const ExpenseDeleteModal = ({ isOpen, expense, onClose, onSuccess }: ExpenseDele
     
     setDeleteLoading(true);
     try {
-      await softDeleteExpense(expense.id, user.uid);
+      await softDeleteExpenseWithImage(expense, user.uid);
       showSuccessToast(t('expenses.messages.deleteSuccess'));
       onSuccess();
       onClose();
