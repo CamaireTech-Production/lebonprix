@@ -67,7 +67,7 @@
     "logout": "Déconnexion",
     "menu": "Menu",
     "close": "Fermer",
-    "reports": "Rapports",
+    "reports": "Rapports et Analyses",
     "finance": "Finance",
     "orders": "Commandes",
     "pos": "Point de Vente",
@@ -88,7 +88,7 @@
       "categories": "Catégories",
       "stocks": "Inventaire",
       "analytics": "Analyses",
-      "reports": "Rapports",
+      "reports": "Rapports et Analyses",
       "steps": "Étapes",
       "flows": "Flux",
       "charges": "Charges",
@@ -1858,7 +1858,7 @@
     }
   },
   "reports": {
-    "title": "Rapports",
+    "title": "Rapports et Analyses",
     "subtitle": "Consultez des rapports et analyses détaillés de votre entreprise",
     "exportReport": "Exporter le Rapport",
     "filters": {

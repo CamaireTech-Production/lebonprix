@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect, useCallback } from 'react';
-import { Calendar, FileDown } from 'lucide-react';
+import { Calendar, FileDown, ArrowLeftToLine, ArrowLeft, ArrowRight, ArrowRightToLine } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import { Card, Button, Input } from '@components/common';
@@ -77,6 +77,10 @@ const Reports = () => {
     const saved = localStorage.getItem('reports_showTrend');
     return saved === 'true';
   });
+  
+  // Pagination state for product profitability table
+  const [profitabilityPage, setProfitabilityPage] = useState(1);
+  const [profitabilityRowsPerPage, setProfitabilityRowsPerPage] = useState(10);
   
   const { sales } = useSales();
   const { expenses } = useExpenses();
@@ -387,6 +391,11 @@ const Reports = () => {
   useEffect(() => {
     localStorage.setItem('reports_showTrend', String(showTrend));
   }, [showTrend]);
+
+  // Reset profitability page when filters change
+  useEffect(() => {
+    setProfitabilityPage(1);
+  }, [startDate, endDate, selectedProduct, selectedCategory]);
 
   const labels = useMemo(() => {
     return dateKeys.map(k => {
@@ -802,8 +811,20 @@ const Reports = () => {
     });
 
     // Sort by profit margin descending
-    return results.sort((a, b) => b.profitMargin - a.profitMargin).slice(0, 10);
+    return results.sort((a, b) => b.profitMargin - a.profitMargin);
   }, [filteredSales, products]);
+
+  // Paginated product profitability data
+  const paginatedProductProfitability = useMemo(() => {
+    const startIndex = (profitabilityPage - 1) * profitabilityRowsPerPage;
+    const endIndex = startIndex + profitabilityRowsPerPage;
+    return productProfitability.slice(startIndex, endIndex);
+  }, [productProfitability, profitabilityPage, profitabilityRowsPerPage]);
+
+  // Pagination calculations
+  const totalProfitabilityPages = Math.ceil(productProfitability.length / profitabilityRowsPerPage);
+  const profitabilityStartIndex = (profitabilityPage - 1) * profitabilityRowsPerPage + 1;
+  const profitabilityEndIndex = Math.min(profitabilityPage * profitabilityRowsPerPage, productProfitability.length);
 
   // Expense category analysis
   const expenseCategoryAnalysis = useMemo(() => {
@@ -1297,7 +1318,7 @@ const Reports = () => {
                     <td colSpan={6} className="px-4 py-4 text-sm text-gray-500 text-center">{t('reports.tables.productProfitability.noData')}</td>
                   </tr>
                 ) : (
-                  productProfitability.map((product, idx) => (
+                  paginatedProductProfitability.map((product, idx) => (
                     <tr key={idx}>
                       <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{product.name}</td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{product.quantitySold}</td>
@@ -1315,6 +1336,75 @@ const Reports = () => {
               </tbody>
             </table>
           </div>
+          
+          {/* Pagination Controls */}
+          {productProfitability.length > 0 && (
+            <div className="px-4 py-3 border-t border-gray-200">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="text-sm text-gray-700">
+                  {t('common.showing', { 
+                    from: productProfitability.length > 0 ? profitabilityStartIndex : 0, 
+                    to: profitabilityEndIndex, 
+                    total: productProfitability.length 
+                  })}
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 text-sm">
+                    <label>{t('common.rowsPerPage')}:</label>
+                    <select
+                      value={profitabilityRowsPerPage}
+                      onChange={(e) => {
+                        setProfitabilityRowsPerPage(Number(e.target.value));
+                        setProfitabilityPage(1);
+                      }}
+                      className="rounded border border-gray-300 py-1 px-2 text-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    >
+                      <option value={5}>5</option>
+                      <option value={10}>10</option>
+                      <option value={20}>20</option>
+                      <option value={50}>50</option>
+                      <option value={100}>100</option>
+                    </select>
+                  </div>
+                  
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => setProfitabilityPage(1)}
+                      disabled={profitabilityPage === 1}
+                      className="px-2 py-1 text-sm border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                    >
+                      <ArrowLeftToLine size={16} />
+                    </button>
+                    <button
+                      onClick={() => setProfitabilityPage(profitabilityPage - 1)}
+                      disabled={profitabilityPage === 1}
+                      className="px-2 py-1 text-sm border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                    >
+                      <ArrowLeft size={16} />
+                    </button>
+                    <span className="px-3 py-1 text-sm text-gray-700">
+                      {t('common.page')} {profitabilityPage} {t('common.of')} {totalProfitabilityPages}
+                    </span>
+                    <button
+                      onClick={() => setProfitabilityPage(profitabilityPage + 1)}
+                      disabled={profitabilityPage === totalProfitabilityPages}
+                      className="px-2 py-1 text-sm border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                    >
+                      <ArrowRight size={16} />
+                    </button>
+                    <button
+                      onClick={() => setProfitabilityPage(totalProfitabilityPages)}
+                      disabled={profitabilityPage === totalProfitabilityPages}
+                      className="px-2 py-1 text-sm border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                    >
+                      <ArrowRightToLine size={16} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </Card>
 
         {/* Expense Category Analysis */}
