@@ -170,7 +170,7 @@ const MatiereFormModal: React.FC<MatiereFormModalProps> = ({
       return;
     }
 
-    if (!formData.initialStock || parseInt(formData.initialStock) < 0) {
+    if (!formData.initialStock || parseFloat(formData.initialStock) < 0) {
       showErrorToast('Le stock initial est requis et doit être positif');
       return;
     }
@@ -224,7 +224,7 @@ const MatiereFormModal: React.FC<MatiereFormModalProps> = ({
         showSuccessToast('Matière mise à jour avec succès');
       } else {
         // Create mode
-        const initialStock = parseInt(formData.initialStock) || 0;
+        const initialStock = parseFloat(formData.initialStock) || 0;
         const costPrice = parseFloat(formData.costPrice) || 0;
 
         const supplierInfo = formData.supplierId ? {
@@ -364,6 +364,7 @@ const MatiereFormModal: React.FC<MatiereFormModalProps> = ({
             onChange={handleInputChange}
             placeholder="0"
             min="0"
+            step="0.01"
             required
           />
         )}

@@ -118,8 +118,8 @@ const MatiereRestockModal: React.FC<RestockModalProps> = ({
   const validateForm = () => {
     const errors: string[] = [];
     
-    // Validate quantity
-    const quantity = parseInt(formData.quantity, 10);
+    // Validate quantity (allow decimals up to 2 places)
+    const quantity = parseFloat(formData.quantity);
     if (isNaN(quantity) || quantity <= 0) {
       errors.push(t('navigation.warehouseMenu.restockModal.validation.invalidQuantity'));
     }
@@ -151,7 +151,7 @@ const MatiereRestockModal: React.FC<RestockModalProps> = ({
   };
 
   const calculateTotalCost = (): number => {
-    const quantity = parseInt(formData.quantity, 10);
+    const quantity = parseFloat(formData.quantity);
     // Use form cost price if provided, otherwise use default cost price from latest batch
     let costPrice = 0;
     if (formData.costPrice && formData.costPrice.trim() !== '') {
@@ -195,8 +195,8 @@ const MatiereRestockModal: React.FC<RestockModalProps> = ({
       return;
     }
 
-    const quantity = parseInt(formData.quantity, 10);
-    
+    const quantity = parseFloat(formData.quantity);
+
     // If cost price is not provided, get the latest batch cost price (same logic as when loading the form)
     let costPrice: number | undefined;
     if (formData.costPrice && formData.costPrice.trim() !== '') {
@@ -296,8 +296,8 @@ const MatiereRestockModal: React.FC<RestockModalProps> = ({
               onChange={(e) => handleInputChange('quantity', e.target.value)}
               placeholder={t('navigation.warehouseMenu.restockModal.restockDetails.quantityPlaceholder')}
               required
-              min="1"
-              step="1"
+              min="0.01"
+              step="0.01"
             />
             
             <div>
@@ -328,7 +328,7 @@ const MatiereRestockModal: React.FC<RestockModalProps> = ({
 
           {/* Total Cost Display - show if quantity is provided and we have a cost price (from form or default) */}
           {(() => {
-            const quantity = parseInt(formData.quantity, 10);
+            const quantity = parseFloat(formData.quantity);
             if (!quantity || quantity <= 0) return null;
             
             const totalCost = calculateTotalCost();
