@@ -177,7 +177,6 @@ export interface Sale extends BaseModel {
   totalCost?: number;
   totalProfit?: number;
   averageProfitMargin?: number;
-  tax?: number; // TVA amount
   tvaRate?: number; // TVA percentage rate
   tvaApplied?: boolean; // Whether TVA was applied
 }
@@ -188,6 +187,8 @@ export interface Expense extends BaseModel {
   category: string;
   isAvailable?: boolean;
   date?: Timestamp; // Date de la transaction (modifiable par l'utilisateur)
+  image?: string; // Firebase Storage URL or base64
+  imagePath?: string; // Storage path for deletion
 }
 
 export interface DashboardStats extends BaseModel {

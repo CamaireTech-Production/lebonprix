@@ -1,15 +1,18 @@
 // src/pages/expenses/shared/ExpenseFormModal.tsx
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Upload, X } from 'lucide-react';
 import { useAuth } from '@contexts/AuthContext';
-import { Modal, ModalFooter, Input, PriceInput, CreatableSelect } from '@components/common';
+import { Modal, ModalFooter, Input, PriceInput, CreatableSelect, ImageWithSkeleton } from '@components/common';
 import { createExpense, updateExpense } from '@services/firestore/expenses/expenseService';
+import { FirebaseStorageService } from '@services/core/firebaseStorage';
 import { syncFinanceEntryWithExpense } from '@services/firestore/finance/financeService';
 import { showSuccessToast, showErrorToast, showWarningToast } from '@utils/core/toast';
 import { logError, logWarning } from '@utils/core/logger';
 import { useExpenseCategories } from '@hooks/business/useExpenseCategories';
 import { getUserById } from '@services/utilities/userService';
 import { getCurrentEmployeeRef } from '@utils/business/employeeUtils';
+import imageCompression from 'browser-image-compression';
 import type { Expense} from '../../../types/models';
 
 interface ExpenseFormModalProps {
@@ -30,9 +33,13 @@ const ExpenseFormModal = ({ isOpen, mode, expense, onClose, onSuccess }: Expense
     amount: '',
     category: 'transportation',
     date: new Date().toISOString().split('T')[0],
+    image: '',
+    imagePath: '',
+    compressedImageFile: null as File | null,
   });
   const [selectedType, setSelectedType] = useState<{ label: string; value: string } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   // Load expense data when editing or reset when opening in add mode
   useEffect(() => {
@@ -51,6 +58,9 @@ const ExpenseFormModal = ({ isOpen, mode, expense, onClose, onSuccess }: Expense
           amount: expense.amount.toString(),
           category: expense.category,
           date: dateValue,
+          image: expense.image || '',
+          imagePath: expense.imagePath || '',
+          compressedImageFile: null,
         });
         setSelectedType({ 
           label: t(`expenses.categories.${expense.category}`, expense.category), 
@@ -63,6 +73,9 @@ const ExpenseFormModal = ({ isOpen, mode, expense, onClose, onSuccess }: Expense
           amount: '',
           category: 'transportation',
           date: new Date().toISOString().split('T')[0],
+          image: '',
+          imagePath: '',
+          compressedImageFile: null,
         });
         setSelectedType(null);
       }
@@ -74,12 +87,75 @@ const ExpenseFormModal = ({ isOpen, mode, expense, onClose, onSuccess }: Expense
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  // Handle image upload
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    const file = files[0];
+    if (!file.type.startsWith('image/')) {
+      showErrorToast('Please select a valid image file');
+      return;
+    }
+
+    // Validate file size before processing (max 10MB before compression)
+    const maxSizeBeforeCompression = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSizeBeforeCompression) {
+      showErrorToast('Image is too large. Please select an image smaller than 10MB');
+      return;
+    }
+
+    setIsUploadingImage(true);
+    try {
+      console.log('Compressing image:', {
+        name: file.name,
+        size: file.size,
+        type: file.type
+      });
+
+      // Compress image with more aggressive settings
+      const compressedFile = await imageCompression(file, {
+        maxSizeMB: 0.5, // Reduced from 1MB to 0.5MB
+        maxWidthOrHeight: 600, // Reduced from 800 to 600
+        useWebWorker: true,
+        initialQuality: 0.7, // Add quality setting
+        fileType: 'image/jpeg' // Force JPEG for better compression
+      });
+
+      console.log('Image compressed:', {
+        originalSize: file.size,
+        compressedSize: compressedFile.size,
+        reduction: `${((1 - compressedFile.size / file.size) * 100).toFixed(1)}%`
+      });
+
+      // Store the compressed file in state (don't upload yet)
+      setFormData(prev => ({ 
+        ...prev, 
+        compressedImageFile: compressedFile,
+        image: URL.createObjectURL(compressedFile) // For preview only
+      }));
+      setIsUploadingImage(false);
+    } catch (error) {
+      console.error('Error compressing image:', error);
+      showErrorToast(`Error processing image: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setIsUploadingImage(false);
+    }
+  };
+
+  // Remove image
+  const handleRemoveImage = () => {
+    setFormData(prev => ({ ...prev, image: '', imagePath: '', compressedImageFile: null }));
+  };
+
   const resetForm = () => {
     setFormData({
       description: '',
       amount: '',
       category: 'transportation',
       date: new Date().toISOString().split('T')[0],
+      image: '',
+      imagePath: '',
+      compressedImageFile: null,
     });
     setSelectedType(null);
   };
@@ -155,6 +231,53 @@ const ExpenseFormModal = ({ isOpen, mode, expense, onClose, onSuccess }: Expense
           }
         }
         
+        let imageUrl = '';
+        let imagePath = '';
+        
+        // Upload image first if available
+        if (formData.compressedImageFile) {
+          try {
+            // Validate image size before upload
+            const maxSize = 2 * 1024 * 1024; // 2MB
+            if (formData.compressedImageFile.size > maxSize) {
+              console.warn('Image too large, skipping upload:', formData.compressedImageFile.size);
+              showWarningToast('Image is too large. Expense will be created without image.');
+            } else {
+              const storageService = new FirebaseStorageService();
+              // Generate a temporary ID for the upload
+              const tempId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+              
+              console.log('Uploading expense image:', {
+                size: formData.compressedImageFile.size,
+                type: formData.compressedImageFile.type,
+                userId: user.uid,
+                companyId: company.id,
+                tempId
+              });
+              
+              const uploadResult = await storageService.uploadExpenseImage(
+                formData.compressedImageFile,
+                user.uid, // Use user.uid, not company.id
+                tempId
+              );
+              imageUrl = uploadResult.url;
+              imagePath = uploadResult.path;
+              console.log('Image uploaded successfully:', { imageUrl, imagePath });
+            }
+          } catch (error) {
+            console.error('Error uploading image:', error);
+            // Log detailed error information
+            if (error instanceof Error) {
+              if ('code' in error) {
+                console.error('Firebase Storage error code:', (error as any).code);
+              }
+              console.error('Error message:', error.message);
+            }
+            // Continue without image - don't block expense creation
+            showWarningToast('Image upload failed. Expense will be created without image.');
+          }
+        }
+        
         const newExpense = await createExpense({
           description: formData.description.trim(),
           amount: amount,
@@ -162,6 +285,8 @@ const ExpenseFormModal = ({ isOpen, mode, expense, onClose, onSuccess }: Expense
           userId: user.uid,
           companyId: company.id,
           date: expenseDate as any,
+          image: imageUrl,
+          imagePath: imagePath,
         }, company.id, createdBy);
         
         // Verify createdBy is in the returned expense
@@ -179,6 +304,27 @@ const ExpenseFormModal = ({ isOpen, mode, expense, onClose, onSuccess }: Expense
         // Edit mode
         if (!expense) return;
         
+        // Handle new image upload if one was selected
+        let imageUrl = formData.image;
+        let imagePath = formData.imagePath;
+        
+        if (formData.compressedImageFile) {
+          try {
+            const storageService = new FirebaseStorageService();
+            const uploadResult = await storageService.uploadExpenseImage(
+              formData.compressedImageFile,
+              user.uid, // Use user.uid, not company.id
+              expense.id
+            );
+            imageUrl = uploadResult.url;
+            imagePath = uploadResult.path;
+          } catch (error) {
+            console.error('Error uploading new image:', error);
+            showErrorToast('Expense updated but image upload failed');
+            return;
+          }
+        }
+        
         const transactionDate = expenseDate;
         
         try {
@@ -188,6 +334,8 @@ const ExpenseFormModal = ({ isOpen, mode, expense, onClose, onSuccess }: Expense
             category: typeValue,
             userId: user.uid,
             date: transactionDate as any,
+            image: imageUrl,
+            imagePath: imagePath,
           }, company.id);
           
           // Construct updated expense for optimistic update
@@ -197,6 +345,8 @@ const ExpenseFormModal = ({ isOpen, mode, expense, onClose, onSuccess }: Expense
             amount: amount,
             category: typeValue,
             date: expense.date || expense.createdAt, // Keep existing date or createdAt
+            image: imageUrl,
+            imagePath: imagePath,
             updatedAt: { seconds: Math.floor(Date.now() / 1000), nanoseconds: 0 }
           };
           
@@ -289,6 +439,57 @@ const ExpenseFormModal = ({ isOpen, mode, expense, onClose, onSuccess }: Expense
             }}
             placeholder={t('expenses.form.category')}
           />
+        </div>
+
+        {/* Image Upload */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Expense Image
+          </label>
+          
+          {formData.image ? (
+            <div className="space-y-3">
+              <div className="w-32 h-32 rounded-lg overflow-hidden bg-gray-100">
+                <ImageWithSkeleton
+                  src={formData.image}
+                  alt="Expense preview"
+                  className="w-full h-full object-cover"
+                  placeholder="Loading image..."
+                />
+              </div>
+              <button
+                type="button"
+                onClick={handleRemoveImage}
+                className="flex items-center space-x-1 text-red-600 hover:text-red-700 text-sm"
+              >
+                <X size={16} />
+                <span>Remove image</span>
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors">
+              <label className="flex flex-col items-center justify-center w-full h-full cursor-pointer">
+                <Upload className="w-8 h-8 mb-2 text-gray-400" />
+                <p className="text-sm text-gray-500">
+                  <span className="font-semibold">Click to upload</span> or drag and drop
+                </p>
+                <p className="text-xs text-gray-500">PNG, JPG, GIF up to 10MB</p>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                />
+              </label>
+            </div>
+          )}
+          
+          {isUploadingImage && (
+            <div className="flex items-center space-x-2 text-sm text-gray-600 mt-2">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-emerald-500"></div>
+              <span>Uploading image...</span>
+            </div>
+          )}
         </div>
       </div>
     </Modal>

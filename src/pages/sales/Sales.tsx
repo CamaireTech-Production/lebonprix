@@ -525,10 +525,13 @@ const Sales: React.FC = () => {
       const isExpanded = expandedSaleId === sale.id;
       const saleProfit = computeSaleProfit(sale);
       return [
-        <tr key={sale.id} className="group hover:bg-gray-50 transition">
+        <tr key={sale.id} className="group hover:bg-gray-50 transition cursor-pointer" onClick={() => handleViewSale(sale)}>
           <td
             className="px-2 py-4 text-center align-middle cursor-pointer w-8"
-            onClick={() => setExpandedSaleId(isExpanded ? null : sale.id)}
+            onClick={(e) => {
+              e.stopPropagation();
+              setExpandedSaleId(isExpanded ? null : sale.id);
+            }}
           >
             {isExpanded ? (
               <ChevronDown size={18} className="mx-auto text-emerald-600" />
@@ -595,35 +598,50 @@ const Sales: React.FC = () => {
           <td className="px-6 py-4 whitespace-nowrap text-sm">
             <div className="flex space-x-2">
               <button
-                onClick={() => handleViewSale(sale)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleViewSale(sale);
+                }}
                 className="text-blue-600 hover:text-blue-900"
                 title={t('sales.actions.viewSale')}
               >
                 <Eye size={16} />
               </button>
               <button
-                onClick={() => handleEditClick(sale)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleEditClick(sale);
+                }}
                 className="text-indigo-600 hover:text-indigo-900"
                 title={t('sales.actions.editSale')}
               >
                 <Edit2 size={16} />
               </button>
               <button
-                onClick={() => handleShowProfitDetails(sale)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleShowProfitDetails(sale);
+                }}
                 className="text-teal-600 hover:text-teal-900"
                 title="View Profit Details"
               >
                 <Info size={16} />
               </button>
               <button
-                onClick={() => handleCopyLink(sale.id)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleCopyLink(sale.id);
+                }}
                 className="text-green-600 hover:text-green-900"
                 title={t('sales.actions.copyLink')}
               >
                 {t('sales.actions.copyLink')}
               </button>
               <button
-                onClick={() => handleDeleteClick(sale)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDeleteClick(sale);
+                }}
                 className="text-red-600 hover:text-red-900 flex items-center"
                 title={t('sales.actions.deleteSale')}
                 disabled={deleteLoading && currentSale?.id === sale.id}

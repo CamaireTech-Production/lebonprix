@@ -14,6 +14,7 @@ import { useAllStockBatches } from '@hooks/business/useStockBatches';
 import { buildProductStockMap, getEffectiveProductStock } from '@utils/inventory/stockHelpers';
 
 export interface FormProduct {
+  id: string; // Unique identifier for React key
   product: Product | null;
   quantity: string;
   negotiatedPrice: string;
@@ -80,7 +81,7 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
     deliveryFee: '',
     saleDate: new Date().toISOString().slice(0, 10),
     inventoryMethod: 'fifo',
-    products: [{ product: null, quantity: '', negotiatedPrice: '' }],
+    products: [{ id: crypto.randomUUID(), product: null, quantity: '', negotiatedPrice: '' }],
   });
 
 
@@ -202,7 +203,7 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
   const addProductField = () => {
     setFormData(prev => ({
       ...prev,
-      products: [...prev.products, { product: null, quantity: '', negotiatedPrice: '' }],
+      products: [{ id: crypto.randomUUID(), product: null, quantity: '', negotiatedPrice: '' }, ...prev.products],
     }));
   };
 
@@ -229,7 +230,7 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
       deliveryFee: '',
       saleDate: new Date().toISOString().slice(0, 10),
       inventoryMethod: 'fifo',
-      products: [{ product: null, quantity: '', negotiatedPrice: '' }],
+      products: [{ id: crypto.randomUUID(), product: null, quantity: '', negotiatedPrice: '' }],
     });
     setFoundCustomer(null);
     setShowCustomerDropdown(false);
@@ -386,7 +387,10 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
               howKnown: formData.customerHowKnown || undefined,
               userId: user.uid,
               companyId: company.id,
-              createdAt: new Date() // Will be replaced by serverTimestamp() in addCustomer
+              createdAt: {
+                seconds: Math.floor(new Date().getTime() / 1000),
+                nanoseconds: (new Date().getTime() % 1000) * 1000000
+              } // Will be replaced by serverTimestamp() in addCustomer
             };
             
             await addCustomer(customerData);
@@ -489,7 +493,10 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
           howKnown: formData.customerHowKnown || undefined,
           userId: user.uid,
           companyId: company.id,
-          createdAt: new Date() // Will be replaced by serverTimestamp() in addCustomer
+          createdAt: {
+                seconds: Math.floor(new Date().getTime() / 1000),
+                nanoseconds: (new Date().getTime() % 1000) * 1000000
+              } // Will be replaced by serverTimestamp() in addCustomer
         };
         await addCustomer(data);
         setFoundCustomer(data);

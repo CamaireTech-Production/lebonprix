@@ -85,7 +85,6 @@ export const createExpense = async (
   companyId: string,
   createdBy?: import('../../../types/models').EmployeeRef | null
 ): Promise<Expense> => {
-  const userId = data.userId || companyId;
   
   let transactionDate: any;
   if (data.date) {
@@ -205,6 +204,24 @@ export const softDeleteExpense = async (expenseId: string, userId: string): Prom
       await updateFinanceEntry(docSnap.id, { isDeleted: true });
     }
   }
+};
+
+export const softDeleteExpenseWithImage = async (expense: Expense, userId: string): Promise<void> => {
+  // Delete image from storage if it exists
+  if (expense.imagePath) {
+    try {
+      const { FirebaseStorageService } = await import('../../core/firebaseStorage');
+      const storageService = new FirebaseStorageService();
+      await storageService.deleteImage(expense.imagePath);
+      console.log('Expense image deleted successfully:', expense.imagePath);
+    } catch (error) {
+      console.warn('Failed to delete expense image:', error);
+      // Continue with expense deletion even if image deletion fails
+    }
+  }
+  
+  // Soft delete the expense
+  await softDeleteExpense(expense.id, userId);
 };
 
 // ============================================================================
