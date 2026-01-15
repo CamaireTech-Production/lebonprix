@@ -9,11 +9,11 @@ export interface UsernameValidationResult {
 }
 
 /**
- * Validates a username according to the rules:
+ * Validates a username according to simplified rules:
  * - Minimum length: 3 characters
  * - Maximum length: 30 characters
- * - Allowed characters: alphanumeric, underscores, hyphens
- * - Must be unique globally (checked separately)
+ * - Allow spaces, letters, numbers, and common punctuation
+ * - Disallow control characters and problematic symbols
  * 
  * @param username - The username to validate
  * @returns Validation result with error message if invalid
@@ -33,14 +33,10 @@ export const validateUsername = (username: string): UsernameValidationResult => 
     return { valid: false, error: 'Le nom d\'utilisateur ne peut pas dépasser 30 caractères' };
   }
   
-  // Only allow alphanumeric characters, underscores, and hyphens
-  if (!/^[a-zA-Z0-9_-]+$/.test(trimmedUsername)) {
-    return { valid: false, error: 'Le nom d\'utilisateur ne peut contenir que des lettres, chiffres, tirets et underscores' };
-  }
-  
-  // Username cannot start or end with underscore or hyphen
-  if (/^[_-]|[_-]$/.test(trimmedUsername)) {
-    return { valid: false, error: 'Le nom d\'utilisateur ne peut pas commencer ou se terminer par un tiret ou un underscore' };
+  // Allow most characters except control characters and problematic symbols
+  // Allow: letters, numbers, spaces, and common punctuation like .,-_!@#$%^&*()+=[]{}|;:'",<>?/~`
+  if (/[\x00-\x1F\x7F<>]/.test(trimmedUsername)) {
+    return { valid: false, error: 'Le nom d\'utilisateur contient des caractères non autorisés' };
   }
   
   return { valid: true };

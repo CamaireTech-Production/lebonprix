@@ -45,6 +45,9 @@ export interface CheckoutSettings {
   checkoutButtonText: string;
   checkoutButtonColor: string;
   
+  // POS Settings
+  posCalculatorEnabled: boolean;
+  
   // Timestamps
   createdAt: Date;
   updatedAt: Date;
@@ -78,6 +81,7 @@ export interface CheckoutSettingsUpdate {
   showCheckoutInCatalogue?: boolean;
   checkoutButtonText?: string;
   checkoutButtonColor?: string;
+  posCalculatorEnabled?: boolean;
 }
 
 // Default settings for new companies
@@ -120,4 +124,7 @@ export const DEFAULT_CHECKOUT_SETTINGS: Omit<CheckoutSettings, 'id' | 'userId' |
   showCheckoutInCatalogue: true,
   checkoutButtonText: 'Checkout Now',
   checkoutButtonColor: '#10b981', // emerald-500
+  
+  // POS Settings
+  posCalculatorEnabled: true,
 };

@@ -30,6 +30,7 @@ const Suppliers = lazy(() => import('../pages/suppliers/Suppliers'));
 const Contacts = lazy(() => import('../pages/customers/Contacts'));
 const CustomerSources = lazy(() => import('../pages/customers/CustomerSources'));
 const Reports = lazy(() => import('../pages/reports/Reports'));
+const ReportGeneration = lazy(() => import('../pages/reports/ReportGeneration'));
 const Settings = lazy(() => import('../pages/settings/Settings'));
 const Profile = lazy(() => import('../pages/hr/Profile'));
 const TimelinePage = lazy(() => import('../pages/orders/TimelinePage'));
@@ -118,6 +119,7 @@ export const AppRoutes: React.FC<AppRoutesProps> = ({ isAddSaleModalOpen, setIsA
           <Route path="contacts/sources" element={<RoleRoute requiredResource="customers"><LazyPage><CustomerSources /></LazyPage></RoleRoute>} />
           <Route path="hr" element={<RoleRoute requiredResource="hr"><LazyPage><HRManagement /></LazyPage></RoleRoute>} />
           <Route path="reports" element={<RoleRoute requiredResource="reports"><LazyPage><Reports /></LazyPage></RoleRoute>} />
+          <Route path="reports/generate" element={<RoleRoute requiredResource="reports"><LazyPage><ReportGeneration /></LazyPage></RoleRoute>} />
           <Route path="profile" element={<LazyPage><Profile /></LazyPage>} />
           <Route path="site" element={<RoleRoute requiredResource="settings"><LazyPage><Site /></LazyPage></RoleRoute>} />
           <Route path="settings" element={<RoleRoute requiredResource="settings"><LazyPage><Settings /></LazyPage></RoleRoute>} />

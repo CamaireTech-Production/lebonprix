@@ -20,6 +20,8 @@ export interface Company extends BaseModel {
   location?: string;
   email: string;
   website?: string; // Company website URL
+  report_mail?: string; // Email pour les rapports de vente
+  report_time?: number; // Heure de réception des rapports (0-23)
   
   // Color customization for catalogue
   catalogueColors?: {
@@ -52,6 +54,11 @@ export interface Company extends BaseModel {
   
   // Stock management settings
   lowStockThreshold?: number; // Global threshold for low stock alerts (in units)
+  
+  // Employee management
+  employees?: Record<string, CompanyEmployee>; // Mirroir de employeeRefs pour lecture rapide
+  employeeCount?: number; // Nombre total d'employés
+  // Nouvelle architecture: employeeRefs via sous-collection companies/{id}/employeeRefs/{firebaseUid}
 }
 
 export interface Category extends BaseModel {
@@ -157,12 +164,22 @@ export interface Sale extends BaseModel {
   };
   customerSourceId?: string; // Source clientelle de la vente (optionnel pour rétrocompatibilité)
   deliveryFee?: number;
+  discountType?: 'amount' | 'percentage'; // Type de remise
+  discountValue?: number; // Montant de la remise
+  discountOriginalValue?: number; // Valeur originale (pourcentage si applicable)
+  tax?: number; // Taxe appliquée
+  paymentMethod?: 'cash' | 'mobile_money' | 'card'; // Méthode de paiement
+  amountReceived?: number; // Montant reçu (pour calculer la monnaie)
+  change?: number; // Monnaie à rendre
   statusHistory?: Array<{ status: string; timestamp: string }>;
   isAvailable?: boolean;
   inventoryMethod?: 'FIFO' | 'LIFO';
   totalCost?: number;
   totalProfit?: number;
   averageProfitMargin?: number;
+  tax?: number; // TVA amount
+  tvaRate?: number; // TVA percentage rate
+  tvaApplied?: boolean; // Whether TVA was applied
 }
 
 export interface Expense extends BaseModel {
@@ -195,8 +212,8 @@ export interface Customer {
   name?: string;
   quarter?: string;
   userId: string;
-  companyId: string; // Reference to the company this customer belongs to
-  createdAt: Date;
+  companyId: string; // Reference to company this customer belongs to
+  createdAt: Timestamp;
   // Informations optionnelles supplémentaires
   firstName?: string; // Prénom
   lastName?: string; // Nom de famille
@@ -459,22 +476,6 @@ export interface User {
   // selectedTemplates?: Record<string /*companyId*/, string /*templateId*/>;
 }
 
-// Update Company interface to include employees
-export interface Company extends BaseModel {
-  name: string;
-  logo?: string; // Base64 string for logo
-  description?: string;
-  phone: string;
-  role : "Companie"
-  location?: string;
-  email: string;
-  report_mail?: string; // Email pour les rapports de vente
-  report_time?: number; // Heure de réception des rapports (0-23)
-  companyId: string; // ID du propriétaire de l'entreprise
-  employees?: Record<string, CompanyEmployee>; // Mirroir de employeeRefs pour lecture rapide
-  employeeCount?: number; // Nombre total d'employés
-  // Nouvelle architecture: employeeRefs via sous-collection companies/{id}/employeeRefs/{firebaseUid}
-}
 
 // ============================================================================
 // PRODUCTION MODELS

@@ -5,7 +5,7 @@ import { query, collection, where, orderBy, limit, startAfter, getDocs, Document
 import { db } from '@services/core/firebase';
 import ExpensesManager from '@services/storage/ExpensesManager';
 import BackgroundSyncService from '@services/utilities/backgroundSync';
-import type { Expense } from '../types/models';
+import type { Expense } from '../../types/models';
 
 interface UseInfiniteExpensesReturn {
   expenses: Expense[];
@@ -65,6 +65,7 @@ export const useInfiniteExpenses = (): UseInfiniteExpensesReturn => {
       const q = query(
         collection(db, 'expenses'),
         where('companyId', '==', company.id),
+        where('isAvailable', '!=', false),
         orderBy('createdAt', 'desc'),
         limit(EXPENSES_PER_PAGE)
       );
@@ -101,6 +102,7 @@ export const useInfiniteExpenses = (): UseInfiniteExpensesReturn => {
       const q = query(
         collection(db, 'expenses'),
         where('companyId', '==', company.id),
+        where('isAvailable', '!=', false),
         orderBy('createdAt', 'desc'),
         startAfter(lastDoc),
         limit(EXPENSES_PER_PAGE)
