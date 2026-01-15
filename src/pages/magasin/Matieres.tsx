@@ -1,11 +1,14 @@
 import { useState, useMemo } from 'react';
-import { Plus, Search, Edit2, Trash2, Package, Grid3X3 } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, Package, Grid3X3, FileText } from 'lucide-react';
 import { Card, Button, Input, Badge, Modal, ModalFooter, ImageWithSkeleton } from '@components/common';
 import { useMatieres } from '@hooks/business/useMatieres';
 import { useMatiereStocks } from '@hooks/business/useMatiereStocks';
 import { useCategories } from '@hooks/data/useFirestore';
+import { useAllStockBatches } from '@hooks/business/useStockBatches';
+import { useSuppliers } from '@hooks/data/useFirestore';
 import { useAuth } from '@contexts/AuthContext';
 import MatiereFormModal from '../../components/magasin/MatiereFormModal';
+import MatiereReportModal from '../../components/reports/MatiereReportModal';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
 import { getStockBadgeVariant } from '@utils/magasin/stockBadge';
 import type { Matiere } from '../../types/models';
@@ -14,11 +17,14 @@ const Matieres = () => {
   const { matieres, loading, error, deleteMatiereData } = useMatieres();
   const { matiereStocks, loading: stocksLoading } = useMatiereStocks();
   const { categories } = useCategories();
+  const { batches: allStockBatches } = useAllStockBatches('matiere');
+  const { suppliers } = useSuppliers();
   const { company } = useAuth();
   
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [currentMatiere, setCurrentMatiere] = useState<Matiere | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -122,9 +128,18 @@ const Matieres = () => {
           <h2 className="text-xl font-semibold text-gray-900">Matières premières</h2>
           <p className="text-gray-600">Gérer vos matières premières et leurs stocks</p>
         </div>
-        <Button onClick={() => setIsAddModalOpen(true)} icon={<Plus size={20} />}>
-          Ajouter une matière
-        </Button>
+        <div className="flex items-center gap-3">
+          <Button 
+            onClick={() => setIsReportModalOpen(true)} 
+            icon={<FileText size={16} />}
+            variant="outline"
+          >
+            Générer un rapport
+          </Button>
+          <Button onClick={() => setIsAddModalOpen(true)} icon={<Plus size={20} />}>
+            Ajouter une matière
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -397,6 +412,18 @@ const Matieres = () => {
           </p>
         </div>
       </Modal>
+
+      {/* Report Modal */}
+      <MatiereReportModal
+        isOpen={isReportModalOpen}
+        onClose={() => setIsReportModalOpen(false)}
+        matieres={matieres}
+        stockBatches={allStockBatches}
+        categories={categories}
+        suppliers={suppliers}
+        companyName={company?.name}
+        companyLogo={company?.logo}
+      />
     </div>
   );
 };

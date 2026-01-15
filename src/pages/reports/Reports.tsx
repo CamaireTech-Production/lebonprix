@@ -16,13 +16,17 @@ import {
   Legend,
   ChartOptions
 } from 'chart.js';
-import { useProducts, useSales, useExpenses, useCategories } from '@hooks/data/useFirestore';
+import { useProducts, useSales, useExpenses, useCategories, useSuppliers } from '@hooks/data/useFirestore';
 import { useCustomerSources } from '@hooks/business/useCustomerSources';
+import { useMatieres } from '@hooks/business/useMatieres';
+import { useAllStockBatches } from '@hooks/business/useStockBatches';
 import type { Timestamp, Product, Sale, Expense } from '../../types/models';
 import ComparisonIndicator from '../../components/reports/ComparisonIndicator';
 import KPICard from '../../components/reports/KPICard';
 import QuickReportsBar from '../../components/reports/QuickReportsBar';
 import SavedReportsManager, { SavedReport } from '../../components/reports/SavedReportsManager';
+import AllProductsSold from '../../components/reports/AllProductsSold';
+import ConsolidatedReportModal from '../../components/reports/ConsolidatedReportModal';
 import { useAuth } from '@contexts/AuthContext';
 import { logWarning } from '@utils/core/logger';
 import { formatPrice } from '@utils/formatting/formatPrice';
@@ -78,8 +82,14 @@ const Reports = () => {
   const { expenses } = useExpenses();
   const { products } = useProducts();
   const { categories } = useCategories();
+  const { suppliers } = useSuppliers();
+  const { matieres } = useMatieres();
+  const { batches: allStockBatches } = useAllStockBatches();
+  const { batches: matiereStockBatches } = useAllStockBatches('matiere');
   const { sources } = useCustomerSources();
   const { company } = useAuth();
+
+  const [showConsolidatedModal, setShowConsolidatedModal] = useState(false);
 
   const toDate = (ts?: Timestamp) => (ts?.seconds ? new Date(ts.seconds * 1000) : null);
   const start = useMemo(() => {
@@ -661,12 +671,82 @@ const Reports = () => {
       .map(v => ({ name: v.name, quantity: v.quantity, customersCount: v.customers.size, totalSales: v.totalSales }))
       .sort((a, b) => b.quantity - a.quantity)
       .slice(0, 5);
-    
+
     // Calculate cumulative sales
     let cumulative = 0;
     return sorted.map(item => {
       cumulative += item.totalSales;
       return { ...item, cumulativeSales: cumulative };
+    });
+  }, [filteredSales, products, selectedProduct]);
+
+  // All products sold (without limit, for the comprehensive view)
+  const allProductsSold = useMemo(() => {
+    const byId = new Map<string, {
+      id: string;
+      name: string;
+      quantity: number;
+      customers: Set<string>;
+      salesIds: Set<string>;
+      totalSales: number;
+      totalCOGS: number;
+    }>();
+
+    const productById: Record<string, Product> = Object.fromEntries(
+      products
+        .filter(p => p.isAvailable !== false && p.isDeleted !== true)
+        .map(p => [p.id, p])
+    );
+
+    for (const s of filteredSales) {
+      const customerName = s.customerInfo?.name || 'Unknown';
+      for (const sp of s.products) {
+        if (selectedProduct !== 'all' && sp.productId !== selectedProduct) continue;
+
+        const product = productById[sp.productId];
+        if (!product) continue;
+
+        const entry = byId.get(sp.productId) || {
+          id: sp.productId,
+          name: product.name,
+          quantity: 0,
+          customers: new Set<string>(),
+          salesIds: new Set<string>(),
+          totalSales: 0,
+          totalCOGS: 0
+        };
+
+        entry.quantity += sp.quantity || 0;
+        entry.customers.add(customerName);
+        entry.salesIds.add(s.id); // Track unique sales
+
+        // Calculate total sales for this product
+        const unitPrice = sp.negotiatedPrice || sp.basePrice || 0;
+        const costPrice = sp.costPrice ?? product.costPrice ?? 0;
+        const quantity = sp.quantity || 0;
+
+        entry.totalSales += unitPrice * quantity;
+        entry.totalCOGS += costPrice * quantity;
+
+        byId.set(sp.productId, entry);
+      }
+    }
+
+    // Convert to array and calculate profit metrics
+    return Array.from(byId.values()).map(v => {
+      const grossProfit = v.totalSales - v.totalCOGS;
+      const profitMargin = v.totalSales > 0 ? (grossProfit / v.totalSales) * 100 : 0;
+
+      return {
+        id: v.id,
+        name: v.name,
+        quantity: v.quantity,
+        customersCount: v.customers.size,
+        salesCount: v.salesIds.size,
+        totalSales: v.totalSales,
+        grossProfit,
+        profitMargin
+      };
     });
   }, [filteredSales, products, selectedProduct]);
 
@@ -799,31 +879,8 @@ const Reports = () => {
   }, [filteredSales]);
 
   const handleExport = () => {
-    // Enhanced CSV escaping function
-    const escapeCSV = (field: string): string => {
-      if (field.includes(',') || field.includes('"') || field.includes('\n')) {
-        return `"${field.replace(/"/g, '""')}"`;
-      }
-      return field;
-    };
-
-    const header = ['Date', 'Sales', 'Cost of Goods Sold', 'Expenses', 'Net Profit'];
-    const rows = dateKeys.map((key, i) => [
-      key,
-      String(series.salesData[i] || 0),
-      String(series.costOfGoodsSoldData[i] || 0),
-      String(series.expensesData[i] || 0),
-      String(series.profitData[i] || 0),
-    ]);
-    rows.push(['TOTAL', String(totalSales), String(totalCostOfGoodsSold), String(totalExpenses), String(netProfit)]);
-    const csv = [header, ...rows].map(r => r.map(escapeCSV).join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `report_${startDate}_to_${endDate}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    // Open the consolidated report modal instead of direct CSV export
+    setShowConsolidatedModal(true);
   };
 
   return (
@@ -1165,6 +1222,9 @@ const Reports = () => {
           </div>
         </Card>
       </div>
+
+      {/* All Products Sold - Comprehensive View with Pagination */}
+      <AllProductsSold productsData={allProductsSold} />
 
       {/* Expenses List */}
       <Card title={t('reports.tables.expenses.title')} className="mb-6">
@@ -1514,6 +1574,22 @@ const Reports = () => {
           </div>
         </div>
       </Card>
+
+      {/* Consolidated Report Modal */}
+      <ConsolidatedReportModal
+        isOpen={showConsolidatedModal}
+        onClose={() => setShowConsolidatedModal(false)}
+        products={products}
+        expenses={expenses}
+        sales={sales}
+        matieres={matieres}
+        categories={categories}
+        suppliers={suppliers}
+        productStockBatches={allStockBatches}
+        matiereStockBatches={matiereStockBatches}
+        companyName={company?.name}
+        companyLogo={company?.logo}
+      />
     </div>
   );
 };

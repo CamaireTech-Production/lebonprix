@@ -59,7 +59,8 @@ export const sharePOSBill = async (
 export const printPOSBillDirect = (
   sale: Sale | Partial<Sale>,
   products: Product[],
-  company: Company
+  company: Company,
+  paymentMethod?: 'cash' | 'mobile_money' | 'card'
 ): void => {
   try {
     // Calculate totals
@@ -71,12 +72,24 @@ export const printPOSBillDirect = (
     // Get discount amount (can be from discountValue field or calculated)
     const discountAmount = (sale as any).discountValue || 0;
     
-    // Get tax amount
-    const taxAmount = (sale as any).tax || 0;
+    // Get TVA amount
+    const tvaAmount = (sale as any).tvaApplied ? (sale as any).tax || 0 : 0;
     
-    // Calculate total: subtotal + deliveryFee - discount + tax
-    // If totalAmount is already set, use it (it should already include discount and tax)
-    const total = sale.totalAmount || (subtotal + (sale.deliveryFee || 0) - discountAmount + taxAmount);
+    // Get other tax amount
+    const taxAmount = (sale as any).tvaApplied ? 0 : ((sale as any).tax || 0);
+    
+    // Calculate total: subtotal + deliveryFee - discount + TVA + other tax
+    // If totalAmount is already set, use it (it should already include discount and taxes)
+    const total = sale.totalAmount || (subtotal + (sale.deliveryFee || 0) - discountAmount + tvaAmount + taxAmount);
+
+    // Get payment method and amount received for change calculation
+    const salePaymentMethod = paymentMethod || (sale as any).paymentMethod || 'cash';
+    const amountReceived = (sale as any).amountReceived || total;
+    
+    // Calculate change for cash payments
+    const change = salePaymentMethod === 'cash' && amountReceived > total
+      ? Math.max(0, amountReceived - total)
+      : 0;
 
     // Format date
     const saleDate = sale.createdAt?.seconds
@@ -288,6 +301,12 @@ export const printPOSBillDirect = (
               <span>Subtotal:</span>
               <span>${subtotal.toLocaleString()} XAF</span>
             </div>
+            ${(sale as any).tvaApplied && tvaAmount > 0 ? `
+            <div class="total-row">
+              <span>TVA (${((sale as any).tvaRate || 19.24)}%):</span>
+              <span>${tvaAmount.toLocaleString()} XAF</span>
+            </div>
+            ` : ''}
             ${sale.deliveryFee && sale.deliveryFee > 0 ? `
             <div class="total-row">
               <span>Delivery Fee:</span>
@@ -296,7 +315,7 @@ export const printPOSBillDirect = (
             ` : ''}
             ${discountAmount > 0 ? `
             <div class="total-row" style="color: #dc2626;">
-              <span>Remise:</span>
+              <span>Remise ${(sale as any).discountType === 'percentage' ? `(${(sale as any).discountOriginalValue || (sale as any).discountValue}%)` : ''}:</span>
               <span>-${discountAmount.toLocaleString()} XAF</span>
             </div>
             ` : ''}
@@ -310,6 +329,18 @@ export const printPOSBillDirect = (
               <span>Total:</span>
               <span>${total.toLocaleString()} XAF</span>
             </div>
+            ${salePaymentMethod === 'cash' && amountReceived !== total ? `
+            <div class="total-row">
+              <span>Montant reçu:</span>
+              <span>${amountReceived.toLocaleString()} XAF</span>
+            </div>
+            ` : ''}
+            ${change > 0 ? `
+            <div class="total-row" style="color: #16a34a; font-weight: bold;">
+              <span>Monnaie:</span>
+              <span>${change.toLocaleString()} XAF</span>
+            </div>
+            ` : ''}
           </div>
 
           <div class="footer">

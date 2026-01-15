@@ -284,7 +284,7 @@ export const deleteCategory = async (
       collection(db, 'matieres'),
       where('refCategorie', '==', currentCategory.name),
       where('companyId', '==', companyId),
-      where('isDeleted', '!=', true)
+      where('isDeleted', 'in', [false, null])
     );
     const matieresSnapshot = await getDocs(matieresQuery);
     

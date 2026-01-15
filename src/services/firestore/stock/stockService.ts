@@ -113,6 +113,7 @@ export const getAvailableStockBatches = async (
     where('type', '==', type),
     where('remainingQuantity', '>', 0),
     where('status', '==', 'active'),
+    // Removed isDeleted filter - will filter client-side
   ];
 
   // Add the appropriate ID filter based on type
@@ -127,7 +128,10 @@ export const getAvailableStockBatches = async (
   const q = query(collection(db, 'stockBatches'), ...constraints);
   
   const snapshot = await getDocs(q);
-  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as StockBatch[];
+  const allBatches = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as StockBatch[];
+  
+  // Filter client-side to exclude only explicitly deleted batches
+  return allBatches.filter(batch => batch.isDeleted !== true);
 };
 
 export const consumeStockFromBatches = async (

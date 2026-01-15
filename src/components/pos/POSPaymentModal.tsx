@@ -7,10 +7,11 @@ import { useProducts } from '@hooks/data/useFirestore';
 import { printPOSBillDirect } from '@utils/pos/posPrint';
 import { showErrorToast, showSuccessToast } from '@utils/core/toast';
 import { formatPrice } from '@utils/formatting/formatPrice';
+import { normalizePhoneForComparison } from '@utils/core/phoneUtils';
 import { POSCalculator } from './POSCalculator';
 import Select from 'react-select';
 import { Input, PriceInput, ImageWithSkeleton } from '@components/common';
-import type { OrderStatus } from '../../types/models';
+import type { OrderStatus, Customer } from '../../types/models';
 import type { CartItem } from '@hooks/forms/usePOS';
 
 export interface POSPaymentData {
@@ -38,6 +39,8 @@ export interface POSPaymentData {
   // Additional
   discountType?: 'amount' | 'percentage';
   discountValue?: number;
+  discountAmount?: number; // Calculated discount amount
+  discountOriginalValue?: number; // Original discount value (for percentage display)
   promoCode: string; // Empty string if not provided
   tax?: number;
   notes: string; // Empty string if not provided
@@ -61,6 +64,13 @@ interface POSPaymentModalProps {
   onComplete: (data: POSPaymentData) => Promise<any> | void;
   onSaveDraft?: (data: POSPaymentData) => void;
   isSubmitting: boolean;
+  checkoutSettings?: {
+    posCalculatorEnabled: boolean;
+  } | null;
+  customers?: Customer[];
+  applyTVA?: boolean;
+  tvaRate?: number;
+  onTVAToggle?: (apply: boolean) => void;
 }
 
 export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
@@ -73,6 +83,11 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
   onComplete,
   onSaveDraft,
   isSubmitting,
+  checkoutSettings,
+  customers,
+  applyTVA = false,
+  tvaRate = 19.24,
+  onTVAToggle,
 }) => {
   // ✅ ALL HOOKS MUST BE CALLED FIRST - BEFORE ANY CONDITIONAL RETURNS
   const { t } = useTranslation();
@@ -98,6 +113,12 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
   const [customerAddress, setCustomerAddress] = useState<string>('');
   const [customerTown, setCustomerTown] = useState<string>('');
   
+  // Customer search state
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState<boolean>(false);
+  const [customerSearch, setCustomerSearch] = useState<string>('');
+  const [foundCustomer, setFoundCustomer] = useState<Customer | null>(null);
+  const phoneInputRef = useRef<HTMLInputElement>(null);
+  
   // Sale Info
   const [saleDate, setSaleDate] = useState<string>(new Date().toISOString().slice(0, 10));
   const [deliveryFee, setDeliveryFee] = useState<number>(currentDeliveryFee);
@@ -115,11 +136,21 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
   // UI State
   const [showCustomerSection, setShowCustomerSection] = useState<boolean>(false);
   const [showSaleInfoSection, setShowSaleInfoSection] = useState<boolean>(false);
-  const [activeTab, setActiveTab] = useState<'calculator' | 'additional'>('calculator'); // Calculator is default
+  const [activeTab, setActiveTab] = useState<'calculator' | 'additional'>(
+    checkoutSettings?.posCalculatorEnabled ? 'calculator' : 'additional'
+  ); // Default to calculator if enabled, otherwise additional
   const [isProcessingPayment, setIsProcessingPayment] = useState<boolean>(false);
   const [completedSale, setCompletedSale] = useState<any>(null); // Store completed sale for preview
   const [hasAutoPrinted, setHasAutoPrinted] = useState(false); // Track if auto-print has been triggered
   const printFromPreviewRef = useRef<(() => void) | null>(null); // Ref to store handlePrintFromPreview function
+
+  // Handle tab state when calculator is disabled
+  useEffect(() => {
+    if (!checkoutSettings?.posCalculatorEnabled && activeTab === 'calculator') {
+      // If calculator is disabled and current tab is calculator, switch to additional
+      setActiveTab('additional');
+    }
+  }, [checkoutSettings?.posCalculatorEnabled, activeTab]);
 
   // Get company colors
   const getCompanyColors = () => {
@@ -188,11 +219,14 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
     setPrintReceipt(false);
     setShowCustomerSection(false);
     setShowSaleInfoSection(false);
-    setActiveTab('calculator');
+    setActiveTab(checkoutSettings?.posCalculatorEnabled ? 'calculator' : 'additional');
     setCompletedSale(null);
     setIsProcessingPayment(false);
     setHasAutoPrinted(false);
     printFromPreviewRef.current = null;
+    setShowCustomerDropdown(false);
+    setFoundCustomer(null);
+    setCustomerSearch('');
   };
 
   // Initialize form with current customer data when modal opens
@@ -230,6 +264,26 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
     }
   }, [currentCustomer, isOpen, completedSale]);
 
+  // Click outside handler for customer dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showCustomerDropdown && phoneInputRef.current && !phoneInputRef.current.contains(event.target as Node)) {
+        // Check if click is on dropdown itself
+        const target = event.target as Element;
+        const isDropdownClick = target.closest('[data-dropdown="customer"]');
+        
+        if (!isDropdownClick) {
+          setShowCustomerDropdown(false);
+        }
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showCustomerDropdown]);
+
   // Auto-print when invoice preview is shown
   // This useEffect must be before the conditional return to respect React hooks rules
   useEffect(() => {
@@ -259,8 +313,14 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
       : (subtotal * parseFloat(discountValue)) / 100
   ) : 0;
   
+  // Calculate tax amount (other taxes, not TVA)
   const taxAmount = tax ? parseFloat(tax) : 0;
-  const total = subtotal + deliveryFee - discountAmount + taxAmount;
+  
+  // Calculate TVA amount
+  const tvaAmount = applyTVA ? (subtotal * (tvaRate / 100)) : 0;
+  
+  // Calculate total: subtotal + deliveryFee - discount + TVA + other tax
+  const total = subtotal + (completedSale?.deliveryFee || 0) - discountAmount + tvaAmount + taxAmount;
   // Calculate change: if no amount received entered, assume exact amount (change = 0)
   // If amount received > total, calculate change
   const change = paymentMethod === 'cash' && amountReceived && parseFloat(amountReceived) > total
@@ -308,10 +368,13 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
       deliveryFee,
       status,
       inventoryMethod,
-      discountType: discountValue ? discountType : undefined,
-      discountValue: discountValue ? parseFloat(discountValue) : undefined,
+      // Simplified discount data - save exactly what we have
+      discountType: discountAmount > 0 ? discountType : undefined,
+      discountValue: discountAmount > 0 ? parseFloat(discountValue) : undefined,
+      discountAmount: discountAmount > 0 ? discountAmount : undefined,
+      discountOriginalValue: discountAmount > 0 ? parseFloat(discountValue) : undefined,
       promoCode: promoCode || '',
-      tax: tax ? parseFloat(tax) : undefined,
+      tax: applyTVA ? (subtotal * (tvaRate / 100)) : (tax ? parseFloat(tax) : undefined),
       notes: notes || '',
       printReceipt,
     };
@@ -322,6 +385,23 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
     try {
       // Call onComplete and wait for the sale to be created
       const sale = await onComplete(paymentData);
+      
+      // WORKAROUND: If backend ignored discount data, manually add it to the sale object
+      if (sale && discountAmount > 0 && !sale.discountAmount) {
+        sale.discountAmount = discountAmount;
+        sale.discountType = discountType;
+        sale.discountValue = parseFloat(discountValue);
+        sale.discountOriginalValue = parseFloat(discountValue);
+        
+        // Recalculate total if backend got it wrong
+        const expectedTotal = subtotal + deliveryFee - discountAmount + (tax ? parseFloat(tax) : 0);
+        if (sale.totalAmount !== expectedTotal) {
+          sale.totalAmount = expectedTotal;
+        }
+      }
+      
+      // Success notification
+      showSuccessToast(t('pos.payment.paymentSuccess') || 'Payment completed successfully!');
       
       // Store completed sale for preview
       if (sale) {
@@ -363,6 +443,8 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
       inventoryMethod,
       discountType: discountValue ? discountType : undefined,
       discountValue: discountValue ? parseFloat(discountValue) : undefined,
+      discountAmount: discountAmount,
+      discountOriginalValue: discountValue ? parseFloat(discountValue) : undefined,
       promoCode: promoCode || '',
       tax: tax ? parseFloat(tax) : undefined,
       notes: notes || '',
@@ -424,18 +506,48 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
         deliveryFee: deliveryFee,
         discountType: discountType,
         discountValue: discountAmount,
+        discountOriginalValue: discountValue ? parseFloat(discountValue) : undefined,
         tax: taxAmount,
+        paymentMethod: paymentMethod,
+        amountReceived: paymentMethod === 'cash' && amountReceived ? parseFloat(amountReceived) : undefined,
         createdAt: { seconds: Math.floor(new Date(saleDate).getTime() / 1000), nanoseconds: 0 },
       };
 
       // Use direct print (browser print dialog)
-      printPOSBillDirect(tempSale as any, products || [], company);
+      printPOSBillDirect(tempSale as any, products || [], company, paymentMethod || undefined);
     } catch (error) {
       console.error('Error printing bill:', error);
       showErrorToast(t('pos.payment.printError') || 'Failed to print bill');
     } finally {
       setIsPrinting(false);
     }
+  };
+
+  // Handle customer phone change with search functionality
+  const handleCustomerPhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setCustomerPhone(value);
+    setCustomerSearch(value);
+    
+    // Show dropdown if there's input and customers exist
+    if (value && customers && customers.length > 0) {
+      setShowCustomerDropdown(true);
+    } else {
+      setShowCustomerDropdown(false);
+    }
+  };
+
+  // Handle customer selection from dropdown
+  const handleSelectCustomer = (customer: Customer) => {
+    setCustomerPhone(customer.phone || '');
+    setCustomerName(customer.name || '');
+    setCustomerQuarter(customer.quarter || '');
+    setCustomerSourceId(customer.customerSourceId || '');
+    setCustomerAddress(customer.address || '');
+    setCustomerTown(customer.town || '');
+    setFoundCustomer(customer);
+    setShowCustomerDropdown(false);
+    setCustomerSearch('');
   };
 
   // Handle print from preview - print directly without opening new tab
@@ -560,10 +672,76 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
                 </tbody>
               </table>
               <hr style="border-top: 1px dashed #000; margin: 10px 0;">
-              <p style="text-align: right;"><strong>Sous-total:</strong> ${subtotal.toLocaleString()} XAF</p>
+              <p style="text-align: right;"><strong>Sous-total:</strong> ${(() => {
+                // Calculate subtotal from completed sale products instead of current cart
+                const saleSubtotal = completedSale.products?.reduce((sum: number, item: any) => {
+                  const itemPrice = item.negotiatedPrice || item.basePrice;
+                  return sum + (itemPrice * item.quantity);
+                }, 0) || 0;
+                return saleSubtotal.toLocaleString();
+              })()} XAF</p>
               ${completedSale.deliveryFee > 0 ? `<p style="text-align: right;"><strong>Frais de livraison:</strong> ${completedSale.deliveryFee.toLocaleString()} XAF</p>` : ''}
-              ${discountAmount > 0 ? `<p style="text-align: right;"><strong>Remise:</strong> -${discountAmount.toLocaleString()} XAF</p>` : ''}
-              ${taxAmount > 0 ? `<p style="text-align: right;"><strong>Taxe:</strong> ${taxAmount.toLocaleString()} XAF</p>` : ''}
+              ${(() => {
+                // Calculate discount from completed sale data
+                const saleDiscountAmount = completedSale.discountAmount || 0;
+                const saleDiscountType = completedSale.discountType;
+                const saleDiscountOriginalValue = completedSale.discountOriginalValue;
+                const saleDiscountValue = completedSale.discountValue;
+                
+                // Calculate subtotal for discount calculation
+                const saleSubtotal = completedSale.products?.reduce((sum: number, item: any) => {
+                  const itemPrice = item.negotiatedPrice || item.basePrice;
+                  return sum + (itemPrice * item.quantity);
+                }, 0) || 0;
+                
+                // Calculate expected discount based on subtotal, delivery fee, and total
+                const expectedTotal = saleSubtotal + (completedSale.deliveryFee || 0);
+                const calculatedDiscount = expectedTotal - (completedSale.totalAmount || 0);
+                
+                // Show discount if we have discount data OR if there's a calculated discount
+                const hasDiscount = saleDiscountAmount > 0 || saleDiscountValue > 0 || calculatedDiscount > 0;
+                
+                if (hasDiscount) {
+                  // Use stored discount amount if available, otherwise use calculated discount
+                  let displayAmount = saleDiscountAmount;
+                  let displayType = saleDiscountType;
+                  let displayOriginalValue = saleDiscountOriginalValue;
+                  
+                  // If no stored discount but we have a calculated difference
+                  if (!displayAmount && calculatedDiscount > 0) {
+                    displayAmount = calculatedDiscount;
+                    displayType = 'amount'; // Default to amount type
+                    displayOriginalValue = undefined;
+                  }
+                  
+                  // If still no amount but we have saleDiscountValue, calculate it
+                  if (!displayAmount && saleDiscountValue) {
+                    if (saleDiscountType === 'percentage' && saleDiscountOriginalValue) {
+                      displayAmount = (saleSubtotal * saleDiscountOriginalValue) / 100;
+                    } else {
+                      displayAmount = saleDiscountValue || 0;
+                    }
+                  }
+                  
+                  // Ensure we have correct display values for percentage type if only saleDiscountValue was present
+                  if (saleDiscountType === 'percentage' && !displayOriginalValue && saleDiscountValue) {
+                    displayOriginalValue = parseFloat(saleDiscountValue);
+                    if (!displayAmount) {
+                      displayAmount = (saleSubtotal * displayOriginalValue) / 100;
+                    }
+                  }
+                  
+                  if (displayAmount && displayAmount > 0) {
+                    return `<p style="text-align: right;"><strong>Remise ${displayType === 'percentage' && displayOriginalValue ? `(${displayOriginalValue}%)` : ''}:</strong> -${displayAmount.toLocaleString()} XAF</p>`;
+                  }
+                }
+                return '';
+              })()}
+              ${(() => {
+                // Calculate tax from completed sale data
+                const saleTaxAmount = completedSale.tax || 0;
+                return saleTaxAmount > 0 ? `<p style="text-align: right;"><strong>Taxe/TVA${applyTVA ? ` (${tvaRate}%)` : ''}:</strong> ${saleTaxAmount.toLocaleString()} XAF</p>` : '';
+              })()}
               <h3 style="text-align: right; margin-top: 10px;">Total: ${completedSale.totalAmount?.toLocaleString() || total.toLocaleString()} XAF</h3>
               ${paymentMethod === 'cash' && amountReceived && parseFloat(amountReceived) !== (completedSale.totalAmount || total) ? `<p style="text-align: right;"><strong>Montant reçu:</strong> ${parseFloat(amountReceived).toLocaleString()} XAF</p>` : ''}
               ${(() => {
@@ -716,28 +894,90 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
               <div className="border-t-2 border-gray-300 pt-4">
                 <div className="flex justify-end">
                   <div className="w-64 space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>{t('pos.payment.subtotal')}:</span>
-                      <span>{formatPrice(subtotal)} XAF</span>
-                    </div>
-                    {completedSale.deliveryFee > 0 && (
-                      <div className="flex justify-between text-sm">
-                        <span>{t('pos.payment.deliveryFee')}:</span>
-                        <span>{formatPrice(completedSale.deliveryFee)} XAF</span>
-                      </div>
-                    )}
-                    {discountAmount > 0 && (
-                      <div className="flex justify-between text-sm text-red-600">
-                        <span>{t('pos.payment.discount')}:</span>
-                        <span>-{formatPrice(discountAmount)} XAF</span>
-                      </div>
-                    )}
-                    {taxAmount > 0 && (
-                      <div className="flex justify-between text-sm">
-                        <span>{t('pos.payment.tax')}:</span>
-                        <span>{formatPrice(taxAmount)} XAF</span>
-                      </div>
-                    )}
+                    {(() => {
+                      // Calculate subtotal from completed sale products once and reuse
+                      const saleSubtotal = completedSale.products?.reduce((sum: number, item: any) => {
+                        const itemPrice = item.negotiatedPrice || item.basePrice;
+                        return sum + (itemPrice * item.quantity);
+                      }, 0) || 0;
+                      
+                      return (
+                        <>
+                          <div className="flex justify-between text-sm">
+                            <span>{t('pos.payment.subtotal')}:</span>
+                            <span>{formatPrice(saleSubtotal)} XAF</span>
+                          </div>
+                          {completedSale.deliveryFee > 0 && (
+                            <div className="flex justify-between text-sm">
+                              <span>{t('pos.payment.deliveryFee')}:</span>
+                              <span>{formatPrice(completedSale.deliveryFee)} XAF</span>
+                            </div>
+                          )}
+                          {(() => {
+                            // Calculate discount from completed sale data
+                            const saleDiscountAmount = completedSale.discountAmount || 0;
+                            const saleDiscountType = completedSale.discountType;
+                            const saleDiscountOriginalValue = completedSale.discountOriginalValue;
+                            const saleDiscountValue = completedSale.discountValue;
+                            
+                            // Calculate expected discount based on subtotal, delivery fee, and total
+                            const expectedTotal = saleSubtotal + (completedSale.deliveryFee || 0);
+                            const calculatedDiscount = expectedTotal - (completedSale.totalAmount || 0);
+                            
+                            // Show discount if we have discount data OR if there's a calculated discount
+                            const hasDiscount = saleDiscountAmount > 0 || saleDiscountValue > 0 || calculatedDiscount > 0;
+                            
+                            if (hasDiscount) {
+                              // Use stored discount amount if available, otherwise use calculated discount
+                              let displayAmount = saleDiscountAmount;
+                              let displayType = saleDiscountType;
+                              let displayOriginalValue = saleDiscountOriginalValue;
+                              
+                              // If no stored discount amount but we have saleDiscountValue, use it to determine type
+                              if (!displayAmount && saleDiscountValue) {
+                                displayType = saleDiscountType || 'amount';
+                                displayOriginalValue = saleDiscountType === 'percentage' ? parseFloat(saleDiscountValue) : undefined;
+                                
+                                // Calculate display amount based on type
+                                if (saleDiscountType === 'percentage' && displayOriginalValue) {
+                                  displayAmount = (saleSubtotal * displayOriginalValue) / 100;
+                                } else {
+                                  displayAmount = parseFloat(saleDiscountValue) || 0;
+                                }
+                              }
+                              
+                              // Ensure we have correct display values for percentage type if only saleDiscountValue was present
+                              if (displayType === 'percentage' && !displayOriginalValue && saleDiscountValue) {
+                                displayOriginalValue = parseFloat(saleDiscountValue);
+                                if (!displayAmount) {
+                                  displayAmount = (saleSubtotal * displayOriginalValue) / 100;
+                                }
+                              }
+                              
+                              if (displayAmount && displayAmount > 0) {
+                                return (
+                                  <div className="flex justify-between text-sm text-red-600">
+                                    <span>{t('pos.payment.discount')} {displayType === 'percentage' && displayOriginalValue ? `(${displayOriginalValue}%)` : ''}:</span>
+                                    <span>-{formatPrice(displayAmount)} XAF</span>
+                                  </div>
+                                );
+                              }
+                            }
+                            return null;
+                          })()}
+                          {(() => {
+                            // Calculate tax from completed sale data
+                            const saleTaxAmount = completedSale.tax || 0;
+                            return saleTaxAmount > 0 ? (
+                              <div className="flex justify-between text-sm">
+                                <span>{t('pos.payment.tax')}{applyTVA ? ` (${tvaRate}%)` : ''}:</span>
+                                <span>{formatPrice(saleTaxAmount)} XAF</span>
+                              </div>
+                            ) : null;
+                          })()}
+                        </>
+                      );
+                    })()}
                     <div className="flex justify-between text-xl font-bold pt-2 border-t border-gray-300" style={{ color: colors.primary }}>
                       <span>{t('pos.payment.totalAmount')}:</span>
                       <span>{formatPrice(completedSale.totalAmount || total)} XAF</span>
@@ -885,9 +1125,17 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
                     <span className="text-gray-600">{t('pos.payment.deliveryFee')}</span>
                     <span className="font-semibold">{formatPrice(deliveryFee)} XAF</span>
                   </div>
+                  {applyTVA && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">TVA ({tvaRate}%)</span>
+                      <span className="font-semibold">{formatPrice(subtotal * (tvaRate / 100))} XAF</span>
+                    </div>
+                  )}
                   {discountAmount > 0 && (
                     <div className="flex justify-between">
-                      <span className="text-gray-600">{t('pos.payment.discount')}</span>
+                      <span className="text-gray-600">
+                        {t('pos.payment.discount')} {discountType === 'percentage' ? `(${discountValue}%)` : ''}
+                      </span>
                       <span className="font-semibold text-red-600">-{formatPrice(discountAmount)} XAF</span>
                     </div>
                   )}
@@ -1027,20 +1275,24 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
           <div className="lg:col-span-1 flex flex-col overflow-hidden">
             {/* Tabs Header */}
             <div className="flex border-b border-gray-200 mb-4 flex-shrink-0">
-              <button
-                onClick={() => setActiveTab('calculator')}
-                className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
-                  activeTab === 'calculator'
-                    ? 'border-b-2 text-gray-900 font-semibold'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-                style={activeTab === 'calculator' ? { borderBottomColor: colors.primary } : {}}
-              >
-                {t('pos.payment.calculator')}
-              </button>
+              {checkoutSettings?.posCalculatorEnabled && (
+                <button
+                  onClick={() => setActiveTab('calculator')}
+                  className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                    activeTab === 'calculator'
+                      ? 'border-b-2 text-gray-900 font-semibold'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                  style={activeTab === 'calculator' ? { borderBottomColor: colors.primary } : {}}
+                >
+                  {t('pos.payment.calculator')}
+                </button>
+              )}
               <button
                 onClick={() => setActiveTab('additional')}
-                className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                className={`${
+                  checkoutSettings?.posCalculatorEnabled ? 'flex-1' : 'flex-1'
+                } px-4 py-3 text-sm font-medium transition-colors ${
                   activeTab === 'additional'
                     ? 'border-b-2 text-gray-900 font-semibold'
                     : 'text-gray-500 hover:text-gray-700'
@@ -1054,7 +1306,7 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
             {/* Tab Content */}
             <div className="flex-1 overflow-y-auto pr-2">
               {/* Calculator Tab */}
-              {activeTab === 'calculator' && (
+              {activeTab === 'calculator' && checkoutSettings?.posCalculatorEnabled && (
                 <div className="h-full">
                   <POSCalculator
                     onApplyValue={(value) => {
@@ -1081,13 +1333,51 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
               {t('pos.payment.customerInfo')}
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Input
-                label={t('pos.payment.customerPhone')}
-                type="tel"
-                value={customerPhone}
-                onChange={(e) => setCustomerPhone(e.target.value)}
-                placeholder={t('pos.payment.customerPhoneOptional')}
-              />
+              <div className="relative">
+                <Input
+                  label={t('pos.payment.customerPhone')}
+                  type="tel"
+                  value={customerPhone}
+                  onChange={handleCustomerPhoneChange}
+                  placeholder={t('pos.payment.customerPhoneOptional')}
+                  ref={phoneInputRef}
+                />
+                
+                {/* Customer Dropdown */}
+                {showCustomerDropdown && (
+                  <div 
+                    className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto"
+                    data-dropdown="customer"
+                  >
+                    {customers && customers.length > 0
+                      ? customers
+                          .filter(c => {
+                            if (!customerSearch.trim()) return true;
+                            const normalizedSearch = normalizePhoneForComparison(customerSearch);
+                            const customerPhone = normalizePhoneForComparison(c.phone || '');
+                            return customerPhone.includes(normalizedSearch) || normalizedSearch.includes(customerPhone);
+                          })
+                          .slice(0, 10)
+                          .map((customer) => (
+                            <button
+                              key={customer.id}
+                              type="button"
+                              className="w-full px-4 py-3 text-left hover:bg-gray-100 border-b border-gray-100 last:border-b-0 flex items-center justify-between"
+                              onClick={() => handleSelectCustomer(customer)}
+                            >
+                              <div className="flex-1">
+                                <div className="font-medium text-gray-900">{customer.name}</div>
+                                <div className="text-sm text-gray-500">{customer.phone}</div>
+                                {customer.quarter && (
+                                  <div className="text-xs text-gray-400">{customer.quarter}</div>
+                                )}
+                              </div>
+                            </button>
+                          ))
+                      : null}
+                  </div>
+                )}
+              </div>
               <Input
                 label={t('pos.payment.customerName')}
                 type="text"
@@ -1302,6 +1592,28 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
                   <div className="border border-gray-200 rounded-lg p-4">
                     <h3 className="text-lg font-semibold mb-4">{t('pos.payment.additionalOptions')}</h3>
                     <div className="space-y-4">
+                      {/* TVA Toggle */}
+                      <div className="flex items-center justify-between">
+                        <label className="text-sm font-medium text-gray-700">TVA Cameroun ({tvaRate}%):</label>
+                        <button
+                          onClick={() => onTVAToggle && onTVAToggle(!applyTVA)}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                            applyTVA ? 'bg-emerald-600' : 'bg-gray-200'
+                          }`}
+                        >
+                          <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                            applyTVA ? 'translate-x-6' : 'translate-x-1'
+                          }`} />
+                        </button>
+                      </div>
+                      
+                      {/* TVA Amount Display */}
+                      {applyTVA && (
+                        <div className="text-sm text-gray-600">
+                          TVA: {formatPrice(subtotal * (tvaRate / 100))} XAF
+                        </div>
+                      )}
+                      
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                           {t('pos.payment.tax')}

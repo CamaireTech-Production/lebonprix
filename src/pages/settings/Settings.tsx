@@ -15,6 +15,7 @@ import type { CheckoutSettings, CheckoutSettingsUpdate } from '../../types/check
 import type { CinetPayConfig, CinetPayConfigUpdate } from '../../types/cinetpay';
 import type { CampayConfig, CampayConfigUpdate } from '../../types/campay';
 import PaymentMethodModal from '../../components/settings/PaymentMethodModal';
+import { SalesAndPOSTab } from '../../components/settings/SalesAndPOSTab';
 import { combineActivities } from '@utils/business/activityUtils';
 import { Plus, Copy, Check, ExternalLink, CreditCard, Truck, ShoppingBag, Save, RotateCcw, Eye, Trash2, ChevronDown, ChevronUp, Edit2, Phone, Hash, Link } from 'lucide-react';
 
@@ -27,7 +28,7 @@ function normalizeWebsite(raw: string): string | undefined {
 
 const Settings = () => {
   const { t, i18n } = useTranslation();
-  const [activeTab, setActiveTab] = useState('colors');
+  const [activeTab, setActiveTab] = useState<'colors' | 'account' | 'activity' | 'ordering' | 'checkout' | 'payment' | 'catalogue' | 'sales-pos'>('colors');
   const { company, updateCompany, updateUserPassword, user, isOwner, effectiveRole } = useAuth();
   
   // Checkout settings state
@@ -909,6 +910,17 @@ const Settings = () => {
             `}
           >
             {t('settings.tabs.catalogue')}
+          </button>
+          <button
+            onClick={() => setActiveTab('sales-pos')}
+            className={`
+              whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm
+              ${activeTab === 'sales-pos'
+                ? 'border-emerald-500 text-emerald-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
+            `}
+          >
+            Sales & POS
           </button>
         </nav>
       </div>
@@ -3374,9 +3386,22 @@ const Settings = () => {
                 </Card>
               )}
               </>
+
             )}
           </div>
         </div>
+      )}
+
+      {/* Sales & POS Tab */}
+      {activeTab === 'sales-pos' && (
+        <SalesAndPOSTab
+          settings={checkoutSettings}
+          onUpdateSettings={handleCheckoutSettingsUpdate}
+          onSaveSettings={handleSaveCheckoutSettings}
+          onResetSettings={handleResetCheckoutSettings}
+          isLoading={checkoutLoading}
+          isSaving={checkoutSaving}
+        />
       )}
 
       {/* Payment Method Modal */}

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Grid, List, Plus, Search, Edit2, Upload, Trash2, CheckSquare, Square, Info, Eye, EyeOff, QrCode, ExternalLink } from 'lucide-react';
+import { Grid, List, Plus, Search, Edit2, Upload, Trash2, CheckSquare, Square, Info, Eye, EyeOff, QrCode, ExternalLink, FileText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Card, Button, Badge, Modal, ModalFooter, Input, ImageWithSkeleton, LoadingScreen, SyncIndicator, PriceInput } from '@components/common';
@@ -26,6 +26,7 @@ import CostPriceCarousel from '../../components/products/CostPriceCarousel';
 import ProductTagsManager from '../../components/products/ProductTagsManager';
 import CategorySelector from '../../components/products/CategorySelector';
 import BarcodeGenerator from '../../components/products/BarcodeGenerator';
+import ProductsReportModal from '../../components/reports/ProductsReportModal';
 
 interface CsvRow {
   [key: string]: string;
@@ -54,7 +55,7 @@ const Products = () => {
   // Keep original hook for adding/updating products
   const { addProduct, updateProductData } = useProducts();
   const { stockChanges } = useStockChanges();
-  useCategories();
+  const { categories: categoryList } = useCategories('product');
   const { suppliers } = useSuppliers();
   const { batches: allStockBatches, loading: batchesLoading } = useAllStockBatches();
   const { user, company, currentEmployee, isOwner } = useAuth();
@@ -90,6 +91,7 @@ const Products = () => {
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [currentProduct, setCurrentProduct] = useState<Product | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -1502,6 +1504,14 @@ const Products = () => {
             variant="outline"
           >
             {t('products.actions.importCSV')}
+          </Button>
+
+          <Button
+            icon={<FileText size={16} />}
+            onClick={() => setIsReportModalOpen(true)}
+            variant="outline"
+          >
+            Générer un rapport
           </Button>
 
           <Button
@@ -3381,6 +3391,19 @@ const Products = () => {
           />
         )}
       </Modal>
+
+      {/* Products Report Modal */}
+      <ProductsReportModal
+        isOpen={isReportModalOpen}
+        onClose={() => setIsReportModalOpen(false)}
+        products={infiniteProducts}
+        stockBatches={allStockBatches}
+        stocks={[]}
+        categories={categoryList}
+        suppliers={suppliers}
+        companyName={company?.name}
+        companyLogo={company?.logo}
+      />
 
       {/* Mobile spacing for floating action button */}
       <div className="h-20 md:hidden"></div>
