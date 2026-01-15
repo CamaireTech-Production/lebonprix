@@ -59,7 +59,7 @@
     "expenses": "Expenses",
     "customers": "Customers",
     "suppliers": "Suppliers",
-    "reports": "Reports",
+    "reports": "Reports and Analytics",
     "settings": "Settings",
     "profile": "Profile",
     "logout": "Logout",
@@ -85,7 +85,7 @@
       "categories": "Categories",
       "stocks": "Stocks",
       "analytics": "Analytics",
-      "reports": "Reports",
+      "reports": "Reports and Analytics",
       "steps": "Steps",
       "flows": "Flows",
       "charges": "Charges",
@@ -1814,7 +1814,7 @@
     }
   },
   "reports": {
-    "title": "Reports",
+    "title": "Reports and Analytics",
     "subtitle": "View detailed business reports and analytics",
     "exportReport": "Export Report",
     "filters": {
@@ -1823,6 +1823,11 @@
       "period": "Period",
       "category": "Category",
       "product": "Product",
+      "supplier": "Supplier",
+      "customerSource": "Customer Source",
+      "paymentMethod": "Payment Method",
+      "salesStatus": "Sales Status",
+      "aggregation": "Chart Aggregation",
       "none": "None",
       "today": "Today",
       "daily": "Daily",
@@ -1830,7 +1835,18 @@
       "monthly": "Monthly",
       "yearly": "Yearly",
       "allCategories": "All Categories",
-      "allProducts": "All Products"
+      "allProducts": "All Products",
+      "allSuppliers": "All Suppliers",
+      "allSources": "All Sources",
+      "allPaymentMethods": "All Payment Methods",
+      "allStatuses": "All Statuses",
+      "cash": "Cash",
+      "mobileMoney": "Mobile Money",
+      "bankTransfer": "Bank Transfer",
+      "credit": "Credit",
+      "completed": "Completed",
+      "pending": "Pending",
+      "cancelled": "Cancelled"
     },
     "summary": {
       "totalSales": "Total Sales",
