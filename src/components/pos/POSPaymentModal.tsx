@@ -672,12 +672,6 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
                 </tbody>
               </table>
               <hr style="border-top: 1px dashed #000; margin: 10px 0;">
-              <p style="text-align: right;"><strong>Sous-total:</strong> ${subtotal.toLocaleString()} XAF</p>
-              ${completedSale?.deliveryFee && completedSale.deliveryFee > 0 ? `<p style="text-align: right;"><strong>Frais de livraison:</strong> ${completedSale.deliveryFee.toLocaleString()} XAF</p>` : ''}
-              ${applyTVA ? `<p style="text-align: right;"><strong>TVA (${tvaRate}%):</strong> ${formatPrice(subtotal * (tvaRate / 100))} XAF</p>` : ''}
-              ${discountAmount > 0 ? `<p style="text-align: right;"><strong>Remise:</strong> -${discountAmount.toLocaleString()} XAF</p>` : ''}
-              ${taxAmount > 0 ? `<p style="text-align: right;"><strong>Taxe:</strong> ${taxAmount.toLocaleString()} XAF</p>` : ''}
-              <h3 style="text-align: right; margin-top: 10px;">Total: ${(subtotal + (completedSale?.deliveryFee || 0) + (applyTVA ? (subtotal * (tvaRate / 100)) : 0) - discountAmount + taxAmount).toLocaleString()} XAF</h3>
               <p style="text-align: right;"><strong>Sous-total:</strong> ${(() => {
                 // Calculate subtotal from completed sale products instead of current cart
                 const saleSubtotal = completedSale.products?.reduce((sum: number, item: any) => {
@@ -746,7 +740,7 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
               ${(() => {
                 // Calculate tax from completed sale data
                 const saleTaxAmount = completedSale.tax || 0;
-                return saleTaxAmount > 0 ? `<p style="text-align: right;"><strong>Taxe:</strong> ${saleTaxAmount.toLocaleString()} XAF</p>` : '';
+                return saleTaxAmount > 0 ? `<p style="text-align: right;"><strong>Taxe/TVA${applyTVA ? ` (${tvaRate}%)` : ''}:</strong> ${saleTaxAmount.toLocaleString()} XAF</p>` : '';
               })()}
               <h3 style="text-align: right; margin-top: 10px;">Total: ${completedSale.totalAmount?.toLocaleString() || total.toLocaleString()} XAF</h3>
               ${paymentMethod === 'cash' && amountReceived && parseFloat(amountReceived) !== (completedSale.totalAmount || total) ? `<p style="text-align: right;"><strong>Montant reçu:</strong> ${parseFloat(amountReceived).toLocaleString()} XAF</p>` : ''}
@@ -900,34 +894,6 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
               <div className="border-t-2 border-gray-300 pt-4">
                 <div className="flex justify-end">
                   <div className="w-64 space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>{t('pos.payment.subtotal')}:</span>
-                      <span>{formatPrice(subtotal)} XAF</span>
-                    </div>
-                    {completedSale.deliveryFee > 0 && (
-                      <div className="flex justify-between text-sm">
-                        <span>{t('pos.payment.deliveryFee')}:</span>
-                        <span>{formatPrice(completedSale.deliveryFee)} XAF</span>
-                      </div>
-                    )}
-                    {applyTVA && (
-                      <div className="flex justify-between text-sm">
-                        <span>TVA ({tvaRate}%):</span>
-                        <span>{formatPrice(subtotal * (tvaRate / 100))} XAF</span>
-                      </div>
-                    )}
-                    {discountAmount > 0 && (
-                      <div className="flex justify-between text-sm text-red-600">
-                        <span>{t('pos.payment.discount')}:</span>
-                        <span>-{formatPrice(discountAmount)} XAF</span>
-                      </div>
-                    )}
-                    {taxAmount > 0 && (
-                      <div className="flex justify-between text-sm">
-                        <span>{t('pos.payment.tax')}:</span>
-                        <span>{formatPrice(taxAmount)} XAF</span>
-                      </div>
-                    )}
                     {(() => {
                       // Calculate subtotal from completed sale products once and reuse
                       const saleSubtotal = completedSale.products?.reduce((sum: number, item: any) => {
@@ -1004,7 +970,7 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
                             const saleTaxAmount = completedSale.tax || 0;
                             return saleTaxAmount > 0 ? (
                               <div className="flex justify-between text-sm">
-                                <span>{t('pos.payment.tax')}:</span>
+                                <span>{t('pos.payment.tax')}{applyTVA ? ` (${tvaRate}%)` : ''}:</span>
                                 <span>{formatPrice(saleTaxAmount)} XAF</span>
                               </div>
                             ) : null;
