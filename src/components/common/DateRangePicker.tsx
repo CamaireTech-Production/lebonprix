@@ -39,7 +39,7 @@ interface DateRangePickerProps {
 
 const DateRangePicker = ({ onChange, className }: DateRangePickerProps) => {
   const { t } = useTranslation();
-  const [period, setPeriod] = useState<Period>('this_month');
+  const [period, setPeriod] = useState<Period>('all_time');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [pendingRange, setPendingRange] = useState<{ from: Date; to: Date } | null>(null);
 
@@ -57,12 +57,11 @@ const DateRangePicker = ({ onChange, className }: DateRangePickerProps) => {
     return start;
   };
 
-  // Initialize with current month by default
+  // Initialize with all time by default
   const getInitialDateRange = () => {
-    const now = new Date();
     return {
-      from: startOfMonth(now),
-      to: endOfDay(now),
+      from: APP_START_DATE,
+      to: new Date(2100, 0, 1),
     };
   };
 

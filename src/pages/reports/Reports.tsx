@@ -1,8 +1,8 @@
 import { useMemo, useState, useEffect, useCallback } from 'react';
-import { Calendar, FileDown } from 'lucide-react';
+import { FileDown, ArrowLeftToLine, ArrowLeft, ArrowRight, ArrowRightToLine } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
-import { Card, Button, Input } from '@components/common';
+import { Card, Button, DateRangePicker } from '@components/common';
 import { Line, Pie } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -23,8 +23,6 @@ import { useAllStockBatches } from '@hooks/business/useStockBatches';
 import type { Timestamp, Product, Sale, Expense } from '../../types/models';
 import ComparisonIndicator from '../../components/reports/ComparisonIndicator';
 import KPICard from '../../components/reports/KPICard';
-import QuickReportsBar from '../../components/reports/QuickReportsBar';
-import SavedReportsManager, { SavedReport } from '../../components/reports/SavedReportsManager';
 import AllProductsSold from '../../components/reports/AllProductsSold';
 import ConsolidatedReportModal from '../../components/reports/ConsolidatedReportModal';
 import { useAuth } from '@contexts/AuthContext';
@@ -46,37 +44,33 @@ ChartJS.register(
 const Reports = () => {
   const { t } = useTranslation();
   const [searchParams] = useSearchParams();
-  
-  // Calculate default weekly range
-  const getDefaultWeeklyRange = () => {
-    const today = new Date();
-    const startOfWeek = new Date(today);
-    const day = (today.getDay() + 6) % 7; // make Monday=0
-    startOfWeek.setDate(today.getDate() - day);
-    startOfWeek.setHours(0, 0, 0, 0);
-    
-    const endOfWeek = new Date(startOfWeek);
-    endOfWeek.setDate(endOfWeek.getDate() + 6);
-    endOfWeek.setHours(23, 59, 59, 999);
-    
-    return {
-      start: startOfWeek.toISOString().slice(0, 10),
-      end: endOfWeek.toISOString().slice(0, 10)
-    };
-  };
 
-  const defaultRange = getDefaultWeeklyRange();
-  
-  // UI filters - now directly used for computations
-  const [startDate, setStartDate] = useState<string>(defaultRange.start);
-  const [endDate, setEndDate] = useState<string>(defaultRange.end);
+  // Date range state - default to all time (same as DateRangePicker default)
+  const APP_START_DATE = new Date(2025, 3, 1); // April 1st, 2025
+  const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>({
+    from: APP_START_DATE,
+    to: new Date(2100, 0, 1),
+  });
+
+  // Aggregation period for chart display
+  const [aggregationPeriod, setAggregationPeriod] = useState<'daily' | 'weekly' | 'monthly' | 'yearly'>('daily');
+
+  // UI filters
   const [selectedProduct, setSelectedProduct] = useState('all');
   const [selectedCategory, setSelectedCategory] = useState('all');
-  const [period, setPeriod] = useState<'none' | 'today' | 'daily' | 'weekly' | 'monthly' | 'yearly'>('weekly');
+  const [selectedSupplier, setSelectedSupplier] = useState('all');
+  const [selectedCustomerSource, setSelectedCustomerSource] = useState('all');
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('all');
+  const [selectedSalesStatus, setSelectedSalesStatus] = useState('all');
+
   const [showTrend, setShowTrend] = useState(() => {
     const saved = localStorage.getItem('reports_showTrend');
     return saved === 'true';
   });
+  
+  // Pagination state for product profitability table
+  const [profitabilityPage, setProfitabilityPage] = useState(1);
+  const [profitabilityRowsPerPage, setProfitabilityRowsPerPage] = useState(10);
   
   const { sales } = useSales();
   const { expenses } = useExpenses();
@@ -92,216 +86,169 @@ const Reports = () => {
   const [showConsolidatedModal, setShowConsolidatedModal] = useState(false);
 
   const toDate = (ts?: Timestamp) => (ts?.seconds ? new Date(ts.seconds * 1000) : null);
-  const start = useMemo(() => {
-    const [year, month, day] = startDate.split('-').map(Number);
-    return new Date(year, month - 1, day, 0, 0, 0, 0);
-  }, [startDate]);
-  const end = useMemo(() => {
-    const [year, month, day] = endDate.split('-').map(Number);
-    return new Date(year, month - 1, day, 23, 59, 59, 999);
-  }, [endDate]);
+
+  // Use dateRange directly from DateRangePicker - same as Dashboard
+  const start = dateRange.from;
+  const end = dateRange.to;
   const inRange = useCallback((d: Date | null) => !!d && d >= start && d <= end, [start, end]);
 
-  const productOptions = useMemo(() => {
-    const opts = products.map(p => ({ value: p.id, label: p.name }));
-    return [{ value: 'all', label: t('reports.filters.allProducts') }, ...opts];
-  }, [products, t]);
+  // Handle DateRangePicker change
+  const handleDateRangeChange = useCallback((range: { from: Date; to: Date }) => {
+    setDateRange(range);
 
-  const toYMD = (d: Date) => d.toISOString().slice(0, 10);
+    // Auto-detect appropriate aggregation period based on date range
+    const diffDays = Math.ceil((range.to.getTime() - range.from.getTime()) / (1000 * 60 * 60 * 24));
+    if (diffDays <= 7) {
+      setAggregationPeriod('daily');
+    } else if (diffDays <= 31) {
+      setAggregationPeriod('daily');
+    } else if (diffDays <= 90) {
+      setAggregationPeriod('weekly');
+    } else if (diffDays <= 365) {
+      setAggregationPeriod('monthly');
+    } else {
+      setAggregationPeriod('yearly');
+    }
+  }, []);
 
   // Handle query parameter for period=today
   useEffect(() => {
     const periodParam = searchParams.get('period');
     if (periodParam === 'today') {
       const today = new Date();
-      const todayStr = toYMD(today);
-      setStartDate(todayStr);
-      setEndDate(todayStr);
-      setPeriod('today');
+      const todayStart = new Date(today);
+      todayStart.setHours(0, 0, 0, 0);
+      const todayEnd = new Date(today);
+      todayEnd.setHours(23, 59, 59, 999);
+      setDateRange({ from: todayStart, to: todayEnd });
+      setAggregationPeriod('daily');
     }
   }, [searchParams]);
 
-  // Period helpers
-  const startOfWeek = useCallback((d: Date) => {
+  const productOptions = useMemo(() => {
+    const opts = products.map(p => ({ value: p.id, label: p.name }));
+    return [{ value: 'all', label: t('reports.filters.allProducts') }, ...opts];
+  }, [products, t]);
+
+  // Supplier options for filter
+  const supplierOptions = useMemo(() => {
+    const opts = suppliers.map(s => ({ value: s.id, label: s.name }));
+    return [{ value: 'all', label: t('reports.filters.allSuppliers') }, ...opts];
+  }, [suppliers, t]);
+
+  // Customer source options for filter
+  const customerSourceOptions = useMemo(() => {
+    const opts = sources.map(s => ({ value: s.id, label: s.name }));
+    return [{ value: 'all', label: t('reports.filters.allSources') }, ...opts];
+  }, [sources, t]);
+
+  // Payment method options
+  const paymentMethodOptions = useMemo(() => [
+    { value: 'all', label: t('reports.filters.allPaymentMethods') },
+    { value: 'cash', label: t('reports.filters.cash') },
+    { value: 'mobile_money', label: t('reports.filters.mobileMoney') },
+    { value: 'bank_transfer', label: t('reports.filters.bankTransfer') },
+    { value: 'credit', label: t('reports.filters.credit') },
+  ], [t]);
+
+  // Sales status options
+  const salesStatusOptions = useMemo(() => [
+    { value: 'all', label: t('reports.filters.allStatuses') },
+    { value: 'completed', label: t('reports.filters.completed') },
+    { value: 'pending', label: t('reports.filters.pending') },
+    { value: 'cancelled', label: t('reports.filters.cancelled') },
+  ], [t]);
+
+  // Period helpers for chart aggregation
+  const startOfWeekLocal = useCallback((d: Date) => {
     const date = new Date(d);
     const day = (date.getDay() + 6) % 7; // make Monday=0
     date.setDate(date.getDate() - day);
     date.setHours(0, 0, 0, 0);
     return date;
   }, []);
-  const startOfMonth = useCallback((d: Date) => new Date(d.getFullYear(), d.getMonth(), 1, 0, 0, 0, 0), []);
-  const startOfYear = useCallback((d: Date) => new Date(d.getFullYear(), 0, 1, 0, 0, 0, 0), []);
-
-  // Auto-update date ranges when period changes
-  useEffect(() => {
-    const today = new Date();
-    
-    if (period === 'today') {
-      const todayStr = toYMD(today);
-      setStartDate(todayStr);
-      setEndDate(todayStr);
-    } else if (period === 'daily') {
-      const dayStr = toYMD(today);
-      setStartDate(dayStr);
-      setEndDate(dayStr);
-    } else if (period === 'weekly') {
-      const startW = startOfWeek(today);
-      const endW = new Date(startW);
-      endW.setDate(endW.getDate() + 6);
-      setStartDate(toYMD(startW));
-      setEndDate(toYMD(endW));
-    } else if (period === 'monthly') {
-      const startM = startOfMonth(today);
-      const endM = new Date(startM.getFullYear(), startM.getMonth() + 1, 0);
-      setStartDate(toYMD(startM));
-      setEndDate(toYMD(endM));
-    } else if (period === 'yearly') {
-      const startY = startOfYear(today);
-      const endY = new Date(startY.getFullYear(), 11, 31);
-      setStartDate(toYMD(startY));
-      setEndDate(toYMD(endY));
-    }
-    // For 'none' period, keep the current date range as is
-  }, [period, startOfWeek, startOfMonth, startOfYear]);
-
-  // Quick reports handler
-  const handleQuickReport = (period: string) => {
-    const today = new Date();
-    let start: Date, end: Date;
-
-    switch (period) {
-      case 'thisWeek': {
-        const day = (today.getDay() + 6) % 7;
-        start = new Date(today);
-        start.setDate(today.getDate() - day);
-        start.setHours(0, 0, 0, 0);
-        end = new Date(start);
-        end.setDate(start.getDate() + 6);
-        end.setHours(23, 59, 59, 999);
-        break;
-      }
-      case 'lastWeek': {
-        const day = (today.getDay() + 6) % 7;
-        start = new Date(today);
-        start.setDate(today.getDate() - day - 7);
-        start.setHours(0, 0, 0, 0);
-        end = new Date(start);
-        end.setDate(start.getDate() + 6);
-        end.setHours(23, 59, 59, 999);
-        break;
-      }
-      case 'thisMonth': {
-        start = new Date(today.getFullYear(), today.getMonth(), 1);
-        end = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999);
-        break;
-      }
-      case 'lastMonth': {
-        start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-        end = new Date(today.getFullYear(), today.getMonth(), 0, 23, 59, 59, 999);
-        break;
-      }
-      case 'thisQuarter': {
-        const quarter = Math.floor(today.getMonth() / 3);
-        start = new Date(today.getFullYear(), quarter * 3, 1);
-        end = new Date(today.getFullYear(), (quarter + 1) * 3, 0, 23, 59, 59, 999);
-        break;
-      }
-      case 'lastQuarter': {
-        const quarter = Math.floor(today.getMonth() / 3);
-        const lastQuarter = quarter === 0 ? 3 : quarter - 1;
-        const year = quarter === 0 ? today.getFullYear() - 1 : today.getFullYear();
-        start = new Date(year, lastQuarter * 3, 1);
-        end = new Date(year, (lastQuarter + 1) * 3, 0, 23, 59, 59, 999);
-        break;
-      }
-      case 'thisYear': {
-        start = new Date(today.getFullYear(), 0, 1);
-        end = new Date(today.getFullYear(), 11, 31, 23, 59, 59, 999);
-        break;
-      }
-      case 'lastYear': {
-        start = new Date(today.getFullYear() - 1, 0, 1);
-        end = new Date(today.getFullYear() - 1, 11, 31, 23, 59, 59, 999);
-        break;
-      }
-      default:
-        return;
-    }
-
-    setStartDate(toYMD(start));
-    setEndDate(toYMD(end));
-    
-    // Set appropriate period
-    if (period.includes('Week')) setPeriod('weekly');
-    else if (period.includes('Month')) setPeriod('monthly');
-    else if (period.includes('Quarter')) setPeriod('monthly');
-    else if (period.includes('Year')) setPeriod('yearly');
-  };
-
-  // Load saved report handler
-  const handleLoadReport = (report: SavedReport) => {
-    setStartDate(report.startDate);
-    setEndDate(report.endDate);
-    setSelectedProduct(report.selectedProduct);
-    setSelectedCategory(report.selectedCategory);
-    setPeriod(report.period as any);
-  };
-
+  const startOfMonthLocal = useCallback((d: Date) => new Date(d.getFullYear(), d.getMonth(), 1, 0, 0, 0, 0), []);
+  const startOfYearLocal = useCallback((d: Date) => new Date(d.getFullYear(), 0, 1, 0, 0, 0, 0), []);
 
   const filteredSales: Sale[] = useMemo(() => {
-    let byDate = sales.filter(s => s.isAvailable !== false && inRange(toDate(s.createdAt)));
-    
+    let filtered = sales.filter(s => s.isAvailable !== false && inRange(toDate(s.createdAt)));
+
     // Filter by category if selected
     if (selectedCategory !== 'all') {
-      byDate = byDate.filter(sale => 
+      filtered = filtered.filter(sale =>
         sale.products.some((sp: { productId: string }) => {
           const product = products.find(p => p.id === sp.productId);
           return product?.category === selectedCategory;
         })
       );
     }
-    
+
     // Filter by product if selected
     if (selectedProduct !== 'all') {
-      byDate = byDate.filter(sale => sale.products.some((sp: { productId: string }) => sp.productId === selectedProduct));
+      filtered = filtered.filter(sale => sale.products.some((sp: { productId: string }) => sp.productId === selectedProduct));
     }
-    
-    return byDate;
-  }, [sales, inRange, selectedCategory, selectedProduct, products]);
+
+    // Filter by supplier if selected
+    if (selectedSupplier !== 'all') {
+      filtered = filtered.filter(sale =>
+        sale.products.some((sp: { productId: string }) => {
+          const product = products.find(p => p.id === sp.productId);
+          return product?.supplierId === selectedSupplier;
+        })
+      );
+    }
+
+    // Filter by customer source if selected
+    if (selectedCustomerSource !== 'all') {
+      filtered = filtered.filter(sale => sale.customerSourceId === selectedCustomerSource);
+    }
+
+    // Filter by payment method if selected
+    if (selectedPaymentMethod !== 'all') {
+      filtered = filtered.filter(sale => sale.paymentMethod === selectedPaymentMethod);
+    }
+
+    // Filter by sales status if selected
+    if (selectedSalesStatus !== 'all') {
+      filtered = filtered.filter(sale => sale.status === selectedSalesStatus);
+    }
+
+    return filtered;
+  }, [sales, inRange, selectedCategory, selectedProduct, selectedSupplier, selectedCustomerSource, selectedPaymentMethod, selectedSalesStatus, products]);
 
   const filteredExpenses: Expense[] = useMemo(() => {
     return expenses.filter(e => e.isAvailable !== false && inRange(toDate(e.createdAt)));
   }, [expenses, inRange]);
 
   const formatKey = useCallback((d: Date) => {
-    if (period === 'yearly') return String(d.getFullYear());
-    if (period === 'monthly') return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-    if (period === 'weekly') {
-      const weekStart = startOfWeek(d);
+    if (aggregationPeriod === 'yearly') return String(d.getFullYear());
+    if (aggregationPeriod === 'monthly') return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    if (aggregationPeriod === 'weekly') {
+      const weekStart = startOfWeekLocal(d);
       const y = weekStart.getFullYear();
       const m = String(weekStart.getMonth() + 1).padStart(2, '0');
       const day = String(weekStart.getDate()).padStart(2, '0');
       return `${y}-${m}-${day}`; // week start date as key
     }
-    // daily/today
+    // daily
     return d.toISOString().slice(0, 10);
-  }, [period, startOfWeek]);
+  }, [aggregationPeriod, startOfWeekLocal]);
 
   const nextBucket = useCallback((d: Date) => {
     const nd = new Date(d);
-    if (period === 'yearly') nd.setFullYear(nd.getFullYear() + 1);
-    else if (period === 'monthly') nd.setMonth(nd.getMonth() + 1);
-    else if (period === 'weekly') nd.setDate(nd.getDate() + 7);
+    if (aggregationPeriod === 'yearly') nd.setFullYear(nd.getFullYear() + 1);
+    else if (aggregationPeriod === 'monthly') nd.setMonth(nd.getMonth() + 1);
+    else if (aggregationPeriod === 'weekly') nd.setDate(nd.getDate() + 7);
     else nd.setDate(nd.getDate() + 1);
     return nd;
-  }, [period]);
+  }, [aggregationPeriod]);
 
   const normalizeToBucketStart = useCallback((d: Date) => {
-    if (period === 'yearly') return startOfYear(d);
-    if (period === 'monthly') return startOfMonth(d);
-    if (period === 'weekly') return startOfWeek(d);
+    if (aggregationPeriod === 'yearly') return startOfYearLocal(d);
+    if (aggregationPeriod === 'monthly') return startOfMonthLocal(d);
+    if (aggregationPeriod === 'weekly') return startOfWeekLocal(d);
     const dd = new Date(d); dd.setHours(0, 0, 0, 0); return dd;
-  }, [period, startOfYear, startOfMonth, startOfWeek]);
+  }, [aggregationPeriod, startOfYearLocal, startOfMonthLocal, startOfWeekLocal]);
 
   const dateKeys = useMemo(() => {
     if (start > end) {
@@ -369,13 +316,13 @@ const Reports = () => {
     return result;
   }, []);
 
-  // Determine window size based on period
+  // Determine window size based on aggregation period
   const trendWindow = useMemo(() => {
-    if (period === 'yearly') return 4;
-    if (period === 'monthly') return 7;
-    if (period === 'weekly' || period === 'daily' || period === 'today') return 3;
+    if (aggregationPeriod === 'yearly') return 4;
+    if (aggregationPeriod === 'monthly') return 7;
+    if (aggregationPeriod === 'weekly' || aggregationPeriod === 'daily') return 3;
     return 3;
-  }, [period]);
+  }, [aggregationPeriod]);
 
   // Calculate trend data
   const trendData = useMemo(() => {
@@ -388,10 +335,15 @@ const Reports = () => {
     localStorage.setItem('reports_showTrend', String(showTrend));
   }, [showTrend]);
 
+  // Reset profitability page when filters change
+  useEffect(() => {
+    setProfitabilityPage(1);
+  }, [dateRange, selectedProduct, selectedCategory, selectedSupplier, selectedCustomerSource, selectedPaymentMethod, selectedSalesStatus]);
+
   const labels = useMemo(() => {
     return dateKeys.map(k => {
-      if (period === 'yearly') return k;
-      if (period === 'monthly') {
+      if (aggregationPeriod === 'yearly') return k;
+      if (aggregationPeriod === 'monthly') {
         const parts = k.split('-').map(Number);
         if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) {
           return k; // Fallback to original key
@@ -400,17 +352,17 @@ const Reports = () => {
         const dt = new Date(y, Math.max(0, Math.min(11, m - 1)), 1);
         return dt.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
       }
-      if (period === 'weekly') {
+      if (aggregationPeriod === 'weekly') {
         const dt = new Date(k + 'T00:00:00');
         const endW = new Date(dt);
         endW.setDate(endW.getDate() + 6);
         return `${dt.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} - ${endW.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
       }
-      // daily/today
+      // daily
       const dt = new Date(k + 'T00:00:00');
       return dt.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
     });
-  }, [dateKeys, period]);
+  }, [dateKeys, aggregationPeriod]);
 
   const chartData = useMemo(() => {
     const datasets = [
@@ -802,8 +754,20 @@ const Reports = () => {
     });
 
     // Sort by profit margin descending
-    return results.sort((a, b) => b.profitMargin - a.profitMargin).slice(0, 10);
+    return results.sort((a, b) => b.profitMargin - a.profitMargin);
   }, [filteredSales, products]);
+
+  // Paginated product profitability data
+  const paginatedProductProfitability = useMemo(() => {
+    const startIndex = (profitabilityPage - 1) * profitabilityRowsPerPage;
+    const endIndex = startIndex + profitabilityRowsPerPage;
+    return productProfitability.slice(startIndex, endIndex);
+  }, [productProfitability, profitabilityPage, profitabilityRowsPerPage]);
+
+  // Pagination calculations
+  const totalProfitabilityPages = Math.ceil(productProfitability.length / profitabilityRowsPerPage);
+  const profitabilityStartIndex = (profitabilityPage - 1) * profitabilityRowsPerPage + 1;
+  const profitabilityEndIndex = Math.min(profitabilityPage * profitabilityRowsPerPage, productProfitability.length);
 
   // Expense category analysis
   const expenseCategoryAnalysis = useMemo(() => {
@@ -902,76 +866,18 @@ const Reports = () => {
         </div>
       </div>
       
-      {/* Quick Reports & Saved Reports */}
+      {/* Date Range Picker - Same as Dashboard */}
       <Card className="mb-6">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
-          <QuickReportsBar onSelectPeriod={handleQuickReport} />
-          {company && (
-            <SavedReportsManager
-              companyId={company.id}
-              currentConfig={{
-                startDate,
-                endDate,
-                selectedProduct,
-                selectedCategory,
-                period
-              }}
-              onLoadReport={handleLoadReport}
-            />
-          )}
-        </div>
+        <DateRangePicker
+          onChange={handleDateRangeChange}
+          className="w-full"
+        />
       </Card>
 
       {/* Filters */}
       <Card className="mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-          <div className="flex items-center space-x-2">
-            <span className="text-gray-500">
-              <Calendar size={18} />
-            </span>
-            <Input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              label={t('reports.filters.startDate')}
-            />
-          </div>
-          
-          <div className="flex items-center space-x-2">
-            <span className="text-gray-500">
-              <Calendar size={18} />
-            </span>
-            <Input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              label={t('reports.filters.endDate')}
-            />
-          </div>
-
-          <div>
-            <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
-              {t('reports.filters.period')}
-              {period === 'today' && (
-                <span className="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-600">
-                  {t('reports.filters.today')}
-                </span>
-              )}
-            </label>
-            <select
-              className="w-full rounded-md border border-gray-300 shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-              value={period}
-              onChange={(e) => setPeriod(e.target.value as 'none' | 'today' | 'daily' | 'weekly' | 'monthly' | 'yearly')}
-            >
-              <option value="none">{t('reports.filters.none')}</option>
-              <option value="today">{t('reports.filters.today')}</option>
-              <option value="daily">{t('reports.filters.daily')}</option>
-              <option value="weekly">{t('reports.filters.weekly')}</option>
-              <option value="monthly">{t('reports.filters.monthly')}</option>
-              <option value="yearly">{t('reports.filters.yearly')}</option>
-            </select>
-          </div>
-
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+          {/* Category Filter */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               {t('reports.filters.category')}
@@ -988,6 +894,7 @@ const Reports = () => {
             </select>
           </div>
 
+          {/* Product Filter */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               {t('reports.filters.product')}
@@ -1002,6 +909,93 @@ const Reports = () => {
               ))}
             </select>
           </div>
+
+          {/* Supplier Filter */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {t('reports.filters.supplier')}
+            </label>
+            <select
+              className="w-full rounded-md border border-gray-300 shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              value={selectedSupplier}
+              onChange={(e) => setSelectedSupplier(e.target.value)}
+            >
+              {supplierOptions.map(opt => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Customer Source Filter */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {t('reports.filters.customerSource')}
+            </label>
+            <select
+              className="w-full rounded-md border border-gray-300 shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              value={selectedCustomerSource}
+              onChange={(e) => setSelectedCustomerSource(e.target.value)}
+            >
+              {customerSourceOptions.map(opt => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Second row of filters */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Payment Method Filter */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {t('reports.filters.paymentMethod')}
+            </label>
+            <select
+              className="w-full rounded-md border border-gray-300 shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              value={selectedPaymentMethod}
+              onChange={(e) => setSelectedPaymentMethod(e.target.value)}
+            >
+              {paymentMethodOptions.map(opt => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Sales Status Filter */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {t('reports.filters.salesStatus')}
+            </label>
+            <select
+              className="w-full rounded-md border border-gray-300 shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              value={selectedSalesStatus}
+              onChange={(e) => setSelectedSalesStatus(e.target.value)}
+            >
+              {salesStatusOptions.map(opt => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Chart Aggregation Period */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {t('reports.filters.aggregation')}
+            </label>
+            <select
+              className="w-full rounded-md border border-gray-300 shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              value={aggregationPeriod}
+              onChange={(e) => setAggregationPeriod(e.target.value as 'daily' | 'weekly' | 'monthly' | 'yearly')}
+            >
+              <option value="daily">{t('reports.filters.daily')}</option>
+              <option value="weekly">{t('reports.filters.weekly')}</option>
+              <option value="monthly">{t('reports.filters.monthly')}</option>
+              <option value="yearly">{t('reports.filters.yearly')}</option>
+            </select>
+          </div>
+
+          {/* Empty div for alignment */}
+          <div></div>
         </div>
       </Card>
       
@@ -1297,7 +1291,7 @@ const Reports = () => {
                     <td colSpan={6} className="px-4 py-4 text-sm text-gray-500 text-center">{t('reports.tables.productProfitability.noData')}</td>
                   </tr>
                 ) : (
-                  productProfitability.map((product, idx) => (
+                  paginatedProductProfitability.map((product, idx) => (
                     <tr key={idx}>
                       <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{product.name}</td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{product.quantitySold}</td>
@@ -1315,6 +1309,75 @@ const Reports = () => {
               </tbody>
             </table>
           </div>
+          
+          {/* Pagination Controls */}
+          {productProfitability.length > 0 && (
+            <div className="px-4 py-3 border-t border-gray-200">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="text-sm text-gray-700">
+                  {t('common.showing', { 
+                    from: productProfitability.length > 0 ? profitabilityStartIndex : 0, 
+                    to: profitabilityEndIndex, 
+                    total: productProfitability.length 
+                  })}
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 text-sm">
+                    <label>{t('common.rowsPerPage')}:</label>
+                    <select
+                      value={profitabilityRowsPerPage}
+                      onChange={(e) => {
+                        setProfitabilityRowsPerPage(Number(e.target.value));
+                        setProfitabilityPage(1);
+                      }}
+                      className="rounded border border-gray-300 py-1 px-2 text-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    >
+                      <option value={5}>5</option>
+                      <option value={10}>10</option>
+                      <option value={20}>20</option>
+                      <option value={50}>50</option>
+                      <option value={100}>100</option>
+                    </select>
+                  </div>
+                  
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => setProfitabilityPage(1)}
+                      disabled={profitabilityPage === 1}
+                      className="px-2 py-1 text-sm border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                    >
+                      <ArrowLeftToLine size={16} />
+                    </button>
+                    <button
+                      onClick={() => setProfitabilityPage(profitabilityPage - 1)}
+                      disabled={profitabilityPage === 1}
+                      className="px-2 py-1 text-sm border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                    >
+                      <ArrowLeft size={16} />
+                    </button>
+                    <span className="px-3 py-1 text-sm text-gray-700">
+                      {t('common.page')} {profitabilityPage} {t('common.of')} {totalProfitabilityPages}
+                    </span>
+                    <button
+                      onClick={() => setProfitabilityPage(profitabilityPage + 1)}
+                      disabled={profitabilityPage === totalProfitabilityPages}
+                      className="px-2 py-1 text-sm border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                    >
+                      <ArrowRight size={16} />
+                    </button>
+                    <button
+                      onClick={() => setProfitabilityPage(totalProfitabilityPages)}
+                      disabled={profitabilityPage === totalProfitabilityPages}
+                      className="px-2 py-1 text-sm border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                    >
+                      <ArrowRightToLine size={16} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </Card>
 
         {/* Expense Category Analysis */}

@@ -67,7 +67,7 @@
     "logout": "Déconnexion",
     "menu": "Menu",
     "close": "Fermer",
-    "reports": "Rapports",
+    "reports": "Rapports et Analyses",
     "finance": "Finance",
     "orders": "Commandes",
     "pos": "Point de Vente",
@@ -88,7 +88,7 @@
       "categories": "Catégories",
       "stocks": "Inventaire",
       "analytics": "Analyses",
-      "reports": "Rapports",
+      "reports": "Rapports et Analyses",
       "steps": "Étapes",
       "flows": "Flux",
       "charges": "Charges",
@@ -1858,7 +1858,7 @@
     }
   },
   "reports": {
-    "title": "Rapports",
+    "title": "Rapports et Analyses",
     "subtitle": "Consultez des rapports et analyses détaillés de votre entreprise",
     "exportReport": "Exporter le Rapport",
     "filters": {
@@ -1867,6 +1867,11 @@
       "period": "Période",
       "category": "Catégorie",
       "product": "Produit",
+      "supplier": "Fournisseur",
+      "customerSource": "Source Client",
+      "paymentMethod": "Mode de Paiement",
+      "salesStatus": "Statut de Vente",
+      "aggregation": "Agrégation Graphique",
       "none": "Aucune",
       "today": "Aujourd'hui",
       "daily": "Quotidien",
@@ -1874,7 +1879,18 @@
       "monthly": "Mensuel",
       "yearly": "Annuel",
       "allCategories": "Toutes les Catégories",
-      "allProducts": "Tous les Produits"
+      "allProducts": "Tous les Produits",
+      "allSuppliers": "Tous les Fournisseurs",
+      "allSources": "Toutes les Sources",
+      "allPaymentMethods": "Tous les Modes de Paiement",
+      "allStatuses": "Tous les Statuts",
+      "cash": "Espèces",
+      "mobileMoney": "Mobile Money",
+      "bankTransfer": "Virement Bancaire",
+      "credit": "Crédit",
+      "completed": "Terminée",
+      "pending": "En Attente",
+      "cancelled": "Annulée"
     },
     "summary": {
       "totalSales": "Ventes Totales",
