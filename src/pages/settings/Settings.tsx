@@ -9,6 +9,7 @@ import { getSellerSettings, updateSellerSettings } from '@services/firestore/fir
 import { getCheckoutSettingsWithDefaults, saveCheckoutSettings, resetCheckoutSettings, subscribeToCheckoutSettings } from '@services/utilities/checkoutSettingsService';
 import { saveCinetPayConfig, subscribeToCinetPayConfig, validateCinetPayCredentials, initializeCinetPayConfig } from '@services/payment/cinetpayService';
 import { saveCampayConfig, subscribeToCampayConfig, validateCampayCredentials, initializeCampayConfig } from '@services/payment/campayService';
+import { linkEmailPasswordToAccount } from '@services/auth/authService';
 import { AuditLogger } from '@utils/core/auditLogger';
 import type { SellerSettings, PaymentMethod } from '../../types/order';
 import type { CheckoutSettings, CheckoutSettingsUpdate } from '../../types/checkoutSettings';
@@ -17,7 +18,7 @@ import type { CampayConfig, CampayConfigUpdate } from '../../types/campay';
 import PaymentMethodModal from '../../components/settings/PaymentMethodModal';
 import { SalesAndPOSTab } from '../../components/settings/SalesAndPOSTab';
 import { combineActivities } from '@utils/business/activityUtils';
-import { Plus, Copy, Check, ExternalLink, CreditCard, Truck, ShoppingBag, Save, RotateCcw, Eye, Trash2, ChevronDown, ChevronUp, Edit2, Phone, Hash, Link } from 'lucide-react';
+import { Plus, Copy, Check, ExternalLink, CreditCard, Truck, ShoppingBag, Save, RotateCcw, Eye, Trash2, ChevronDown, ChevronUp, Edit2, Phone, Hash, Link, Key } from 'lucide-react';
 
 function normalizeWebsite(raw: string): string | undefined {
   const url = (raw || '').trim();
@@ -29,7 +30,7 @@ function normalizeWebsite(raw: string): string | undefined {
 const Settings = () => {
   const { t, i18n } = useTranslation();
   const [activeTab, setActiveTab] = useState<'colors' | 'account' | 'activity' | 'ordering' | 'checkout' | 'payment' | 'catalogue' | 'sales-pos'>('colors');
-  const { company, updateCompany, updateUserPassword, user, isOwner, effectiveRole } = useAuth();
+  const { company, updateCompany, updateUserPassword, user, isOwner, effectiveRole, getUserAuthProvider, canChangePassword, refreshUser } = useAuth();
   
   // Checkout settings state
   const [checkoutSettings, setCheckoutSettings] = useState<CheckoutSettings | null>(null);
@@ -50,6 +51,12 @@ const Settings = () => {
   
   // Accordion state for payment providers
   const [expandedProvider, setExpandedProvider] = useState<string | null>(null);
+
+  // Add password dialog state (for Google users)
+  const [showAddPasswordDialog, setShowAddPasswordDialog] = useState(false);
+  const [addPasswordForm, setAddPasswordForm] = useState({ newPassword: '', confirmPassword: '' });
+  const [addPasswordLoading, setAddPasswordLoading] = useState(false);
+  const [addPasswordError, setAddPasswordError] = useState<string | null>(null);
   
   // Only fetch data if user is authenticated
   const { sales } = useSales();
@@ -373,17 +380,23 @@ const Settings = () => {
       setPasswordError(t('settings.messages.currentPasswordRequired'));
       return false;
     }
-    
+
     if (formData.newPassword !== formData.confirmPassword) {
       setPasswordError(t('settings.messages.passwordsDoNotMatch'));
       return false;
     }
-    
+
     if (formData.newPassword && formData.newPassword.length < 6) {
-      setPasswordError(t('settings.messages.passwordTooShort'));
+      setPasswordError(t('settings.messages.passwordTooShort', 'Le mot de passe doit contenir au moins 6 caractères'));
       return false;
     }
-    
+
+    // Validate password strength: must contain uppercase, lowercase, and digit
+    if (formData.newPassword && !/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.newPassword)) {
+      setPasswordError(t('settings.messages.passwordTooWeak', 'Le mot de passe doit contenir au moins une majuscule, une minuscule et un chiffre'));
+      return false;
+    }
+
     return true;
   };
   
@@ -812,6 +825,46 @@ const Settings = () => {
       showErrorToast('Failed to clear credentials');
     } finally {
       setCinetpaySaving(false);
+    }
+  };
+
+  // Handle adding password to Google account
+  const handleAddPassword = async () => {
+    setAddPasswordError(null);
+
+    // Validate passwords match
+    if (addPasswordForm.newPassword !== addPasswordForm.confirmPassword) {
+      setAddPasswordError(t('settings.account.passwordMismatch', 'Les mots de passe ne correspondent pas'));
+      return;
+    }
+
+    // Validate password length
+    if (addPasswordForm.newPassword.length < 6) {
+      setAddPasswordError(t('settings.account.passwordTooShort', 'Le mot de passe doit contenir au moins 6 caractères'));
+      return;
+    }
+
+    // Validate password strength: must contain uppercase, lowercase, and digit
+    if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(addPasswordForm.newPassword)) {
+      setAddPasswordError(t('settings.account.passwordTooWeak', 'Le mot de passe doit contenir au moins une majuscule, une minuscule et un chiffre'));
+      return;
+    }
+
+    try {
+      setAddPasswordLoading(true);
+      await linkEmailPasswordToAccount(addPasswordForm.newPassword);
+
+      // Refresh user data to update providerData without page reload
+      await refreshUser();
+
+      showSuccessToast(t('settings.account.passwordAdded', 'Mot de passe ajouté avec succès ! Vous pouvez maintenant vous connecter avec votre email et mot de passe.'));
+      setShowAddPasswordDialog(false);
+      setAddPasswordForm({ newPassword: '', confirmPassword: '' });
+    } catch (error: any) {
+      console.error('Error adding password:', error);
+      setAddPasswordError(error.message || t('settings.account.addPasswordError', 'Erreur lors de l\'ajout du mot de passe'));
+    } finally {
+      setAddPasswordLoading(false);
     }
   };
 
@@ -1403,41 +1456,94 @@ const Settings = () => {
                   </div>
                 </div>
                 
-                {/* Password Change */}
-                <div className="pt-5 border-t border-gray-200">
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">{t('settings.account.changePassword')}</h3>
-                  {passwordError && (
-                    <div className="mb-4 bg-red-50 text-red-800 p-3 rounded-md text-sm">
-                      {passwordError}
+                {/* Password Change - Only show for email/password users */}
+                {canChangePassword() ? (
+                  <div className="pt-5 border-t border-gray-200">
+                    <h3 className="text-lg font-medium text-gray-900 mb-4">{t('settings.account.changePassword')}</h3>
+                    {passwordError && (
+                      <div className="mb-4 bg-red-50 text-red-800 p-3 rounded-md text-sm">
+                        {passwordError}
+                      </div>
+                    )}
+                    <div className="space-y-4">
+                      <Input
+                        label={t('settings.account.currentPassword')}
+                        name="currentPassword"
+                        type="password"
+                        value={formData.currentPassword}
+                        onChange={handleInputChange}
+                        helpText={t('settings.account.currentPasswordHelp')}
+                      />
+                      <Input
+                        label={t('settings.account.newPassword')}
+                        name="newPassword"
+                        type="password"
+                        value={formData.newPassword}
+                        onChange={handleInputChange}
+                        helpText={t('settings.account.newPasswordHelp')}
+                      />
+                      <Input
+                        label={t('settings.account.confirmNewPassword')}
+                        name="confirmPassword"
+                        type="password"
+                        value={formData.confirmPassword}
+                        onChange={handleInputChange}
+                        helpText={t('settings.account.confirmNewPasswordHelp')}
+                      />
                     </div>
-                  )}
-                  <div className="space-y-4">
-                    <Input
-                      label={t('settings.account.currentPassword')}
-                      name="currentPassword"
-                      type="password"
-                      value={formData.currentPassword}
-                      onChange={handleInputChange}
-                      helpText={t('settings.account.currentPasswordHelp')}
-                    />
-                    <Input
-                      label={t('settings.account.newPassword')}
-                      name="newPassword"
-                      type="password"
-                      value={formData.newPassword}
-                      onChange={handleInputChange}
-                      helpText={t('settings.account.newPasswordHelp')}
-                    />
-                    <Input
-                      label={t('settings.account.confirmNewPassword')}
-                      name="confirmPassword"
-                      type="password"
-                      value={formData.confirmPassword}
-                      onChange={handleInputChange}
-                      helpText={t('settings.account.confirmNewPasswordHelp')}
-                    />
                   </div>
-                </div>
+                ) : (
+                  /* Authentication Provider Info - Show for Google/OAuth users */
+                  <div className="pt-5 border-t border-gray-200">
+                    <h3 className="text-lg font-medium text-gray-900 mb-4">{t('settings.account.authMethod', 'Méthode de connexion')}</h3>
+                    <div className="bg-amber-50 border border-amber-200 rounded-md p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        {getUserAuthProvider() === 'google.com' && (
+                          <svg className="w-5 h-5" viewBox="0 0 24 24">
+                            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                          </svg>
+                        )}
+                        <span className="font-medium text-amber-800">
+                          {getUserAuthProvider() === 'google.com'
+                            ? t('settings.account.connectedWithGoogle', 'Connecté via Google')
+                            : t('settings.account.connectedWithProvider', `Connecté via ${getUserAuthProvider()}`, { provider: getUserAuthProvider() })}
+                        </span>
+                      </div>
+                      <p className="text-sm text-amber-700">
+                        {t('settings.account.googlePasswordNote',
+                          'Vous êtes connecté avec Google. Pour modifier votre mot de passe, veuillez utiliser les paramètres de votre compte Google.')}
+                      </p>
+                      <div className="flex flex-wrap gap-3 mt-3">
+                        {getUserAuthProvider() === 'google.com' && (
+                          <>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              icon={<Key className="w-4 h-4" />}
+                              onClick={() => setShowAddPasswordDialog(true)}
+                            >
+                              {t('settings.account.addPassword', 'Ajouter un mot de passe')}
+                            </Button>
+                            <a
+                              href="https://myaccount.google.com/security"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-sm text-amber-800 hover:text-amber-900 underline py-2"
+                            >
+                              {t('settings.account.manageGoogleAccount', 'Gérer mon compte Google')}
+                              <ExternalLink className="w-3 h-3" />
+                            </a>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                  </div>
+                )}
                 
                 {/* Preferences */}
                 <div className="pt-5 border-t border-gray-200">
@@ -3417,6 +3523,67 @@ const Settings = () => {
         paymentMethods={orderingSettings?.paymentMethods?.customMethods || []}
         editingMethodId={editingPaymentMethodId}
       />
+
+      {/* Add Password Dialog - Rendered outside of any form to avoid nesting issues */}
+      {showAddPasswordDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              {t('settings.account.addPasswordTitle', 'Ajouter un mot de passe')}
+            </h3>
+            <p className="text-sm text-gray-600 mb-4">
+              {t('settings.account.addPasswordDescription',
+                'Ajoutez un mot de passe pour pouvoir vous connecter avec votre email en plus de Google.')}
+            </p>
+
+            {addPasswordError && (
+              <div className="mb-4 bg-red-50 text-red-800 p-3 rounded-md text-sm">
+                {addPasswordError}
+              </div>
+            )}
+
+            <div className="space-y-4">
+              <Input
+                label={t('settings.account.newPassword')}
+                name="addNewPassword"
+                type="password"
+                value={addPasswordForm.newPassword}
+                onChange={(e) => setAddPasswordForm(prev => ({ ...prev, newPassword: e.target.value }))}
+                helpText={t('settings.account.passwordRequirements', 'Minimum 6 caractères, incluant une majuscule, une minuscule et un chiffre')}
+              />
+              <Input
+                label={t('settings.account.confirmNewPassword')}
+                name="addConfirmPassword"
+                type="password"
+                value={addPasswordForm.confirmPassword}
+                onChange={(e) => setAddPasswordForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
+              />
+            </div>
+            <div className="flex justify-end gap-3 mt-6">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setShowAddPasswordDialog(false);
+                  setAddPasswordForm({ newPassword: '', confirmPassword: '' });
+                  setAddPasswordError(null);
+                }}
+                disabled={addPasswordLoading}
+              >
+                {t('common.cancel', 'Annuler')}
+              </Button>
+              <Button
+                type="button"
+                onClick={handleAddPassword}
+                isLoading={addPasswordLoading}
+                disabled={addPasswordLoading}
+              >
+                {t('settings.account.addPasswordButton', 'Ajouter le mot de passe')}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

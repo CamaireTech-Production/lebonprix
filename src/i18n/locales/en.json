@@ -1272,7 +1272,22 @@
       "emailNotificationsHelp": "Receive email notifications for important events",
       "language": "Language",
       "saveChanges": "Save Changes",
-      "cancel": "Cancel"
+      "cancel": "Cancel",
+      "authMethod": "Sign-in Method",
+      "connectedWithGoogle": "Connected with Google",
+      "connectedWithProvider": "Connected with {{provider}}",
+      "googlePasswordNote": "You are signed in with Google. To change your password, please use your Google account settings.",
+      "manageGoogleAccount": "Manage my Google account",
+      "addPassword": "Add a password",
+      "addPasswordTitle": "Add a password",
+      "addPasswordDescription": "Add a password to be able to sign in with your email in addition to Google.",
+      "passwordRequirements": "Minimum 6 characters, including one uppercase, one lowercase, and one digit",
+      "addPasswordButton": "Add password",
+      "passwordMismatch": "Passwords do not match",
+      "passwordTooShort": "Password must be at least 6 characters",
+      "passwordTooWeak": "Password must contain at least one uppercase letter, one lowercase letter, and one digit",
+      "passwordAdded": "Password added successfully! You can now sign in with your email and password.",
+      "addPasswordError": "Error adding password"
     },
     "messages": {
       "settingsUpdated": "Settings updated successfully",
@@ -1280,7 +1295,8 @@
       "reportTimeDefault": "Report time not set, default value 8h used",
       "currentPasswordRequired": "Current password is required to change password",
       "passwordsDoNotMatch": "New passwords do not match",
-      "passwordTooShort": "New password must be at least 6 characters"
+      "passwordTooShort": "New password must be at least 6 characters",
+      "passwordTooWeak": "Password must contain at least one uppercase letter, one lowercase letter, and one digit"
     },
     "activity": {
       "title": "Activity Logs",

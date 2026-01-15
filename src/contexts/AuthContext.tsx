@@ -39,6 +39,9 @@ interface AuthContextType {
   updateCompany: (data: Partial<Omit<Company, 'id' | 'createdAt' | 'updatedAt' | 'companyId'>>) => Promise<void>;
   updateUserPassword: (currentPassword: string, newPassword: string) => Promise<void>;
   selectCompany: (companyId: string) => Promise<void>;
+  getUserAuthProvider: () => string | null; // Get the authentication provider (password, google.com, etc.)
+  canChangePassword: () => boolean; // Check if user can change password (only email/password users)
+  refreshUser: () => Promise<void>; // Refresh user data from Firebase (e.g., after linking a new provider)
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -749,9 +752,53 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     if (!user) {
       throw new Error('No user logged in');
     }
-    
+
     setSelectedCompanyId(companyId);
     await loadCompanyData(companyId, user.uid);
+  };
+
+  /**
+   * Get the authentication provider for the current user
+   * Returns: 'password' for email/password, 'google.com' for Google, etc.
+   */
+  const getUserAuthProvider = (): string | null => {
+    if (!user) return null;
+
+    // providerData contains all linked providers
+    // The first provider is typically the primary sign-in method
+    const providerData = user.providerData;
+    if (providerData && providerData.length > 0) {
+      return providerData[0]?.providerId || null;
+    }
+
+    return null;
+  };
+
+  /**
+   * Check if the current user can change their password
+   * Users can change their password if they have the password provider linked
+   * This includes both email/password users and Google users who added a password
+   */
+  const canChangePassword = (): boolean => {
+    if (!user) return false;
+
+    // Check if user has password provider linked (not just as primary)
+    return user.providerData.some(
+      (provider) => provider?.providerId === 'password'
+    );
+  };
+
+  /**
+   * Refresh the current user's data from Firebase
+   * Useful after operations that modify user data (e.g., linking a new provider)
+   */
+  const refreshUser = async (): Promise<void> => {
+    const currentUser = auth.currentUser;
+    if (currentUser) {
+      await currentUser.reload();
+      // Update the state with the refreshed user to trigger re-renders
+      setUser(auth.currentUser);
+    }
   };
 
   const value = {
@@ -771,7 +818,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     signOut,
     updateCompany,
     updateUserPassword,
-    selectCompany
+    selectCompany,
+    getUserAuthProvider,
+    canChangePassword,
+    refreshUser
   };
 
   return (
