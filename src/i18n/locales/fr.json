@@ -1172,6 +1172,21 @@
       "emailNotifications": "Notifications par e-mail",
       "emailNotificationsHelp": "Recevoir des notifications par e-mail pour les événements importants",
       "language": "Langue",
+      "authMethod": "Méthode de connexion",
+      "connectedWithGoogle": "Connecté via Google",
+      "connectedWithProvider": "Connecté via {{provider}}",
+      "googlePasswordNote": "Vous êtes connecté avec Google. Pour modifier votre mot de passe, veuillez utiliser les paramètres de votre compte Google.",
+      "addPassword": "Ajouter un mot de passe",
+      "manageGoogleAccount": "Gérer mon compte Google",
+      "addPasswordTitle": "Ajouter un mot de passe",
+      "addPasswordDescription": "Ajoutez un mot de passe pour pouvoir vous connecter avec votre email en plus de Google.",
+      "passwordMinLength": "Minimum 6 caractères",
+      "passwordRequirements": "Minimum 6 caractères, incluant une majuscule, une minuscule et un chiffre",
+      "addPasswordButton": "Ajouter le mot de passe",
+      "passwordMismatch": "Les mots de passe ne correspondent pas",
+      "passwordTooShort": "Le mot de passe doit contenir au moins 6 caractères",
+      "passwordTooWeak": "Le mot de passe doit contenir au moins une majuscule, une minuscule et un chiffre",
+      "passwordAdded": "Mot de passe ajouté avec succès ! Vous pouvez maintenant vous connecter avec votre email et mot de passe.",
       "saveChanges": "Enregistrer les modifications",
       "cancel": "Annuler"
     },
@@ -1181,7 +1196,8 @@
       "reportTimeDefault": "Heure de réception non définie, valeur par défaut 8h utilisée",
       "currentPasswordRequired": "Le mot de passe actuel est requis pour changer le mot de passe",
       "passwordsDoNotMatch": "Les nouveaux mots de passe ne correspondent pas",
-      "passwordTooShort": "Le nouveau mot de passe doit contenir au moins 6 caractères"
+      "passwordTooShort": "Le nouveau mot de passe doit contenir au moins 6 caractères",
+      "passwordTooWeak": "Le mot de passe doit contenir au moins une majuscule, une minuscule et un chiffre"
     },
     "activity": {
       "title": "Journaux d'activité",
@@ -2257,8 +2273,7 @@
       "draftDeleteError": "Échec de la suppression du brouillon",
       "deleteWarning": "Cette action est irréversible.",
       "customer": "Client",
-      "total": "Total",
-      "products": "Produits"
+      "total": "Total"
     },
     "calculator": {
       "title": "Calculatrice",

@@ -559,7 +559,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
               <div className="space-y-4">
                 {formData.products.map((product, index) => (
                   product.product && (
-                    <div key={index} className="p-4 border rounded-lg space-y-4">
+                    <div key={product.id} className="p-4 border rounded-lg space-y-4">
                       <div className="flex items-center space-x-3">
                         <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0">
                           <ImageWithSkeleton 
@@ -674,7 +674,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
               </Button>
             </div>
             {formData.products.map((product, index) => (
-              <div key={index} className="p-4 border rounded-lg space-y-4">
+              <div key={product.id} className="p-4 border rounded-lg space-y-4">
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
                     <Select
@@ -692,7 +692,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                       }}
                     />
                   </div>
-                  {index > 0 && (
+                  {formData.products.length > 1 && (
                     <button
                       onClick={() => removeProductField(index)}
                       className="ml-2 p-2 text-red-600 hover:text-red-900"
@@ -895,7 +895,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                 <button
                   key={product.id}
                   onClick={() => {
-                    const newProduct = { product, quantity: '1', negotiatedPrice: '' };
+                    const newProduct = { id: crypto.randomUUID(), product, quantity: '1', negotiatedPrice: '' };
                     setFormData(prev => ({
                       ...prev,
                       products: [...prev.products, newProduct]

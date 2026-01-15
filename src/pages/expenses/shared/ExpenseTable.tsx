@@ -1,7 +1,7 @@
 // src/pages/expenses/shared/ExpenseTable.tsx
-import { Edit2, Trash2, Loader2 } from 'lucide-react';
+import { Edit2, Trash2, Loader2, FileText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Table, Badge } from '@components/common';
+import { Table, Badge, ImageWithSkeleton } from '@components/common';
 import { formatCreatorName } from '@utils/business/employeeUtils';
 import type { Expense } from '../../../types/models';
 
@@ -18,6 +18,26 @@ const ExpenseTable = ({ expenses, onEdit, onDelete, deleteLoading, deleteLoading
   const { t } = useTranslation();
 
   const columns = [
+    { 
+      header: 'Image', 
+      accessor: (expense: Expense) => (
+        <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-100">
+          {expense.image ? (
+            <ImageWithSkeleton
+              src={expense.image}
+              alt={expense.description}
+              className="w-full h-full object-cover"
+              placeholder="Loading..."
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-gray-400">
+              <FileText size={20} />
+            </div>
+          )}
+        </div>
+      ),
+      className: 'w-16',
+    },
     { 
       header: t('expenses.table.description'), 
       accessor: 'description' as const,

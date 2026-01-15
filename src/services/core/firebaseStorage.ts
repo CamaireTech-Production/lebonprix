@@ -164,6 +164,71 @@ export class FirebaseStorageService {
     }
   }
 
+  async uploadExpenseImage(
+    blob: Blob,
+    userId: string,
+    expenseId: string
+  ): Promise<StorageResult> {
+    try {
+      // Validate blob size (max 5MB)
+      const maxSize = 5 * 1024 * 1024; // 5MB
+      if (blob.size > maxSize) {
+        throw new Error(`Image size (${(blob.size / 1024 / 1024).toFixed(2)}MB) exceeds maximum allowed size of 5MB`);
+      }
+
+      // Generate file path for expense - use simpler path structure
+      const timestamp = Date.now();
+      const randomId = Math.random().toString(36).substr(2, 9);
+      const filePath = `expenses/${userId}/expense_${expenseId}_image_${timestamp}_${randomId}.jpg`;
+      const storageRef = ref(storage, filePath);
+      
+      // Set metadata - keep it minimal to avoid header size issues
+      const metadata = {
+        contentType: blob.type || 'image/jpeg',
+        customMetadata: {
+          userId: userId.substring(0, 50), // Limit metadata size
+          expenseId: expenseId.substring(0, 50),
+          uploadedAt: new Date().toISOString().substring(0, 20) // Shorter timestamp
+        }
+      };
+      
+      console.log('Starting expense image upload:', {
+        filePath,
+        size: blob.size,
+        contentType: metadata.contentType
+      });
+      
+      // Upload with retry logic
+      const snapshot = await this.uploadWithRetry(storageRef, blob, metadata);
+      
+      console.log('Upload successful, getting download URL...');
+      
+      // Get download URL
+      const downloadURL = await getDownloadURL(snapshot.ref);
+      
+      console.log('Expense image uploaded successfully:', downloadURL);
+      
+      return {
+        url: downloadURL,
+        path: snapshot.ref.fullPath,
+        size: blob.size
+      };
+    } catch (error: any) {
+      console.error('Error uploading expense image:', error);
+      
+      // Provide more detailed error information
+      let errorMessage = 'Failed to upload expense image';
+      if (error.code) {
+        errorMessage += ` (${error.code})`;
+      }
+      if (error.message) {
+        errorMessage += `: ${error.message}`;
+      }
+      
+      throw new Error(errorMessage);
+    }
+  }
+
   async deleteImage(imagePath: string): Promise<void> {
     try {
       const imageRef = ref(storage, imagePath);

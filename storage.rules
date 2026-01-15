@@ -53,6 +53,18 @@ service firebase.storage {
       allow delete: if isOwner(userId);
     }
     
+    // Expense Images - Users can upload/read their own expense images
+    match /expenses/{userId}/{fileName} {
+      // Allow authenticated users to read expense images (for display purposes)
+      allow read: if isAuthenticated();
+      
+      // Only allow users to upload to their own folder
+      allow write: if isOwner(userId) && isValidImage();
+      
+      // Allow deletion only by owner
+      allow delete: if isOwner(userId);
+    }
+    
     // Deny all other paths by default
     match /{allPaths=**} {
       allow read, write: if false;

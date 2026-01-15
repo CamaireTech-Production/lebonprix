@@ -5,7 +5,10 @@ import {
   GoogleAuthProvider,
   signInWithPopup,
   signInWithRedirect,
-  getRedirectResult
+  getRedirectResult,
+  linkWithCredential,
+  EmailAuthProvider,
+  fetchSignInMethodsForEmail
 } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { auth, app } from '../core/firebase';
@@ -246,11 +249,91 @@ export const signInWithGoogle = async (): Promise<FirebaseUser> => {
     } else if (error.code === 'auth/popup-blocked') {
       throw new Error('La fenêtre de connexion a été bloquée. Veuillez autoriser les popups pour ce site.');
     } else if (error.code === 'auth/account-exists-with-different-credential') {
-      throw new Error('Un compte existe déjà avec cet email mais avec une autre méthode de connexion.');
+      // Get the email from the error for a more helpful message
+      const email = error.customData?.email || '';
+      throw new Error(
+        `Un compte existe déjà avec l'email ${email} utilisant une autre méthode de connexion. ` +
+        'Veuillez vous connecter avec votre mot de passe, puis liez votre compte Google dans les paramètres.'
+      );
     } else if (error.code === 'auth/network-request-failed') {
       throw new Error('Erreur réseau. Vérifiez votre connexion internet et réessayez.');
     }
 
     throw error;
   }
+};
+
+/**
+ * Link an email/password credential to an existing Google account
+ * This allows Google users to also sign in with email/password
+ *
+ * @param password - The new password to set
+ * @returns Promise<void>
+ */
+export const linkEmailPasswordToAccount = async (password: string): Promise<void> => {
+  const user = auth.currentUser;
+  if (!user) {
+    throw new Error('Aucun utilisateur connecté');
+  }
+
+  if (!user.email) {
+    throw new Error('L\'utilisateur n\'a pas d\'email associé');
+  }
+
+  // Check if user already has password provider
+  const hasPasswordProvider = user.providerData.some(
+    (provider) => provider?.providerId === 'password'
+  );
+
+  if (hasPasswordProvider) {
+    throw new Error('Un mot de passe est déjà associé à ce compte');
+  }
+
+  try {
+    // Create email/password credential
+    const credential = EmailAuthProvider.credential(user.email, password);
+
+    // Link the credential to the current user
+    await linkWithCredential(user, credential);
+  } catch (error: any) {
+    if (error.code === 'auth/provider-already-linked') {
+      throw new Error('Ce compte a déjà un mot de passe associé');
+    } else if (error.code === 'auth/invalid-credential') {
+      throw new Error('Les identifiants fournis sont invalides');
+    } else if (error.code === 'auth/weak-password') {
+      throw new Error('Le mot de passe doit contenir au moins 6 caractères');
+    } else if (error.code === 'auth/requires-recent-login') {
+      throw new Error('Pour des raisons de sécurité, veuillez vous reconnecter avant d\'ajouter un mot de passe');
+    }
+    throw error;
+  }
+};
+
+/**
+ * Check what sign-in methods are available for an email
+ *
+ * @param email - The email to check
+ * @returns Array of provider IDs (e.g., ['google.com', 'password'])
+ */
+export const getSignInMethodsForEmail = async (email: string): Promise<string[]> => {
+  try {
+    return await fetchSignInMethodsForEmail(auth, email);
+  } catch (error) {
+    return [];
+  }
+};
+
+/**
+ * Check if the current user has a specific provider linked
+ *
+ * @param providerId - The provider ID to check (e.g., 'password', 'google.com')
+ * @returns boolean
+ */
+export const hasProviderLinked = (providerId: string): boolean => {
+  const user = auth.currentUser;
+  if (!user) return false;
+
+  return user.providerData.some(
+    (provider) => provider?.providerId === providerId
+  );
 };
