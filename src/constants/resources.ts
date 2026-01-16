@@ -23,6 +23,7 @@ export const RESOURCES = {
   SUPPLIERS: 'suppliers',
   EXPENSES: 'expenses',
   MAGASIN: 'magasin',
+  PRODUCTIONS: 'productions',
 
   // Management sections
   FINANCE: 'finance',
@@ -50,6 +51,7 @@ export const RESOURCE_LABELS: Record<Resource, string> = {
   [RESOURCES.SUPPLIERS]: 'Fournisseurs',
   [RESOURCES.EXPENSES]: 'Dépenses',
   [RESOURCES.MAGASIN]: 'Magasin',
+  [RESOURCES.PRODUCTIONS]: 'Productions',
   [RESOURCES.FINANCE]: 'Finance',
   [RESOURCES.REPORTS]: 'Rapports',
   [RESOURCES.HR]: 'RH (Legacy)', // Legacy - kept for backward compatibility
@@ -70,6 +72,7 @@ export const ALL_RESOURCES: Resource[] = [
   RESOURCES.SUPPLIERS,
   RESOURCES.EXPENSES,
   RESOURCES.MAGASIN,
+  RESOURCES.PRODUCTIONS,
   RESOURCES.FINANCE,
   RESOURCES.REPORTS,
   RESOURCES.PERMISSIONS,

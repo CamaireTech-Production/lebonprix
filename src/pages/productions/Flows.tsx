@@ -5,11 +5,14 @@ import { Button, Modal, ModalFooter, LoadingScreen } from '@components/common';
 import { useProductionFlows, useProductionFlowSteps } from '@hooks/data/useFirestore';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
 import { formatCreatorName } from '@utils/business/employeeUtils';
+import { usePermissionCheck } from '@components/permissions';
+import { RESOURCES } from '@constants/resources';
 import type { ProductionFlow } from '../../types/models';
 
 const Flows: React.FC = () => {
   const { flows, loading: flowsLoading, addFlow, updateFlow, deleteFlow } = useProductionFlows();
   const { flowSteps, loading: stepsLoading } = useProductionFlowSteps();
+  const { canDelete } = usePermissionCheck(RESOURCES.PRODUCTIONS);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [editingFlow, setEditingFlow] = useState<ProductionFlow | null>(null);
@@ -288,15 +291,17 @@ const Flows: React.FC = () => {
                             >
                               <Edit2 size={16} />
                             </button>
-                            <button
-                              onClick={() => {
-                                setDeletingFlow(flow);
-                                setIsDeleteModalOpen(true);
-                              }}
-                              className="text-red-600 hover:text-red-900"
-                            >
-                              <Trash2 size={16} />
-                            </button>
+                            {canDelete && (
+                              <button
+                                onClick={() => {
+                                  setDeletingFlow(flow);
+                                  setIsDeleteModalOpen(true);
+                                }}
+                                className="text-red-600 hover:text-red-900"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>

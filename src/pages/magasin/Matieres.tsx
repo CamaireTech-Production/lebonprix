@@ -11,6 +11,8 @@ import MatiereFormModal from '../../components/magasin/MatiereFormModal';
 import MatiereReportModal from '../../components/reports/MatiereReportModal';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
 import { getStockBadgeVariant } from '@utils/magasin/stockBadge';
+import { PermissionButton, usePermissionCheck } from '@components/permissions';
+import { RESOURCES } from '@constants/resources';
 import type { Matiere } from '../../types/models';
 
 const Matieres = () => {
@@ -20,7 +22,8 @@ const Matieres = () => {
   const { batches: allStockBatches } = useAllStockBatches('matiere');
   const { suppliers } = useSuppliers();
   const { company } = useAuth();
-  
+  const { canEdit, canDelete } = usePermissionCheck(RESOURCES.MAGASIN);
+
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -268,20 +271,24 @@ const Matieres = () => {
                       
                       {/* Actions */}
                       <div className="flex justify-end space-x-2">
-                        <button
-                          onClick={() => openEditModal(matiere)}
-                          className="text-indigo-600 hover:text-indigo-900"
-                          title="Modifier"
-                        >
-                          <Edit2 size={16} />
-                        </button>
-                        <button
-                          onClick={() => openDeleteModal(matiere)}
-                          className="text-red-600 hover:text-red-900"
-                          title="Supprimer"
-                        >
-                          <Trash2 size={16} />
-                        </button>
+                        {canEdit && (
+                          <button
+                            onClick={() => openEditModal(matiere)}
+                            className="text-indigo-600 hover:text-indigo-900"
+                            title="Modifier"
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                        )}
+                        {canDelete && (
+                          <button
+                            onClick={() => openDeleteModal(matiere)}
+                            className="text-red-600 hover:text-red-900"
+                            title="Supprimer"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -344,20 +351,24 @@ const Matieres = () => {
                   
                   {/* Actions */}
                   <div className="flex space-x-2">
-                    <button
-                      onClick={() => openEditModal(matiere)}
-                      className="text-indigo-600 hover:text-indigo-900"
-                      title="Modifier"
-                    >
-                      <Edit2 size={16} />
-                    </button>
-                    <button
-                      onClick={() => openDeleteModal(matiere)}
-                      className="text-red-600 hover:text-red-900"
-                      title="Supprimer"
-                    >
-                      <Trash2 size={16} />
-                    </button>
+                    {canEdit && (
+                      <button
+                        onClick={() => openEditModal(matiere)}
+                        className="text-indigo-600 hover:text-indigo-900"
+                        title="Modifier"
+                      >
+                        <Edit2 size={16} />
+                      </button>
+                    )}
+                    {canDelete && (
+                      <button
+                        onClick={() => openDeleteModal(matiere)}
+                        className="text-red-600 hover:text-red-900"
+                        title="Supprimer"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
                   </div>
                 </div>
               )}

@@ -75,6 +75,7 @@ export const PermissionButton = ({
   const { canAccess, canEdit, canDelete, isOwner } = useRolePermissions(company?.id);
 
   // Check permission based on action type
+  // IMPORTANT: Delete actions are OWNER-ONLY - employees must use action request system
   let hasPermission = isOwner;
   if (!isOwner) {
     switch (action) {
@@ -85,7 +86,8 @@ export const PermissionButton = ({
         hasPermission = canEdit(resource);
         break;
       case 'delete':
-        hasPermission = canDelete(resource);
+        // DELETE IS OWNER-ONLY - never grant delete to non-owners
+        hasPermission = false;
         break;
     }
   }
