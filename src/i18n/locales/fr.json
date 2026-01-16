@@ -567,8 +567,10 @@
           "title": "Méthode d'Inventaire",
           "fifo": "FIFO (Premier Entré, Premier Sorti)",
           "lifo": "LIFO (Dernier Entré, Premier Sorti)",
+          "cmup": "CMUP (Coût Moyen Unitaire Pondéré)",
           "fifoDescription": "- Vendre le stock le plus ancien en premier",
           "lifoDescription": "- Vendre le stock le plus récent en premier",
+          "cmupDescription": "- Utiliser le coût moyen pondéré de tous les lots",
           "helpText": "Ceci détermine comment le stock est consommé lors du calcul du coût des marchandises vendues et des marges bénéficiaires."
         }
       },

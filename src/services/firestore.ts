@@ -1188,7 +1188,11 @@ export const createSale = async (
   const normalizedPaymentStatus = data.paymentStatus || 'paid';
   const normalizedCustomerInfo = data.customerInfo || { name: 'divers', phone: '' };
   const normalizedDeliveryFee = data.deliveryFee ?? 0;
-  const normalizedInventoryMethod = data.inventoryMethod?.toUpperCase() === 'LIFO' ? 'LIFO' : 'FIFO';
+  const inventoryMethodUpper = data.inventoryMethod?.toUpperCase();
+  const normalizedInventoryMethod: InventoryMethod = 
+    inventoryMethodUpper === 'LIFO' ? 'LIFO' :
+    inventoryMethodUpper === 'CMUP' ? 'CMUP' :
+    'FIFO';
   
   // Handle saleDate conversion to timestamp if provided
   let normalizedCreatedAt = serverTimestamp();

@@ -358,7 +358,11 @@ export const createSale = async (
       ...(quarterValue ? { quarter: quarterValue } : {}),
     };
     const normalizedDeliveryFee = data.deliveryFee ?? 0;
-    const normalizedInventoryMethod = data.inventoryMethod?.toUpperCase() === 'LIFO' ? 'LIFO' : 'FIFO';
+    const inventoryMethodUpper = data.inventoryMethod?.toUpperCase();
+    const normalizedInventoryMethod: InventoryMethod = 
+      inventoryMethodUpper === 'LIFO' ? 'LIFO' :
+      inventoryMethodUpper === 'CMUP' ? 'CMUP' :
+      'FIFO';
     
     let normalizedCreatedAt = serverTimestamp();
     if ((data as any).saleDate && typeof (data as any).saleDate === 'string') {

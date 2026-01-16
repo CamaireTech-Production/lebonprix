@@ -88,7 +88,7 @@ export interface Product extends BaseModel {
   isAvailable: boolean;
   isDeleted?: boolean;
   isVisible?: boolean; // Controls visibility in catalogue (default: true)
-  inventoryMethod?: 'FIFO' | 'LIFO';
+  inventoryMethod?: 'FIFO' | 'LIFO' | 'CMUP';
   enableBatchTracking?: boolean;
   tags?: ProductTag[]; // Dynamic product tags for variations
   description?: string; // Product description for catalogue
@@ -173,7 +173,7 @@ export interface Sale extends BaseModel {
   change?: number; // Monnaie à rendre
   statusHistory?: Array<{ status: string; timestamp: string }>;
   isAvailable?: boolean;
-  inventoryMethod?: 'FIFO' | 'LIFO';
+  inventoryMethod?: 'FIFO' | 'LIFO' | 'CMUP';
   totalCost?: number;
   totalProfit?: number;
   averageProfitMargin?: number;

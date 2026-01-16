@@ -551,8 +551,10 @@
           "title": "Inventory Method",
           "fifo": "FIFO (First In, First Out)",
           "lifo": "LIFO (Last In, First Out)",
+          "cmup": "CMUP (Weighted Average Cost)",
           "fifoDescription": "- Sell oldest stock first",
           "lifoDescription": "- Sell newest stock first",
+          "cmupDescription": "- Use weighted average cost of all batches",
           "helpText": "This determines how stock is consumed when calculating cost of goods sold and profit margins."
         }
       },
