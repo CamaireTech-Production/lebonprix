@@ -11,6 +11,8 @@ import { formatCreatorName } from '@utils/business/employeeUtils';
 import type { Supplier, SupplierDebt } from '../../types/models';
 import StatCard from '../../components/dashboard/StatCard';
 import { calculateSolde } from '@utils/calculations/financialCalculations';
+import { PermissionButton, usePermissionCheck } from '@components/permissions';
+import { RESOURCES } from '@constants/resources';
 
 const Suppliers = () => {
   const { t } = useTranslation();
@@ -18,6 +20,7 @@ const Suppliers = () => {
   const { debts: supplierDebtsList, loading: debtsLoading } = useSupplierDebts();
   const { entries: financeEntries } = useFinanceEntries();
   const { user, company } = useAuth();
+  const { canEdit, canDelete } = usePermissionCheck(RESOURCES.SUPPLIERS);
 
   // Modal states
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -345,24 +348,28 @@ const Suppliers = () => {
               {t('suppliers.actions.addRefund')}
             </Button>
           )}
-          <Button
-            icon={<Edit2 size={16} />}
-            variant="outline"
-            size="sm"
-            onClick={() => openEditModal(supplier)}
-            title={t('suppliers.actions.editSupplier')}
-          >
-            {''}
-          </Button>
-          <Button
-            icon={<Trash2 size={16} />}
-            variant="outline"
-            size="sm"
-            onClick={() => openDeleteModal(supplier)}
-            title={t('suppliers.actions.deleteSupplier')}
-          >
-            {''}
-          </Button>
+          {canEdit && (
+            <Button
+              icon={<Edit2 size={16} />}
+              variant="outline"
+              size="sm"
+              onClick={() => openEditModal(supplier)}
+              title={t('suppliers.actions.editSupplier')}
+            >
+              {''}
+            </Button>
+          )}
+          {canDelete && (
+            <Button
+              icon={<Trash2 size={16} />}
+              variant="outline"
+              size="sm"
+              onClick={() => openDeleteModal(supplier)}
+              title={t('suppliers.actions.deleteSupplier')}
+            >
+              {''}
+            </Button>
+          )}
         </div>
       )
     };
@@ -387,12 +394,15 @@ const Suppliers = () => {
         </div>
         
         <div className="mt-4 md:mt-0">
-          <Button 
+          <PermissionButton
+            resource={RESOURCES.SUPPLIERS}
+            action="edit"
             icon={<Plus size={16} />}
             onClick={openAddModal}
+            hideWhenNoPermission
           >
             {t('suppliers.actions.addSupplier')}
-          </Button>
+          </PermissionButton>
         </div>
       </div>
 

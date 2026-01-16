@@ -9,16 +9,19 @@ import { getUserById } from '@services/utilities/userService';
 import { showSuccessToast, showErrorToast, showWarningToast } from '@utils/core/toast';
 import imageCompression from 'browser-image-compression';
 import type { Category } from '../../types/models';
-import { 
-  createCategory, 
-  updateCategory, 
-  deleteCategory, 
+import {
+  createCategory,
+  updateCategory,
+  deleteCategory,
   subscribeToCategories
 } from '@services/firestore/categories/categoryService';
+import { PermissionButton, usePermissionCheck } from '@components/permissions';
+import { RESOURCES } from '@constants/resources';
 
 const Categories = () => {
   // const { t } = useTranslation();
   const { user, company, currentEmployee, isOwner } = useAuth();
+  const { canEdit, canDelete } = usePermissionCheck(RESOURCES.PRODUCTS);
   
   // State management
   const [categories, setCategories] = useState<Category[]>([]);
@@ -401,9 +404,15 @@ const Categories = () => {
         </div>
         <div className="flex items-center gap-3">
           <SyncIndicator isSyncing={syncing} />
-          <Button onClick={openAddModal} icon={<Plus size={20} />}>
+          <PermissionButton
+            resource={RESOURCES.PRODUCTS}
+            action="edit"
+            onClick={openAddModal}
+            icon={<Plus size={20} />}
+            hideWhenNoPermission
+          >
             Add Category
-          </Button>
+          </PermissionButton>
         </div>
       </div>
 
@@ -515,20 +524,24 @@ const Categories = () => {
                       
                       {/* Actions */}
                       <div className="flex justify-end space-x-2">
-                        <button
-                          onClick={() => openEditModal(category)}
-                          className="text-indigo-600 hover:text-indigo-900"
-                          title="Edit category"
-                        >
-                          <Edit2 size={16} />
-                        </button>
-                        <button
-                          onClick={() => openDeleteModal(category)}
-                          className="text-red-600 hover:text-red-900"
-                          title="Delete category"
-                        >
-                          <Trash2 size={16} />
-                        </button>
+                        {canEdit && (
+                          <button
+                            onClick={() => openEditModal(category)}
+                            className="text-indigo-600 hover:text-indigo-900"
+                            title="Edit category"
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                        )}
+                        {canDelete && (
+                          <button
+                            onClick={() => openDeleteModal(category)}
+                            className="text-red-600 hover:text-red-900"
+                            title="Delete category"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -577,20 +590,24 @@ const Categories = () => {
                   
                   {/* Actions */}
                   <div className="flex space-x-2">
-                    <button
-                      onClick={() => openEditModal(category)}
-                      className="text-indigo-600 hover:text-indigo-900"
-                      title="Edit category"
-                    >
-                      <Edit2 size={16} />
-                    </button>
-                    <button
-                      onClick={() => openDeleteModal(category)}
-                      className="text-red-600 hover:text-red-900"
-                      title="Delete category"
-                    >
-                      <Trash2 size={16} />
-                    </button>
+                    {canEdit && (
+                      <button
+                        onClick={() => openEditModal(category)}
+                        className="text-indigo-600 hover:text-indigo-900"
+                        title="Edit category"
+                      >
+                        <Edit2 size={16} />
+                      </button>
+                    )}
+                    {canDelete && (
+                      <button
+                        onClick={() => openDeleteModal(category)}
+                        className="text-red-600 hover:text-red-900"
+                        title="Delete category"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
                   </div>
                 </div>
               )}

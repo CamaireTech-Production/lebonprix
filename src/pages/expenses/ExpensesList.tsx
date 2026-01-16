@@ -13,6 +13,8 @@ import ExpenseTable from './shared/ExpenseTable';
 import ExpenseFormModal from './shared/ExpenseFormModal';
 import ExpenseDeleteModal from './shared/ExpenseDeleteModal';
 import ExpensesReportModal from '../../components/reports/ExpensesReportModal';
+import { PermissionButton } from '@components/permissions';
+import { RESOURCES } from '@constants/resources';
 import type { Expense } from '../../types/models';
 
 const ExpensesList = () => {
@@ -130,12 +132,15 @@ const ExpensesList = () => {
           >
             Générer un rapport
           </Button>
-          <Button
+          <PermissionButton
+            resource={RESOURCES.EXPENSES}
+            action="edit"
             icon={<Plus size={16} />}
             onClick={() => setIsAddModalOpen(true)}
+            hideWhenNoPermission
           >
             {t('expenses.actions.add')}
-          </Button>
+          </PermissionButton>
         </div>
       </div>
 
