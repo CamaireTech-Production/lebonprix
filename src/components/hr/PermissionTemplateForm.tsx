@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import Card from '../common/Card';
 import Button from '../common/Button';
-import { X, Check } from 'lucide-react';
+import { X, Check, LayoutDashboard } from 'lucide-react';
 import { PermissionTemplate, RolePermissions } from '../../types/permissions';
 import { ALL_RESOURCES, getResourceLabel } from '../../constants/resources';
+import type { DashboardSectionPermissions } from '@hooks/business/useDashboardPermissions';
 
 interface PermissionTemplateFormProps {
   template?: PermissionTemplate | null;
@@ -11,7 +13,21 @@ interface PermissionTemplateFormProps {
   onCancel: () => void;
 }
 
+// Default dashboard sections for new templates
+const DEFAULT_DASHBOARD_SECTIONS: DashboardSectionPermissions = {
+  showStats: true,
+  showProfit: false,
+  showExpenses: false,
+  showCharts: true,
+  showTopSales: true,
+  showBestClients: false,
+  showBestProducts: true,
+  showLatestOrders: true,
+  showObjectives: false,
+};
+
 const PermissionTemplateForm = ({ template, onSave, onCancel }: PermissionTemplateFormProps) => {
+  const { t } = useTranslation();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [baseRole, setBaseRole] = useState<'staff' | 'manager' | 'admin' | ''>('');
@@ -21,6 +37,7 @@ const PermissionTemplateForm = ({ template, onSave, onCancel }: PermissionTempla
     canDelete: [],
     canManageEmployees: [],
   });
+  const [dashboardSections, setDashboardSections] = useState<DashboardSectionPermissions>(DEFAULT_DASHBOARD_SECTIONS);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -31,6 +48,14 @@ const PermissionTemplateForm = ({ template, onSave, onCancel }: PermissionTempla
       // Remove legacy boolean fields if they exist (for backward compatibility)
       const { canAccessSettings, canAccessFinance, canAccessHR, ...cleanPermissions } = template.permissions as any;
       setPermissions(cleanPermissions);
+      // Load dashboard sections if they exist
+      const templateWithDashboard = template as any;
+      if (templateWithDashboard.dashboardSections) {
+        setDashboardSections({
+          ...DEFAULT_DASHBOARD_SECTIONS,
+          ...templateWithDashboard.dashboardSections,
+        });
+      }
     }
   }, [template]);
 
@@ -53,9 +78,16 @@ const PermissionTemplateForm = ({ template, onSave, onCancel }: PermissionTempla
     }));
   };
 
+  const handleDashboardSectionChange = (key: keyof DashboardSectionPermissions, checked: boolean) => {
+    setDashboardSections(prev => ({
+      ...prev,
+      [key]: checked
+    }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!name.trim()) {
       alert('Please enter a template name');
       return;
@@ -67,8 +99,9 @@ const PermissionTemplateForm = ({ template, onSave, onCancel }: PermissionTempla
         name: name.trim(),
         description: description.trim(),
         ...(baseRole && { baseRole: baseRole as 'staff' | 'manager' | 'admin' }),
-        permissions
-      });
+        permissions,
+        dashboardSections,
+      } as any);
     } catch (error) {
       console.error('Error in form submission:', error);
     } finally {
@@ -235,6 +268,138 @@ const PermissionTemplateForm = ({ template, onSave, onCancel }: PermissionTempla
               </div>
             </div>
 
+          </div>
+
+          {/* Dashboard Sections */}
+          <div className="space-y-4 border-t pt-6">
+            <div className="flex items-center space-x-2">
+              <LayoutDashboard className="h-5 w-5 text-emerald-600" />
+              <h3 className="text-lg font-medium text-gray-900">
+                {t('permissions.dashboardSections.title', 'Dashboard Visibility')}
+              </h3>
+            </div>
+            <p className="text-sm text-gray-500">
+              {t('permissions.dashboardSections.description', 'Control which sections employees can see on the dashboard')}
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+              <label className="flex items-center text-sm bg-gray-50 p-3 rounded-lg">
+                <input
+                  type="checkbox"
+                  checked={dashboardSections.showStats}
+                  onChange={(e) => handleDashboardSectionChange('showStats', e.target.checked)}
+                  className="mr-3 h-4 w-4 text-emerald-600 rounded"
+                />
+                <div>
+                  <span className="font-medium">{t('permissions.dashboardSections.stats', 'Statistics Cards')}</span>
+                  <p className="text-xs text-gray-500">{t('permissions.dashboardSections.statsDesc', 'Sales count, products sold, etc.')}</p>
+                </div>
+              </label>
+
+              <label className="flex items-center text-sm bg-gray-50 p-3 rounded-lg">
+                <input
+                  type="checkbox"
+                  checked={dashboardSections.showProfit}
+                  onChange={(e) => handleDashboardSectionChange('showProfit', e.target.checked)}
+                  className="mr-3 h-4 w-4 text-emerald-600 rounded"
+                />
+                <div>
+                  <span className="font-medium">{t('permissions.dashboardSections.profit', 'Profit & Margins')}</span>
+                  <p className="text-xs text-gray-500">{t('permissions.dashboardSections.profitDesc', 'Financial profit data')}</p>
+                </div>
+              </label>
+
+              <label className="flex items-center text-sm bg-gray-50 p-3 rounded-lg">
+                <input
+                  type="checkbox"
+                  checked={dashboardSections.showExpenses}
+                  onChange={(e) => handleDashboardSectionChange('showExpenses', e.target.checked)}
+                  className="mr-3 h-4 w-4 text-emerald-600 rounded"
+                />
+                <div>
+                  <span className="font-medium">{t('permissions.dashboardSections.expenses', 'Expenses')}</span>
+                  <p className="text-xs text-gray-500">{t('permissions.dashboardSections.expensesDesc', 'Expense totals and charts')}</p>
+                </div>
+              </label>
+
+              <label className="flex items-center text-sm bg-gray-50 p-3 rounded-lg">
+                <input
+                  type="checkbox"
+                  checked={dashboardSections.showCharts}
+                  onChange={(e) => handleDashboardSectionChange('showCharts', e.target.checked)}
+                  className="mr-3 h-4 w-4 text-emerald-600 rounded"
+                />
+                <div>
+                  <span className="font-medium">{t('permissions.dashboardSections.charts', 'Charts')}</span>
+                  <p className="text-xs text-gray-500">{t('permissions.dashboardSections.chartsDesc', 'Donut charts and analytics')}</p>
+                </div>
+              </label>
+
+              <label className="flex items-center text-sm bg-gray-50 p-3 rounded-lg">
+                <input
+                  type="checkbox"
+                  checked={dashboardSections.showTopSales}
+                  onChange={(e) => handleDashboardSectionChange('showTopSales', e.target.checked)}
+                  className="mr-3 h-4 w-4 text-emerald-600 rounded"
+                />
+                <div>
+                  <span className="font-medium">{t('permissions.dashboardSections.topSales', 'Top Sales')}</span>
+                  <p className="text-xs text-gray-500">{t('permissions.dashboardSections.topSalesDesc', 'Highest value sales list')}</p>
+                </div>
+              </label>
+
+              <label className="flex items-center text-sm bg-gray-50 p-3 rounded-lg">
+                <input
+                  type="checkbox"
+                  checked={dashboardSections.showBestClients}
+                  onChange={(e) => handleDashboardSectionChange('showBestClients', e.target.checked)}
+                  className="mr-3 h-4 w-4 text-emerald-600 rounded"
+                />
+                <div>
+                  <span className="font-medium">{t('permissions.dashboardSections.bestClients', 'Best Clients')}</span>
+                  <p className="text-xs text-gray-500">{t('permissions.dashboardSections.bestClientsDesc', 'Top customers by spending')}</p>
+                </div>
+              </label>
+
+              <label className="flex items-center text-sm bg-gray-50 p-3 rounded-lg">
+                <input
+                  type="checkbox"
+                  checked={dashboardSections.showBestProducts}
+                  onChange={(e) => handleDashboardSectionChange('showBestProducts', e.target.checked)}
+                  className="mr-3 h-4 w-4 text-emerald-600 rounded"
+                />
+                <div>
+                  <span className="font-medium">{t('permissions.dashboardSections.bestProducts', 'Best Products')}</span>
+                  <p className="text-xs text-gray-500">{t('permissions.dashboardSections.bestProductsDesc', 'Top selling products')}</p>
+                </div>
+              </label>
+
+              <label className="flex items-center text-sm bg-gray-50 p-3 rounded-lg">
+                <input
+                  type="checkbox"
+                  checked={dashboardSections.showLatestOrders}
+                  onChange={(e) => handleDashboardSectionChange('showLatestOrders', e.target.checked)}
+                  className="mr-3 h-4 w-4 text-emerald-600 rounded"
+                />
+                <div>
+                  <span className="font-medium">{t('permissions.dashboardSections.latestOrders', 'Latest Orders')}</span>
+                  <p className="text-xs text-gray-500">{t('permissions.dashboardSections.latestOrdersDesc', 'Recent orders table')}</p>
+                </div>
+              </label>
+
+              <label className="flex items-center text-sm bg-gray-50 p-3 rounded-lg">
+                <input
+                  type="checkbox"
+                  checked={dashboardSections.showObjectives}
+                  onChange={(e) => handleDashboardSectionChange('showObjectives', e.target.checked)}
+                  className="mr-3 h-4 w-4 text-emerald-600 rounded"
+                />
+                <div>
+                  <span className="font-medium">{t('permissions.dashboardSections.objectives', 'Objectives')}</span>
+                  <p className="text-xs text-gray-500">{t('permissions.dashboardSections.objectivesDesc', 'Business goals and targets')}</p>
+                </div>
+              </label>
+            </div>
           </div>
 
           {/* Submit */}

@@ -23,13 +23,15 @@ export const RESOURCES = {
   SUPPLIERS: 'suppliers',
   EXPENSES: 'expenses',
   MAGASIN: 'magasin',
-  
+
   // Management sections
   FINANCE: 'finance',
   REPORTS: 'reports',
-  HR: 'hr',
+  HR: 'hr', // Legacy - kept for backward compatibility with existing templates
+  PERMISSIONS: 'permissions', // Renamed from HR - manages invitations & permission templates
+  HUMAN_RESOURCES: 'human_resources', // True HR - manages HR actors (gardien, caissier, etc.)
   SETTINGS: 'settings',
-  
+
   // Special values
   ALL: 'all', // Grants access to all resources
 } as const;
@@ -50,7 +52,9 @@ export const RESOURCE_LABELS: Record<Resource, string> = {
   [RESOURCES.MAGASIN]: 'Magasin',
   [RESOURCES.FINANCE]: 'Finance',
   [RESOURCES.REPORTS]: 'Rapports',
-  [RESOURCES.HR]: 'RH',
+  [RESOURCES.HR]: 'RH (Legacy)', // Legacy - kept for backward compatibility
+  [RESOURCES.PERMISSIONS]: 'Permissions & Invitations',
+  [RESOURCES.HUMAN_RESOURCES]: 'Ressources Humaines',
   [RESOURCES.SETTINGS]: 'Paramètres',
   [RESOURCES.ALL]: 'Tout',
 };
@@ -68,17 +72,36 @@ export const ALL_RESOURCES: Resource[] = [
   RESOURCES.MAGASIN,
   RESOURCES.FINANCE,
   RESOURCES.REPORTS,
-  RESOURCES.HR,
+  RESOURCES.PERMISSIONS,
+  RESOURCES.HUMAN_RESOURCES,
   RESOURCES.SETTINGS,
+];
+
+// Legacy resources array (for backward compatibility with existing templates)
+export const LEGACY_RESOURCES: Resource[] = [
+  RESOURCES.HR, // Maps to PERMISSIONS
 ];
 
 // Resources that require special access (legacy support - will be removed)
 // These are now just regular resources in canView array
 export const SPECIAL_RESOURCES = {
   FINANCE: RESOURCES.FINANCE,
-  HR: RESOURCES.HR,
+  HR: RESOURCES.HR, // Legacy - maps to PERMISSIONS
+  PERMISSIONS: RESOURCES.PERMISSIONS,
+  HUMAN_RESOURCES: RESOURCES.HUMAN_RESOURCES,
   SETTINGS: RESOURCES.SETTINGS,
 } as const;
+
+/**
+ * Map legacy resource names to new ones
+ * Used for backward compatibility with existing permission templates
+ */
+export function mapLegacyResource(resource: string): string {
+  if (resource === RESOURCES.HR) {
+    return RESOURCES.PERMISSIONS;
+  }
+  return resource;
+}
 
 /**
  * Check if a resource is valid
