@@ -240,7 +240,7 @@ export const CompaniesManagement: React.FC = () => {
           
           // Si l'utilisateur actuel est le propriétaire, utiliser ses infos
           if (company.role === 'owner' && user) {
-            const fullName = user.username || user.email || 'Propriétaire';
+            const fullName = user.displayName || user.email || 'Propriétaire';
             owners[company.companyId] = {
               name: fullName || user.email || 'Propriétaire',
               email: user.email || ''
@@ -261,7 +261,7 @@ export const CompaniesManagement: React.FC = () => {
           if (ownerId) {
             const ownerUser = await getUserById(ownerId);
             if (ownerUser) {
-              const fullName = `${ownerUser.firstname || ''} ${ownerUser.lastname || ''}`.trim();
+              const fullName = ownerUser.username || ownerUser.email || 'Propriétaire';
               owners[company.companyId] = {
                 name: fullName || ownerUser.email || 'Propriétaire',
                 email: ownerUser.email || ''
@@ -324,8 +324,8 @@ export const CompaniesManagement: React.FC = () => {
     
     const initials = getCompanyInitials(company.name || '');
     const ownerInfo = ownersInfo[company.companyId];
-    const ownerDisplayName = ownerInfo 
-      ? (ownerInfo.name || ownerInfo.email || 'Propriétaire')
+    const ownerEmail = ownerInfo 
+      ? (ownerInfo.email || 'Propriétaire')
       : 'Propriétaire';
 
     return (
@@ -363,40 +363,48 @@ export const CompaniesManagement: React.FC = () => {
               )}
             </div>
           
-          {/* Informations de l'entreprise */}
-          <div className="flex-1 min-w-0">
-            <h3 className="text-lg font-semibold text-gray-900 truncate">{company.name}</h3>
-            {company.description && (
-              <p className="text-sm text-gray-600 mt-1 line-clamp-2">{company.description}</p>
-            )}
-            
-            {/* Rôle de l'utilisateur */}
-            <div className="flex items-center mt-2 min-w-0">
-              <User className="w-4 h-4 text-gray-400 mr-1 flex-shrink-0" />
-              <span className="text-sm text-gray-500 truncate">
-                {company.role === 'owner' ? ownerDisplayName : 
-                 company.role === 'admin' ? 'Administrateur' :
-                 company.role === 'manager' ? 'Gestionnaire' : 'Employé'}
-              </span>
+            {/* Informations de l'entreprise */}
+            <div className="flex-1 min-w-0">
+              <h3 className="text-lg font-semibold text-gray-900 truncate">{company.name}</h3>
+              {company.description && (
+                <p className="text-sm text-gray-600 mt-1 line-clamp-2">{company.description}</p>
+              )}
+              
+              {/* Email du propriétaire */}
+              <div className="flex items-center mt-2 min-w-0">
+                <User className="w-4 h-4 text-gray-400 mr-1 flex-shrink-0" />
+                <span className="text-sm text-gray-500 truncate">
+                  {ownerEmail}
+                </span>
+              </div>
+              
+              {/* Rôle de l'utilisateur connecté dans cette entreprise */}
+              <div className="flex items-center mt-1 min-w-0">
+                <span className="text-xs text-gray-400 mr-1 flex-shrink-0">Rôle:</span>
+                <span className="text-xs font-medium text-gray-600 truncate">
+                  {company.role === 'owner' ? 'Propriétaire' : 
+                   company.role === 'admin' ? 'Administrateur' :
+                   company.role === 'manager' ? 'Gestionnaire' : 'Employé'}
+                </span>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Bouton supprimer (seulement pour les owners) */}
-        {company.role === 'owner' && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setCompanyToDelete(company.companyId);
-            }}
-            className="opacity-0 group-hover:opacity-100 transition-opacity p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg"
-            title="Supprimer l'entreprise"
-          >
-            <Trash2 className="w-5 h-5" />
-          </button>
-        )}
+          {/* Bouton supprimer (seulement pour les owners) */}
+          {company.role === 'owner' && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setCompanyToDelete(company.companyId);
+              }}
+              className="opacity-0 group-hover:opacity-100 transition-opacity p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg flex-shrink-0 ml-2"
+              title="Supprimer l'entreprise"
+            >
+              <Trash2 className="w-5 h-5" />
+            </button>
+          )}
+        </div>
       </div>
-    </div>
     );
   };
 
