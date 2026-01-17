@@ -21,7 +21,7 @@ export interface Company extends BaseModel {
   email: string;
   website?: string; // Company website URL
   report_mail?: string; // Email pour les rapports de vente
-  report_time?: number; // Heure de réception des rapports (0-23)
+  report_time?: string | number; // Format: "HH:mm" (e.g., "19:30") or number (0-23) for backward compatibility
   
   // Color customization for catalogue
   catalogueColors?: {

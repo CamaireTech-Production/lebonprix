@@ -18,6 +18,7 @@ import type { CampayConfig, CampayConfigUpdate } from '../../types/campay';
 import PaymentMethodModal from '../../components/settings/PaymentMethodModal';
 import { SalesAndPOSTab } from '../../components/settings/SalesAndPOSTab';
 import { combineActivities } from '@utils/business/activityUtils';
+import { formatReportTime } from '@utils/business/reportTimeUtils';
 import { Plus, Copy, Check, ExternalLink, CreditCard, Truck, ShoppingBag, Save, RotateCcw, Eye, Trash2, ChevronDown, ChevronUp, Edit2, Phone, Hash, Link, Key } from 'lucide-react';
 
 function normalizeWebsite(raw: string): string | undefined {
@@ -107,7 +108,7 @@ const Settings = () => {
         location: company.location || '',
         email: company.email || '',
         report_mail: company.report_mail || '',
-        report_time: company.report_time?.toString() || '8',
+        report_time: formatReportTime(company.report_time) || '08:00',
         logo: company.logo || '',
         website: company.website || '',
         // Catalogue colors
@@ -421,14 +422,11 @@ const Settings = () => {
         }
       }
       
-      // Handle report_time: default to 8 if empty, show warning
-      let reportTime = 8;
-      if (formData.report_time && formData.report_time.trim() !== '') {
-        const parsedTime = parseInt(formData.report_time);
-        if (!isNaN(parsedTime) && parsedTime >= 0 && parsedTime <= 23) {
-          reportTime = parsedTime;
-        }
-      } else {
+      // Handle report_time: validate "HH:mm" format or default to "08:00"
+      let reportTime = formData.report_time || '08:00';
+      const timePattern = /^([0-1]?[0-9]|2[0-3]):([0-5][0-9])$/;
+      if (!timePattern.test(reportTime)) {
+        reportTime = '08:00';
         showWarningToast(t('settings.messages.reportTimeDefault'));
       }
       
@@ -506,7 +504,7 @@ const Settings = () => {
         phone: company.phone?.replace('+237', '') || '',
         location: company.location || '',
         email: company.email || '',
-        report_time: company.report_time?.toString() || '8',
+        report_time: formatReportTime(company.report_time) || '08:00',
         logo: company.logo || '',
         currentPassword: '',
         newPassword: '',
@@ -1416,21 +1414,14 @@ const Settings = () => {
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                           {t('settings.account.reportTime')}
                         </label>
-                        <div className="flex rounded-md shadow-sm">
-                          <input
-                            type="number"
-                            name="report_time"
-                            min="0"
-                            max="23"
-                            value={formData.report_time}
-                            onChange={handleInputChange}
-                            className="flex-1 min-w-0 block w-full px-3 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
-                            placeholder="8"
-                          />
-                          <span className="inline-flex items-center px-3 rounded-r-md border border-l-0 border-gray-300 bg-gray-50 text-gray-500 sm:text-sm">
-                            h
-                          </span>
-                        </div>
+                        <input
+                          type="time"
+                          name="report_time"
+                          value={formData.report_time}
+                          onChange={handleInputChange}
+                          className="block w-full px-3 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
+                          required
+                        />
                         <p className="mt-1 text-sm text-gray-500">
                           {t('settings.account.reportTimeHelp')}
                         </p>

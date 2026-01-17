@@ -29,7 +29,7 @@ export default function CreateCompany() {
     phone: '',
     email: '',
     report_mail: '',
-    report_time: '8',
+    report_time: '08:00',
     location: '',
     logo: ''
   });
@@ -135,14 +135,11 @@ export default function CreateCompany() {
     setError(''); // Clear previous errors
 
     try {
-      // Handle report_time: default to 8 if empty, show warning
-      let reportTime = 8;
-      if (formData.report_time && formData.report_time.trim() !== '') {
-        const parsedTime = parseInt(formData.report_time);
-        if (!isNaN(parsedTime) && parsedTime >= 0 && parsedTime <= 23) {
-          reportTime = parsedTime;
-        }
-      } else {
+      // Handle report_time: validate "HH:mm" format or default to "08:00"
+      let reportTime = formData.report_time || '08:00';
+      const timePattern = /^([0-1]?[0-9]|2[0-3]):([0-5][0-9])$/;
+      if (!timePattern.test(reportTime)) {
+        reportTime = '08:00';
         showWarningToast(t('settings.messages.reportTimeDefault'));
       }
       
@@ -467,22 +464,15 @@ export default function CreateCompany() {
               <label htmlFor="report_time" className="block text-sm font-medium text-gray-700 mb-2">
                 {t('settings.account.reportTime')}
               </label>
-              <div className="flex rounded-md shadow-sm">
-                <input
-                  type="number"
-                  id="report_time"
-                  name="report_time"
-                  min="0"
-                  max="23"
-                  value={formData.report_time}
-                  onChange={handleInputChange}
-                  className="flex-1 min-w-0 block w-full px-3 py-2 rounded-l-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                  placeholder="8"
-                />
-                <span className="inline-flex items-center px-3 rounded-r-md border border-l-0 border-gray-300 bg-gray-50 text-gray-500 sm:text-sm">
-                  h
-                </span>
-              </div>
+              <input
+                type="time"
+                id="report_time"
+                name="report_time"
+                value={formData.report_time}
+                onChange={handleInputChange}
+                className="block w-full px-3 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                required
+              />
               <p className="mt-1 text-sm text-gray-500">
                 {t('settings.account.reportTimeHelp')}
               </p>

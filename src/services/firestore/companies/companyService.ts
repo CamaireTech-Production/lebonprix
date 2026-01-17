@@ -13,7 +13,7 @@ export interface CompanyData {
   logo?: string;
   email: string;
   report_mail?: string;
-  report_time?: number;
+  report_time?: string | number; // Format: "HH:mm" (e.g., "19:30") or number (0-23) for backward compatibility
 }
 
 /**
