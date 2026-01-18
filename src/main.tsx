@@ -1,13 +1,13 @@
 // IMPORTANT: Initialize console logger FIRST, before anything else
 // This ensures we capture ALL logs, even if React fails to load
-import './services/consoleLogger';
+import './services/consoleLogger.ts';
 
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
 // Import i18n configuration
-import './i18n/config';
+import './i18n/config.ts';
 // Initialize error logger early to catch all errors
 import '@/services/errorLogger';
 
