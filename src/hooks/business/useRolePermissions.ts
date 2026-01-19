@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useCallback } from 'react';
 import { useAuth } from '@contexts/AuthContext';
 import { SystemRole, RolePermissions } from '../../types/permissions';
 import { usePermissionCache } from './usePermissionCache';
@@ -14,6 +14,12 @@ export function useRolePermissions(companyId?: string) {
     userCompanies,
     isOwner || effectiveRole === 'owner'
   );
+
+  // Stabilize refreshCache to prevent unnecessary re-renders
+  // Wrap it in useCallback to ensure stable reference
+  const stableRefreshCache = useCallback(async () => {
+    await refreshCache();
+  }, [refreshCache]);
 
   return useMemo(() => {
     // Un utilisateur est owner si isOwner est true OU si effectiveRole est 'owner'
@@ -74,7 +80,7 @@ export function useRolePermissions(companyId?: string) {
         canAccessFinance,
         canAccessHR,
         isOwner: true,
-        refreshPermissions: refreshCache,
+        refreshPermissions: stableRefreshCache,
       };
     }
 
@@ -133,7 +139,7 @@ export function useRolePermissions(companyId?: string) {
         canAccessFinance,
         canAccessHR,
         isOwner: false,
-        refreshPermissions: refreshCache,
+        refreshPermissions: stableRefreshCache,
       };
     }
 
@@ -191,7 +197,7 @@ export function useRolePermissions(companyId?: string) {
       canAccessFinance,
       canAccessHR,
       isOwner: false,
-      refreshPermissions: refreshCache,
+      refreshPermissions: stableRefreshCache,
     };
-  }, [effectiveRole, isOwner, template, templateLoading, companyId, refreshCache]);
+  }, [effectiveRole, isOwner, template, templateLoading, companyId, stableRefreshCache]);
 }

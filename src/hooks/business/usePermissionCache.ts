@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { PermissionTemplate } from '../../types/permissions';
 import { getTemplateById } from '@services/firestore/employees/permissionTemplateService';
 import { getUserById } from '@services/utilities/userService';
@@ -126,18 +126,54 @@ export function usePermissionCache(
 
   // Track last loaded template ID to prevent redundant loads
   const lastTemplateIdRef = useRef<string | null>(null);
+  
+  // Track current template in ref to avoid dependency issues
+  const templateRef = useRef<PermissionTemplate | null>(null);
+  
+  // Track if we're currently loading to prevent concurrent loads
+  const isLoadingRef = useRef(false);
+  
+  // Memoize userCompanies to get stable reference for template ID extraction
+  // Extract only the template ID we need to avoid array reference changes
+  // Use a stable string key for comparison to prevent unnecessary recalculations
+  const userCompaniesKey = useMemo(() => {
+    if (!userCompanies || !companyId) return '';
+    return userCompanies
+      .map(c => `${c.companyId}:${c.permissionTemplateId || ''}`)
+      .join('|');
+  }, [userCompanies, companyId]);
+  
+  const templateIdFromUserCompanies = useMemo(() => {
+    if (!userCompanies || !companyId) return undefined;
+    const userCompanyRef = userCompanies.find((c) => c.companyId === companyId);
+    return userCompanyRef?.permissionTemplateId;
+  }, [userCompaniesKey, userCompanies, companyId]);
+
+  // Update template ref when template state changes
+  useEffect(() => {
+    templateRef.current = template;
+  }, [template]);
 
   const loadTemplate = useCallback(async (forceRefresh = false) => {
+    // Prevent concurrent loads
+    if (isLoadingRef.current && !forceRefresh) {
+      return;
+    }
+
     if (!userId || !companyId) {
-      setTemplate(null);
-      setLoading(false);
+      if (isMounted.current) {
+        setTemplate(null);
+        setLoading(false);
+      }
       return;
     }
 
     // Owners don't need templates
     if (isOwner) {
-      setTemplate(null);
-      setLoading(false);
+      if (isMounted.current) {
+        setTemplate(null);
+        setLoading(false);
+      }
       return;
     }
 
@@ -145,24 +181,32 @@ export function usePermissionCache(
     if (!forceRefresh) {
       const cached = getFromCache(userId, companyId);
       if (cached) {
-        setTemplate(cached.template);
-        lastTemplateIdRef.current = cached.templateId;
-        setLoading(false);
+        // Only update if template actually changed
+        if (cached.templateId !== lastTemplateIdRef.current || cached.template !== templateRef.current) {
+          lastTemplateIdRef.current = cached.templateId;
+          templateRef.current = cached.template;
+          if (isMounted.current) {
+            setTemplate(cached.template);
+            setLoading(false);
+          }
+        }
         return;
       }
     }
 
+    // Set loading guard
+    isLoadingRef.current = true;
+
     try {
-      setLoading(true);
-      setError(null);
+      if (isMounted.current) {
+        setLoading(true);
+        setError(null);
+      }
 
-      // Find template ID from userCompanies or fetch from Firestore
-      let templateId: string | undefined;
+      // Find template ID from memoized value or fetch from Firestore
+      let templateId: string | undefined = templateIdFromUserCompanies;
 
-      const userCompanyRef = userCompanies?.find((c) => c.companyId === companyId);
-      if (userCompanyRef?.permissionTemplateId) {
-        templateId = userCompanyRef.permissionTemplateId;
-      } else {
+      if (!templateId) {
         // Fallback: load directly from Firestore
         const userData = await getUserById(userId);
         if (userData?.companies) {
@@ -172,8 +216,11 @@ export function usePermissionCache(
       }
 
       // Skip loading if template ID hasn't changed (unless forcing refresh)
-      if (!forceRefresh && templateId === lastTemplateIdRef.current && template) {
-        setLoading(false);
+      if (!forceRefresh && templateId === lastTemplateIdRef.current && templateRef.current) {
+        isLoadingRef.current = false;
+        if (isMounted.current) {
+          setLoading(false);
+        }
         return;
       }
 
@@ -190,6 +237,7 @@ export function usePermissionCache(
       // Save to cache
       saveToCache(userId, companyId, loadedTemplate, templateId || null);
       lastTemplateIdRef.current = templateId || null;
+      templateRef.current = loadedTemplate;
 
       if (isMounted.current) {
         setTemplate(loadedTemplate);
@@ -201,10 +249,12 @@ export function usePermissionCache(
         setError(err instanceof Error ? err : new Error('Unknown error'));
         setLoading(false);
       }
+    } finally {
+      isLoadingRef.current = false;
     }
-  }, [userId, companyId, userCompanies, isOwner, template]);
+  }, [userId, companyId, templateIdFromUserCompanies, isOwner]);
 
-  // Load template on mount and when dependencies change
+  // Load template on mount and when key dependencies change
   useEffect(() => {
     isMounted.current = true;
     loadTemplate();
@@ -215,8 +265,9 @@ export function usePermissionCache(
   }, [loadTemplate]);
 
   const refreshCache = useCallback(async () => {
-    if (userId && companyId) {
+    if (userId && companyId && !isLoadingRef.current) {
       clearFromCache(userId, companyId);
+      lastTemplateIdRef.current = null;
       await loadTemplate(true);
     }
   }, [userId, companyId, loadTemplate]);
@@ -224,8 +275,11 @@ export function usePermissionCache(
   const clearCache = useCallback(() => {
     if (userId && companyId) {
       clearFromCache(userId, companyId);
-      setTemplate(null);
       lastTemplateIdRef.current = null;
+      templateRef.current = null;
+      if (isMounted.current) {
+        setTemplate(null);
+      }
     }
   }, [userId, companyId]);
 
