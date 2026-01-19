@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { AlertTriangle, Package, ChevronDown, ChevronUp } from 'lucide-react';
 import { Modal, ModalFooter, PriceInput } from '@components/common';
 import { useAuth } from '@contexts/AuthContext';
-import { useProductCategories } from '@hooks/data/useFirestore';
+import { useProductCategories, useWarehouses } from '@hooks/data/useFirestore';
 import { useMatiereStocks } from '@hooks/business/useMatiereStocks';
 import { showSuccessToast, showErrorToast, showWarningToast } from '@utils/core/toast';
 import { formatPrice } from '@utils/formatting/formatPrice';
@@ -25,6 +25,7 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
 }) => {
   const { user, company } = useAuth();
   const { categories } = useProductCategories();
+  const { warehouses } = useWarehouses();
   const { matiereStocks } = useMatiereStocks();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [publishMode, setPublishMode] = useState<'all' | 'selected'>('all'); // 'all' for legacy, 'selected' for articles
@@ -49,7 +50,8 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
     description: '',
     barCode: '',
     isVisible: true,
-    validatedCostPrice: '' // Add cost validation field
+    validatedCostPrice: '', // Add cost validation field
+    warehouseId: '' // Warehouse to transfer products to
   });
 
   // Field error tracking for highlighting
@@ -255,7 +257,13 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
           });
         }
 
-        const results = await bulkPublishArticles(production.id, Array.from(selectedArticles), company.id, productDataMap);
+        const results = await bulkPublishArticles(
+          production.id,
+          Array.from(selectedArticles),
+          company.id,
+          productDataMap,
+          formData.warehouseId || undefined
+        );
         showSuccessToast(`${results.length} article(s) publié(s) avec succès`);
         onClose();
         if (onSuccess) onSuccess();
@@ -343,7 +351,8 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
           costPrice: parseFloat(formData.validatedCostPrice)
         },
         company.id,
-        user.uid
+        user.uid,
+        formData.warehouseId || undefined
       );
 
       showSuccessToast('Production publiée avec succès');
@@ -382,6 +391,26 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
       }
     >
       <div className="space-y-6">
+        {/* Warehouse Selection (shown for both modes) */}
+        <div className="p-4 bg-gray-50 border border-gray-200 rounded-md">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Entrepôt de destination (optionnel)
+          </label>
+          <select
+            value={formData.warehouseId}
+            onChange={(e) => setFormData({ ...formData, warehouseId: e.target.value })}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">Aucun (stock global)</option>
+            {warehouses?.map(warehouse => (
+              <option key={warehouse.id} value={warehouse.id}>{warehouse.name}</option>
+            ))}
+          </select>
+          <p className="mt-1 text-xs text-gray-500">
+            Si sélectionné, les produits seront créés directement dans cet entrepôt
+          </p>
+        </div>
+
         {/* Article Selection Mode (if has articles) */}
         {hasArticles && publishableArticles.length > 0 ? (
           <div className="space-y-4">
@@ -986,6 +1015,26 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
               rows={3}
               placeholder="Description du produit..."
             />
+          </div>
+
+          {/* Warehouse Selection */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Entrepôt de destination (optionnel)
+            </label>
+            <select
+              value={formData.warehouseId}
+              onChange={(e) => setFormData({ ...formData, warehouseId: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Aucun (stock global)</option>
+              {warehouses?.map(warehouse => (
+                <option key={warehouse.id} value={warehouse.id}>{warehouse.name}</option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-gray-500">
+              Si sélectionné, le produit sera créé directement dans cet entrepôt
+            </p>
           </div>
 
           <div className="flex items-center">
