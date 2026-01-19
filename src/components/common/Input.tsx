@@ -1,4 +1,4 @@
-import { InputHTMLAttributes, forwardRef, useState } from 'react';
+import { InputHTMLAttributes, forwardRef, useState, useEffect, useRef } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
@@ -10,9 +10,39 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
 const Input = forwardRef<HTMLInputElement, InputProps>(
   ({ label, error, helpText, className = '', type = 'text', ...props }, ref) => {
     const [showPassword, setShowPassword] = useState(false);
+    const inputRef = useRef<HTMLInputElement>(null);
 
     const isPassword = type === 'password';
     const inputType = isPassword ? (showPassword ? 'text' : 'password') : type;
+
+    // Combine refs: support both forwarded ref and internal ref
+    useEffect(() => {
+      if (typeof ref === 'function') {
+        ref(inputRef.current);
+      } else if (ref) {
+        ref.current = inputRef.current;
+      }
+    }, [ref]);
+
+    // Prevent wheel event from changing number input values
+    // Use non-passive event listener to allow preventDefault
+    useEffect(() => {
+      const input = inputRef.current;
+      if (!input || type !== 'number') return;
+
+      const handleWheel = (e: WheelEvent) => {
+        e.preventDefault();
+        // Blur the input to prevent accidental value changes
+        input.blur();
+      };
+
+      // Add event listener with { passive: false } to allow preventDefault
+      input.addEventListener('wheel', handleWheel, { passive: false });
+
+      return () => {
+        input.removeEventListener('wheel', handleWheel);
+      };
+    }, [type]);
 
     return (
       <div className="w-full">
@@ -23,7 +53,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
         )}
         <div className="relative">
           <input
-            ref={ref}
+            ref={inputRef}
             type={inputType}
             className={`w-full rounded-md border ${
               error ? 'border-red-300' : 'border-gray-300'
