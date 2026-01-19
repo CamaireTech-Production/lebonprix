@@ -121,7 +121,9 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
   const [showCustomerDropdown, setShowCustomerDropdown] = useState<boolean>(false);
   const [customerSearch, setCustomerSearch] = useState<string>('');
   const [foundCustomer, setFoundCustomer] = useState<Customer | null>(null);
+  const [activeSearchField, setActiveSearchField] = useState<'phone' | 'name' | null>(null);
   const phoneInputRef = useRef<HTMLInputElement>(null);
+  const nameInputRef = useRef<HTMLInputElement>(null);
   
   // Sale Info
   const [saleDate, setSaleDate] = useState<string>(new Date().toISOString().slice(0, 10));
@@ -259,6 +261,7 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
     setShowCustomerDropdown(false);
     setFoundCustomer(null);
     setCustomerSearch('');
+    setActiveSearchField(null);
   };
 
   // Initialize form with current customer data when modal opens
@@ -299,12 +302,14 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
   // Click outside handler for customer dropdown
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (showCustomerDropdown && phoneInputRef.current && !phoneInputRef.current.contains(event.target as Node)) {
-        // Check if click is on dropdown itself
-        const target = event.target as Element;
-        const isDropdownClick = target.closest('[data-dropdown="customer"]');
+      if (showCustomerDropdown) {
+        const target = event.target as Node;
+        const isPhoneInputClick = phoneInputRef.current?.contains(target);
+        const isNameInputClick = nameInputRef.current?.contains(target);
+        const isDropdownClick = (event.target as Element).closest('[data-dropdown="customer"]');
         
-        if (!isDropdownClick) {
+        // Hide dropdown if click is outside both input fields and dropdown
+        if (!isPhoneInputClick && !isNameInputClick && !isDropdownClick) {
           setShowCustomerDropdown(false);
         }
       }
@@ -560,6 +565,22 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
     const value = e.target.value;
     setCustomerPhone(value);
     setCustomerSearch(value);
+    setActiveSearchField('phone');
+    
+    // Show dropdown if there's input and customers exist
+    if (value && customers && customers.length > 0) {
+      setShowCustomerDropdown(true);
+    } else {
+      setShowCustomerDropdown(false);
+    }
+  };
+
+  // Handle customer name change with search functionality
+  const handleCustomerNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setCustomerName(value);
+    setCustomerSearch(value);
+    setActiveSearchField('name');
     
     // Show dropdown if there's input and customers exist
     if (value && customers && customers.length > 0) {
@@ -580,6 +601,7 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
     setFoundCustomer(customer);
     setShowCustomerDropdown(false);
     setCustomerSearch('');
+    setActiveSearchField(null);
   };
 
   // Handle print from preview - print directly without opening new tab
@@ -1371,12 +1393,11 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
                   type="tel"
                   value={customerPhone}
                   onChange={handleCustomerPhoneChange}
-                  placeholder={t('pos.payment.customerPhoneOptional')}
                   ref={phoneInputRef}
                 />
                 
-                {/* Customer Dropdown */}
-                {showCustomerDropdown && (
+                {/* Customer Dropdown - shown below phone field when phone field is active */}
+                {showCustomerDropdown && activeSearchField === 'phone' && (
                   <div 
                     className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto"
                     data-dropdown="customer"
@@ -1385,9 +1406,21 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
                       ? customers
                           .filter(c => {
                             if (!customerSearch.trim()) return true;
+                            
+                            const searchTerm = customerSearch.trim().toLowerCase();
                             const normalizedSearch = normalizePhoneForComparison(customerSearch);
-                            const customerPhone = normalizePhoneForComparison(c.phone || '');
-                            return customerPhone.includes(normalizedSearch) || normalizedSearch.includes(customerPhone);
+                            
+                            // Search by name (case-insensitive, partial match)
+                            const nameMatch = c.name?.toLowerCase().includes(searchTerm) || false;
+                            
+                            // Search by phone (normalized comparison for partial match)
+                            const phoneMatch = c.phone && normalizedSearch.length >= 1
+                              ? normalizePhoneForComparison(c.phone).includes(normalizedSearch) || 
+                                normalizedSearch.includes(normalizePhoneForComparison(c.phone))
+                              : false;
+                            
+                            // Return true if EITHER name OR phone matches
+                            return nameMatch || phoneMatch;
                           })
                           .slice(0, 10)
                           .map((customer) => (
@@ -1410,12 +1443,62 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
                   </div>
                 )}
               </div>
-              <Input
-                label={t('pos.payment.customerName')}
-                type="text"
-                value={customerName}
-                onChange={(e) => setCustomerName(e.target.value)}
-              />
+              <div className="relative">
+                <Input
+                  label={t('pos.payment.customerName')}
+                  type="text"
+                  value={customerName}
+                  onChange={handleCustomerNameChange}
+                  ref={nameInputRef}
+                />
+                
+                {/* Customer Dropdown - shown below name field when name field is active */}
+                {showCustomerDropdown && activeSearchField === 'name' && (
+                  <div 
+                    className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto"
+                    data-dropdown="customer"
+                  >
+                    {customers && customers.length > 0
+                      ? customers
+                          .filter(c => {
+                            if (!customerSearch.trim()) return true;
+                            
+                            const searchTerm = customerSearch.trim().toLowerCase();
+                            const normalizedSearch = normalizePhoneForComparison(customerSearch);
+                            
+                            // Search by name (case-insensitive, partial match)
+                            const nameMatch = c.name?.toLowerCase().includes(searchTerm) || false;
+                            
+                            // Search by phone (normalized comparison for partial match)
+                            const phoneMatch = c.phone && normalizedSearch.length >= 1
+                              ? normalizePhoneForComparison(c.phone).includes(normalizedSearch) || 
+                                normalizedSearch.includes(normalizePhoneForComparison(c.phone))
+                              : false;
+                            
+                            // Return true if EITHER name OR phone matches
+                            return nameMatch || phoneMatch;
+                          })
+                          .slice(0, 10)
+                          .map((customer) => (
+                            <button
+                              key={customer.id}
+                              type="button"
+                              className="w-full px-4 py-3 text-left hover:bg-gray-100 border-b border-gray-100 last:border-b-0 flex items-center justify-between"
+                              onClick={() => handleSelectCustomer(customer)}
+                            >
+                              <div className="flex-1">
+                                <div className="font-medium text-gray-900">{customer.name}</div>
+                                <div className="text-sm text-gray-500">{customer.phone}</div>
+                                {customer.quarter && (
+                                  <div className="text-xs text-gray-400">{customer.quarter}</div>
+                                )}
+                              </div>
+                            </button>
+                          ))
+                      : null}
+                  </div>
+                )}
+              </div>
               <Input
                 label={t('pos.payment.customerQuarter')}
                 type="text"

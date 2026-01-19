@@ -33,6 +33,7 @@ jobs:
     - name: Create .env file
       run: |
         echo "VITE_FIREBASE_ENV=prod" >> .env
+        echo "VITE_FIREBASE_SOURCE=new" >> .env
         echo "VITE_FIREBASE_API_KEY=${{ secrets.VITE_FIREBASE_API_KEY_PROD }}" >> .env
         echo "VITE_FIREBASE_AUTH_DOMAIN=${{ secrets.VITE_FIREBASE_AUTH_DOMAIN_PROD }}" >> .env
         echo "VITE_FIREBASE_PROJECT_ID=${{ secrets.VITE_FIREBASE_PROJECT_ID_PROD }}" >> .env
@@ -40,6 +41,8 @@ jobs:
         echo "VITE_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID_PROD }}" >> .env
         echo "VITE_FIREBASE_APP_ID=${{ secrets.VITE_FIREBASE_APP_ID_PROD }}" >> .env
         echo "VITE_FIREBASE_MEASUREMENT_ID=${{ secrets.VITE_FIREBASE_MEASUREMENT_ID_PROD }}" >> .env
+        echo "VITE_BACKEND_API_URL=${{ secrets.VITE_BACKEND_API_URL_STAGING || 'http://93.127.203.115:4500' }}" >> .env
+        echo "VITE_BACKEND_API_KEY=${{ secrets.VITE_BACKEND_API_KEY_STAGING }}" >> .env
 
         
     - name: Clean and install dependencies

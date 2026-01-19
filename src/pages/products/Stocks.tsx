@@ -6,8 +6,7 @@ import { useInfiniteProducts } from '@hooks/data/useInfiniteProducts';
 import { useAllStockBatches } from '@hooks/business/useStockBatches';
 import { useStockChanges, useSuppliers } from '@hooks/data/useFirestore';
 import ProductRestockModal from '../../components/products/ProductRestockModal';
-import ManualAdjustmentModal from '../../components/products/ManualAdjustmentModal';
-import DamageAdjustmentModal from '../../components/products/DamageAdjustmentModal';
+import UnifiedBatchAdjustmentModal from '../../components/products/UnifiedBatchAdjustmentModal';
 import BatchDeleteModal from '../../components/common/BatchDeleteModal';
 import { usePermissionCheck } from '@components/permissions';
 import { RESOURCES } from '@constants/resources';
@@ -84,7 +83,6 @@ const Stocks = () => {
   // Modal states
   const [restockModalOpen, setRestockModalOpen] = useState(false);
   const [adjustModalOpen, setAdjustModalOpen] = useState(false);
-  const [damageModalOpen, setDamageModalOpen] = useState(false);
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -157,17 +155,6 @@ const Stocks = () => {
     setAdjustModalOpen(true);
   };
 
-  const handleDamage = (product: Product, batch: StockBatch) => {
-    setSelectedProduct(product);
-    setSelectedBatch(batch);
-    const productBatches = batchesByProduct.get(product.id) || [];
-    const remaining = productBatches.reduce((sum, b) => sum + (b.remainingQuantity || 0), 0);
-    const total = productBatches.reduce((sum, b) => sum + (b.quantity || 0), 0);
-    setSelectedBatchTotals(productBatches.length ? { remaining, total } : undefined);
-    setExpandedProductId(product.id || '');
-    setDamageModalOpen(true);
-  };
-
   const handleHistory = (product: Product) => {
     setSelectedProduct(product);
     setHistoryModalOpen(true);
@@ -183,7 +170,6 @@ const Stocks = () => {
     refresh();
     setRestockModalOpen(false);
     setAdjustModalOpen(false);
-    setDamageModalOpen(false);
     setHistoryModalOpen(false);
     setDeleteModalOpen(false);
     setSelectedProduct(null);
@@ -193,7 +179,6 @@ const Stocks = () => {
   const handleModalClose = () => {
     setRestockModalOpen(false);
     setAdjustModalOpen(false);
-    setDamageModalOpen(false);
     setHistoryModalOpen(false);
     setDeleteModalOpen(false);
     setSelectedProduct(null);
@@ -418,17 +403,6 @@ const Stocks = () => {
                                           >
                                             <Settings className="w-4 h-4" />
                                           </Button>
-                                          {batch.remainingQuantity > 0 && (
-                                            <Button 
-                                              size="sm" 
-                                              variant="outline"
-                                              className="px-3 py-1.5 text-sm"
-                                              onClick={() => handleDamage(product, batch)}
-                                              title={t('products.stocksPage.actions.damage')}
-                                            >
-                                              <AlertTriangle className="w-4 h-4" />
-                                            </Button>
-                                          )}
                                           {canDelete && (
                                             <Button
                                               size="sm"
@@ -573,17 +547,8 @@ const Stocks = () => {
         onSuccess={handleModalSuccess}
       />
 
-      <ManualAdjustmentModal
+      <UnifiedBatchAdjustmentModal
         isOpen={adjustModalOpen}
-        onClose={handleModalClose}
-        product={selectedProduct}
-        selectedBatch={selectedBatch}
-        batchTotals={selectedBatchTotals}
-        onSuccess={handleModalSuccess}
-      />
-
-      <DamageAdjustmentModal
-        isOpen={damageModalOpen}
         onClose={handleModalClose}
         product={selectedProduct}
         selectedBatch={selectedBatch}

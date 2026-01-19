@@ -31,18 +31,22 @@ export const POSCustomerQuickAdd: React.FC<POSCustomerQuickAddProps> = ({
 
   const filteredCustomers = customerSearch
     ? customers.filter(c => {
+        if (!customerSearch.trim() || customerSearch.length < 1) return false;
+        
+        const searchTerm = customerSearch.trim().toLowerCase();
         const normalizedSearch = normalizePhoneForComparison(customerSearch);
-        if (normalizedSearch.length >= 2 && /\d/.test(customerSearch)) {
-          // Phone search
-          if (!c.phone) return false;
-          const customerPhone = normalizePhoneForComparison(c.phone);
-          return customerPhone.includes(normalizedSearch) || normalizedSearch.includes(customerPhone);
-        } else if (customerSearch.length >= 2) {
-          // Name search
-          if (!c.name) return false;
-          return c.name.toLowerCase().includes(customerSearch.toLowerCase());
-        }
-        return false;
+        
+        // Search by name (case-insensitive, partial match)
+        const nameMatch = c.name?.toLowerCase().includes(searchTerm) || false;
+        
+        // Search by phone (normalized comparison for partial match)
+        const phoneMatch = c.phone && normalizedSearch.length >= 1
+          ? normalizePhoneForComparison(c.phone).includes(normalizedSearch) || 
+            normalizedSearch.includes(normalizePhoneForComparison(c.phone))
+          : false;
+        
+        // Return true if EITHER name OR phone matches
+        return nameMatch || phoneMatch;
       })
     : [];
 

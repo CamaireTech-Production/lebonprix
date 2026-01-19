@@ -1,5 +1,5 @@
 // Create Production Modal - Multi-step wizard
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { X, ChevronLeft, ChevronRight, Plus, Trash2, Loader2, CheckCircle2 } from 'lucide-react';
 import { Modal, Button, LoadingScreen, PriceInput } from '@components/common';
 import ImageWithSkeleton from '@components/common/ImageWithSkeleton';
@@ -11,7 +11,7 @@ import { showSuccessToast, showErrorToast, showWarningToast } from '@utils/core/
 import { formatPrice } from '@utils/formatting/formatPrice';
 import { FirebaseStorageService } from '@services/core/firebaseStorage';
 import imageCompression from 'browser-image-compression';
-import type { Production, ProductionMaterial, ProductionFlow, ProductionChargeRef, ProductionArticle } from '../../types/models';
+import type { ProductionMaterial, ProductionChargeRef, ProductionArticle, ProductionFlowStep } from '../../types/models';
 import { Timestamp } from 'firebase/firestore';
 import { 
   generateArticleId, 
@@ -37,6 +37,24 @@ const CreateProductionModal: React.FC<CreateProductionModalProps> = ({
   const { categories = [] } = useProductionCategories();
   const { matieres = [] } = useMatieres();
   const { matiereStocks = [] } = useMatiereStocks();
+
+  // Helper function to prevent wheel event on number inputs
+  // Uses ref callback to add non-passive event listener
+  const handleNumberInputRef = useCallback((element: HTMLInputElement | null) => {
+    if (!element) return;
+    
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      element.blur();
+    };
+    
+    // Add non-passive event listener to allow preventDefault
+    element.addEventListener('wheel', handleWheel, { passive: false });
+    
+    // Note: Cleanup is handled automatically when element is removed from DOM
+    // For explicit cleanup, we could use a WeakMap, but it's not necessary here
+    // as the element will be destroyed when component unmounts
+  }, []);
 
   // Wizard state - Updated to 6 steps (added Articles step)
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4 | 5 | 6>(1);
@@ -94,16 +112,16 @@ const CreateProductionModal: React.FC<CreateProductionModalProps> = ({
   const selectedFlowSteps = useMemo(() => {
     if (!selectedFlow) return [];
     return selectedFlow.stepIds
-      .map(stepId => flowSteps.find(s => s.id === stepId))
-      .filter(Boolean) as typeof flowSteps;
+      .map((stepId: string) => flowSteps.find(s => s.id === stepId))
+      .filter((step: ProductionFlowStep | undefined): step is ProductionFlowStep => Boolean(step));
   }, [selectedFlow, flowSteps]);
 
   // Fetch fixed charges for selection
-  const { charges: fixedCharges } = useFixedCharges(true); // Only active fixed charges
+  const { charges: fixedCharges } = useFixedCharges();
 
   // Calculate total articles quantity
   const totalArticlesQuantity = useMemo(() => {
-    return calculateTotalArticlesQuantity(step2_5Data.map(a => ({ ...a, status: 'draft' as const })));
+    return calculateTotalArticlesQuantity(step2_5Data.map(a => ({ ...a, status: 'draft' as const, materials: [] })));
   }, [step2_5Data]);
 
   // Calculate cost per article from its materials
@@ -425,7 +443,8 @@ const CreateProductionModal: React.FC<CreateProductionModalProps> = ({
             amount: customCharge.amount,
             category: customCharge.category,
             date: Timestamp.fromDate(customCharge.date),
-            userId: user.uid
+            userId: user.uid,
+            companyId: company.id
           }, company.id, createdBy);
           
           const snapshot: ProductionChargeRef = {
@@ -843,7 +862,7 @@ const CreateProductionModal: React.FC<CreateProductionModalProps> = ({
                         Étapes dans ce flux:
                       </h4>
                       <div className="space-y-2">
-                        {selectedFlowSteps.map((step, idx) => (
+                        {selectedFlowSteps.map((step: ProductionFlowStep, idx: number) => (
                           <div
                             key={step.id}
                             className="flex items-center space-x-2 text-sm"
@@ -875,7 +894,7 @@ const CreateProductionModal: React.FC<CreateProductionModalProps> = ({
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       >
                         <option value="">Sélectionner une étape...</option>
-                        {selectedFlowSteps.map(step => (
+                        {selectedFlowSteps.map((step: ProductionFlowStep) => (
                           <option key={step.id} value={step.id}>
                             {step.name}
                           </option>
@@ -941,6 +960,7 @@ const CreateProductionModal: React.FC<CreateProductionModalProps> = ({
                           Quantité <span className="text-red-500">*</span>
                         </label>
                         <input
+                          ref={handleNumberInputRef}
                           type="number"
                           value={article.quantity || ''}
                           onChange={(e) => handleUpdateArticle(index, 'quantity', parseFloat(e.target.value) || 0)}
@@ -1067,6 +1087,7 @@ const CreateProductionModal: React.FC<CreateProductionModalProps> = ({
                                   </label>
                                   <div className="flex items-center space-x-2">
                                     <input
+                                      ref={handleNumberInputRef}
                                       type="number"
                                       value={material.requiredQuantity || ''}
                                       onChange={(e) => handleUpdateMaterial(article.id, materialIndex, 'requiredQuantity', parseFloat(e.target.value) || 0)}
