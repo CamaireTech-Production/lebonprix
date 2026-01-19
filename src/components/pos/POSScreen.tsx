@@ -15,7 +15,7 @@ import { getEffectiveProductStock } from '@utils/inventory/stockHelpers';
 
 export const POSScreen: React.FC = () => {
   const { company } = useAuth();
-  const { companyId } = useParams<{ companyId: string }>();
+  const { companyId, shopId } = useParams<{ companyId: string; shopId?: string }>();
   const [showPaymentModal, setShowPaymentModal] = useState(false);
 
   const {
@@ -56,7 +56,10 @@ export const POSScreen: React.FC = () => {
     stockMap,
     checkoutSettings,
     products,
-  } = usePOS();
+    shops,
+    selectedShop,
+    setShop,
+  } = usePOS(shopId);
 
   // Get unique categories from all available products (not filtered)
   const categories = useMemo(() => {
@@ -98,7 +101,18 @@ export const POSScreen: React.FC = () => {
         disabled={showPaymentModal}
       />
 
-      <POSHeader companyName={companyName} />
+      <POSHeader 
+        companyName={companyName}
+        shops={shops}
+        selectedShopId={selectedShop?.id}
+        onShopChange={(newShopId) => {
+          setShop(newShopId);
+          // Update URL if in shop-specific route
+          if (shopId && companyId) {
+            window.history.replaceState(null, '', `/company/${companyId}/pos/shop/${newShopId}`);
+          }
+        }}
+      />
 
       <div className="flex-1 flex overflow-hidden">
         {/* Left Side - Recent Transactions (15%) */}

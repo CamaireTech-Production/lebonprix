@@ -5,9 +5,12 @@ import { useState, useEffect } from 'react';
 
 interface POSHeaderProps {
   companyName: string;
+  shops?: Array<{ id: string; name: string; isDefault?: boolean }>;
+  selectedShopId?: string;
+  onShopChange?: (shopId: string) => void;
 }
 
-export const POSHeader: React.FC<POSHeaderProps> = ({ companyName }) => {
+export const POSHeader: React.FC<POSHeaderProps> = ({ companyName, shops, selectedShopId, onShopChange }) => {
   const { user, currentEmployee, isOwner, company } = useAuth();
   const navigate = useNavigate();
   const { companyId } = useParams<{ companyId: string }>();
@@ -78,6 +81,37 @@ export const POSHeader: React.FC<POSHeaderProps> = ({ companyName }) => {
           <span className="opacity-90">Cashier:</span>
           <span className="font-semibold">{cashierName}</span>
         </div>
+        {/* Shop Selector */}
+        {shops && shops.length > 1 && (
+          <div className="flex items-center space-x-2">
+            <span className="text-sm opacity-90" style={{ color: colors.headerText }}>Magasin:</span>
+            <select
+              value={selectedShopId || ''}
+              onChange={(e) => {
+                if (onShopChange && e.target.value) {
+                  onShopChange(e.target.value);
+                }
+              }}
+              className="px-3 py-1 rounded-md text-sm font-medium border-0 focus:outline-none focus:ring-2 focus:ring-white/50"
+              style={{ 
+                backgroundColor: colors.tertiary,
+                color: colors.headerText
+              }}
+            >
+              {shops.map(shop => (
+                <option key={shop.id} value={shop.id} style={{ backgroundColor: colors.primary }}>
+                  {shop.name} {shop.isDefault && '(Par défaut)'}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+        {shops && shops.length === 1 && selectedShopId && (
+          <div className="flex items-center space-x-2 text-sm" style={{ color: colors.headerText }}>
+            <span className="opacity-90">Magasin:</span>
+            <span className="font-semibold">{shops[0].name}</span>
+          </div>
+        )}
       </div>
 
       <div className="flex items-center space-x-6">
