@@ -13,7 +13,11 @@
     "deploy:indexes:dev": "node scripts/deployFirestoreIndexes.cjs dev",
     "deploy:indexes:prod": "node scripts/deployFirestoreIndexes.cjs prod",
     "init:magasin": "node scripts/initializeMagasinCollections.cjs",
-    "migrate:shop-warehouse": "node scripts/migrateShopWarehouse.cjs"
+    "migrate:shop-warehouse": "node scripts/migrateShopWarehouse.cjs",
+    "migrate:shop-warehouse:old": "node scripts/migrateShopWarehouse.cjs --firebase=old",
+    "migrate:shop-warehouse:new": "node scripts/migrateShopWarehouse.cjs --firebase=new",
+    "migrate:shop-warehouse:old:dry": "node scripts/migrateShopWarehouse.cjs --firebase=old --dry-run",
+    "migrate:shop-warehouse:new:dry": "node scripts/migrateShopWarehouse.cjs --firebase=new --dry-run"
   },
   "dependencies": {
     "@capacitor/share": "^7.0.1",
