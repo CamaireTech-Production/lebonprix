@@ -12,6 +12,7 @@ interface CachedPermission {
   template: PermissionTemplate | null;
   templateId: string | null;
   timestamp: number;
+  templateUpdatedAt?: number; // Track template's updatedAt to detect changes
 }
 
 interface PermissionCacheResult {
@@ -66,10 +67,17 @@ const saveToCache = (
 ): void => {
   try {
     const key = getCacheKey(userId, companyId);
+    const templateUpdatedAt = template?.updatedAt 
+      ? (typeof template.updatedAt === 'object' && 'seconds' in template.updatedAt 
+          ? template.updatedAt.seconds * 1000 
+          : new Date(template.updatedAt).getTime())
+      : undefined;
+    
     const data: CachedPermission = {
       template,
       templateId,
       timestamp: Date.now(),
+      templateUpdatedAt,
     };
     localStorage.setItem(key, JSON.stringify(data));
   } catch (error) {
@@ -263,6 +271,33 @@ export function usePermissionCache(
       isMounted.current = false;
     };
   }, [loadTemplate]);
+
+  // Listen for template update events and refresh cache
+  useEffect(() => {
+    if (!userId || !companyId || isOwner) return;
+
+    const handleTemplateUpdate = (event: CustomEvent) => {
+      const { companyId: updatedCompanyId, templateId } = event.detail;
+      
+      // Only refresh if this is for our company
+      if (updatedCompanyId === companyId) {
+        // Check if this user is using the updated template
+        const currentTemplateId = templateIdFromUserCompanies;
+        if (!templateId || currentTemplateId === templateId) {
+          // Clear cache and refresh
+          clearFromCache(userId, companyId);
+          lastTemplateIdRef.current = null;
+          loadTemplate(true);
+        }
+      }
+    };
+
+    window.addEventListener('permission-template-updated', handleTemplateUpdate as EventListener);
+
+    return () => {
+      window.removeEventListener('permission-template-updated', handleTemplateUpdate as EventListener);
+    };
+  }, [userId, companyId, templateIdFromUserCompanies, isOwner, loadTemplate]);
 
   const refreshCache = useCallback(async () => {
     if (userId && companyId && !isLoadingRef.current) {
