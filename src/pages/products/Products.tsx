@@ -1519,7 +1519,7 @@ const Products = () => {
 
           <PermissionButton
             resource={RESOURCES.PRODUCTS}
-            action="edit"
+            action="create"
             icon={<Plus size={16} />}
             onClick={() => setIsAddModalOpen(true)}
             hideWhenNoPermission

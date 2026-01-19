@@ -193,24 +193,28 @@ function getRolePermissions(role: string) {
   const permissions = {
     owner: {
       canView: ['all'],
+      canCreate: ['all'],
       canEdit: ['all'],
       canDelete: ['all'],
       canManageEmployees: ['all']
     },
     admin: {
       canView: ['all'],
+      canCreate: ['all'],
       canEdit: ['all'],
       canDelete: ['all-except-company'],
       canManageEmployees: ['staff', 'manager', 'admin']
     },
     manager: {
       canView: ['dashboard', 'sales', 'customers', 'products', 'expenses'],
+      canCreate: ['sales', 'customers', 'products', 'expenses'],
       canEdit: ['sales', 'customers', 'products', 'expenses'],
       canDelete: ['sales', 'customers', 'products', 'expenses'],
       canManageEmployees: ['staff']
     },
     staff: {
       canView: ['dashboard', 'sales', 'customers'],
+      canCreate: ['sales', 'customers'],
       canEdit: ['sales', 'customers'],
       canDelete: ['sales', 'customers'],
       canManageEmployees: []
@@ -228,6 +232,16 @@ function checkActionPermission(action: string, permissions: any): boolean {
   if (action.startsWith('view:')) {
     const resource = action.replace('view:', '');
     return permissions.canView.includes('all') || permissions.canView.includes(resource);
+  }
+
+  // Actions de création
+  if (action.startsWith('create:')) {
+    const resource = action.replace('create:', '');
+    // Backward compatibility: if canCreate is missing, fall back to canEdit
+    if (permissions.canCreate && permissions.canCreate.length > 0) {
+      return permissions.canCreate.includes('all') || permissions.canCreate.includes(resource);
+    }
+    return permissions.canEdit.includes('all') || permissions.canEdit.includes(resource);
   }
 
   // Actions d'édition

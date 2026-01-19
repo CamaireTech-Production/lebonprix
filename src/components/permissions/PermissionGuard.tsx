@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 import { useRolePermissions } from '@hooks/business/useRolePermissions';
 import { useAuth } from '@contexts/AuthContext';
 
-type PermissionAction = 'view' | 'edit' | 'delete';
+type PermissionAction = 'view' | 'create' | 'edit' | 'delete';
 
 interface PermissionGuardProps {
   /** The resource to check permission for (from RESOURCES constant) */
@@ -44,7 +44,7 @@ export const PermissionGuard = ({
   showDisabled = false,
 }: PermissionGuardProps) => {
   const { company } = useAuth();
-  const { canAccess, canEdit, canDelete, isOwner } = useRolePermissions(company?.id);
+  const { canAccess, canCreate, canEdit, canDelete, isOwner } = useRolePermissions(company?.id);
 
   // Owner always has permission
   if (isOwner) {
@@ -57,6 +57,9 @@ export const PermissionGuard = ({
   switch (action) {
     case 'view':
       hasPermission = canAccess(resource);
+      break;
+    case 'create':
+      hasPermission = canCreate(resource);
       break;
     case 'edit':
       hasPermission = canEdit(resource);
@@ -88,10 +91,11 @@ export const PermissionGuard = ({
  */
 export const usePermissionCheck = (resource: string) => {
   const { company } = useAuth();
-  const { canAccess, canEdit, isOwner } = useRolePermissions(company?.id);
+  const { canAccess, canCreate, canEdit, isOwner } = useRolePermissions(company?.id);
 
   return {
     canView: isOwner || canAccess(resource),
+    canCreate: isOwner || canCreate(resource),
     canEdit: isOwner || canEdit(resource),
     // DELETE IS OWNER-ONLY - employees must request deletion through action request system
     canDelete: isOwner,

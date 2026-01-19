@@ -33,6 +33,7 @@ const PermissionTemplateForm = ({ template, onSave, onCancel }: PermissionTempla
   const [baseRole, setBaseRole] = useState<'staff' | 'manager' | 'admin' | ''>('');
   const [permissions, setPermissions] = useState<RolePermissions>({
     canView: [],
+    canCreate: [],
     canEdit: [],
     canDelete: [],
     canManageEmployees: [],
@@ -47,6 +48,10 @@ const PermissionTemplateForm = ({ template, onSave, onCancel }: PermissionTempla
       setBaseRole(template.baseRole || '');
       // Remove legacy boolean fields if they exist (for backward compatibility)
       const { canAccessSettings, canAccessFinance, canAccessHR, ...cleanPermissions } = template.permissions as any;
+      // Backward compatibility: if canCreate is missing, initialize it as empty array
+      if (!cleanPermissions.canCreate) {
+        cleanPermissions.canCreate = [];
+      }
       setPermissions(cleanPermissions);
       // Load dashboard sections if they exist
       const templateWithDashboard = template as any;
@@ -202,6 +207,35 @@ const PermissionTemplateForm = ({ template, onSave, onCancel }: PermissionTempla
                       type="checkbox"
                       checked={permissions.canView.includes(resource)}
                       onChange={(e) => handlePermissionChange('canView', resource, e.target.checked)}
+                      className="mr-2"
+                    />
+                    {getResourceLabel(resource)}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Create Access */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="text-sm font-medium text-gray-700">Create Access</h4>
+                <label className="flex items-center text-sm">
+                  <input
+                    type="checkbox"
+                    checked={permissions.canCreate.length === allResources.length}
+                    onChange={(e) => handleSelectAll('canCreate', e.target.checked)}
+                    className="mr-2"
+                  />
+                  Select All
+                </label>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                {allResources.map((resource) => (
+                  <label key={resource} className="flex items-center text-sm">
+                    <input
+                      type="checkbox"
+                      checked={permissions.canCreate.includes(resource)}
+                      onChange={(e) => handlePermissionChange('canCreate', resource, e.target.checked)}
                       className="mr-2"
                     />
                     {getResourceLabel(resource)}

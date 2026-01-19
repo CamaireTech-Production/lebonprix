@@ -396,7 +396,7 @@ const Suppliers = () => {
         <div className="mt-4 md:mt-0">
           <PermissionButton
             resource={RESOURCES.SUPPLIERS}
-            action="edit"
+            action="create"
             icon={<Plus size={16} />}
             onClick={openAddModal}
             hideWhenNoPermission

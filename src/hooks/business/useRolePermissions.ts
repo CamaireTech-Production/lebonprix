@@ -23,6 +23,7 @@ export function useRolePermissions(companyId?: string) {
     if (isActualOwner) {
       const ownerPermissions: RolePermissions = {
         canView: [RESOURCES.ALL],
+        canCreate: [RESOURCES.ALL],
         canEdit: [RESOURCES.ALL],
         canDelete: [RESOURCES.ALL],
         canManageEmployees: [RESOURCES.ALL],
@@ -30,6 +31,10 @@ export function useRolePermissions(companyId?: string) {
 
       const canAccess = (resource: string): boolean => {
         return ownerPermissions.canView.includes(RESOURCES.ALL) || ownerPermissions.canView.includes(resource);
+      };
+
+      const canCreate = (resource: string): boolean => {
+        return ownerPermissions.canCreate.includes(RESOURCES.ALL) || ownerPermissions.canCreate.includes(resource);
       };
 
       const canEdit = (resource: string): boolean => {
@@ -61,6 +66,7 @@ export function useRolePermissions(companyId?: string) {
         template: null,
         templateLoading: false,
         canAccess,
+        canCreate,
         canEdit,
         canDelete,
         canManageEmployees,
@@ -76,6 +82,7 @@ export function useRolePermissions(companyId?: string) {
     if (!template) {
       const emptyPermissions: RolePermissions = {
         canView: [],
+        canCreate: [],
         canEdit: [],
         canDelete: [],
         canManageEmployees: [],
@@ -83,6 +90,10 @@ export function useRolePermissions(companyId?: string) {
 
       const canAccess = (resource: string): boolean => {
         return emptyPermissions.canView.includes(RESOURCES.ALL) || emptyPermissions.canView.includes(resource);
+      };
+
+      const canCreate = (resource: string): boolean => {
+        return emptyPermissions.canCreate.includes(RESOURCES.ALL) || emptyPermissions.canCreate.includes(resource);
       };
 
       const canEdit = (resource: string): boolean => {
@@ -114,6 +125,7 @@ export function useRolePermissions(companyId?: string) {
         template: null,
         templateLoading,
         canAccess,
+        canCreate,
         canEdit,
         canDelete,
         canManageEmployees,
@@ -130,6 +142,16 @@ export function useRolePermissions(companyId?: string) {
 
     const canAccess = (resource: string): boolean => {
       return effectivePermissions.canView.includes(RESOURCES.ALL) || effectivePermissions.canView.includes(resource);
+    };
+
+    // Backward compatibility: if canCreate is missing, fall back to canEdit
+    const canCreate = (resource: string): boolean => {
+      const hasCreatePermission = effectivePermissions.canCreate && effectivePermissions.canCreate.length > 0;
+      if (hasCreatePermission) {
+        return effectivePermissions.canCreate.includes(RESOURCES.ALL) || effectivePermissions.canCreate.includes(resource);
+      }
+      // Fallback: if canCreate is not defined in template, use canEdit
+      return effectivePermissions.canEdit.includes(RESOURCES.ALL) || effectivePermissions.canEdit.includes(resource);
     };
 
     const canEdit = (resource: string): boolean => {
@@ -161,6 +183,7 @@ export function useRolePermissions(companyId?: string) {
       template,
       templateLoading,
       canAccess,
+      canCreate,
       canEdit,
       canDelete,
       canManageEmployees,

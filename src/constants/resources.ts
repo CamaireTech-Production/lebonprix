@@ -25,6 +25,24 @@ export const RESOURCES = {
   MAGASIN: 'magasin',
   PRODUCTIONS: 'productions',
 
+  // Sub-resources (Granular permissions)
+  // Products sub-resources
+  PRODUCTS_CATEGORIES: 'products_categories', // Product categories
+  PRODUCTS_STOCKS: 'products_stocks', // Product stock management
+
+  // Magasin sub-resources
+  MAGASIN_CATEGORIES: 'magasin_categories', // Matiere categories
+  MAGASIN_STOCKS: 'magasin_stocks', // Matiere stock management
+
+  // Production sub-resources
+  PRODUCTIONS_FLOWS: 'productions_flows', // Production flows
+  PRODUCTIONS_STEPS: 'productions_steps', // Production flow steps
+  PRODUCTIONS_CATEGORIES: 'productions_categories', // Production categories
+  PRODUCTIONS_CHARGES: 'productions_charges', // Production charges
+
+  // Expense sub-resources
+  EXPENSE_CATEGORIES: 'expense_categories', // Expense categories
+
   // Management sections
   FINANCE: 'finance',
   REPORTS: 'reports',
@@ -52,6 +70,15 @@ export const RESOURCE_LABELS: Record<Resource, string> = {
   [RESOURCES.EXPENSES]: 'Dépenses',
   [RESOURCES.MAGASIN]: 'Magasin',
   [RESOURCES.PRODUCTIONS]: 'Productions',
+  [RESOURCES.PRODUCTS_CATEGORIES]: 'Catégories Produits',
+  [RESOURCES.PRODUCTS_STOCKS]: 'Stocks Produits',
+  [RESOURCES.MAGASIN_CATEGORIES]: 'Catégories Matières',
+  [RESOURCES.MAGASIN_STOCKS]: 'Stocks Matières',
+  [RESOURCES.PRODUCTIONS_FLOWS]: 'Flux de Production',
+  [RESOURCES.PRODUCTIONS_STEPS]: 'Étapes de Production',
+  [RESOURCES.PRODUCTIONS_CATEGORIES]: 'Catégories Production',
+  [RESOURCES.PRODUCTIONS_CHARGES]: 'Charges Production',
+  [RESOURCES.EXPENSE_CATEGORIES]: 'Catégories Dépenses',
   [RESOURCES.FINANCE]: 'Finance',
   [RESOURCES.REPORTS]: 'Rapports',
   [RESOURCES.HR]: 'RH (Legacy)', // Legacy - kept for backward compatibility
@@ -73,6 +100,15 @@ export const ALL_RESOURCES: Resource[] = [
   RESOURCES.EXPENSES,
   RESOURCES.MAGASIN,
   RESOURCES.PRODUCTIONS,
+  RESOURCES.PRODUCTS_CATEGORIES,
+  RESOURCES.PRODUCTS_STOCKS,
+  RESOURCES.MAGASIN_CATEGORIES,
+  RESOURCES.MAGASIN_STOCKS,
+  RESOURCES.PRODUCTIONS_FLOWS,
+  RESOURCES.PRODUCTIONS_STEPS,
+  RESOURCES.PRODUCTIONS_CATEGORIES,
+  RESOURCES.PRODUCTIONS_CHARGES,
+  RESOURCES.EXPENSE_CATEGORIES,
   RESOURCES.FINANCE,
   RESOURCES.REPORTS,
   RESOURCES.PERMISSIONS,

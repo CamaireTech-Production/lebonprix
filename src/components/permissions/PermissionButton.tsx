@@ -5,7 +5,7 @@ import { useAuth } from '@contexts/AuthContext';
 import { Button } from '@components/common';
 import { Lock } from 'lucide-react';
 
-type PermissionAction = 'view' | 'edit' | 'delete';
+type PermissionAction = 'view' | 'create' | 'edit' | 'delete';
 type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'outline';
 type ButtonSize = 'sm' | 'md' | 'lg';
 
@@ -72,7 +72,7 @@ export const PermissionButton = ({
 }: PermissionButtonProps) => {
   const { t } = useTranslation();
   const { company } = useAuth();
-  const { canAccess, canEdit, canDelete, isOwner } = useRolePermissions(company?.id);
+  const { canAccess, canCreate, canEdit, canDelete, isOwner } = useRolePermissions(company?.id);
 
   // Check permission based on action type
   // IMPORTANT: Delete actions are OWNER-ONLY - employees must use action request system
@@ -81,6 +81,9 @@ export const PermissionButton = ({
     switch (action) {
       case 'view':
         hasPermission = canAccess(resource);
+        break;
+      case 'create':
+        hasPermission = canCreate(resource);
         break;
       case 'edit':
         hasPermission = canEdit(resource);

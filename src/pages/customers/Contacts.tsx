@@ -301,7 +301,7 @@ const Contacts = () => {
         <div className="mt-4 md:mt-0">
           <PermissionButton
             resource={RESOURCES.CUSTOMERS}
-            action="edit"
+            action="create"
             icon={<Plus size={16} />}
             onClick={openAddModal}
             hideWhenNoPermission

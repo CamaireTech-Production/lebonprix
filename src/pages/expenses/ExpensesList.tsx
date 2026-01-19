@@ -134,7 +134,7 @@ const ExpensesList = () => {
           </Button>
           <PermissionButton
             resource={RESOURCES.EXPENSES}
-            action="edit"
+            action="create"
             icon={<Plus size={16} />}
             onClick={() => setIsAddModalOpen(true)}
             hideWhenNoPermission
