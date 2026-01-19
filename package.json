@@ -12,7 +12,8 @@
     "deploy:indexes": "node scripts/deployFirestoreIndexes.cjs",
     "deploy:indexes:dev": "node scripts/deployFirestoreIndexes.cjs dev",
     "deploy:indexes:prod": "node scripts/deployFirestoreIndexes.cjs prod",
-    "init:magasin": "node scripts/initializeMagasinCollections.cjs"
+    "init:magasin": "node scripts/initializeMagasinCollections.cjs",
+    "migrate:shop-warehouse": "node scripts/migrateShopWarehouse.cjs"
   },
   "dependencies": {
     "@capacitor/share": "^7.0.1",

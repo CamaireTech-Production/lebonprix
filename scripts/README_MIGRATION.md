@@ -1,152 +1,161 @@
-# Database Migration: userId → companyId
+# Shop & Warehouse Migration Script
 
-This migration updates all database entities to use `companyId` instead of `userId` for data isolation.
+## Overview
+
+This script migrates existing companies to the shop/warehouse system. It supports selecting which Firebase instance to use (old or new) and provides various options for safe migration.
 
 ## Prerequisites
 
-1. **Backup your database** - This is critical! Always backup before running migrations.
-2. **Firebase Service Account** - Ensure `firebase-service-account.json` exists in the project root.
-3. **Node.js** - Make sure you have Node.js installed (required for Firebase Admin SDK).
+1. **Firebase Admin SDK**: Ensure `firebase-admin` is installed
+   ```bash
+   npm install firebase-admin
+   ```
 
-## Step-by-Step Migration Process
+2. **Firebase Keys**: Ensure the following files exist in `firebase-keys/`:
+   - `old-firebase-key.json` - Service account key for old Firebase
+   - `new-firebase-key.json` - Service account key for new Firebase
 
-### Step 1: Audit Current State (Optional but Recommended)
+## Usage
 
-Run the audit script to see what needs to be migrated:
+### Interactive Mode (Recommended)
 
-```bash
-npm run migrate-company:audit
-```
-
-This will generate a report showing:
-- Which collections have records needing migration
-- How many records need `companyId` added
-- Records that may need smart assignment (multi-company users)
-
-### Step 2: Dry Run (Test Without Changes)
-
-Run the migration in dry-run mode to see what would happen:
+Run without arguments for interactive prompts:
 
 ```bash
-npm run migrate-company:dry-run
+npm run migrate:shop-warehouse
 ```
 
-Or directly:
-```bash
-node scripts/migrateUserIdToCompanyId.js --dry-run
-```
+The script will prompt you to:
+1. Select Firebase instance (old or new)
+2. Enter admin user ID
+3. Confirm migration settings
 
-This will:
-- ✅ Analyze all records
-- ✅ Determine companyId assignments
-- ✅ Generate a detailed report
-- ❌ **NOT** make any changes to the database
+### Command Line Mode
 
-Review the report carefully before proceeding.
-
-### Step 3: Run Actual Migration
-
-Once you've reviewed the dry-run report and are confident:
+You can also provide all arguments via command line:
 
 ```bash
-npm run migrate-company:run
+# Basic usage
+node scripts/migrateShopWarehouse.cjs --firebase=old --userId=YOUR_USER_ID
+
+# With options
+node scripts/migrateShopWarehouse.cjs --firebase=new --userId=YOUR_USER_ID --dry-run --skip-existing --batchSize=500 --validate
 ```
 
-Or using the shell script:
+### Command Line Arguments
+
+- `--firebase=<old|new>`: Select Firebase instance
+  - `old`: Uses `firebase-keys/old-firebase-key.json`
+  - `new`: Uses `firebase-keys/new-firebase-key.json`
+
+- `--userId=<USER_ID>`: Admin user ID for migration
+
+- `--dry-run` or `--dryRun`: Test migration without making changes
+
+- `--skip-existing` or `--skipExisting`: Skip companies that already have shops/warehouses
+
+- `--batchSize=<NUMBER>`: Batch size for Firestore operations (default: 500)
+
+- `--validate`: Enable data validation before migration
+
+## Examples
+
+### Test Migration (Dry Run)
+
 ```bash
-./scripts/runMigration.sh --run
+# Test on old Firebase
+npm run migrate:shop-warehouse -- --firebase=old --userId=YOUR_USER_ID --dry-run
+
+# Test on new Firebase
+npm run migrate:shop-warehouse -- --firebase=new --userId=YOUR_USER_ID --dry-run
 ```
 
-This will:
-- ✅ Update all entities with `companyId`
-- ✅ Generate a detailed migration report
-- ✅ Show progress and statistics
+### Run Actual Migration
 
-## Collections Migrated
+```bash
+# Migrate old Firebase
+npm run migrate:shop-warehouse -- --firebase=old --userId=YOUR_USER_ID
 
-The script migrates these collections (in priority order):
-
-### Priority 1 (Base Entities):
-- `products`
-- `categories`
-- `suppliers`
-- `expenses`
-- `objectives`
-- `orders`
-- `financeEntryTypes`
-- `expenseTypes`
-
-### Priority 2 (Dependent on Products):
-- `stockBatches` (infers from products)
-- `stockChanges` (infers from products)
-- `sales` (infers from products)
-
-### Priority 3 (Dependent on Sales/Expenses):
-- `customers` (infers from sales)
-- `financeEntries` (infers from sales/expenses)
-
-## Smart Assignment Strategy
-
-For users with multiple companies, the script uses smart assignment:
-
-1. **Context-based**: Uses related entity's companyId (e.g., stockChanges use product's companyId)
-2. **Primary Company**: Uses the user's owner company or first company
-3. **Fallback**: Uses the first available company
-
-## Migration Report
-
-After migration, a detailed JSON report is saved to:
-```
-migration-report-{timestamp}.json
+# Migrate new Firebase
+npm run migrate:shop-warehouse -- --firebase=new --userId=YOUR_USER_ID
 ```
 
-The report includes:
-- Summary statistics
-- Per-collection details
-- Assignment methods used
-- Orphaned records (if any)
-- Errors encountered
+### With Custom Options
+
+```bash
+# Small batch size for testing
+npm run migrate:shop-warehouse -- --firebase=old --userId=YOUR_USER_ID --batchSize=100
+
+# Skip existing, validate data
+npm run migrate:shop-warehouse -- --firebase=new --userId=YOUR_USER_ID --skip-existing --validate
+```
+
+## What the Script Does
+
+1. **Creates Default Shop**: Creates "Boutique Principale" if it doesn't exist
+2. **Creates Default Warehouse**: Creates "Entrepôt Principal" if it doesn't exist
+3. **Migrates Stock Batches**: Assigns stock batches without `locationType` to default shop
+4. **Migrates Sales**: Assigns sales without `shopId` to default shop
+
+## Safety Features
+
+- **Dry Run Mode**: Test migration without making changes
+- **Skip Existing**: Skip companies that already have shops/warehouses
+- **Batch Processing**: Process in batches to avoid Firestore limits
+- **Error Handling**: Continue migration even if some companies fail
+- **Progress Tracking**: Real-time progress updates
+- **Summary Report**: Detailed summary at the end
+
+## Output
+
+The script provides:
+- Real-time progress updates
+- Success/error messages per company
+- Final summary with statistics
+- List of errors (if any)
+- List of warnings (if any)
 
 ## Troubleshooting
 
-### Error: "firebase-service-account.json not found"
-- Ensure the Firebase service account JSON file is in the project root
-- Download it from Firebase Console → Project Settings → Service Accounts
+### Error: Firebase key file not found
 
-### Error: "User has no companies"
-- These records are marked as "orphaned" in the report
-- You may need to manually fix these or create company associations
+**Solution**: Ensure `firebase-keys/old-firebase-key.json` and `firebase-keys/new-firebase-key.json` exist
 
-### Large Database Timeout
-- The script processes in batches of 500 records
-- If timeouts occur, you can modify `BATCH_SIZE` in the script
-- Consider running during low-traffic periods
+### Error: Permission denied
 
-## Post-Migration Steps
+**Solution**: Ensure the service account has proper Firestore permissions
 
-1. **Verify Data**: Check that all entities have `companyId`
-2. **Test Application**: Verify data isolation works correctly
-3. **Deploy Security Rules**: Update Firestore rules (already done)
-4. **Monitor**: Watch for any data access issues
+### Error: Batch size too large
 
-## Rollback
+**Solution**: Reduce batch size (Firestore limit is 500 operations per batch)
 
-If you need to rollback:
-- Restore from your database backup
-- The migration report includes all changes made
+### Migration takes too long
+
+**Solution**: 
+- Use larger batch size (up to 500)
+- Run during off-peak hours
+- Process companies in smaller groups
+
+## Best Practices
+
+1. **Always test first**: Run with `--dry-run` before actual migration
+2. **Backup data**: Export Firestore data before migration
+3. **Start small**: Test with a few companies first
+4. **Monitor progress**: Watch for errors during migration
+5. **Review summary**: Check the final summary for any issues
+
+## Notes
+
+- The script uses Firebase Admin SDK (server-side)
+- It requires Node.js to run
+- It can be run multiple times safely (idempotent)
+- Default shop/warehouse are protected from deletion
+- Migration is atomic per company (all or nothing)
 
 ## Support
 
-If you encounter issues:
-1. Check the migration report JSON file
-2. Review the error logs in the console
-3. Ensure all prerequisites are met
-4. Verify your Firebase service account has proper permissions
-
-
-
-
-
-
-
-
+For issues or questions:
+1. Check error messages in the console
+2. Review the migration summary
+3. Check Firestore console for data state
+4. Contact development team if needed
