@@ -84,6 +84,18 @@ import {
   getCustomCharges,
   getAllCharges
 } from '@services/firestore/charges/chargeService';
+import {
+  subscribeToShops,
+  createShop,
+  updateShop,
+  deleteShop
+} from '@services/firestore/shops/shopService';
+import {
+  subscribeToWarehouses,
+  createWarehouse,
+  updateWarehouse,
+  deleteWarehouse
+} from '@services/firestore/warehouse/warehouseService';
 import { dataCache, cacheKeys, invalidateSpecificCache } from '@utils/storage/dataCache';
 import { logError } from '@utils/core/logger';
 import ProductsManager from '@services/storage/ProductsManager';
@@ -110,7 +122,9 @@ import type {
   ProductionFlow,
   ProductionCategory,
   ProductionCharge,
-  Charge
+  Charge,
+  Shop,
+  Warehouse
 } from '../types/models';
 import { Timestamp } from 'firebase/firestore';
 import { useAuth } from '../../contexts/AuthContext';
@@ -1070,6 +1084,156 @@ export const useSupplierDebt = (supplierId: string | null) => {
     debt,
     loading,
     error
+  };
+};
+
+// Shops Hook
+export const useShops = () => {
+  const [shops, setShops] = useState<Shop[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+  const { user, company, currentEmployee, isOwner } = useAuth();
+
+  useEffect(() => {
+    if (!user || !company) return;
+    
+    const unsubscribe = subscribeToShops(company.id, (data) => {
+      setShops(data);
+      setLoading(false);
+      setError(null);
+    }, (err) => {
+      setError(err);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [user, company]);
+
+  const addShop = async (shopData: Omit<Shop, 'id' | 'createdAt' | 'updatedAt'>) => {
+    if (!user || !company) throw new Error('User not authenticated');
+    try {
+      let createdBy: ReturnType<typeof getCurrentEmployeeRef> = null;
+      if (user && company) {
+        let userData: Awaited<ReturnType<typeof getUserById>> | null = null;
+        if (isOwner && !currentEmployee) {
+          try {
+            userData = await getUserById(user.uid);
+          } catch (error) {
+            logError('Error fetching user data for createdBy', error);
+          }
+        }
+        createdBy = getCurrentEmployeeRef(currentEmployee, user, isOwner, userData);
+      }
+      
+      await createShop(shopData, company.id, createdBy);
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
+  };
+
+  const updateShopData = async (shopId: string, data: Partial<Shop>) => {
+    if (!user || !company) throw new Error('User not authenticated');
+    try {
+      await updateShop(shopId, data, company.id);
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
+  };
+
+  const deleteShopData = async (shopId: string) => {
+    if (!user || !company) throw new Error('User not authenticated');
+    try {
+      await deleteShop(shopId, company.id);
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
+  };
+
+  return {
+    shops,
+    loading,
+    error,
+    addShop,
+    updateShop: updateShopData,
+    deleteShop: deleteShopData
+  };
+};
+
+// Warehouses Hook
+export const useWarehouses = () => {
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+  const { user, company, currentEmployee, isOwner } = useAuth();
+
+  useEffect(() => {
+    if (!user || !company) return;
+    
+    const unsubscribe = subscribeToWarehouses(company.id, (data) => {
+      setWarehouses(data);
+      setLoading(false);
+      setError(null);
+    }, (err) => {
+      setError(err);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [user, company]);
+
+  const addWarehouse = async (warehouseData: Omit<Warehouse, 'id' | 'createdAt' | 'updatedAt'>) => {
+    if (!user || !company) throw new Error('User not authenticated');
+    try {
+      let createdBy: ReturnType<typeof getCurrentEmployeeRef> = null;
+      if (user && company) {
+        let userData: Awaited<ReturnType<typeof getUserById>> | null = null;
+        if (isOwner && !currentEmployee) {
+          try {
+            userData = await getUserById(user.uid);
+          } catch (error) {
+            logError('Error fetching user data for createdBy', error);
+          }
+        }
+        createdBy = getCurrentEmployeeRef(currentEmployee, user, isOwner, userData);
+      }
+      
+      await createWarehouse(warehouseData, company.id, createdBy);
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
+  };
+
+  const updateWarehouseData = async (warehouseId: string, data: Partial<Warehouse>) => {
+    if (!user || !company) throw new Error('User not authenticated');
+    try {
+      await updateWarehouse(warehouseId, data, company.id);
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
+  };
+
+  const deleteWarehouseData = async (warehouseId: string) => {
+    if (!user || !company) throw new Error('User not authenticated');
+    try {
+      await deleteWarehouse(warehouseId, company.id);
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
+  };
+
+  return {
+    warehouses,
+    loading,
+    error,
+    addWarehouse,
+    updateWarehouse: updateWarehouseData,
+    deleteWarehouse: deleteWarehouseData
   };
 };
 

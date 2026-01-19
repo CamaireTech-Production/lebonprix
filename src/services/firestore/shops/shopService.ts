@@ -15,7 +15,8 @@ import {
   writeBatch,
   serverTimestamp,
   arrayUnion,
-  arrayRemove
+  arrayRemove,
+  onSnapshot
 } from 'firebase/firestore';
 import { db } from '../../core/firebase';
 import { logError } from '@utils/core/logger';
@@ -319,5 +320,41 @@ export const getUserShops = async (
     logError('Error getting user shops', error);
     throw error;
   }
+};
+
+// ============================================================================
+// SUBSCRIPTION FUNCTIONS
+// ============================================================================
+
+/**
+ * Subscribe to shops for a company
+ */
+export const subscribeToShops = (
+  companyId: string,
+  callback: (shops: Shop[]) => void,
+  onError?: (error: Error) => void
+): (() => void) => {
+  const q = query(
+    collection(db, 'shops'),
+    where('companyId', '==', companyId),
+    orderBy('createdAt', 'asc')
+  );
+
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const shops = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Shop[];
+      callback(shops);
+    },
+    (error) => {
+      logError('Error subscribing to shops', error);
+      if (onError) {
+        onError(new Error(error.message));
+      }
+    }
+  );
 };
 

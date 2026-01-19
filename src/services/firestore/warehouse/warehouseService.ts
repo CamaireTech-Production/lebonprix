@@ -13,7 +13,8 @@ import {
   updateDoc,
   deleteDoc,
   writeBatch,
-  serverTimestamp
+  serverTimestamp,
+  onSnapshot
 } from 'firebase/firestore';
 import { db } from '../../core/firebase';
 import { logError } from '@utils/core/logger';
@@ -219,5 +220,41 @@ export const getDefaultWarehouse = async (companyId: string): Promise<Warehouse 
     logError('Error getting default warehouse', error);
     throw error;
   }
+};
+
+// ============================================================================
+// SUBSCRIPTION FUNCTIONS
+// ============================================================================
+
+/**
+ * Subscribe to warehouses for a company
+ */
+export const subscribeToWarehouses = (
+  companyId: string,
+  callback: (warehouses: Warehouse[]) => void,
+  onError?: (error: Error) => void
+): (() => void) => {
+  const q = query(
+    collection(db, 'warehouses'),
+    where('companyId', '==', companyId),
+    orderBy('createdAt', 'asc')
+  );
+
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const warehouses = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Warehouse[];
+      callback(warehouses);
+    },
+    (error) => {
+      logError('Error subscribing to warehouses', error);
+      if (onError) {
+        onError(new Error(error.message));
+      }
+    }
+  );
 };
 
