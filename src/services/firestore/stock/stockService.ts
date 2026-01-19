@@ -37,7 +37,12 @@ export const createStockBatch = async (
   isOwnPurchase?: boolean,
   isCredit?: boolean,
   notes?: string,
-  type: 'product' | 'matiere' = 'product' // Default to product for backward compatibility
+  type: 'product' | 'matiere' = 'product', // Default to product for backward compatibility
+  // Location fields for warehouse/shop system
+  locationType?: 'warehouse' | 'shop' | 'production' | 'global',
+  shopId?: string,
+  warehouseId?: string,
+  productionId?: string
 ): Promise<StockBatch> => {
   if (!productIdOrMatiereId || quantity <= 0 || costPrice <= 0 || !userId) {
     throw new Error('Invalid stock batch data');
@@ -46,6 +51,19 @@ export const createStockBatch = async (
   // Validate type field
   if (type !== 'product' && type !== 'matiere') {
     throw new Error('Type must be either "product" or "matiere"');
+  }
+
+  // Validate location fields
+  if (locationType) {
+    if (locationType === 'shop' && !shopId) {
+      throw new Error('shopId is required when locationType is "shop"');
+    }
+    if (locationType === 'warehouse' && !warehouseId) {
+      throw new Error('warehouseId is required when locationType is "warehouse"');
+    }
+    if (locationType === 'production' && !productionId) {
+      throw new Error('productionId is required when locationType is "production"');
+    }
   }
 
   let finalCompanyId = companyId;
@@ -94,6 +112,14 @@ export const createStockBatch = async (
   if (typeof isCredit !== 'undefined') batchData.isCredit = isCredit;
   if (notes) batchData.notes = notes;
 
+  // Add location fields if provided
+  if (locationType) {
+    batchData.locationType = locationType;
+    if (shopId) batchData.shopId = shopId;
+    if (warehouseId) batchData.warehouseId = warehouseId;
+    if (productionId) batchData.productionId = productionId;
+  }
+
   await setDoc(stockBatchRef, batchData);
 
   return {
@@ -106,7 +132,11 @@ export const createStockBatch = async (
 export const getAvailableStockBatches = async (
   productIdOrMatiereId: string,
   companyId: string,
-  type: 'product' | 'matiere' = 'product'
+  type: 'product' | 'matiere' = 'product',
+  // Location filters for warehouse/shop system
+  shopId?: string,
+  warehouseId?: string,
+  locationType?: 'warehouse' | 'shop' | 'production' | 'global'
 ): Promise<StockBatch[]> => {
   const constraints: any[] = [
     where('companyId', '==', companyId),
@@ -122,6 +152,18 @@ export const getAvailableStockBatches = async (
   } else {
     constraints.push(where('productId', '==', productIdOrMatiereId));
   }
+
+  // Add location filters if provided
+  if (shopId) {
+    constraints.push(where('shopId', '==', shopId));
+    constraints.push(where('locationType', '==', 'shop'));
+  } else if (warehouseId) {
+    constraints.push(where('warehouseId', '==', warehouseId));
+    constraints.push(where('locationType', '==', 'warehouse'));
+  } else if (locationType) {
+    constraints.push(where('locationType', '==', locationType));
+  }
+  // If no location filters, get all batches (backward compatibility)
 
   constraints.push(orderBy('createdAt', 'asc'));
 
@@ -140,12 +182,24 @@ export const consumeStockFromBatches = async (
   companyId: string,
   quantity: number,
   method: InventoryMethod = 'FIFO',
-  type: 'product' | 'matiere' = 'product'
+  type: 'product' | 'matiere' = 'product',
+  // Location filters for warehouse/shop system
+  shopId?: string,
+  warehouseId?: string,
+  locationType?: 'warehouse' | 'shop' | 'production' | 'global'
 ): Promise<InventoryResult> => {
-  const availableBatches = await getAvailableStockBatches(productIdOrMatiereId, companyId, type);
+  const availableBatches = await getAvailableStockBatches(
+    productIdOrMatiereId,
+    companyId,
+    type,
+    shopId,
+    warehouseId,
+    locationType
+  );
   
   if (availableBatches.length === 0) {
-    throw new Error(`No available stock batches found for ${type} ${productIdOrMatiereId}`);
+    const locationInfo = shopId ? `shop ${shopId}` : warehouseId ? `warehouse ${warehouseId}` : '';
+    throw new Error(`No available stock batches found for ${type} ${productIdOrMatiereId}${locationInfo ? ` in ${locationInfo}` : ''}`);
   }
 
   const sortedBatches = availableBatches.sort((a, b) => {
@@ -250,7 +304,12 @@ export const createStockChange = (
     costPrice: number;
     consumedQuantity: number;
     remainingQuantity: number;
-  }>
+  }>,
+  // Location fields for warehouse/shop system
+  locationType?: 'warehouse' | 'shop' | 'production' | 'global',
+  shopId?: string,
+  warehouseId?: string,
+  transferId?: string
 ) => {
   // Validate type field
   if (type !== 'product' && type !== 'matiere') {
@@ -281,6 +340,14 @@ export const createStockChange = (
   if (typeof batchId !== 'undefined') stockChangeData.batchId = batchId;
   if (typeof saleId !== 'undefined') stockChangeData.saleId = saleId;
   if (batchConsumptions && batchConsumptions.length > 0) stockChangeData.batchConsumptions = batchConsumptions;
+  
+  // Add location fields if provided
+  if (locationType) {
+    stockChangeData.locationType = locationType;
+    if (shopId) stockChangeData.shopId = shopId;
+    if (warehouseId) stockChangeData.warehouseId = warehouseId;
+  }
+  if (transferId) stockChangeData.transferId = transferId;
   
   batch.set(stockChangeRef, stockChangeData);
   return stockChangeRef.id;
@@ -645,5 +712,51 @@ export const getProductAdjustmentHistory = async (productId: string): Promise<St
     id: doc.id,
     ...doc.data()
   })) as StockChange[];
+};
+
+// ============================================================================
+// LOCATION-BASED STOCK QUERIES (Warehouse/Shop System)
+// ============================================================================
+
+/**
+ * Get stock batches filtered by location
+ * @param shopId - Filter by shop ID
+ * @param warehouseId - Filter by warehouse ID
+ * @param locationType - Filter by location type
+ * @param companyId - Company ID (required)
+ * @param type - Product or matiere type
+ */
+export const getStockBatchesByLocation = async (
+  companyId: string,
+  type: 'product' | 'matiere' = 'product',
+  shopId?: string,
+  warehouseId?: string,
+  locationType?: 'warehouse' | 'shop' | 'production' | 'global'
+): Promise<StockBatch[]> => {
+  const constraints: any[] = [
+    where('companyId', '==', companyId),
+    where('type', '==', type),
+  ];
+
+  // Add location filters
+  if (shopId) {
+    constraints.push(where('shopId', '==', shopId));
+    constraints.push(where('locationType', '==', 'shop'));
+  } else if (warehouseId) {
+    constraints.push(where('warehouseId', '==', warehouseId));
+    constraints.push(where('locationType', '==', 'warehouse'));
+  } else if (locationType) {
+    constraints.push(where('locationType', '==', locationType));
+  }
+
+  constraints.push(orderBy('createdAt', 'desc'));
+
+  const q = query(collection(db, 'stockBatches'), ...constraints);
+  
+  const snapshot = await getDocs(q);
+  const batches = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as StockBatch[];
+  
+  // Filter client-side to exclude deleted batches
+  return batches.filter(batch => batch.isDeleted !== true);
 };
 
