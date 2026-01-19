@@ -286,7 +286,7 @@ export interface StockChange {
   productId?: string; // Only if type === 'product'
   matiereId?: string; // Only if type === 'matiere'
   change: number; // + for restock, - for sale, etc.
-  reason: 'sale' | 'restock' | 'adjustment' | 'creation' | 'cost_correction' | 'damage' | 'manual_adjustment' | 'production' | 'batch_deletion';
+  reason: 'sale' | 'restock' | 'adjustment' | 'creation' | 'cost_correction' | 'damage' | 'manual_adjustment' | 'production' | 'batch_deletion' | 'quantity_correction';
   supplierId?: string; // Reference to supplier if applicable
   isOwnPurchase?: boolean; // true if own purchase, false if from supplier
   isCredit?: boolean; // true if on credit, false if paid (only relevant if from supplier)
@@ -297,6 +297,13 @@ export interface StockChange {
   userId: string; // Legacy field - kept for audit trail
   companyId: string; // Reference to the company this stock change belongs to
   notes?: string; // Optional notes for the stock change
+  // NEW: Unified adjustment tracking fields
+  adjustmentType?: 'quantity_correction' | 'remaining_adjustment' | 'damage' | 'cost_correction' | 'combined';
+  adjustmentReason?: 'error_correction' | 'inventory_audit' | 'damage' | 'theft' | 'expiry' | 'return_to_supplier' | 'other';
+  oldQuantity?: number; // For quantity_correction: old total quantity
+  newQuantity?: number; // For quantity_correction: new total quantity
+  oldCostPrice?: number; // For cost_correction: old cost price
+  newCostPrice?: number; // For cost_correction: new cost price
   // NEW: Detailed batch consumption tracking
   batchConsumptions?: Array<{
     batchId: string;
@@ -328,6 +335,26 @@ export interface StockBatch {
   isDeleted?: boolean; // Soft delete flag
   deletedAt?: Timestamp; // When the batch was deleted
   deletedBy?: string; // User who deleted the batch
+}
+
+/**
+ * Unified batch adjustment request
+ * Supports all types of batch adjustments in a single interface
+ */
+export interface BatchAdjustment {
+  batchId: string;
+  adjustmentType: 'quantity_correction' | 'remaining_adjustment' | 'damage' | 'cost_correction' | 'combined';
+  adjustmentReason: 'error_correction' | 'inventory_audit' | 'damage' | 'theft' | 'expiry' | 'return_to_supplier' | 'other';
+  // For quantity_correction: correct the total quantity of the batch
+  newTotalQuantity?: number;
+  // For remaining_adjustment: adjust only the remaining quantity (delta)
+  remainingQuantityDelta?: number;
+  // For damage: record damaged quantity
+  damageQuantity?: number;
+  // For cost_correction: update cost price
+  newCostPrice?: number;
+  // Optional notes
+  notes?: string;
 }
 
 export interface Supplier extends BaseModel {

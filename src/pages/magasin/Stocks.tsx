@@ -6,8 +6,7 @@ import { useMatieres } from '@hooks/business/useMatieres';
 import { useAllStockBatches } from '@hooks/business/useStockBatches';
 import { useStockChanges } from '@hooks/data/useFirestore';
 import MatiereRestockModal from '../../components/magasin/MatiereRestockModal';
-import MatiereManualAdjustmentModal from '../../components/magasin/MatiereManualAdjustmentModal';
-import MatiereDamageAdjustmentModal from '../../components/magasin/MatiereDamageAdjustmentModal';
+import UnifiedBatchAdjustmentModal from '../../components/magasin/UnifiedBatchAdjustmentModal';
 import BatchDeleteModal from '../../components/common/BatchDeleteModal';
 import { usePermissionCheck } from '@components/permissions';
 import { RESOURCES } from '@constants/resources';
@@ -83,7 +82,6 @@ const Stocks = () => {
   // Modal states
   const [restockModalOpen, setRestockModalOpen] = useState(false);
   const [adjustModalOpen, setAdjustModalOpen] = useState(false);
-  const [damageModalOpen, setDamageModalOpen] = useState(false);
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [selectedMatiere, setSelectedMatiere] = useState<Matiere | null>(null);
@@ -149,17 +147,6 @@ const Stocks = () => {
     setAdjustModalOpen(true);
   };
 
-  const handleDamage = (matiere: Matiere, batch: StockBatch) => {
-    setSelectedMatiere(matiere);
-    setSelectedBatch(batch);
-    const matiereBatches = batchesByMatiere.get(matiere.id) || [];
-    const remaining = matiereBatches.reduce((sum, b) => sum + (b.remainingQuantity || 0), 0);
-    const total = matiereBatches.reduce((sum, b) => sum + (b.quantity || 0), 0);
-    setSelectedBatchTotals(matiereBatches.length ? { remaining, total } : undefined);
-    setExpandedMatiereId(matiere.id || '');
-    setDamageModalOpen(true);
-  };
-
   const handleHistory = (matiere: Matiere) => {
     setSelectedMatiere(matiere);
     setHistoryModalOpen(true);
@@ -176,7 +163,6 @@ const Stocks = () => {
     // No need to manually refresh
     setRestockModalOpen(false);
     setAdjustModalOpen(false);
-    setDamageModalOpen(false);
     setHistoryModalOpen(false);
     setDeleteModalOpen(false);
     setSelectedMatiere(null);
@@ -186,7 +172,6 @@ const Stocks = () => {
   const handleModalClose = () => {
     setRestockModalOpen(false);
     setAdjustModalOpen(false);
-    setDamageModalOpen(false);
     setHistoryModalOpen(false);
     setDeleteModalOpen(false);
     setSelectedMatiere(null);
@@ -402,17 +387,6 @@ const Stocks = () => {
                                           >
                                             <Settings className="w-4 h-4" />
                                           </Button>
-                                          {batch.remainingQuantity > 0 && (
-                                            <Button 
-                                              size="sm" 
-                                              variant="outline"
-                                              className="px-3 py-1.5 text-sm"
-                                              onClick={() => handleDamage(matiere, batch)}
-                                              title={t('navigation.warehouseMenu.stocksPage.actions.damage')}
-                                            >
-                                              <AlertTriangle className="w-4 h-4" />
-                                            </Button>
-                                          )}
                                           {canDelete && (
                                             <Button
                                               size="sm"
@@ -544,17 +518,8 @@ const Stocks = () => {
         onSuccess={handleModalSuccess}
       />
 
-      <MatiereManualAdjustmentModal
+      <UnifiedBatchAdjustmentModal
         isOpen={adjustModalOpen}
-        onClose={handleModalClose}
-        matiere={selectedMatiere}
-        selectedBatch={selectedBatch}
-        batchTotals={selectedBatchTotals}
-        onSuccess={handleModalSuccess}
-      />
-
-      <MatiereDamageAdjustmentModal
-        isOpen={damageModalOpen}
         onClose={handleModalClose}
         matiere={selectedMatiere}
         selectedBatch={selectedBatch}
