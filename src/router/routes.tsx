@@ -75,6 +75,7 @@ export const AppRoutes: React.FC<AppRoutesProps> = ({ isAddSaleModalOpen, setIsA
       {/* Public Routes */}
       <Route path="/track/:id" element={<LazyPage><TimelinePage /></LazyPage>} />
       <Route path="/catalogue/:companyName/:companyId" element={<LazyPage><Catalogue /></LazyPage>} />
+      <Route path="/catalogue/:companyName/:companyId/shop/:shopId" element={<LazyPage><Catalogue /></LazyPage>} />
       <Route path="/catalogue/:companyName/:companyId/product/:productId" element={<LazyPage><ProductDetailPage /></LazyPage>} />
       <Route path="/checkout/:companyId" element={<LazyPage><SingleCheckout /></LazyPage>} />
       {/* Public Invite Activation Route - Redirects to login for backward compatibility */}

@@ -5,14 +5,16 @@ import { getCompanyByUserId } from '@services/firestore/firestore';
 import { subscribeToProducts } from '@services/firestore/products/productService';
 import { subscribeToCategories } from '@services/firestore/categories/categoryService';
 import { trackCatalogueView } from '@services/firestore/site/siteService';
-import type { Company, Product, Category } from '../../types/models';
-import { Search, Package, AlertCircle, MapPin, Plus, Heart, Phone } from 'lucide-react';
+import { subscribeToShops, getDefaultShop } from '@services/firestore/shops/shopService';
+import { getAvailableStockBatches } from '@services/firestore/stock/stockService';
+import type { Company, Product, Category, Shop } from '../../types/models';
+import { Search, Package, AlertCircle, MapPin, Plus, Heart, Phone, Store } from 'lucide-react';
 import { Button, FloatingCartButton, ProductDetailModal, ImageWithSkeleton, LanguageSwitcher } from '@components/common';
 
 const placeholderImg = '/placeholder.png';
 
 const Catalogue = () => {
-  const { companyId } = useParams<{ companyName: string; companyId: string }>();
+  const { companyId, shopId } = useParams<{ companyName: string; companyId: string; shopId?: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const categoryParam = searchParams.get('category'); // For backward compatibility
@@ -21,6 +23,9 @@ const Catalogue = () => {
   const [company, setCompany] = useState<Company | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [shops, setShops] = useState<Shop[]>([]);
+  const [selectedShopId, setSelectedShopId] = useState<string>(shopId || '');
+  const [productStockMap, setProductStockMap] = useState<Map<string, number>>(new Map());
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -33,9 +38,20 @@ const Catalogue = () => {
   // Cart management functions (now using global context)
   const handleAddToCart = (product: Product) => {
     if (companyId) {
-      addToCart(product, 1, undefined, undefined, companyId);
+      addToCart(product, 1, undefined, undefined, companyId, selectedShopId);
     } else {
       addToCart(product, 1);
+    }
+  };
+
+  // Handle shop selection change
+  const handleShopChange = (newShopId: string) => {
+    setSelectedShopId(newShopId);
+    // Update URL to shop-specific route if not already on one
+    if (companyId && company?.name) {
+      const companyName = company.name.toLowerCase().replace(/\s+/g, '-');
+      const newPath = `/catalogue/${companyName}/${companyId}/shop/${newShopId}`;
+      navigate(newPath, { replace: true });
     }
   };
 
@@ -200,6 +216,77 @@ const Catalogue = () => {
     return () => unsubscribe();
   }, [company?.id]);
 
+  // Subscribe to shops
+  useEffect(() => {
+    if (!company?.id) return;
+
+    const unsubscribe = subscribeToShops(company.id, (shopsData) => {
+      setShops(shopsData);
+      // Auto-select default shop if none selected
+      if (!selectedShopId && shopsData.length > 0) {
+        const defaultShop = shopsData.find(s => s.isDefault) || shopsData[0];
+        if (defaultShop) {
+          setSelectedShopId(defaultShop.id);
+        }
+      }
+    });
+
+    return () => unsubscribe();
+  }, [company?.id, selectedShopId]);
+
+  // Initialize shop from URL or default
+  useEffect(() => {
+    if (shopId && shopId !== selectedShopId) {
+      setSelectedShopId(shopId);
+    } else if (!shopId && company?.id && !selectedShopId) {
+      const initializeDefaultShop = async () => {
+        try {
+          const defaultShop = await getDefaultShop(company.id);
+          if (defaultShop) {
+            setSelectedShopId(defaultShop.id);
+          }
+        } catch (error) {
+          console.error('Error loading default shop', error);
+        }
+      };
+      initializeDefaultShop();
+    }
+  }, [shopId, company?.id, selectedShopId]);
+
+  // Load product stock for selected shop
+  useEffect(() => {
+    if (!company?.id || !selectedShopId || products.length === 0) {
+      setProductStockMap(new Map());
+      return;
+    }
+
+    const loadProductStock = async () => {
+      const stockMap = new Map<string, number>();
+      
+      for (const product of products) {
+        try {
+          const batches = await getAvailableStockBatches(
+            product.id,
+            company.id,
+            'product',
+            selectedShopId,
+            undefined,
+            'shop'
+          );
+          const totalStock = batches.reduce((sum, batch) => sum + (batch.remainingQuantity || 0), 0);
+          stockMap.set(product.id, totalStock);
+        } catch (error) {
+          console.error(`Error loading stock for product ${product.id}:`, error);
+          stockMap.set(product.id, 0);
+        }
+      }
+      
+      setProductStockMap(stockMap);
+    };
+
+    loadProductStock();
+  }, [company?.id, selectedShopId, products]);
+
   // Track catalogue view for analytics (gracefully handle errors for non-authenticated users)
   useEffect(() => {
     if (company?.id) {
@@ -276,7 +363,7 @@ const Catalogue = () => {
     navigate(newUrl, { replace: true });
   };
 
-  // Apply search and category filters
+  // Apply search, category, and shop stock filters
   useEffect(() => {
     let result = [...products];
 
@@ -296,8 +383,16 @@ const Catalogue = () => {
       );
     }
 
+    // Apply shop stock filter (only show products with stock in selected shop)
+    if (selectedShopId) {
+      result = result.filter(product => {
+        const stock = productStockMap.get(product.id) || 0;
+        return stock > 0;
+      });
+    }
+
     setFilteredProducts(result);
-  }, [products, searchQuery, selectedCategories, categoryParam, categoriesParam]);
+  }, [products, searchQuery, selectedCategories, selectedShopId, productStockMap, categoryParam, categoriesParam]);
 
   if (loading) {
     return (
@@ -383,19 +478,41 @@ const Catalogue = () => {
             </div>
           </div>
           
-          {/* Search Bar */}
-          <div className="relative max-w-2xl">
-            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-theme-brown" />
-            <input
+          {/* Shop Selector and Search Bar */}
+          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+            {/* Shop Selector - Only show if multiple shops exist */}
+            {shops.length > 1 && (
+              <div className="flex items-center gap-2 bg-white bg-opacity-20 rounded-xl px-4 py-2 backdrop-blur-sm">
+                <Store className="h-5 w-5 text-white" />
+                <select
+                  value={selectedShopId}
+                  onChange={(e) => handleShopChange(e.target.value)}
+                  className="bg-transparent text-white border-none outline-none cursor-pointer text-sm sm:text-base font-medium"
+                  style={{ color: 'white' }}
+                >
+                  {shops.map((shop) => (
+                    <option key={shop.id} value={shop.id} style={{ color: '#000' }}>
+                      {shop.name} {shop.isDefault ? '(Par défaut)' : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            
+            {/* Search Bar */}
+            <div className="relative flex-1 max-w-2xl">
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-theme-brown" />
+              <input
                 type="text"
-              placeholder="Rechercher des produits..."
+                placeholder="Rechercher des produits..."
                 value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-12 pr-4 py-4 bg-white rounded-xl border-0 focus:outline-none text-gray-900 placeholder-gray-500 text-lg shadow-lg"
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-12 pr-4 py-4 bg-white rounded-xl border-0 focus:outline-none text-gray-900 placeholder-gray-500 text-lg shadow-lg"
               />
             </div>
-                </div>
-              </div>
+          </div>
+        </div>
+      </div>
 
       {/* Category Filter Chips */}
       {products.length > 0 && (
