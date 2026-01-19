@@ -27,6 +27,8 @@ import ProductTagsManager from '../../components/products/ProductTagsManager';
 import CategorySelector from '../../components/products/CategorySelector';
 import BarcodeGenerator from '../../components/products/BarcodeGenerator';
 import ProductsReportModal from '../../components/reports/ProductsReportModal';
+import { PermissionButton, usePermissionCheck } from '@components/permissions';
+import { RESOURCES } from '@constants/resources';
 
 interface CsvRow {
   [key: string]: string;
@@ -59,6 +61,7 @@ const Products = () => {
   const { suppliers } = useSuppliers();
   const { batches: allStockBatches, loading: batchesLoading } = useAllStockBatches();
   const { user, company, currentEmployee, isOwner } = useAuth();
+  const { canEdit, canDelete } = usePermissionCheck(RESOURCES.PRODUCTS);
 
   // Set up infinite scroll
   useInfiniteScroll({
@@ -1514,12 +1517,15 @@ const Products = () => {
             Générer un rapport
           </Button>
 
-          <Button
+          <PermissionButton
+            resource={RESOURCES.PRODUCTS}
+            action="create"
             icon={<Plus size={16} />}
             onClick={() => setIsAddModalOpen(true)}
+            hideWhenNoPermission
           >
             {t('products.actions.addProduct')}
-          </Button>
+          </PermissionButton>
 
           {/* Temporary refresh button to clear old cached data */}
           <Button
@@ -1727,20 +1733,24 @@ const Products = () => {
                   >
                     {getEffectiveVisibility(product) ? 'Visible on catalogue' : 'Hidden from catalogue'}
                   </button>
-                  <button
-                    onClick={() => openEditModal(product)}
-                    className="text-indigo-600 hover:text-indigo-900"
-                    title={t('products.actions.editProduct')}
-                  >
-                    <Edit2 size={16} />
-                  </button>
-                  <button
-                    onClick={() => openDeleteModal(product)}
-                    className="text-red-600 hover:text-red-900"
-                    title={t('products.actions.deleteProduct')}
-                  >
-                    <Trash2 size={16} />
-                  </button>
+                  {canEdit && (
+                    <button
+                      onClick={() => openEditModal(product)}
+                      className="text-indigo-600 hover:text-indigo-900"
+                      title={t('products.actions.editProduct')}
+                    >
+                      <Edit2 size={16} />
+                    </button>
+                  )}
+                  {canDelete && (
+                    <button
+                      onClick={() => openDeleteModal(product)}
+                      className="text-red-600 hover:text-red-900"
+                      title={t('products.actions.deleteProduct')}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  )}
                 </div>
               </div>
             </Card>
@@ -1905,20 +1915,24 @@ const Products = () => {
                         >
                           {getEffectiveVisibility(product) ? 'Visible on catalogue' : 'Hidden from catalogue'}
                         </button>
-                        <button
-                          onClick={() => openEditModal(product)}
-                          className="text-indigo-600 hover:text-indigo-900"
-                          title={t('products.actions.editProduct')}
-                        >
-                          <Edit2 size={16} />
-                        </button>
-                        <button
-                          onClick={() => openDeleteModal(product)}
-                          className="text-red-600 hover:text-red-900"
-                          title={t('products.actions.deleteProduct')}
-                        >
-                          <Trash2 size={16} />
-                        </button>
+                        {canEdit && (
+                          <button
+                            onClick={() => openEditModal(product)}
+                            className="text-indigo-600 hover:text-indigo-900"
+                            title={t('products.actions.editProduct')}
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                        )}
+                        {canDelete && (
+                          <button
+                            onClick={() => openDeleteModal(product)}
+                            className="text-red-600 hover:text-red-900"
+                            title={t('products.actions.deleteProduct')}
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

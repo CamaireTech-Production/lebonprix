@@ -7,12 +7,15 @@ import { useProductionCategories } from '@hooks/data/useFirestore';
 import { FirebaseStorageService } from '@services/core/firebaseStorage';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
 import { formatCreatorName } from '@utils/business/employeeUtils';
+import { usePermissionCheck } from '@components/permissions';
+import { RESOURCES } from '@constants/resources';
 import imageCompression from 'browser-image-compression';
 import type { ProductionCategory } from '../../types/models';
 
 const Categories: React.FC = () => {
   const { user, company } = useAuth();
   const { categories, loading, addCategory, updateCategory, deleteCategory } = useProductionCategories();
+  const { canDelete } = usePermissionCheck(RESOURCES.PRODUCTIONS);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<ProductionCategory | null>(null);
@@ -329,15 +332,17 @@ const Categories: React.FC = () => {
                       >
                         <Edit2 size={16} />
                       </button>
-                      <button
-                        onClick={() => {
-                          setDeletingCategory(category);
-                          setIsDeleteModalOpen(true);
-                        }}
-                        className="text-red-600 hover:text-red-900"
-                      >
-                        <Trash2 size={16} />
-                      </button>
+                      {canDelete && (
+                        <button
+                          onClick={() => {
+                            setDeletingCategory(category);
+                            setIsDeleteModalOpen(true);
+                          }}
+                          className="text-red-600 hover:text-red-900"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

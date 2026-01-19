@@ -5,10 +5,13 @@ import { Card, Badge, Button, Modal, ModalFooter, Input } from '@components/comm
 import { useExpenseCategories } from '@hooks/business/useExpenseCategories';
 import { useAuth } from '@contexts/AuthContext';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
+import { PermissionButton, usePermissionCheck } from '@components/permissions';
+import { RESOURCES } from '@constants/resources';
 import type { ExpenseType } from '../../types/models';
 
 const ExpensesCategories = () => {
   const { company } = useAuth();
+  const { canEdit, canDelete } = usePermissionCheck(RESOURCES.EXPENSES);
   const {
     expenseTypesList,
     categoryUsageCounts,
@@ -177,28 +180,32 @@ const ExpensesCategories = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex justify-end space-x-2">
-                        <button
-                          onClick={() => handleEditCategory(category)}
-                          disabled={category.isDefault}
-                          className={`text-indigo-600 hover:text-indigo-900 ${category.isDefault ? 'opacity-50 cursor-not-allowed' : ''}`}
-                          title={category.isDefault ? 'Les catégories par défaut ne peuvent pas être modifiées' : 'Modifier la catégorie'}
-                        >
-                          <Edit2 size={16} />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteCategory(category)}
-                          disabled={category.isDefault || usageCount > 0}
-                          className={`text-red-600 hover:text-red-900 ${category.isDefault || usageCount > 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
-                          title={
-                            category.isDefault
-                              ? 'Les catégories par défaut ne peuvent pas être supprimées'
-                              : usageCount > 0
-                              ? `Impossible de supprimer: ${usageCount} dépense(s) utilisent cette catégorie`
-                              : 'Supprimer la catégorie'
-                          }
-                        >
-                          <Trash2 size={16} />
-                        </button>
+                        {canEdit && (
+                          <button
+                            onClick={() => handleEditCategory(category)}
+                            disabled={category.isDefault}
+                            className={`text-indigo-600 hover:text-indigo-900 ${category.isDefault ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            title={category.isDefault ? 'Les catégories par défaut ne peuvent pas être modifiées' : 'Modifier la catégorie'}
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                        )}
+                        {canDelete && (
+                          <button
+                            onClick={() => handleDeleteCategory(category)}
+                            disabled={category.isDefault || usageCount > 0}
+                            className={`text-red-600 hover:text-red-900 ${category.isDefault || usageCount > 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            title={
+                              category.isDefault
+                                ? 'Les catégories par défaut ne peuvent pas être supprimées'
+                                : usageCount > 0
+                                ? `Impossible de supprimer: ${usageCount} dépense(s) utilisent cette catégorie`
+                                : 'Supprimer la catégorie'
+                            }
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

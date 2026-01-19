@@ -16,7 +16,7 @@ export interface SaleDataInput {
     quarter?: string;
   };
   deliveryFee?: number;
-  inventoryMethod?: 'FIFO' | 'LIFO' | 'fifo' | 'lifo';
+  inventoryMethod?: 'FIFO' | 'LIFO' | 'CMUP' | 'fifo' | 'lifo' | 'cmup';
   saleDate?: string;
   createdAt?: any; // Timestamp or Date
   [key: string]: any; // Allow other fields
@@ -35,7 +35,7 @@ export interface NormalizedSaleData {
     quarter?: string;
   };
   deliveryFee: number;
-  inventoryMethod: 'FIFO' | 'LIFO';
+  inventoryMethod: 'FIFO' | 'LIFO' | 'CMUP';
   createdAt?: any;
   [key: string]: any; // Allow other fields
 }
@@ -146,10 +146,12 @@ export const normalizeSaleData = (
   companyId: string
 ): NormalizedSaleData => {
   // Normalize inventoryMethod to uppercase
-  const normalizeInventoryMethod = (method?: string): 'FIFO' | 'LIFO' => {
+  const normalizeInventoryMethod = (method?: string): 'FIFO' | 'LIFO' | 'CMUP' => {
     if (!method) return 'FIFO';
     const upper = method.toUpperCase();
-    return upper === 'LIFO' ? 'LIFO' : 'FIFO';
+    if (upper === 'LIFO') return 'LIFO';
+    if (upper === 'CMUP') return 'CMUP';
+    return 'FIFO';
   };
 
   // Normalize sale data with defaults

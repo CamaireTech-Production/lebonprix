@@ -9,6 +9,8 @@ import MatiereRestockModal from '../../components/magasin/MatiereRestockModal';
 import MatiereManualAdjustmentModal from '../../components/magasin/MatiereManualAdjustmentModal';
 import MatiereDamageAdjustmentModal from '../../components/magasin/MatiereDamageAdjustmentModal';
 import BatchDeleteModal from '../../components/common/BatchDeleteModal';
+import { usePermissionCheck } from '@components/permissions';
+import { RESOURCES } from '@constants/resources';
 import type { Matiere, StockBatch, StockChange } from '../../types/models';
 
 const PAGE_SIZES = [10, 20, 50];
@@ -71,6 +73,7 @@ const Stocks = () => {
   const { matieres, loading, error: matieresError } = useMatieres();
   const { batches, loading: batchesLoading, error: batchesError } = useAllStockBatches('matiere');
   const { stockChanges } = useStockChanges('matiere');
+  const { canDelete } = usePermissionCheck(RESOURCES.MAGASIN);
 
   const [expandedMatiereId, setExpandedMatiereId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -410,31 +413,35 @@ const Stocks = () => {
                                               <AlertTriangle className="w-4 h-4" />
                                             </Button>
                                           )}
-                                          <Button 
-                                            size="sm" 
-                                            variant="outline"
-                                            className="px-3 py-1.5 text-sm text-red-600 border-red-300 hover:bg-red-50"
-                                            onClick={() => handleDelete(matiere, batch)}
-                                            disabled={batch.remainingQuantity > 0}
-                                            title={batch.remainingQuantity > 0 ? "Can only delete batches with zero remaining stock" : "Delete batch"}
-                                          >
-                                            <Trash2 size={14} />
-                                          </Button>
+                                          {canDelete && (
+                                            <Button
+                                              size="sm"
+                                              variant="outline"
+                                              className="px-3 py-1.5 text-sm text-red-600 border-red-300 hover:bg-red-50"
+                                              onClick={() => handleDelete(matiere, batch)}
+                                              disabled={batch.remainingQuantity > 0}
+                                              title={batch.remainingQuantity > 0 ? "Can only delete batches with zero remaining stock" : "Delete batch"}
+                                            >
+                                              <Trash2 size={14} />
+                                            </Button>
+                                          )}
                                         </>
                                       ) : (
                                         <div className="flex items-center justify-end space-x-3">
                                           <span className="inline-flex items-center justify-end text-xs text-gray-500">
                                             {t('navigation.warehouseMenu.stocksPage.messages.noActionsDepleted')}
                                           </span>
-                                          <Button 
-                                            size="sm" 
-                                            variant="outline"
-                                            className="px-3 py-1.5 text-sm text-red-600 border-red-300 hover:bg-red-50"
-                                            onClick={() => handleDelete(matiere, batch)}
-                                            title="Delete batch"
-                                          >
-                                            <Trash2 size={14} />
-                                          </Button>
+                                          {canDelete && (
+                                            <Button
+                                              size="sm"
+                                              variant="outline"
+                                              className="px-3 py-1.5 text-sm text-red-600 border-red-300 hover:bg-red-50"
+                                              onClick={() => handleDelete(matiere, batch)}
+                                              title="Delete batch"
+                                            >
+                                              <Trash2 size={14} />
+                                            </Button>
+                                          )}
                                         </div>
                                       )}
                                     </td>

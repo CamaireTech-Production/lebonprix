@@ -1,20 +1,20 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@contexts/AuthContext';
 import { Card, Button } from '@components/common';
-import { Check, X, Eye } from 'lucide-react';
+import { Check, X, Eye, Plus } from 'lucide-react';
 import { 
   getCompanyTemplates, 
   getTemplateById
 } from '@services/firestore/employees/permissionTemplateService';
 import { PermissionTemplate } from '../../types/permissions';
-import { doc, updateDoc, getDoc, FieldValue } from 'firebase/firestore';
+import { doc, updateDoc, getDoc } from 'firebase/firestore';
 import { db } from '@services/core/firebase';
-import { updateEmployeeRole } from '@services/firestore/employees/employeeRefService';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
+import PermissionTemplateForm from './PermissionTemplateForm';
+import { createTemplate } from '@services/firestore/employees/permissionTemplateService';
 
 interface TemplateAssignmentProps {
   userId: string;
-  currentRole?: 'staff' | 'manager' | 'admin' | 'owner';
   currentTemplateId?: string;
   onTemplateAssigned?: () => void;
   onClose: () => void;
@@ -22,18 +22,17 @@ interface TemplateAssignmentProps {
 
 const TemplateAssignment = ({ 
   userId, 
-  currentRole,
   currentTemplateId, 
   onTemplateAssigned, 
   onClose 
 }: TemplateAssignmentProps) => {
   const { company, user } = useAuth();
   const [templates, setTemplates] = useState<PermissionTemplate[]>([]);
-  const [selectedRole, setSelectedRole] = useState<string>(currentRole || 'staff');
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>(currentTemplateId || '');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [previewTemplate, setPreviewTemplate] = useState<PermissionTemplate | null>(null);
+  const [showCreateTemplate, setShowCreateTemplate] = useState(false);
 
   const loadTemplates = useCallback(async () => {
     if (!company?.id) return;
@@ -67,26 +66,18 @@ const TemplateAssignment = ({
   const handleAssignTemplate = async () => {
     if (!company?.id || !user?.uid) return;
     
+    // Template is required
+    if (!selectedTemplateId) {
+      showErrorToast('Please select a permission template. Template is required.');
+      return;
+    }
+    
     try {
       setSaving(true);
       
-      // 1. Mettre à jour le rôle si nécessaire
-      if (currentRole && selectedRole !== currentRole && selectedRole !== 'owner') {
-        console.log('🔄 [TemplateAssignment] Mise à jour du rôle:', { 
-          userId, 
-          companyId: company.id, 
-          oldRole: currentRole, 
-          newRole: selectedRole 
-        });
-        
-        await updateEmployeeRole(company.id, userId, selectedRole as 'staff' | 'manager' | 'admin');
-        console.log('✅ [TemplateAssignment] Rôle mis à jour avec succès');
-      }
-      
-      // 2. Mettre à jour le template de permissions si nécessaire
+      // Update the permission template
       if (selectedTemplateId !== currentTemplateId) {
         const userRef = doc(db, 'users', userId);
-        const updateData: Record<string, string | FieldValue> = {};
         
         // Trouver l'index de la company dans le tableau companies
         const userDoc = await getDoc(userRef);
@@ -115,16 +106,10 @@ const TemplateAssignment = ({
         
         // Créer un nouveau tableau avec le template mis à jour
         const updatedCompanies = [...companies];
-        if (selectedTemplateId) {
-          updatedCompanies[companyIndex] = {
-            ...updatedCompanies[companyIndex],
-            permissionTemplateId: selectedTemplateId
-          };
-        } else {
-          // Supprimer le template si on sélectionne "Base Role Only"
-          const { permissionTemplateId, ...rest } = updatedCompanies[companyIndex];
-          updatedCompanies[companyIndex] = rest;
-        }
+        updatedCompanies[companyIndex] = {
+          ...updatedCompanies[companyIndex],
+          permissionTemplateId: selectedTemplateId
+        };
         
         await updateDoc(userRef, {
           companies: updatedCompanies
@@ -133,7 +118,7 @@ const TemplateAssignment = ({
         console.log('✅ [TemplateAssignment] Template mis à jour avec succès');
       }
       
-      showSuccessToast('Rôle et permissions mis à jour avec succès');
+      showSuccessToast('Permission template assigned successfully');
       onTemplateAssigned?.();
       onClose();
     } catch (error: any) {
@@ -146,13 +131,49 @@ const TemplateAssignment = ({
 
   const getPermissionCount = (template: PermissionTemplate) => {
     const { permissions } = template;
+    if (!permissions) return 0;
+    
     let count = 0;
-    count += permissions.canView.length;
-    count += permissions.canEdit.length;
-    count += permissions.canDelete.length;
-    // Note: canAccessSettings, canAccessFinance, canAccessHR removed - now part of canView array
+    count += permissions.canView?.length || 0;
+    count += permissions.canCreate?.length || 0;
+    count += permissions.canEdit?.length || 0;
+    count += permissions.canDelete?.length || 0;
     return count;
   };
+
+  const handleCreateTemplate = async (templateData: Omit<PermissionTemplate, 'id' | 'companyId' | 'createdAt' | 'updatedAt' | 'createdBy'>) => {
+    if (!company?.id || !user?.uid) return;
+    
+    try {
+      const newTemplate = await createTemplate(company.id, user.uid, templateData);
+      await loadTemplates(); // Reload templates list
+      setSelectedTemplateId(newTemplate.id); // Auto-select the new template
+      setPreviewTemplate(newTemplate); // Show preview
+      setShowCreateTemplate(false);
+      showSuccessToast('Template created and selected');
+    } catch (error) {
+      console.error('Error creating template:', error);
+      showErrorToast('Error creating template');
+    }
+  };
+
+  // Auto-preview when template is selected
+  useEffect(() => {
+    if (selectedTemplateId && selectedTemplateId !== currentTemplateId && company?.id) {
+      handlePreview(selectedTemplateId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTemplateId, company?.id]);
+
+  if (showCreateTemplate) {
+    return (
+      <PermissionTemplateForm
+        template={null}
+        onSave={handleCreateTemplate}
+        onCancel={() => setShowCreateTemplate(false)}
+      />
+    );
+  }
 
   if (loading) {
     return (
@@ -180,77 +201,74 @@ const TemplateAssignment = ({
         </div>
 
         <div className="space-y-6">
-          {/* Role Selection */}
-          {currentRole !== 'owner' && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-3">
-                Rôle de base
-              </label>
-              <select
-                value={selectedRole}
-                onChange={(e) => setSelectedRole(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                disabled={saving}
-              >
-                <option value="staff">Staff (Vendeur)</option>
-                <option value="manager">Manager (Gestionnaire)</option>
-                <option value="admin">Admin (Magasinier)</option>
-              </select>
-              <p className="mt-1 text-sm text-gray-500">
-                Le rôle de base détermine les permissions par défaut de l'utilisateur.
-              </p>
-            </div>
-          )}
-          
-          {/* Template Selection */}
+          {/* Template Selection - Required */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-3">
-              Template de permissions (optionnel)
+              Permission Template <span className="text-red-500">*</span>
             </label>
-            <div className="space-y-2">
-              <label className="flex items-center p-3 border rounded-lg hover:bg-gray-50">
-                <input
-                  type="radio"
-                  name="template"
-                  value=""
-                  checked={selectedTemplateId === ''}
-                  onChange={(e) => setSelectedTemplateId(e.target.value)}
-                  className="mr-3"
-                />
-                <div>
-                  <div className="font-medium text-gray-900">Base Role Only</div>
-                  <div className="text-sm text-gray-600">Use only the user's base role permissions</div>
+            <p className="text-sm text-gray-500 mb-3">
+              Select a permission template. Template is required - employee must have permissions assigned.
+            </p>
+            
+            {templates.length === 0 ? (
+              <div className="border rounded-lg p-4 bg-yellow-50 border-yellow-200">
+                <p className="text-sm text-yellow-800 mb-3">
+                  No templates available. Create a template first.
+                </p>
+                <Button
+                  onClick={() => setShowCreateTemplate(true)}
+                  icon={<Plus size={16} />}
+                >
+                  Create Custom Template
+                </Button>
+              </div>
+            ) : (
+              <>
+                <div className="space-y-2 mb-4">
+                  {templates.map((template) => (
+                    <label key={template.id} className="flex items-center p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="template"
+                        value={template.id}
+                        checked={selectedTemplateId === template.id}
+                        onChange={(e) => setSelectedTemplateId(e.target.value)}
+                        className="mr-3"
+                      />
+                      <div className="flex-1">
+                        <div className="font-medium text-gray-900">{template.name}</div>
+                        <div className="text-sm text-gray-600">{template.description}</div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          {getPermissionCount(template)} permissions
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handlePreview(template.id);
+                        }}
+                        icon={<Eye size={14} />}
+                      >
+                        Preview
+                      </Button>
+                    </label>
+                  ))}
                 </div>
-              </label>
-              
-              {templates.map((template) => (
-                <label key={template.id} className="flex items-center p-3 border rounded-lg hover:bg-gray-50">
-                  <input
-                    type="radio"
-                    name="template"
-                    value={template.id}
-                    checked={selectedTemplateId === template.id}
-                    onChange={(e) => setSelectedTemplateId(e.target.value)}
-                    className="mr-3"
-                  />
-                  <div className="flex-1">
-                    <div className="font-medium text-gray-900">{template.name}</div>
-                    <div className="text-sm text-gray-600">{template.description}</div>
-                    <div className="text-xs text-gray-500 mt-1">
-                      {getPermissionCount(template)} permissions
-                    </div>
-                  </div>
+                
+                <div className="border-t pt-4">
                   <Button
-                    size="sm"
                     variant="outline"
-                    onClick={() => handlePreview(template.id)}
-                    icon={<Eye size={14} />}
+                    onClick={() => setShowCreateTemplate(true)}
+                    icon={<Plus size={16} />}
+                    className="w-full"
                   >
-                    Preview
+                    Create Custom Template
                   </Button>
-                </label>
-              ))}
-            </div>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Template Preview */}
@@ -268,6 +286,15 @@ const TemplateAssignment = ({
                   </div>
                 </div>
                 <div>
+                  <h4 className="text-sm font-medium text-gray-700 mb-1">Create Access</h4>
+                  <div className="text-sm text-gray-600">
+                    {previewTemplate.permissions.canCreate && previewTemplate.permissions.canCreate.length > 0 
+                      ? previewTemplate.permissions.canCreate.join(', ')
+                      : 'None'
+                    }
+                  </div>
+                </div>
+                <div>
                   <h4 className="text-sm font-medium text-gray-700 mb-1">Edit Access</h4>
                   <div className="text-sm text-gray-600">
                     {previewTemplate.permissions.canEdit.length > 0 
@@ -277,13 +304,12 @@ const TemplateAssignment = ({
                   </div>
                 </div>
                 <div>
-                  <h4 className="text-sm font-medium text-gray-700 mb-1">Special Sections</h4>
+                  <h4 className="text-sm font-medium text-gray-700 mb-1">Delete Access</h4>
                   <div className="text-sm text-gray-600">
-                    {[
-                      previewTemplate.permissions.canView.includes('settings') && 'Settings',
-                      previewTemplate.permissions.canView.includes('finance') && 'Finance',
-                      previewTemplate.permissions.canView.includes('hr') && 'HR'
-                    ].filter(Boolean).join(', ') || 'None'}
+                    {previewTemplate.permissions.canDelete && previewTemplate.permissions.canDelete.length > 0 
+                      ? previewTemplate.permissions.canDelete.join(', ')
+                      : 'None'
+                    }
                   </div>
                 </div>
               </div>
@@ -301,10 +327,10 @@ const TemplateAssignment = ({
             </Button>
             <Button
               onClick={handleAssignTemplate}
-              disabled={saving}
+              disabled={saving || !selectedTemplateId}
               icon={<Check size={16} />}
             >
-              {saving ? 'Sauvegarde...' : 'Sauvegarder'}
+              {saving ? 'Saving...' : 'Save'}
             </Button>
           </div>
         </div>

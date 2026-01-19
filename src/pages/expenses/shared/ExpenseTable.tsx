@@ -3,6 +3,8 @@ import { Edit2, Trash2, Loader2, FileText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Table, Badge, ImageWithSkeleton } from '@components/common';
 import { formatCreatorName } from '@utils/business/employeeUtils';
+import { usePermissionCheck } from '@components/permissions';
+import { RESOURCES } from '@constants/resources';
 import type { Expense } from '../../../types/models';
 
 interface ExpenseTableProps {
@@ -16,6 +18,7 @@ interface ExpenseTableProps {
 
 const ExpenseTable = ({ expenses, onEdit, onDelete, deleteLoading, deleteLoadingId }: ExpenseTableProps) => {
   const { t } = useTranslation();
+  const { canEdit, canDelete } = usePermissionCheck(RESOURCES.EXPENSES);
 
   const columns = [
     { 
@@ -76,18 +79,20 @@ const ExpenseTable = ({ expenses, onEdit, onDelete, deleteLoading, deleteLoading
         <span className="text-gray-600">{formatCreatorName(expense.createdBy)}</span>
       ),
     },
-    { 
-      header: t('expenses.table.actions'), 
+    {
+      header: t('expenses.table.actions'),
       accessor: (expense: Expense) => (
         <div className="flex space-x-2">
-          <button 
-            onClick={() => onEdit(expense)}
-            className="text-indigo-600 hover:text-indigo-900"
-            title={t('expenses.actions.edit')}
-          >
-            <Edit2 size={16} />
-          </button>
-          {expense.isAvailable !== false && (
+          {canEdit && (
+            <button
+              onClick={() => onEdit(expense)}
+              className="text-indigo-600 hover:text-indigo-900"
+              title={t('expenses.actions.edit')}
+            >
+              <Edit2 size={16} />
+            </button>
+          )}
+          {canDelete && expense.isAvailable !== false && (
             <button
               onClick={() => onDelete(expense)}
               className="text-red-600 hover:text-red-900 flex items-center"

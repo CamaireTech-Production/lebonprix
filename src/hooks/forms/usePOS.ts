@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useMemo } from 'react';
+import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import { useSales, useProducts, useCustomers } from '@hooks/data/useFirestore';
 import { useCustomerSources } from '@hooks/business/useCustomerSources';
 import { useAuth } from '@contexts/AuthContext';
@@ -34,7 +34,7 @@ interface POSState {
   selectedCategory: string | null;
   deliveryFee: number;
   status: OrderStatus;
-  inventoryMethod: 'fifo' | 'lifo';
+  inventoryMethod: 'fifo' | 'lifo' | 'cmup';
   applyTVA: boolean;
   tvaRate: number;
 }
@@ -49,6 +49,12 @@ export function usePOS() {
   const { batches: allBatches } = useAllStockBatches();
   const { settings: checkoutSettings } = useCheckoutSettings();
 
+  // Get default inventory method from settings (lowercase for form)
+  const getDefaultInventoryMethod = (): 'fifo' | 'lifo' | 'cmup' => {
+    const defaultMethod = checkoutSettings?.defaultInventoryMethod || 'FIFO';
+    return defaultMethod.toLowerCase() as 'fifo' | 'lifo' | 'cmup';
+  };
+
   const [state, setState] = useState<POSState>({
     cart: [],
     customer: null,
@@ -56,10 +62,18 @@ export function usePOS() {
     selectedCategory: null,
     deliveryFee: 0,
     status: 'commande',
-    inventoryMethod: 'fifo',
+    inventoryMethod: getDefaultInventoryMethod(),
     applyTVA: false,
     tvaRate: 19.24,
   });
+
+  // Update inventory method when settings change
+  useEffect(() => {
+    if (checkoutSettings?.defaultInventoryMethod) {
+      const defaultMethod = checkoutSettings.defaultInventoryMethod.toLowerCase() as 'fifo' | 'lifo' | 'cmup';
+      setState(prev => ({ ...prev, inventoryMethod: defaultMethod }));
+    }
+  }, [checkoutSettings?.defaultInventoryMethod]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [autoSaveCustomer, setAutoSaveCustomer] = useState(true);
@@ -349,7 +363,7 @@ export function usePOS() {
           quarter: customerInfo.quarter || '',
         },
         deliveryFee: paymentData?.deliveryFee ?? state.deliveryFee ?? 0,
-        inventoryMethod: paymentData?.inventoryMethod || state.inventoryMethod || 'fifo',
+        inventoryMethod: paymentData?.inventoryMethod || state.inventoryMethod || getDefaultInventoryMethod(),
         saleDate: paymentData?.saleDate || new Date().toISOString(),
         customerSourceId: paymentData?.customerSourceId || state.customer?.sourceId || '',
         paymentMethod: paymentData?.paymentMethod || '',
@@ -637,7 +651,7 @@ export function usePOS() {
         customerTown: draft.customer?.town || '',
         deliveryFee: draft.deliveryFee || 0,
         status: draft.paymentData?.status || 'commande',
-        inventoryMethod: (draft.paymentData?.inventoryMethod || 'fifo') as 'fifo' | 'lifo',
+        inventoryMethod: (draft.paymentData?.inventoryMethod || getDefaultInventoryMethod()) as 'fifo' | 'lifo' | 'cmup',
         saleDate: draft.paymentData?.saleDate || new Date().toISOString().slice(0, 10),
         notes: draft.paymentData?.notes || '',
         paymentMethod: draft.paymentData?.paymentMethod || undefined,

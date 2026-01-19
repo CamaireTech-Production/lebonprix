@@ -1,82 +1,46 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useCallback } from 'react';
 import { useAuth } from '@contexts/AuthContext';
-import { SystemRole, PermissionTemplate, RolePermissions } from '../../types/permissions';
-import { getTemplateById } from '@services/firestore/employees/permissionTemplateService';
-import { getUserById } from '@services/utilities/userService';
+import { SystemRole, RolePermissions } from '../../types/permissions';
+import { usePermissionCache } from './usePermissionCache';
 import { RESOURCES } from '@constants/resources';
-import { logError } from '@utils/core/logger';
 
 export function useRolePermissions(companyId?: string) {
   const { effectiveRole, isOwner, company, user, userCompanies } = useAuth();
-  const [template, setTemplate] = useState<PermissionTemplate | null>(null);
-  const [templateLoading, setTemplateLoading] = useState(false);
 
-  // Load user's assigned template
-  useEffect(() => {
-    const loadTemplate = async () => {
-      if (!company?.id || !user?.uid || isOwner) {
-        setTemplate(null);
-        return;
-      }
+  // Use the caching hook for loading permissions
+  const { template, loading: templateLoading, refreshCache } = usePermissionCache(
+    user?.uid,
+    company?.id || companyId,
+    userCompanies,
+    isOwner || effectiveRole === 'owner'
+  );
 
-      try {
-        setTemplateLoading(true);
-        
-        // Check if user has a template assigned for this company
-        // Utiliser userCompanies depuis le contexte au lieu de user.companies
-        let userCompanyRef = userCompanies?.find(c => c.companyId === company.id);
-        
-        // If userCompanies is empty or doesn't contain current company, load directly from Firestore
-        if (!userCompanyRef || !userCompanies || userCompanies.length === 0) {
-          const userData = await getUserById(user.uid);
-          if (userData?.companies) {
-            userCompanyRef = userData.companies.find(c => c.companyId === company.id);
-          }
-        }
-        
-        const templateId = userCompanyRef?.permissionTemplateId;
-        
-        if (templateId) {
-          try {
-            const templateData = await getTemplateById(company.id, templateId);
-            if (templateData) {
-              setTemplate(templateData);
-            } else {
-              setTemplate(null);
-            }
-          } catch (error) {
-            logError('Error loading permission template', error);
-            setTemplate(null);
-          }
-        } else {
-          setTemplate(null);
-        }
-      } catch (error) {
-        logError('Error loading template', error);
-        setTemplate(null);
-      } finally {
-        setTemplateLoading(false);
-      }
-    };
-
-    loadTemplate();
-  }, [company?.id, user?.uid, userCompanies, isOwner]);
+  // Stabilize refreshCache to prevent unnecessary re-renders
+  // Wrap it in useCallback to ensure stable reference
+  const stableRefreshCache = useCallback(async () => {
+    await refreshCache();
+  }, [refreshCache]);
 
   return useMemo(() => {
     // Un utilisateur est owner si isOwner est true OU si effectiveRole est 'owner'
     const isActualOwner = isOwner || effectiveRole === 'owner';
-    
+
     // Si owner, retourner permissions complètes (pas besoin de template)
     if (isActualOwner) {
       const ownerPermissions: RolePermissions = {
         canView: [RESOURCES.ALL],
+        canCreate: [RESOURCES.ALL],
         canEdit: [RESOURCES.ALL],
         canDelete: [RESOURCES.ALL],
         canManageEmployees: [RESOURCES.ALL],
       };
-      
+
       const canAccess = (resource: string): boolean => {
         return ownerPermissions.canView.includes(RESOURCES.ALL) || ownerPermissions.canView.includes(resource);
+      };
+
+      const canCreate = (resource: string): boolean => {
+        return ownerPermissions.canCreate.includes(RESOURCES.ALL) || ownerPermissions.canCreate.includes(resource);
       };
 
       const canEdit = (resource: string): boolean => {
@@ -89,8 +53,10 @@ export function useRolePermissions(companyId?: string) {
 
       const canManageEmployees = (targetRole?: SystemRole): boolean => {
         if (targetRole) {
-          return ownerPermissions.canManageEmployees.includes(RESOURCES.ALL) || 
-                 ownerPermissions.canManageEmployees.includes(targetRole);
+          return (
+            ownerPermissions.canManageEmployees.includes(RESOURCES.ALL) ||
+            ownerPermissions.canManageEmployees.includes(targetRole)
+          );
         }
         return ownerPermissions.canManageEmployees.length > 0;
       };
@@ -106,26 +72,34 @@ export function useRolePermissions(companyId?: string) {
         template: null,
         templateLoading: false,
         canAccess,
+        canCreate,
         canEdit,
         canDelete,
         canManageEmployees,
         canAccessSettings,
         canAccessFinance,
         canAccessHR,
+        isOwner: true,
+        refreshPermissions: stableRefreshCache,
       };
     }
-    
+
     // Si pas owner et template pas chargé, retourner permissions vides
     if (!template) {
       const emptyPermissions: RolePermissions = {
         canView: [],
+        canCreate: [],
         canEdit: [],
         canDelete: [],
         canManageEmployees: [],
       };
-      
+
       const canAccess = (resource: string): boolean => {
         return emptyPermissions.canView.includes(RESOURCES.ALL) || emptyPermissions.canView.includes(resource);
+      };
+
+      const canCreate = (resource: string): boolean => {
+        return emptyPermissions.canCreate.includes(RESOURCES.ALL) || emptyPermissions.canCreate.includes(resource);
       };
 
       const canEdit = (resource: string): boolean => {
@@ -138,8 +112,10 @@ export function useRolePermissions(companyId?: string) {
 
       const canManageEmployees = (targetRole?: SystemRole): boolean => {
         if (targetRole) {
-          return emptyPermissions.canManageEmployees.includes(RESOURCES.ALL) || 
-                 emptyPermissions.canManageEmployees.includes(targetRole);
+          return (
+            emptyPermissions.canManageEmployees.includes(RESOURCES.ALL) ||
+            emptyPermissions.canManageEmployees.includes(targetRole)
+          );
         }
         return emptyPermissions.canManageEmployees.length > 0;
       };
@@ -155,20 +131,33 @@ export function useRolePermissions(companyId?: string) {
         template: null,
         templateLoading,
         canAccess,
+        canCreate,
         canEdit,
         canDelete,
         canManageEmployees,
         canAccessSettings,
         canAccessFinance,
         canAccessHR,
+        isOwner: false,
+        refreshPermissions: stableRefreshCache,
       };
     }
-    
+
     // Sinon, utiliser UNIQUEMENT les permissions du template
     const effectivePermissions: RolePermissions = template.permissions;
 
     const canAccess = (resource: string): boolean => {
       return effectivePermissions.canView.includes(RESOURCES.ALL) || effectivePermissions.canView.includes(resource);
+    };
+
+    // Backward compatibility: if canCreate is missing, fall back to canEdit
+    const canCreate = (resource: string): boolean => {
+      const hasCreatePermission = effectivePermissions.canCreate && effectivePermissions.canCreate.length > 0;
+      if (hasCreatePermission) {
+        return effectivePermissions.canCreate.includes(RESOURCES.ALL) || effectivePermissions.canCreate.includes(resource);
+      }
+      // Fallback: if canCreate is not defined in template, use canEdit
+      return effectivePermissions.canEdit.includes(RESOURCES.ALL) || effectivePermissions.canEdit.includes(resource);
     };
 
     const canEdit = (resource: string): boolean => {
@@ -181,8 +170,10 @@ export function useRolePermissions(companyId?: string) {
 
     const canManageEmployees = (targetRole?: SystemRole): boolean => {
       if (targetRole) {
-        return effectivePermissions.canManageEmployees.includes(RESOURCES.ALL) || 
-               effectivePermissions.canManageEmployees.includes(targetRole);
+        return (
+          effectivePermissions.canManageEmployees.includes(RESOURCES.ALL) ||
+          effectivePermissions.canManageEmployees.includes(targetRole)
+        );
       }
       return effectivePermissions.canManageEmployees.length > 0;
     };
@@ -192,21 +183,21 @@ export function useRolePermissions(companyId?: string) {
     const canAccessHR = canAccess(RESOURCES.HR);
     const canAccessSettings = canAccess(RESOURCES.SETTINGS);
 
-
     return {
       systemRole: 'staff' as SystemRole, // systemRole n'est plus utilisé pour les permissions, mais gardé pour compatibilité
       permissions: effectivePermissions,
       template,
       templateLoading,
       canAccess,
+      canCreate,
       canEdit,
       canDelete,
       canManageEmployees,
       canAccessSettings,
       canAccessFinance,
       canAccessHR,
+      isOwner: false,
+      refreshPermissions: stableRefreshCache,
     };
-  }, [effectiveRole, isOwner, template, templateLoading, companyId]);
+  }, [effectiveRole, isOwner, template, templateLoading, companyId, stableRefreshCache]);
 }
-
-

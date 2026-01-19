@@ -4,4 +4,5 @@ export * from './employeeUtils';
 export * from './productUtils';
 export * from './roleUtils';
 export * from './permissionUtils';
+export * from './reportTimeUtils';
 

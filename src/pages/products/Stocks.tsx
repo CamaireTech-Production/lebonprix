@@ -9,6 +9,8 @@ import ProductRestockModal from '../../components/products/ProductRestockModal';
 import ManualAdjustmentModal from '../../components/products/ManualAdjustmentModal';
 import DamageAdjustmentModal from '../../components/products/DamageAdjustmentModal';
 import BatchDeleteModal from '../../components/common/BatchDeleteModal';
+import { usePermissionCheck } from '@components/permissions';
+import { RESOURCES } from '@constants/resources';
 import type { Product, StockBatch, StockChange } from '../../types/models';
 
 const PAGE_SIZES = [10, 20, 50];
@@ -72,6 +74,7 @@ const Stocks = () => {
   const { batches, loading: batchesLoading, error: batchesError } = useAllStockBatches('product');
   const { stockChanges } = useStockChanges('product');
   const { suppliers } = useSuppliers();
+  const { canDelete } = usePermissionCheck(RESOURCES.PRODUCTS);
 
   const [expandedProductId, setExpandedProductId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -426,31 +429,35 @@ const Stocks = () => {
                                               <AlertTriangle className="w-4 h-4" />
                                             </Button>
                                           )}
-                                          <Button 
-                                            size="sm" 
-                                            variant="outline"
-                                            className="px-3 py-1.5 text-sm text-red-600 border-red-300 hover:bg-red-50"
-                                            onClick={() => handleDelete(product, batch)}
-                                            disabled={batch.remainingQuantity > 0}
-                                            title={batch.remainingQuantity > 0 ? "Can only delete batches with zero remaining stock" : "Delete batch"}
-                                          >
-                                            <Trash2 size={14} />
-                                          </Button>
+                                          {canDelete && (
+                                            <Button
+                                              size="sm"
+                                              variant="outline"
+                                              className="px-3 py-1.5 text-sm text-red-600 border-red-300 hover:bg-red-50"
+                                              onClick={() => handleDelete(product, batch)}
+                                              disabled={batch.remainingQuantity > 0}
+                                              title={batch.remainingQuantity > 0 ? "Can only delete batches with zero remaining stock" : "Delete batch"}
+                                            >
+                                              <Trash2 size={14} />
+                                            </Button>
+                                          )}
                                         </>
                                       ) : (
                                         <div className="flex items-center justify-end space-x-3">
                                           <span className="inline-flex items-center justify-end text-xs text-gray-500">
                                             {t('products.stocksPage.messages.noActionsDepleted')}
                                           </span>
-                                          <Button 
-                                            size="sm" 
-                                            variant="outline"
-                                            className="px-3 py-1.5 text-sm text-red-600 border-red-300 hover:bg-red-50"
-                                            onClick={() => handleDelete(product, batch)}
-                                            title="Delete batch"
-                                          >
-                                            <Trash2 size={14} />
-                                          </Button>
+                                          {canDelete && (
+                                            <Button
+                                              size="sm"
+                                              variant="outline"
+                                              className="px-3 py-1.5 text-sm text-red-600 border-red-300 hover:bg-red-50"
+                                              onClick={() => handleDelete(product, batch)}
+                                              title="Delete batch"
+                                            >
+                                              <Trash2 size={14} />
+                                            </Button>
+                                          )}
                                         </div>
                                       )}
                                     </td>

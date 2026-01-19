@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useSales, useProducts, useCustomers } from '@hooks/data/useFirestore';
 import { useCustomerSources } from '@hooks/business/useCustomerSources';
+import { useCheckoutSettings } from '@hooks/data/useCheckoutSettings';
 import { useAuth } from '@contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { showSuccessToast, showErrorToast, showWarningToast } from '@utils/core/toast';
@@ -35,7 +36,7 @@ interface FormState {
   status: OrderStatus;
   deliveryFee: string;
   saleDate: string;
-  inventoryMethod: 'fifo' | 'lifo';
+  inventoryMethod: 'fifo' | 'lifo' | 'cmup';
   products: FormProduct[];
 }
 
@@ -46,6 +47,7 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
   const { customers, addCustomer } = useCustomers();
   const { activeSources } = useCustomerSources();
   const { batches: allBatches } = useAllStockBatches('product');
+  const { settings: checkoutSettings } = useCheckoutSettings();
 
   const { user, company, currentEmployee, isOwner } = useAuth();
   
@@ -65,6 +67,12 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
 
   const phoneInputRef = useRef<HTMLInputElement>(null);
 
+  // Get default inventory method from settings (lowercase for form, will be converted to uppercase for API)
+  const getDefaultInventoryMethod = (): 'fifo' | 'lifo' | 'cmup' => {
+    const defaultMethod = checkoutSettings?.defaultInventoryMethod || 'FIFO';
+    return defaultMethod.toLowerCase() as 'fifo' | 'lifo' | 'cmup';
+  };
+
   /* ------------------------------- Form ------------------------------- */
   const [formData, setFormData] = useState<FormState>({
     customerName: '',
@@ -80,9 +88,17 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
     status: 'commande',
     deliveryFee: '',
     saleDate: new Date().toISOString().slice(0, 10),
-    inventoryMethod: 'fifo',
+    inventoryMethod: getDefaultInventoryMethod(),
     products: [{ id: crypto.randomUUID(), product: null, quantity: '', negotiatedPrice: '' }],
   });
+
+  // Update inventory method when settings change
+  useEffect(() => {
+    if (checkoutSettings?.defaultInventoryMethod) {
+      const defaultMethod = checkoutSettings.defaultInventoryMethod.toLowerCase() as 'fifo' | 'lifo' | 'cmup';
+      setFormData(prev => ({ ...prev, inventoryMethod: defaultMethod }));
+    }
+  }, [checkoutSettings?.defaultInventoryMethod]);
 
 
 
@@ -229,7 +245,7 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
       status: 'commande',
       deliveryFee: '',
       saleDate: new Date().toISOString().slice(0, 10),
-      inventoryMethod: 'fifo',
+      inventoryMethod: getDefaultInventoryMethod(),
       products: [{ id: crypto.randomUUID(), product: null, quantity: '', negotiatedPrice: '' }],
     });
     setFoundCustomer(null);

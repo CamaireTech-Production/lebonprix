@@ -6,20 +6,23 @@ import { useInfiniteScroll } from '@hooks/data/useInfiniteScroll';
 import { useCustomers } from '@hooks/data/useFirestore';
 import { useAuth } from '@contexts/AuthContext';
 import { showSuccessToast, showErrorToast, showWarningToast } from '@utils/core/toast';
+import { PermissionButton, usePermissionCheck } from '@components/permissions';
+import { RESOURCES } from '@constants/resources';
 import type { Customer } from '../../types/models';
 
 const Contacts = () => {
-  const { 
-    customers, 
-    loading, 
+  const {
+    customers,
+    loading,
     loadingMore,
     hasMore,
-    error, 
+    error,
     loadMore,
     refresh
   } = useInfiniteCustomers();
   const { addCustomer, updateCustomer, deleteCustomer } = useCustomers();
   const { user, company } = useAuth();
+  const { canEdit, canDelete } = usePermissionCheck(RESOURCES.CUSTOMERS);
   
   // Infinite scroll
   useInfiniteScroll({
@@ -253,20 +256,24 @@ const Contacts = () => {
       howKnown: customerAsCustomer.howKnown || '-',
       actions: (
         <div className="flex space-x-2">
-          <button
-            onClick={() => openEditModal(customerAsCustomer)}
-            className="text-indigo-600 hover:text-indigo-900"
-            title="Modifier"
-          >
-            <Edit2 size={16} />
-          </button>
-          <button
-            onClick={() => openDeleteModal(customerAsCustomer)}
-            className="text-red-600 hover:text-red-900"
-            title="Supprimer"
-          >
-            <Trash2 size={16} />
-          </button>
+          {canEdit && (
+            <button
+              onClick={() => openEditModal(customerAsCustomer)}
+              className="text-indigo-600 hover:text-indigo-900"
+              title="Modifier"
+            >
+              <Edit2 size={16} />
+            </button>
+          )}
+          {canDelete && (
+            <button
+              onClick={() => openDeleteModal(customerAsCustomer)}
+              className="text-red-600 hover:text-red-900"
+              title="Supprimer"
+            >
+              <Trash2 size={16} />
+            </button>
+          )}
         </div>
       )
     };
@@ -292,12 +299,15 @@ const Contacts = () => {
         </div>
         
         <div className="mt-4 md:mt-0">
-          <Button 
+          <PermissionButton
+            resource={RESOURCES.CUSTOMERS}
+            action="create"
             icon={<Plus size={16} />}
             onClick={openAddModal}
+            hideWhenNoPermission
           >
             Ajouter un contact
-          </Button>
+          </PermissionButton>
         </div>
       </div>
       {/* Stats Cards */}

@@ -26,6 +26,7 @@ export const POSScreen: React.FC = () => {
     deliveryFee,
     applyTVA,
     tvaRate,
+    inventoryMethod,
     filteredProducts,
     cartTotals,
     isSubmitting,
@@ -198,6 +199,7 @@ export const POSScreen: React.FC = () => {
         applyTVA={applyTVA}
         tvaRate={tvaRate}
         onTVAToggle={toggleTVA}
+        defaultInventoryMethod={inventoryMethod}
       />
     </div>
   );

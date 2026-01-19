@@ -47,6 +47,7 @@ export interface CheckoutSettings {
   
   // POS Settings
   posCalculatorEnabled: boolean;
+  defaultInventoryMethod: 'FIFO' | 'LIFO' | 'CMUP';
   
   // Timestamps
   createdAt: Date;
@@ -82,6 +83,7 @@ export interface CheckoutSettingsUpdate {
   checkoutButtonText?: string;
   checkoutButtonColor?: string;
   posCalculatorEnabled?: boolean;
+  defaultInventoryMethod?: 'FIFO' | 'LIFO' | 'CMUP';
 }
 
 // Default settings for new companies
@@ -127,4 +129,5 @@ export const DEFAULT_CHECKOUT_SETTINGS: Omit<CheckoutSettings, 'id' | 'userId' |
   
   // POS Settings
   posCalculatorEnabled: true,
+  defaultInventoryMethod: 'FIFO',
 };

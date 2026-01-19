@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '@contexts/AuthContext';
 import { useCustomerSources } from '@hooks/business/useCustomerSources';
 import { useProducts } from '@hooks/data/useFirestore';
+import { useCheckoutSettings } from '@hooks/data/useCheckoutSettings';
 import { printPOSBillDirect } from '@utils/pos/posPrint';
 import { showErrorToast, showSuccessToast } from '@utils/core/toast';
 import { formatPrice } from '@utils/formatting/formatPrice';
@@ -34,7 +35,7 @@ export interface POSPaymentData {
   saleDate: string;
   deliveryFee: number;
   status: OrderStatus;
-  inventoryMethod: 'fifo' | 'lifo';
+  inventoryMethod: 'fifo' | 'lifo' | 'cmup';
   
   // Additional
   discountType?: 'amount' | 'percentage';
@@ -71,6 +72,7 @@ interface POSPaymentModalProps {
   applyTVA?: boolean;
   tvaRate?: number;
   onTVAToggle?: (apply: boolean) => void;
+  defaultInventoryMethod?: 'fifo' | 'lifo' | 'cmup'; // Method from POS state (from settings)
 }
 
 export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
@@ -88,12 +90,14 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
   applyTVA = false,
   tvaRate = 19.24,
   onTVAToggle,
+  defaultInventoryMethod,
 }) => {
   // ✅ ALL HOOKS MUST BE CALLED FIRST - BEFORE ANY CONDITIONAL RETURNS
   const { t } = useTranslation();
   const { company } = useAuth();
   const { activeSources } = useCustomerSources();
   const { products } = useProducts();
+  const { settings: checkoutSettingsData } = useCheckoutSettings();
   
   // State for logo base64
   const [logoBase64, setLogoBase64] = useState<string>('');
@@ -123,7 +127,35 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
   const [saleDate, setSaleDate] = useState<string>(new Date().toISOString().slice(0, 10));
   const [deliveryFee, setDeliveryFee] = useState<number>(currentDeliveryFee);
   const [status, setStatus] = useState<OrderStatus>('paid');
-  const [inventoryMethod, setInventoryMethod] = useState<'fifo' | 'lifo'>('fifo');
+  
+  // Get default inventory method: use prop from POS state first, then settings, then fallback
+  const getDefaultInventoryMethod = (): 'fifo' | 'lifo' | 'cmup' => {
+    if (defaultInventoryMethod) {
+      return defaultInventoryMethod;
+    }
+    const defaultMethod = checkoutSettingsData?.defaultInventoryMethod || 'FIFO';
+    return defaultMethod.toLowerCase() as 'fifo' | 'lifo' | 'cmup';
+  };
+  
+  const [inventoryMethod, setInventoryMethod] = useState<'fifo' | 'lifo' | 'cmup'>(getDefaultInventoryMethod());
+  
+  // Update inventory method when prop or settings change
+  useEffect(() => {
+    if (defaultInventoryMethod) {
+      setInventoryMethod(defaultInventoryMethod);
+    } else if (checkoutSettingsData?.defaultInventoryMethod) {
+      const defaultMethod = checkoutSettingsData.defaultInventoryMethod.toLowerCase() as 'fifo' | 'lifo' | 'cmup';
+      setInventoryMethod(defaultMethod);
+    }
+  }, [defaultInventoryMethod, checkoutSettingsData?.defaultInventoryMethod]);
+
+  // Reset inventory method to default when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      const methodToUse = defaultInventoryMethod || getDefaultInventoryMethod();
+      setInventoryMethod(methodToUse);
+    }
+  }, [isOpen, defaultInventoryMethod]);
   
   // Additional
   const [discountType, setDiscountType] = useState<'amount' | 'percentage'>('amount');
@@ -210,7 +242,7 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
     setSaleDate(new Date().toISOString().slice(0, 10));
     setDeliveryFee(currentDeliveryFee);
     setStatus('paid');
-    setInventoryMethod('fifo');
+    setInventoryMethod(getDefaultInventoryMethod());
     setDiscountType('amount');
     setDiscountValue('');
     setPromoCode('');
@@ -1559,13 +1591,13 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
                           <label className="block text-sm font-medium text-gray-700 mb-1">
                             {t('pos.payment.inventoryMethod')}
                           </label>
-                          <div className="flex space-x-4">
+                          <div className="flex flex-wrap gap-4">
                             <label className="flex items-center space-x-2">
                               <input
                                 type="radio"
                                 value="fifo"
                                 checked={inventoryMethod === 'fifo'}
-                                onChange={(e) => setInventoryMethod(e.target.value as 'fifo' | 'lifo')}
+                                onChange={(e) => setInventoryMethod(e.target.value as 'fifo' | 'lifo' | 'cmup')}
                                 className="form-radio h-4 w-4"
                                 style={{ color: colors.primary }}
                               />
@@ -1576,11 +1608,22 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
                                 type="radio"
                                 value="lifo"
                                 checked={inventoryMethod === 'lifo'}
-                                onChange={(e) => setInventoryMethod(e.target.value as 'fifo' | 'lifo')}
+                                onChange={(e) => setInventoryMethod(e.target.value as 'fifo' | 'lifo' | 'cmup')}
                                 className="form-radio h-4 w-4"
                                 style={{ color: colors.primary }}
                               />
                               <span className="text-sm">LIFO</span>
+                            </label>
+                            <label className="flex items-center space-x-2">
+                              <input
+                                type="radio"
+                                value="cmup"
+                                checked={inventoryMethod === 'cmup'}
+                                onChange={(e) => setInventoryMethod(e.target.value as 'fifo' | 'lifo' | 'cmup')}
+                                className="form-radio h-4 w-4"
+                                style={{ color: colors.primary }}
+                              />
+                              <span className="text-sm">CMUP</span>
                             </label>
                           </div>
                         </div>

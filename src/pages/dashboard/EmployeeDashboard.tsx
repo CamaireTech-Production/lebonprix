@@ -6,14 +6,17 @@ import { Button, Card, LoadingScreen } from '@components/common';
 import { UserCompanyRef } from '../../types/models';
 import { showErrorToast } from '@utils/core/toast';
 import PendingInvitationsBanner from '@components/invitations/PendingInvitationsBanner';
+import { getCompanyById } from '@services/firestore/companies/companyPublic';
+import { getUserById } from '@services/utilities/userService';
 
 interface CompanyCardProps {
   company: UserCompanyRef;
   onSelect: (companyId: string) => void;
   isLoading?: boolean;
+  ownerName?: string;
 }
 
-const CompanyCard: React.FC<CompanyCardProps> = ({ company, onSelect, isLoading = false }) => {
+const CompanyCard: React.FC<CompanyCardProps> = ({ company, onSelect, isLoading = false, ownerName }) => {
   const getRoleIcon = (role: string) => {
     switch (role) {
       case 'owner':
@@ -62,7 +65,15 @@ const CompanyCard: React.FC<CompanyCardProps> = ({ company, onSelect, isLoading 
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center space-x-3">
             <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-lg flex items-center justify-center">
-              <Building2 className="h-6 w-6 text-white" />
+              {company.logo ? (
+                <img 
+                  src={company.logo} 
+                  alt={`${company.name} logo`}
+                  className="w-full h-full rounded-lg object-cover"
+                />
+              ) : (
+                <Building2 className="h-6 w-6 text-white" />
+              )}
             </div>
             <div>
               <h3 className="text-lg font-semibold text-gray-900 group-hover:text-emerald-600 transition-colors">
@@ -71,6 +82,11 @@ const CompanyCard: React.FC<CompanyCardProps> = ({ company, onSelect, isLoading 
               {company.description && (
                 <p className="text-sm text-gray-500 mt-1 line-clamp-2">
                   {company.description}
+                </p>
+              )}
+              {ownerName && (
+                <p className="text-xs text-gray-400 mt-1">
+                  Propriétaire: {ownerName}
                 </p>
               )}
             </div>
@@ -117,6 +133,7 @@ const EmployeeDashboard: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [ownersInfo, setOwnersInfo] = useState<Record<string, string>>({});
 
   const handleCompanySelect = useCallback(async (companyId: string) => {
     try {
@@ -138,6 +155,53 @@ const EmployeeDashboard: React.FC = () => {
       handleCompanySelect(userCompanies[0].companyId);
     }
   }, [userCompanies, handleCompanySelect]);
+
+  // Load owners information
+  useEffect(() => {
+    const loadOwnersInfo = async () => {
+      const owners: Record<string, string> = {};
+      
+      for (const company of userCompanies) {
+        try {
+          let ownerId: string | null = null;
+          
+          // If current user is the owner, use their info
+          if (company.role === 'owner' && user) {
+            const fullName = user.email || 'Propriétaire';
+            owners[company.companyId] = fullName;
+            continue;
+          }
+          
+          // Otherwise, fetch company document to get owner ID
+          const companyDoc = await getCompanyById(company.companyId);
+          if (companyDoc && companyDoc.userId) {
+            ownerId = companyDoc.userId;
+          } else if (companyDoc && companyDoc.companyId) {
+            // Fallback for older companies where companyId is the userId
+            ownerId = companyDoc.companyId;
+          }
+          
+          // Fetch owner user info
+          if (ownerId) {
+            const ownerUser = await getUserById(ownerId);
+            if (ownerUser) {
+              const fullName = ownerUser.username || ownerUser.email || 'Propriétaire';
+              owners[company.companyId] = fullName;
+            }
+          }
+        } catch (error) {
+          console.error(`Error fetching owner for company ${company.companyId}:`, error);
+          owners[company.companyId] = 'Propriétaire inconnu';
+        }
+      }
+      
+      setOwnersInfo(owners);
+    };
+    
+    if (userCompanies.length > 0) {
+      loadOwnersInfo();
+    }
+  }, [userCompanies, user]);
 
   const handleCreateCompany = () => {
     navigate('/company/create');
@@ -197,6 +261,7 @@ const EmployeeDashboard: React.FC = () => {
                 company={company}
                 onSelect={handleCompanySelect}
                 isLoading={selectedCompanyId === company.companyId}
+                ownerName={ownersInfo[company.companyId]}
               />
             ))}
           </div>
