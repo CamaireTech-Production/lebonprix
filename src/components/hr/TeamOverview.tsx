@@ -259,13 +259,11 @@ const TeamOverview = ({ teamMembers, onRefresh, companyId }: TeamOverviewProps) 
                 
                 <div className="flex items-center space-x-3">
                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getRoleColor(member.role)}`}>
-                    {getRoleDisplayName(member.role)}
-                  </span>
-                  
-                  <span className="text-xs text-gray-500">
                     {member.permissionTemplateId 
                       ? (member.permissionTemplateName || 'Custom Template')
-                      : 'Base Role Only'}
+                      : member.role === 'owner' 
+                        ? 'Owner (Propriétaire)'
+                        : 'No Template Assigned'}
                   </span>
                   
                   {member.lastLogin && (
@@ -331,7 +329,6 @@ const TeamOverview = ({ teamMembers, onRefresh, companyId }: TeamOverviewProps) 
             <div className="bg-white rounded-lg max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
               <TemplateAssignment
                 userId={selectedMember.id}
-                currentRole={selectedMember.role as 'staff' | 'manager' | 'admin' | 'owner'}
                 currentTemplateId={selectedMember.permissionTemplateId}
                 onTemplateAssigned={handleTemplateAssigned}
                 onClose={() => setShowTemplateAssignment(false)}
