@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Plus, Edit2, Trash2, MapPin, Calendar, User, Search } from 'lucide-react';
+import { Plus, Edit2, Trash2, MapPin, Calendar, User, Search, CheckSquare, Square } from 'lucide-react';
 import { Card, Button, Badge, Modal, Input, Textarea, Table, LoadingScreen } from '@components/common';
 import { useInfiniteCustomers } from '@hooks/data/useInfiniteCustomers';
 import { useInfiniteScroll } from '@hooks/data/useInfiniteScroll';
@@ -36,6 +36,11 @@ const Contacts = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
+  
+  // Bulk selection states
+  const [isBulkSelection, setIsBulkSelection] = useState(false);
+  const [selectedContacts, setSelectedContacts] = useState<string[]>([]);
   
   // Form states
   const [currentCustomer, setCurrentCustomer] = useState<Customer | null>(null);
@@ -226,6 +231,62 @@ const Contacts = () => {
     }
   };
 
+  // Bulk selection handlers
+  const toggleBulkSelection = () => {
+    setIsBulkSelection((prev) => !prev);
+    setSelectedContacts([]);
+  };
+
+  const handleSelectContact = (id: string) => {
+    setSelectedContacts((prev) =>
+      prev.includes(id) ? prev.filter((cid) => cid !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAll = () => {
+    if (selectedContacts.length === filteredCustomers.length) {
+      setSelectedContacts([]);
+    } else {
+      setSelectedContacts(filteredCustomers.map((c) => c.id));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (!company?.id || selectedContacts.length === 0) return;
+
+    setIsSubmitting(true);
+    try {
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const id of selectedContacts) {
+        try {
+          await deleteCustomer(id);
+          successCount++;
+        } catch (err) {
+          errorCount++;
+          console.error(`Error deleting contact ${id}:`, err);
+        }
+      }
+
+      if (successCount > 0) {
+        showSuccessToast(`${successCount} contact(s) supprimé(s) avec succès`);
+      }
+      if (errorCount > 0) {
+        showErrorToast(`${errorCount} contact(s) n'ont pas pu être supprimé(s)`);
+      }
+
+      setIsBulkDeleteModalOpen(false);
+      setSelectedContacts([]);
+      setIsBulkSelection(false);
+      refresh(); // Refresh the list
+    } catch (err) {
+      showErrorToast('Erreur lors de la suppression en masse');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   if (loading) {
     return <LoadingScreen />;
   }
@@ -235,13 +296,41 @@ const Contacts = () => {
     return null;
   }
 
+  const tableColumns = [
+    { header: 'Nom', accessor: 'name' as const },
+    { header: 'Téléphone', accessor: 'phone' as const },
+    { header: 'Achats', accessor: 'purchaseCount' as const },
+    { header: 'Localisation', accessor: 'location' as const },
+    { header: 'Adresse', accessor: 'address' as const },
+    { header: 'Date de naissance', accessor: 'birthdate' as const },
+    { header: 'Comment connu', accessor: 'howKnown' as const },
+    { header: 'Actions', accessor: 'actions' as const }
+  ];
+
+  // Add checkbox column if bulk selection is enabled
+  const tableColumnsWithSelection = isBulkSelection
+    ? [
+        {
+          header: (
+            <button onClick={handleSelectAll} aria-label="Sélectionner tout">
+              {selectedContacts.length === filteredCustomers.length && filteredCustomers.length > 0 
+                ? <CheckSquare size={18} className="text-emerald-600" /> 
+                : <Square size={18} className="text-gray-400" />}
+            </button>
+          ),
+          accessor: 'checkbox' as const
+        },
+        ...tableColumns
+      ]
+    : tableColumns;
+
   const tableData = filteredCustomers.map(customer => {
     const customerAsCustomer = customer as Customer & { purchaseCount: number };
     const fullName = customerAsCustomer.firstName && customerAsCustomer.lastName 
       ? `${customerAsCustomer.firstName} ${customerAsCustomer.lastName}`
       : customerAsCustomer.name || 'Sans nom';
     
-    return {
+    const rowData: any = {
       id: customerAsCustomer.id,
       name: fullName,
       phone: customerAsCustomer.phone,
@@ -277,18 +366,23 @@ const Contacts = () => {
         </div>
       )
     };
-  });
 
-  const tableColumns = [
-    { header: 'Nom', accessor: 'name' as const },
-    { header: 'Téléphone', accessor: 'phone' as const },
-    { header: 'Achats', accessor: 'purchaseCount' as const },
-    { header: 'Localisation', accessor: 'location' as const },
-    { header: 'Adresse', accessor: 'address' as const },
-    { header: 'Date de naissance', accessor: 'birthdate' as const },
-    { header: 'Comment connu', accessor: 'howKnown' as const },
-    { header: 'Actions', accessor: 'actions' as const }
-  ];
+    // Add checkbox column if bulk selection is enabled
+    if (isBulkSelection) {
+      rowData.checkbox = (
+        <button
+          onClick={() => handleSelectContact(customerAsCustomer.id)}
+          aria-label="Sélectionner le contact"
+        >
+          {selectedContacts.includes(customerAsCustomer.id) 
+            ? <CheckSquare size={18} className="text-emerald-600" /> 
+            : <Square size={18} className="text-gray-400" />}
+        </button>
+      );
+    }
+
+    return rowData;
+  });
 
   return (
     <div className="pb-16 md:pb-0">
@@ -359,11 +453,44 @@ const Contacts = () => {
         </div>
       </div>
 
+      {/* Bulk selection actions */}
+      {canDelete && (
+        <div className="flex space-x-2 mb-6">
+          <Button
+            icon={<CheckSquare size={16} />}
+            variant={isBulkSelection ? 'primary' : 'outline'}
+            onClick={toggleBulkSelection}
+          >
+            {isBulkSelection ? 'Annuler la sélection' : 'Sélection multiple'}
+          </Button>
+          {isBulkSelection && (
+            <Button
+              icon={<Square size={16} />}
+              variant="outline"
+              onClick={handleSelectAll}
+            >
+              {selectedContacts.length === filteredCustomers.length && filteredCustomers.length > 0
+                ? 'Tout désélectionner'
+                : 'Tout sélectionner'}
+            </Button>
+          )}
+          {isBulkSelection && selectedContacts.length > 0 && (
+            <Button
+              icon={<Trash2 size={16} />}
+              variant="danger"
+              onClick={() => setIsBulkDeleteModalOpen(true)}
+            >
+              Supprimer {selectedContacts.length} contact(s)
+            </Button>
+          )}
+        </div>
+      )}
+
       {/* Contacts Table */}
       <Card>
         <Table
           data={tableData}
-          columns={tableColumns}
+          columns={tableColumnsWithSelection}
           keyExtractor={(item) => item.id || ''}
           emptyMessage="Aucun contact trouvé"
         />
@@ -699,6 +826,54 @@ const Contacts = () => {
           <strong>{currentCustomer?.name || currentCustomer?.phone}</strong> ?
           Cette action est irréversible.
         </p>
+      </Modal>
+
+      {/* Bulk Delete Modal */}
+      <Modal
+        isOpen={isBulkDeleteModalOpen}
+        onClose={() => {
+          setIsBulkDeleteModalOpen(false);
+        }}
+        title="Supprimer les contacts sélectionnés"
+        footer={
+          <div className="flex justify-end space-x-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsBulkDeleteModalOpen(false);
+              }}
+            >
+              Annuler
+            </Button>
+            <Button
+              variant="danger"
+              onClick={handleBulkDelete}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? 'Suppression...' : `Supprimer ${selectedContacts.length} contact(s)`}
+            </Button>
+          </div>
+        }
+      >
+        <p className="text-gray-600 mb-4">
+          Êtes-vous sûr de vouloir supprimer <strong>{selectedContacts.length}</strong> contact(s) sélectionné(s) ?
+          Cette action est irréversible.
+        </p>
+        <ul className="text-sm text-gray-500 mb-2 max-h-32 overflow-y-auto border border-gray-200 rounded p-2">
+          {filteredCustomers
+            .filter(c => selectedContacts.includes(c.id))
+            .map(c => {
+              const customerAsCustomer = c as Customer & { purchaseCount: number };
+              const fullName = customerAsCustomer.firstName && customerAsCustomer.lastName 
+                ? `${customerAsCustomer.firstName} ${customerAsCustomer.lastName}`
+                : customerAsCustomer.name || 'Sans nom';
+              return (
+                <li key={c.id} className="py-1">
+                  {fullName} ({customerAsCustomer.phone || 'Sans téléphone'})
+                </li>
+              );
+            })}
+        </ul>
       </Modal>
     </div>
   );

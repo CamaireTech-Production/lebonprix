@@ -1,5 +1,5 @@
 // Add Article Modal - Add article to existing production
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { X, AlertCircle, CheckCircle2, AlertTriangle, Plus, Trash2 } from 'lucide-react';
 import { Modal, Button, LoadingScreen } from '@components/common';
 import { useMatiereStocks } from '@hooks/business/useMatiereStocks';
@@ -27,6 +27,24 @@ const AddArticleModal: React.FC<AddArticleModalProps> = ({
 }) => {
   const { matiereStocks } = useMatiereStocks();
   const { matieres = [] } = useMatieres();
+
+  // Helper function to prevent wheel event on number inputs
+  // Uses ref callback to add non-passive event listener
+  const handleNumberInputRef = useCallback((element: HTMLInputElement | null) => {
+    if (!element) return;
+    
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      element.blur();
+    };
+    
+    // Add non-passive event listener to allow preventDefault
+    element.addEventListener('wheel', handleWheel, { passive: false });
+    
+    // Note: Cleanup is handled automatically when element is removed from DOM
+    // For explicit cleanup, we could use a WeakMap, but it's not necessary here
+    // as the element will be destroyed when component unmounts
+  }, []);
 
   const [articleName, setArticleName] = useState('');
   const [articleQuantity, setArticleQuantity] = useState<number>(1);
@@ -199,6 +217,7 @@ const AddArticleModal: React.FC<AddArticleModalProps> = ({
               Quantité <span className="text-red-500">*</span>
             </label>
             <input
+              ref={handleNumberInputRef}
               type="number"
               value={articleQuantity || ''}
               onChange={(e) => setArticleQuantity(parseFloat(e.target.value) || 0)}
@@ -279,6 +298,7 @@ const AddArticleModal: React.FC<AddArticleModalProps> = ({
                         </label>
                         <div className="flex items-center space-x-2">
                           <input
+                            ref={handleNumberInputRef}
                             type="number"
                             value={material.requiredQuantity || ''}
                             onChange={(e) => handleUpdateMaterial(index, 'requiredQuantity', parseFloat(e.target.value) || 0)}

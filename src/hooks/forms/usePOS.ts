@@ -224,24 +224,30 @@ export function usePOS() {
   const handleCustomerSearch = useCallback((value: string) => {
     setCustomerSearch(value);
     
-    const normalizedSearch = normalizePhoneForComparison(value);
-    if (normalizedSearch.length >= 2) {
-      const matchingCustomers = customers.filter(c => {
-        if (!c.phone) return false;
-        const customerPhone = normalizePhoneForComparison(c.phone);
-        return customerPhone.includes(normalizedSearch) || normalizedSearch.includes(customerPhone);
-      });
-      setShowCustomerDropdown(matchingCustomers.length > 0);
-    } else if (value.length >= 2 && !/\d/.test(value)) {
-      // Name search
-      const matchingCustomers = customers.filter(c => {
-        if (!c.name) return false;
-        return c.name.toLowerCase().includes(value.toLowerCase());
-      });
-      setShowCustomerDropdown(matchingCustomers.length > 0);
-    } else {
+    if (!value.trim() || value.length < 1) {
       setShowCustomerDropdown(false);
+      return;
     }
+    
+    const searchTerm = value.trim().toLowerCase();
+    const normalizedSearch = normalizePhoneForComparison(value);
+    
+    // Search by both name and phone simultaneously
+    const matchingCustomers = customers.filter(c => {
+      // Search by name (case-insensitive, partial match)
+      const nameMatch = c.name?.toLowerCase().includes(searchTerm) || false;
+      
+      // Search by phone (normalized comparison for partial match)
+      const phoneMatch = c.phone && normalizedSearch.length >= 1
+        ? normalizePhoneForComparison(c.phone).includes(normalizedSearch) || 
+          normalizedSearch.includes(normalizePhoneForComparison(c.phone))
+        : false;
+      
+      // Return true if EITHER name OR phone matches
+      return nameMatch || phoneMatch;
+    });
+    
+    setShowCustomerDropdown(matchingCustomers.length > 0);
   }, [customers]);
 
   // Select customer

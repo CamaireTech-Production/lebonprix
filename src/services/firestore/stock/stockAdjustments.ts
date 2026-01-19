@@ -10,7 +10,7 @@ import {
   serverTimestamp
 } from 'firebase/firestore';
 import { db } from '../../core/firebase';
-import type { Product, Matiere, StockBatch, StockChange } from '../../../types/models';
+import type { Product, Matiere, StockBatch, StockChange, BatchAdjustment } from '../../../types/models';
 import { createStockChange, getMatiereStockBatches } from './stockService';
 import { addSupplierDebt, addSupplierRefund, removeSupplierDebtEntry, getSupplierDebt } from '../suppliers/supplierDebtService';
 import { logError } from '@utils/core/logger';
@@ -242,8 +242,314 @@ export const restockMatiere = async (
 };
 
 /**
+ * UNIFIED BATCH ADJUSTMENT FUNCTION
+ * This is the main function that handles all types of batch adjustments:
+ * - quantity_correction: Correct the total quantity of a batch (e.g., 10 → 6)
+ * - remaining_adjustment: Adjust only the remaining quantity
+ * - damage: Record damaged/lost inventory
+ * - cost_correction: Update cost price only
+ * - combined: Multiple adjustments at once
+ */
+export const adjustBatchUnified = async (
+  itemId: string, // productId or matiereId
+  itemType: 'product' | 'matiere',
+  adjustment: BatchAdjustment,
+  companyId: string
+): Promise<void> => {
+  const batch = writeBatch(db);
+  
+  // Get batch details
+  const batchRef = doc(db, 'stockBatches', adjustment.batchId);
+  const batchSnap = await getDoc(batchRef);
+  if (!batchSnap.exists()) {
+    throw new Error('Stock batch not found');
+  }
+  
+  const batchData = batchSnap.data() as StockBatch;
+  
+  // Verify batch belongs to company
+  if (batchData.companyId !== companyId) {
+    throw new Error('Unauthorized: Batch belongs to different company');
+  }
+  
+  // Verify batch type matches
+  if (batchData.type !== itemType) {
+    throw new Error(`Batch type mismatch: expected ${itemType}, got ${batchData.type}`);
+  }
+  
+  // Verify batch belongs to the item
+  if (itemType === 'product' && batchData.productId !== itemId) {
+    throw new Error('Batch does not belong to this product');
+  }
+  if (itemType === 'matiere' && batchData.matiereId !== itemId) {
+    throw new Error('Batch does not belong to this matiere');
+  }
+  
+  // Get userId from batch for audit
+  const userId = batchData.userId || companyId;
+  
+  // Get item details for descriptions
+  let itemName = '';
+  let itemUnit = '';
+  if (itemType === 'product') {
+    const productRef = doc(db, 'products', itemId);
+    const productSnap = await getDoc(productRef);
+    if (!productSnap.exists()) {
+      throw new Error('Product not found');
+    }
+    const product = productSnap.data() as Product;
+    if (product.companyId !== companyId) {
+      throw new Error('Unauthorized: Product belongs to different company');
+    }
+    itemName = product.name;
+  } else {
+    const matiereRef = doc(db, 'matieres', itemId);
+    const matiereSnap = await getDoc(matiereRef);
+    if (!matiereSnap.exists()) {
+      throw new Error('Matiere not found');
+    }
+    const matiere = matiereSnap.data() as Matiere;
+    if (matiere.companyId !== companyId) {
+      throw new Error('Unauthorized: Matiere belongs to different company');
+    }
+    itemName = matiere.name;
+    itemUnit = matiere.unit || 'unité';
+  }
+  
+  // Calculate new batch values based on adjustment type
+  let newQuantity = batchData.quantity;
+  let newRemainingQuantity = batchData.remainingQuantity;
+  let newCostPrice = batchData.costPrice;
+  let newDamagedQuantity = batchData.damagedQuantity || 0;
+  let stockChangeDelta = 0;
+  
+  // Process adjustment based on type
+  switch (adjustment.adjustmentType) {
+    case 'quantity_correction':
+      // Correct total quantity (e.g., 10 → 6)
+      if (adjustment.newTotalQuantity === undefined) {
+        throw new Error('newTotalQuantity is required for quantity_correction');
+      }
+      if (adjustment.newTotalQuantity < 0) {
+        throw new Error('New total quantity cannot be negative');
+      }
+      
+      newQuantity = adjustment.newTotalQuantity;
+      // Adjust remaining quantity proportionally, but ensure it doesn't exceed new total
+      const usedQuantity = batchData.quantity - batchData.remainingQuantity;
+      newRemainingQuantity = Math.max(0, newQuantity - usedQuantity);
+      
+      // Calculate stock change delta
+      stockChangeDelta = newRemainingQuantity - batchData.remainingQuantity;
+      break;
+      
+    case 'remaining_adjustment':
+      // Adjust only remaining quantity (delta)
+      if (adjustment.remainingQuantityDelta === undefined) {
+        throw new Error('remainingQuantityDelta is required for remaining_adjustment');
+      }
+      
+      newRemainingQuantity = batchData.remainingQuantity + adjustment.remainingQuantityDelta;
+      if (newRemainingQuantity < 0) {
+        throw new Error('Remaining quantity cannot be negative');
+      }
+      // If new remaining exceeds total, update total too
+      if (newRemainingQuantity > batchData.quantity) {
+        newQuantity = newRemainingQuantity;
+      }
+      
+      stockChangeDelta = adjustment.remainingQuantityDelta;
+      break;
+      
+    case 'damage':
+      // Record damage
+      if (adjustment.damageQuantity === undefined || adjustment.damageQuantity <= 0) {
+        throw new Error('damageQuantity must be a positive number for damage adjustment');
+      }
+      if (adjustment.damageQuantity > batchData.remainingQuantity) {
+        throw new Error(`Damage quantity (${adjustment.damageQuantity}) cannot exceed remaining quantity (${batchData.remainingQuantity})`);
+      }
+      
+      newRemainingQuantity = batchData.remainingQuantity - adjustment.damageQuantity;
+      newDamagedQuantity = (batchData.damagedQuantity || 0) + adjustment.damageQuantity;
+      stockChangeDelta = -adjustment.damageQuantity;
+      break;
+      
+    case 'cost_correction':
+      // Update cost price only
+      if (adjustment.newCostPrice === undefined) {
+        throw new Error('newCostPrice is required for cost_correction');
+      }
+      if (adjustment.newCostPrice < 0) {
+        throw new Error('Cost price cannot be negative');
+      }
+      
+      newCostPrice = adjustment.newCostPrice;
+      // No quantity changes
+      stockChangeDelta = 0;
+      break;
+      
+    case 'combined':
+      // Handle multiple adjustments
+      if (adjustment.newTotalQuantity !== undefined) {
+        if (adjustment.newTotalQuantity < 0) {
+          throw new Error('New total quantity cannot be negative');
+        }
+        newQuantity = adjustment.newTotalQuantity;
+        const usedQty = batchData.quantity - batchData.remainingQuantity;
+        newRemainingQuantity = Math.max(0, newQuantity - usedQty);
+      }
+      
+      if (adjustment.remainingQuantityDelta !== undefined) {
+        newRemainingQuantity = (newRemainingQuantity || batchData.remainingQuantity) + adjustment.remainingQuantityDelta;
+        if (newRemainingQuantity < 0) {
+          throw new Error('Remaining quantity cannot be negative');
+        }
+        if (newRemainingQuantity > newQuantity) {
+          newQuantity = newRemainingQuantity;
+        }
+      }
+      
+      if (adjustment.damageQuantity !== undefined && adjustment.damageQuantity > 0) {
+        if (adjustment.damageQuantity > (newRemainingQuantity || batchData.remainingQuantity)) {
+          throw new Error('Damage quantity cannot exceed remaining quantity');
+        }
+        newRemainingQuantity = (newRemainingQuantity || batchData.remainingQuantity) - adjustment.damageQuantity;
+        newDamagedQuantity = (batchData.damagedQuantity || 0) + adjustment.damageQuantity;
+      }
+      
+      if (adjustment.newCostPrice !== undefined) {
+        if (adjustment.newCostPrice < 0) {
+          throw new Error('Cost price cannot be negative');
+        }
+        newCostPrice = adjustment.newCostPrice;
+      }
+      
+      // Calculate final stock change delta
+      stockChangeDelta = newRemainingQuantity - batchData.remainingQuantity;
+      break;
+  }
+  
+  // Update batch
+  const batchUpdates: any = {
+    remainingQuantity: newRemainingQuantity,
+    quantity: newQuantity,
+    costPrice: newCostPrice,
+    status: newRemainingQuantity === 0 ? 'depleted' : 'active',
+    updatedAt: serverTimestamp()
+  };
+  
+  // Update damaged quantity if applicable
+  if (adjustment.adjustmentType === 'damage' || adjustment.adjustmentType === 'combined') {
+    batchUpdates.damagedQuantity = newDamagedQuantity;
+  }
+  
+  // Update notes if provided
+  if (adjustment.notes) {
+    batchUpdates.notes = adjustment.notes;
+  }
+  
+  batch.update(batchRef, batchUpdates);
+  
+  // Update item (product or matiere) - just update timestamp
+  const itemRef = itemType === 'product' 
+    ? doc(db, 'products', itemId)
+    : doc(db, 'matieres', itemId);
+  batch.update(itemRef, {
+    updatedAt: serverTimestamp()
+  });
+  
+  // Create stock change record
+  // Determine the reason for StockChange
+  let stockChangeReason: StockChange['reason'] = 'manual_adjustment';
+  if (adjustment.adjustmentType === 'damage') {
+    stockChangeReason = 'damage';
+  } else if (adjustment.adjustmentType === 'cost_correction') {
+    stockChangeReason = 'cost_correction';
+  } else if (adjustment.adjustmentType === 'quantity_correction') {
+    stockChangeReason = 'quantity_correction';
+  }
+  
+  // Only create stock change if quantity changed (not for cost_correction only)
+  if (stockChangeDelta !== 0 || adjustment.adjustmentType === 'cost_correction') {
+    const stockChangeRef = doc(collection(db, 'stockChanges'));
+    const stockChangeData: StockChange = {
+      id: stockChangeRef.id,
+      type: itemType,
+      ...(itemType === 'product' ? { productId: itemId } : { matiereId: itemId }),
+      change: stockChangeDelta,
+      reason: stockChangeReason,
+      ...(batchData.supplierId && { supplierId: batchData.supplierId }),
+      ...(batchData.isOwnPurchase !== undefined && { isOwnPurchase: batchData.isOwnPurchase }),
+      ...(batchData.isCredit !== undefined && { isCredit: batchData.isCredit }),
+      costPrice: newCostPrice,
+      batchId: adjustment.batchId,
+      createdAt: serverTimestamp(),
+      userId,
+      companyId,
+      ...(adjustment.notes && { notes: adjustment.notes }),
+      // New unified adjustment fields
+      adjustmentType: adjustment.adjustmentType,
+      adjustmentReason: adjustment.adjustmentReason,
+      ...(adjustment.newTotalQuantity !== undefined && {
+        oldQuantity: batchData.quantity,
+        newQuantity: adjustment.newTotalQuantity
+      }),
+      ...(adjustment.newCostPrice !== undefined && {
+        oldCostPrice: batchData.costPrice,
+        newCostPrice: adjustment.newCostPrice
+      })
+    };
+    batch.set(stockChangeRef, stockChangeData);
+  }
+  
+  await batch.commit();
+  
+  // Handle supplier debt adjustment (only for products, not for damage, and only if quantity changed)
+  if (
+    itemType === 'product' &&
+    adjustment.adjustmentType !== 'damage' &&
+    stockChangeDelta !== 0 &&
+    batchData.supplierId &&
+    batchData.isCredit &&
+    !batchData.isOwnPurchase
+  ) {
+    try {
+      const debtChange = stockChangeDelta * newCostPrice;
+      
+      if (debtChange > 0) {
+        // Increase debt
+        await addSupplierDebt(
+          batchData.supplierId,
+          Math.abs(debtChange),
+          `Stock adjustment: +${stockChangeDelta} units of ${itemName}`,
+          companyId,
+          adjustment.batchId
+        );
+      } else if (debtChange < 0) {
+        // Decrease debt (refund)
+        const supplierDebt = await getSupplierDebt(batchData.supplierId, companyId);
+        if (supplierDebt && supplierDebt.outstanding > 0) {
+          const refundAmount = Math.min(Math.abs(debtChange), supplierDebt.outstanding);
+          await addSupplierRefund(
+            batchData.supplierId,
+            refundAmount,
+            `Stock adjustment: ${stockChangeDelta} units of ${itemName}`,
+            companyId
+          );
+        }
+      }
+    } catch (error) {
+      logError('Error adjusting supplier debt after batch adjustment', error);
+      // Don't throw - stock was adjusted successfully, debt can be fixed manually
+    }
+  }
+};
+
+/**
  * Manual adjustment with batch selection and cost price modification
  * quantityChange can be undefined to only update price without changing quantity
+ * @deprecated Use adjustBatchUnified instead
  */
 export const adjustStockManually = async (
   productId: string,
@@ -508,6 +814,7 @@ export const adjustMatiereStockManually = async (
 
 /**
  * Damage adjustment - reduces stock without affecting supplier debt
+ * @deprecated Use adjustBatchUnified instead
  */
 export const adjustStockForDamage = async (
   productId: string,
@@ -516,90 +823,24 @@ export const adjustStockForDamage = async (
   companyId: string,
   notes?: string
 ): Promise<void> => {
-  const batch = writeBatch(db);
-  
-  // Get batch details
-  const batchRef = doc(db, 'stockBatches', batchId);
-  const batchSnap = await getDoc(batchRef);
-  if (!batchSnap.exists()) {
-    throw new Error('Stock batch not found');
-  }
-  
-  const batchData = batchSnap.data() as StockBatch;
-  // Verify batch belongs to company
-  if (batchData.companyId !== companyId) {
-    throw new Error('Unauthorized: Batch belongs to different company');
-  }
-  
-  // Verify batch type matches
-  if (batchData.type !== 'product' || !batchData.productId || batchData.productId !== productId) {
-    throw new Error('Batch does not belong to this product');
-  }
-  
-  // Get userId from batch for audit
-  const userId = batchData.userId || companyId;
-  
-  // Update batch
-  const newRemainingQuantity = batchData.remainingQuantity - damagedQuantity;
-  if (newRemainingQuantity < 0) {
-    throw new Error('Batch remaining quantity cannot be negative');
-  }
-  
-  // Calculate total damaged quantity (existing + new)
-  const totalDamagedQuantity = (batchData.damagedQuantity || 0) + damagedQuantity;
-  
-  batch.update(batchRef, {
-    remainingQuantity: newRemainingQuantity,
-    damagedQuantity: totalDamagedQuantity,
-    status: newRemainingQuantity === 0 ? 'depleted' : 'active',
-    updatedAt: serverTimestamp(),
-    ...(notes && { notes })
-  });
-  
-  // Update product stock
-  const productRef = doc(db, 'products', productId);
-  const productSnap = await getDoc(productRef);
-  if (!productSnap.exists()) {
-    throw new Error('Product not found');
-  }
-  
-  const currentProduct = productSnap.data() as Product;
-  // Verify product belongs to company
-  if (currentProduct.companyId !== companyId) {
-    throw new Error('Unauthorized: Product belongs to different company');
-  }
-  
-  // Don't update product.stock - batches are the source of truth
-  batch.update(productRef, {
-    updatedAt: serverTimestamp()
-  });
-  
-  // Create stock change record for damage
-  const stockChangeRef = doc(collection(db, 'stockChanges'));
-  const stockChangeData = {
-    id: stockChangeRef.id,
-    type: batchData.type || 'product', // Use batch type or default to product
+  // Wrapper for backward compatibility
+  await adjustBatchUnified(
     productId,
-    change: -damagedQuantity,
-    reason: 'damage' as StockChange['reason'],
-    ...(batchData.supplierId && { supplierId: batchData.supplierId }),
-    ...(batchData.isOwnPurchase !== undefined && { isOwnPurchase: batchData.isOwnPurchase }),
-    ...(batchData.isCredit !== undefined && { isCredit: batchData.isCredit }),
-    costPrice: batchData.costPrice,
-    batchId,
-    createdAt: serverTimestamp(),
-    userId,
-    companyId // Ensure companyId is set
-  };
-  batch.set(stockChangeRef, stockChangeData);
-  
-  // Note: No supplier debt adjustment for damage - debt remains unchanged
-  
-  await batch.commit();
+    'product',
+    {
+      batchId,
+      adjustmentType: 'damage',
+      adjustmentReason: 'damage',
+      damageQuantity: damagedQuantity,
+      notes
+    },
+    companyId
+  );
 };
 
 /**
  * Damage adjustment for matiere - reduces stock without affecting supplier debt
+ * @deprecated Use adjustBatchUnified instead
  */
 export const adjustMatiereStockForDamage = async (
   matiereId: string,
@@ -608,65 +849,19 @@ export const adjustMatiereStockForDamage = async (
   companyId: string,
   notes?: string
 ): Promise<void> => {
-  const batch = writeBatch(db);
-  
-  // Get batch details
-  const batchRef = doc(db, 'stockBatches', batchId);
-  const batchSnap = await getDoc(batchRef);
-  if (!batchSnap.exists()) {
-    throw new Error('Stock batch not found');
-  }
-  
-  const batchData = batchSnap.data() as StockBatch;
-  // Verify batch belongs to company
-  if (batchData.companyId !== companyId) {
-    throw new Error('Unauthorized: Batch belongs to different company');
-  }
-  
-  // Verify batch type matches
-  if (batchData.type !== 'matiere' || !batchData.matiereId || batchData.matiereId !== matiereId) {
-    throw new Error('Batch does not belong to this matiere');
-  }
-  
-  // Get userId from batch for audit
-  const userId = batchData.userId || companyId;
-  
-  // Update batch
-  const newRemainingQuantity = batchData.remainingQuantity - damagedQuantity;
-  if (newRemainingQuantity < 0) {
-    throw new Error('Batch remaining quantity cannot be negative');
-  }
-  
-  // Calculate total damaged quantity (existing + new)
-  const totalDamagedQuantity = (batchData.damagedQuantity || 0) + damagedQuantity;
-  
-  batch.update(batchRef, {
-    remainingQuantity: newRemainingQuantity,
-    damagedQuantity: totalDamagedQuantity,
-    status: newRemainingQuantity === 0 ? 'depleted' : 'active',
-    updatedAt: serverTimestamp(),
-    ...(notes && { notes })
-  });
-  
-  // Create stock change record for damage (no supplier, payment, or cost price for matieres)
-  createStockChange(
-    batch,
+  // Wrapper for backward compatibility
+  await adjustBatchUnified(
     matiereId,
-    -damagedQuantity,
-    'damage',
-    userId,
-    companyId,
-    'matiere', // Set type to matiere
-    undefined, // No supplier for matieres
-    undefined, // No own purchase flag for matieres
-    undefined, // No credit flag for matieres
-    undefined, // No cost price for matieres
-    batchId
+    'matiere',
+    {
+      batchId,
+      adjustmentType: 'damage',
+      adjustmentReason: 'damage',
+      damageQuantity: damagedQuantity,
+      notes
+    },
+    companyId
   );
-  
-  // Note: No supplier debt adjustment for damage - debt remains unchanged
-  
-  await batch.commit();
 };
 
 /**
