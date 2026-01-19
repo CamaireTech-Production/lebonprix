@@ -10,6 +10,7 @@ import {
   getDoc,
   writeBatch,
   serverTimestamp,
+  onSnapshot,
   type WriteBatch
 } from 'firebase/firestore';
 import { db } from '../../core/firebase';
@@ -390,5 +391,66 @@ export const cancelStockTransfer = async (
   });
 
   await batch.commit();
+};
+
+// ============================================================================
+// SUBSCRIPTION FUNCTIONS
+// ============================================================================
+
+/**
+ * Subscribe to stock transfers for a company
+ */
+export const subscribeToStockTransfers = (
+  companyId: string,
+  callback: (transfers: StockTransfer[]) => void,
+  onError?: (error: Error) => void,
+  filters?: {
+    productId?: string;
+    shopId?: string;
+    warehouseId?: string;
+    transferType?: StockTransfer['transferType'];
+    status?: StockTransfer['status'];
+  }
+): (() => void) => {
+  const constraints: any[] = [
+    where('companyId', '==', companyId),
+  ];
+
+  if (filters?.productId) {
+    constraints.push(where('productId', '==', filters.productId));
+  }
+  if (filters?.shopId) {
+    constraints.push(where('toShopId', '==', filters.shopId));
+  }
+  if (filters?.warehouseId) {
+    constraints.push(where('toWarehouseId', '==', filters.warehouseId));
+  }
+  if (filters?.transferType) {
+    constraints.push(where('transferType', '==', filters.transferType));
+  }
+  if (filters?.status) {
+    constraints.push(where('status', '==', filters.status));
+  }
+
+  constraints.push(orderBy('createdAt', 'desc'));
+
+  const q = query(collection(db, 'stockTransfers'), ...constraints);
+
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const transfers = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as StockTransfer[];
+      callback(transfers);
+    },
+    (error) => {
+      logError('Error subscribing to stock transfers', error);
+      if (onError) {
+        onError(new Error(error.message));
+      }
+    }
+  );
 };
 

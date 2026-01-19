@@ -96,6 +96,11 @@ import {
   updateWarehouse,
   deleteWarehouse
 } from '@services/firestore/warehouse/warehouseService';
+import {
+  subscribeToStockTransfers,
+  transferStockBetweenLocations,
+  cancelStockTransfer
+} from '@services/firestore/stock/stockTransferService';
 import { dataCache, cacheKeys, invalidateSpecificCache } from '@utils/storage/dataCache';
 import { logError } from '@utils/core/logger';
 import ProductsManager from '@services/storage/ProductsManager';
@@ -124,7 +129,8 @@ import type {
   ProductionCharge,
   Charge,
   Shop,
-  Warehouse
+  Warehouse,
+  StockTransfer
 } from '../types/models';
 import { Timestamp } from 'firebase/firestore';
 import { useAuth } from '../../contexts/AuthContext';
@@ -1234,6 +1240,97 @@ export const useWarehouses = () => {
     addWarehouse,
     updateWarehouse: updateWarehouseData,
     deleteWarehouse: deleteWarehouseData
+  };
+};
+
+// Stock Transfers Hook
+export const useStockTransfers = (filters?: {
+  productId?: string;
+  shopId?: string;
+  warehouseId?: string;
+  transferType?: StockTransfer['transferType'];
+  status?: StockTransfer['status'];
+}) => {
+  const [transfers, setTransfers] = useState<StockTransfer[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+  const { user, company, currentEmployee, isOwner } = useAuth();
+
+  useEffect(() => {
+    if (!user || !company) return;
+    
+    const unsubscribe = subscribeToStockTransfers(
+      company.id,
+      (data) => {
+        setTransfers(data);
+        setLoading(false);
+        setError(null);
+      },
+      (err) => {
+        setError(err);
+        setLoading(false);
+      },
+      filters
+    );
+
+    return () => unsubscribe();
+  }, [user, company, filters]);
+
+  const createTransfer = async (transferData: {
+    transferType: StockTransfer['transferType'];
+    productId: string;
+    quantity: number;
+    fromWarehouseId?: string;
+    fromShopId?: string;
+    fromProductionId?: string;
+    toWarehouseId?: string;
+    toShopId?: string;
+    inventoryMethod?: 'FIFO' | 'LIFO';
+    notes?: string;
+  }) => {
+    if (!user || !company) throw new Error('User not authenticated');
+    try {
+      let createdBy: ReturnType<typeof getCurrentEmployeeRef> = null;
+      if (user && company) {
+        let userData: Awaited<ReturnType<typeof getUserById>> | null = null;
+        if (isOwner && !currentEmployee) {
+          try {
+            userData = await getUserById(user.uid);
+          } catch (error) {
+            logError('Error fetching user data for createdBy', error);
+          }
+        }
+        createdBy = getCurrentEmployeeRef(currentEmployee, user, isOwner, userData);
+      }
+      
+      return await transferStockBetweenLocations({
+        ...transferData,
+        companyId: company.id,
+        userId: user.uid,
+        createdBy
+      });
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
+  };
+
+  const cancelTransfer = async (transferId: string) => {
+    if (!user || !company) throw new Error('User not authenticated');
+    try {
+      await cancelStockTransfer(transferId, user.uid);
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
+  };
+
+  return {
+    transfers,
+    loading,
+    error,
+    createTransfer,
+    cancelTransfer
   };
 };
 

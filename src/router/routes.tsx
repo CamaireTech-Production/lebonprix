@@ -53,6 +53,7 @@ const Charges = lazy(() => import('../pages/productions/Charges'));
 const Site = lazy(() => import('../pages/site/Site'));
 const Warehouse = lazy(() => import('../pages/warehouse/Warehouse'));
 const Shops = lazy(() => import('../pages/shops/Shops'));
+const StockTransfers = lazy(() => import('../pages/stock-transfers/StockTransfers'));
 
 interface AppRoutesProps {
   isAddSaleModalOpen: boolean;
@@ -120,6 +121,7 @@ export const AppRoutes: React.FC<AppRoutesProps> = ({ isAddSaleModalOpen, setIsA
           <Route path="magasin/stocks" element={<RoleRoute requiredResource={RESOURCES.MAGASIN}><LazyPage><MagasinStocks /></LazyPage></RoleRoute>} />
           <Route path="warehouse" element={<RoleRoute requiredResource={RESOURCES.WAREHOUSE}><LazyPage><Warehouse /></LazyPage></RoleRoute>} />
           <Route path="shops" element={<RoleRoute requiredResource={RESOURCES.SHOPS}><LazyPage><Shops /></LazyPage></RoleRoute>} />
+          <Route path="stock-transfers" element={<RoleRoute requiredResource={RESOURCES.PRODUCTS}><LazyPage><StockTransfers /></LazyPage></RoleRoute>} />
           <Route path="suppliers" element={<LazyPage><Suppliers /></LazyPage>} />
           <Route path="contacts" element={<RoleRoute requiredResource="customers"><LazyPage><Contacts /></LazyPage></RoleRoute>} />
           <Route path="contacts/sources" element={<RoleRoute requiredResource="customers"><LazyPage><CustomerSources /></LazyPage></RoleRoute>} />
