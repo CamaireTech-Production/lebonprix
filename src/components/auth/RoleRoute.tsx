@@ -9,13 +9,14 @@ interface RoleRouteProps {
   children: React.ReactNode;
   allowedRoles?: Array<'vendeur' | 'gestionnaire' | 'magasinier' | 'owner'>; // Deprecated: use requiredResource instead
   requiredResource?: string; // New: check template permissions for resource access
+  requiredAction?: 'view' | 'create' | 'edit' | 'delete'; // Action to check (default: 'view')
   fallbackPath?: string;
 }
 
-const RoleRoute = ({ children, allowedRoles, requiredResource, fallbackPath }: RoleRouteProps) => {
+const RoleRoute = ({ children, allowedRoles, requiredResource, requiredAction = 'view', fallbackPath }: RoleRouteProps) => {
   const { effectiveRole, isOwner, loading, companyLoading, user, company } = useAuth();
   const { companyId } = useParams<{ companyId: string }>();
-  const { canAccess, canAccessFinance, canAccessHR, canAccessSettings, templateLoading, template } = useRolePermissions(company?.id);
+  const { canAccess, canCreate, canEdit, canDelete, canAccessFinance, canAccessHR, canAccessSettings, templateLoading, template } = useRolePermissions(company?.id);
   // Note: canAccessFinance, canAccessHR, canAccessSettings are computed from canView for backward compatibility
   const hasShownError = useRef(false);
   const hasLoadedOnceRef = useRef(false);
@@ -83,8 +84,23 @@ const RoleRoute = ({ children, allowedRoles, requiredResource, fallbackPath }: R
 
   // Priority 1: Check by required resource (permission-based access)
   if (requiredResource) {
-    // Toutes les ressources utilisent maintenant canAccess (unifié avec canView array)
-    const hasAccess = canAccess(requiredResource);
+    // Check permission based on required action
+    let hasAccess = false;
+    switch (requiredAction) {
+      case 'view':
+        hasAccess = canAccess(requiredResource);
+        break;
+      case 'create':
+        hasAccess = canCreate(requiredResource);
+        break;
+      case 'edit':
+        hasAccess = canEdit(requiredResource);
+        break;
+      case 'delete':
+        // Delete is owner-only, but we check canDelete for consistency
+        hasAccess = canDelete(requiredResource);
+        break;
+    }
     
     if (!hasAccess) {
       // Afficher le toast dans un useEffect pour éviter le warning React

@@ -6,6 +6,7 @@ export type UIRole = 'owner' | 'magasinier' | 'gestionnaire' | 'vendeur';
 
 export interface RolePermissions {
   canView: string[]; // Resources user can view (e.g., ['dashboard', 'finance', 'reports'])
+  canCreate: string[]; // Resources user can create/add (e.g., ['products', 'sales', 'customers'])
   canEdit: string[]; // Resources user can edit
   canDelete: string[]; // Resources user can delete
   canManageEmployees: string[]; // Roles user can manage (e.g., ['staff', 'manager'])
@@ -38,24 +39,28 @@ export const ROLE_MAPPING: Record<SystemRole, UIRole> = {
 export const ROLE_PERMISSIONS: Record<SystemRole, RolePermissions> = {
   owner: {
     canView: [RESOURCES.ALL],
+    canCreate: [RESOURCES.ALL],
     canEdit: [RESOURCES.ALL],
     canDelete: [RESOURCES.ALL],
     canManageEmployees: [RESOURCES.ALL],
   },
   admin: {
     canView: [RESOURCES.ALL],
+    canCreate: [RESOURCES.ALL],
     canEdit: [RESOURCES.ALL],
     canDelete: ['all-except-company'],
     canManageEmployees: ['staff', 'manager', 'admin'],
   },
   manager: {
     canView: [RESOURCES.DASHBOARD, RESOURCES.SALES, RESOURCES.CUSTOMERS, RESOURCES.PRODUCTS, RESOURCES.CATEGORIES, RESOURCES.SUPPLIERS, RESOURCES.EXPENSES, RESOURCES.ORDERS, RESOURCES.REPORTS],
+    canCreate: [RESOURCES.SALES, RESOURCES.CUSTOMERS, RESOURCES.PRODUCTS, RESOURCES.CATEGORIES, RESOURCES.SUPPLIERS, RESOURCES.EXPENSES, RESOURCES.ORDERS],
     canEdit: [RESOURCES.SALES, RESOURCES.CUSTOMERS, RESOURCES.PRODUCTS, RESOURCES.CATEGORIES, RESOURCES.SUPPLIERS, RESOURCES.EXPENSES, RESOURCES.ORDERS],
     canDelete: [RESOURCES.SALES, RESOURCES.CUSTOMERS, RESOURCES.PRODUCTS, RESOURCES.EXPENSES],
     canManageEmployees: ['staff'],
   },
   staff: {
     canView: [RESOURCES.DASHBOARD, RESOURCES.SALES, RESOURCES.CUSTOMERS, RESOURCES.ORDERS],
+    canCreate: [RESOURCES.SALES, RESOURCES.CUSTOMERS, RESOURCES.ORDERS],
     canEdit: [RESOURCES.SALES, RESOURCES.CUSTOMERS, RESOURCES.ORDERS],
     canDelete: [RESOURCES.SALES, RESOURCES.CUSTOMERS],
     canManageEmployees: [],
@@ -81,6 +86,7 @@ export function getDefaultPermissionTemplates(): Array<Pick<PermissionTemplate, 
       // baseRole will be auto-detected as 'manager'
       permissions: {
         canView: [RESOURCES.DASHBOARD, RESOURCES.SALES, RESOURCES.FINANCE, RESOURCES.REPORTS, RESOURCES.ORDERS],
+        canCreate: [RESOURCES.FINANCE, RESOURCES.REPORTS],
         canEdit: [RESOURCES.FINANCE, RESOURCES.REPORTS],
         canDelete: [RESOURCES.FINANCE],
         canManageEmployees: [],
@@ -92,6 +98,7 @@ export function getDefaultPermissionTemplates(): Array<Pick<PermissionTemplate, 
       // baseRole will be auto-detected as 'manager'
       permissions: {
         canView: [RESOURCES.DASHBOARD, RESOURCES.SALES, RESOURCES.PRODUCTS, RESOURCES.CUSTOMERS, RESOURCES.REPORTS, RESOURCES.ORDERS],
+        canCreate: [RESOURCES.SALES, RESOURCES.PRODUCTS, RESOURCES.CUSTOMERS, RESOURCES.ORDERS],
         canEdit: [RESOURCES.SALES, RESOURCES.PRODUCTS, RESOURCES.CUSTOMERS, RESOURCES.ORDERS],
         canDelete: [RESOURCES.SALES, RESOURCES.PRODUCTS, RESOURCES.CUSTOMERS],
         canManageEmployees: [],
@@ -102,9 +109,10 @@ export function getDefaultPermissionTemplates(): Array<Pick<PermissionTemplate, 
       description: 'Manage products and inventory only',
       // baseRole will be auto-detected as 'staff'
       permissions: {
-        canView: [RESOURCES.PRODUCTS, RESOURCES.CATEGORIES],
-        canEdit: [RESOURCES.PRODUCTS, RESOURCES.CATEGORIES],
-        canDelete: [RESOURCES.PRODUCTS],
+        canView: [RESOURCES.PRODUCTS, RESOURCES.PRODUCTS_CATEGORIES, RESOURCES.PRODUCTS_STOCKS, RESOURCES.CATEGORIES],
+        canCreate: [RESOURCES.PRODUCTS, RESOURCES.PRODUCTS_CATEGORIES, RESOURCES.PRODUCTS_STOCKS],
+        canEdit: [RESOURCES.PRODUCTS, RESOURCES.PRODUCTS_CATEGORIES, RESOURCES.PRODUCTS_STOCKS],
+        canDelete: [RESOURCES.PRODUCTS, RESOURCES.PRODUCTS_CATEGORIES],
         canManageEmployees: [],
       }
     },
@@ -113,7 +121,8 @@ export function getDefaultPermissionTemplates(): Array<Pick<PermissionTemplate, 
       description: 'Sales and customers operations',
       // baseRole will be auto-detected as 'staff'
       permissions: {
-        canView: [RESOURCES.DASHBOARD, RESOURCES.SALES, RESOURCES.CUSTOMERS, RESOURCES.ORDERS],
+        canView: [RESOURCES.DASHBOARD, RESOURCES.SALES, RESOURCES.CUSTOMERS, RESOURCES.ORDERS, RESOURCES.PRODUCTS],
+        canCreate: [RESOURCES.SALES, RESOURCES.CUSTOMERS, RESOURCES.ORDERS],
         canEdit: [RESOURCES.SALES, RESOURCES.CUSTOMERS, RESOURCES.ORDERS],
         canDelete: [RESOURCES.SALES],
         canManageEmployees: [],
@@ -125,8 +134,81 @@ export function getDefaultPermissionTemplates(): Array<Pick<PermissionTemplate, 
       // baseRole will be auto-detected as 'manager'
       permissions: {
         canView: [RESOURCES.ALL],
-        canEdit: [RESOURCES.SALES, RESOURCES.PRODUCTS, RESOURCES.CUSTOMERS, RESOURCES.ORDERS, RESOURCES.EXPENSES],
-        canDelete: [RESOURCES.SALES, RESOURCES.PRODUCTS, RESOURCES.CUSTOMERS, RESOURCES.EXPENSES],
+        canCreate: [RESOURCES.SALES, RESOURCES.PRODUCTS, RESOURCES.CUSTOMERS, RESOURCES.ORDERS, RESOURCES.EXPENSES, RESOURCES.PRODUCTS_STOCKS, RESOURCES.PRODUCTS_CATEGORIES],
+        canEdit: [RESOURCES.SALES, RESOURCES.PRODUCTS, RESOURCES.CUSTOMERS, RESOURCES.ORDERS, RESOURCES.EXPENSES, RESOURCES.PRODUCTS_STOCKS, RESOURCES.PRODUCTS_CATEGORIES],
+        canDelete: [RESOURCES.SALES, RESOURCES.PRODUCTS, RESOURCES.CUSTOMERS, RESOURCES.EXPENSES, RESOURCES.PRODUCTS_CATEGORIES],
+        canManageEmployees: [],
+      }
+    },
+    {
+      name: 'Production Supervisor',
+      description: 'Manage productions, flows, steps, and materials',
+      // baseRole will be auto-detected as 'manager'
+      permissions: {
+        canView: [RESOURCES.PRODUCTIONS, RESOURCES.PRODUCTIONS_FLOWS, RESOURCES.PRODUCTIONS_STEPS, RESOURCES.PRODUCTIONS_CATEGORIES, RESOURCES.PRODUCTIONS_CHARGES, RESOURCES.MAGASIN, RESOURCES.MAGASIN_STOCKS, RESOURCES.PRODUCTS],
+        canCreate: [RESOURCES.PRODUCTIONS, RESOURCES.PRODUCTIONS_FLOWS, RESOURCES.PRODUCTIONS_STEPS, RESOURCES.PRODUCTIONS_CATEGORIES, RESOURCES.PRODUCTIONS_CHARGES],
+        canEdit: [RESOURCES.PRODUCTIONS, RESOURCES.PRODUCTIONS_FLOWS, RESOURCES.PRODUCTIONS_STEPS, RESOURCES.PRODUCTIONS_CATEGORIES, RESOURCES.PRODUCTIONS_CHARGES],
+        canDelete: [RESOURCES.PRODUCTIONS, RESOURCES.PRODUCTIONS_FLOWS, RESOURCES.PRODUCTIONS_STEPS],
+        canManageEmployees: [],
+      }
+    },
+    {
+      name: 'Warehouse Clerk',
+      description: 'Manage raw materials (matières) and warehouse stocks only',
+      // baseRole will be auto-detected as 'staff'
+      permissions: {
+        canView: [RESOURCES.MAGASIN, RESOURCES.MAGASIN_CATEGORIES, RESOURCES.MAGASIN_STOCKS],
+        canCreate: [RESOURCES.MAGASIN, RESOURCES.MAGASIN_CATEGORIES, RESOURCES.MAGASIN_STOCKS],
+        canEdit: [RESOURCES.MAGASIN, RESOURCES.MAGASIN_CATEGORIES, RESOURCES.MAGASIN_STOCKS],
+        canDelete: [],
+        canManageEmployees: [],
+      }
+    },
+    {
+      name: 'HR Manager',
+      description: 'Manage human resources actors and employee data',
+      // baseRole will be auto-detected as 'manager'
+      permissions: {
+        canView: [RESOURCES.HUMAN_RESOURCES, RESOURCES.DASHBOARD, RESOURCES.REPORTS],
+        canCreate: [RESOURCES.HUMAN_RESOURCES],
+        canEdit: [RESOURCES.HUMAN_RESOURCES],
+        canDelete: [],
+        canManageEmployees: [],
+      }
+    },
+    {
+      name: 'Admin Assistant',
+      description: 'Manage permissions, invitations, and HR data',
+      // baseRole will be auto-detected as 'admin'
+      permissions: {
+        canView: [RESOURCES.PERMISSIONS, RESOURCES.HUMAN_RESOURCES, RESOURCES.DASHBOARD],
+        canCreate: [RESOURCES.PERMISSIONS, RESOURCES.HUMAN_RESOURCES],
+        canEdit: [RESOURCES.PERMISSIONS, RESOURCES.HUMAN_RESOURCES],
+        canDelete: [],
+        canManageEmployees: [],
+      }
+    },
+    {
+      name: 'Finance Officer',
+      description: 'View operations and manage expenses only',
+      // baseRole will be auto-detected as 'manager'
+      permissions: {
+        canView: [RESOURCES.FINANCE, RESOURCES.REPORTS, RESOURCES.SALES, RESOURCES.EXPENSES, RESOURCES.EXPENSE_CATEGORIES, RESOURCES.PRODUCTS, RESOURCES.DASHBOARD],
+        canCreate: [RESOURCES.EXPENSES, RESOURCES.EXPENSE_CATEGORIES],
+        canEdit: [RESOURCES.EXPENSES, RESOURCES.EXPENSE_CATEGORIES],
+        canDelete: [],
+        canManageEmployees: [],
+      }
+    },
+    {
+      name: 'Stock Auditor',
+      description: 'View stocks and inventory without modifications',
+      // baseRole will be auto-detected as 'staff'
+      permissions: {
+        canView: [RESOURCES.PRODUCTS_STOCKS, RESOURCES.MAGASIN_STOCKS, RESOURCES.PRODUCTS, RESOURCES.MAGASIN, RESOURCES.REPORTS],
+        canCreate: [],
+        canEdit: [],
+        canDelete: [],
         canManageEmployees: [],
       }
     }

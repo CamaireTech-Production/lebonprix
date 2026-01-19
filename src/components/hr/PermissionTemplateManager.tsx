@@ -11,6 +11,7 @@ import {
 import { getDefaultPermissionTemplates } from '../../types/permissions';
 import { PermissionTemplate } from '../../types/permissions';
 import PermissionTemplateForm from './PermissionTemplateForm';
+import { clearAllPermissionCaches } from '../../hooks/business/usePermissionCache';
 
 interface PermissionTemplateManagerProps {
   onTemplateChange?: () => void;
@@ -61,6 +62,17 @@ const PermissionTemplateManager = ({ onTemplateChange }: PermissionTemplateManag
     
     try {
       await updateTemplate(company.id, editingTemplate.id, templateData);
+      
+      // Clear all permission caches to force refresh for all users using this template
+      clearAllPermissionCaches();
+      
+      // Broadcast event to notify active users to refresh their permissions
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('permission-template-updated', {
+          detail: { companyId: company.id, templateId: editingTemplate.id }
+        }));
+      }
+      
       await loadTemplates();
       setShowForm(false);
       setEditingTemplate(null);
@@ -84,6 +96,17 @@ const PermissionTemplateManager = ({ onTemplateChange }: PermissionTemplateManag
     
     try {
       await deleteTemplate(company.id, templateId);
+      
+      // Clear all permission caches when template is deleted
+      clearAllPermissionCaches();
+      
+      // Broadcast event to notify active users
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('permission-template-updated', {
+          detail: { companyId: company.id, templateId }
+        }));
+      }
+      
       await loadTemplates();
       onTemplateChange?.();
     } catch (error) {

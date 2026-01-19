@@ -9,6 +9,7 @@ import { useAuth } from '@contexts/AuthContext';
 import type { Sale, SaleProduct } from '../../types/models';
 import { useCustomerSources } from '@hooks/business/useCustomerSources';
 import { useProfitPeriod } from '@hooks/business/useProfitPeriod';
+import { useDashboardPermissions } from '@hooks/business/useDashboardPermissions';
 import { calculateTotalDeliveryFee, calculateTotalOrders, calculateTotalProductsSold } from '@utils/calculations/financialCalculations';
 import ObjectivesBar from '../../components/objectives/ObjectivesBar';
 import ObjectivesModal from '../../components/objectives/ObjectivesModal';
@@ -47,7 +48,20 @@ const Dashboard = () => {
   
   // 💰 PROFIT PERIOD: Load profit period preference
   const { preference: profitPeriodPreference, setPeriod, clearPeriod } = useProfitPeriod();
-  
+
+  // 🔒 DASHBOARD PERMISSIONS: Get section visibility based on user permissions
+  const {
+    canViewStats,
+    canViewProfit,
+    canViewExpenses,
+    canViewCharts,
+    canViewTopSales,
+    canViewBestClients,
+    canViewBestProducts,
+    canViewLatestOrders,
+    canViewObjectives,
+  } = useDashboardPermissions();
+
   // 🎯 ESSENTIAL DATA: Only block UI for critical data (sales + products)
   const essentialDataLoading = salesLoading || productsLoading;
 
@@ -244,37 +258,41 @@ const Dashboard = () => {
       <div className="grid grid-cols-1 lg:grid-cols-10 gap-6">
         {/* Left Column - 70% (7 columns) */}
         <div className="lg:col-span-7 space-y-6">
-          {/* Objectives global bar */}
-          {(expensesLoading || stockChangesLoading) ? (
-            <SkeletonObjectivesBar />
-          ) : (
-            <ObjectivesBar
-              onAdd={() => { setShowObjectivesModal(true); }}
-              onView={() => { setShowObjectivesModal(true); }}
-              stats={statsMap}
-              dateRange={dateRange}
-              applyDateFilter={applyDateFilter}
-              onToggleFilter={setApplyDateFilter}
-              sales={sales}
-              expenses={expenses}
-              products={products}
-              stockChanges={stockChanges}
-            />
-          )}
-          {showObjectivesModal && (
-            <ObjectivesModal
-              isOpen={showObjectivesModal}
-              onClose={() => setShowObjectivesModal(false)}
-              stats={statsMap}
-              dateRange={dateRange}
-              metricsOptions={metricsOptions}
-              applyDateFilter={applyDateFilter}
-              sales={sales}
-              expenses={expenses}
-              products={products}
-              stockChanges={stockChanges}
-              onAfterAdd={() => setApplyDateFilter(false)}
-            />
+          {/* Objectives global bar - only visible if user has permission */}
+          {canViewObjectives && (
+            <>
+              {(expensesLoading || stockChangesLoading) ? (
+                <SkeletonObjectivesBar />
+              ) : (
+                <ObjectivesBar
+                  onAdd={() => { setShowObjectivesModal(true); }}
+                  onView={() => { setShowObjectivesModal(true); }}
+                  stats={statsMap}
+                  dateRange={dateRange}
+                  applyDateFilter={applyDateFilter}
+                  onToggleFilter={setApplyDateFilter}
+                  sales={sales}
+                  expenses={expenses}
+                  products={products}
+                  stockChanges={stockChanges}
+                />
+              )}
+              {showObjectivesModal && (
+                <ObjectivesModal
+                  isOpen={showObjectivesModal}
+                  onClose={() => setShowObjectivesModal(false)}
+                  stats={statsMap}
+                  dateRange={dateRange}
+                  metricsOptions={metricsOptions}
+                  applyDateFilter={applyDateFilter}
+                  sales={sales}
+                  expenses={expenses}
+                  products={products}
+                  stockChanges={stockChanges}
+                  onAfterAdd={() => setApplyDateFilter(false)}
+                />
+              )}
+            </>
           )}
 
           {/* Period Filter */}
@@ -299,8 +317,21 @@ const Dashboard = () => {
             />
           )}
           
-          {/* Stats section */}
-          <StatsSection statCards={statCards} />
+          {/* Stats section - filtered based on permissions */}
+          {canViewStats && (
+            <StatsSection
+              statCards={statCards.filter(card => {
+                // Filter out profit and expense cards if user doesn't have permission
+                if (!canViewProfit && (card.title === t('dashboard.stats.profit') || card.title === t('dashboard.stats.margin'))) {
+                  return false;
+                }
+                if (!canViewExpenses && card.title === t('dashboard.stats.totalExpenses')) {
+                  return false;
+                }
+                return true;
+              })}
+            />
+          )}
           
           {/* Data Loading Status */}
           <DataLoadingStatus
@@ -309,49 +340,61 @@ const Dashboard = () => {
             recentSalesCount={sales?.length || 0}
           />
 
-          {/* Donut Charts */}
-          <DonutChartsSection
-            salesByCategoryData={salesByCategoryData}
-            expensesByCategoryData={expensesByCategoryData}
-            salesBySourceData={salesBySourceData}
-            salesByPaymentStatusData={salesByPaymentStatusData}
-            loading={{
-              sales: salesLoading,
-              products: productsLoading,
-              expenses: expensesLoading
-            }}
-          />
+          {/* Donut Charts - visible if user has charts permission */}
+          {canViewCharts && (
+            <DonutChartsSection
+              salesByCategoryData={salesByCategoryData}
+              expensesByCategoryData={canViewExpenses ? expensesByCategoryData : []}
+              salesBySourceData={salesBySourceData}
+              salesByPaymentStatusData={salesByPaymentStatusData}
+              loading={{
+                sales: salesLoading,
+                products: productsLoading,
+                expenses: expensesLoading
+              }}
+            />
+          )}
         </div>
 
         {/* Right Column - 30% (3 columns) - All Tables */}
         <div className="lg:col-span-3 space-y-6">
-          {/* Top Sales */}
-          <TopSales
-            sales={topSalesData}
-            onViewMore={() => navigate(`/company/${companyId}/sales`)}
-          />
-
-          {/* Best Clients */}
-          <BestClients
-            clients={bestClientsData}
-            onViewMore={() => navigate(`/company/${companyId}/contacts`)}
-          />
-
-          {/* Best Products */}
-          <BestProductsList
-            products={bestProductsListData}
-            allProducts={products || []}
-            onViewAll={() => navigate(`/company/${companyId}/products`)}
-          />
-
-          {/* Latest Orders Table */}
-          {(salesLoading || loadingAllSales) ? (
-            <SkeletonTable rows={5} />
-          ) : (
-            <LatestOrdersTable
-              orders={latestOrders}
-              onOrderClick={(order: Sale) => navigate(`/company/${companyId}/sales?orderId=${order.id}`)}
+          {/* Top Sales - visible if user has permission */}
+          {canViewTopSales && (
+            <TopSales
+              sales={topSalesData}
+              onViewMore={() => navigate(`/company/${companyId}/sales`)}
             />
+          )}
+
+          {/* Best Clients - visible if user has permission */}
+          {canViewBestClients && (
+            <BestClients
+              clients={bestClientsData}
+              onViewMore={() => navigate(`/company/${companyId}/contacts`)}
+            />
+          )}
+
+          {/* Best Products - visible if user has permission */}
+          {canViewBestProducts && (
+            <BestProductsList
+              products={bestProductsListData}
+              allProducts={products || []}
+              onViewAll={() => navigate(`/company/${companyId}/products`)}
+            />
+          )}
+
+          {/* Latest Orders Table - visible if user has permission */}
+          {canViewLatestOrders && (
+            <>
+              {(salesLoading || loadingAllSales) ? (
+                <SkeletonTable rows={5} />
+              ) : (
+                <LatestOrdersTable
+                  orders={latestOrders}
+                  onOrderClick={(order: Sale) => navigate(`/company/${companyId}/sales?orderId=${order.id}`)}
+                />
+              )}
+            </>
           )}
         </div>
       </div>

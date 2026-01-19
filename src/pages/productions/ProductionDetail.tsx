@@ -10,6 +10,8 @@ import { formatPrice } from '@utils/formatting/formatPrice';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
 import { getUserById } from '@services/utilities/userService';
 import { formatCreatorName } from '@utils/business/employeeUtils';
+import { usePermissionCheck } from '@components/permissions';
+import { RESOURCES } from '@constants/resources';
 import ChargeFormModal from '@components/productions/ChargeFormModal';
 import PublishProductionModal from '@components/productions/PublishProductionModal';
 import AddArticleModal from '@components/productions/AddArticleModal';
@@ -31,6 +33,7 @@ const ProductionDetail: React.FC = () => {
   const { flowSteps } = useProductionFlowSteps();
   const { categories } = useProductionCategories();
   const { matiereStocks } = useMatiereStocks();
+  const { canDelete } = usePermissionCheck(RESOURCES.PRODUCTIONS);
 
   const [activeTab, setActiveTab] = useState<'overview' | 'materials' | 'charges' | 'history'>('overview');
   const [isChangeStateModalOpen, setIsChangeStateModalOpen] = useState(false);
@@ -323,7 +326,7 @@ const ProductionDetail: React.FC = () => {
                 </Button>
               </>
             )}
-            {!production.isPublished && !isClosed && (
+            {canDelete && !production.isPublished && !isClosed && (
               <Button
                 variant="danger"
                 icon={<Trash2 size={16} />}
@@ -1263,7 +1266,7 @@ const ProductionDetail: React.FC = () => {
                               {formatCreatorName(charge.createdBy)}
                             </div>
                           </td>
-                          {!isClosed && (
+                          {!isClosed && (charge.type === 'fixed' || canDelete) && (
                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                               <div className="flex justify-end space-x-2">
                                 <button

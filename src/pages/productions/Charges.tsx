@@ -6,6 +6,8 @@ import { useCharges, useFixedCharges, useCustomCharges } from '@hooks/data/useFi
 import { formatPrice } from '@utils/formatting/formatPrice';
 import { showSuccessToast, showErrorToast, showWarningToast } from '@utils/core/toast';
 import { formatCreatorName } from '@utils/business/employeeUtils';
+import { usePermissionCheck } from '@components/permissions';
+import { RESOURCES } from '@constants/resources';
 import ChargeFormModal from '@components/productions/ChargeFormModal';
 import type { Charge } from '../../types/models';
 import { useLocation } from 'react-router-dom';
@@ -24,7 +26,8 @@ const CHARGE_CATEGORY_LABELS: Record<string, string> = {
 const Charges: React.FC = () => {
   const location = useLocation();
   const { company } = useAuth();
-  
+  const { canDelete } = usePermissionCheck(RESOURCES.PRODUCTIONS);
+
   // Extract companyId from URL if in company route
   const isCompanyRoute = location.pathname.startsWith('/company/');
   const urlCompanyId = isCompanyRoute ? location.pathname.split('/')[2] : null;
@@ -307,18 +310,20 @@ const Charges: React.FC = () => {
                           >
                             <Edit2 size={16} />
                           </button>
-                          <button
-                            onClick={() => handleDelete(charge)}
-                            className="text-red-600 hover:text-red-900"
-                            title="Supprimer"
-                            disabled={deletingChargeId === charge.id}
-                          >
-                            {deletingChargeId === charge.id ? (
-                              <Loader2 size={16} className="animate-spin" />
-                            ) : (
-                              <Trash2 size={16} />
-                            )}
-                          </button>
+                          {canDelete && (
+                            <button
+                              onClick={() => handleDelete(charge)}
+                              className="text-red-600 hover:text-red-900"
+                              title="Supprimer"
+                              disabled={deletingChargeId === charge.id}
+                            >
+                              {deletingChargeId === charge.id ? (
+                                <Loader2 size={16} className="animate-spin" />
+                              ) : (
+                                <Trash2 size={16} />
+                              )}
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

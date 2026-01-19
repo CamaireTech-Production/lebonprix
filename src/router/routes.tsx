@@ -40,7 +40,9 @@ const ProductDetailPage = lazy(() => import('../pages/products/ProductDetailPage
 const InviteActivate = lazy(() => import('../pages/invite/InviteActivate'));
 const CreateCompany = lazy(() => import('../pages/company/CreateCompany'));
 const CompanySelection = lazy(() => import('../pages/company/CompanySelection'));
-const HRManagement = lazy(() => import('../pages/hr/HRManagement'));
+const HRManagement = lazy(() => import('../pages/hr/HRManagement')); // Legacy - kept for backward compatibility
+const PermissionsManagement = lazy(() => import('../pages/permissions/PermissionsManagement'));
+const HumanResources = lazy(() => import('../pages/human-resources/HumanResources'));
 const EmployeeDashboard = lazy(() => import('../pages/dashboard/EmployeeDashboard'));
 const Productions = lazy(() => import('../pages/productions/Productions'));
 const ProductionFlowSteps = lazy(() => import('../pages/productions/FlowSteps'));
@@ -93,7 +95,7 @@ export const AppRoutes: React.FC<AppRoutesProps> = ({ isAddSaleModalOpen, setIsA
         <Route path="/company/:companyId" element={<MainLayout isAddSaleModalOpen={isAddSaleModalOpen} setIsAddSaleModalOpen={setIsAddSaleModalOpen} />}>
           <Route path="dashboard" element={<LazyPage><Dashboard /></LazyPage>} />
           <Route path="sales" element={<LazyPage><Sales /></LazyPage>} />
-          <Route path="pos" element={<RoleRoute requiredResource="sales"><LazyPage><POS /></LazyPage></RoleRoute>} />
+          <Route path="pos" element={<RoleRoute requiredResource="sales" requiredAction="create"><LazyPage><POS /></LazyPage></RoleRoute>} />
           <Route path="orders" element={<LazyPage><Orders /></LazyPage>} />
           <Route path="expenses" element={<Navigate to="expenses/list" replace />} />
           <Route path="expenses/list" element={<LazyPage><ExpensesList /></LazyPage>} />
@@ -117,7 +119,12 @@ export const AppRoutes: React.FC<AppRoutesProps> = ({ isAddSaleModalOpen, setIsA
           <Route path="suppliers" element={<LazyPage><Suppliers /></LazyPage>} />
           <Route path="contacts" element={<RoleRoute requiredResource="customers"><LazyPage><Contacts /></LazyPage></RoleRoute>} />
           <Route path="contacts/sources" element={<RoleRoute requiredResource="customers"><LazyPage><CustomerSources /></LazyPage></RoleRoute>} />
-          <Route path="hr" element={<RoleRoute requiredResource="hr"><LazyPage><HRManagement /></LazyPage></RoleRoute>} />
+          {/* Permissions & Invitations (renamed from HR) */}
+          <Route path="permissions" element={<RoleRoute requiredResource={RESOURCES.PERMISSIONS}><LazyPage><PermissionsManagement /></LazyPage></RoleRoute>} />
+          {/* Legacy HR route - redirect to permissions for backward compatibility */}
+          <Route path="hr" element={<Navigate to="permissions" replace />} />
+          {/* Human Resources - true HR actors management */}
+          <Route path="human-resources" element={<RoleRoute requiredResource={RESOURCES.HUMAN_RESOURCES}><LazyPage><HumanResources /></LazyPage></RoleRoute>} />
           <Route path="reports" element={<RoleRoute requiredResource="reports"><LazyPage><Reports /></LazyPage></RoleRoute>} />
           <Route path="reports/generate" element={<RoleRoute requiredResource="reports"><LazyPage><ReportGeneration /></LazyPage></RoleRoute>} />
           <Route path="profile" element={<LazyPage><Profile /></LazyPage>} />

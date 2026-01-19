@@ -14,6 +14,8 @@ interface OrderActionsMenuProps {
   onMarkAsCancelled: () => void;
   onMarkAsPaid: () => void;
   disabled?: boolean;
+  /** Whether the user can delete orders (owner-only) */
+  canDelete?: boolean;
 }
 
 const OrderActionsMenu: React.FC<OrderActionsMenuProps> = ({
@@ -25,7 +27,8 @@ const OrderActionsMenu: React.FC<OrderActionsMenuProps> = ({
   onMarkAsDelivered,
   onMarkAsCancelled,
   onMarkAsPaid,
-  disabled = false
+  disabled = false,
+  canDelete = false
 }) => {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
@@ -141,16 +144,20 @@ const OrderActionsMenu: React.FC<OrderActionsMenuProps> = ({
           {t('orders.quickActions.addNote')}
         </button>
 
-        <div className="border-t border-gray-100 my-1" />
+        {canDelete && (
+          <>
+            <div className="border-t border-gray-100 my-1" />
 
-        <button
-          onClick={() => handleAction(onDelete)}
-          className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
-          role="menuitem"
-        >
-          <Trash2 className="w-4 h-4 mr-3" />
-          {t('orders.quickActions.delete')}
-        </button>
+            <button
+              onClick={() => handleAction(onDelete)}
+              className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+              role="menuitem"
+            >
+              <Trash2 className="w-4 h-4 mr-3" />
+              {t('orders.quickActions.delete')}
+            </button>
+          </>
+        )}
       </div>
     </div>
   ) : null;

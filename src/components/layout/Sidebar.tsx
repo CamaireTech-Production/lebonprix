@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, Link, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, ShoppingCart, DollarSign, Package2, FileBarChart, Settings, X, Receipt, Users, Building2, Plus, Grid3X3, ShoppingBag, UserCheck, ChevronDown, ChevronRight, Loader2, Phone, ScanLine, Warehouse, Factory, Globe} from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, DollarSign, Package2, FileBarChart, Settings, X, Receipt, Users, Building2, Plus, Grid3X3, ShoppingBag, UserCheck, ChevronDown, ChevronRight, Loader2, Phone, ScanLine, Warehouse, Factory, Globe, Shield, Briefcase } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useRolePermissions } from '../../hooks/business/useRolePermissions';
 import UserAvatar from '../common/UserAvatar';
@@ -22,7 +22,7 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { company, currentEmployee, isOwner, effectiveRole } = useAuth();
-  const { canAccess, canAccessFinance, canAccessHR, canAccessSettings, templateLoading } = useRolePermissions();
+  const { canAccess, canCreate, canAccessFinance, canAccessHR, canAccessSettings, templateLoading } = useRolePermissions();
   const { isInstalled } = usePWA();
   const [showCreateCompanyModal, setShowCreateCompanyModal] = React.useState(false);
   const [showCompanyNavigationConfirm, setShowCompanyNavigationConfirm] = React.useState(false);
@@ -148,68 +148,69 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
     { name: t('navigation.pos'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/pos` : '/pos', icon: <ScanLine size={20} />, resource: 'sales' },
     { name: t('site.navigation', 'Online Catalogue'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/site` : '/site', icon: <Globe size={20} />, resource: 'settings' },
     { name: t('navigation.orders'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/orders` : '/orders', icon: <ShoppingBag size={20} />, resource: 'orders' },
-    { 
-      name: t('navigation.expenses'), 
-      path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/expenses` : '/expenses', 
-      icon: <Receipt size={20} />, 
-      resource: 'expenses',
+    {
+      name: t('navigation.expenses'),
+      path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/expenses` : '/expenses',
+      icon: <Receipt size={20} />,
+      resource: RESOURCES.EXPENSES,
       subItems: [
-        { name: t('navigation.submenus.list'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/expenses/list` : '/expenses/list' },
-        { name: t('navigation.submenus.categories'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/expenses/categories` : '/expenses/categories' },
-        { name: t('navigation.submenus.analytics'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/expenses/analytics` : '/expenses/analytics' },
-        { name: t('navigation.submenus.reports'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/expenses/reports` : '/expenses/reports' },
+        { name: t('navigation.submenus.list'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/expenses/list` : '/expenses/list', resource: RESOURCES.EXPENSES },
+        { name: t('navigation.submenus.categories'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/expenses/categories` : '/expenses/categories', resource: RESOURCES.EXPENSES },
+        { name: t('navigation.submenus.analytics'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/expenses/analytics` : '/expenses/analytics', resource: RESOURCES.FINANCE },
+        { name: t('navigation.submenus.reports'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/expenses/reports` : '/expenses/reports', resource: RESOURCES.REPORTS },
       ]
     },
-    { name: t('navigation.finance'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/finance` : '/finance', icon: <DollarSign size={20} />, resource: 'finance' },
-    { 
-      name: t('navigation.products'), 
-      path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/products` : '/products', 
-      icon: <Package2 size={20} />, 
-      resource: 'products',
+    { name: t('navigation.finance'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/finance` : '/finance', icon: <DollarSign size={20} />, resource: RESOURCES.FINANCE },
+    {
+      name: t('navigation.products'),
+      path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/products` : '/products',
+      icon: <Package2 size={20} />,
+      resource: RESOURCES.PRODUCTS,
       subItems: [
-        { name: t('navigation.submenus.list'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/products` : '/products' },
-        { name: t('navigation.submenus.categories'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/categories` : '/categories' },
-        { name: t('navigation.submenus.stocks'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/products/stocks` : '/products/stocks' },
+        { name: t('navigation.submenus.list'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/products` : '/products', resource: RESOURCES.PRODUCTS },
+        { name: t('navigation.submenus.categories'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/categories` : '/categories', resource: RESOURCES.PRODUCTS },
+        { name: t('navigation.submenus.stocks'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/products/stocks` : '/products/stocks', resource: RESOURCES.PRODUCTS },
       ]
     },
-    { 
-      name: t('navigation.productions'), 
-      path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/productions` : '/productions', 
-      icon: <Factory size={20} />, 
-      resource: 'products', // Using products resource for now
+    {
+      name: t('navigation.productions'),
+      path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/productions` : '/productions',
+      icon: <Factory size={20} />,
+      resource: RESOURCES.PRODUCTS,
       subItems: [
-        { name: t('navigation.submenus.list'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/productions` : '/productions' },
-        { name: t('navigation.submenus.categories'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/productions/categories` : '/productions/categories' },
-        { name: t('navigation.submenus.steps'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/productions/flow-steps` : '/productions/flow-steps' },
-        { name: t('navigation.submenus.flows'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/productions/flows` : '/productions/flows' },
-        { name: t('navigation.submenus.charges'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/productions/charges` : '/productions/charges' },
+        { name: t('navigation.submenus.list'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/productions` : '/productions', resource: RESOURCES.PRODUCTS },
+        { name: t('navigation.submenus.categories'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/productions/categories` : '/productions/categories', resource: RESOURCES.PRODUCTS },
+        { name: t('navigation.submenus.steps'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/productions/flow-steps` : '/productions/flow-steps', resource: RESOURCES.PRODUCTS },
+        { name: t('navigation.submenus.flows'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/productions/flows` : '/productions/flows', resource: RESOURCES.PRODUCTS },
+        { name: t('navigation.submenus.charges'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/productions/charges` : '/productions/charges', resource: RESOURCES.FINANCE },
       ]
     },
-    { 
-      name: t('navigation.warehouse'), 
-      path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/magasin` : '/magasin', 
-      icon: <Warehouse size={20} />, 
+    {
+      name: t('navigation.warehouse'),
+      path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/magasin` : '/magasin',
+      icon: <Warehouse size={20} />,
       resource: RESOURCES.MAGASIN,
       subItems: [
-        { name: t('navigation.warehouseMenu.matieres'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/magasin/matieres` : '/magasin/matieres' },
-        { name: t('navigation.warehouseMenu.categories'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/magasin/categories` : '/magasin/categories' },
-        { name: t('navigation.warehouseMenu.stocks'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/magasin/stocks` : '/magasin/stocks' },
+        { name: t('navigation.warehouseMenu.matieres'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/magasin/matieres` : '/magasin/matieres', resource: RESOURCES.MAGASIN },
+        { name: t('navigation.warehouseMenu.categories'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/magasin/categories` : '/magasin/categories', resource: RESOURCES.MAGASIN },
+        { name: t('navigation.warehouseMenu.stocks'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/magasin/stocks` : '/magasin/stocks', resource: RESOURCES.MAGASIN },
       ]
     },
-    { name: t('navigation.suppliers'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/suppliers` : '/suppliers', icon: <Users size={20} />, resource: 'suppliers' },
-    { 
-      name: t('navigation.contacts'), 
-      path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/contacts` : '/contacts', 
-      icon: <Phone size={20} />, 
-      resource: 'customers',
+    { name: t('navigation.suppliers'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/suppliers` : '/suppliers', icon: <Users size={20} />, resource: RESOURCES.SUPPLIERS },
+    {
+      name: t('navigation.contacts'),
+      path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/contacts` : '/contacts',
+      icon: <Phone size={20} />,
+      resource: RESOURCES.CUSTOMERS,
       subItems: [
-        { name: t('navigation.submenus.list'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/contacts` : '/contacts' },
-        { name: t('navigation.submenus.clientSources'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/contacts/sources` : '/contacts/sources' },
+        { name: t('navigation.submenus.list'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/contacts` : '/contacts', resource: RESOURCES.CUSTOMERS },
+        { name: t('navigation.submenus.clientSources'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/contacts/sources` : '/contacts/sources', resource: RESOURCES.CUSTOMERS },
       ]
     },
-    { name: t('navigation.hrManagement'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/hr` : '/hr', icon: <UserCheck size={20} />, resource: 'hr' },
-    { name: t('navigation.reports'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/reports` : '/reports', icon: <FileBarChart size={20} />, resource: 'reports' },
-    { name: t('navigation.settings'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/settings` : '/settings', icon: <Settings size={20} />, resource: 'settings' },
+    { name: t('navigation.permissionsManagement', 'Permissions & Invitations'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/permissions` : '/permissions', icon: <Shield size={20} />, resource: RESOURCES.PERMISSIONS },
+    { name: t('navigation.humanResources', 'Human Resources'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/human-resources` : '/human-resources', icon: <Briefcase size={20} />, resource: RESOURCES.HUMAN_RESOURCES },
+    { name: t('navigation.reports'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/reports` : '/reports', icon: <FileBarChart size={20} />, resource: RESOURCES.REPORTS },
+    { name: t('navigation.settings'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/settings` : '/settings', icon: <Settings size={20} />, resource: RESOURCES.SETTINGS },
   ];
 
   const navigationItems = isCompanySelectionRoute ? selectionModeItems : normalNavigationItems;
@@ -289,11 +290,17 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
             } else {
               // Vérifier les permissions selon le type de ressource
               const resource = (item as any).resource;
+              const isPOSItem = item.name === t('navigation.pos');
               let hasAccess = true;
               
               if (resource) {
-                // Toutes les ressources utilisent maintenant canAccess (unifié avec canView array)
-                hasAccess = canAccess(resource);
+                // POS requires create permission, other resources use view permission
+                if (isPOSItem) {
+                  hasAccess = canCreate(resource);
+                } else {
+                  // Toutes les autres ressources utilisent canAccess (unifié avec canView array)
+                  hasAccess = canAccess(resource);
+                }
               } else {
                 // If no resource specified, deny access by default for non-owners
                 hasAccess = false;
@@ -348,7 +355,18 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
                     </button>
                     {isExpanded && (
                       <ul className="ml-4 mt-1 space-y-1">
-                        {(item as any).subItems.map((subItem: any) => (
+                        {(item as any).subItems
+                          .filter((subItem: any) => {
+                            // Owners have access to all submenu items
+                            if (isActualOwner) return true;
+                            // Check permission for submenu item resource
+                            if (subItem.resource) {
+                              return canAccess(subItem.resource);
+                            }
+                            // If no resource specified, use parent resource
+                            return canAccess((item as any).resource);
+                          })
+                          .map((subItem: any) => (
                           <li key={subItem.path}>
                             <Link
                               to={subItem.path}

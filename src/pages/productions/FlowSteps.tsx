@@ -7,12 +7,15 @@ import { useProductionFlowSteps } from '@hooks/data/useFirestore';
 import { FirebaseStorageService } from '@services/core/firebaseStorage';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
 import { formatCreatorName } from '@utils/business/employeeUtils';
+import { usePermissionCheck } from '@components/permissions';
+import { RESOURCES } from '@constants/resources';
 import imageCompression from 'browser-image-compression';
 import type { ProductionFlowStep } from '../../types/models';
 
 const FlowSteps: React.FC = () => {
   const { user, company } = useAuth();
   const { flowSteps, loading, error, addFlowStep, updateFlowStep, deleteFlowStep } = useProductionFlowSteps();
+  const { canDelete } = usePermissionCheck(RESOURCES.PRODUCTIONS);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [editingStep, setEditingStep] = useState<ProductionFlowStep | null>(null);
@@ -304,15 +307,17 @@ const FlowSteps: React.FC = () => {
                       >
                         <Edit2 size={16} />
                       </button>
-                      <button
-                        onClick={() => {
-                          setDeletingStep(step);
-                          setIsDeleteModalOpen(true);
-                        }}
-                        className="text-red-600 hover:text-red-900"
-                      >
-                        <Trash2 size={16} />
-                      </button>
+                      {canDelete && (
+                        <button
+                          onClick={() => {
+                            setDeletingStep(step);
+                            setIsDeleteModalOpen(true);
+                          }}
+                          className="text-red-600 hover:text-red-900"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
