@@ -158,8 +158,8 @@ export function getDefaultPermissionTemplates(): Array<Pick<PermissionTemplate, 
       // baseRole will be auto-detected as 'staff'
       permissions: {
         canView: [RESOURCES.MAGASIN, RESOURCES.MAGASIN_CATEGORIES, RESOURCES.MAGASIN_STOCKS],
-        canCreate: [RESOURCES.MAGASIN, RESOURCES.MAGASIN_STOCKS],
-        canEdit: [RESOURCES.MAGASIN, RESOURCES.MAGASIN_STOCKS],
+        canCreate: [RESOURCES.MAGASIN, RESOURCES.MAGASIN_CATEGORIES, RESOURCES.MAGASIN_STOCKS],
+        canEdit: [RESOURCES.MAGASIN, RESOURCES.MAGASIN_CATEGORIES, RESOURCES.MAGASIN_STOCKS],
         canDelete: [],
         canManageEmployees: [],
       }

@@ -1,8 +1,33 @@
 import { collection, doc, setDoc, getDocs, getDoc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../core/firebase';
-import type { PermissionTemplate } from '../../../types/permissions';
+import type { PermissionTemplate, RolePermissions } from '../../../types/permissions';
 
 const TEMPLATES_COLLECTION = (companyId: string) => collection(db, 'companies', companyId, 'permissionTemplates');
+
+/**
+ * Normalize template permissions to ensure canCreate exists (backward compatibility)
+ */
+function normalizeTemplatePermissions(permissions: any): RolePermissions {
+  return {
+    canView: permissions.canView || [],
+    canCreate: permissions.canCreate || [], // Add canCreate if missing
+    canEdit: permissions.canEdit || [],
+    canDelete: permissions.canDelete || [],
+    canManageEmployees: permissions.canManageEmployees || [],
+  };
+}
+
+/**
+ * Normalize template to ensure all required fields exist (backward compatibility)
+ */
+function normalizeTemplate(template: any): PermissionTemplate {
+  if (!template) return template;
+  
+  return {
+    ...template,
+    permissions: normalizeTemplatePermissions(template.permissions || {}),
+  };
+}
 
 export async function createTemplate(companyId: string, createdBy: string, data: Omit<PermissionTemplate, 'id' | 'companyId' | 'createdAt' | 'updatedAt' | 'createdBy'>) {
   const id = `tpl_${Date.now()}`;
@@ -24,13 +49,14 @@ export async function createTemplate(companyId: string, createdBy: string, data:
 
 export async function getCompanyTemplates(companyId: string): Promise<PermissionTemplate[]> {
   const snapshot = await getDocs(TEMPLATES_COLLECTION(companyId));
-  return snapshot.docs.map(d => d.data() as PermissionTemplate);
+  return snapshot.docs.map(d => normalizeTemplate(d.data() as PermissionTemplate));
 }
 
 export async function getTemplateById(companyId: string, templateId: string): Promise<PermissionTemplate | null> {
   const ref = doc(db, 'companies', companyId, 'permissionTemplates', templateId);
   const snap = await getDoc(ref);
-  return snap.exists() ? (snap.data() as PermissionTemplate) : null;
+  if (!snap.exists()) return null;
+  return normalizeTemplate(snap.data() as PermissionTemplate);
 }
 
 export async function updateTemplate(companyId: string, templateId: string, updates: Partial<Pick<PermissionTemplate, 'name' | 'description' | 'baseRole' | 'permissions'>>) {
