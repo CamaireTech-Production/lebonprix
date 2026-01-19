@@ -200,15 +200,13 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
       name: t('navigation.warehouseProducts', 'Entrepôt Produits'),
       path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/warehouse` : '/warehouse',
       icon: <Package size={20} />,
-      resource: RESOURCES.WAREHOUSE,
-      subItems: []
+      resource: RESOURCES.WAREHOUSE
     },
     {
       name: t('navigation.shops', 'Boutiques'),
       path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/shops` : '/shops',
       icon: <Store size={20} />,
-      resource: RESOURCES.SHOPS,
-      subItems: []
+      resource: RESOURCES.SHOPS
     },
     { name: t('navigation.suppliers'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/suppliers` : '/suppliers', icon: <Users size={20} />, resource: RESOURCES.SUPPLIERS },
     {
@@ -326,8 +324,8 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
             // Check if this is the "Mes Entreprises" link that needs confirmation
             const isCompaniesManagementLink = item.path === '/companies' && isCompanyRoute;
             
-            // Check if this item has subItems (expansible menu)
-            const hasSubItems = (item as any).subItems && Array.isArray((item as any).subItems);
+            // Check if this item has subItems (expansible menu) - must have items in the array
+            const hasSubItems = (item as any).subItems && Array.isArray((item as any).subItems) && (item as any).subItems.length > 0;
             const isExpensesItem = item.name === t('navigation.expenses');
             const isContactsItem = item.name === t('navigation.contacts');
             const isProductsItem = item.name === t('navigation.products');
