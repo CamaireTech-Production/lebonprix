@@ -35,15 +35,21 @@ const Warehouse = () => {
   const [warehouseStockSummary, setWarehouseStockSummary] = useState<Record<string, number>>({});
   const [loadingStock, setLoadingStock] = useState(false);
 
-  // Load stock summary for all warehouses
+  // Load stock summary for all warehouses (optimized with debouncing)
   React.useEffect(() => {
-    if (!company?.id || warehouses.length === 0) return;
+    if (!company?.id || warehouses.length === 0) {
+      setWarehouseStockSummary({});
+      return;
+    }
+
+    let cancelled = false;
 
     const loadStockSummary = async () => {
       setLoadingStock(true);
       const summary: Record<string, number> = {};
 
-      for (const warehouse of warehouses) {
+      // Load stock in parallel for better performance
+      const stockPromises = warehouses.map(async (warehouse) => {
         try {
           const batches = await getStockBatchesByLocation(
             company.id,
@@ -53,18 +59,31 @@ const Warehouse = () => {
             'warehouse'
           );
           const totalStock = batches.reduce((sum, batch) => sum + (batch.remainingQuantity || 0), 0);
-          summary[warehouse.id] = totalStock;
+          return { warehouseId: warehouse.id, stock: totalStock };
         } catch (error) {
           console.error(`Error loading stock for warehouse ${warehouse.id}:`, error);
-          summary[warehouse.id] = 0;
+          return { warehouseId: warehouse.id, stock: 0 };
         }
-      }
+      });
 
-      setWarehouseStockSummary(summary);
-      setLoadingStock(false);
+      const results = await Promise.all(stockPromises);
+      
+      if (!cancelled) {
+        results.forEach(({ warehouseId, stock }) => {
+          summary[warehouseId] = stock;
+        });
+        setWarehouseStockSummary(summary);
+        setLoadingStock(false);
+      }
     };
 
-    loadStockSummary();
+    // Debounce to avoid excessive calls
+    const timeoutId = setTimeout(loadStockSummary, 300);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timeoutId);
+    };
   }, [warehouses, company?.id]);
 
   // Filter warehouses
@@ -180,6 +199,13 @@ const Warehouse = () => {
       return;
     }
 
+    // Prevent deletion of default warehouse if it's the only warehouse
+    if (currentWarehouse.isDefault && warehouses.length === 1) {
+      showErrorToast('Impossible de supprimer l\'entrepôt par défaut s\'il est le seul entrepôt');
+      setIsDeleteModalOpen(false);
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       await deleteWarehouse(currentWarehouse.id);
@@ -187,7 +213,9 @@ const Warehouse = () => {
       setIsDeleteModalOpen(false);
       setCurrentWarehouse(null);
     } catch (error: any) {
-      showErrorToast(error.message || 'Erreur lors de la suppression de l\'entrepôt');
+      const errorMessage = error.message || 'Erreur lors de la suppression de l\'entrepôt';
+      showErrorToast(errorMessage);
+      console.error('Error deleting warehouse:', error);
     } finally {
       setIsSubmitting(false);
     }

@@ -37,15 +37,21 @@ const Shops = () => {
   const [shopStockSummary, setShopStockSummary] = useState<Record<string, number>>({});
   const [loadingStock, setLoadingStock] = useState(false);
 
-  // Load stock summary for all shops
+  // Load stock summary for all shops (optimized with debouncing)
   React.useEffect(() => {
-    if (!company?.id || shops.length === 0) return;
+    if (!company?.id || shops.length === 0) {
+      setShopStockSummary({});
+      return;
+    }
+
+    let cancelled = false;
 
     const loadStockSummary = async () => {
       setLoadingStock(true);
       const summary: Record<string, number> = {};
 
-      for (const shop of shops) {
+      // Load stock in parallel for better performance
+      const stockPromises = shops.map(async (shop) => {
         try {
           const batches = await getStockBatchesByLocation(
             company.id,
@@ -55,18 +61,31 @@ const Shops = () => {
             'shop'
           );
           const totalStock = batches.reduce((sum, batch) => sum + (batch.remainingQuantity || 0), 0);
-          summary[shop.id] = totalStock;
+          return { shopId: shop.id, stock: totalStock };
         } catch (error) {
           console.error(`Error loading stock for shop ${shop.id}:`, error);
-          summary[shop.id] = 0;
+          return { shopId: shop.id, stock: 0 };
         }
-      }
+      });
 
-      setShopStockSummary(summary);
-      setLoadingStock(false);
+      const results = await Promise.all(stockPromises);
+      
+      if (!cancelled) {
+        results.forEach(({ shopId, stock }) => {
+          summary[shopId] = stock;
+        });
+        setShopStockSummary(summary);
+        setLoadingStock(false);
+      }
     };
 
-    loadStockSummary();
+    // Debounce to avoid excessive calls
+    const timeoutId = setTimeout(loadStockSummary, 300);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timeoutId);
+    };
   }, [shops, company?.id]);
 
   // Filter shops
@@ -129,6 +148,12 @@ const Shops = () => {
       return;
     }
 
+    // Validate email format if provided
+    if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      showErrorToast('Format d\'email invalide');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       await addShop({
@@ -146,7 +171,9 @@ const Shops = () => {
       setIsAddModalOpen(false);
       resetForm();
     } catch (error: any) {
-      showErrorToast(error.message || 'Erreur lors de la création du magasin');
+      const errorMessage = error.message || 'Erreur lors de la création du magasin';
+      showErrorToast(errorMessage);
+      console.error('Error creating shop:', error);
     } finally {
       setIsSubmitting(false);
     }
@@ -160,6 +187,12 @@ const Shops = () => {
 
     if (!currentShop || !user || !company) {
       showErrorToast('Données manquantes');
+      return;
+    }
+
+    // Validate email format if provided
+    if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      showErrorToast('Format d\'email invalide');
       return;
     }
 
@@ -178,7 +211,9 @@ const Shops = () => {
       setCurrentShop(null);
       resetForm();
     } catch (error: any) {
-      showErrorToast(error.message || 'Erreur lors de la mise à jour du magasin');
+      const errorMessage = error.message || 'Erreur lors de la mise à jour du magasin';
+      showErrorToast(errorMessage);
+      console.error('Error updating shop:', error);
     } finally {
       setIsSubmitting(false);
     }
@@ -190,6 +225,13 @@ const Shops = () => {
       return;
     }
 
+    // Prevent deletion of default shop if it's the only shop
+    if (currentShop.isDefault && shops.length === 1) {
+      showErrorToast('Impossible de supprimer le magasin par défaut s\'il est le seul magasin');
+      setIsDeleteModalOpen(false);
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       await deleteShop(currentShop.id);
@@ -197,7 +239,9 @@ const Shops = () => {
       setIsDeleteModalOpen(false);
       setCurrentShop(null);
     } catch (error: any) {
-      showErrorToast(error.message || 'Erreur lors de la suppression du magasin');
+      const errorMessage = error.message || 'Erreur lors de la suppression du magasin';
+      showErrorToast(errorMessage);
+      console.error('Error deleting shop:', error);
     } finally {
       setIsSubmitting(false);
     }
