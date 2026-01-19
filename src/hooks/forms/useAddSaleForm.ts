@@ -38,6 +38,10 @@ interface FormState {
   saleDate: string;
   inventoryMethod: 'fifo' | 'lifo' | 'cmup';
   products: FormProduct[];
+  // Location fields for shop/warehouse system
+  sourceType: 'shop' | 'warehouse';
+  shopId: string;
+  warehouseId: string;
 }
 
 export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
@@ -90,6 +94,9 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
     saleDate: new Date().toISOString().slice(0, 10),
     inventoryMethod: getDefaultInventoryMethod(),
     products: [{ id: crypto.randomUUID(), product: null, quantity: '', negotiatedPrice: '' }],
+    sourceType: 'shop', // Default to shop
+    shopId: '',
+    warehouseId: ''
   });
 
   // Update inventory method when settings change
@@ -355,6 +362,10 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
         paymentStatus: 'pending' as const,
         inventoryMethod: formData.inventoryMethod,
         saleDate: formData.saleDate || new Date().toISOString(),
+        // Location fields
+        sourceType: formData.sourceType,
+        ...(formData.shopId && { shopId: formData.shopId }),
+        ...(formData.warehouseId && { warehouseId: formData.warehouseId })
       };
 
       // Validate sale data with translations
