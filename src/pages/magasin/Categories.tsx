@@ -9,16 +9,19 @@ import { getUserById } from '@services/utilities/userService';
 import { showSuccessToast, showErrorToast, showWarningToast } from '@utils/core/toast';
 import imageCompression from 'browser-image-compression';
 import type { Category } from '../../types/models';
-import { 
-  createCategory, 
-  updateCategory, 
-  deleteCategory, 
+import {
+  createCategory,
+  updateCategory,
+  deleteCategory,
   subscribeToCategories
 } from '@services/firestore/categories/categoryService';
+import { PermissionButton, usePermissionCheck } from '@components/permissions';
+import { RESOURCES } from '@constants/resources';
 
 const MagasinCategories = () => {
   const { user, company, currentEmployee, isOwner } = useAuth();
-  
+  const { canEdit, canDelete } = usePermissionCheck(RESOURCES.MAGASIN);
+
   // State management
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -483,20 +486,24 @@ const MagasinCategories = () => {
                       
                       {/* Actions */}
                       <div className="flex justify-end space-x-2">
-                        <button
-                          onClick={() => openEditModal(category)}
-                          className="text-blue-600 hover:text-blue-900"
-                          title="Edit category"
-                        >
-                          <Edit2 size={16} />
-                        </button>
-                        <button
-                          onClick={() => openDeleteModal(category)}
-                          className="text-red-600 hover:text-red-900"
-                          title="Delete category"
-                        >
-                          <Trash2 size={16} />
-                        </button>
+                        {canEdit && (
+                          <button
+                            onClick={() => openEditModal(category)}
+                            className="text-blue-600 hover:text-blue-900"
+                            title="Edit category"
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                        )}
+                        {canDelete && (
+                          <button
+                            onClick={() => openDeleteModal(category)}
+                            className="text-red-600 hover:text-red-900"
+                            title="Delete category"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -537,20 +544,24 @@ const MagasinCategories = () => {
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <button
-                      onClick={() => openEditModal(category)}
-                      className="text-blue-600 hover:text-blue-900"
-                      title="Edit category"
-                    >
-                      <Edit2 size={16} />
-                    </button>
-                    <button
-                      onClick={() => openDeleteModal(category)}
-                      className="text-red-600 hover:text-red-900"
-                      title="Delete category"
-                    >
-                      <Trash2 size={16} />
-                    </button>
+                    {canEdit && (
+                      <button
+                        onClick={() => openEditModal(category)}
+                        className="text-blue-600 hover:text-blue-900"
+                        title="Edit category"
+                      >
+                        <Edit2 size={16} />
+                      </button>
+                    )}
+                    {canDelete && (
+                      <button
+                        onClick={() => openDeleteModal(category)}
+                        className="text-red-600 hover:text-red-900"
+                        title="Delete category"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
                   </div>
                 </div>
               )}

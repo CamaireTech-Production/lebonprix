@@ -1,16 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@contexts/AuthContext';
-import { 
-  subscribeToOrders, 
-  getOrderStats, 
-  updateOrderStatus, 
+import {
+  subscribeToOrders,
+  getOrderStats,
+  updateOrderStatus,
   updateOrderPaymentStatus,
   addOrderNote,
-  deleteOrder 
+  deleteOrder
 } from '@services/firestore/orders/orderService';
 import { formatCreatorName } from '@utils/business/employeeUtils';
 import { formatPrice } from '@utils/formatting/formatPrice';
+import { usePermissionCheck } from '@components/permissions';
+import { RESOURCES } from '@constants/resources';
 import { Order, OrderFilters, OrderStats } from '../../types/order';
 import { 
   ShoppingBag, 
@@ -36,6 +38,7 @@ import { logError } from '@utils/core/logger';
 const Orders: React.FC = () => {
   const { t } = useTranslation();
   const { user, company } = useAuth();
+  const { canDelete } = usePermissionCheck(RESOURCES.ORDERS);
   const [orders, setOrders] = useState<Order[]>([]);
   const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
   const [stats, setStats] = useState<OrderStats | null>(null);
@@ -480,6 +483,7 @@ const Orders: React.FC = () => {
                     setShowPaidConfirmModal(true);
                   }}
                   disabled={syncing}
+                  canDelete={canDelete}
                 />
               </div>
             </Card>
@@ -546,6 +550,7 @@ const Orders: React.FC = () => {
                     setShowPaidConfirmModal(true);
                   }}
                   disabled={syncing}
+                  canDelete={canDelete}
                 />
               </div>
             </div>

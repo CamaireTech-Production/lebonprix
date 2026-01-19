@@ -26,6 +26,8 @@ import {
   calculateTotalProductsSold,
   calculateTotalOrders
 } from '@utils/calculations/financialCalculations';
+import { usePermissionCheck } from '@components/permissions';
+import { RESOURCES } from '@constants/resources';
 // Removed skeleton loaders and sync indicator imports - back to original approach
 
 
@@ -53,6 +55,7 @@ const Finance: React.FC = () => {
   useCustomers(); // Only call the hook for side effects if needed, but don't destructure unused values
   const { user, company } = useAuth();
   useObjectives();
+  const { canEdit, canDelete } = usePermissionCheck(RESOURCES.FINANCE);
   
   // Add Entry Form (for deposits, loans, refunds, etc.)
   const [modalOpen, setModalOpen] = useState(false);
@@ -880,7 +883,7 @@ const Finance: React.FC = () => {
                       {entry.supplierId ? getSupplierName(entry.supplierId) : '-'}
                     </td>
                         <td className="py-3 px-4 flex gap-2">
-                      {entry.sourceType === 'manual' && (
+                      {entry.sourceType === 'manual' && canEdit && (
                         <button
                           onClick={() => entry.type === 'sortie' ? handleOpenRemoveMoneyModal(entry) : handleOpenModal(entry)}
                           className="text-indigo-600 hover:text-indigo-900"
@@ -890,18 +893,20 @@ const Finance: React.FC = () => {
                           <Edit2 size={16} />
                         </button>
                       )}
-                      <button
-                        onClick={() => handleDeleteClick(entry)}
-                        className="text-red-600 hover:text-red-900 flex items-center"
-                        title={t('common.delete')}
-                        aria-label={t('common.delete')}
-                        disabled={deleteLoading && deleteConfirm?.entryId === entry.id}
-                      >
-                        {deleteLoading && deleteConfirm?.entryId === entry.id ? (
-                          <Loader2 size={16} className="animate-spin mr-1" />
-                        ) : null}
-                        <Trash2 size={16} />
-                      </button>
+                      {canDelete && (
+                        <button
+                          onClick={() => handleDeleteClick(entry)}
+                          className="text-red-600 hover:text-red-900 flex items-center"
+                          title={t('common.delete')}
+                          aria-label={t('common.delete')}
+                          disabled={deleteLoading && deleteConfirm?.entryId === entry.id}
+                        >
+                          {deleteLoading && deleteConfirm?.entryId === entry.id ? (
+                            <Loader2 size={16} className="animate-spin mr-1" />
+                          ) : null}
+                          <Trash2 size={16} />
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -942,7 +947,7 @@ const Finance: React.FC = () => {
                           {formatPrice(entry.amount)} XAF
                         </div>
                         <div className="flex gap-2 mt-2">
-                          {entry.sourceType === 'manual' && (
+                          {entry.sourceType === 'manual' && canEdit && (
                             <button
                             onClick={() => entry.type === 'sortie' ? handleOpenRemoveMoneyModal(entry) : handleOpenModal(entry)}
                               className="text-indigo-600 hover:text-indigo-900 p-1"
@@ -952,19 +957,21 @@ const Finance: React.FC = () => {
                               <Edit2 size={16} />
                             </button>
                           )}
-                          <button
-                            onClick={() => handleDeleteClick(entry)}
-                            className="text-red-600 hover:text-red-900 p-1"
-                            title={t('common.delete')}
-                            aria-label={t('common.delete')}
-                            disabled={deleteLoading && deleteConfirm?.entryId === entry.id}
-                          >
-                            {deleteLoading && deleteConfirm?.entryId === entry.id ? (
-                              <Loader2 size={16} className="animate-spin" />
-                            ) : (
-                              <Trash2 size={16} />
-                            )}
-                          </button>
+                          {canDelete && (
+                            <button
+                              onClick={() => handleDeleteClick(entry)}
+                              className="text-red-600 hover:text-red-900 p-1"
+                              title={t('common.delete')}
+                              aria-label={t('common.delete')}
+                              disabled={deleteLoading && deleteConfirm?.entryId === entry.id}
+                            >
+                              {deleteLoading && deleteConfirm?.entryId === entry.id ? (
+                                <Loader2 size={16} className="animate-spin" />
+                              ) : (
+                                <Trash2 size={16} />
+                              )}
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -973,7 +980,7 @@ const Finance: React.FC = () => {
               </div>
           </div>
         )}
-        
+
         {/* Mobile-optimized pagination */}
           {totalPages > 1 && (
             <div className="border-t border-gray-100 p-4">

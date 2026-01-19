@@ -835,7 +835,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
             <label className="block text-sm font-medium text-gray-700">
               {t('sales.modals.add.inventoryMethod.title')}
             </label>
-            <div className="flex space-x-4">
+            <div className="flex flex-wrap gap-4">
               <label className="flex items-center space-x-2">
                 <input
                   type="radio"
@@ -866,6 +866,22 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                 </span>
                 <span className="text-xs text-gray-500">
                   {t('sales.modals.add.inventoryMethod.lifoDescription')}
+                </span>
+              </label>
+              <label className="flex items-center space-x-2">
+                <input
+                  type="radio"
+                  name="inventoryMethod"
+                  value="cmup"
+                  checked={formData.inventoryMethod === 'cmup'}
+                  onChange={handleInputChange}
+                  className="form-radio h-4 w-4 text-emerald-600 border-gray-300"
+                />
+                <span className="text-sm text-gray-700">
+                  <strong>{t('sales.modals.add.inventoryMethod.cmup')}</strong>
+                </span>
+                <span className="text-xs text-gray-500">
+                  {t('sales.modals.add.inventoryMethod.cmupDescription')}
                 </span>
               </label>
             </div>

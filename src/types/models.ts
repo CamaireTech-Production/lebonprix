@@ -21,7 +21,7 @@ export interface Company extends BaseModel {
   email: string;
   website?: string; // Company website URL
   report_mail?: string; // Email pour les rapports de vente
-  report_time?: number; // Heure de réception des rapports (0-23)
+  report_time?: string | number; // Format: "HH:mm" (e.g., "19:30") or number (0-23) for backward compatibility
   
   // Color customization for catalogue
   catalogueColors?: {
@@ -88,7 +88,7 @@ export interface Product extends BaseModel {
   isAvailable: boolean;
   isDeleted?: boolean;
   isVisible?: boolean; // Controls visibility in catalogue (default: true)
-  inventoryMethod?: 'FIFO' | 'LIFO';
+  inventoryMethod?: 'FIFO' | 'LIFO' | 'CMUP';
   enableBatchTracking?: boolean;
   tags?: ProductTag[]; // Dynamic product tags for variations
   description?: string; // Product description for catalogue
@@ -173,7 +173,7 @@ export interface Sale extends BaseModel {
   change?: number; // Monnaie à rendre
   statusHistory?: Array<{ status: string; timestamp: string }>;
   isAvailable?: boolean;
-  inventoryMethod?: 'FIFO' | 'LIFO';
+  inventoryMethod?: 'FIFO' | 'LIFO' | 'CMUP';
   totalCost?: number;
   totalProfit?: number;
   averageProfitMargin?: number;
@@ -736,5 +736,155 @@ export interface SiteAnalytics extends BaseModel {
     type: 'desktop' | 'mobile' | 'tablet';
     count: number;
   }>;
+}
+
+// ============================================================================
+// HUMAN RESOURCES MODELS
+// ============================================================================
+
+/**
+ * HR Actor Types - Types of human resources personnel
+ */
+export type HRActorType =
+  | 'gardien'
+  | 'caissier'
+  | 'magasinier'
+  | 'livreur'
+  | 'comptable'
+  | 'manager'
+  | 'secretaire'
+  | 'technicien'
+  | 'commercial'
+  | 'custom';
+
+/**
+ * Contract Types for HR Actors
+ */
+export type ContractType = 'CDI' | 'CDD' | 'stage' | 'freelance' | 'interim';
+
+/**
+ * Salary Frequency for HR Actors
+ */
+export type SalaryFrequency = 'hourly' | 'daily' | 'weekly' | 'biweekly' | 'monthly';
+
+/**
+ * HR Actor Status
+ */
+export type HRActorStatus = 'active' | 'inactive' | 'archived';
+
+/**
+ * Emergency Contact for HR Actor
+ */
+export interface EmergencyContact {
+  name: string;
+  phone: string;
+  relationship: string;
+}
+
+/**
+ * HR Actor - Represents a human resources personnel (gardien, caissier, etc.)
+ *
+ * This is different from app users/employees:
+ * - HR Actors are real-world personnel who may or may not have app access
+ * - They represent the company's human resources for payroll, scheduling, etc.
+ * - Can optionally be linked to a Firebase user via linkedUserId
+ */
+export interface HRActor {
+  id: string;
+  companyId: string;
+
+  // Basic Info
+  firstName: string;
+  lastName: string;
+  displayName?: string; // Computed: firstName + lastName
+  email?: string;
+  phone: string; // Required
+  photo?: string; // Firebase Storage URL
+
+  // HR-specific
+  actorType: HRActorType;
+  customActorType?: string; // If actorType === 'custom'
+  department?: string;
+  position?: string; // Job title
+
+  // Employment Info
+  hireDate: Timestamp;
+  endDate?: Timestamp; // If terminated/archived
+  salary?: number;
+  salaryFrequency?: SalaryFrequency;
+  contractType?: ContractType;
+
+  // Address
+  address?: string;
+  city?: string;
+  country?: string;
+
+  // Emergency Contact
+  emergencyContact?: EmergencyContact;
+
+  // System fields
+  status: HRActorStatus;
+  linkedUserId?: string; // Optional: link to Firebase user if they have app access
+
+  // Audit
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+  createdBy: string; // Firebase UID who created
+  archivedAt?: Timestamp;
+  archivedBy?: string; // Firebase UID who archived
+}
+
+// ============================================================================
+// ACTION REQUEST MODELS
+// ============================================================================
+
+/**
+ * Action Request Status
+ */
+export type ActionRequestStatus = 'pending' | 'approved' | 'rejected';
+
+/**
+ * Grant Type - Whether access is one-time or permanent
+ */
+export type GrantType = 'one_time' | 'permanent';
+
+/**
+ * Action Request - Request from employee to perform a restricted action
+ *
+ * When an employee tries to perform an action they don't have permission for,
+ * they can request access. The owner/admin can then approve or reject.
+ */
+export interface ActionRequest {
+  id: string;
+  companyId: string;
+
+  // Request Info
+  requesterId: string; // Employee Firebase UID
+  requesterName: string; // Denormalized for display
+  requesterEmail?: string; // Denormalized for display
+
+  // Action Details
+  requestedAction: string; // e.g., 'delete_sale', 'edit_product', 'view_finance'
+  resource: string; // RESOURCES constant value (e.g., 'sales', 'products', 'finance')
+  resourceId?: string; // Specific item ID if applicable
+  resourceName?: string; // Denormalized name of the resource item
+  reason?: string; // Why they need this action
+
+  // Status
+  status: ActionRequestStatus;
+
+  // Review
+  reviewedBy?: string; // Boss/owner Firebase UID
+  reviewedByName?: string; // Denormalized for display
+  reviewedAt?: Timestamp;
+  reviewNote?: string; // Note from reviewer
+
+  // Access Grant (if approved)
+  grantType?: GrantType; // 'one_time' or 'permanent'
+  expiresAt?: Timestamp; // If one_time, when does the access expire
+
+  // Audit
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
 }
 

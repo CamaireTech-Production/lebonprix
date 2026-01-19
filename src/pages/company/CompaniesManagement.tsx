@@ -32,7 +32,7 @@ export const CompaniesManagement: React.FC = () => {
     phone: '',
     email: '',
     report_mail: '',
-    report_time: '8',
+    report_time: '08:00',
     location: '',
     logo: ''
   });
@@ -134,14 +134,11 @@ export const CompaniesManagement: React.FC = () => {
     try {
       setIsCreating(true);
       
-      // Handle report_time: default to 8 if empty, show warning
-      let reportTime = 8;
-      if (companyForm.report_time && companyForm.report_time.trim() !== '') {
-        const parsedTime = parseInt(companyForm.report_time);
-        if (!isNaN(parsedTime) && parsedTime >= 0 && parsedTime <= 23) {
-          reportTime = parsedTime;
-        }
-      } else {
+      // Handle report_time: validate "HH:mm" format or default to "08:00"
+      let reportTime = companyForm.report_time || '08:00';
+      const timePattern = /^([0-1]?[0-9]|2[0-3]):([0-5][0-9])$/;
+      if (!timePattern.test(reportTime)) {
+        reportTime = '08:00';
         showWarningToast(t('settings.messages.reportTimeDefault'));
       }
       
@@ -170,7 +167,7 @@ export const CompaniesManagement: React.FC = () => {
         phone: '',
         email: '',
         report_mail: '',
-        report_time: '8',
+        report_time: '08:00',
         location: '',
         logo: ''
       });
@@ -240,7 +237,7 @@ export const CompaniesManagement: React.FC = () => {
           
           // Si l'utilisateur actuel est le propriétaire, utiliser ses infos
           if (company.role === 'owner' && user) {
-            const fullName = user.username || user.email || 'Propriétaire';
+            const fullName = user.displayName || user.email || 'Propriétaire';
             owners[company.companyId] = {
               name: fullName || user.email || 'Propriétaire',
               email: user.email || ''
@@ -261,7 +258,7 @@ export const CompaniesManagement: React.FC = () => {
           if (ownerId) {
             const ownerUser = await getUserById(ownerId);
             if (ownerUser) {
-              const fullName = `${ownerUser.firstname || ''} ${ownerUser.lastname || ''}`.trim();
+              const fullName = ownerUser.username || ownerUser.email || 'Propriétaire';
               owners[company.companyId] = {
                 name: fullName || ownerUser.email || 'Propriétaire',
                 email: ownerUser.email || ''
@@ -324,8 +321,8 @@ export const CompaniesManagement: React.FC = () => {
     
     const initials = getCompanyInitials(company.name || '');
     const ownerInfo = ownersInfo[company.companyId];
-    const ownerDisplayName = ownerInfo 
-      ? (ownerInfo.name || ownerInfo.email || 'Propriétaire')
+    const ownerEmail = ownerInfo 
+      ? (ownerInfo.email || 'Propriétaire')
       : 'Propriétaire';
 
     return (
@@ -363,40 +360,48 @@ export const CompaniesManagement: React.FC = () => {
               )}
             </div>
           
-          {/* Informations de l'entreprise */}
-          <div className="flex-1 min-w-0">
-            <h3 className="text-lg font-semibold text-gray-900 truncate">{company.name}</h3>
-            {company.description && (
-              <p className="text-sm text-gray-600 mt-1 line-clamp-2">{company.description}</p>
-            )}
-            
-            {/* Rôle de l'utilisateur */}
-            <div className="flex items-center mt-2 min-w-0">
-              <User className="w-4 h-4 text-gray-400 mr-1 flex-shrink-0" />
-              <span className="text-sm text-gray-500 truncate">
-                {company.role === 'owner' ? ownerDisplayName : 
-                 company.role === 'admin' ? 'Administrateur' :
-                 company.role === 'manager' ? 'Gestionnaire' : 'Employé'}
-              </span>
+            {/* Informations de l'entreprise */}
+            <div className="flex-1 min-w-0">
+              <h3 className="text-lg font-semibold text-gray-900 truncate">{company.name}</h3>
+              {company.description && (
+                <p className="text-sm text-gray-600 mt-1 line-clamp-2">{company.description}</p>
+              )}
+              
+              {/* Email du propriétaire */}
+              <div className="flex items-center mt-2 min-w-0">
+                <User className="w-4 h-4 text-gray-400 mr-1 flex-shrink-0" />
+                <span className="text-sm text-gray-500 truncate">
+                  {ownerEmail}
+                </span>
+              </div>
+              
+              {/* Rôle de l'utilisateur connecté dans cette entreprise */}
+              <div className="flex items-center mt-1 min-w-0">
+                <span className="text-xs text-gray-400 mr-1 flex-shrink-0">Rôle:</span>
+                <span className="text-xs font-medium text-gray-600 truncate">
+                  {company.role === 'owner' ? 'Propriétaire' : 
+                   company.role === 'admin' ? 'Administrateur' :
+                   company.role === 'manager' ? 'Gestionnaire' : 'Employé'}
+                </span>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Bouton supprimer (seulement pour les owners) */}
-        {company.role === 'owner' && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setCompanyToDelete(company.companyId);
-            }}
-            className="opacity-0 group-hover:opacity-100 transition-opacity p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg"
-            title="Supprimer l'entreprise"
-          >
-            <Trash2 className="w-5 h-5" />
-          </button>
-        )}
+          {/* Bouton supprimer (seulement pour les owners) */}
+          {company.role === 'owner' && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setCompanyToDelete(company.companyId);
+              }}
+              className="opacity-0 group-hover:opacity-100 transition-opacity p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg flex-shrink-0 ml-2"
+              title="Supprimer l'entreprise"
+            >
+              <Trash2 className="w-5 h-5" />
+            </button>
+          )}
+        </div>
       </div>
-    </div>
     );
   };
 
@@ -557,21 +562,14 @@ export const CompaniesManagement: React.FC = () => {
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 {t('settings.account.reportTime')}
               </label>
-              <div className="flex rounded-md shadow-sm">
-                <input
-                  type="number"
-                  name="report_time"
-                  min="0"
-                  max="23"
-                  value={companyForm.report_time}
-                  onChange={(e) => setCompanyForm({...companyForm, report_time: e.target.value})}
-                  className="flex-1 min-w-0 block w-full px-3 py-2 rounded-l-md border border-gray-300 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
-                  placeholder="8"
-                />
-                <span className="inline-flex items-center px-3 rounded-r-md border border-l-0 border-gray-300 bg-gray-50 text-gray-500 sm:text-sm">
-                  h
-                </span>
-              </div>
+              <input
+                type="time"
+                name="report_time"
+                value={companyForm.report_time}
+                onChange={(e) => setCompanyForm({...companyForm, report_time: e.target.value})}
+                className="block w-full px-3 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
+                required
+              />
               <p className="mt-1 text-sm text-gray-500">
                 {t('settings.account.reportTimeHelp')}
               </p>

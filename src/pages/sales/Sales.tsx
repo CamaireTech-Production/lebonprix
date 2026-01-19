@@ -41,6 +41,8 @@ import SaleDetailsModal from '../../components/sales/SaleDetailsModal';
 import ProfitDetailsModal from '../../components/sales/ProfitDetailsModal';
 import SalesReportModal from '../../components/reports/SalesReportModal';
 import { format } from 'date-fns';
+import { PermissionButton, usePermissionCheck } from '@components/permissions';
+import { RESOURCES } from '@constants/resources';
 
 interface FormProduct {
   product: Product | null;
@@ -72,6 +74,7 @@ const Sales: React.FC = () => {
   const { activeSources } = useCustomerSources();
   const { user, company } = useAuth();
   const { updateSale } = useSales();
+  const { canEdit, canDelete } = usePermissionCheck(RESOURCES.SALES);
   const { batches: allBatches } = useAllStockBatches();
 
   const stockMap = React.useMemo(
@@ -637,20 +640,22 @@ const Sales: React.FC = () => {
               >
                 {t('sales.actions.copyLink')}
               </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleDeleteClick(sale);
-                }}
-                className="text-red-600 hover:text-red-900 flex items-center"
-                title={t('sales.actions.deleteSale')}
-                disabled={deleteLoading && currentSale?.id === sale.id}
-              >
-                {deleteLoading && currentSale?.id === sale.id ? (
-                  <Loader2 size={16} className="animate-spin mr-1" />
-                ) : null}
-                <Trash2 size={16} />
-              </button>
+              {canDelete && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteClick(sale);
+                  }}
+                  className="text-red-600 hover:text-red-900 flex items-center"
+                  title={t('sales.actions.deleteSale')}
+                  disabled={deleteLoading && currentSale?.id === sale.id}
+                >
+                  {deleteLoading && currentSale?.id === sale.id ? (
+                    <Loader2 size={16} className="animate-spin mr-1" />
+                  ) : null}
+                  <Trash2 size={16} />
+                </button>
+              )}
             </div>
           </td>
         </tr>,
@@ -827,9 +832,15 @@ const Sales: React.FC = () => {
           >
             Générer un rapport
           </Button>
-          <Button icon={<Plus size={16} />} onClick={() => setIsAddModalOpen(true)}>
+          <PermissionButton
+            resource={RESOURCES.SALES}
+            action="create"
+            icon={<Plus size={16} />}
+            onClick={() => setIsAddModalOpen(true)}
+            hideWhenNoPermission
+          >
             {t('sales.actions.addSale')}
-          </Button>
+          </PermissionButton>
         </div>
       </div>
       <Card>

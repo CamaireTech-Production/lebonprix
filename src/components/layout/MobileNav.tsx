@@ -10,7 +10,7 @@ const MobileNav = () => {
   const { t } = useTranslation();
   const location = useLocation();
   const { effectiveRole, isOwner } = useAuth();
-  const { canAccess, templateLoading } = useRolePermissions();
+  const { canAccess, canCreate, templateLoading } = useRolePermissions();
   const { isInstalled } = usePWA();
   
   // Vérifier si on est dans une route d'entreprise
@@ -157,10 +157,16 @@ const MobileNav = () => {
             // Les propriétaires ont accès à tout
             if (!isActualOwner) {
             const resource = (item as any).resource;
+            const isPOSItem = item.name === 'POS';
             
             if (resource) {
-              // Toutes les ressources utilisent maintenant canAccess (unifié avec canView array)
-              hasAccess = canAccess(resource);
+              // POS requires create permission, other resources use view permission
+              if (isPOSItem) {
+                hasAccess = canCreate(resource);
+              } else {
+                // Toutes les autres ressources utilisent canAccess (unifié avec canView array)
+                hasAccess = canAccess(resource);
+              }
             } else {
               // If no resource specified, deny access by default for non-owners
               hasAccess = false;

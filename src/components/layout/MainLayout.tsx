@@ -10,6 +10,8 @@ import LockedTabModal from '../modals/LockedTabModal';
 import { useAuth } from '../../contexts/AuthContext';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../services/core/firebase';
+import { useRolePermissions } from '../../hooks/business/useRolePermissions';
+import { RESOURCES } from '../../constants/resources';
 
 interface MainLayoutProps {
   isAddSaleModalOpen: boolean;
@@ -25,6 +27,7 @@ const MainLayout = ({ isAddSaleModalOpen, setIsAddSaleModalOpen }: MainLayoutPro
   const [showLockedModal, setShowLockedModal] = useState(false);
   const location = useLocation();
   const { selectCompany, company, isOwner, currentEmployee, effectiveRole } = useAuth();
+  const { canCreate } = useRolePermissions(company?.id);
 
   // Vérifier qu'une entreprise est sélectionnée pour les routes /company/:companyId/*
   const isCompanyRoute = location.pathname.startsWith('/company/');
@@ -238,8 +241,8 @@ const MainLayout = ({ isAddSaleModalOpen, setIsAddSaleModalOpen }: MainLayoutPro
       {/* Mobile navigation - hide on employee dashboard and non-company routes */}
       {isMobile && !location.pathname.startsWith('/employee/') && <MobileNav />}
       
-      {/* Floating Action Button - show on all dashboard pages except catalogue */}
-      {!location.pathname.startsWith('/catalogue') && (
+      {/* Floating Action Button - show only if user can create sales */}
+      {!location.pathname.startsWith('/catalogue') && canCreate(RESOURCES.SALES) && (
         <FloatingActionButton onClick={() => setIsAddSaleModalOpen(true)} label="Add Sale" />
       )}
       

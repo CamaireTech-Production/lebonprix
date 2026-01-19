@@ -10,6 +10,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@contexts/AuthContext';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
 import { formatCreatorName } from '@utils/business/employeeUtils';
+import { usePermissionCheck } from '@components/permissions';
+import { RESOURCES } from '@constants/resources';
 import type { Production } from '../../types/models';
 import {
   DndContext,
@@ -37,6 +39,7 @@ const Productions: React.FC = () => {
   const { categories } = useProductionCategories();
   const { flowSteps } = useProductionFlowSteps();
   const { company, user } = useAuth();
+  const { canDelete } = usePermissionCheck(RESOURCES.PRODUCTIONS);
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -893,7 +896,7 @@ const Productions: React.FC = () => {
                           </button>
                         </>
                       )}
-                      {canDeleteProduction(production) && (
+                      {canDelete && canDeleteProduction(production) && (
                         <button
                           onClick={(e) => handleDeleteProduction(production, e)}
                           disabled={deletingProductionId === production.id}

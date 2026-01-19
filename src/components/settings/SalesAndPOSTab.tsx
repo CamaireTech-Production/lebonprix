@@ -31,6 +31,10 @@ export const SalesAndPOSTab: React.FC<SalesAndPOSTabProps> = ({
     onUpdateSettings({ posCalculatorEnabled: enabled });
   };
 
+  const handleInventoryMethodChange = (method: 'FIFO' | 'LIFO' | 'CMUP') => {
+    onUpdateSettings({ defaultInventoryMethod: method });
+  };
+
   return (
     <div className="space-y-6">
       <div className="text-center mb-8">
@@ -124,21 +128,105 @@ export const SalesAndPOSTab: React.FC<SalesAndPOSTabProps> = ({
         </div>
       </div>
 
-      {/* Additional POS Settings (Future Expansion) */}
+      {/* Sales Settings Section */}
       <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <div className="flex items-center mb-4">
-          <Settings className="h-5 w-5 text-emerald-600 mr-2" />
-          <h3 className="text-lg font-semibold text-gray-800">Additional POS Settings</h3>
+        <div className="flex items-center mb-6">
+          <ShoppingCart className="h-5 w-5 text-emerald-600 mr-2" />
+          <h3 className="text-lg font-semibold text-gray-800">Sales Settings</h3>
         </div>
-        
-        <div className="text-center py-8 text-gray-500">
-          <Settings className="h-12 w-12 mx-auto mb-4 opacity-50" />
-          <p className="text-sm">
-            Additional POS settings will be available in future updates.
-          </p>
-          <p className="text-xs mt-2">
-            Features like inventory management, receipt customization, and more coming soon.
-          </p>
+
+        <div className="space-y-6">
+          {/* Default Inventory Method Selection */}
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-900 mb-2">
+                Default Inventory Valuation Method
+              </label>
+              <p className="text-sm text-gray-600 mb-4">
+                Choose the default method for calculating cost of goods sold when creating sales. 
+                You can override this for individual sales if needed.
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              <label className="flex items-start p-4 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                <input
+                  type="radio"
+                  name="inventoryMethod"
+                  value="FIFO"
+                  checked={settings.defaultInventoryMethod === 'FIFO'}
+                  onChange={() => handleInventoryMethodChange('FIFO')}
+                  className="mt-1 h-4 w-4 text-emerald-600 border-gray-300 focus:ring-emerald-500"
+                />
+                <div className="ml-3 flex-1">
+                  <div className="flex items-center">
+                    <span className="text-sm font-medium text-gray-900">FIFO</span>
+                    <span className="ml-2 text-xs text-gray-500">(First In, First Out)</span>
+                  </div>
+                  <p className="mt-1 text-sm text-gray-600">
+                    Consumes stock from the oldest batches first. Best for products with expiration dates or when you want to use older inventory first.
+                  </p>
+                </div>
+              </label>
+
+              <label className="flex items-start p-4 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                <input
+                  type="radio"
+                  name="inventoryMethod"
+                  value="LIFO"
+                  checked={settings.defaultInventoryMethod === 'LIFO'}
+                  onChange={() => handleInventoryMethodChange('LIFO')}
+                  className="mt-1 h-4 w-4 text-emerald-600 border-gray-300 focus:ring-emerald-500"
+                />
+                <div className="ml-3 flex-1">
+                  <div className="flex items-center">
+                    <span className="text-sm font-medium text-gray-900">LIFO</span>
+                    <span className="ml-2 text-xs text-gray-500">(Last In, First Out)</span>
+                  </div>
+                  <p className="mt-1 text-sm text-gray-600">
+                    Consumes stock from the newest batches first. Useful when newer inventory is preferred or for tax purposes in some jurisdictions.
+                  </p>
+                </div>
+              </label>
+
+              <label className="flex items-start p-4 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                <input
+                  type="radio"
+                  name="inventoryMethod"
+                  value="CMUP"
+                  checked={settings.defaultInventoryMethod === 'CMUP'}
+                  onChange={() => handleInventoryMethodChange('CMUP')}
+                  className="mt-1 h-4 w-4 text-emerald-600 border-gray-300 focus:ring-emerald-500"
+                />
+                <div className="ml-3 flex-1">
+                  <div className="flex items-center">
+                    <span className="text-sm font-medium text-gray-900">CMUP</span>
+                    <span className="ml-2 text-xs text-gray-500">(Coût Moyen Unitaire Pondéré / Weighted Average Cost)</span>
+                  </div>
+                  <p className="mt-1 text-sm text-gray-600">
+                    Uses the weighted average cost of all available stock batches. Provides a stable cost basis and smooths out price fluctuations.
+                  </p>
+                </div>
+              </label>
+            </div>
+
+            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <Settings className="h-5 w-5 text-blue-600" />
+                </div>
+                <div className="ml-3">
+                  <h4 className="text-sm font-medium text-blue-800">
+                    Note
+                  </h4>
+                  <p className="mt-1 text-sm text-blue-700">
+                    This setting only affects new sales. Existing sales will keep their original valuation method. 
+                    You can change the method for individual sales when creating them.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
