@@ -4,7 +4,7 @@ import Card from '../common/Card';
 import Button from '../common/Button';
 import { X, Check, LayoutDashboard } from 'lucide-react';
 import { PermissionTemplate, RolePermissions } from '../../types/permissions';
-import { ALL_RESOURCES, getResourceLabel } from '../../constants/resources';
+import { ALL_RESOURCES, getResourceLabel, CREATABLE_RESOURCES, EDITABLE_RESOURCES, DELETABLE_RESOURCES } from '../../constants/resources';
 import type { DashboardSectionPermissions } from '@hooks/business/useDashboardPermissions';
 
 interface PermissionTemplateFormProps {
@@ -215,22 +215,37 @@ const PermissionTemplateForm = ({ template, onSave, onCancel }: PermissionTempla
               </div>
             </div>
 
-            {/* Create Access */}
+            {/* Create Access - Only show resources that support creation */}
             <div>
               <div className="flex items-center justify-between mb-3">
                 <h4 className="text-sm font-medium text-gray-700">Create Access</h4>
                 <label className="flex items-center text-sm">
                   <input
                     type="checkbox"
-                    checked={permissions.canCreate.length === allResources.length}
-                    onChange={(e) => handleSelectAll('canCreate', e.target.checked)}
+                    checked={CREATABLE_RESOURCES.every(r => permissions.canCreate.includes(r))}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setPermissions(prev => ({
+                          ...prev,
+                          canCreate: CREATABLE_RESOURCES
+                        }));
+                      } else {
+                        setPermissions(prev => ({
+                          ...prev,
+                          canCreate: []
+                        }));
+                      }
+                    }}
                     className="mr-2"
                   />
                   Select All
                 </label>
               </div>
+              <p className="text-xs text-gray-500 mb-2">
+                Only resources with creation flows are shown here
+              </p>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                {allResources.map((resource) => (
+                {CREATABLE_RESOURCES.map((resource) => (
                   <label key={resource} className="flex items-center text-sm">
                     <input
                       type="checkbox"
@@ -244,22 +259,37 @@ const PermissionTemplateForm = ({ template, onSave, onCancel }: PermissionTempla
               </div>
             </div>
 
-            {/* Edit Access */}
+            {/* Edit Access - Only show resources that support editing */}
             <div>
               <div className="flex items-center justify-between mb-3">
                 <h4 className="text-sm font-medium text-gray-700">Edit Access</h4>
                 <label className="flex items-center text-sm">
                   <input
                     type="checkbox"
-                    checked={permissions.canEdit.length === allResources.length}
-                    onChange={(e) => handleSelectAll('canEdit', e.target.checked)}
+                    checked={EDITABLE_RESOURCES.every(r => permissions.canEdit.includes(r))}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setPermissions(prev => ({
+                          ...prev,
+                          canEdit: EDITABLE_RESOURCES
+                        }));
+                      } else {
+                        setPermissions(prev => ({
+                          ...prev,
+                          canEdit: []
+                        }));
+                      }
+                    }}
                     className="mr-2"
                   />
                   Select All
                 </label>
               </div>
+              <p className="text-xs text-gray-500 mb-2">
+                Only resources with edit capabilities are shown here
+              </p>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                {allResources.map((resource) => (
+                {EDITABLE_RESOURCES.map((resource) => (
                   <label key={resource} className="flex items-center text-sm">
                     <input
                       type="checkbox"
@@ -273,22 +303,37 @@ const PermissionTemplateForm = ({ template, onSave, onCancel }: PermissionTempla
               </div>
             </div>
 
-            {/* Delete Access */}
+            {/* Delete Access - Only show resources that support deletion */}
             <div>
               <div className="flex items-center justify-between mb-3">
                 <h4 className="text-sm font-medium text-gray-700">Delete Access</h4>
                 <label className="flex items-center text-sm">
                   <input
                     type="checkbox"
-                    checked={permissions.canDelete.length === allResources.length}
-                    onChange={(e) => handleSelectAll('canDelete', e.target.checked)}
+                    checked={DELETABLE_RESOURCES.every(r => permissions.canDelete.includes(r))}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setPermissions(prev => ({
+                          ...prev,
+                          canDelete: DELETABLE_RESOURCES
+                        }));
+                      } else {
+                        setPermissions(prev => ({
+                          ...prev,
+                          canDelete: []
+                        }));
+                      }
+                    }}
                     className="mr-2"
                   />
                   Select All
                 </label>
               </div>
+              <p className="text-xs text-gray-500 mb-2">
+                Note: Delete is owner-only in practice, but you can configure which resources support it
+              </p>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                {allResources.map((resource) => (
+                {DELETABLE_RESOURCES.map((resource) => (
                   <label key={resource} className="flex items-center text-sm">
                     <input
                       type="checkbox"

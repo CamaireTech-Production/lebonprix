@@ -95,7 +95,7 @@ export const AppRoutes: React.FC<AppRoutesProps> = ({ isAddSaleModalOpen, setIsA
         <Route path="/company/:companyId" element={<MainLayout isAddSaleModalOpen={isAddSaleModalOpen} setIsAddSaleModalOpen={setIsAddSaleModalOpen} />}>
           <Route path="dashboard" element={<LazyPage><Dashboard /></LazyPage>} />
           <Route path="sales" element={<LazyPage><Sales /></LazyPage>} />
-          <Route path="pos" element={<RoleRoute requiredResource="sales"><LazyPage><POS /></LazyPage></RoleRoute>} />
+          <Route path="pos" element={<RoleRoute requiredResource="sales" requiredAction="create"><LazyPage><POS /></LazyPage></RoleRoute>} />
           <Route path="orders" element={<LazyPage><Orders /></LazyPage>} />
           <Route path="expenses" element={<Navigate to="expenses/list" replace />} />
           <Route path="expenses/list" element={<LazyPage><ExpensesList /></LazyPage>} />

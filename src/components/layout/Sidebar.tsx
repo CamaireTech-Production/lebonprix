@@ -22,7 +22,7 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { company, currentEmployee, isOwner, effectiveRole } = useAuth();
-  const { canAccess, canAccessFinance, canAccessHR, canAccessSettings, templateLoading } = useRolePermissions();
+  const { canAccess, canCreate, canAccessFinance, canAccessHR, canAccessSettings, templateLoading } = useRolePermissions();
   const { isInstalled } = usePWA();
   const [showCreateCompanyModal, setShowCreateCompanyModal] = React.useState(false);
   const [showCompanyNavigationConfirm, setShowCompanyNavigationConfirm] = React.useState(false);
@@ -290,11 +290,17 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
             } else {
               // Vérifier les permissions selon le type de ressource
               const resource = (item as any).resource;
+              const isPOSItem = item.name === t('navigation.pos');
               let hasAccess = true;
               
               if (resource) {
-                // Toutes les ressources utilisent maintenant canAccess (unifié avec canView array)
-                hasAccess = canAccess(resource);
+                // POS requires create permission, other resources use view permission
+                if (isPOSItem) {
+                  hasAccess = canCreate(resource);
+                } else {
+                  // Toutes les autres ressources utilisent canAccess (unifié avec canView array)
+                  hasAccess = canAccess(resource);
+                }
               } else {
                 // If no resource specified, deny access by default for non-owners
                 hasAccess = false;

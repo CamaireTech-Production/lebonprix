@@ -834,7 +834,7 @@ const Sales: React.FC = () => {
           </Button>
           <PermissionButton
             resource={RESOURCES.SALES}
-            action="edit"
+            action="create"
             icon={<Plus size={16} />}
             onClick={() => setIsAddModalOpen(true)}
             hideWhenNoPermission

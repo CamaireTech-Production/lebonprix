@@ -156,3 +156,79 @@ export function getResourceLabel(resource: Resource): string {
   return RESOURCE_LABELS[resource] || resource;
 }
 
+/**
+ * Resources that support CREATE action (have creation flows)
+ * These are resources where users can add/create new items
+ */
+export const CREATABLE_RESOURCES: Resource[] = [
+  RESOURCES.SALES,
+  RESOURCES.ORDERS,
+  RESOURCES.PRODUCTS,
+  RESOURCES.CUSTOMERS,
+  RESOURCES.SUPPLIERS,
+  RESOURCES.EXPENSES,
+  RESOURCES.PRODUCTIONS,
+  RESOURCES.PRODUCTS_CATEGORIES,
+  RESOURCES.MAGASIN_CATEGORIES,
+  RESOURCES.PRODUCTIONS_FLOWS,
+  RESOURCES.PRODUCTIONS_STEPS,
+  RESOURCES.PRODUCTIONS_CATEGORIES,
+  RESOURCES.PRODUCTIONS_CHARGES,
+  RESOURCES.EXPENSE_CATEGORIES,
+  RESOURCES.HUMAN_RESOURCES, // HR actors (gardien, caissier, etc.)
+];
+
+/**
+ * Resources that support EDIT action
+ * These are resources where users can modify existing items
+ */
+export const EDITABLE_RESOURCES: Resource[] = [
+  ...CREATABLE_RESOURCES,
+  RESOURCES.PRODUCTS_STOCKS,
+  RESOURCES.MAGASIN_STOCKS,
+];
+
+/**
+ * Resources that support DELETE action
+ * These are resources where users can delete items
+ * Note: In practice, delete is owner-only, but we define which resources support it
+ */
+export const DELETABLE_RESOURCES: Resource[] = [
+  RESOURCES.SALES,
+  RESOURCES.ORDERS,
+  RESOURCES.PRODUCTS,
+  RESOURCES.CUSTOMERS,
+  RESOURCES.SUPPLIERS,
+  RESOURCES.EXPENSES,
+  RESOURCES.PRODUCTIONS,
+  RESOURCES.PRODUCTS_CATEGORIES,
+  RESOURCES.MAGASIN_CATEGORIES,
+  RESOURCES.PRODUCTIONS_FLOWS,
+  RESOURCES.PRODUCTIONS_STEPS,
+  RESOURCES.PRODUCTIONS_CATEGORIES,
+  RESOURCES.PRODUCTIONS_CHARGES,
+  RESOURCES.EXPENSE_CATEGORIES,
+  RESOURCES.HUMAN_RESOURCES,
+];
+
+/**
+ * Check if a resource supports CREATE action
+ */
+export function supportsCreate(resource: Resource): boolean {
+  return CREATABLE_RESOURCES.includes(resource);
+}
+
+/**
+ * Check if a resource supports EDIT action
+ */
+export function supportsEdit(resource: Resource): boolean {
+  return EDITABLE_RESOURCES.includes(resource);
+}
+
+/**
+ * Check if a resource supports DELETE action
+ */
+export function supportsDelete(resource: Resource): boolean {
+  return DELETABLE_RESOURCES.includes(resource);
+}
+
