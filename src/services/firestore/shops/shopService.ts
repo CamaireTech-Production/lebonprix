@@ -20,6 +20,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../../core/firebase';
 import { logError } from '@utils/core/logger';
+import { validateShop } from '../../../utils/validation/shopWarehouseValidation';
 import type { Shop, EmployeeRef } from '../../../types/models';
 import type { Timestamp } from '../../../types/models';
 
@@ -36,6 +37,15 @@ export const createShop = async (
   createdBy?: EmployeeRef | null
 ): Promise<Shop> => {
   try {
+    // Validate shop data
+    const validation = validateShop(data, false);
+    if (!validation.isValid) {
+      throw new Error(`Validation failed: ${validation.errors.join(', ')}`);
+    }
+    if (validation.warnings.length > 0) {
+      console.warn('Shop validation warnings:', validation.warnings);
+    }
+
     if (!data.name || data.name.trim() === '') {
       throw new Error('Shop name is required');
     }

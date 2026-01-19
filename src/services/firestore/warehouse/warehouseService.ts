@@ -18,6 +18,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../../core/firebase';
 import { logError } from '@utils/core/logger';
+import { validateWarehouse } from '../../../utils/validation/shopWarehouseValidation';
 import type { Warehouse, EmployeeRef } from '../../../types/models';
 
 // ============================================================================
@@ -33,6 +34,15 @@ export const createWarehouse = async (
   createdBy?: EmployeeRef | null
 ): Promise<Warehouse> => {
   try {
+    // Validate warehouse data
+    const validation = validateWarehouse(data, false);
+    if (!validation.isValid) {
+      throw new Error(`Validation failed: ${validation.errors.join(', ')}`);
+    }
+    if (validation.warnings.length > 0) {
+      console.warn('Warehouse validation warnings:', validation.warnings);
+    }
+
     if (!data.name || data.name.trim() === '') {
       throw new Error('Warehouse name is required');
     }
