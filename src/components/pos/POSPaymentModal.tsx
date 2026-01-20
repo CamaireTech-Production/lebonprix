@@ -370,30 +370,38 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
     : 0;
 
   const handleComplete = async () => {
-    if (!paymentMethod) {
-      alert(t('pos.payment.errors.selectMethod'));
-      return;
-    }
-    
-    // For cash payment: if amount received is entered, it must be >= total
-    // If no amount received entered, assume exact amount (no change needed)
-    if (paymentMethod === 'cash' && amountReceived) {
-      const received = parseFloat(amountReceived);
-      if (isNaN(received) || received < total) {
-        alert(t('pos.payment.errors.insufficientAmount'));
+    // For credit sales, skip payment method validation
+    if (saleType === 'credit') {
+      // Validate credit sales: require customer name and phone
+      if (!customerName || customerName.trim() === '') {
+        showErrorToast(t('sales.messages.errors.customerNameRequiredForCredit') || 'Customer name is required for credit sales');
         return;
       }
-    }
-    
-    if (paymentMethod === 'mobile_money' && !mobileMoneyPhone) {
-      alert(t('pos.payment.errors.mobileMoneyPhone'));
-      return;
-    }
-
-    // Validate credit sales: require customer
-    if (saleType === 'credit' && (!customerSourceId || customerSourceId.trim() === '')) {
-      showErrorToast(t('pos.payment.creditCustomerRequired') || 'Please select a customer for credit sales');
-      return;
+      if (!customerPhone || customerPhone.trim() === '') {
+        showErrorToast(t('sales.messages.errors.customerPhoneRequiredForCredit') || 'Customer phone is required for credit sales');
+        return;
+      }
+    } else {
+      // For paid sales, require payment method
+      if (!paymentMethod) {
+        showErrorToast(t('pos.payment.errors.selectMethod') || 'Please select a payment method');
+        return;
+      }
+      
+      // For cash payment: if amount received is entered, it must be >= total
+      // If no amount received entered, assume exact amount (no change needed)
+      if (paymentMethod === 'cash' && amountReceived) {
+        const received = parseFloat(amountReceived);
+        if (isNaN(received) || received < total) {
+          showErrorToast(t('pos.payment.errors.insufficientAmount') || 'Insufficient amount received');
+          return;
+        }
+      }
+      
+      if (paymentMethod === 'mobile_money' && !mobileMoneyPhone) {
+        showErrorToast(t('pos.payment.errors.mobileMoneyPhone') || 'Mobile Money phone number is required');
+        return;
+      }
     }
 
     const paymentData: POSPaymentData = {
@@ -1914,7 +1922,12 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
           </button>
           <button
             onClick={handleComplete}
-            disabled={!paymentMethod || isSubmitting || isPrinting}
+            disabled={
+              isSubmitting || 
+              isPrinting || 
+              (saleType === 'paid' && !paymentMethod) ||
+              (saleType === 'credit' && (!customerName || !customerPhone || customerName.trim() === '' || customerPhone.trim() === ''))
+            }
             className="flex-1 px-4 py-3 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 font-medium"
             style={{ backgroundColor: colors.primary }}
           >
