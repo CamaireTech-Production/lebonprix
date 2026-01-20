@@ -265,7 +265,9 @@
       "margin": "Marge",
       "expenses": "Dépenses",
       "productsSold": "Produits vendus",
-      "clients": "Clients"
+      "clients": "Clients",
+      "creditOutstanding": "Crédits en attente",
+      "creditSales": "ventes"
     },
     "profit": {
       "periodSettings": "Paramètres de période de profit",
@@ -498,9 +500,45 @@
       "status": {
         "commande": "Commande",
         "under_delivery": "En livraison",
-        "paid": "Payé"
+        "paid": "Payé",
+        "credit": "Crédit",
+        "draft": "Brouillon"
       },
+      "creditSales": "Ventes en Crédit",
       "search": "Recherche par nom ou téléphone..."
+    },
+    "credit": {
+      "settleCredit": "Régler la Vente en Crédit",
+      "saleInfo": "Informations de la Vente",
+      "customer": "Client",
+      "phone": "Téléphone",
+      "totalAmount": "Montant Total",
+      "outstandingAmount": "Montant Restant",
+      "selectPaymentMethod": "Sélectionner le Mode de Paiement",
+      "settle": "Régler",
+      "settledSuccess": "Vente en crédit réglée avec succès",
+      "settleError": "Échec du règlement de la vente en crédit",
+      "insufficientAmount": "Le montant reçu est inférieur au montant restant",
+      "mobileMoneyPhoneRequired": "Le numéro de téléphone Mobile Money est requis"
+    },
+    "refund": {
+      "title": "Rembourser la Vente en Crédit",
+      "saleInfo": "Informations de la Vente",
+      "refundAmount": "Montant du Remboursement",
+      "reason": "Raison (Optionnel)",
+      "reasonPlaceholder": "Entrer la raison du remboursement...",
+      "refundMethod": "Méthode de Remboursement (Optionnel)",
+      "totalRefunded": "Total Remboursé",
+      "remainingAfter": "Montant Restant Après Remboursement",
+      "process": "Traiter le Remboursement",
+      "success": "Remboursement traité avec succès",
+      "history": "Historique des Remboursements",
+      "refund": "Remboursement",
+      "errors": {
+        "amountRequired": "Veuillez entrer un montant de remboursement",
+        "amountExceeds": "Le montant du remboursement ne peut pas dépasser le montant restant",
+        "failed": "Échec du traitement du remboursement"
+      }
     },
     "actions": {
       "addSale": "Ajouter une vente",
@@ -512,7 +550,10 @@
       "copyTrackingLink": "Copier le lien de suivi",
       "copyLinkOnly": "Copier le lien uniquement",
       "copyWithMessage": "Copier avec message",
-      "deleteSale": "Supprimer la vente"
+      "deleteSale": "Supprimer la vente",
+      "settleCredit": "Marquer comme Payé",
+      "cancelCredit": "Annuler le Crédit",
+      "refundCredit": "Rembourser"
     },
     "table": {
       "rowsPerPage": "Lignes par page :",
@@ -576,7 +617,8 @@
           "lifoDescription": "- Vendre le stock le plus récent en premier",
           "cmupDescription": "- Utiliser le coût moyen pondéré de tous les lots",
           "helpText": "Ceci détermine comment le stock est consommé lors du calcul du coût des marchandises vendues et des marges bénéficiaires."
-        }
+        },
+        "creditSaleWarning": "⚠️ Pour les ventes en crédit, le nom du client et le téléphone sont requis."
       },
       "edit": {
         "title": "Modifier la Vente",
@@ -633,6 +675,18 @@
           "orderStatus": "Statut de la Commande",
           "paymentStatus": "Statut du Paiement"
         },
+        "creditSale": {
+          "title": "Vente en Crédit",
+          "totalAmount": "Montant Total",
+          "remainingAmount": "Montant Restant",
+          "paidAmount": "Montant Payé",
+          "dueDate": "Date d'Échéance"
+        },
+        "statusHistory": {
+          "title": "Historique des Statuts"
+        },
+        "confirmCancelCredit": "Êtes-vous sûr de vouloir annuler cette vente en crédit ? Le stock sera restauré.",
+        "noSaleSelected": "Aucune vente sélectionnée",
         "actions": {
           "copyTrackingLink": "Copier le Lien de Suivi",
           "editSale": "Modifier la Vente",
@@ -696,13 +750,23 @@
       "customerSaved": "Client enregistré avec succès !",
       "invoiceShared": "Facture partagée avec succès !",
       "invoiceDownloaded": "Facture téléchargée avec succès !",
+      "messages": {
+        "creditSettled": "Vente en crédit marquée comme payée",
+        "creditCancelled": "Vente en crédit annulée et stock restauré"
+      },
       "errors": {
         "addSale": "Échec de l'ajout de la vente. Veuillez réessayer.",
         "updateSale": "Échec de la mise à jour de la vente. Veuillez réessayer.",
         "loadSales": "Échec du chargement des ventes. Veuillez actualiser la page.",
         "saveCustomer": "Échec de l'enregistrement du client. Veuillez réessayer.",
         "shareInvoice": "Erreur lors du partage de la facture",
-        "notLoggedIn": "Vous devez être connecté pour créer une vente"
+        "notLoggedIn": "Vous devez être connecté pour créer une vente",
+        "settleCreditFailed": "Échec du règlement de la vente en crédit",
+        "cancelCreditFailed": "Échec de l'annulation de la vente en crédit",
+        "invalidCustomerData": "Données client invalides pour la vente en crédit",
+        "customerSourceRequiredForCredit": "La source client est requise pour les ventes en crédit. Veuillez sélectionner une source client.",
+        "customerNameRequiredForCredit": "Le nom du client est requis pour les ventes en crédit. Veuillez entrer le nom du client.",
+        "customerPhoneRequiredForCredit": "Le téléphone du client est requis pour les ventes en crédit. Veuillez entrer le téléphone du client."
       },
       "warnings": {
         "customerName": "Le nom du client est requis.",
@@ -2050,7 +2114,8 @@
       "delivered": "Livrée",
       "cancelled": "Annulée",
       "commande": "Commande",
-      "paid": "Payé"
+      "paid": "Payé",
+      "credit": "credit"
     },
     "paymentStatus": {
       "pending": "En Attente",
@@ -2187,6 +2252,21 @@
       "discount": "Remise",
       "tax": "Taxe/TVA",
       "selectMethod": "Sélectionner le Mode de Paiement",
+      "saleType": "Type de Vente",
+      "paidSale": "Vente Payée",
+      "paidSaleDescription": "Le client paie immédiatement",
+      "creditSale": "Vente en Crédit",
+      "creditSaleDescription": "Le client paiera plus tard",
+      "creditRequirement": "Client Requis",
+      "creditRequirementDescription": "Veuillez sélectionner un client dans la section client ci-dessous. Les ventes en crédit nécessitent qu'un client soit sélectionné.",
+      "creditCustomerRequired": "Veuillez sélectionner un client pour les ventes en crédit",
+      "creditDueDate": "Date d'Échéance (Optionnel)",
+      "creditDueDateHint": "Optionnel : Définir une date d'échéance pour cette vente en crédit",
+      "methods": {
+        "cash": "Espèces",
+        "mobile_money": "Mobile Money",
+        "card": "Carte"
+      },
       "cash": "Espèces",
       "cashDescription": "Payer en espèces",
       "mobileMoney": "Mobile Money",

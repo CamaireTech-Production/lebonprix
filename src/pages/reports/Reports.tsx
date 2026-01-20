@@ -154,9 +154,11 @@ const Reports = () => {
   // Sales status options
   const salesStatusOptions = useMemo(() => [
     { value: 'all', label: t('reports.filters.allStatuses') },
-    { value: 'completed', label: t('reports.filters.completed') },
-    { value: 'pending', label: t('reports.filters.pending') },
-    { value: 'cancelled', label: t('reports.filters.cancelled') },
+    { value: 'paid', label: t('reports.filters.paid') || 'Paid' },
+    { value: 'credit', label: t('reports.filters.credit') || 'Credit' },
+    { value: 'commande', label: t('reports.filters.commande') || 'Order' },
+    { value: 'under_delivery', label: t('reports.filters.underDelivery') || 'Under Delivery' },
+    { value: 'draft', label: t('reports.filters.draft') || 'Draft' },
   ], [t]);
 
   // Period helpers for chart aggregation
@@ -220,6 +222,11 @@ const Reports = () => {
     return expenses.filter(e => e.isAvailable !== false && inRange(toDate(e.createdAt)));
   }, [expenses, inRange]);
 
+  // Filter out credit sales for profit calculations (but keep them for status breakdown)
+  const filteredSalesForProfit = useMemo(() => {
+    return filteredSales.filter(sale => sale.status !== 'credit');
+  }, [filteredSales]);
+
   const formatKey = useCallback((d: Date) => {
     if (aggregationPeriod === 'yearly') return String(d.getFullYear());
     if (aggregationPeriod === 'monthly') return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
@@ -270,7 +277,8 @@ const Reports = () => {
     const expensesByDay: Record<string, number> = Object.fromEntries(dateKeys.map(k => [k, 0]));
     const costOfGoodsSoldByDay: Record<string, number> = Object.fromEntries(dateKeys.map(k => [k, 0]));
 
-    for (const s of filteredSales) {
+    // Use filteredSalesForProfit to exclude credit sales from profit calculations
+    for (const s of filteredSalesForProfit) {
       const d = toDate(s.createdAt);
       if (!d) continue;
       const key = formatKey(normalizeToBucketStart(d));
@@ -300,7 +308,7 @@ const Reports = () => {
     const costOfGoodsSoldData = dateKeys.map(k => costOfGoodsSoldByDay[k]);
     const profitData = dateKeys.map((_, i) => salesData[i] - costOfGoodsSoldData[i] - expensesData[i]);
     return { salesData, expensesData, costOfGoodsSoldData, profitData };
-  }, [dateKeys, filteredSales, filteredExpenses, products, formatKey, normalizeToBucketStart]);
+  }, [dateKeys, filteredSalesForProfit, filteredExpenses, products, formatKey, normalizeToBucketStart]);
 
   // Calculate moving average for trend line
   const calculateMovingAverage = useCallback((data: number[], window: number): number[] => {
@@ -447,12 +455,12 @@ const Reports = () => {
   };
   
   // Aggregates and rankings
-  const totalSales = useMemo(() => filteredSales.reduce((sum, s) => sum + (s.totalAmount || 0), 0), [filteredSales]);
+  const totalSales = useMemo(() => filteredSalesForProfit.reduce((sum, s) => sum + (s.totalAmount || 0), 0), [filteredSalesForProfit]);
   const totalExpenses = useMemo(() => filteredExpenses.reduce((sum, e) => sum + (e.amount || 0), 0), [filteredExpenses]);
   
-  // Calculate total cost of goods sold
+  // Calculate total cost of goods sold (excluding credit sales)
   const totalCostOfGoodsSold = useMemo(() => {
-    return filteredSales.reduce((sum, sale) => {
+    return filteredSalesForProfit.reduce((sum, sale) => {
       return sum + sale.products.reduce((productSum: number, saleProduct: { costPrice?: number; quantity: number; productId: string }) => {
         // Use costPrice from saleProduct (historical price at time of sale)
         const costPrice = saleProduct.costPrice ?? 
@@ -460,9 +468,40 @@ const Reports = () => {
         return productSum + (costPrice * saleProduct.quantity);
       }, 0);
     }, 0);
-  }, [filteredSales, products]);
+  }, [filteredSalesForProfit, products]);
   
   const netProfit = useMemo(() => totalSales - totalCostOfGoodsSold - totalExpenses, [totalSales, totalCostOfGoodsSold, totalExpenses]);
+
+  // Calculate sales by status breakdown
+  const salesByStatus = useMemo(() => {
+    const statusMap: Record<string, { count: number; amount: number }> = {};
+    
+    filteredSales.forEach(sale => {
+      const status = sale.status || 'unknown';
+      if (!statusMap[status]) {
+        statusMap[status] = { count: 0, amount: 0 };
+      }
+      statusMap[status].count += 1;
+      statusMap[status].amount += sale.totalAmount || 0;
+    });
+    
+    return statusMap;
+  }, [filteredSales]);
+
+  // Calculate credit sales metrics
+  const creditSalesMetrics = useMemo(() => {
+    const creditSales = filteredSales.filter(sale => sale.status === 'credit');
+    const totalCreditOutstanding = creditSales.reduce((sum, sale) => {
+      return sum + (sale.remainingAmount ?? sale.totalAmount ?? 0);
+    }, 0);
+    
+    return {
+      count: creditSales.length,
+      totalAmount: creditSales.reduce((sum, s) => sum + (s.totalAmount || 0), 0),
+      totalOutstanding: totalCreditOutstanding,
+      sales: creditSales
+    };
+  }, [filteredSales]);
 
   // Calculate previous period range
   const getPreviousPeriodRange = useCallback((start: Date, end: Date) => {
@@ -719,7 +758,8 @@ const Reports = () => {
         .map(p => [p.id, p])
     );
 
-    for (const sale of filteredSales) {
+    // Use filteredSalesForProfit to exclude credit sales from profitability analysis
+    for (const sale of filteredSalesForProfit) {
       for (const saleProduct of sale.products) {
         const product = productById[saleProduct.productId];
         if (!product) continue;
@@ -755,7 +795,7 @@ const Reports = () => {
 
     // Sort by profit margin descending
     return results.sort((a, b) => b.profitMargin - a.profitMargin);
-  }, [filteredSales, products]);
+  }, [filteredSalesForProfit, products]);
 
   // Paginated product profitability data
   const paginatedProductProfitability = useMemo(() => {
@@ -1061,6 +1101,153 @@ const Reports = () => {
           </div>
         </Card>
       </div>
+
+      {/* Sales Status Breakdown */}
+      <Card className="mb-6" title={t('reports.statusBreakdown.title') || 'Sales Status Breakdown'}>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {Object.entries(salesByStatus).map(([status, data]) => {
+            const statusLabels: Record<string, string> = {
+              'paid': t('reports.statusBreakdown.paid') || 'Paid',
+              'credit': t('reports.statusBreakdown.credit') || 'Credit',
+              'commande': t('reports.statusBreakdown.commande') || 'Order',
+              'under_delivery': t('reports.statusBreakdown.underDelivery') || 'Under Delivery',
+              'draft': t('reports.statusBreakdown.draft') || 'Draft',
+            };
+            const statusColors: Record<string, { bg: string; border: string; text: string }> = {
+              'paid': { bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700' },
+              'credit': { bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-700' },
+              'commande': { bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-700' },
+              'under_delivery': { bg: 'bg-yellow-50', border: 'border-yellow-200', text: 'text-yellow-700' },
+              'draft': { bg: 'bg-gray-50', border: 'border-gray-200', text: 'text-gray-700' },
+            };
+            const colors = statusColors[status] || { bg: 'bg-gray-50', border: 'border-gray-200', text: 'text-gray-700' };
+            return (
+              <div key={status} className={`${colors.bg} ${colors.border} border rounded-lg p-4`}>
+                <p className={`text-sm font-medium ${colors.text}`}>
+                  {statusLabels[status] || status}
+                </p>
+                <p className={`mt-2 text-2xl font-semibold ${colors.text.replace('700', '900')}`}>
+                  {formatPrice(data.amount)} XAF
+                </p>
+                <p className={`mt-1 text-xs ${colors.text}`}>
+                  {data.count} {t('reports.statusBreakdown.sales') || 'sales'}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+      </Card>
+
+      {/* Credit Sales Report Section */}
+      {creditSalesMetrics.count > 0 && (
+        <Card className="mb-6" title={t('reports.creditSales.title') || 'Credit Sales Report'}>
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                <p className="text-sm font-medium text-orange-700">
+                  {t('reports.creditSales.totalCreditSales') || 'Total Credit Sales'}
+                </p>
+                <p className="mt-2 text-2xl font-semibold text-orange-900">
+                  {formatPrice(creditSalesMetrics.totalAmount)} XAF
+                </p>
+                <p className="mt-1 text-xs text-orange-600">
+                  {creditSalesMetrics.count} {t('reports.creditSales.sales') || 'sales'}
+                </p>
+              </div>
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <p className="text-sm font-medium text-red-700">
+                  {t('reports.creditSales.totalOutstanding') || 'Total Outstanding'}
+                </p>
+                <p className="mt-2 text-2xl font-semibold text-red-900">
+                  {formatPrice(creditSalesMetrics.totalOutstanding)} XAF
+                </p>
+                <p className="mt-1 text-xs text-red-600">
+                  {t('reports.creditSales.unpaid') || 'Unpaid amount'}
+                </p>
+              </div>
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <p className="text-sm font-medium text-green-700">
+                  {t('reports.creditSales.totalPaid') || 'Total Paid'}
+                </p>
+                <p className="mt-2 text-2xl font-semibold text-green-900">
+                  {formatPrice(creditSalesMetrics.totalAmount - creditSalesMetrics.totalOutstanding)} XAF
+                </p>
+                <p className="mt-1 text-xs text-green-600">
+                  {t('reports.creditSales.paidAmount') || 'Paid amount'}
+                </p>
+              </div>
+            </div>
+            
+            <div className="mt-4">
+              <h4 className="text-sm font-semibold text-gray-700 mb-2">
+                {t('reports.creditSales.outstandingCredits') || 'Outstanding Credits'}
+              </h4>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        {t('reports.creditSales.date') || 'Date'}
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        {t('reports.creditSales.customer') || 'Customer'}
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        {t('reports.creditSales.totalAmount') || 'Total Amount'}
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        {t('reports.creditSales.paidAmount') || 'Paid'}
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        {t('reports.creditSales.remaining') || 'Remaining'}
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        {t('reports.creditSales.dueDate') || 'Due Date'}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {creditSalesMetrics.sales.slice(0, 10).map((sale) => {
+                      const saleDate = sale.createdAt?.seconds ? new Date(sale.createdAt.seconds * 1000) : null;
+                      const dueDate = sale.creditDueDate?.seconds ? new Date(sale.creditDueDate.seconds * 1000) : null;
+                      const paidAmount = sale.paidAmount || 0;
+                      const remainingAmount = sale.remainingAmount ?? sale.totalAmount ?? 0;
+                      return (
+                        <tr key={sale.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                            {saleDate ? saleDate.toLocaleDateString() : '-'}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                            {sale.customerInfo?.name || '-'}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                            {formatPrice(sale.totalAmount)} XAF
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-green-600">
+                            {formatPrice(paidAmount)} XAF
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-red-600">
+                            {formatPrice(remainingAmount)} XAF
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                            {dueDate ? dueDate.toLocaleDateString() : '-'}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              {creditSalesMetrics.sales.length > 10 && (
+                <p className="mt-2 text-sm text-gray-500 text-center">
+                  {t('reports.creditSales.showingFirst', { count: 10, total: creditSalesMetrics.sales.length }) || 
+                    `Showing first 10 of ${creditSalesMetrics.sales.length} credit sales`}
+                </p>
+              )}
+            </div>
+          </div>
+        </Card>
+      )}
       
       {/* KPI Dashboard */}
       <Card className="mb-6" title={t('reports.kpi.title')}>

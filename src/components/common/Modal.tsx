@@ -36,11 +36,11 @@ const Modal = ({ isOpen, onClose, title, children, footer, size = 'md', closeBut
       <div className="fixed inset-0 z-[9999] overflow-y-auto">
         <div className="flex min-h-full items-center justify-center p-2 sm:p-4">
           <div 
-            className={`relative bg-white rounded-lg shadow-xl w-full ${sizeClasses[size]} transform transition-all max-h-[90vh] overflow-visible`}
+            className={`relative bg-white rounded-lg shadow-xl w-full ${sizeClasses[size]} transform transition-all max-h-[90vh] flex flex-col overflow-hidden`}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200 flex-shrink-0">
               <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
               <button
                 onClick={onClose}
@@ -52,11 +52,11 @@ const Modal = ({ isOpen, onClose, title, children, footer, size = 'md', closeBut
             </div>
             
             {/* Content */}
-            <div className="p-4 sm:p-6 overflow-y-auto max-h-[calc(90vh-120px)]">{children}</div>
+            <div className="p-4 sm:p-6 overflow-y-auto flex-1 min-h-0">{children}</div>
             
             {/* Footer */}
             {footer && (
-              <div className="p-4 border-t border-gray-200 bg-gray-50 flex justify-end gap-3">
+              <div className="p-4 border-t border-gray-200 bg-gray-50 flex justify-end gap-3 flex-shrink-0">
                 {footer}
               </div>
             )}

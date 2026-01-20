@@ -268,7 +268,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
           <div className="space-y-4">
             <div className="relative">
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Phone
+                  Phone {formData.status === 'credit' && <span className="text-red-600">*</span>}
               </label>
               <div className="flex space-x-2">
                 <Input
@@ -278,9 +278,9 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                   onChange={handlePhoneChange}
                   onBlur={handlePhoneBlur}
                     placeholder="Phone"
-                  className="flex-1"
+                  className={`flex-1 ${formData.status === 'credit' && !formData.customerPhone ? 'border-red-300' : ''}`}
                   required
-                    helpText="Enter customer phone number"
+                    helpText={formData.status === 'credit' ? "Required for credit sales" : "Enter customer phone number"}
                   ref={phoneInputRef}
                 />
               </div>
@@ -354,10 +354,11 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
             <div className="grid grid-cols-2 gap-4">
               <div className="relative">
                 <Input
-                    label="Name"
+                    label={formData.status === 'credit' ? "Name *" : "Name"}
                   name="customerName"
                   value={formData.customerName}
                   onChange={handleInputChange}
+                  className={formData.status === 'credit' && !formData.customerName ? 'border-red-300' : ''}
                 />
                 
                 {/* Customer Dropdown - Name based recommendations */}
@@ -823,10 +824,19 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                 value={formData.status}
                 onChange={(e) => handleInputChange({ target: { name: e.target.name, value: e.target.value } } as any)}
               >
-                  <option value="commande">Commande</option>
-                  <option value="under_delivery">Under Delivery</option>
-                  <option value="paid">Paid</option>
+                  <option value="commande">{t('sales.filters.status.commande') || 'Commande'}</option>
+                  <option value="under_delivery">{t('sales.filters.status.under_delivery') || 'Under Delivery'}</option>
+                  <option value="paid">{t('sales.filters.status.paid') || 'Paid'}</option>
+                  <option value="credit">{t('sales.filters.status.credit') || 'Credit'}</option>
+                  <option value="draft">{t('sales.filters.status.draft') || 'Draft'}</option>
               </select>
+              {formData.status === 'credit' && (
+                <div className="mt-2 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                  <p className="text-sm text-orange-800 font-medium">
+                    {t('sales.modals.add.creditSaleWarning') || '⚠️ For credit sales, customer name and phone are required.'}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
           

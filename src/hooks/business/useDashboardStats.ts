@@ -6,7 +6,9 @@ import {
   calculateTotalProfit,
   calculateTotalExpenses,
   calculateTotalSalesAmount,
-  calculateTrendData
+  calculateTrendData,
+  countCreditSales,
+  calculateTotalCreditOutstanding
 } from '@utils/calculations/financialCalculations';
 import { getPeriodStartDate } from '@utils/calculations/profitPeriodUtils';
 import { getPeriodLabel } from '@utils/dashboard/periodUtils';
@@ -84,6 +86,10 @@ export const useDashboardStats = ({
 
   // Calculate sales amount
   const totalSalesAmount = calculateTotalSalesAmount(filteredSales);
+
+  // Calculate credit sales metrics
+  const creditSalesCount = useMemo(() => countCreditSales(filteredSales), [filteredSales]);
+  const totalCreditOutstanding = useMemo(() => calculateTotalCreditOutstanding(filteredSales), [filteredSales]);
 
   // Calculate unique clients count
   const uniqueClientsCount = useMemo(() => {
@@ -220,6 +226,17 @@ export const useDashboardStats = ({
       trendData: salesTrendData,
       periodLabel
     },
+    { 
+      title: t('dashboard.stats.creditOutstanding', { defaultValue: 'Crédits en attente' }), 
+      value: `${totalCreditOutstanding.toLocaleString()} FCFA`, 
+      iconType: 'credit', 
+      type: 'credit',
+      loading: salesLoading,
+      subtitle: `${creditSalesCount} ${t('dashboard.stats.creditSales', { defaultValue: 'ventes' })}`,
+      trend: undefined, // No trend for credit (optional)
+      trendData: undefined,
+      periodLabel
+    },
   ], [
     t,
     totalSalesAmount,
@@ -237,7 +254,9 @@ export const useDashboardStats = ({
     previousPeriodStart,
     salesTrendData,
     clientsTrend,
-    periodLabel
+    periodLabel,
+    creditSalesCount,
+    totalCreditOutstanding
   ]);
 
   return { statCards };
