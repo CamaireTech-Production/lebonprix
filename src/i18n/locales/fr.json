@@ -639,6 +639,18 @@
           "orderStatus": "Statut de la Commande",
           "paymentStatus": "Statut du Paiement"
         },
+        "creditSale": {
+          "title": "Vente en Crédit",
+          "totalAmount": "Montant Total",
+          "remainingAmount": "Montant Restant",
+          "paidAmount": "Montant Payé",
+          "dueDate": "Date d'Échéance"
+        },
+        "statusHistory": {
+          "title": "Historique des Statuts"
+        },
+        "confirmCancelCredit": "Êtes-vous sûr de vouloir annuler cette vente en crédit ? Le stock sera restauré.",
+        "noSaleSelected": "Aucune vente sélectionnée",
         "actions": {
           "copyTrackingLink": "Copier le Lien de Suivi",
           "editSale": "Modifier la Vente",
