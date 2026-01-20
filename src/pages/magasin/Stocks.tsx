@@ -159,8 +159,10 @@ const Stocks = () => {
   };
 
   const handleModalSuccess = () => {
+    // Clear search filter and reset pagination to ensure all matieres are visible after restock
     // Note: useMatieres uses real-time subscription, so data updates automatically
-    // No need to manually refresh
+    setSearch('');
+    setPage(1);
     setRestockModalOpen(false);
     setAdjustModalOpen(false);
     setHistoryModalOpen(false);
