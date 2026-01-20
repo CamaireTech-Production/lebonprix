@@ -6,6 +6,7 @@ import { useMatieres } from '@hooks/business/useMatieres';
 import { useAllStockBatches } from '@hooks/business/useStockBatches';
 import { useStockChanges } from '@hooks/data/useFirestore';
 import MatiereRestockModal from '../../components/magasin/MatiereRestockModal';
+import MatiereDirectConsumptionModal from '../../components/magasin/MatiereDirectConsumptionModal';
 import UnifiedBatchAdjustmentModal from '../../components/magasin/UnifiedBatchAdjustmentModal';
 import BatchDeleteModal from '../../components/common/BatchDeleteModal';
 import { usePermissionCheck } from '@components/permissions';
@@ -81,6 +82,7 @@ const Stocks = () => {
   
   // Modal states
   const [restockModalOpen, setRestockModalOpen] = useState(false);
+  const [directConsumptionModalOpen, setDirectConsumptionModalOpen] = useState(false);
   const [adjustModalOpen, setAdjustModalOpen] = useState(false);
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -136,6 +138,17 @@ const Stocks = () => {
     setRestockModalOpen(true);
   };
 
+  const handleDirectConsumption = (matiere: Matiere) => {
+    setSelectedMatiere(matiere);
+    setSelectedBatch(null);
+    const matiereBatches = batchesByMatiere.get(matiere.id) || [];
+    const remaining = matiereBatches.reduce((sum, b) => sum + (b.remainingQuantity || 0), 0);
+    const total = matiereBatches.reduce((sum, b) => sum + (b.quantity || 0), 0);
+    setSelectedBatchTotals(matiereBatches.length ? { remaining, total } : undefined);
+    setExpandedMatiereId(matiere.id || '');
+    setDirectConsumptionModalOpen(true);
+  };
+
   const handleAdjust = (matiere: Matiere, batch?: StockBatch) => {
     setSelectedMatiere(matiere);
     setSelectedBatch(batch || null);
@@ -164,6 +177,7 @@ const Stocks = () => {
     setSearch('');
     setPage(1);
     setRestockModalOpen(false);
+    setDirectConsumptionModalOpen(false);
     setAdjustModalOpen(false);
     setHistoryModalOpen(false);
     setDeleteModalOpen(false);
@@ -173,6 +187,7 @@ const Stocks = () => {
 
   const handleModalClose = () => {
     setRestockModalOpen(false);
+    setDirectConsumptionModalOpen(false);
     setAdjustModalOpen(false);
     setHistoryModalOpen(false);
     setDeleteModalOpen(false);
@@ -331,6 +346,16 @@ const Stocks = () => {
                         >
                           {t('navigation.warehouseMenu.stocksPage.actions.history')}
                         </Button>
+                        {batchRemaining > 0 && (
+                          <Button 
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleDirectConsumption(matiere)}
+                            className="whitespace-nowrap"
+                          >
+                            {t('navigation.warehouseMenu.stocksPage.actions.destock')}
+                          </Button>
+                        )}
                         <Button 
                           size="sm"
                           onClick={() => handleRestock(matiere)}
@@ -516,6 +541,14 @@ const Stocks = () => {
       {/* Stock Operation Modals */}
       <MatiereRestockModal
         isOpen={restockModalOpen}
+        onClose={handleModalClose}
+        matiere={selectedMatiere}
+        batchTotals={selectedBatchTotals}
+        onSuccess={handleModalSuccess}
+      />
+
+      <MatiereDirectConsumptionModal
+        isOpen={directConsumptionModalOpen}
         onClose={handleModalClose}
         matiere={selectedMatiere}
         batchTotals={selectedBatchTotals}

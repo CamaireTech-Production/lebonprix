@@ -905,6 +905,87 @@ export const getMatiereBatchesForAdjustment = async (matiereId: string): Promise
 };
 
 /**
+ * Direct consumption of matiere stock (without production)
+ * Allows consuming matiere stock directly with FIFO, LIFO, or CMUP method
+ */
+export const consumeMatiereStockDirectly = async (
+  matiereId: string,
+  quantity: number,
+  companyId: string,
+  method: 'FIFO' | 'LIFO' | 'CMUP' = 'FIFO',
+  userId?: string,
+  reason?: string,
+  notes?: string
+): Promise<void> => {
+  const batch = writeBatch(db);
+  
+  // Get matiere to verify companyId and get userId
+  const matiereRef = doc(db, 'matieres', matiereId);
+  const matiereSnap = await getDoc(matiereRef);
+  if (!matiereSnap.exists()) {
+    throw new Error('Matiere not found');
+  }
+  
+  const matiere = matiereSnap.data() as Matiere;
+  // Verify matiere belongs to company
+  if (matiere.companyId !== companyId) {
+    throw new Error('Unauthorized: Matiere belongs to different company');
+  }
+  
+  // Get userId from matiere for audit if not provided
+  const auditUserId = userId || matiere.userId || companyId;
+  
+  // Validate quantity
+  if (quantity <= 0) {
+    throw new Error('Quantity must be greater than 0');
+  }
+  
+  // Import consumeStockFromBatches
+  const { consumeStockFromBatches } = await import('./stockService');
+  
+  // Consume stock from batches using specified method
+  const inventoryResult = await consumeStockFromBatches(
+    batch,
+    matiereId,
+    companyId,
+    quantity,
+    method,
+    'matiere'
+  );
+  
+  // Create stock change for each consumed batch
+  for (const consumedBatch of inventoryResult.consumedBatches) {
+    createStockChange(
+      batch,
+      matiereId,
+      -consumedBatch.consumedQuantity,
+      'direct_consumption',
+      auditUserId,
+      companyId,
+      'matiere',
+      undefined,
+      undefined,
+      undefined,
+      consumedBatch.costPrice,
+      consumedBatch.batchId,
+      undefined,
+      [{
+        batchId: consumedBatch.batchId,
+        costPrice: consumedBatch.costPrice,
+        consumedQuantity: consumedBatch.consumedQuantity,
+        remainingQuantity: consumedBatch.remainingQuantity
+      }]
+    );
+  }
+  
+  // Commit all changes
+  await batch.commit();
+  
+  // Log success
+  console.log(`Successfully consumed ${quantity} units of matiere ${matiereId} using ${method} method`);
+};
+
+/**
  * Bulk adjustment for multiple batches in a single transaction
  * quantityChange can be undefined to only update price without changing quantity
  */

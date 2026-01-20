@@ -1,5 +1,5 @@
 import { useAddSaleForm } from '@hooks/forms/useAddSaleForm';
-import { Modal, ModalFooter, Input, PriceInput, Button, ImageWithSkeleton, LocationAutocomplete } from '@components/common';
+import { Modal, ModalFooter, Input, PriceInput, Button, ImageWithSkeleton, LocationAutocomplete, Select as CommonSelect } from '@components/common';
 import Select from 'react-select';
 import { Plus, Trash2, Info, ChevronDown, ChevronUp} from 'lucide-react';
 import { useState, useEffect, useMemo } from 'react';
@@ -841,63 +841,41 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
           </div>
           
           {/* Inventory Method Selection */}
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700">
-              {t('sales.modals.add.inventoryMethod.title')}
-            </label>
-            <div className="flex flex-wrap gap-4">
-              <label className="flex items-center space-x-2">
-                <input
-                  type="radio"
-                  name="inventoryMethod"
-                  value="fifo"
-                  checked={formData.inventoryMethod === 'fifo'}
-                  onChange={handleInputChange}
-                  className="form-radio h-4 w-4 text-emerald-600 border-gray-300"
-                />
-                <span className="text-sm text-gray-700">
-                  <strong>{t('sales.modals.add.inventoryMethod.fifo')}</strong>
-                </span>
-                <span className="text-xs text-gray-500">
-                  {t('sales.modals.add.inventoryMethod.fifoDescription')}
-                </span>
-              </label>
-              <label className="flex items-center space-x-2">
-                <input
-                  type="radio"
-                  name="inventoryMethod"
-                  value="lifo"
-                  checked={formData.inventoryMethod === 'lifo'}
-                  onChange={handleInputChange}
-                  className="form-radio h-4 w-4 text-emerald-600 border-gray-300"
-                />
-                <span className="text-sm text-gray-700">
-                  <strong>{t('sales.modals.add.inventoryMethod.lifo')}</strong>
-                </span>
-                <span className="text-xs text-gray-500">
-                  {t('sales.modals.add.inventoryMethod.lifoDescription')}
-                </span>
-              </label>
-              <label className="flex items-center space-x-2">
-                <input
-                  type="radio"
-                  name="inventoryMethod"
-                  value="cmup"
-                  checked={formData.inventoryMethod === 'cmup'}
-                  onChange={handleInputChange}
-                  className="form-radio h-4 w-4 text-emerald-600 border-gray-300"
-                />
-                <span className="text-sm text-gray-700">
-                  <strong>{t('sales.modals.add.inventoryMethod.cmup')}</strong>
-                </span>
-                <span className="text-xs text-gray-500">
-                  {t('sales.modals.add.inventoryMethod.cmupDescription')}
-                </span>
-              </label>
-            </div>
-            <p className="text-xs text-gray-500">
-              {t('sales.modals.add.inventoryMethod.helpText')}
-            </p>
+          <div>
+            <CommonSelect
+              label={t('sales.modals.add.inventoryMethod.title')}
+              name="inventoryMethod"
+              value={formData.inventoryMethod}
+              onChange={(e) => {
+                handleInputChange({
+                  target: {
+                    name: 'inventoryMethod',
+                    value: e.target.value
+                  }
+                } as React.ChangeEvent<HTMLInputElement>);
+              }}
+              options={[
+                {
+                  value: 'fifo',
+                  label: t('sales.modals.add.inventoryMethod.fifo')
+                },
+                {
+                  value: 'lifo',
+                  label: t('sales.modals.add.inventoryMethod.lifo')
+                },
+                {
+                  value: 'cmup',
+                  label: t('sales.modals.add.inventoryMethod.cmup')
+                }
+              ]}
+              helpText={
+                formData.inventoryMethod === 'fifo'
+                  ? t('sales.modals.add.inventoryMethod.fifoDescription')
+                  : formData.inventoryMethod === 'lifo'
+                  ? t('sales.modals.add.inventoryMethod.lifoDescription')
+                  : t('sales.modals.add.inventoryMethod.cmupDescription')
+              }
+            />
           </div>
         </div>
         {/* Products Side Panel - Desktop View */}

@@ -122,6 +122,7 @@
         "actions": {
           "history": "Historique",
           "restock": "Réapprovisionner",
+          "destock": "Déstocker",
           "adjust": "Ajuster",
           "damage": "Endommagé",
           "toggleBatches": "Basculer les lots"
@@ -163,6 +164,44 @@
             "costPrice": "Prix d'achat"
           },
           "noHistoryFound": "Aucun historique de stock trouvé pour cette matière."
+        },
+        "directConsumption": {
+          "title": "Déstocker une Matière Première",
+          "matiere": "Matière",
+          "availableStock": "Stock disponible",
+          "quantity": "Quantité à déstocker",
+          "quantityPlaceholder": "Entrer la quantité",
+          "quantityHelp": "Maximum disponible : {{max}} {{unit}}",
+          "method": "Méthode de consommation",
+          "methods": {
+            "fifo": "FIFO (Premier Entré, Premier Sorti)",
+            "fifoDescription": "Les lots les plus anciens seront consommés en premier",
+            "lifo": "LIFO (Dernier Entré, Premier Sorti)",
+            "lifoDescription": "Les lots les plus récents seront consommés en premier",
+            "cmup": "CMUP (Coût Moyen Unitaire Pondéré)",
+            "cmupDescription": "Utilise le coût moyen pondéré de tous les lots disponibles"
+          },
+          "reason": "Raison (optionnel)",
+          "reasonPlaceholder": "Ex: Utilisation interne, Perte, Retour fournisseur",
+          "notes": "Notes (optionnel)",
+          "notesPlaceholder": "Ajouter des notes supplémentaires sur ce déstockage",
+          "loadingBatches": "Chargement des lots disponibles...",
+          "batchesPreview": "Aperçu des lots",
+          "batchesCount": "{{count}} lot(s) disponible(s)",
+          "methodInfo": "Méthode sélectionnée : {{method}}",
+          "confirm": "Confirmer le déstockage",
+          "processing": "Traitement en cours...",
+          "success": "{{quantity}} {{unit}} de {{name}} ont été déstockés avec succès",
+          "errors": {
+            "title": "Erreurs de validation",
+            "quantityRequired": "La quantité est requise",
+            "quantityInvalid": "La quantité doit être un nombre positif",
+            "insufficientStock": "Stock insuffisant. Disponible : {{available}} {{unit}}",
+            "methodRequired": "La méthode de consommation est requise",
+            "missingData": "Données manquantes. Veuillez réessayer.",
+            "consumeFailed": "Échec du déstockage. Veuillez réessayer.",
+            "loadBatches": "Erreur lors du chargement des lots"
+          }
         }
       },
       "restockModal": {

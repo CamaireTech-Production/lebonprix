@@ -11,7 +11,7 @@ import { formatPrice } from '@utils/formatting/formatPrice';
 import { normalizePhoneForComparison } from '@utils/core/phoneUtils';
 import { POSCalculator } from './POSCalculator';
 import Select from 'react-select';
-import { Input, PriceInput, ImageWithSkeleton } from '@components/common';
+import { Input, PriceInput, ImageWithSkeleton, Select as CommonSelect } from '@components/common';
 import type { OrderStatus, Customer } from '../../types/models';
 import type { CartItem } from '@hooks/forms/usePOS';
 
@@ -1782,44 +1782,32 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
                           </div>
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            {t('pos.payment.inventoryMethod')}
-                          </label>
-                          <div className="flex flex-wrap gap-4">
-                            <label className="flex items-center space-x-2">
-                              <input
-                                type="radio"
-                                value="fifo"
-                                checked={inventoryMethod === 'fifo'}
-                                onChange={(e) => setInventoryMethod(e.target.value as 'fifo' | 'lifo' | 'cmup')}
-                                className="form-radio h-4 w-4"
-                                style={{ color: colors.primary }}
-                              />
-                              <span className="text-sm">FIFO</span>
-                            </label>
-                            <label className="flex items-center space-x-2">
-                              <input
-                                type="radio"
-                                value="lifo"
-                                checked={inventoryMethod === 'lifo'}
-                                onChange={(e) => setInventoryMethod(e.target.value as 'fifo' | 'lifo' | 'cmup')}
-                                className="form-radio h-4 w-4"
-                                style={{ color: colors.primary }}
-                              />
-                              <span className="text-sm">LIFO</span>
-                            </label>
-                            <label className="flex items-center space-x-2">
-                              <input
-                                type="radio"
-                                value="cmup"
-                                checked={inventoryMethod === 'cmup'}
-                                onChange={(e) => setInventoryMethod(e.target.value as 'fifo' | 'lifo' | 'cmup')}
-                                className="form-radio h-4 w-4"
-                                style={{ color: colors.primary }}
-                              />
-                              <span className="text-sm">CMUP</span>
-                            </label>
-                          </div>
+                          <CommonSelect
+                            label={t('pos.payment.inventoryMethod')}
+                            value={inventoryMethod}
+                            onChange={(e) => setInventoryMethod(e.target.value as 'fifo' | 'lifo' | 'cmup')}
+                            options={[
+                              {
+                                value: 'fifo',
+                                label: t('sales.modals.add.inventoryMethod.fifo')
+                              },
+                              {
+                                value: 'lifo',
+                                label: t('sales.modals.add.inventoryMethod.lifo')
+                              },
+                              {
+                                value: 'cmup',
+                                label: t('sales.modals.add.inventoryMethod.cmup')
+                              }
+                            ]}
+                            helpText={
+                              inventoryMethod === 'fifo'
+                                ? t('sales.modals.add.inventoryMethod.fifoDescription')
+                                : inventoryMethod === 'lifo'
+                                ? t('sales.modals.add.inventoryMethod.lifoDescription')
+                                : t('sales.modals.add.inventoryMethod.cmupDescription')
+                            }
+                          />
                         </div>
                       </div>
                     )}
