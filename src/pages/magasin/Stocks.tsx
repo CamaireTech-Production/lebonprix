@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ChevronRight, ChevronDown, Package, AlertCircle, Search, Trash2, Settings, AlertTriangle } from 'lucide-react';
+import { ChevronRight, ChevronLeft, ChevronDown, Package, AlertCircle, Search, Trash2, Settings, AlertTriangle } from 'lucide-react';
 import { Button, Input, Modal, LoadingScreen } from '@components/common';
 import { useMatieres } from '@hooks/business/useMatieres';
 import { useAllStockBatches } from '@hooks/business/useStockBatches';
@@ -476,8 +476,9 @@ const Stocks = () => {
                 size="sm"
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={currentPage === 1 || loading}
+                title={t('navigation.warehouseMenu.stocksPage.messages.previous')}
               >
-                {t('navigation.warehouseMenu.stocksPage.messages.previous')}
+                <ChevronLeft size={16} />
               </Button>
               <div className="flex items-center space-x-1">
                 <span className="text-gray-600">{t('navigation.warehouseMenu.stocksPage.messages.page')}</span>
@@ -501,8 +502,9 @@ const Stocks = () => {
                 size="sm"
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={currentPage === totalPages || loading}
+                title={t('navigation.warehouseMenu.stocksPage.messages.next')}
               >
-                {t('navigation.warehouseMenu.stocksPage.messages.next')}
+                <ChevronRight size={16} />
               </Button>
             </div>
           </div>

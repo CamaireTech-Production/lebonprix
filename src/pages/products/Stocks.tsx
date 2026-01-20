@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ChevronRight, ChevronDown, RefreshCcw, Package, AlertCircle, Search, Trash2, Settings, AlertTriangle } from 'lucide-react';
+import { ChevronRight, ChevronLeft, ChevronDown, RefreshCcw, Package, AlertCircle, Search, Trash2, Settings, AlertTriangle } from 'lucide-react';
 import { Button, Input, Modal, LoadingScreen } from '@components/common';
 import { useInfiniteProducts } from '@hooks/data/useInfiniteProducts';
 import { useAllStockBatches } from '@hooks/business/useStockBatches';
@@ -498,8 +498,9 @@ const Stocks = () => {
                 size="sm"
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={currentPage === 1 || loading}
+                title={t('products.stocksPage.messages.previous')}
               >
-                {t('products.stocksPage.messages.previous')}
+                <ChevronLeft size={16} />
               </Button>
               <div className="flex items-center space-x-1">
                 <span className="text-gray-600">{t('products.stocksPage.messages.page')}</span>
@@ -523,19 +524,10 @@ const Stocks = () => {
                 size="sm"
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={currentPage === totalPages || loading}
+                title={t('products.stocksPage.messages.next')}
               >
-                {t('products.stocksPage.messages.next')}
+                <ChevronRight size={16} />
               </Button>
-              {hasMore && (
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={loadMore} 
-                  disabled={loadingMore || loading}
-                >
-                  {loadingMore ? t('products.stocksPage.messages.loading') : t('products.stocksPage.messages.loadMore')}
-                </Button>
-              )}
             </div>
           </div>
         )}
