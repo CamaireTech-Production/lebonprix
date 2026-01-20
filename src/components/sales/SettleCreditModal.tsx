@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Modal, ModalFooter, Input, PriceInput, Button } from '@components/common';
+import { Modal, ModalFooter, Input, PriceInput } from '@components/common';
 import { useTranslation } from 'react-i18next';
 import { formatPrice } from '@utils/formatting/formatPrice';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
@@ -87,6 +87,16 @@ export const SettleCreditModal: React.FC<SettleCreditModalProps> = ({
       onClose={handleClose}
       title={t('sales.credit.settleCredit') || 'Settle Credit Sale'}
       size="md"
+      footer={
+        <ModalFooter
+          onCancel={handleClose}
+          onConfirm={handleSettle}
+          confirmText={t('sales.credit.settle') || 'Settle Credit'}
+          cancelText={t('common.cancel') || 'Cancel'}
+          isLoading={isSubmitting}
+          disabled={!paymentMethod || isSubmitting}
+        />
+      }
     >
       <div className="space-y-6">
         {/* Sale Information */}
@@ -217,23 +227,6 @@ export const SettleCreditModal: React.FC<SettleCreditModalProps> = ({
           </div>
         )}
       </div>
-
-      <ModalFooter>
-        <Button
-          variant="outline"
-          onClick={handleClose}
-          disabled={isSubmitting}
-        >
-          {t('common.cancel') || 'Cancel'}
-        </Button>
-        <Button
-          onClick={handleSettle}
-          disabled={!paymentMethod || isSubmitting}
-          isLoading={isSubmitting}
-        >
-          {t('sales.credit.settle') || 'Settle Credit'}
-        </Button>
-      </ModalFooter>
     </Modal>
   );
 };
