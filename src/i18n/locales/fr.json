@@ -265,7 +265,9 @@
       "margin": "Marge",
       "expenses": "Dépenses",
       "productsSold": "Produits vendus",
-      "clients": "Clients"
+      "clients": "Clients",
+      "creditOutstanding": "Crédits en attente",
+      "creditSales": "ventes"
     },
     "profit": {
       "periodSettings": "Paramètres de période de profit",
@@ -2078,7 +2080,8 @@
       "delivered": "Livrée",
       "cancelled": "Annulée",
       "commande": "Commande",
-      "paid": "Payé"
+      "paid": "Payé",
+      "credit": "credit"
     },
     "paymentStatus": {
       "pending": "En Attente",

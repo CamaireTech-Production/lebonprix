@@ -435,6 +435,7 @@ export const createSale = async (
       ? (data.totalAmount - paidAmount)
       : 0;
     
+    // Build sale data, excluding undefined values (Firestore doesn't allow undefined)
     const saleData: any = {
       ...data,
       products: enhancedProducts,
@@ -456,6 +457,13 @@ export const createSale = async (
         ...(normalizedCreditDueDate ? { creditDueDate: normalizedCreditDueDate } : {})
       } : {})
     };
+    
+    // Remove undefined values (Firestore doesn't allow undefined)
+    Object.keys(saleData).forEach(key => {
+      if (saleData[key] === undefined) {
+        delete saleData[key];
+      }
+    });
     
     if (createdBy) {
       saleData.createdBy = createdBy;

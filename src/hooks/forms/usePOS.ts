@@ -378,8 +378,11 @@ export function usePOS() {
         inventoryMethod: paymentData?.inventoryMethod || state.inventoryMethod || getDefaultInventoryMethod(),
         saleDate: paymentData?.saleDate || new Date().toISOString(),
         customerSourceId: paymentData?.customerSourceId || state.customer?.sourceId || '',
-        paymentMethod: isCreditSale ? undefined : (paymentData?.paymentMethod || ''),
-        transactionReference: isCreditSale ? undefined : (paymentData?.transactionReference || ''),
+        // Only include paymentMethod for paid sales (Firestore doesn't allow undefined)
+        ...(isCreditSale ? {} : {
+          paymentMethod: paymentData?.paymentMethod || '',
+          transactionReference: paymentData?.transactionReference || '',
+        }),
         notes: paymentData?.notes || '',
         tax: tvaAmount, // TVA amount
         tvaRate: state.applyTVA ? state.tvaRate : 0, // TVA percentage rate
