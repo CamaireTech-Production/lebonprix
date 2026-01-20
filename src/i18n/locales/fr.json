@@ -2242,6 +2242,11 @@
       "creditCustomerRequired": "Veuillez sélectionner un client pour les ventes en crédit",
       "creditDueDate": "Date d'Échéance (Optionnel)",
       "creditDueDateHint": "Optionnel : Définir une date d'échéance pour cette vente en crédit",
+      "methods": {
+        "cash": "Espèces",
+        "mobile_money": "Mobile Money",
+        "card": "Carte"
+      },
       "cash": "Espèces",
       "cashDescription": "Payer en espèces",
       "mobileMoney": "Mobile Money",
