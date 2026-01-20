@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, CreditCard, Smartphone, DollarSign, ChevronDown, ChevronUp, User, Calendar, Truck, Percent, Printer, Receipt } from 'lucide-react';
+import { X, CreditCard, Smartphone, DollarSign, ChevronDown, ChevronUp, User, Calendar, Truck, Percent, Printer, Receipt, Clock } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@contexts/AuthContext';
 import { useCustomerSources } from '@hooks/business/useCustomerSources';
@@ -11,7 +11,7 @@ import { formatPrice } from '@utils/formatting/formatPrice';
 import { normalizePhoneForComparison } from '@utils/core/phoneUtils';
 import { POSCalculator } from './POSCalculator';
 import Select from 'react-select';
-import { Input, PriceInput, ImageWithSkeleton } from '@components/common';
+import { Input, PriceInput, ImageWithSkeleton, Select as CommonSelect } from '@components/common';
 import type { OrderStatus, Customer } from '../../types/models';
 import type { CartItem } from '@hooks/forms/usePOS';
 
@@ -36,6 +36,7 @@ export interface POSPaymentData {
   deliveryFee: number;
   status: OrderStatus;
   inventoryMethod: 'fifo' | 'lifo' | 'cmup';
+  creditDueDate?: string; // Optional due date for credit sales (ISO date string)
   
   // Additional
   discountType?: 'amount' | 'percentage';
@@ -129,6 +130,8 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
   const [saleDate, setSaleDate] = useState<string>(new Date().toISOString().slice(0, 10));
   const [deliveryFee, setDeliveryFee] = useState<number>(currentDeliveryFee);
   const [status, setStatus] = useState<OrderStatus>('paid');
+  const [saleType, setSaleType] = useState<'paid' | 'credit'>('paid'); // Sale type: paid or credit
+  const [creditDueDate, setCreditDueDate] = useState<string>(''); // Optional due date for credit sales
   
   // Get default inventory method: use prop from POS state first, then settings, then fallback
   const getDefaultInventoryMethod = (): 'fifo' | 'lifo' | 'cmup' => {
@@ -244,6 +247,8 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
     setSaleDate(new Date().toISOString().slice(0, 10));
     setDeliveryFee(currentDeliveryFee);
     setStatus('paid');
+    setSaleType('paid');
+    setCreditDueDate('');
     setInventoryMethod(getDefaultInventoryMethod());
     setDiscountType('amount');
     setDiscountValue('');
@@ -365,36 +370,48 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
     : 0;
 
   const handleComplete = async () => {
-    if (!paymentMethod) {
-      alert(t('pos.payment.errors.selectMethod'));
-      return;
-    }
-    
-    // For cash payment: if amount received is entered, it must be >= total
-    // If no amount received entered, assume exact amount (no change needed)
-    if (paymentMethod === 'cash' && amountReceived) {
-      const received = parseFloat(amountReceived);
-      if (isNaN(received) || received < total) {
-        alert(t('pos.payment.errors.insufficientAmount'));
+    // For credit sales, skip payment method validation
+    if (saleType === 'credit') {
+      // Validate credit sales: require customer name and phone
+      if (!customerName || customerName.trim() === '') {
+        showErrorToast(t('sales.messages.errors.customerNameRequiredForCredit') || 'Customer name is required for credit sales');
+        return;
+      }
+      if (!customerPhone || customerPhone.trim() === '') {
+        showErrorToast(t('sales.messages.errors.customerPhoneRequiredForCredit') || 'Customer phone is required for credit sales');
+        return;
+      }
+    } else {
+      // For paid sales, require payment method
+      if (!paymentMethod) {
+        showErrorToast(t('pos.payment.errors.selectMethod') || 'Please select a payment method');
+        return;
+      }
+      
+      // For cash payment: if amount received is entered, it must be >= total
+      // If no amount received entered, assume exact amount (no change needed)
+      if (paymentMethod === 'cash' && amountReceived) {
+        const received = parseFloat(amountReceived);
+        if (isNaN(received) || received < total) {
+          showErrorToast(t('pos.payment.errors.insufficientAmount') || 'Insufficient amount received');
+          return;
+        }
+      }
+      
+      if (paymentMethod === 'mobile_money' && !mobileMoneyPhone) {
+        showErrorToast(t('pos.payment.errors.mobileMoneyPhone') || 'Mobile Money phone number is required');
         return;
       }
     }
-    
-    if (paymentMethod === 'mobile_money' && !mobileMoneyPhone) {
-      alert(t('pos.payment.errors.mobileMoneyPhone'));
-      return;
-    }
-
-    // Customer phone is optional for POS system
 
     const paymentData: POSPaymentData = {
-      paymentMethod,
-      amountReceived: paymentMethod === 'cash' && amountReceived && amountReceived.trim() !== '' 
+      paymentMethod: saleType === 'credit' ? undefined : paymentMethod, // No payment method for credit
+      amountReceived: saleType === 'paid' && paymentMethod === 'cash' && amountReceived && amountReceived.trim() !== '' 
         ? parseFloat(amountReceived) 
         : undefined,
-      change: paymentMethod === 'cash' ? change : undefined,
-      transactionReference: paymentMethod !== 'cash' ? (transactionReference || '') : '',
-      mobileMoneyPhone: paymentMethod === 'mobile_money' ? (mobileMoneyPhone || '') : '',
+      change: saleType === 'paid' && paymentMethod === 'cash' ? change : undefined,
+      transactionReference: saleType === 'paid' && paymentMethod !== 'cash' ? (transactionReference || '') : '',
+      mobileMoneyPhone: saleType === 'paid' && paymentMethod === 'mobile_money' ? (mobileMoneyPhone || '') : '',
       customerPhone: customerPhone || '',
       customerName: customerName || t('pos.payment.walkInCustomer'),
       customerQuarter: customerQuarter || '',
@@ -403,8 +420,9 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
       customerTown: customerTown || '',
       saleDate,
       deliveryFee,
-      status,
+      status: saleType === 'credit' ? 'credit' : status,
       inventoryMethod,
+      creditDueDate: saleType === 'credit' && creditDueDate ? creditDueDate : undefined,
       // Simplified discount data - save exactly what we have
       discountType: discountAmount > 0 ? discountType : undefined,
       discountValue: discountAmount > 0 ? parseFloat(discountValue) : undefined,
@@ -808,7 +826,7 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
                 return '';
               })()}
               ${paymentMethod === 'cash' && (!amountReceived || parseFloat(amountReceived) === (completedSale.totalAmount || total)) ? `<p style="text-align: right;"><strong>Montant:</strong> ${(completedSale.totalAmount || total).toLocaleString()} XAF (exact)</p>` : ''}
-              <p style="text-align: right;"><strong>Méthode:</strong> ${paymentMethod === 'cash' ? 'Espèces' : paymentMethod === 'mobile_money' ? 'Mobile Money' : paymentMethod === 'card' ? 'Carte' : ''}</p>
+              <p style="text-align: right;"><strong>Méthode:</strong> ${completedSale?.status === 'credit' ? 'Crédit' : paymentMethod === 'cash' ? 'Espèces' : paymentMethod === 'mobile_money' ? 'Mobile Money' : paymentMethod === 'card' ? 'Carte' : ''}</p>
               <hr style="border-top: 1px dashed #000; margin: 10px 0;">
               ${completedSale.notes ? `<p style="margin-top: 10px;"><strong>Notes:</strong> ${completedSale.notes}</p>` : ''}
               <p style="text-align: center; margin-top: 15px;">Merci de votre achat!</p>
@@ -1056,9 +1074,11 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
                     <div className="flex justify-between text-sm pt-2">
                       <span>{t('pos.payment.paymentMethod')}:</span>
                       <span className="font-semibold">
-                        {paymentMethod === 'cash' ? t('pos.payment.cash') : 
-                         paymentMethod === 'mobile_money' ? t('pos.payment.mobileMoney') : 
-                         paymentMethod === 'card' ? t('pos.payment.card') : ''}
+                        {completedSale?.status === 'credit' 
+                          ? t('sales.filters.status.credit') || 'Crédit'
+                          : paymentMethod === 'cash' ? t('pos.payment.cash') : 
+                            paymentMethod === 'mobile_money' ? t('pos.payment.mobileMoney') : 
+                            paymentMethod === 'card' ? t('pos.payment.card') : ''}
                       </span>
                     </div>
                   </div>
@@ -1210,7 +1230,89 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
                 </div>
               </div>
 
-              {/* Payment Method Section */}
+              {/* Sale Type Selection (Credit vs Paid) */}
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold mb-3">{t('pos.payment.saleType') || 'Sale Type'}</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <button
+                    onClick={() => {
+                      setSaleType('paid');
+                      setStatus('paid');
+                      setPaymentMethod(null); // Reset payment method when switching
+                    }}
+                    className={`p-4 border-2 rounded-lg transition-colors flex items-center space-x-3 ${
+                      saleType === 'paid'
+                        ? 'border-emerald-500 bg-emerald-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <DollarSign size={24} className="text-emerald-600" />
+                    <div className="text-left">
+                      <div className="font-semibold">{t('pos.payment.paidSale') || 'Paid Sale'}</div>
+                      <div className="text-sm text-gray-600">{t('pos.payment.paidSaleDescription') || 'Customer pays immediately'}</div>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setSaleType('credit');
+                      setStatus('credit');
+                      setPaymentMethod(null); // Reset payment method when switching
+                    }}
+                    className={`p-4 border-2 rounded-lg transition-colors flex items-center space-x-3 ${
+                      saleType === 'credit'
+                        ? 'border-orange-500 bg-orange-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <Clock size={24} className="text-orange-600" />
+                    <div className="text-left">
+                      <div className="font-semibold">{t('pos.payment.creditSale') || 'Credit Sale'}</div>
+                      <div className="text-sm text-gray-600">{t('pos.payment.creditSaleDescription') || 'Customer pays later'}</div>
+                    </div>
+                  </button>
+                </div>
+
+                {/* Credit Sale Requirements */}
+                {saleType === 'credit' && (
+                  <div className="mt-4 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                    <div className="flex items-start space-x-2">
+                      <User size={20} className="text-orange-600 mt-0.5" />
+                      <div className="flex-1">
+                        <div className="text-sm font-semibold text-orange-800 mb-1">
+                          {t('pos.payment.creditRequirement') || 'Customer Required'}
+                        </div>
+                        <div className="text-xs text-orange-700">
+                          {t('pos.payment.creditRequirementDescription') || 'Please select a customer from the customer section below. Credit sales require a customer to be selected.'}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Credit Due Date (Optional) */}
+                {saleType === 'credit' && (
+                  <div className="mt-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <Calendar size={16} className="inline mr-2" />
+                      {t('pos.payment.creditDueDate') || 'Due Date (Optional)'}
+                    </label>
+                    <input
+                      type="date"
+                      value={creditDueDate}
+                      onChange={(e) => setCreditDueDate(e.target.value)}
+                      min={new Date().toISOString().slice(0, 10)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      {t('pos.payment.creditDueDateHint') || 'Optional: Set a due date for this credit sale'}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Payment Method Section - Only show for paid sales */}
+              {saleType === 'paid' && (
               <div>
                 <h3 className="text-lg font-semibold mb-3">{t('pos.payment.selectMethod')}</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -1322,6 +1424,7 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
                   </div>
                 )}
               </div>
+              )}
             </div>
           </div>
 
@@ -1660,55 +1763,51 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
                               {t('pos.payment.status')}
                             </label>
                             <select
-                              value={status}
-                              onChange={(e) => setStatus(e.target.value as OrderStatus)}
+                              value={saleType === 'credit' ? 'credit' : status}
+                              onChange={(e) => {
+                                if (e.target.value === 'credit') {
+                                  setSaleType('credit');
+                                } else {
+                                  setSaleType('paid');
+                                  setStatus(e.target.value as OrderStatus);
+                                }
+                              }}
                               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                             >
                               <option value="commande">{t('pos.payment.statusOrder')}</option>
                               <option value="under_delivery">{t('pos.payment.statusDelivery')}</option>
                               <option value="paid">{t('pos.payment.statusPaid')}</option>
+                              <option value="credit">{t('pos.payment.statusCredit') || 'Credit'}</option>
                             </select>
                           </div>
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            {t('pos.payment.inventoryMethod')}
-                          </label>
-                          <div className="flex flex-wrap gap-4">
-                            <label className="flex items-center space-x-2">
-                              <input
-                                type="radio"
-                                value="fifo"
-                                checked={inventoryMethod === 'fifo'}
-                                onChange={(e) => setInventoryMethod(e.target.value as 'fifo' | 'lifo' | 'cmup')}
-                                className="form-radio h-4 w-4"
-                                style={{ color: colors.primary }}
-                              />
-                              <span className="text-sm">FIFO</span>
-                            </label>
-                            <label className="flex items-center space-x-2">
-                              <input
-                                type="radio"
-                                value="lifo"
-                                checked={inventoryMethod === 'lifo'}
-                                onChange={(e) => setInventoryMethod(e.target.value as 'fifo' | 'lifo' | 'cmup')}
-                                className="form-radio h-4 w-4"
-                                style={{ color: colors.primary }}
-                              />
-                              <span className="text-sm">LIFO</span>
-                            </label>
-                            <label className="flex items-center space-x-2">
-                              <input
-                                type="radio"
-                                value="cmup"
-                                checked={inventoryMethod === 'cmup'}
-                                onChange={(e) => setInventoryMethod(e.target.value as 'fifo' | 'lifo' | 'cmup')}
-                                className="form-radio h-4 w-4"
-                                style={{ color: colors.primary }}
-                              />
-                              <span className="text-sm">CMUP</span>
-                            </label>
-                          </div>
+                          <CommonSelect
+                            label={t('pos.payment.inventoryMethod')}
+                            value={inventoryMethod}
+                            onChange={(e) => setInventoryMethod(e.target.value as 'fifo' | 'lifo' | 'cmup')}
+                            options={[
+                              {
+                                value: 'fifo',
+                                label: t('sales.modals.add.inventoryMethod.fifo')
+                              },
+                              {
+                                value: 'lifo',
+                                label: t('sales.modals.add.inventoryMethod.lifo')
+                              },
+                              {
+                                value: 'cmup',
+                                label: t('sales.modals.add.inventoryMethod.cmup')
+                              }
+                            ]}
+                            helpText={
+                              inventoryMethod === 'fifo'
+                                ? t('sales.modals.add.inventoryMethod.fifoDescription')
+                                : inventoryMethod === 'lifo'
+                                ? t('sales.modals.add.inventoryMethod.lifoDescription')
+                                : t('sales.modals.add.inventoryMethod.cmupDescription')
+                            }
+                          />
                         </div>
                       </div>
                     )}
@@ -1813,7 +1912,12 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
           </button>
           <button
             onClick={handleComplete}
-            disabled={!paymentMethod || isSubmitting || isPrinting}
+            disabled={
+              isSubmitting || 
+              isPrinting || 
+              (saleType === 'paid' && !paymentMethod) ||
+              (saleType === 'credit' && (!customerName || !customerPhone || customerName.trim() === '' || customerPhone.trim() === ''))
+            }
             className="flex-1 px-4 py-3 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 font-medium"
             style={{ backgroundColor: colors.primary }}
           >

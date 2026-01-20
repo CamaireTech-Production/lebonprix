@@ -1,13 +1,14 @@
-import { ArrowLeft, Clock, X } from 'lucide-react';
+import { ArrowLeft, Clock, X, CreditCard } from 'lucide-react';
 import { useAuth } from '@contexts/AuthContext';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 
 interface POSHeaderProps {
   companyName: string;
+  creditSalesCount?: number; // Optional credit sales count
 }
 
-export const POSHeader: React.FC<POSHeaderProps> = ({ companyName }) => {
+export const POSHeader: React.FC<POSHeaderProps> = ({ companyName, creditSalesCount = 0 }) => {
   const { user, currentEmployee, isOwner, company } = useAuth();
   const navigate = useNavigate();
   const { companyId } = useParams<{ companyId: string }>();
@@ -46,6 +47,12 @@ export const POSHeader: React.FC<POSHeaderProps> = ({ companyName }) => {
     }
   };
 
+  const handleCreditSalesClick = () => {
+    if (companyId) {
+      navigate(`/company/${companyId}/sales?status=credit`);
+    }
+  };
+
   return (
     <div 
       className="h-16 text-white flex items-center justify-between px-6 shadow-md"
@@ -81,6 +88,30 @@ export const POSHeader: React.FC<POSHeaderProps> = ({ companyName }) => {
       </div>
 
       <div className="flex items-center space-x-6">
+        {/* Credit Sales Counter */}
+        {creditSalesCount > 0 && (
+          <button
+            onClick={handleCreditSalesClick}
+            className="relative flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors hover:opacity-90"
+            style={{ 
+              backgroundColor: colors.tertiary,
+              color: colors.headerText
+            }}
+            title="View Credit Sales"
+          >
+            <CreditCard size={16} />
+            <span className="text-sm font-medium">Credit</span>
+            <span 
+              className="px-2 py-0.5 rounded-full text-xs font-bold"
+              style={{ 
+                backgroundColor: '#f97316',
+                color: 'white'
+              }}
+            >
+              {creditSalesCount}
+            </span>
+          </button>
+        )}
         <div className="flex items-center space-x-2 text-sm" style={{ color: colors.headerText }}>
           <Clock size={16} />
           <span>{currentTime.toLocaleTimeString()}</span>
