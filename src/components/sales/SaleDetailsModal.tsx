@@ -594,53 +594,76 @@ const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({ isOpen, onClose, sa
             </div>
 
             {/* Status History */}
-            {sale.statusHistory && sale.statusHistory.length > 0 && (
-              <div className="mt-4 pt-4 border-t border-gray-200">
-                <h4 className="text-sm font-medium text-gray-700 mb-3">
-                  {t('sales.modals.view.statusHistory.title') || 'Status History'}
-                </h4>
-                <div className="space-y-2">
-                  {sale.statusHistory
-                    .slice()
-                    .reverse()
-                    .map((historyEntry, index) => {
-                      const date = historyEntry.timestamp 
-                        ? new Date(historyEntry.timestamp)
-                        : null;
-                      return (
-                        <div key={index} className="flex items-start space-x-3 p-2 bg-gray-50 rounded">
-                          <div className="flex-1">
-                            <div className="flex items-center space-x-2">
-                              <Badge variant={
-                                historyEntry.status === 'paid' ? 'success' :
-                                historyEntry.status === 'credit' ? 'warning' :
-                                historyEntry.status === 'under_delivery' ? 'info' : 'default'
-                              }>
-                                {t(`sales.filters.status.${historyEntry.status}`) || historyEntry.status}
-                              </Badge>
-                              {historyEntry.paymentMethod && (
-                                <span className="text-xs text-gray-500">
-                                  ({t(`pos.payment.methods.${historyEntry.paymentMethod}`) || historyEntry.paymentMethod})
-                                </span>
-                              )}
+            {(() => {
+              // Build complete status history including current status if not in history
+              const statusHistory = sale.statusHistory || [];
+              const currentStatusInHistory = statusHistory.some(entry => entry.status === sale.status);
+              
+              // If current status is not in history, add it (for existing sales created before statusHistory was implemented)
+              const completeHistory = currentStatusInHistory 
+                ? statusHistory 
+                : [
+                    ...statusHistory,
+                    {
+                      status: sale.status,
+                      timestamp: sale.createdAt?.seconds 
+                        ? new Date(sale.createdAt.seconds * 1000).toISOString()
+                        : new Date().toISOString(),
+                      userId: sale.userId || sale.companyId
+                    }
+                  ];
+              
+              if (completeHistory.length > 0) {
+                return (
+                  <div className="mt-4 pt-4 border-t border-gray-200">
+                    <h4 className="text-sm font-medium text-gray-700 mb-3">
+                      {t('sales.modals.view.statusHistory.title') || 'Status History'}
+                    </h4>
+                    <div className="space-y-2">
+                      {completeHistory
+                        .slice()
+                        .reverse()
+                        .map((historyEntry, index) => {
+                          const date = historyEntry.timestamp 
+                            ? new Date(historyEntry.timestamp)
+                            : null;
+                          return (
+                            <div key={index} className="flex items-start space-x-3 p-2 bg-gray-50 rounded">
+                              <div className="flex-1">
+                                <div className="flex items-center space-x-2">
+                                  <Badge variant={
+                                    historyEntry.status === 'paid' ? 'success' :
+                                    historyEntry.status === 'credit' ? 'warning' :
+                                    historyEntry.status === 'under_delivery' ? 'info' : 'default'
+                                  }>
+                                    {t(`sales.filters.status.${historyEntry.status}`) || historyEntry.status}
+                                  </Badge>
+                                  {historyEntry.paymentMethod && (
+                                    <span className="text-xs text-gray-500">
+                                      ({t(`pos.payment.methods.${historyEntry.paymentMethod}`) || historyEntry.paymentMethod})
+                                    </span>
+                                  )}
+                                </div>
+                                {date && (
+                                  <p className="text-xs text-gray-500 mt-1">
+                                    {date.toLocaleString()}
+                                  </p>
+                                )}
+                                {historyEntry.amountPaid && (
+                                  <p className="text-xs text-gray-600 mt-1">
+                                    {t('sales.modals.view.statusHistory.amountPaid') || 'Amount Paid'}: {formatPrice(historyEntry.amountPaid)} XAF
+                                  </p>
+                                )}
+                              </div>
                             </div>
-                            {date && (
-                              <p className="text-xs text-gray-500 mt-1">
-                                {date.toLocaleString()}
-                              </p>
-                            )}
-                            {historyEntry.amountPaid && (
-                              <p className="text-xs text-gray-600 mt-1">
-                                {t('sales.modals.view.statusHistory.amountPaid') || 'Amount Paid'}: {formatPrice(historyEntry.amountPaid)} XAF
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                </div>
-              </div>
-            )}
+                          );
+                        })}
+                    </div>
+                  </div>
+                );
+              }
+              return null;
+            })()}
           </div>
         </Card>
       </div>

@@ -435,6 +435,22 @@ export const createSale = async (
       ? (data.totalAmount - paidAmount)
       : 0;
     
+    // Initialize status history with the initial status
+    const initialStatusHistory = [{
+      status: normalizedStatus,
+      timestamp: normalizedCreatedAt instanceof Date 
+        ? normalizedCreatedAt.toISOString() 
+        : (typeof normalizedCreatedAt === 'object' && normalizedCreatedAt !== null && 'seconds' in normalizedCreatedAt
+          ? new Date(normalizedCreatedAt.seconds * 1000).toISOString()
+          : new Date().toISOString()),
+      userId: userId
+    }];
+    
+    // Add payment method to initial status history if it's a paid sale
+    if (normalizedStatus === 'paid' && (data as any).paymentMethod) {
+      initialStatusHistory[0].paymentMethod = (data as any).paymentMethod;
+    }
+    
     // Build sale data, excluding undefined values (Firestore doesn't allow undefined)
     const saleData: any = {
       ...data,
@@ -450,6 +466,7 @@ export const createSale = async (
       inventoryMethod: normalizedInventoryMethod,
       createdAt: normalizedCreatedAt,
       updatedAt: serverTimestamp(),
+      statusHistory: initialStatusHistory,
       // Credit sale fields
       ...(normalizedStatus === 'credit' ? {
         remainingAmount,
