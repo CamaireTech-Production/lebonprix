@@ -713,7 +713,16 @@
         "shareInvoice": "Erreur lors du partage de la facture",
         "notLoggedIn": "Vous devez être connecté pour créer une vente",
         "settleCreditFailed": "Échec du règlement de la vente en crédit",
-        "cancelCreditFailed": "Échec de l'annulation de la vente en crédit"
+        "cancelCreditFailed": "Échec de l'annulation de la vente en crédit",
+        "invalidCustomerData": "Données client invalides pour la vente en crédit",
+        "customerSourceRequiredForCredit": "La source client est requise pour les ventes en crédit. Veuillez sélectionner une source client.",
+        "customerNameRequiredForCredit": "Le nom du client est requis pour les ventes en crédit. Veuillez entrer le nom du client.",
+        "customerPhoneRequiredForCredit": "Le téléphone du client est requis pour les ventes en crédit. Veuillez entrer le téléphone du client."
+      },
+      "modals": {
+        "add": {
+          "creditSaleWarning": "⚠️ Pour les ventes en crédit, le nom du client, le téléphone et la source client sont requis."
+        }
       },
       "warnings": {
         "customerName": "Le nom du client est requis.",

@@ -365,10 +365,16 @@ export const createSale = async (
     
     const normalizedStatus = data.status || 'paid';
     
-    // Validate credit sales: require customerSourceId
+    // Validate credit sales: require customerSourceId, customer name, and phone
     if (normalizedStatus === 'credit') {
       if (!data.customerSourceId || data.customerSourceId.trim() === '') {
-        throw new Error('Customer source is required for credit sales. Please select a customer.');
+        throw new Error('Customer source is required for credit sales. Please select a customer source.');
+      }
+      if (!data.customerInfo?.name || data.customerInfo.name.trim() === '') {
+        throw new Error('Customer name is required for credit sales. Please enter customer name.');
+      }
+      if (!data.customerInfo?.phone || data.customerInfo.phone.trim() === '') {
+        throw new Error('Customer phone is required for credit sales. Please enter customer phone.');
       }
     }
     
