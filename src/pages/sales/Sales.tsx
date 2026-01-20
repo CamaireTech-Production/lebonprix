@@ -35,7 +35,7 @@ import { buildProductStockMap, getEffectiveProductStock } from '@utils/inventory
 import { normalizePhoneForComparison } from '@utils/core/phoneUtils';
 import { logError } from '@utils/core/logger';
 import { useTranslation } from 'react-i18next';
-import { softDeleteSale, updateSaleStatus } from '@services/firestore/sales/saleService';
+import { softDeleteSale, updateSaleStatus, cancelCreditSale } from '@services/firestore/sales/saleService';
 import { formatCreatorName } from '@utils/business/employeeUtils';
 import { createPortal } from 'react-dom';
 import AddSaleModal from '../../components/sales/AddSaleModal';
@@ -345,6 +345,7 @@ const Sales: React.FC = () => {
   const handleSettleCredit = async (
     saleId: string,
     paymentMethod: 'cash' | 'mobile_money' | 'card',
+    amountPaid: number,
     transactionReference?: string,
     mobileMoneyPhone?: string
   ): Promise<void> => {
@@ -353,13 +354,41 @@ const Sales: React.FC = () => {
     }
 
     try {
-      // Update sale status from credit to paid
-      await updateSaleStatus(saleId, 'paid', 'paid', user.uid);
+      // Update sale status from credit to paid with payment details
+      await updateSaleStatus(
+        saleId,
+        'paid',
+        'paid',
+        user.uid,
+        paymentMethod,
+        amountPaid,
+        transactionReference,
+        mobileMoneyPhone
+      );
       
+      showSuccessToast(t('sales.messages.creditSettled') || 'Credit sale marked as paid');
       // Refresh sales list
       refreshSales();
     } catch (error: any) {
       logError('Error settling credit sale', error);
+      showErrorToast(error.message || t('sales.messages.errors.settleCreditFailed') || 'Failed to settle credit sale');
+      throw error;
+    }
+  };
+
+  const handleCancelCredit = async (saleId: string): Promise<void> => {
+    if (!user?.uid || !company?.id) {
+      throw new Error('User or company not found');
+    }
+
+    try {
+      await cancelCreditSale(saleId, user.uid, company.id);
+      showSuccessToast(t('sales.messages.creditCancelled') || 'Credit sale cancelled and stock restored');
+      // Refresh sales list
+      refreshSales();
+    } catch (error: any) {
+      logError('Error cancelling credit sale', error);
+      showErrorToast(error.message || t('sales.messages.errors.cancelCreditFailed') || 'Failed to cancel credit sale');
       throw error;
     }
   };
@@ -1077,6 +1106,14 @@ const Sales: React.FC = () => {
         onClose={() => setIsViewModalOpen(false)}
         sale={viewedSale}
         products={products || []}
+        onSettleCredit={(saleId) => {
+          const sale = sales.find(s => s.id === saleId);
+          if (sale) {
+            setSaleToSettle(sale);
+            setIsSettleCreditModalOpen(true);
+          }
+        }}
+        onCancelCredit={handleCancelCredit}
       />
       <Modal isOpen={isLinkModalOpen} onClose={() => setIsLinkModalOpen(false)} title={t('sales.modals.link.title')} size="lg">
         {shareableLink && currentSale && (

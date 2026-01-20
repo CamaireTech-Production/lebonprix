@@ -497,7 +497,11 @@ export const updateSaleStatus = async (
   id: string,
   status: OrderStatus,
   paymentStatus: PaymentStatus,
-  userId: string
+  userId: string,
+  paymentMethod?: 'cash' | 'mobile_money' | 'card',
+  amountPaid?: number,
+  transactionReference?: string,
+  mobileMoneyPhone?: string
 ): Promise<void> => {
   const saleRef = doc(db, 'sales', id);
   const saleSnap = await getDoc(saleRef);
@@ -517,6 +521,26 @@ export const updateSaleStatus = async (
   const oldStatus = sale.status;
   const isCreditToPaidTransition = oldStatus === 'credit' && status === 'paid';
   
+  // Prepare status history entry with payment details
+  const statusHistoryEntry: any = {
+    status,
+    timestamp: new Date().toISOString(),
+    userId
+  };
+  
+  if (paymentMethod) {
+    statusHistoryEntry.paymentMethod = paymentMethod;
+  }
+  if (amountPaid !== undefined) {
+    statusHistoryEntry.amountPaid = amountPaid;
+  }
+  if (transactionReference) {
+    statusHistoryEntry.transactionReference = transactionReference;
+  }
+  if (mobileMoneyPhone) {
+    statusHistoryEntry.mobileMoneyPhone = mobileMoneyPhone;
+  }
+  
   // Prepare update data
   const updateData: any = {
     status,
@@ -524,18 +548,22 @@ export const updateSaleStatus = async (
     updatedAt: serverTimestamp(),
     statusHistory: [
       ...(sale.statusHistory || []),
-      { 
-        status, 
-        timestamp: new Date().toISOString(),
-        userId // Add userId for audit trail
-      }
+      statusHistoryEntry
     ]
   };
 
-  // If transitioning from credit to paid, update remaining amount
+  // If transitioning from credit to paid, update remaining amount and payment method
   if (isCreditToPaidTransition) {
-    updateData.remainingAmount = 0;
-    updateData.paidAmount = sale.totalAmount;
+    const currentPaidAmount = sale.paidAmount || 0;
+    const currentRemainingAmount = sale.remainingAmount || sale.totalAmount;
+    const actualAmountPaid = amountPaid ?? currentRemainingAmount;
+    
+    updateData.remainingAmount = Math.max(0, currentRemainingAmount - actualAmountPaid);
+    updateData.paidAmount = currentPaidAmount + actualAmountPaid;
+    
+    if (paymentMethod) {
+      updateData.paymentMethod = paymentMethod;
+    }
   }
   
   batch.update(saleRef, updateData);
@@ -697,6 +725,109 @@ export const softDeleteSale = async (saleId: string, companyId: string): Promise
       await updateFinanceEntry(docSnap.id, { isDeleted: true });
     }
   }
+};
+
+export const cancelCreditSale = async (saleId: string, userId: string, companyId: string): Promise<void> => {
+  const saleRef = doc(db, 'sales', saleId);
+  const saleSnap = await getDoc(saleRef);
+  
+  if (!saleSnap.exists()) {
+    throw new Error('Sale not found');
+  }
+
+  const sale = saleSnap.data() as Sale;
+  
+  // Verify authorization
+  if (sale.companyId !== companyId) {
+    throw new Error('Unauthorized to cancel this sale');
+  }
+  
+  // Only allow cancelling credit sales
+  if (sale.status !== 'credit') {
+    throw new Error('Only credit sales can be cancelled');
+  }
+  
+  // Prevent cancelling if already paid
+  if (sale.paidAmount && sale.paidAmount > 0) {
+    throw new Error('Cannot cancel credit sale that has been partially or fully paid');
+  }
+
+  const batch = writeBatch(db);
+
+  // Restore product stock AND batches (same logic as deleteSale)
+  for (const product of sale.products) {
+    const productRef = doc(db, 'products', product.productId);
+    const productSnap = await getDoc(productRef);
+    
+    if (!productSnap.exists()) {
+      throw new Error(`Product with ID ${product.productId} not found`);
+    }
+    
+    const productData = productSnap.data() as Product;
+    if (productData.companyId !== companyId) {
+      throw new Error(`Unauthorized to modify product ${productData.name}`);
+    }
+    
+    // Restore the stock
+    batch.update(productRef, {
+      stock: (productData.stock || 0) + product.quantity,
+      updatedAt: serverTimestamp()
+    });
+
+    // Restore batches
+    if (product.consumedBatches && product.consumedBatches.length > 0) {
+      for (const consumedBatch of product.consumedBatches) {
+        const batchRef = doc(db, 'stockBatches', consumedBatch.batchId);
+        const batchSnap = await getDoc(batchRef);
+        
+        if (batchSnap.exists()) {
+          const batchData = batchSnap.data() as StockBatch;
+          const restoredQuantity = batchData.remainingQuantity + consumedBatch.consumedQuantity;
+          
+          batch.update(batchRef, {
+            remainingQuantity: restoredQuantity,
+            status: restoredQuantity > 0 ? 'active' : 'depleted',
+            updatedAt: serverTimestamp()
+          });
+        }
+      }
+    } else if (product.batchLevelProfits && product.batchLevelProfits.length > 0) {
+      for (const batchProfit of product.batchLevelProfits) {
+        const batchRef = doc(db, 'stockBatches', batchProfit.batchId);
+        const batchSnap = await getDoc(batchRef);
+        
+        if (batchSnap.exists()) {
+          const batchData = batchSnap.data() as StockBatch;
+          const restoredQuantity = batchData.remainingQuantity + batchProfit.consumedQuantity;
+          
+          batch.update(batchRef, {
+            remainingQuantity: restoredQuantity,
+            status: restoredQuantity > 0 ? 'active' : 'depleted',
+            updatedAt: serverTimestamp()
+          });
+        }
+      }
+    }
+  }
+
+  // Update sale status to cancelled
+  batch.update(saleRef, {
+    status: 'cancelled' as OrderStatus,
+    paymentStatus: 'cancelled' as PaymentStatus,
+    updatedAt: serverTimestamp(),
+    statusHistory: [
+      ...(sale.statusHistory || []),
+      {
+        status: 'cancelled',
+        timestamp: new Date().toISOString(),
+        userId
+      }
+    ]
+  });
+
+  createAuditLog(batch, 'update', 'sale', saleId, { status: 'cancelled', reason: 'credit_sale_cancelled' }, userId);
+  
+  await batch.commit();
 };
 
 export const addSaleWithValidation = async () => {
