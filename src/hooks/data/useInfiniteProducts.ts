@@ -140,15 +140,33 @@ export const useInfiniteProducts = (): UseInfiniteProductsReturn => {
 
   // Refresh products (reset and reload)
   const refresh = useCallback(() => {
+    if (!user?.uid || !company?.id) return;
+    
     // Clear localStorage to force fresh data with images
-    if (company?.id) {
-      ProductsManager.remove(company.id);
-    }
+    ProductsManager.remove(company.id);
     setProducts([]);
     setLastDoc(null);
-    setHasMore(true);
-    loadInitialProducts();
-  }, [loadInitialProducts, company?.id]);
+    setHasMore(false); // Will be set to true if more products are available
+    setLoading(true);
+    setSyncing(false);
+    setError(null);
+    
+    // Use BackgroundSyncService to load ALL products (not just first 20)
+    // This ensures that after refresh, all products are available, especially important
+    // when a search filter was active before refresh
+    BackgroundSyncService.forceSyncProducts(company.id, (freshProducts) => {
+      const visibleProducts = freshProducts.filter(product => 
+        product.isAvailable !== false
+      );
+      setProducts(visibleProducts);
+      setLoading(false);
+      setSyncing(false);
+      // Since we loaded all products, hasMore should be false
+      // But we keep the infinite scroll pattern by checking if we need to load more
+      // In this case, all products are already loaded, so hasMore is false
+      setHasMore(false);
+    });
+  }, [user?.uid, company?.id]);
 
   // Load initial products when user or company changes
   useEffect(() => {
