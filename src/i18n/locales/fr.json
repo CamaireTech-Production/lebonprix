@@ -521,6 +521,25 @@
       "insufficientAmount": "Le montant reçu est inférieur au montant restant",
       "mobileMoneyPhoneRequired": "Le numéro de téléphone Mobile Money est requis"
     },
+    "refund": {
+      "title": "Rembourser la Vente en Crédit",
+      "saleInfo": "Informations de la Vente",
+      "refundAmount": "Montant du Remboursement",
+      "reason": "Raison (Optionnel)",
+      "reasonPlaceholder": "Entrer la raison du remboursement...",
+      "refundMethod": "Méthode de Remboursement (Optionnel)",
+      "totalRefunded": "Total Remboursé",
+      "remainingAfter": "Montant Restant Après Remboursement",
+      "process": "Traiter le Remboursement",
+      "success": "Remboursement traité avec succès",
+      "history": "Historique des Remboursements",
+      "refund": "Remboursement",
+      "errors": {
+        "amountRequired": "Veuillez entrer un montant de remboursement",
+        "amountExceeds": "Le montant du remboursement ne peut pas dépasser le montant restant",
+        "failed": "Échec du traitement du remboursement"
+      }
+    },
     "actions": {
       "addSale": "Ajouter une vente",
       "editSale": "Modifier la vente",
@@ -533,7 +552,8 @@
       "copyWithMessage": "Copier avec message",
       "deleteSale": "Supprimer la vente",
       "settleCredit": "Marquer comme Payé",
-      "cancelCredit": "Annuler le Crédit"
+      "cancelCredit": "Annuler le Crédit",
+      "refundCredit": "Rembourser"
     },
     "table": {
       "rowsPerPage": "Lignes par page :",

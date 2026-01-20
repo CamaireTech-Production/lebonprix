@@ -1,7 +1,7 @@
 import { Modal, ModalFooter, Card, Badge, Button } from '@components/common';
 import Invoice from './Invoice';
 import type { Sale, Product, Customer } from '../../types/models';
-import { Download, Share, Printer, DollarSign, Clock, X } from 'lucide-react';
+import { Download, Share, Printer, DollarSign, Clock, X, RotateCcw } from 'lucide-react';
 import { generatePDF, generatePDFBlob } from '@utils/core/pdf';
 import { generateInvoiceFileName } from '@utils/core/fileUtils';
 import { useTranslation } from 'react-i18next';
@@ -23,9 +23,10 @@ interface SaleDetailsModalProps {
   title?: string;
   onSettleCredit?: (saleId: string) => void;
   onCancelCredit?: (saleId: string) => void;
+  onRefundCredit?: (saleId: string) => void;
 }
 
-const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({ isOpen, onClose, sale, products, title, onSettleCredit, onCancelCredit }) => {
+const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({ isOpen, onClose, sale, products, title, onSettleCredit, onCancelCredit, onRefundCredit }) => {
   const { t } = useTranslation();
   const [isSharing, setIsSharing] = useState(false);
   const { company } = useAuth();
@@ -560,7 +561,7 @@ const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({ isOpen, onClose, sa
                 </Badge>
               </div>
               {sale.status === 'credit' && (
-                <div className="flex space-x-2">
+                <div className="flex space-x-2 flex-wrap gap-2">
                   {onSettleCredit && (
                     <Button
                       variant="solid"
@@ -572,6 +573,18 @@ const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({ isOpen, onClose, sa
                       className="bg-emerald-600 hover:bg-emerald-700"
                     >
                       {t('sales.actions.settleCredit') || 'Mark as Paid'}
+                    </Button>
+                  )}
+                  {onRefundCredit && (sale.remainingAmount ?? sale.totalAmount) > 0 && (
+                    <Button
+                      variant="outline"
+                      icon={<RotateCcw size={16} />}
+                      onClick={() => {
+                        onRefundCredit(sale.id);
+                      }}
+                      className="border-orange-500 text-orange-600 hover:bg-orange-50"
+                    >
+                      {t('sales.actions.refundCredit') || 'Refund'}
                     </Button>
                   )}
                   {onCancelCredit && (
@@ -664,6 +677,71 @@ const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({ isOpen, onClose, sa
               }
               return null;
             })()}
+
+            {/* Refund History */}
+            {sale.refunds && sale.refunds.length > 0 && (
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <h4 className="text-sm font-medium text-gray-700 mb-3">
+                  {t('sales.refund.history') || 'Refund History'}
+                </h4>
+                <div className="space-y-2">
+                  {sale.refunds
+                    .slice()
+                    .reverse()
+                    .map((refund, index) => {
+                      const date = refund.timestamp 
+                        ? new Date(refund.timestamp)
+                        : null;
+                      return (
+                        <div key={refund.id || index} className="flex items-start space-x-3 p-2 bg-red-50 rounded">
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-2">
+                              <Badge variant="danger">
+                                {t('sales.refund.refund') || 'Refund'}
+                              </Badge>
+                              <span className="text-sm font-semibold text-red-600">
+                                {formatPrice(refund.amount)} XAF
+                              </span>
+                              {refund.paymentMethod && (
+                                <span className="text-xs text-gray-500">
+                                  ({t(`pos.payment.methods.${refund.paymentMethod}`) || refund.paymentMethod})
+                                </span>
+                              )}
+                            </div>
+                            {date && (
+                              <p className="text-xs text-gray-500 mt-1">
+                                {date.toLocaleString()}
+                              </p>
+                            )}
+                            {refund.reason && (
+                              <p className="text-xs text-gray-600 mt-1">
+                                {t('sales.refund.reason') || 'Reason'}: {refund.reason}
+                              </p>
+                            )}
+                            {refund.transactionReference && (
+                              <p className="text-xs text-gray-500 mt-1">
+                                {t('pos.payment.transactionReference') || 'Reference'}: {refund.transactionReference}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+                {sale.totalRefunded && sale.totalRefunded > 0 && (
+                  <div className="mt-3 pt-3 border-t border-gray-200">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium text-gray-700">
+                        {t('sales.refund.totalRefunded') || 'Total Refunded'}:
+                      </span>
+                      <span className="text-lg font-bold text-red-600">
+                        {formatPrice(sale.totalRefunded)} XAF
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </Card>
       </div>

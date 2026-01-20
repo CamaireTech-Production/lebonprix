@@ -15,7 +15,8 @@ import {
   ChevronsRight,
   FileText,
   Clock,
-  DollarSign
+  DollarSign,
+  RotateCcw
 } from 'lucide-react';
 import Select from 'react-select';
 import { Modal, ModalFooter, Input, PriceInput, Badge, Button, Card, ImageWithSkeleton, LoadingScreen, SyncIndicator, DateRangePicker } from '@components/common';
@@ -35,7 +36,7 @@ import { buildProductStockMap, getEffectiveProductStock } from '@utils/inventory
 import { normalizePhoneForComparison } from '@utils/core/phoneUtils';
 import { logError } from '@utils/core/logger';
 import { useTranslation } from 'react-i18next';
-import { softDeleteSale, updateSaleStatus, cancelCreditSale } from '@services/firestore/sales/saleService';
+import { softDeleteSale, updateSaleStatus, cancelCreditSale, refundCreditSale } from '@services/firestore/sales/saleService';
 import { formatCreatorName } from '@utils/business/employeeUtils';
 import { createPortal } from 'react-dom';
 import AddSaleModal from '../../components/sales/AddSaleModal';
@@ -43,6 +44,7 @@ import SaleDetailsModal from '../../components/sales/SaleDetailsModal';
 import ProfitDetailsModal from '../../components/sales/ProfitDetailsModal';
 import SalesReportModal from '../../components/reports/SalesReportModal';
 import { SettleCreditModal } from '../../components/sales/SettleCreditModal';
+import { RefundCreditModal } from '../../components/sales/RefundCreditModal';
 import { format } from 'date-fns';
 import { PermissionButton, usePermissionCheck } from '@components/permissions';
 import { RESOURCES } from '@constants/resources';
@@ -102,10 +104,12 @@ const Sales: React.FC = () => {
   const [isProfitModalOpen, setIsProfitModalOpen] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [isSettleCreditModalOpen, setIsSettleCreditModalOpen] = useState(false);
+  const [isRefundCreditModalOpen, setIsRefundCreditModalOpen] = useState(false);
   const [currentSale, setCurrentSale] = useState<Sale | null>(null);
   const [viewedSale, setViewedSale] = useState<Sale | null>(null);
   const [profitSale, setProfitSale] = useState<Sale | null>(null);
   const [saleToSettle, setSaleToSettle] = useState<Sale | null>(null);
+  const [saleToRefund, setSaleToRefund] = useState<Sale | null>(null);
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
   const [shareableLink] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -394,6 +398,36 @@ const Sales: React.FC = () => {
     } catch (error: any) {
       logError('Error cancelling credit sale', error);
       showErrorToast(error.message || t('sales.messages.errors.cancelCreditFailed') || 'Failed to cancel credit sale');
+      throw error;
+    }
+  };
+
+  const handleRefundCredit = async (
+    saleId: string,
+    refundAmount: number,
+    reason?: string,
+    paymentMethod?: 'cash' | 'mobile_money' | 'card',
+    transactionReference?: string
+  ): Promise<void> => {
+    if (!user?.uid) {
+      throw new Error('User not found');
+    }
+
+    try {
+      await refundCreditSale(
+        saleId,
+        refundAmount,
+        user.uid,
+        reason,
+        paymentMethod,
+        transactionReference
+      );
+      showSuccessToast(t('sales.refund.success') || 'Refund processed successfully');
+      // Refresh sales list
+      refreshSales();
+    } catch (error: any) {
+      logError('Error refunding credit sale', error);
+      showErrorToast(error.message || t('sales.refund.errors.failed') || 'Failed to process refund');
       throw error;
     }
   };
@@ -697,17 +731,32 @@ const Sales: React.FC = () => {
                 <Eye size={16} />
               </button>
               {sale.status === 'credit' && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSaleToSettle(sale);
-                    setIsSettleCreditModalOpen(true);
-                  }}
-                  className="text-orange-600 hover:text-orange-900"
-                  title={t('sales.actions.settleCredit') || 'Mark as Paid'}
-                >
-                  <DollarSign size={16} />
-                </button>
+                <>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSaleToSettle(sale);
+                      setIsSettleCreditModalOpen(true);
+                    }}
+                    className="text-orange-600 hover:text-orange-900"
+                    title={t('sales.actions.settleCredit') || 'Mark as Paid'}
+                  >
+                    <DollarSign size={16} />
+                  </button>
+                  {(sale.remainingAmount ?? sale.totalAmount) > 0 && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSaleToRefund(sale);
+                        setIsRefundCreditModalOpen(true);
+                      }}
+                      className="text-red-600 hover:text-red-900"
+                      title={t('sales.actions.refundCredit') || 'Refund'}
+                    >
+                      <RotateCcw size={16} />
+                    </button>
+                  )}
+                </>
               )}
               <button
                 onClick={(e) => {
@@ -1123,6 +1172,13 @@ const Sales: React.FC = () => {
           }
         }}
         onCancelCredit={handleCancelCredit}
+        onRefundCredit={(saleId) => {
+          const sale = sales.find(s => s.id === saleId);
+          if (sale) {
+            setSaleToRefund(sale);
+            setIsRefundCreditModalOpen(true);
+          }
+        }}
       />
       <Modal isOpen={isLinkModalOpen} onClose={() => setIsLinkModalOpen(false)} title={t('sales.modals.link.title')} size="lg">
         {shareableLink && currentSale && (
@@ -1471,6 +1527,15 @@ const Sales: React.FC = () => {
         }}
         sale={saleToSettle}
         onSettle={handleSettleCredit}
+      />
+      <RefundCreditModal
+        isOpen={isRefundCreditModalOpen}
+        onClose={() => {
+          setIsRefundCreditModalOpen(false);
+          setSaleToRefund(null);
+        }}
+        sale={saleToRefund}
+        onRefund={handleRefundCredit}
       />
       <ProfitDetailsModal
         isOpen={isProfitModalOpen}

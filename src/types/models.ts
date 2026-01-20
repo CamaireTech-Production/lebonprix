@@ -183,6 +183,17 @@ export interface Sale extends BaseModel {
   creditDueDate?: Timestamp; // Optional due date for credit sales
   paidAmount?: number; // Amount paid (for partial payments, future enhancement)
   remainingAmount?: number; // Remaining amount to be paid (for credit sales)
+  // Refund fields
+  refunds?: Array<{
+    id: string; // Unique refund ID
+    amount: number; // Refunded amount
+    timestamp: string; // ISO timestamp when refund was made
+    userId: string; // Who made the refund
+    reason?: string; // Optional reason for refund
+    paymentMethod?: 'cash' | 'mobile_money' | 'card'; // How refund was processed
+    transactionReference?: string; // Transaction reference if applicable
+  }>;
+  totalRefunded?: number; // Total amount refunded so far
 }
 
 export interface Expense extends BaseModel {

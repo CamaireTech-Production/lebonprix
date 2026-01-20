@@ -858,6 +858,91 @@ export const cancelCreditSale = async (saleId: string, userId: string, companyId
   await batch.commit();
 };
 
+export const refundCreditSale = async (
+  saleId: string,
+  refundAmount: number,
+  userId: string,
+  reason?: string,
+  paymentMethod?: 'cash' | 'mobile_money' | 'card',
+  transactionReference?: string
+): Promise<void> => {
+  const saleRef = doc(db, 'sales', saleId);
+  const saleSnap = await getDoc(saleRef);
+  
+  if (!saleSnap.exists()) {
+    throw new Error('Sale not found');
+  }
+
+  const sale = saleSnap.data() as Sale;
+  
+  // Validate: Only allow refunds for credit sales
+  if (sale.status !== 'credit') {
+    throw new Error('Refunds can only be processed for credit sales');
+  }
+
+  // Validate: Refund amount must be positive
+  if (refundAmount <= 0) {
+    throw new Error('Refund amount must be greater than zero');
+  }
+
+  // Validate: Refund amount cannot exceed remaining amount
+  const currentRemainingAmount = sale.remainingAmount ?? sale.totalAmount;
+  if (refundAmount > currentRemainingAmount) {
+    throw new Error(`Refund amount (${refundAmount}) cannot exceed remaining amount (${currentRemainingAmount})`);
+  }
+
+  const batch = writeBatch(db);
+
+  // Generate unique refund ID
+  const refundId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+  // Create refund entry
+  const refundEntry = {
+    id: refundId,
+    amount: refundAmount,
+    timestamp: new Date().toISOString(),
+    userId,
+    ...(reason ? { reason } : {}),
+    ...(paymentMethod ? { paymentMethod } : {}),
+    ...(transactionReference ? { transactionReference } : {})
+  };
+
+  // Calculate new values
+  const newRemainingAmount = Math.max(0, currentRemainingAmount - refundAmount);
+  const currentTotalRefunded = sale.totalRefunded || 0;
+  const newTotalRefunded = currentTotalRefunded + refundAmount;
+
+  // Update sale with refund
+  const existingRefunds = sale.refunds || [];
+  batch.update(saleRef, {
+    remainingAmount: newRemainingAmount,
+    totalRefunded: newTotalRefunded,
+    refunds: [...existingRefunds, refundEntry],
+    updatedAt: serverTimestamp(),
+    // Add refund to status history
+    statusHistory: [
+      ...(sale.statusHistory || []),
+      {
+        status: sale.status, // Keep current status
+        timestamp: new Date().toISOString(),
+        userId,
+        refundAmount,
+        refundId,
+        ...(reason ? { refundReason: reason } : {})
+      }
+    ]
+  });
+
+  createAuditLog(batch, 'update', 'sale', saleId, { 
+    action: 'refund', 
+    refundAmount, 
+    remainingAmount: newRemainingAmount,
+    totalRefunded: newTotalRefunded
+  }, userId);
+
+  await batch.commit();
+};
+
 export const addSaleWithValidation = async () => {
   // Implementation remains the same
 };
