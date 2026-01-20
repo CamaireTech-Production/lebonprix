@@ -121,7 +121,22 @@ export const updateShop = async (
     delete updateData.createdAt;
     delete updateData.updatedAt;
 
-    await updateDoc(shopRef, updateData);
+    // Filter out undefined values and convert empty strings to null
+    // Firestore doesn't accept undefined, but accepts null
+    const filteredUpdateData: any = {};
+    for (const key in updateData) {
+      const value = updateData[key];
+      if (value !== undefined) {
+        // Convert empty strings to null for optional string fields
+        if (value === '' && (key === 'location' || key === 'address' || key === 'phone' || key === 'email')) {
+          filteredUpdateData[key] = null;
+        } else {
+          filteredUpdateData[key] = value;
+        }
+      }
+    }
+
+    await updateDoc(shopRef, filteredUpdateData);
 
   } catch (error) {
     logError('Error updating shop', error);

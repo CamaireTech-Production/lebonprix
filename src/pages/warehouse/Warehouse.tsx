@@ -8,8 +8,10 @@ import { PermissionButton, usePermissionCheck } from '@components/permissions';
 import { RESOURCES } from '@constants/resources';
 import type { Warehouse } from '../../types/models';
 import { getStockBatchesByLocation } from '@services/firestore/stock/stockService';
+import { useTranslation } from 'react-i18next';
 
 const Warehouse = () => {
+  const { t } = useTranslation();
   const { warehouses, loading, error, addWarehouse, updateWarehouse, deleteWarehouse } = useWarehouses();
   const { user, company } = useAuth();
   const { canEdit, canDelete } = usePermissionCheck(RESOURCES.WAREHOUSE);
@@ -133,12 +135,12 @@ const Warehouse = () => {
 
   const handleAddWarehouse = async () => {
     if (!formData.name.trim()) {
-      showErrorToast('Le nom de l\'entrepôt est requis');
+      showErrorToast(t('warehouse.messages.nameRequired'));
       return;
     }
 
     if (!user || !company) {
-      showErrorToast('Utilisateur non authentifié');
+      showErrorToast(t('warehouse.messages.userNotAuthenticated'));
       return;
     }
 
@@ -146,18 +148,18 @@ const Warehouse = () => {
     try {
       await addWarehouse({
         name: formData.name.trim(),
-        location: formData.location.trim() || undefined,
-        address: formData.address.trim() || undefined,
+        location: formData.location.trim() || null,
+        address: formData.address.trim() || null,
         companyId: company.id,
         userId: user.uid,
         isDefault: false
       });
       
-      showSuccessToast('Entrepôt créé avec succès');
+      showSuccessToast(t('warehouse.messages.createSuccess'));
       setIsAddModalOpen(false);
       resetForm();
     } catch (error: any) {
-      showErrorToast(error.message || 'Erreur lors de la création de l\'entrepôt');
+      showErrorToast(error.message || t('warehouse.messages.createError'));
     } finally {
       setIsSubmitting(false);
     }
@@ -165,12 +167,12 @@ const Warehouse = () => {
 
   const handleUpdateWarehouse = async () => {
     if (!formData.name.trim()) {
-      showErrorToast('Le nom de l\'entrepôt est requis');
+      showErrorToast(t('warehouse.messages.nameRequired'));
       return;
     }
 
     if (!currentWarehouse || !user || !company) {
-      showErrorToast('Données manquantes');
+      showErrorToast(t('warehouse.messages.missingData'));
       return;
     }
 
@@ -178,16 +180,16 @@ const Warehouse = () => {
     try {
       await updateWarehouse(currentWarehouse.id, {
         name: formData.name.trim(),
-        location: formData.location.trim() || undefined,
-        address: formData.address.trim() || undefined
+        location: formData.location.trim() || null,
+        address: formData.address.trim() || null
       });
       
-      showSuccessToast('Entrepôt mis à jour avec succès');
+      showSuccessToast(t('warehouse.messages.updateSuccess'));
       setIsEditModalOpen(false);
       setCurrentWarehouse(null);
       resetForm();
     } catch (error: any) {
-      showErrorToast(error.message || 'Erreur lors de la mise à jour de l\'entrepôt');
+      showErrorToast(error.message || t('warehouse.messages.updateError'));
     } finally {
       setIsSubmitting(false);
     }
@@ -195,13 +197,13 @@ const Warehouse = () => {
 
   const handleDeleteWarehouse = async () => {
     if (!currentWarehouse || !user || !company) {
-      showErrorToast('Données manquantes');
+      showErrorToast(t('warehouse.messages.missingData'));
       return;
     }
 
     // Prevent deletion of default warehouse if it's the only warehouse
     if (currentWarehouse.isDefault && warehouses.length === 1) {
-      showErrorToast('Impossible de supprimer l\'entrepôt par défaut s\'il est le seul entrepôt');
+      showErrorToast(t('warehouse.messages.cannotDeleteDefaultOnly'));
       setIsDeleteModalOpen(false);
       return;
     }
@@ -209,11 +211,11 @@ const Warehouse = () => {
     setIsSubmitting(true);
     try {
       await deleteWarehouse(currentWarehouse.id);
-      showSuccessToast('Entrepôt supprimé avec succès');
+      showSuccessToast(t('warehouse.messages.deleteSuccess'));
       setIsDeleteModalOpen(false);
       setCurrentWarehouse(null);
     } catch (error: any) {
-      const errorMessage = error.message || 'Erreur lors de la suppression de l\'entrepôt';
+      const errorMessage = error.message || t('warehouse.messages.deleteError');
       showErrorToast(errorMessage);
       console.error('Error deleting warehouse:', error);
     } finally {
@@ -230,8 +232,8 @@ const Warehouse = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Entrepôts Produits</h1>
-          <p className="text-gray-600 mt-1">Gérez vos entrepôts de produits finis</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{t('warehouse.title')}</h1>
+          <p className="text-gray-600 mt-1">{t('warehouse.subtitle')}</p>
         </div>
         <PermissionButton
           resource={RESOURCES.WAREHOUSE}
@@ -240,8 +242,8 @@ const Warehouse = () => {
           className="flex items-center gap-2"
         >
           <Plus size={20} />
-          <span className="hidden sm:inline">Nouvel Entrepôt</span>
-          <span className="sm:hidden">Nouveau</span>
+          <span className="hidden sm:inline">{t('warehouse.newWarehouse')}</span>
+          <span className="sm:hidden">{t('warehouse.new')}</span>
         </PermissionButton>
       </div>
 
@@ -250,7 +252,7 @@ const Warehouse = () => {
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
         <Input
           type="text"
-          placeholder="Rechercher un entrepôt..."
+          placeholder={t('warehouse.searchPlaceholder')}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="pl-10"
@@ -267,9 +269,9 @@ const Warehouse = () => {
       {filteredWarehouses.length === 0 ? (
         <Card className="p-8 text-center">
           <WarehouseIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">Aucun entrepôt</h3>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">{t('warehouse.noWarehouses')}</h3>
           <p className="text-gray-600 mb-4">
-            {searchQuery ? 'Aucun entrepôt ne correspond à votre recherche' : 'Commencez par créer votre premier entrepôt'}
+            {searchQuery ? t('warehouse.noWarehousesMessage') : t('warehouse.noWarehousesEmpty')}
           </p>
           {!searchQuery && (
             <PermissionButton
@@ -278,7 +280,7 @@ const Warehouse = () => {
               onClick={openAddModal}
             >
               <Plus size={20} className="mr-2" />
-              Créer un entrepôt
+              {t('warehouse.createWarehouse')}
             </PermissionButton>
           )}
         </Card>
@@ -292,7 +294,7 @@ const Warehouse = () => {
                   <h3 className="font-semibold text-lg">{warehouse.name}</h3>
                   {warehouse.isDefault && (
                     <Badge variant="success" className="text-xs">
-                      Par défaut
+                      {t('warehouse.default')}
                     </Badge>
                   )}
                 </div>
@@ -336,7 +338,7 @@ const Warehouse = () => {
                 <div className="flex items-center gap-2 pt-2 border-t">
                   <Package size={14} />
                   <span className="font-medium">
-                    Stock: {loadingStock ? '...' : (warehouseStockSummary[warehouse.id] || 0)} produits
+                    {t('warehouse.stock')}: {loadingStock ? '...' : (warehouseStockSummary[warehouse.id] || 0)} {t('warehouse.products')}
                   </span>
                 </div>
               </div>
@@ -352,7 +354,7 @@ const Warehouse = () => {
           setIsAddModalOpen(false);
           resetForm();
         }}
-        title="Nouvel Entrepôt"
+        title={t('warehouse.addModal.title')}
         footer={
           <ModalFooter
             onCancel={() => {
@@ -360,8 +362,8 @@ const Warehouse = () => {
               resetForm();
             }}
             onConfirm={handleAddWarehouse}
-            cancelText="Annuler"
-            confirmText="Créer"
+            cancelText={t('warehouse.addModal.cancel')}
+            confirmText={t('warehouse.addModal.create')}
             isLoading={isSubmitting}
             disabled={!formData.name.trim()}
           />
@@ -369,26 +371,26 @@ const Warehouse = () => {
       >
         <div className="space-y-4">
           <Input
-            label="Nom de l'entrepôt *"
+            label={t('warehouse.addModal.nameLabel')}
             name="name"
             value={formData.name}
             onChange={handleInputChange}
-            placeholder="Ex: Entrepôt Principal"
+            placeholder={t('warehouse.addModal.namePlaceholder')}
             required
           />
           <Input
-            label="Localisation"
+            label={t('warehouse.addModal.locationLabel')}
             name="location"
             value={formData.location}
             onChange={handleInputChange}
-            placeholder="Ex: Zone industrielle"
+            placeholder={t('warehouse.addModal.locationPlaceholder')}
           />
           <Textarea
-            label="Adresse complète"
+            label={t('warehouse.addModal.addressLabel')}
             name="address"
             value={formData.address}
             onChange={handleInputChange}
-            placeholder="Adresse complète de l'entrepôt"
+            placeholder={t('warehouse.addModal.addressPlaceholder')}
             rows={2}
           />
         </div>
@@ -402,7 +404,7 @@ const Warehouse = () => {
           setCurrentWarehouse(null);
           resetForm();
         }}
-        title="Modifier l'Entrepôt"
+        title={t('warehouse.editModal.title')}
         footer={
           <ModalFooter
             onCancel={() => {
@@ -411,8 +413,8 @@ const Warehouse = () => {
               resetForm();
             }}
             onConfirm={handleUpdateWarehouse}
-            cancelText="Annuler"
-            confirmText="Mettre à jour"
+            cancelText={t('warehouse.editModal.cancel')}
+            confirmText={t('warehouse.editModal.update')}
             isLoading={isSubmitting}
             disabled={!formData.name.trim()}
           />
@@ -420,26 +422,26 @@ const Warehouse = () => {
       >
         <div className="space-y-4">
           <Input
-            label="Nom de l'entrepôt *"
+            label={t('warehouse.editModal.nameLabel')}
             name="name"
             value={formData.name}
             onChange={handleInputChange}
-            placeholder="Ex: Entrepôt Principal"
+            placeholder={t('warehouse.editModal.namePlaceholder')}
             required
           />
           <Input
-            label="Localisation"
+            label={t('warehouse.editModal.locationLabel')}
             name="location"
             value={formData.location}
             onChange={handleInputChange}
-            placeholder="Ex: Zone industrielle"
+            placeholder={t('warehouse.editModal.locationPlaceholder')}
           />
           <Textarea
-            label="Adresse complète"
+            label={t('warehouse.editModal.addressLabel')}
             name="address"
             value={formData.address}
             onChange={handleInputChange}
-            placeholder="Adresse complète de l'entrepôt"
+            placeholder={t('warehouse.editModal.addressPlaceholder')}
             rows={2}
           />
         </div>
@@ -452,7 +454,7 @@ const Warehouse = () => {
           setIsDeleteModalOpen(false);
           setCurrentWarehouse(null);
         }}
-        title="Supprimer l'Entrepôt"
+        title={t('warehouse.deleteModal.title')}
         footer={
           <ModalFooter
             onCancel={() => {
@@ -460,20 +462,19 @@ const Warehouse = () => {
               setCurrentWarehouse(null);
             }}
             onConfirm={handleDeleteWarehouse}
-            cancelText="Annuler"
-            confirmText="Supprimer"
+            cancelText={t('warehouse.deleteModal.cancel')}
+            confirmText={t('warehouse.deleteModal.delete')}
             isLoading={isSubmitting}
             variant="danger"
           />
         }
       >
-        <p className="text-gray-700">
-          Êtes-vous sûr de vouloir supprimer l'entrepôt <strong>{currentWarehouse?.name}</strong> ?
-          Cette action est irréversible.
-        </p>
+        <p className="text-gray-700" dangerouslySetInnerHTML={{
+          __html: t('warehouse.deleteModal.message', { name: currentWarehouse?.name })
+        }} />
         {currentWarehouse?.isDefault && (
           <p className="text-red-600 mt-2 text-sm">
-            ⚠️ Cet entrepôt est l'entrepôt par défaut. Vous ne pouvez pas le supprimer s'il est le seul entrepôt.
+            {t('warehouse.deleteModal.defaultWarning')}
           </p>
         )}
       </Modal>

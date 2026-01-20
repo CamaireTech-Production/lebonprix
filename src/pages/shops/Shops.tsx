@@ -8,8 +8,10 @@ import { PermissionButton, usePermissionCheck } from '@components/permissions';
 import { RESOURCES } from '@constants/resources';
 import type { Shop } from '../../types/models';
 import { getStockBatchesByLocation } from '@services/firestore/stock/stockService';
+import { useTranslation } from 'react-i18next';
 
 const Shops = () => {
+  const { t } = useTranslation();
   const { shops, loading, error, addShop, updateShop, deleteShop } = useShops();
   const { user, company } = useAuth();
   const { canEdit, canDelete } = usePermissionCheck(RESOURCES.SHOPS);
@@ -139,18 +141,18 @@ const Shops = () => {
 
   const handleAddShop = async () => {
     if (!formData.name.trim()) {
-      showErrorToast('Le nom du magasin est requis');
+      showErrorToast(t('shops.messages.nameRequired'));
       return;
     }
 
     if (!user || !company) {
-      showErrorToast('Utilisateur non authentifié');
+      showErrorToast(t('shops.messages.userNotAuthenticated'));
       return;
     }
 
     // Validate email format if provided
     if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      showErrorToast('Format d\'email invalide');
+      showErrorToast(t('shops.messages.invalidEmailFormat'));
       return;
     }
 
@@ -158,20 +160,20 @@ const Shops = () => {
     try {
       await addShop({
         name: formData.name.trim(),
-        location: formData.location.trim() || undefined,
-        address: formData.address.trim() || undefined,
-        phone: formData.phone.trim() || undefined,
-        email: formData.email.trim() || undefined,
+        location: formData.location.trim() || null,
+        address: formData.address.trim() || null,
+        phone: formData.phone.trim() || null,
+        email: formData.email.trim() || null,
         companyId: company.id,
         userId: user.uid,
         isDefault: false
       });
       
-      showSuccessToast('Magasin créé avec succès');
+      showSuccessToast(t('shops.messages.createSuccess'));
       setIsAddModalOpen(false);
       resetForm();
     } catch (error: any) {
-      const errorMessage = error.message || 'Erreur lors de la création du magasin';
+      const errorMessage = error.message || t('shops.messages.createError');
       showErrorToast(errorMessage);
       console.error('Error creating shop:', error);
     } finally {
@@ -181,18 +183,18 @@ const Shops = () => {
 
   const handleUpdateShop = async () => {
     if (!formData.name.trim()) {
-      showErrorToast('Le nom du magasin est requis');
+      showErrorToast(t('shops.messages.nameRequired'));
       return;
     }
 
     if (!currentShop || !user || !company) {
-      showErrorToast('Données manquantes');
+      showErrorToast(t('shops.messages.missingData'));
       return;
     }
 
     // Validate email format if provided
     if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      showErrorToast('Format d\'email invalide');
+      showErrorToast(t('shops.messages.invalidEmailFormat'));
       return;
     }
 
@@ -200,18 +202,18 @@ const Shops = () => {
     try {
       await updateShop(currentShop.id, {
         name: formData.name.trim(),
-        location: formData.location.trim() || undefined,
-        address: formData.address.trim() || undefined,
-        phone: formData.phone.trim() || undefined,
-        email: formData.email.trim() || undefined
+        location: formData.location.trim() || null,
+        address: formData.address.trim() || null,
+        phone: formData.phone.trim() || null,
+        email: formData.email.trim() || null
       });
       
-      showSuccessToast('Magasin mis à jour avec succès');
+      showSuccessToast(t('shops.messages.updateSuccess'));
       setIsEditModalOpen(false);
       setCurrentShop(null);
       resetForm();
     } catch (error: any) {
-      const errorMessage = error.message || 'Erreur lors de la mise à jour du magasin';
+      const errorMessage = error.message || t('shops.messages.updateError');
       showErrorToast(errorMessage);
       console.error('Error updating shop:', error);
     } finally {
@@ -221,13 +223,13 @@ const Shops = () => {
 
   const handleDeleteShop = async () => {
     if (!currentShop || !user || !company) {
-      showErrorToast('Données manquantes');
+      showErrorToast(t('shops.messages.missingData'));
       return;
     }
 
     // Prevent deletion of default shop if it's the only shop
     if (currentShop.isDefault && shops.length === 1) {
-      showErrorToast('Impossible de supprimer le magasin par défaut s\'il est le seul magasin');
+      showErrorToast(t('shops.messages.cannotDeleteDefaultOnly'));
       setIsDeleteModalOpen(false);
       return;
     }
@@ -235,11 +237,11 @@ const Shops = () => {
     setIsSubmitting(true);
     try {
       await deleteShop(currentShop.id);
-      showSuccessToast('Magasin supprimé avec succès');
+      showSuccessToast(t('shops.messages.deleteSuccess'));
       setIsDeleteModalOpen(false);
       setCurrentShop(null);
     } catch (error: any) {
-      const errorMessage = error.message || 'Erreur lors de la suppression du magasin';
+      const errorMessage = error.message || t('shops.messages.deleteError');
       showErrorToast(errorMessage);
       console.error('Error deleting shop:', error);
     } finally {
@@ -256,8 +258,8 @@ const Shops = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Boutiques</h1>
-          <p className="text-gray-600 mt-1">Gérez vos points de vente</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{t('shops.title')}</h1>
+          <p className="text-gray-600 mt-1">{t('shops.subtitle')}</p>
         </div>
         <PermissionButton
           resource={RESOURCES.SHOPS}
@@ -266,8 +268,8 @@ const Shops = () => {
           className="flex items-center gap-2"
         >
           <Plus size={20} />
-          <span className="hidden sm:inline">Nouveau Magasin</span>
-          <span className="sm:hidden">Nouveau</span>
+          <span className="hidden sm:inline">{t('shops.newShop')}</span>
+          <span className="sm:hidden">{t('shops.new')}</span>
         </PermissionButton>
       </div>
 
@@ -276,7 +278,7 @@ const Shops = () => {
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
         <Input
           type="text"
-          placeholder="Rechercher un magasin..."
+          placeholder={t('shops.searchPlaceholder')}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="pl-10"
@@ -293,9 +295,9 @@ const Shops = () => {
       {filteredShops.length === 0 ? (
         <Card className="p-8 text-center">
           <Store className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">Aucun magasin</h3>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">{t('shops.noShops')}</h3>
           <p className="text-gray-600 mb-4">
-            {searchQuery ? 'Aucun magasin ne correspond à votre recherche' : 'Commencez par créer votre premier magasin'}
+            {searchQuery ? t('shops.noShopsMessage') : t('shops.noShopsEmpty')}
           </p>
           {!searchQuery && (
             <PermissionButton
@@ -304,7 +306,7 @@ const Shops = () => {
               onClick={openAddModal}
             >
               <Plus size={20} className="mr-2" />
-              Créer un magasin
+              {t('shops.createShop')}
             </PermissionButton>
           )}
         </Card>
@@ -318,7 +320,7 @@ const Shops = () => {
                   <h3 className="font-semibold text-lg">{shop.name}</h3>
                   {shop.isDefault && (
                     <Badge variant="success" className="text-xs">
-                      Par défaut
+                      {t('shops.default')}
                     </Badge>
                   )}
                 </div>
@@ -374,13 +376,13 @@ const Shops = () => {
                 {shop.assignedUsers && shop.assignedUsers.length > 0 && (
                   <div className="flex items-center gap-2">
                     <Users size={14} />
-                    <span>{shop.assignedUsers.length} utilisateur(s)</span>
+                    <span>{shop.assignedUsers.length} {t('shops.users')}</span>
                   </div>
                 )}
                 <div className="flex items-center gap-2 pt-2 border-t">
                   <BadgeIcon size={14} />
                   <span className="font-medium">
-                    Stock: {loadingStock ? '...' : (shopStockSummary[shop.id] || 0)} produits
+                    {t('shops.stock')}: {loadingStock ? '...' : (shopStockSummary[shop.id] || 0)} {t('shops.products')}
                   </span>
                 </div>
               </div>
@@ -396,7 +398,7 @@ const Shops = () => {
           setIsAddModalOpen(false);
           resetForm();
         }}
-        title="Nouveau Magasin"
+        title={t('shops.addModal.title')}
         footer={
           <ModalFooter
             onCancel={() => {
@@ -404,8 +406,8 @@ const Shops = () => {
               resetForm();
             }}
             onConfirm={handleAddShop}
-            cancelText="Annuler"
-            confirmText="Créer"
+            cancelText={t('shops.addModal.cancel')}
+            confirmText={t('shops.addModal.create')}
             isLoading={isSubmitting}
             disabled={!formData.name.trim()}
           />
@@ -413,42 +415,42 @@ const Shops = () => {
       >
         <div className="space-y-4">
           <Input
-            label="Nom du magasin *"
+            label={t('shops.addModal.nameLabel')}
             name="name"
             value={formData.name}
             onChange={handleInputChange}
-            placeholder="Ex: Boutique Centre-Ville"
+            placeholder={t('shops.addModal.namePlaceholder')}
             required
           />
           <Input
-            label="Localisation"
+            label={t('shops.addModal.locationLabel')}
             name="location"
             value={formData.location}
             onChange={handleInputChange}
-            placeholder="Ex: Centre-ville"
+            placeholder={t('shops.addModal.locationPlaceholder')}
           />
           <Textarea
-            label="Adresse complète"
+            label={t('shops.addModal.addressLabel')}
             name="address"
             value={formData.address}
             onChange={handleInputChange}
-            placeholder="Adresse complète du magasin"
+            placeholder={t('shops.addModal.addressPlaceholder')}
             rows={2}
           />
           <Input
-            label="Téléphone"
+            label={t('shops.addModal.phoneLabel')}
             name="phone"
             value={formData.phone}
             onChange={handleInputChange}
-            placeholder="+237 6XX XXX XXX"
+            placeholder={t('shops.addModal.phonePlaceholder')}
           />
           <Input
-            label="Email"
+            label={t('shops.addModal.emailLabel')}
             name="email"
             type="email"
             value={formData.email}
             onChange={handleInputChange}
-            placeholder="boutique@example.com"
+            placeholder={t('shops.addModal.emailPlaceholder')}
           />
         </div>
       </Modal>
@@ -461,7 +463,7 @@ const Shops = () => {
           setCurrentShop(null);
           resetForm();
         }}
-        title="Modifier le Magasin"
+        title={t('shops.editModal.title')}
         footer={
           <ModalFooter
             onCancel={() => {
@@ -470,8 +472,8 @@ const Shops = () => {
               resetForm();
             }}
             onConfirm={handleUpdateShop}
-            cancelText="Annuler"
-            confirmText="Mettre à jour"
+            cancelText={t('shops.editModal.cancel')}
+            confirmText={t('shops.editModal.update')}
             isLoading={isSubmitting}
             disabled={!formData.name.trim()}
           />
@@ -479,42 +481,42 @@ const Shops = () => {
       >
         <div className="space-y-4">
           <Input
-            label="Nom du magasin *"
+            label={t('shops.editModal.nameLabel')}
             name="name"
             value={formData.name}
             onChange={handleInputChange}
-            placeholder="Ex: Boutique Centre-Ville"
+            placeholder={t('shops.editModal.namePlaceholder')}
             required
           />
           <Input
-            label="Localisation"
+            label={t('shops.editModal.locationLabel')}
             name="location"
             value={formData.location}
             onChange={handleInputChange}
-            placeholder="Ex: Centre-ville"
+            placeholder={t('shops.editModal.locationPlaceholder')}
           />
           <Textarea
-            label="Adresse complète"
+            label={t('shops.editModal.addressLabel')}
             name="address"
             value={formData.address}
             onChange={handleInputChange}
-            placeholder="Adresse complète du magasin"
+            placeholder={t('shops.editModal.addressPlaceholder')}
             rows={2}
           />
           <Input
-            label="Téléphone"
+            label={t('shops.editModal.phoneLabel')}
             name="phone"
             value={formData.phone}
             onChange={handleInputChange}
-            placeholder="+237 6XX XXX XXX"
+            placeholder={t('shops.editModal.phonePlaceholder')}
           />
           <Input
-            label="Email"
+            label={t('shops.editModal.emailLabel')}
             name="email"
             type="email"
             value={formData.email}
             onChange={handleInputChange}
-            placeholder="boutique@example.com"
+            placeholder={t('shops.editModal.emailPlaceholder')}
           />
         </div>
       </Modal>
@@ -526,7 +528,7 @@ const Shops = () => {
           setIsDeleteModalOpen(false);
           setCurrentShop(null);
         }}
-        title="Supprimer le Magasin"
+        title={t('shops.deleteModal.title')}
         footer={
           <ModalFooter
             onCancel={() => {
@@ -534,20 +536,19 @@ const Shops = () => {
               setCurrentShop(null);
             }}
             onConfirm={handleDeleteShop}
-            cancelText="Annuler"
-            confirmText="Supprimer"
+            cancelText={t('shops.deleteModal.cancel')}
+            confirmText={t('shops.deleteModal.delete')}
             isLoading={isSubmitting}
             variant="danger"
           />
         }
       >
-        <p className="text-gray-700">
-          Êtes-vous sûr de vouloir supprimer le magasin <strong>{currentShop?.name}</strong> ?
-          Cette action est irréversible.
-        </p>
+        <p className="text-gray-700" dangerouslySetInnerHTML={{
+          __html: t('shops.deleteModal.message', { name: currentShop?.name })
+        }} />
         {currentShop?.isDefault && (
           <p className="text-red-600 mt-2 text-sm">
-            ⚠️ Ce magasin est le magasin par défaut. Vous ne pouvez pas le supprimer s'il est le seul magasin.
+            {t('shops.deleteModal.defaultWarning')}
           </p>
         )}
       </Modal>

@@ -113,7 +113,22 @@ export const updateWarehouse = async (
     delete updateData.createdAt;
     delete updateData.updatedAt;
 
-    await updateDoc(warehouseRef, updateData);
+    // Filter out undefined values and convert empty strings to null
+    // Firestore doesn't accept undefined, but accepts null
+    const filteredUpdateData: any = {};
+    for (const key in updateData) {
+      const value = updateData[key];
+      if (value !== undefined) {
+        // Convert empty strings to null for optional string fields
+        if (value === '' && (key === 'location' || key === 'address')) {
+          filteredUpdateData[key] = null;
+        } else {
+          filteredUpdateData[key] = value;
+        }
+      }
+    }
+
+    await updateDoc(warehouseRef, filteredUpdateData);
 
   } catch (error) {
     logError('Error updating warehouse', error);
