@@ -913,7 +913,8 @@ const Sales: React.FC = () => {
           className="mb-4"
         />
 
-        <div className="mt-4 md:mt-0 flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
+        <div className="mt-4 md:mt-0 grid grid-cols-2 gap-2 md:flex md:flex-row md:space-x-2 md:gap-0">
+          {/* Row 1: Status filters */}
           <select
             className="border rounded-md p-2"
             onChange={handleFilterChange}
@@ -929,7 +930,7 @@ const Sales: React.FC = () => {
           {/* Credit Sales Filter Button */}
           <button
             onClick={handleCreditFilterClick}
-            className={`relative px-4 py-2 rounded-md border-2 transition-colors flex items-center space-x-2 ${
+            className={`relative px-4 py-2 rounded-md border-2 transition-colors flex items-center justify-center space-x-2 ${
               filterStatus === 'credit'
                 ? 'border-orange-500 bg-orange-50 text-orange-700'
                 : 'border-gray-300 bg-white text-gray-700 hover:border-orange-300 hover:bg-orange-50'
@@ -949,10 +950,12 @@ const Sales: React.FC = () => {
             )}
           </button>
           
+          {/* Row 2: Action buttons */}
           <Button
             icon={<FileText size={16} />}
             onClick={() => setIsReportModalOpen(true)}
             variant="outline"
+            className="w-full md:w-auto"
           >
             Générer un rapport
           </Button>
@@ -962,6 +965,7 @@ const Sales: React.FC = () => {
             icon={<Plus size={16} />}
             onClick={() => setIsAddModalOpen(true)}
             hideWhenNoPermission
+            className="w-full md:w-auto"
           >
             {t('sales.actions.addSale')}
           </PermissionButton>
