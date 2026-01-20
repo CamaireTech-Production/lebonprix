@@ -163,6 +163,23 @@ const syncFinanceEntryWithSale = async (sale: Sale) => {
     return;
   }
 
+  // Only create financial entries for paid sales
+  // Credit sales should not have financial entries until they are paid
+  if (sale.status !== 'paid') {
+    // If sale is not paid, check if there's an existing finance entry and mark it as deleted
+    // This handles cases where a sale might have been changed from paid to credit
+    const q = query(collection(db, 'finances'), where('sourceType', '==', 'sale'), where('sourceId', '==', sale.id));
+    const snap = await getDocs(q);
+    
+    if (!snap.empty) {
+      // Mark existing entry as deleted if sale is no longer paid
+      const { updateFinanceEntry } = await import('../firestore');
+      const docId = snap.docs[0].id;
+      await updateFinanceEntry(docId, { isDeleted: true });
+    }
+    return;
+  }
+
   const q = query(collection(db, 'finances'), where('sourceType', '==', 'sale'), where('sourceId', '==', sale.id));
   const snap = await getDocs(q);
   
@@ -347,7 +364,15 @@ export const createSale = async (
     const averageProfitMargin = totalCost > 0 ? (totalProfit / totalCost) * 100 : 0;
     
     const normalizedStatus = data.status || 'paid';
-    const normalizedPaymentStatus = data.paymentStatus || 'paid';
+    
+    // Validate credit sales: require customerSourceId
+    if (normalizedStatus === 'credit') {
+      if (!data.customerSourceId || data.customerSourceId.trim() === '') {
+        throw new Error('Customer source is required for credit sales. Please select a customer.');
+      }
+    }
+    
+    const normalizedPaymentStatus = data.paymentStatus || (normalizedStatus === 'credit' ? 'pending' : 'paid');
     const quarterValue = data.customerInfo?.quarter?.trim();
     // Build customerInfo without quarter first, then conditionally add it
     const baseCustomerInfo = data.customerInfo || { name: 'divers', phone: '' };
@@ -385,6 +410,28 @@ export const createSale = async (
       normalizedCreatedAt = (data as any).createdAt as any;
     }
     
+    // Handle credit due date if provided
+    let normalizedCreditDueDate: Timestamp | undefined = undefined;
+    if ((data as any).creditDueDate) {
+      const dueDate = (data as any).creditDueDate;
+      if (dueDate instanceof Date) {
+        normalizedCreditDueDate = Timestamp.fromDate(dueDate);
+      } else if (typeof dueDate === 'string') {
+        const dueDateObj = new Date(dueDate);
+        if (!isNaN(dueDateObj.getTime())) {
+          normalizedCreditDueDate = Timestamp.fromDate(dueDateObj);
+        }
+      } else if (dueDate && typeof dueDate === 'object' && 'seconds' in dueDate) {
+        normalizedCreditDueDate = dueDate as Timestamp;
+      }
+    }
+    
+    // Calculate remaining amount for credit sales
+    const paidAmount = (data as any).paidAmount || 0;
+    const remainingAmount = normalizedStatus === 'credit' 
+      ? (data.totalAmount - paidAmount)
+      : 0;
+    
     const saleData: any = {
       ...data,
       products: enhancedProducts,
@@ -398,7 +445,13 @@ export const createSale = async (
       deliveryFee: normalizedDeliveryFee,
       inventoryMethod: normalizedInventoryMethod,
       createdAt: normalizedCreatedAt,
-      updatedAt: serverTimestamp()
+      updatedAt: serverTimestamp(),
+      // Credit sale fields
+      ...(normalizedStatus === 'credit' ? {
+        remainingAmount,
+        paidAmount: paidAmount || 0,
+        ...(normalizedCreditDueDate ? { creditDueDate: normalizedCreditDueDate } : {})
+      } : {})
     };
     
     if (createdBy) {

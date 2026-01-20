@@ -528,7 +528,15 @@ const Sales: React.FC = () => {
       const isExpanded = expandedSaleId === sale.id;
       const saleProfit = computeSaleProfit(sale);
       return [
-        <tr key={sale.id} className="group hover:bg-gray-50 transition cursor-pointer" onClick={() => handleViewSale(sale)}>
+        <tr 
+          key={sale.id} 
+          className={`group transition cursor-pointer ${
+            sale.status === 'credit' 
+              ? 'bg-orange-50/50 hover:bg-orange-100/50' 
+              : 'hover:bg-gray-50'
+          }`} 
+          onClick={() => handleViewSale(sale)}
+        >
           <td
             className="px-2 py-4 text-center align-middle cursor-pointer w-8"
             onClick={(e) => {
@@ -572,7 +580,18 @@ const Sales: React.FC = () => {
               let variant: 'success' | 'warning' | 'info' = 'warning';
               if (sale.status === 'paid') variant = 'success';
               if (sale.status === 'under_delivery') variant = 'info';
-              return <Badge variant={variant}>{t(`sales.filters.status.${sale.status}`)}</Badge>;
+              if (sale.status === 'credit') variant = 'warning'; // Orange/yellow for credit
+              const statusLabel = sale.status === 'credit' 
+                ? (t('sales.filters.status.credit') || 'Credit')
+                : t(`sales.filters.status.${sale.status}`);
+              return (
+                <Badge 
+                  variant={variant}
+                  className={sale.status === 'credit' ? 'bg-orange-500 text-white' : ''}
+                >
+                  {statusLabel}
+                </Badge>
+              );
             })()}
           </td>
           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
@@ -824,6 +843,7 @@ const Sales: React.FC = () => {
             <option value="commande">{t('sales.filters.status.commande')}</option>
             <option value="under_delivery">{t('sales.filters.status.under_delivery')}</option>
             <option value="paid">{t('sales.filters.status.paid')}</option>
+            <option value="credit">{t('sales.filters.status.credit') || 'Credit'}</option>
           </select>
           <Button
             icon={<FileText size={16} />}
@@ -1252,6 +1272,7 @@ const Sales: React.FC = () => {
                 <option value="commande">{t('sales.filters.status.commande')}</option>
                 <option value="under_delivery">{t('sales.filters.status.under_delivery')}</option>
                 <option value="paid">{t('sales.filters.status.paid')}</option>
+                <option value="credit">{t('sales.filters.status.credit') || 'Credit'}</option>
               </select>
             </div>
           </div>

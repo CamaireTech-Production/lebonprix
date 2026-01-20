@@ -155,14 +155,14 @@ export interface SaleProduct {
 export interface Sale extends BaseModel {
   products: SaleProduct[];
   totalAmount: number;
-  status: 'commande' | 'under_delivery' | 'paid' | 'draft';
+  status: 'commande' | 'under_delivery' | 'paid' | 'draft' | 'credit';
   paymentStatus: 'pending' | 'paid' | 'cancelled';
   customerInfo: {
     name: string;
     phone: string;
     quarter?: string;
   };
-  customerSourceId?: string; // Source clientelle de la vente (optionnel pour rétrocompatibilité)
+  customerSourceId?: string; // Source clientelle de la vente (optionnel pour rétrocompatibilité, mais requis pour credit)
   deliveryFee?: number;
   discountType?: 'amount' | 'percentage'; // Type de remise
   discountValue?: number; // Montant de la remise
@@ -171,7 +171,7 @@ export interface Sale extends BaseModel {
   paymentMethod?: 'cash' | 'mobile_money' | 'card'; // Méthode de paiement
   amountReceived?: number; // Montant reçu (pour calculer la monnaie)
   change?: number; // Monnaie à rendre
-  statusHistory?: Array<{ status: string; timestamp: string }>;
+  statusHistory?: Array<{ status: string; timestamp: string; userId?: string }>; // Enhanced with userId for audit trail
   isAvailable?: boolean;
   inventoryMethod?: 'FIFO' | 'LIFO' | 'CMUP';
   totalCost?: number;
@@ -179,6 +179,10 @@ export interface Sale extends BaseModel {
   averageProfitMargin?: number;
   tvaRate?: number; // TVA percentage rate
   tvaApplied?: boolean; // Whether TVA was applied
+  // Credit sale fields
+  creditDueDate?: Timestamp; // Optional due date for credit sales
+  paidAmount?: number; // Amount paid (for partial payments, future enhancement)
+  remainingAmount?: number; // Remaining amount to be paid (for credit sales)
 }
 
 export interface Expense extends BaseModel {
@@ -200,7 +204,7 @@ export interface DashboardStats extends BaseModel {
   cancelledOrders: number;
 }
 
-export type OrderStatus = 'commande' | 'under_delivery' | 'paid' | 'draft';
+export type OrderStatus = 'commande' | 'under_delivery' | 'paid' | 'draft' | 'credit';
 export type PaymentStatus = 'pending' | 'paid' | 'cancelled';
 
 export interface SaleDetails extends Sale {
