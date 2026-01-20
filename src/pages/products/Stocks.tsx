@@ -167,6 +167,9 @@ const Stocks = () => {
   };
 
   const handleModalSuccess = () => {
+    // Clear search filter and reset pagination to ensure all products are visible after refresh
+    setSearch('');
+    setPage(1);
     refresh();
     setRestockModalOpen(false);
     setAdjustModalOpen(false);
