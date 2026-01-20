@@ -507,6 +507,20 @@
       "creditSales": "Ventes en Crédit",
       "search": "Recherche par nom ou téléphone..."
     },
+    "credit": {
+      "settleCredit": "Régler la Vente en Crédit",
+      "saleInfo": "Informations de la Vente",
+      "customer": "Client",
+      "phone": "Téléphone",
+      "totalAmount": "Montant Total",
+      "outstandingAmount": "Montant Restant",
+      "selectPaymentMethod": "Sélectionner le Mode de Paiement",
+      "settle": "Régler",
+      "settledSuccess": "Vente en crédit réglée avec succès",
+      "settleError": "Échec du règlement de la vente en crédit",
+      "insufficientAmount": "Le montant reçu est inférieur au montant restant",
+      "mobileMoneyPhoneRequired": "Le numéro de téléphone Mobile Money est requis"
+    },
     "actions": {
       "addSale": "Ajouter une vente",
       "editSale": "Modifier la vente",

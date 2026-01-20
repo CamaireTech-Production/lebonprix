@@ -580,7 +580,7 @@ const Suppliers = () => {
           />
         }
       >
-        <div className="space-y-4">
+        <div className="space-y-4 pb-4">
           {currentSupplier && (
             <div className="bg-gray-50 p-3 rounded-lg">
               <p className="text-sm text-gray-600">
