@@ -826,7 +826,7 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
                 return '';
               })()}
               ${paymentMethod === 'cash' && (!amountReceived || parseFloat(amountReceived) === (completedSale.totalAmount || total)) ? `<p style="text-align: right;"><strong>Montant:</strong> ${(completedSale.totalAmount || total).toLocaleString()} XAF (exact)</p>` : ''}
-              <p style="text-align: right;"><strong>Méthode:</strong> ${paymentMethod === 'cash' ? 'Espèces' : paymentMethod === 'mobile_money' ? 'Mobile Money' : paymentMethod === 'card' ? 'Carte' : ''}</p>
+              <p style="text-align: right;"><strong>Méthode:</strong> ${completedSale?.status === 'credit' ? 'Crédit' : paymentMethod === 'cash' ? 'Espèces' : paymentMethod === 'mobile_money' ? 'Mobile Money' : paymentMethod === 'card' ? 'Carte' : ''}</p>
               <hr style="border-top: 1px dashed #000; margin: 10px 0;">
               ${completedSale.notes ? `<p style="margin-top: 10px;"><strong>Notes:</strong> ${completedSale.notes}</p>` : ''}
               <p style="text-align: center; margin-top: 15px;">Merci de votre achat!</p>
@@ -1074,9 +1074,11 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
                     <div className="flex justify-between text-sm pt-2">
                       <span>{t('pos.payment.paymentMethod')}:</span>
                       <span className="font-semibold">
-                        {paymentMethod === 'cash' ? t('pos.payment.cash') : 
-                         paymentMethod === 'mobile_money' ? t('pos.payment.mobileMoney') : 
-                         paymentMethod === 'card' ? t('pos.payment.card') : ''}
+                        {completedSale?.status === 'credit' 
+                          ? t('sales.filters.status.credit') || 'Crédit'
+                          : paymentMethod === 'cash' ? t('pos.payment.cash') : 
+                            paymentMethod === 'mobile_money' ? t('pos.payment.mobileMoney') : 
+                            paymentMethod === 'card' ? t('pos.payment.card') : ''}
                       </span>
                     </div>
                   </div>
