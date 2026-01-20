@@ -823,9 +823,11 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                 value={formData.status}
                 onChange={(e) => handleInputChange({ target: { name: e.target.name, value: e.target.value } } as any)}
               >
-                  <option value="commande">Commande</option>
-                  <option value="under_delivery">Under Delivery</option>
-                  <option value="paid">Paid</option>
+                  <option value="commande">{t('sales.filters.status.commande') || 'Commande'}</option>
+                  <option value="under_delivery">{t('sales.filters.status.under_delivery') || 'Under Delivery'}</option>
+                  <option value="paid">{t('sales.filters.status.paid') || 'Paid'}</option>
+                  <option value="credit">{t('sales.filters.status.credit') || 'Credit'}</option>
+                  <option value="draft">{t('sales.filters.status.draft') || 'Draft'}</option>
               </select>
             </div>
           </div>
