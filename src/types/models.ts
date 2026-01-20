@@ -155,14 +155,14 @@ export interface SaleProduct {
 export interface Sale extends BaseModel {
   products: SaleProduct[];
   totalAmount: number;
-  status: 'commande' | 'under_delivery' | 'paid' | 'draft';
+  status: 'commande' | 'under_delivery' | 'paid' | 'draft' | 'credit';
   paymentStatus: 'pending' | 'paid' | 'cancelled';
   customerInfo: {
     name: string;
     phone: string;
     quarter?: string;
   };
-  customerSourceId?: string; // Source clientelle de la vente (optionnel pour rétrocompatibilité)
+  customerSourceId?: string; // Source clientelle de la vente (optionnel pour rétrocompatibilité, mais requis pour credit)
   deliveryFee?: number;
   discountType?: 'amount' | 'percentage'; // Type de remise
   discountValue?: number; // Montant de la remise
@@ -171,7 +171,7 @@ export interface Sale extends BaseModel {
   paymentMethod?: 'cash' | 'mobile_money' | 'card'; // Méthode de paiement
   amountReceived?: number; // Montant reçu (pour calculer la monnaie)
   change?: number; // Monnaie à rendre
-  statusHistory?: Array<{ status: string; timestamp: string }>;
+  statusHistory?: Array<{ status: string; timestamp: string; userId?: string }>; // Enhanced with userId for audit trail
   isAvailable?: boolean;
   inventoryMethod?: 'FIFO' | 'LIFO' | 'CMUP';
   totalCost?: number;
@@ -179,6 +179,21 @@ export interface Sale extends BaseModel {
   averageProfitMargin?: number;
   tvaRate?: number; // TVA percentage rate
   tvaApplied?: boolean; // Whether TVA was applied
+  // Credit sale fields
+  creditDueDate?: Timestamp; // Optional due date for credit sales
+  paidAmount?: number; // Amount paid (for partial payments, future enhancement)
+  remainingAmount?: number; // Remaining amount to be paid (for credit sales)
+  // Refund fields
+  refunds?: Array<{
+    id: string; // Unique refund ID
+    amount: number; // Refunded amount
+    timestamp: string; // ISO timestamp when refund was made
+    userId: string; // Who made the refund
+    reason?: string; // Optional reason for refund
+    paymentMethod?: 'cash' | 'mobile_money' | 'card'; // How refund was processed
+    transactionReference?: string; // Transaction reference if applicable
+  }>;
+  totalRefunded?: number; // Total amount refunded so far
 }
 
 export interface Expense extends BaseModel {
@@ -200,7 +215,7 @@ export interface DashboardStats extends BaseModel {
   cancelledOrders: number;
 }
 
-export type OrderStatus = 'commande' | 'under_delivery' | 'paid' | 'draft';
+export type OrderStatus = 'commande' | 'under_delivery' | 'paid' | 'draft' | 'credit';
 export type PaymentStatus = 'pending' | 'paid' | 'cancelled';
 
 export interface SaleDetails extends Sale {
@@ -286,7 +301,7 @@ export interface StockChange {
   productId?: string; // Only if type === 'product'
   matiereId?: string; // Only if type === 'matiere'
   change: number; // + for restock, - for sale, etc.
-  reason: 'sale' | 'restock' | 'adjustment' | 'creation' | 'cost_correction' | 'damage' | 'manual_adjustment' | 'production' | 'batch_deletion' | 'quantity_correction';
+  reason: 'sale' | 'restock' | 'adjustment' | 'creation' | 'cost_correction' | 'damage' | 'manual_adjustment' | 'production' | 'batch_deletion' | 'quantity_correction' | 'direct_consumption';
   supplierId?: string; // Reference to supplier if applicable
   isOwnPurchase?: boolean; // true if own purchase, false if from supplier
   isCredit?: boolean; // true if on credit, false if paid (only relevant if from supplier)
