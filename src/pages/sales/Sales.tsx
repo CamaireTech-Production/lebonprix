@@ -337,6 +337,11 @@ const Sales: React.FC = () => {
     setFilterStatus(e.target.value || null);
   };
 
+  const handleCreditFilterClick = (): void => {
+    setFilterStatus(filterStatus === 'credit' ? null : 'credit');
+    setPage(1); // Reset to first page when filter changes
+  };
+
   const handleDateRangeChange = (range: { from: Date; to: Date }) => {
     setDateRange(range);
     setPage(1); // Reset to first page when filter changes
@@ -1045,7 +1050,7 @@ const Sales: React.FC = () => {
               icon={<ChevronsLeft size={14} />}
               title={t('common.first') || 'First'}
               className="p-1 sm:p-2"
-            >{t('common.first') || 'First'}</Button>
+            />
             <Button
               variant="outline"
               size="sm"
@@ -1054,7 +1059,7 @@ const Sales: React.FC = () => {
               icon={<ChevronLeft size={14} />}
               title={t('common.prev') || 'Previous'}
               className="p-1 sm:p-2"
-            >{t('common.prev') || 'Previous'}</Button>
+            />
             <span className="text-xs sm:text-sm px-2 sm:px-3 py-1 bg-gray-100 rounded-md">
               {page} / {totalPages}
             </span>
@@ -1066,7 +1071,7 @@ const Sales: React.FC = () => {
               icon={<ChevronRight size={14} />}
               title={t('common.next') || 'Next'}
               className="p-1 sm:p-2"
-            >{t('common.next') || 'Next'}</Button>
+            />
             <Button
               variant="outline"
               size="sm"
@@ -1075,7 +1080,7 @@ const Sales: React.FC = () => {
               icon={<ChevronsRight size={14} />}
               title={t('common.last') || 'Last'}
               className="p-1 sm:p-2"
-            >{t('common.last') || 'Last'}</Button>
+            />
           </div>
         </div>
 

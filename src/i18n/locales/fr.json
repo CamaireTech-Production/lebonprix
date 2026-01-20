@@ -498,8 +498,11 @@
       "status": {
         "commande": "Commande",
         "under_delivery": "En livraison",
-        "paid": "Payé"
+        "paid": "Payé",
+        "credit": "Crédit",
+        "draft": "Brouillon"
       },
+      "creditSales": "Ventes en Crédit",
       "search": "Recherche par nom ou téléphone..."
     },
     "actions": {
@@ -512,7 +515,9 @@
       "copyTrackingLink": "Copier le lien de suivi",
       "copyLinkOnly": "Copier le lien uniquement",
       "copyWithMessage": "Copier avec message",
-      "deleteSale": "Supprimer la vente"
+      "deleteSale": "Supprimer la vente",
+      "settleCredit": "Marquer comme Payé",
+      "cancelCredit": "Annuler le Crédit"
     },
     "table": {
       "rowsPerPage": "Lignes par page :",
@@ -696,13 +701,19 @@
       "customerSaved": "Client enregistré avec succès !",
       "invoiceShared": "Facture partagée avec succès !",
       "invoiceDownloaded": "Facture téléchargée avec succès !",
+      "messages": {
+        "creditSettled": "Vente en crédit marquée comme payée",
+        "creditCancelled": "Vente en crédit annulée et stock restauré"
+      },
       "errors": {
         "addSale": "Échec de l'ajout de la vente. Veuillez réessayer.",
         "updateSale": "Échec de la mise à jour de la vente. Veuillez réessayer.",
         "loadSales": "Échec du chargement des ventes. Veuillez actualiser la page.",
         "saveCustomer": "Échec de l'enregistrement du client. Veuillez réessayer.",
         "shareInvoice": "Erreur lors du partage de la facture",
-        "notLoggedIn": "Vous devez être connecté pour créer une vente"
+        "notLoggedIn": "Vous devez être connecté pour créer une vente",
+        "settleCreditFailed": "Échec du règlement de la vente en crédit",
+        "cancelCreditFailed": "Échec de l'annulation de la vente en crédit"
       },
       "warnings": {
         "customerName": "Le nom du client est requis.",
