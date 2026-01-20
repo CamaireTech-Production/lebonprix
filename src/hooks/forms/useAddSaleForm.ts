@@ -276,11 +276,8 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
       return errors;
     }
     
-    // Validate credit sales: require customer source, name, and phone
+    // Validate credit sales: require customer name and phone (customerSourceId is optional)
     if (formData.status === 'credit') {
-      if (!formData.customerSourceId || formData.customerSourceId.trim() === '') {
-        errors.customerSourceId = t('sales.messages.errors.customerSourceRequiredForCredit') || 'Customer source is required for credit sales. Please select a customer source.';
-      }
       if (!formData.customerName || formData.customerName.trim() === '') {
         errors.customerName = t('sales.messages.errors.customerNameRequiredForCredit') || 'Customer name is required for credit sales. Please enter customer name.';
       }

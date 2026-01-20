@@ -431,9 +431,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
             {activeSources.length > 0 && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Source Clientelle <span className={`font-normal ${formData.status === 'credit' ? 'text-red-600' : 'text-gray-500'}`}>
-                    {formData.status === 'credit' ? '(requis)' : '(optionnel)'}
-                  </span>
+                  Source Clientelle <span className="text-gray-500 font-normal">(optionnel)</span>
                 </label>
                 <Select
                   options={[
@@ -835,7 +833,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
               {formData.status === 'credit' && (
                 <div className="mt-2 p-3 bg-orange-50 border border-orange-200 rounded-lg">
                   <p className="text-sm text-orange-800 font-medium">
-                    {t('sales.modals.add.creditSaleWarning') || '⚠️ For credit sales, customer name, phone, and source are required.'}
+                    {t('sales.modals.add.creditSaleWarning') || '⚠️ For credit sales, customer name and phone are required.'}
                   </p>
                 </div>
               )}
