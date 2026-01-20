@@ -13,7 +13,9 @@ import {
   ChevronsLeft,
   ChevronLeft,
   ChevronsRight,
-  FileText
+  FileText,
+  Clock,
+  DollarSign
 } from 'lucide-react';
 import Select from 'react-select';
 import { Modal, ModalFooter, Input, PriceInput, Badge, Button, Card, ImageWithSkeleton, LoadingScreen, SyncIndicator, DateRangePicker } from '@components/common';
@@ -33,16 +35,18 @@ import { buildProductStockMap, getEffectiveProductStock } from '@utils/inventory
 import { normalizePhoneForComparison } from '@utils/core/phoneUtils';
 import { logError } from '@utils/core/logger';
 import { useTranslation } from 'react-i18next';
-import { softDeleteSale } from '@services/firestore/sales/saleService';
+import { softDeleteSale, updateSaleStatus } from '@services/firestore/sales/saleService';
 import { formatCreatorName } from '@utils/business/employeeUtils';
 import { createPortal } from 'react-dom';
 import AddSaleModal from '../../components/sales/AddSaleModal';
 import SaleDetailsModal from '../../components/sales/SaleDetailsModal';
 import ProfitDetailsModal from '../../components/sales/ProfitDetailsModal';
 import SalesReportModal from '../../components/reports/SalesReportModal';
+import { SettleCreditModal } from '../../components/sales/SettleCreditModal';
 import { format } from 'date-fns';
 import { PermissionButton, usePermissionCheck } from '@components/permissions';
 import { RESOURCES } from '@constants/resources';
+import { countCreditSales } from '@utils/calculations/financialCalculations';
 
 interface FormProduct {
   product: Product | null;
@@ -97,9 +101,11 @@ const Sales: React.FC = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isProfitModalOpen, setIsProfitModalOpen] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [isSettleCreditModalOpen, setIsSettleCreditModalOpen] = useState(false);
   const [currentSale, setCurrentSale] = useState<Sale | null>(null);
   const [viewedSale, setViewedSale] = useState<Sale | null>(null);
   const [profitSale, setProfitSale] = useState<Sale | null>(null);
+  const [saleToSettle, setSaleToSettle] = useState<Sale | null>(null);
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
   const [shareableLink] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -292,6 +298,11 @@ const Sales: React.FC = () => {
     return saleDate >= dateRange.from && saleDate <= dateRange.to;
   });
   
+  // Calculate credit sales count (before status filter is applied, after date range)
+  const creditSalesCount = React.useMemo(() => {
+    return countCreditSales(filteredSales);
+  }, [filteredSales]);
+  
   // Apply status filter (independent)
   if (filterStatus) {
     filteredSales = filteredSales.filter(sale => sale.status === filterStatus);
@@ -329,6 +340,28 @@ const Sales: React.FC = () => {
   const handleDateRangeChange = (range: { from: Date; to: Date }) => {
     setDateRange(range);
     setPage(1); // Reset to first page when filter changes
+  };
+
+  const handleSettleCredit = async (
+    saleId: string,
+    paymentMethod: 'cash' | 'mobile_money' | 'card',
+    transactionReference?: string,
+    mobileMoneyPhone?: string
+  ): Promise<void> => {
+    if (!user?.uid || !company?.id) {
+      throw new Error('User or company not found');
+    }
+
+    try {
+      // Update sale status from credit to paid
+      await updateSaleStatus(saleId, 'paid', 'paid', user.uid);
+      
+      // Refresh sales list
+      refreshSales();
+    } catch (error: any) {
+      logError('Error settling credit sale', error);
+      throw error;
+    }
   };
 
   const handleEditSale = async (): Promise<void> => {
@@ -629,6 +662,19 @@ const Sales: React.FC = () => {
               >
                 <Eye size={16} />
               </button>
+              {sale.status === 'credit' && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSaleToSettle(sale);
+                    setIsSettleCreditModalOpen(true);
+                  }}
+                  className="text-orange-600 hover:text-orange-900"
+                  title={t('sales.actions.settleCredit') || 'Mark as Paid'}
+                >
+                  <DollarSign size={16} />
+                </button>
+              )}
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -845,6 +891,30 @@ const Sales: React.FC = () => {
             <option value="paid">{t('sales.filters.status.paid')}</option>
             <option value="credit">{t('sales.filters.status.credit') || 'Credit'}</option>
           </select>
+          
+          {/* Credit Sales Filter Button */}
+          <button
+            onClick={handleCreditFilterClick}
+            className={`relative px-4 py-2 rounded-md border-2 transition-colors flex items-center space-x-2 ${
+              filterStatus === 'credit'
+                ? 'border-orange-500 bg-orange-50 text-orange-700'
+                : 'border-gray-300 bg-white text-gray-700 hover:border-orange-300 hover:bg-orange-50'
+            }`}
+            title={t('sales.filters.creditSales') || 'Credit Sales'}
+          >
+            <Clock size={16} className={filterStatus === 'credit' ? 'text-orange-600' : 'text-gray-600'} />
+            <span className="text-sm font-medium">{t('sales.filters.creditSales') || 'Credit Sales'}</span>
+            {creditSalesCount > 0 && (
+              <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                filterStatus === 'credit'
+                  ? 'bg-orange-600 text-white'
+                  : 'bg-orange-500 text-white'
+              }`}>
+                {creditSalesCount}
+              </span>
+            )}
+          </button>
+          
           <Button
             icon={<FileText size={16} />}
             onClick={() => setIsReportModalOpen(true)}
@@ -1347,6 +1417,15 @@ const Sales: React.FC = () => {
           document.body
         )
       }
+      <SettleCreditModal
+        isOpen={isSettleCreditModalOpen}
+        onClose={() => {
+          setIsSettleCreditModalOpen(false);
+          setSaleToSettle(null);
+        }}
+        sale={saleToSettle}
+        onSettle={handleSettleCredit}
+      />
       <ProfitDetailsModal
         isOpen={isProfitModalOpen}
         onClose={() => setIsProfitModalOpen(false)}

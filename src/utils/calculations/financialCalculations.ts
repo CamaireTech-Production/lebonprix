@@ -24,7 +24,10 @@ export const calculateTotalProfit = (
   products: Product[],
   stockChanges: StockChange[]
 ): number => {
-  return sales.reduce((sum, sale) => {
+  // Filter out credit sales - only count paid sales for profit
+  const paidSales = sales.filter(sale => sale.status !== 'credit');
+  
+  return paidSales.reduce((sum, sale) => {
     return sum + sale.products.reduce((productSum: number, product) => {
       const productData = products.find(p => p.id === product.productId);
       if (!productData) return productSum;
@@ -152,7 +155,9 @@ export const calculateTotalPurchasePriceLegacy = (
  * @returns Total sales amount
  */
 export const calculateTotalSalesAmount = (sales: Sale[]): number => {
-  return sales.reduce((sum, sale) => sum + sale.totalAmount, 0);
+  // Filter out credit sales - only count paid sales for revenue
+  const paidSales = sales.filter(sale => sale.status !== 'credit');
+  return paidSales.reduce((sum, sale) => sum + sale.totalAmount, 0);
 };
 
 /**
@@ -243,9 +248,10 @@ export const calculateDashboardProfit = (
     ? new Date(Math.max(periodStartDate.getTime(), dateRangeFrom.getTime()))
     : dateRangeFrom;
   
-  // Filter sales by effective start date
+  // Filter sales by effective start date and exclude credit sales
   const periodSales = sales.filter(sale => {
     if (!sale.createdAt?.seconds) return false;
+    if (sale.status === 'credit') return false; // Exclude credit sales
     const saleDate = new Date(sale.createdAt.seconds * 1000);
     return saleDate >= effectiveStartDate;
   });
@@ -491,5 +497,41 @@ export const calculateSalesByPaymentStatus = (
   return Object.entries(statusMap)
     .map(([status, data]) => ({ status, ...data }))
     .sort((a, b) => b.amount - a.amount);
+};
+
+/**
+ * Count credit sales
+ * 
+ * @param sales - Array of sales
+ * @returns Number of sales with status 'credit'
+ */
+export const countCreditSales = (sales: Sale[]): number => {
+  return sales.filter(sale => sale.status === 'credit').length;
+};
+
+/**
+ * Calculate total credit outstanding amount
+ * 
+ * @param sales - Array of sales
+ * @returns Total amount of outstanding credit sales
+ */
+export const calculateTotalCreditOutstanding = (sales: Sale[]): number => {
+  return sales
+    .filter(sale => sale.status === 'credit')
+    .reduce((sum, sale) => {
+      // Use remainingAmount if available, otherwise use totalAmount
+      const outstanding = sale.remainingAmount ?? sale.totalAmount;
+      return sum + outstanding;
+    }, 0);
+};
+
+/**
+ * Get credit sales from a list of sales
+ * 
+ * @param sales - Array of sales
+ * @returns Array of credit sales only
+ */
+export const getCreditSales = (sales: Sale[]): Sale[] => {
+  return sales.filter(sale => sale.status === 'credit');
 };
 

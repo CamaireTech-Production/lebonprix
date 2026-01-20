@@ -513,19 +513,51 @@ export const updateSaleStatus = async (
   
   const batch = writeBatch(db);
   
-  batch.update(saleRef, {
+  // Track old status for transition logic
+  const oldStatus = sale.status;
+  const isCreditToPaidTransition = oldStatus === 'credit' && status === 'paid';
+  
+  // Prepare update data
+  const updateData: any = {
     status,
     paymentStatus,
     updatedAt: serverTimestamp(),
     statusHistory: [
       ...(sale.statusHistory || []),
-      { status, timestamp: new Date().toISOString() }
+      { 
+        status, 
+        timestamp: new Date().toISOString(),
+        userId // Add userId for audit trail
+      }
     ]
-  });
+  };
+
+  // If transitioning from credit to paid, update remaining amount
+  if (isCreditToPaidTransition) {
+    updateData.remainingAmount = 0;
+    updateData.paidAmount = sale.totalAmount;
+  }
+  
+  batch.update(saleRef, updateData);
   
   createAuditLog(batch, 'update', 'sale', id, { status, paymentStatus }, userId);
   
   await batch.commit();
+
+  // If transitioning from credit to paid, create financial entry
+  if (isCreditToPaidTransition) {
+    try {
+      // Get updated sale to sync finance entry
+      const updatedSaleSnap = await getDoc(saleRef);
+      if (updatedSaleSnap.exists()) {
+        const updatedSale = { id: updatedSaleSnap.id, ...updatedSaleSnap.data() } as Sale;
+        await syncFinanceEntryWithSale(updatedSale);
+      }
+    } catch (syncError) {
+      logError('Error syncing finance entry after credit to paid transition', syncError);
+      // Don't throw - the status update succeeded, finance sync is secondary
+    }
+  }
 };
 
 export const updateSaleDocument = async (

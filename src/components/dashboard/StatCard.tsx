@@ -15,14 +15,15 @@ interface StatCardProps {
   };
   trendData?: number[]; // Array of values for mini line graph
   tooltipKey?: string;
-  type: 'sales' | 'expenses' | 'profit' | 'products' | 'orders' | 'delivery' | 'solde';
+  type: 'sales' | 'expenses' | 'profit' | 'products' | 'orders' | 'delivery' | 'solde' | 'credit';
+  subtitle?: string; // Optional subtitle (e.g., count of credit sales)
   className?: string;
   periodLabel?: string;
   showPeriodIndicator?: boolean;
   onPeriodSettingsClick?: () => void;
 }
 
-const StatCard = ({ title, value, icon, trend, trendData, tooltipKey, type, className = '', periodLabel, showPeriodIndicator, onPeriodSettingsClick }: StatCardProps) => {
+const StatCard = ({ title, value, icon, trend, trendData, tooltipKey, type, className = '', periodLabel, showPeriodIndicator, onPeriodSettingsClick, subtitle }: StatCardProps) => {
   const { t } = useTranslation();
   const colors = useCompanyColors();
   const [showTooltip, setShowTooltip] = useState(false);
@@ -103,6 +104,8 @@ const StatCard = ({ title, value, icon, trend, trendData, tooltipKey, type, clas
         return { backgroundColor: `${colors.secondary}20`, color: colors.secondary };
       case 'delivery':
         return { backgroundColor: `${colors.tertiary}20`, color: colors.tertiary };
+      case 'credit':
+        return { backgroundColor: '#f9731620', color: '#f97316' }; // Orange for credit
       default:
         return { backgroundColor: '#f3f4f6', color: '#6b7280' };
     }
@@ -232,7 +235,7 @@ const StatCard = ({ title, value, icon, trend, trendData, tooltipKey, type, clas
           <p
             ref={valueRef}
             className="mt-1 text-lg sm:text-xl md:text-2xl font-semibold truncate cursor-pointer"
-            style={{color: colors.primary}}
+            style={{color: type === 'credit' ? '#f97316' : colors.primary}}
             tabIndex={0}
             onMouseEnter={() => setShowValueTooltip(true)}
             onMouseLeave={() => setShowValueTooltip(false)}
@@ -242,6 +245,11 @@ const StatCard = ({ title, value, icon, trend, trendData, tooltipKey, type, clas
           >
             {value}
           </p>
+          {subtitle && (
+            <p className="mt-1 text-xs text-gray-500">
+              {subtitle}
+            </p>
+          )}
           {renderValueTooltip()}
           {trend && (
             <div className="mt-1 flex items-center">
