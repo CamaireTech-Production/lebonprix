@@ -37,7 +37,8 @@
     "close": "Close",
     "phone": "Phone",
     "email": "Email",
-    "mustBeGreaterThanZero": "must be greater than zero"
+    "mustBeGreaterThanZero": "must be greater than zero",
+    "optional": "Optional"
   },
   "auth": {
     "login": "Login",
@@ -2451,6 +2452,7 @@
     "default": "Default",
     "stock": "Stock",
     "products": "products",
+    "backToList": "Back to warehouses",
     "addModal": {
       "title": "New Warehouse",
       "nameLabel": "Warehouse Name *",
@@ -2513,6 +2515,7 @@
     "stock": "Stock",
     "products": "products",
     "users": "user(s)",
+    "backToList": "Back to shops",
     "addModal": {
       "title": "New Shop",
       "nameLabel": "Shop Name *",

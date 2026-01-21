@@ -41,7 +41,8 @@
     "phone": "Téléphone",
     "email": "Email",
     "mustBeGreaterThanZero": "doit être supérieur à zéro",
-    "all": "Tous"
+    "all": "Tous",
+    "optional": "Optionnel"
   },
   "auth": {
     "login": "Connexion",
@@ -2499,6 +2500,7 @@
     "default": "Par défaut",
     "stock": "Stock",
     "products": "produits",
+    "backToList": "Retour aux entrepôts",
     "addModal": {
       "title": "Nouvel Entrepôt",
       "nameLabel": "Nom de l'entrepôt *",
@@ -2561,6 +2563,7 @@
     "stock": "Stock",
     "products": "produits",
     "users": "utilisateur(s)",
+    "backToList": "Retour aux boutiques",
     "addModal": {
       "title": "Nouveau Magasin",
       "nameLabel": "Nom du magasin *",
