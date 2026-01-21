@@ -34,8 +34,8 @@ interface ProductStockInfo {
 const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdded }) => {
   const { t } = useTranslation();
   const { company, user } = useAuth();
-  const { shops } = useShops();
-  const { warehouses } = useWarehouses();
+  const { shops, loading: shopsLoading, error: shopsError } = useShops();
+  const { warehouses, loading: warehousesLoading, error: warehousesError } = useWarehouses();
   
   // Load all stock batches to display stock in product selection list
   const { batches: allBatches, loading: batchesLoading } = useAllStockBatches('product');
@@ -45,27 +45,6 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
     () => buildProductStockMap(allBatches || []),
     [allBatches]
   );
-
-  // Initialize default shop when modal opens
-  useEffect(() => {
-    if (isOpen && company?.id && !formData.shopId && !formData.warehouseId) {
-      const initializeDefaultShop = async () => {
-        try {
-          const defaultShop = await getDefaultShop(company.id);
-          if (defaultShop) {
-            setFormData(prev => ({
-              ...prev,
-              sourceType: 'shop',
-              shopId: defaultShop.id
-            }));
-          }
-        } catch (error) {
-          logError('Error loading default shop', error);
-        }
-      };
-      initializeDefaultShop();
-    }
-  }, [isOpen, company?.id]);
 
   const {
     formData,
@@ -93,6 +72,54 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
     handleAddSale,
     handleSelectCustomer,
   } = useAddSaleForm();
+
+  // Initialize default shop when modal opens (after formData is available)
+  useEffect(() => {
+    if (isOpen && company?.id && !formData.shopId && !formData.warehouseId && !shopsLoading && !warehousesLoading) {
+      const initializeDefaultShop = async () => {
+        try {
+          const defaultShop = await getDefaultShop(company.id);
+          if (defaultShop && defaultShop.isActive !== false) {
+            setFormData(prev => ({
+              ...prev,
+              sourceType: 'shop',
+              shopId: defaultShop.id
+            }));
+          } else if (warehouses && warehouses.length > 0) {
+            // If no active default shop, try default warehouse
+            const defaultWarehouse = warehouses.find(w => w.isDefault && w.isActive !== false);
+            if (defaultWarehouse) {
+              setFormData(prev => ({
+                ...prev,
+                sourceType: 'warehouse',
+                warehouseId: defaultWarehouse.id
+              }));
+            }
+          }
+        } catch (error) {
+          logError('Error loading default shop', error);
+        }
+      };
+      initializeDefaultShop();
+    }
+  }, [isOpen, company?.id, formData.shopId, formData.warehouseId, shopsLoading, warehousesLoading, warehouses, setFormData]);
+
+  // Filter active shops/warehouses (for employees, owner/admin can see all)
+  const activeShops = useMemo(() => {
+    if (!shops) return [];
+    if (user?.isOwner || user?.role === 'admin') {
+      return shops; // Owner/admin can see all shops (including inactive)
+    }
+    return shops.filter(shop => shop.isActive !== false);
+  }, [shops, user]);
+
+  const activeWarehouses = useMemo(() => {
+    if (!warehouses) return [];
+    if (user?.isOwner || user?.role === 'admin') {
+      return warehouses; // Owner/admin can see all warehouses (including inactive)
+    }
+    return warehouses.filter(warehouse => warehouse.isActive !== false);
+  }, [warehouses, user]);
 
 
 
@@ -167,6 +194,12 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
         return newSet;
       });
     }
+  };
+
+  // Helper function to get product stock info
+  const getProductStockInfo = (productId: string): ProductStockInfo | undefined => {
+    const cacheKey = `${productId}-${formData.sourceType}-${formData.shopId}-${formData.warehouseId}`;
+    return productStockInfo.get(cacheKey);
   };
 
   // Load stock info when products are selected or location changes
@@ -351,19 +384,40 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                   <label className="block text-xs font-medium text-gray-700 mb-1">
                     Magasin <span className="text-red-500">*</span>
                   </label>
-                  <select
-                    value={formData.shopId}
-                    onChange={(e) => setFormData(prev => ({ ...prev, shopId: e.target.value }))}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                  >
-                    <option value="">Sélectionner un magasin</option>
-                    {shops?.map(shop => (
-                      <option key={shop.id} value={shop.id}>
-                        {shop.name} {shop.isDefault && '(Par défaut)'}
-                      </option>
-                    ))}
-                  </select>
+                  {shopsLoading ? (
+                    <div className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md bg-gray-50">
+                      Chargement des magasins...
+                    </div>
+                  ) : shopsError ? (
+                    <div className="w-full px-3 py-2 text-sm border border-red-300 rounded-md bg-red-50 text-red-700">
+                      Erreur lors du chargement des magasins
+                    </div>
+                  ) : activeShops.length === 0 ? (
+                    <div className="w-full px-3 py-2 text-sm border border-yellow-300 rounded-md bg-yellow-50 text-yellow-700">
+                      Aucun magasin actif disponible. Veuillez créer un magasin ou activer un magasin existant.
+                    </div>
+                  ) : (
+                    <select
+                      value={formData.shopId}
+                      onChange={(e) => {
+                        const selectedShop = activeShops.find(s => s.id === e.target.value);
+                        if (selectedShop && selectedShop.isActive === false) {
+                          showWarningToast('Ce magasin est désactivé. Veuillez sélectionner un magasin actif.');
+                          return;
+                        }
+                        setFormData(prev => ({ ...prev, shopId: e.target.value }));
+                      }}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    >
+                      <option value="">Sélectionner un magasin</option>
+                      {activeShops.map(shop => (
+                        <option key={shop.id} value={shop.id}>
+                          {shop.name} {shop.isDefault && '(Par défaut)'} {shop.isActive === false && '(Désactivé)'}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
               )}
               
@@ -372,19 +426,40 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                   <label className="block text-xs font-medium text-gray-700 mb-1">
                     Entrepôt <span className="text-red-500">*</span>
                   </label>
-                  <select
-                    value={formData.warehouseId}
-                    onChange={(e) => setFormData(prev => ({ ...prev, warehouseId: e.target.value }))}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                  >
-                    <option value="">Sélectionner un entrepôt</option>
-                    {warehouses?.map(warehouse => (
-                      <option key={warehouse.id} value={warehouse.id}>
-                        {warehouse.name} {warehouse.isDefault && '(Par défaut)'}
-                      </option>
-                    ))}
-                  </select>
+                  {warehousesLoading ? (
+                    <div className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md bg-gray-50">
+                      Chargement des entrepôts...
+                    </div>
+                  ) : warehousesError ? (
+                    <div className="w-full px-3 py-2 text-sm border border-red-300 rounded-md bg-red-50 text-red-700">
+                      Erreur lors du chargement des entrepôts
+                    </div>
+                  ) : activeWarehouses.length === 0 ? (
+                    <div className="w-full px-3 py-2 text-sm border border-yellow-300 rounded-md bg-yellow-50 text-yellow-700">
+                      Aucun entrepôt actif disponible. Veuillez créer un entrepôt ou activer un entrepôt existant.
+                    </div>
+                  ) : (
+                    <select
+                      value={formData.warehouseId}
+                      onChange={(e) => {
+                        const selectedWarehouse = activeWarehouses.find(w => w.id === e.target.value);
+                        if (selectedWarehouse && selectedWarehouse.isActive === false) {
+                          showWarningToast('Cet entrepôt est désactivé. Veuillez sélectionner un entrepôt actif.');
+                          return;
+                        }
+                        setFormData(prev => ({ ...prev, warehouseId: e.target.value }));
+                      }}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    >
+                      <option value="">Sélectionner un entrepôt</option>
+                      {activeWarehouses.map(warehouse => (
+                        <option key={warehouse.id} value={warehouse.id}>
+                          {warehouse.name} {warehouse.isDefault && '(Par défaut)'} {warehouse.isActive === false && '(Désactivé)'}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
               )}
             </div>

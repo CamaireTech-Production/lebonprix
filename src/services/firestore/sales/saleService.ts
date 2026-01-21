@@ -151,6 +151,27 @@ export const createSale = async (
       const shopId = data.shopId;
       const warehouseId = data.warehouseId;
       
+      // Validate that selected location is active
+      if (sourceType === 'shop' && shopId) {
+        const shopRef = doc(db, 'shops', shopId);
+        const shopSnap = await getDoc(shopRef);
+        if (shopSnap.exists()) {
+          const shopData = shopSnap.data();
+          if (shopData.isActive === false) {
+            throw new Error('Le magasin sélectionné est désactivé. Veuillez sélectionner un magasin actif.');
+          }
+        }
+      } else if (sourceType === 'warehouse' && warehouseId) {
+        const warehouseRef = doc(db, 'warehouses', warehouseId);
+        const warehouseSnap = await getDoc(warehouseRef);
+        if (warehouseSnap.exists()) {
+          const warehouseData = warehouseSnap.data();
+          if (warehouseData.isActive === false) {
+            throw new Error('L\'entrepôt sélectionné est désactivé. Veuillez sélectionner un entrepôt actif.');
+          }
+        }
+      }
+      
       // Determine location type and IDs for stock query
       let locationType: 'warehouse' | 'shop' | 'production' | 'global' | undefined;
       let queryShopId: string | undefined;

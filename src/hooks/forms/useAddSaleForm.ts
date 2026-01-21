@@ -254,6 +254,9 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
       saleDate: new Date().toISOString().slice(0, 10),
       inventoryMethod: getDefaultInventoryMethod(),
       products: [{ id: crypto.randomUUID(), product: null, quantity: '', negotiatedPrice: '' }],
+      sourceType: 'shop',
+      shopId: '',
+      warehouseId: ''
     });
     setFoundCustomer(null);
     setShowCustomerDropdown(false);
@@ -281,6 +284,17 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
     if (!hasProduct) {
       errors.products = t('sales.messages.warnings.atLeastOneProduct');
       return errors;
+    }
+    
+    // Validate location selection
+    if (formData.sourceType === 'shop') {
+      if (!formData.shopId) {
+        errors.shopId = t('sales.messages.warnings.shopRequired') || 'Veuillez sélectionner un magasin';
+      }
+    } else if (formData.sourceType === 'warehouse') {
+      if (!formData.warehouseId) {
+        errors.warehouseId = t('sales.messages.warnings.warehouseRequired') || 'Veuillez sélectionner un entrepôt';
+      }
     }
     
     formData.products.forEach((prod, idx) => {
