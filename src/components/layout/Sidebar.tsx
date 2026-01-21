@@ -147,6 +147,7 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
     { name: t('navigation.dashboard'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/dashboard` : '/', icon: <LayoutDashboard size={20} />, resource: 'dashboard' },
     { name: t('navigation.sales'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/sales` : '/sales', icon: <ShoppingCart size={20} />, resource: 'sales' },
     { name: t('navigation.pos'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/pos` : '/pos', icon: <ScanLine size={20} />, resource: 'sales' },
+    { name: t('site.navigation', 'Online Catalogue'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/site` : '/site', icon: <Globe size={20} />, resource: 'settings' },
     { name: t('navigation.orders'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/orders` : '/orders', icon: <ShoppingBag size={20} />, resource: 'orders' },
     {
       name: t('navigation.expenses'),
@@ -271,34 +272,6 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
           </div>
         ) : (
           <ul className="space-y-1 px-2" id='select'>
-          {/* Online Catalogue Link */}
-          {isCompanyRoute && company && !isCompanySelectionRoute && (() => {
-            const companyId = location.pathname.split('/')[2];
-            const companyName = company.name.toLowerCase().replace(/\s+/g, '-');
-            const isActualOwner = isOwner || effectiveRole === 'owner';
-            const hasAccess = isActualOwner || canAccess('settings');
-            
-            if (!hasAccess) return null;
-            
-            return (
-              <li key="catalogue">
-                <Link
-                  to={`/catalogue/${companyName}/${companyId}`}
-                  onClick={() => onClose()}
-                  className={`
-                    flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors
-                    ${location.pathname.startsWith('/catalogue/')
-                      ? 'bg-emerald-50 text-emerald-600'
-                      : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'}
-                  `}
-                >
-                  <span className="mr-3"><Globe size={20} /></span>
-                  {t('site.navigation', 'Online Catalogue')}
-                </Link>
-              </li>
-            );
-          })()}
-          
           {navigationItems.map((item) => {
             // En mode sélection, tous les liens sont activés mais interceptés
             if (isCompanySelectionRoute) {
