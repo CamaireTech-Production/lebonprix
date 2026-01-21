@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Plus, Edit2, Trash2, MapPin, Warehouse as WarehouseIcon, Package, Search, UserCheck, Eye, Users, Power, PowerOff } from 'lucide-react';
 import { Card, Button, Badge, Modal, ModalFooter, Input, Textarea, LoadingScreen } from '@components/common';
-import { useWarehouses } from '@hooks/data/useFirestore';
+import { useWarehouses, useProducts } from '@hooks/data/useFirestore';
 import { useAuth } from '@contexts/AuthContext';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
 import { PermissionButton, usePermissionCheck } from '@components/permissions';
@@ -20,6 +20,7 @@ import ToggleActiveModal from '@components/shops/ToggleActiveModal';
 const Warehouse = () => {
   const { t } = useTranslation();
   const { warehouses, loading, error, addWarehouse, updateWarehouse, deleteWarehouse } = useWarehouses();
+  const { products } = useProducts();
   const { user, company, isOwner, effectiveRole } = useAuth();
   const { canEdit, canDelete } = usePermissionCheck(RESOURCES.WAREHOUSE);
   const navigate = useNavigate();
@@ -48,20 +49,20 @@ const Warehouse = () => {
   // Filter states
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Stock summary state
-  const [warehouseStockSummary, setWarehouseStockSummary] = useState<Record<string, number>>({});
+  // Product count summary state (number of unique products with stock)
+  const [warehouseProductCount, setWarehouseProductCount] = useState<Record<string, number>>({});
   const [loadingStock, setLoadingStock] = useState(false);
 
-  // Load stock summary for all warehouses (optimized with debouncing)
+  // Load product count for all warehouses (optimized with debouncing)
   React.useEffect(() => {
-    if (!company?.id || warehouses.length === 0) {
-      setWarehouseStockSummary({});
+    if (!company?.id || warehouses.length === 0 || products.length === 0) {
+      setWarehouseProductCount({});
       return;
     }
 
     let cancelled = false;
 
-    const loadStockSummary = async () => {
+    const loadProductCount = async () => {
       setLoadingStock(true);
       const summary: Record<string, number> = {};
 
@@ -75,33 +76,51 @@ const Warehouse = () => {
             warehouse.id,
             'warehouse'
           );
-          const totalStock = batches.reduce((sum, batch) => sum + (batch.remainingQuantity || 0), 0);
-          return { warehouseId: warehouse.id, stock: totalStock };
+          
+          // Count unique products with stock (excluding deleted/unavailable products)
+          const productIdsWithStock = new Set<string>();
+          
+          batches.forEach((batch) => {
+            // Skip if no product ID or no remaining quantity
+            if (!batch.productId || !batch.remainingQuantity || batch.remainingQuantity <= 0) {
+              return;
+            }
+
+            // Find the product
+            const product = products.find(p => p.id === batch.productId);
+            
+            // Only count if product exists, is not deleted, and is available
+            if (product && product.isDeleted !== true && product.isAvailable !== false) {
+              productIdsWithStock.add(batch.productId);
+            }
+          });
+          
+          return { warehouseId: warehouse.id, productCount: productIdsWithStock.size };
         } catch (error) {
           console.error(`Error loading stock for warehouse ${warehouse.id}:`, error);
-          return { warehouseId: warehouse.id, stock: 0 };
+          return { warehouseId: warehouse.id, productCount: 0 };
         }
       });
 
       const results = await Promise.all(stockPromises);
       
       if (!cancelled) {
-        results.forEach(({ warehouseId, stock }) => {
-          summary[warehouseId] = stock;
+        results.forEach(({ warehouseId, productCount }) => {
+          summary[warehouseId] = productCount;
         });
-        setWarehouseStockSummary(summary);
+        setWarehouseProductCount(summary);
         setLoadingStock(false);
       }
     };
 
     // Debounce to avoid excessive calls
-    const timeoutId = setTimeout(loadStockSummary, 300);
+    const timeoutId = setTimeout(loadProductCount, 300);
 
     return () => {
       cancelled = true;
       clearTimeout(timeoutId);
     };
-  }, [warehouses, company?.id]);
+  }, [warehouses, company?.id, products]);
 
   // Filter warehouses by permissions, active status, and search
   const filteredWarehouses = useMemo(() => {
@@ -498,7 +517,7 @@ const Warehouse = () => {
                 <div className="flex items-center gap-2 pt-2 border-t">
                   <Package size={14} />
                   <span className="font-medium">
-                    {t('warehouse.stock')}: {loadingStock ? '...' : (warehouseStockSummary[warehouse.id] || 0)} {t('warehouse.products')}
+                    {t('warehouse.stock')}: {loadingStock ? '...' : (warehouseProductCount[warehouse.id] || 0)} {t('warehouse.products')}
                   </span>
                 </div>
               </div>

@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Plus, Edit2, Trash2, MapPin, Store, Users, Badge as BadgeIcon, Search, UserCheck, Eye, Power, PowerOff } from 'lucide-react';
 import { Card, Button, Badge, Modal, ModalFooter, Input, Textarea, Table, LoadingScreen } from '@components/common';
-import { useShops } from '@hooks/data/useFirestore';
+import { useShops, useProducts } from '@hooks/data/useFirestore';
 import { useAuth } from '@contexts/AuthContext';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
 import { PermissionButton, usePermissionCheck } from '@components/permissions';
@@ -22,6 +22,7 @@ const Shops = () => {
   const { companyId } = useParams<{ companyId: string }>();
   const navigate = useNavigate();
   const { shops, loading, error, addShop, updateShop, deleteShop } = useShops();
+  const { products } = useProducts();
   const { user, company, isOwner, effectiveRole } = useAuth();
   const { canEdit, canDelete } = usePermissionCheck(RESOURCES.SHOPS);
   const isActualOwner = isOwner || effectiveRole === 'owner';
@@ -52,20 +53,20 @@ const Shops = () => {
   // Filter states
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Stock summary state
-  const [shopStockSummary, setShopStockSummary] = useState<Record<string, number>>({});
+  // Product count summary state (number of unique products with stock)
+  const [shopProductCount, setShopProductCount] = useState<Record<string, number>>({});
   const [loadingStock, setLoadingStock] = useState(false);
 
-  // Load stock summary for all shops (optimized with debouncing)
+  // Load product count for all shops (optimized with debouncing)
   React.useEffect(() => {
-    if (!company?.id || shops.length === 0) {
-      setShopStockSummary({});
+    if (!company?.id || shops.length === 0 || products.length === 0) {
+      setShopProductCount({});
       return;
     }
 
     let cancelled = false;
 
-    const loadStockSummary = async () => {
+    const loadProductCount = async () => {
       setLoadingStock(true);
       const summary: Record<string, number> = {};
 
@@ -79,33 +80,51 @@ const Shops = () => {
             undefined,
             'shop'
           );
-          const totalStock = batches.reduce((sum, batch) => sum + (batch.remainingQuantity || 0), 0);
-          return { shopId: shop.id, stock: totalStock };
+          
+          // Count unique products with stock (excluding deleted/unavailable products)
+          const productIdsWithStock = new Set<string>();
+          
+          batches.forEach((batch) => {
+            // Skip if no product ID or no remaining quantity
+            if (!batch.productId || !batch.remainingQuantity || batch.remainingQuantity <= 0) {
+              return;
+            }
+
+            // Find the product
+            const product = products.find(p => p.id === batch.productId);
+            
+            // Only count if product exists, is not deleted, and is available
+            if (product && product.isDeleted !== true && product.isAvailable !== false) {
+              productIdsWithStock.add(batch.productId);
+            }
+          });
+          
+          return { shopId: shop.id, productCount: productIdsWithStock.size };
         } catch (error) {
           console.error(`Error loading stock for shop ${shop.id}:`, error);
-          return { shopId: shop.id, stock: 0 };
+          return { shopId: shop.id, productCount: 0 };
         }
       });
 
       const results = await Promise.all(stockPromises);
       
       if (!cancelled) {
-        results.forEach(({ shopId, stock }) => {
-          summary[shopId] = stock;
+        results.forEach(({ shopId, productCount }) => {
+          summary[shopId] = productCount;
         });
-        setShopStockSummary(summary);
+        setShopProductCount(summary);
         setLoadingStock(false);
       }
     };
 
     // Debounce to avoid excessive calls
-    const timeoutId = setTimeout(loadStockSummary, 300);
+    const timeoutId = setTimeout(loadProductCount, 300);
 
     return () => {
       cancelled = true;
       clearTimeout(timeoutId);
     };
-  }, [shops, company?.id]);
+  }, [shops, company?.id, products]);
 
   // Filter shops by permissions, active status, and search
   const filteredShops = useMemo(() => {
@@ -538,7 +557,7 @@ const Shops = () => {
                 <div className="flex items-center gap-2 pt-2 border-t">
                   <BadgeIcon size={14} />
                   <span className="font-medium">
-                    {t('shops.stock')}: {loadingStock ? '...' : (shopStockSummary[shop.id] || 0)} {t('shops.products')}
+                    {t('shops.stock')}: {loadingStock ? '...' : (shopProductCount[shop.id] || 0)} {t('shops.products')}
                   </span>
                 </div>
               </div>
