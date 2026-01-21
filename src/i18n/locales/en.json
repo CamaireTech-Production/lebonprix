@@ -2480,6 +2480,9 @@
       "cancel": "Cancel",
       "delete": "Delete"
     },
+    "inactive": "Inactive",
+    "activate": "Activate",
+    "deactivate": "Deactivate",
     "messages": {
       "nameRequired": "Warehouse name is required",
       "userNotAuthenticated": "User not authenticated",
@@ -2490,7 +2493,10 @@
       "updateSuccess": "Warehouse updated successfully",
       "updateError": "Error updating warehouse",
       "deleteSuccess": "Warehouse deleted successfully",
-      "deleteError": "Error deleting warehouse"
+      "deleteError": "Error deleting warehouse",
+      "activateSuccess": "Warehouse {{name}} has been activated successfully",
+      "deactivateSuccess": "Warehouse {{name}} has been deactivated successfully",
+      "toggleActiveError": "Error toggling warehouse active status"
     }
   },
   "shops": {
@@ -2544,6 +2550,25 @@
       "cancel": "Cancel",
       "delete": "Delete"
     },
+    "toggleActiveModal": {
+      "activateTitle": "Activate {{name}}",
+      "deactivateTitle": "Deactivate {{name}}",
+      "activateMessage": "You are about to activate the {{locationName}} <strong>{{name}}</strong>.",
+      "activateDescription": "Once activated, this {{locationName}} can be used for sales, transfers, and other operations.",
+      "deactivateMessage": "You are about to deactivate the {{locationName}} <strong>{{name}}</strong>.",
+      "deactivateDescription": "Deactivating this {{locationName}} will have the following impacts:",
+      "activateConfirm": "Activate",
+      "deactivateConfirm": "Deactivate",
+      "impactNoSales": "No new sales can be made from this shop",
+      "impactNoTransfers": "No new transfers can be made from this warehouse",
+      "impactNoTransfersTo": "No transfers can be made to this {{locationName}}",
+      "impactHiddenFromEmployees": "This {{locationName}} will be hidden from lists for employees (only owners/administrators will be able to see it)",
+      "impactNoReplenishment": "No replenishment requests can be created from this shop",
+      "stockPreserved": "Stock remains associated with this location and will always be visible to owners"
+    },
+    "inactive": "Inactive",
+    "activate": "Activate",
+    "deactivate": "Deactivate",
     "messages": {
       "nameRequired": "Shop name is required",
       "userNotAuthenticated": "User not authenticated",
@@ -2555,7 +2580,10 @@
       "updateSuccess": "Shop updated successfully",
       "updateError": "Error updating shop",
       "deleteSuccess": "Shop deleted successfully",
-      "deleteError": "Error deleting shop"
+      "deleteError": "Error deleting shop",
+      "activateSuccess": "Shop {{name}} has been activated successfully",
+      "deactivateSuccess": "Shop {{name}} has been deactivated successfully",
+      "toggleActiveError": "Error toggling shop active status"
     }
   }
 } 

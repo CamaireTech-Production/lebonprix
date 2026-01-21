@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Plus, Edit2, Trash2, MapPin, Store, Users, Badge as BadgeIcon, Search, UserCheck, Eye } from 'lucide-react';
+import { Plus, Edit2, Trash2, MapPin, Store, Users, Badge as BadgeIcon, Search, UserCheck, Eye, Power, PowerOff } from 'lucide-react';
 import { Card, Button, Badge, Modal, ModalFooter, Input, Textarea, Table, LoadingScreen } from '@components/common';
 import { useShops } from '@hooks/data/useFirestore';
 import { useAuth } from '@contexts/AuthContext';
@@ -15,14 +15,16 @@ import { updateShopUsers } from '@services/firestore/shops/shopService';
 import { getAccessibleLocations } from '@utils/permissions/locationAccess';
 import LocationTransfersModal from '@components/stock/LocationTransfersModal';
 import { ArrowRight } from 'lucide-react';
+import ToggleActiveModal from '@components/shops/ToggleActiveModal';
 
 const Shops = () => {
   const { t } = useTranslation();
   const { companyId } = useParams<{ companyId: string }>();
   const navigate = useNavigate();
   const { shops, loading, error, addShop, updateShop, deleteShop } = useShops();
-  const { user, company } = useAuth();
+  const { user, company, isOwner, effectiveRole } = useAuth();
   const { canEdit, canDelete } = usePermissionCheck(RESOURCES.SHOPS);
+  const isActualOwner = isOwner || effectiveRole === 'owner';
 
   // Modal states
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -32,6 +34,9 @@ const Shops = () => {
   const [selectedShopForAssignment, setSelectedShopForAssignment] = useState<Shop | null>(null);
   const [isTransfersModalOpen, setIsTransfersModalOpen] = useState(false);
   const [selectedShopForTransfers, setSelectedShopForTransfers] = useState<Shop | null>(null);
+  const [isToggleActiveModalOpen, setIsToggleActiveModalOpen] = useState(false);
+  const [selectedShopForToggle, setSelectedShopForToggle] = useState<Shop | null>(null);
+  const [isTogglingActive, setIsTogglingActive] = useState(false);
   
   // Form states
   const [currentShop, setCurrentShop] = useState<Shop | null>(null);
@@ -102,12 +107,17 @@ const Shops = () => {
     };
   }, [shops, company?.id]);
 
-  // Filter shops by permissions and search
+  // Filter shops by permissions, active status, and search
   const filteredShops = useMemo(() => {
     if (!user || !company) return [];
     
     // Filter by permissions (only show shops user can access)
-    const accessibleShops = getAccessibleLocations(user, shops, 'read');
+    let accessibleShops = getAccessibleLocations(user, shops, 'read');
+    
+    // Filter inactive shops for employees (owners/admins can see all)
+    if (!isActualOwner) {
+      accessibleShops = accessibleShops.filter(shop => shop.isActive !== false);
+    }
     
     // Filter by search query
     if (!searchQuery) return accessibleShops;
@@ -118,7 +128,7 @@ const Shops = () => {
       (shop.location && shop.location.toLowerCase().includes(query)) ||
       (shop.address && shop.address.toLowerCase().includes(query))
     );
-  }, [shops, searchQuery, user, company]);
+  }, [shops, searchQuery, user, company, isActualOwner]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -267,6 +277,32 @@ const Shops = () => {
     }
   };
 
+  const handleToggleActive = async () => {
+    if (!selectedShopForToggle || !user || !company) {
+      showErrorToast(t('shops.messages.missingData'));
+      return;
+    }
+
+    setIsTogglingActive(true);
+    try {
+      const newActiveStatus = !selectedShopForToggle.isActive;
+      await updateShop(selectedShopForToggle.id, { isActive: newActiveStatus });
+      showSuccessToast(
+        newActiveStatus
+          ? t('shops.messages.activateSuccess', { name: selectedShopForToggle.name })
+          : t('shops.messages.deactivateSuccess', { name: selectedShopForToggle.name })
+      );
+      setIsToggleActiveModalOpen(false);
+      setSelectedShopForToggle(null);
+    } catch (error: any) {
+      const errorMessage = error.message || t('shops.messages.toggleActiveError');
+      showErrorToast(errorMessage);
+      console.error('Error toggling shop active status:', error);
+    } finally {
+      setIsTogglingActive(false);
+    }
+  };
+
   if (loading) {
     return <LoadingScreen />;
   }
@@ -367,6 +403,11 @@ const Shops = () => {
                       {t('shops.default')}
                     </Badge>
                   )}
+                  {shop.isActive === false && (
+                    <Badge variant="warning" className="text-xs">
+                      {t('shops.inactive', 'Désactivé')}
+                    </Badge>
+                  )}
                 </div>
                 <div className="flex gap-1">
                   {canEdit && (
@@ -374,9 +415,8 @@ const Shops = () => {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => {
-                          // Empêcher la navigation vers le détail
-                          event?.stopPropagation();
+                        onClick={(event) => {
+                          event.stopPropagation();
                           setSelectedShopForAssignment(shop);
                           setIsAssignUsersModalOpen(true);
                         }}
@@ -395,6 +435,27 @@ const Shops = () => {
                         className="h-8 w-8 p-0"
                       >
                         <Edit2 size={16} />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setSelectedShopForToggle(shop);
+                          setIsToggleActiveModalOpen(true);
+                        }}
+                        className={`h-8 w-8 p-0 ${
+                          shop.isActive === false
+                            ? 'text-green-600 hover:text-green-700'
+                            : 'text-yellow-600 hover:text-yellow-700'
+                        }`}
+                        title={
+                          shop.isActive === false
+                            ? t('shops.activate', 'Activer')
+                            : t('shops.deactivate', 'Désactiver')
+                        }
+                      >
+                        {shop.isActive === false ? <Power size={16} /> : <PowerOff size={16} />}
                       </Button>
                     </>
                   )}
@@ -662,6 +723,22 @@ const Shops = () => {
             );
             // Refresh shops list will happen automatically via subscription
           }}
+        />
+      )}
+
+      {/* Toggle Active Modal */}
+      {selectedShopForToggle && (
+        <ToggleActiveModal
+          isOpen={isToggleActiveModalOpen}
+          onClose={() => {
+            setIsToggleActiveModalOpen(false);
+            setSelectedShopForToggle(null);
+          }}
+          onConfirm={handleToggleActive}
+          location={selectedShopForToggle}
+          locationType="shop"
+          isActivating={selectedShopForToggle.isActive === false}
+          isLoading={isTogglingActive}
         />
       )}
     </div>

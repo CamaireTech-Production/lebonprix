@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Plus, Edit2, Trash2, MapPin, Warehouse as WarehouseIcon, Package, Search, UserCheck, Eye, Users } from 'lucide-react';
+import { Plus, Edit2, Trash2, MapPin, Warehouse as WarehouseIcon, Package, Search, UserCheck, Eye, Users, Power, PowerOff } from 'lucide-react';
 import { Card, Button, Badge, Modal, ModalFooter, Input, Textarea, LoadingScreen } from '@components/common';
 import { useWarehouses } from '@hooks/data/useFirestore';
 import { useAuth } from '@contexts/AuthContext';
@@ -12,18 +12,19 @@ import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate } from 'react-router-dom';
 import LocationTransfersModal from '@components/stock/LocationTransfersModal';
 import { ArrowRight } from 'lucide-react';
-import { useNavigate, useParams } from 'react-router-dom';
 import AssignUsersModal from '@components/shops/AssignUsersModal';
 import { updateWarehouseUsers } from '@services/firestore/warehouse/warehouseService';
 import { getAccessibleLocations } from '@utils/permissions/locationAccess';
+import ToggleActiveModal from '@components/shops/ToggleActiveModal';
 
 const Warehouse = () => {
   const { t } = useTranslation();
   const { warehouses, loading, error, addWarehouse, updateWarehouse, deleteWarehouse } = useWarehouses();
-  const { user, company } = useAuth();
+  const { user, company, isOwner, effectiveRole } = useAuth();
   const { canEdit, canDelete } = usePermissionCheck(RESOURCES.WAREHOUSE);
   const navigate = useNavigate();
   const { companyId } = useParams<{ companyId: string }>();
+  const isActualOwner = isOwner || effectiveRole === 'owner';
 
   // Modal states
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -31,6 +32,9 @@ const Warehouse = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isAssignUsersModalOpen, setIsAssignUsersModalOpen] = useState(false);
   const [selectedWarehouseForAssignment, setSelectedWarehouseForAssignment] = useState<Warehouse | null>(null);
+  const [isToggleActiveModalOpen, setIsToggleActiveModalOpen] = useState(false);
+  const [selectedWarehouseForToggle, setSelectedWarehouseForToggle] = useState<Warehouse | null>(null);
+  const [isTogglingActive, setIsTogglingActive] = useState(false);
   
   // Form states
   const [currentWarehouse, setCurrentWarehouse] = useState<Warehouse | null>(null);
@@ -99,12 +103,17 @@ const Warehouse = () => {
     };
   }, [warehouses, company?.id]);
 
-  // Filter warehouses by permissions and search
+  // Filter warehouses by permissions, active status, and search
   const filteredWarehouses = useMemo(() => {
     if (!user || !company) return [];
     
     // Filter by permissions (only show warehouses user can access)
-    const accessibleWarehouses = getAccessibleLocations(user, warehouses, 'read');
+    let accessibleWarehouses = getAccessibleLocations(user, warehouses, 'read');
+    
+    // Filter inactive warehouses for employees (owners/admins can see all)
+    if (!isActualOwner) {
+      accessibleWarehouses = accessibleWarehouses.filter(warehouse => warehouse.isActive !== false);
+    }
     
     // Filter by search query
     if (!searchQuery) return accessibleWarehouses;
@@ -115,7 +124,7 @@ const Warehouse = () => {
       (warehouse.location && warehouse.location.toLowerCase().includes(query)) ||
       (warehouse.address && warehouse.address.toLowerCase().includes(query))
     );
-  }, [warehouses, searchQuery, user, company]);
+  }, [warehouses, searchQuery, user, company, isActualOwner]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -240,6 +249,32 @@ const Warehouse = () => {
     }
   };
 
+  const handleToggleActive = async () => {
+    if (!selectedWarehouseForToggle || !user || !company) {
+      showErrorToast(t('warehouse.messages.missingData'));
+      return;
+    }
+
+    setIsTogglingActive(true);
+    try {
+      const newActiveStatus = !selectedWarehouseForToggle.isActive;
+      await updateWarehouse(selectedWarehouseForToggle.id, { isActive: newActiveStatus }, company.id);
+      showSuccessToast(
+        newActiveStatus
+          ? t('warehouse.messages.activateSuccess', { name: selectedWarehouseForToggle.name })
+          : t('warehouse.messages.deactivateSuccess', { name: selectedWarehouseForToggle.name })
+      );
+      setIsToggleActiveModalOpen(false);
+      setSelectedWarehouseForToggle(null);
+    } catch (error: any) {
+      const errorMessage = error.message || t('warehouse.messages.toggleActiveError');
+      showErrorToast(errorMessage);
+      console.error('Error toggling warehouse active status:', error);
+    } finally {
+      setIsTogglingActive(false);
+    }
+  };
+
   if (loading) {
     return <LoadingScreen />;
   }
@@ -340,6 +375,11 @@ const Warehouse = () => {
                       {t('warehouse.default')}
                     </Badge>
                   )}
+                  {warehouse.isActive === false && (
+                    <Badge variant="warning" className="text-xs">
+                      {t('warehouse.inactive', 'Désactivé')}
+                    </Badge>
+                  )}
                 </div>
                 <div className="flex gap-1">
                   {canEdit && (
@@ -367,6 +407,27 @@ const Warehouse = () => {
                         className="h-8 w-8 p-0"
                       >
                         <Edit2 size={16} />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setSelectedWarehouseForToggle(warehouse);
+                          setIsToggleActiveModalOpen(true);
+                        }}
+                        className={`h-8 w-8 p-0 ${
+                          warehouse.isActive === false
+                            ? 'text-green-600 hover:text-green-700'
+                            : 'text-yellow-600 hover:text-yellow-700'
+                        }`}
+                        title={
+                          warehouse.isActive === false
+                            ? t('warehouse.activate', 'Activer')
+                            : t('warehouse.deactivate', 'Désactiver')
+                        }
+                      >
+                        {warehouse.isActive === false ? <Power size={16} /> : <PowerOff size={16} />}
                       </Button>
                     </>
                   )}
@@ -592,6 +653,22 @@ const Warehouse = () => {
             );
             // Refresh warehouses list will happen automatically via subscription
           }}
+        />
+      )}
+
+      {/* Toggle Active Modal */}
+      {selectedWarehouseForToggle && (
+        <ToggleActiveModal
+          isOpen={isToggleActiveModalOpen}
+          onClose={() => {
+            setIsToggleActiveModalOpen(false);
+            setSelectedWarehouseForToggle(null);
+          }}
+          onConfirm={handleToggleActive}
+          location={selectedWarehouseForToggle}
+          locationType="warehouse"
+          isActivating={selectedWarehouseForToggle.isActive === false}
+          isLoading={isTogglingActive}
         />
       )}
     </div>
