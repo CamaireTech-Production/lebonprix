@@ -325,9 +325,8 @@ const Shops = () => {
                 navigate(`/company/${cid}/stock-transfers`);
               }
             }}
-            className="flex items-center gap-2"
+            icon={<ArrowRight size={20} />}
           >
-            <ArrowRight size={20} />
             <span className="hidden sm:inline">Transferts</span>
             <span className="sm:hidden">Trans.</span>
           </PermissionButton>
@@ -335,9 +334,8 @@ const Shops = () => {
             resource={RESOURCES.SHOPS}
             action="create"
             onClick={openAddModal}
-            className="flex items-center gap-2"
+            icon={<Plus size={20} />}
           >
-            <Plus size={20} />
             <span className="hidden sm:inline">{t('shops.newShop')}</span>
             <span className="sm:hidden">{t('shops.new')}</span>
           </PermissionButton>
@@ -375,8 +373,8 @@ const Shops = () => {
               resource={RESOURCES.SHOPS}
               action="create"
               onClick={openAddModal}
+              icon={<Plus size={20} />}
             >
-              <Plus size={20} className="mr-2" />
               {t('shops.createShop')}
             </PermissionButton>
           )}

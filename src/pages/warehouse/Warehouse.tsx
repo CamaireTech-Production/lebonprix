@@ -297,9 +297,8 @@ const Warehouse = () => {
                 navigate(`/company/${cid}/stock-transfers`);
               }
             }}
-            className="flex items-center gap-2"
+            icon={<ArrowRight size={20} />}
           >
-            <ArrowRight size={20} />
             <span className="hidden sm:inline">Transferts</span>
             <span className="sm:hidden">Trans.</span>
           </PermissionButton>
@@ -307,9 +306,8 @@ const Warehouse = () => {
             resource={RESOURCES.WAREHOUSE}
             action="create"
             onClick={openAddModal}
-            className="flex items-center gap-2"
+            icon={<Plus size={20} />}
           >
-            <Plus size={20} />
             <span className="hidden sm:inline">{t('warehouse.newWarehouse')}</span>
             <span className="sm:hidden">{t('warehouse.new')}</span>
           </PermissionButton>
@@ -347,8 +345,8 @@ const Warehouse = () => {
               resource={RESOURCES.WAREHOUSE}
               action="create"
               onClick={openAddModal}
+              icon={<Plus size={20} />}
             >
-              <Plus size={20} className="mr-2" />
               {t('warehouse.createWarehouse')}
             </PermissionButton>
           )}

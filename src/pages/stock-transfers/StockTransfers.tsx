@@ -174,9 +174,8 @@ const StockTransfers = () => {
           resource={RESOURCES.PRODUCTS}
           action="create"
           onClick={() => setIsTransferModalOpen(true)}
-          className="flex items-center gap-2"
+          icon={<Plus size={20} />}
         >
-          <Plus size={20} />
           <span className="hidden sm:inline">Nouveau Transfert</span>
           <span className="sm:hidden">Nouveau</span>
         </PermissionButton>
@@ -315,8 +314,8 @@ const StockTransfers = () => {
               resource={RESOURCES.PRODUCTS}
               action="create"
               onClick={() => setIsTransferModalOpen(true)}
+              icon={<Plus size={20} />}
             >
-              <Plus size={20} className="mr-2" />
               Créer un transfert
             </PermissionButton>
           )}

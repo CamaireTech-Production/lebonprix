@@ -34,7 +34,7 @@ const Button = ({
     };
     return colors;
   };
-  const baseClasses = 'inline-flex items-center justify-center rounded-md font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2';
+  const baseClasses = 'inline-flex items-center justify-center gap-2 rounded-md font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2';
   
   const colors = getCompanyColors();
   
@@ -51,12 +51,19 @@ const Button = ({
     lg: 'text-lg px-6 py-3'
   };
   
+  // Remove any conflicting flex-direction classes from className to ensure horizontal alignment
+  const cleanClassName = className
+    .split(' ')
+    .filter(cls => !cls.includes('flex-col') && !cls.includes('flex-row'))
+    .join(' ');
+  
   const classes = [
     baseClasses,
     variantClasses[variant],
     sizeClasses[size],
     disabled || isLoading ? 'opacity-70 cursor-not-allowed' : '',
-    className
+    cleanClassName,
+    'flex-row' // Always ensure flex-row is applied last to override any conflicts
   ].join(' ');
 
   // Get button style based on variant
@@ -86,13 +93,13 @@ const Button = ({
     >
       {isLoading ? (
         <>
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          <span>{loadingText || children}</span>
+          <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" />
+          <span className="whitespace-nowrap">{loadingText || children}</span>
         </>
       ) : (
         <>
-          {icon && <span className="mr-2">{icon}</span>}
-          <span>{children}</span>
+          {icon && <span className="flex-shrink-0 flex items-center">{icon}</span>}
+          <span className="whitespace-nowrap">{children}</span>
         </>
       )}
     </button>

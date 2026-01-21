@@ -126,9 +126,8 @@ const LocationTransfersModal: React.FC<LocationTransfersModalProps> = ({
             </p>
             <Button
               onClick={() => setIsCreateModalOpen(true)}
-              className="flex items-center gap-2"
+              icon={<Plus size={16} />}
             >
-              <Plus size={16} />
               Nouveau transfert
             </Button>
           </div>
