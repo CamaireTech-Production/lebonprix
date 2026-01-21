@@ -304,5 +304,3 @@ const ShopDetail: React.FC = () => {
 };
 
 export default ShopDetail;
-*** End Patch ***!
-

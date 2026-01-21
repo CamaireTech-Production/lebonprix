@@ -256,5 +256,3 @@ const WarehouseDetail: React.FC = () => {
 };
 
 export default WarehouseDetail;
-*** End Patch ***!
-
