@@ -113,8 +113,8 @@ const ShopDetail: React.FC = () => {
           variant="ghost"
           className="mb-4"
           onClick={() => navigate(-1)}
+          icon={<ArrowLeft className="h-4 w-4" />}
         >
-          <ArrowLeft className="h-4 w-4 mr-2" />
           Retour
         </Button>
         <Card className="p-4">
@@ -131,8 +131,8 @@ const ShopDetail: React.FC = () => {
           <Button
             variant="ghost"
             onClick={() => navigate(`/company/${companyId || company?.id}/shops`)}
+            icon={<ArrowLeft className="h-4 w-4" />}
           >
-            <ArrowLeft className="h-4 w-4 mr-2" />
             {t('shops.backToList', 'Retour aux boutiques')}
           </Button>
         </div>
@@ -142,9 +142,8 @@ const ShopDetail: React.FC = () => {
             action="create"
             onClick={() => setIsReplenishmentModalOpen(true)}
             disabled={shop?.isActive === false}
-            className="flex items-center gap-2"
+            icon={<ShoppingCart size={16} />}
           >
-            <ShoppingCart size={16} />
             {t('replenishmentRequests.requestReplenishment', 'Demander réapprovisionnement')}
           </PermissionButton>
         </div>

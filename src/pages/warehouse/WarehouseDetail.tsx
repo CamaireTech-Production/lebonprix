@@ -96,8 +96,8 @@ const WarehouseDetail: React.FC = () => {
           variant="ghost"
           className="mb-4"
           onClick={() => navigate(-1)}
+          icon={<ArrowLeft className="h-4 w-4" />}
         >
-          <ArrowLeft className="h-4 w-4 mr-2" />
           Retour
         </Button>
         <Card className="p-4">
@@ -114,8 +114,8 @@ const WarehouseDetail: React.FC = () => {
           <Button
             variant="ghost"
             onClick={() => navigate(`/company/${companyId || company?.id}/warehouse`)}
+            icon={<ArrowLeft className="h-4 w-4" />}
           >
-            <ArrowLeft className="h-4 w-4 mr-2" />
             {t('warehouse.backToList', 'Retour aux entrepôts')}
           </Button>
         </div>
