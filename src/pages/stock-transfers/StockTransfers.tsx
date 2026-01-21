@@ -27,6 +27,10 @@ const StockTransfers = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<StockTransfer['transferType'] | 'all'>('all');
   const [filterStatus, setFilterStatus] = useState<StockTransfer['status'] | 'all'>('all');
+  const [filterShopId, setFilterShopId] = useState<string | 'all'>('all');
+  const [filterWarehouseId, setFilterWarehouseId] = useState<string | 'all'>('all');
+  const [filterDateFrom, setFilterDateFrom] = useState<string>('');
+  const [filterDateTo, setFilterDateTo] = useState<string>('');
 
   // Filter transfers
   const filteredTransfers = useMemo(() => {
@@ -51,8 +55,42 @@ const StockTransfers = () => {
       result = result.filter(transfer => transfer.status === filterStatus);
     }
 
+    // Filter by shop
+    if (filterShopId !== 'all') {
+      result = result.filter(transfer => 
+        transfer.fromShopId === filterShopId || transfer.toShopId === filterShopId
+      );
+    }
+
+    // Filter by warehouse
+    if (filterWarehouseId !== 'all') {
+      result = result.filter(transfer => 
+        transfer.fromWarehouseId === filterWarehouseId || transfer.toWarehouseId === filterWarehouseId
+      );
+    }
+
+    // Filter by date range
+    if (filterDateFrom) {
+      const fromDate = new Date(filterDateFrom);
+      result = result.filter(transfer => {
+        if (!transfer.createdAt?.seconds) return false;
+        const transferDate = new Date(transfer.createdAt.seconds * 1000);
+        return transferDate >= fromDate;
+      });
+    }
+
+    if (filterDateTo) {
+      const toDate = new Date(filterDateTo);
+      toDate.setHours(23, 59, 59, 999); // End of day
+      result = result.filter(transfer => {
+        if (!transfer.createdAt?.seconds) return false;
+        const transferDate = new Date(transfer.createdAt.seconds * 1000);
+        return transferDate <= toDate;
+      });
+    }
+
     return result;
-  }, [transfers, searchQuery, filterType, filterStatus, products]);
+  }, [transfers, searchQuery, filterType, filterStatus, filterShopId, filterWarehouseId, filterDateFrom, filterDateTo, products]);
 
   const handleCreateTransfer = async (transferData: {
     transferType: StockTransfer['transferType'];
@@ -192,7 +230,8 @@ const StockTransfers = () => {
         </div>
 
         {/* Active Filters */}
-        {(searchQuery || filterType !== 'all' || filterStatus !== 'all') && (
+        {(searchQuery || filterType !== 'all' || filterStatus !== 'all' || 
+          filterShopId !== 'all' || filterWarehouseId !== 'all' || filterDateFrom || filterDateTo) && (
           <div className="flex flex-wrap gap-2 mt-4">
             {searchQuery && (
               <Badge variant="default" className="flex items-center gap-1">
@@ -214,6 +253,38 @@ const StockTransfers = () => {
               <Badge variant="default" className="flex items-center gap-1">
                 Statut: {filterStatus}
                 <button onClick={() => setFilterStatus('all')} className="ml-1">
+                  <X size={14} />
+                </button>
+              </Badge>
+            )}
+            {filterShopId !== 'all' && (
+              <Badge variant="default" className="flex items-center gap-1">
+                Boutique: {shops?.find(s => s.id === filterShopId)?.name || filterShopId}
+                <button onClick={() => setFilterShopId('all')} className="ml-1">
+                  <X size={14} />
+                </button>
+              </Badge>
+            )}
+            {filterWarehouseId !== 'all' && (
+              <Badge variant="default" className="flex items-center gap-1">
+                Entrepôt: {warehouses?.find(w => w.id === filterWarehouseId)?.name || filterWarehouseId}
+                <button onClick={() => setFilterWarehouseId('all')} className="ml-1">
+                  <X size={14} />
+                </button>
+              </Badge>
+            )}
+            {filterDateFrom && (
+              <Badge variant="default" className="flex items-center gap-1">
+                Du: {filterDateFrom}
+                <button onClick={() => setFilterDateFrom('')} className="ml-1">
+                  <X size={14} />
+                </button>
+              </Badge>
+            )}
+            {filterDateTo && (
+              <Badge variant="default" className="flex items-center gap-1">
+                Au: {filterDateTo}
+                <button onClick={() => setFilterDateTo('')} className="ml-1">
                   <X size={14} />
                 </button>
               </Badge>

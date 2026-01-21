@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, Link, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, ShoppingCart, DollarSign, Package2, FileBarChart, Settings, X, Receipt, Users, Building2, Plus, Grid3X3, ShoppingBag, UserCheck, ChevronDown, ChevronRight, Loader2, Phone, ScanLine, Warehouse, Factory, Globe, Shield, Briefcase, Store, Package } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, DollarSign, Package2, FileBarChart, Settings, X, Receipt, Users, Building2, Plus, Grid3X3, ShoppingBag, UserCheck, ChevronDown, ChevronRight, Loader2, Phone, ScanLine, Warehouse, Factory, Globe, Shield, Briefcase, Store, Package, ArrowRight } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useRolePermissions } from '../../hooks/business/useRolePermissions';
 import UserAvatar from '../common/UserAvatar';
@@ -207,6 +207,12 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
       path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/shops` : '/shops',
       icon: <Store size={20} />,
       resource: RESOURCES.SHOPS
+    },
+    {
+      name: t('navigation.stockTransfers', 'Transferts de stock'),
+      path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/stock-transfers` : '/stock-transfers',
+      icon: <ArrowRight size={20} />,
+      resource: RESOURCES.PRODUCTS
     },
     { name: t('navigation.suppliers'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/suppliers` : '/suppliers', icon: <Users size={20} />, resource: RESOURCES.SUPPLIERS },
     {

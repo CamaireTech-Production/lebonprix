@@ -9,6 +9,9 @@ import { RESOURCES } from '@constants/resources';
 import type { Warehouse } from '../../types/models';
 import { getStockBatchesByLocation } from '@services/firestore/stock/stockService';
 import { useTranslation } from 'react-i18next';
+import { useParams, useNavigate } from 'react-router-dom';
+import LocationTransfersModal from '@components/stock/LocationTransfersModal';
+import { ArrowRight } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import AssignUsersModal from '@components/shops/AssignUsersModal';
 import { updateWarehouseUsers } from '@services/firestore/warehouse/warehouseService';
@@ -249,16 +252,33 @@ const Warehouse = () => {
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{t('warehouse.title')}</h1>
           <p className="text-gray-600 mt-1">{t('warehouse.subtitle')}</p>
         </div>
-        <PermissionButton
-          resource={RESOURCES.WAREHOUSE}
-          action="create"
-          onClick={openAddModal}
-          className="flex items-center gap-2"
-        >
-          <Plus size={20} />
-          <span className="hidden sm:inline">{t('warehouse.newWarehouse')}</span>
-          <span className="sm:hidden">{t('warehouse.new')}</span>
-        </PermissionButton>
+        <div className="flex gap-2">
+          <PermissionButton
+            resource={RESOURCES.PRODUCTS}
+            action="create"
+            onClick={() => {
+              const cid = companyId || company?.id;
+              if (cid) {
+                navigate(`/company/${cid}/stock-transfers`);
+              }
+            }}
+            className="flex items-center gap-2"
+          >
+            <ArrowRight size={20} />
+            <span className="hidden sm:inline">Transferts</span>
+            <span className="sm:hidden">Trans.</span>
+          </PermissionButton>
+          <PermissionButton
+            resource={RESOURCES.WAREHOUSE}
+            action="create"
+            onClick={openAddModal}
+            className="flex items-center gap-2"
+          >
+            <Plus size={20} />
+            <span className="hidden sm:inline">{t('warehouse.newWarehouse')}</span>
+            <span className="sm:hidden">{t('warehouse.new')}</span>
+          </PermissionButton>
+        </div>
       </div>
 
       {/* Search */}

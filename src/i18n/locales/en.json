@@ -73,6 +73,7 @@
     "magasinMatiere": "Raw Materials",
     "warehouseProducts": "Product Warehouse",
     "shops": "Shops",
+    "stockTransfers": "Stock Transfers",
     "contacts": "Contacts",
     "hrManagement": "HR Management",
     "permissionsManagement": "Permissions & Invitations",

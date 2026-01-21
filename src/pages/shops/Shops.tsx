@@ -13,14 +13,16 @@ import { useNavigate, useParams } from 'react-router-dom';
 import AssignUsersModal from '@components/shops/AssignUsersModal';
 import { updateShopUsers } from '@services/firestore/shops/shopService';
 import { getAccessibleLocations } from '@utils/permissions/locationAccess';
+import LocationTransfersModal from '@components/stock/LocationTransfersModal';
+import { ArrowRight } from 'lucide-react';
 
 const Shops = () => {
   const { t } = useTranslation();
+  const { companyId } = useParams<{ companyId: string }>();
+  const navigate = useNavigate();
   const { shops, loading, error, addShop, updateShop, deleteShop } = useShops();
   const { user, company } = useAuth();
   const { canEdit, canDelete } = usePermissionCheck(RESOURCES.SHOPS);
-  const navigate = useNavigate();
-  const { companyId } = useParams<{ companyId: string }>();
 
   // Modal states
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -28,6 +30,8 @@ const Shops = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isAssignUsersModalOpen, setIsAssignUsersModalOpen] = useState(false);
   const [selectedShopForAssignment, setSelectedShopForAssignment] = useState<Shop | null>(null);
+  const [isTransfersModalOpen, setIsTransfersModalOpen] = useState(false);
+  const [selectedShopForTransfers, setSelectedShopForTransfers] = useState<Shop | null>(null);
   
   // Form states
   const [currentShop, setCurrentShop] = useState<Shop | null>(null);
@@ -275,16 +279,33 @@ const Shops = () => {
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{t('shops.title')}</h1>
           <p className="text-gray-600 mt-1">{t('shops.subtitle')}</p>
         </div>
-        <PermissionButton
-          resource={RESOURCES.SHOPS}
-          action="create"
-          onClick={openAddModal}
-          className="flex items-center gap-2"
-        >
-          <Plus size={20} />
-          <span className="hidden sm:inline">{t('shops.newShop')}</span>
-          <span className="sm:hidden">{t('shops.new')}</span>
-        </PermissionButton>
+        <div className="flex gap-2">
+          <PermissionButton
+            resource={RESOURCES.PRODUCTS}
+            action="create"
+            onClick={() => {
+              const cid = companyId || company?.id;
+              if (cid) {
+                navigate(`/company/${cid}/stock-transfers`);
+              }
+            }}
+            className="flex items-center gap-2"
+          >
+            <ArrowRight size={20} />
+            <span className="hidden sm:inline">Transferts</span>
+            <span className="sm:hidden">Trans.</span>
+          </PermissionButton>
+          <PermissionButton
+            resource={RESOURCES.SHOPS}
+            action="create"
+            onClick={openAddModal}
+            className="flex items-center gap-2"
+          >
+            <Plus size={20} />
+            <span className="hidden sm:inline">{t('shops.newShop')}</span>
+            <span className="sm:hidden">{t('shops.new')}</span>
+          </PermissionButton>
+        </div>
       </div>
 
       {/* Search */}

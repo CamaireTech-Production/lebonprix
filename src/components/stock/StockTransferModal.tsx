@@ -164,20 +164,50 @@ const StockTransferModal: React.FC<StockTransferModalProps> = ({
       }
       if (!formData.toWarehouseId) {
         errors.push('L\'entrepôt de destination est requis');
+      } else {
+        // Validate destination warehouse is active
+        const destWarehouse = warehouses?.find(w => w.id === formData.toWarehouseId);
+        if (destWarehouse && destWarehouse.isActive === false) {
+          errors.push('L\'entrepôt de destination est désactivé');
+        }
       }
     } else if (formData.transferType === 'warehouse_to_shop') {
       if (!formData.fromWarehouseId) {
         errors.push('L\'entrepôt source est requis');
+      } else {
+        // Validate source warehouse is active
+        const sourceWarehouse = warehouses?.find(w => w.id === formData.fromWarehouseId);
+        if (sourceWarehouse && sourceWarehouse.isActive === false) {
+          errors.push('L\'entrepôt source est désactivé');
+        }
       }
       if (!formData.toShopId) {
         errors.push('Le magasin de destination est requis');
+      } else {
+        // Validate destination shop is active
+        const destShop = shops?.find(s => s.id === formData.toShopId);
+        if (destShop && destShop.isActive === false) {
+          errors.push('Le magasin de destination est désactivé');
+        }
       }
     } else if (formData.transferType === 'warehouse_to_warehouse') {
       if (!formData.fromWarehouseId) {
         errors.push('L\'entrepôt source est requis');
+      } else {
+        // Validate source warehouse is active
+        const sourceWarehouse = warehouses?.find(w => w.id === formData.fromWarehouseId);
+        if (sourceWarehouse && sourceWarehouse.isActive === false) {
+          errors.push('L\'entrepôt source est désactivé');
+        }
       }
       if (!formData.toWarehouseId) {
         errors.push('L\'entrepôt de destination est requis');
+      } else {
+        // Validate destination warehouse is active
+        const destWarehouse = warehouses?.find(w => w.id === formData.toWarehouseId);
+        if (destWarehouse && destWarehouse.isActive === false) {
+          errors.push('L\'entrepôt de destination est désactivé');
+        }
       }
       if (formData.fromWarehouseId === formData.toWarehouseId) {
         errors.push('L\'entrepôt source et de destination doivent être différents');
@@ -185,9 +215,21 @@ const StockTransferModal: React.FC<StockTransferModalProps> = ({
     } else if (formData.transferType === 'shop_to_shop') {
       if (!formData.fromShopId) {
         errors.push('Le magasin source est requis');
+      } else {
+        // Validate source shop is active
+        const sourceShop = shops?.find(s => s.id === formData.fromShopId);
+        if (sourceShop && sourceShop.isActive === false) {
+          errors.push('Le magasin source est désactivé');
+        }
       }
       if (!formData.toShopId) {
         errors.push('Le magasin de destination est requis');
+      } else {
+        // Validate destination shop is active
+        const destShop = shops?.find(s => s.id === formData.toShopId);
+        if (destShop && destShop.isActive === false) {
+          errors.push('Le magasin de destination est désactivé');
+        }
       }
       if (formData.fromShopId === formData.toShopId) {
         errors.push('Le magasin source et de destination doivent être différents');
@@ -244,20 +286,24 @@ const StockTransferModal: React.FC<StockTransferModalProps> = ({
       }));
   }, [products]);
 
-  // Shop options
+  // Shop options - filter out inactive shops
   const shopOptions = useMemo(() => {
-    return (shops || []).map(shop => ({
-      label: shop.name,
-      value: shop.id
-    }));
+    return (shops || [])
+      .filter(shop => shop.isActive !== false) // Only active shops
+      .map(shop => ({
+        label: shop.name,
+        value: shop.id
+      }));
   }, [shops]);
 
-  // Warehouse options
+  // Warehouse options - filter out inactive warehouses
   const warehouseOptions = useMemo(() => {
-    return (warehouses || []).map(warehouse => ({
-      label: warehouse.name,
-      value: warehouse.id
-    }));
+    return (warehouses || [])
+      .filter(warehouse => warehouse.isActive !== false) // Only active warehouses
+      .map(warehouse => ({
+        label: warehouse.name,
+        value: warehouse.id
+      }));
   }, [warehouses]);
 
   // Transfer type options
