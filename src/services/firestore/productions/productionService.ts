@@ -659,7 +659,8 @@ export const publishArticle = async (
     isVisible?: boolean;
   },
   selectedChargeIds?: string[], // IDs of charges selected for this article
-  warehouseId?: string // Optional: warehouse to transfer product to
+  warehouseId?: string, // Optional: warehouse to transfer product to
+  shopId?: string // Optional: shop to transfer product to
 ): Promise<import('../../../types/models').Product> => {
   const productionRef = doc(db, COLLECTION_NAME, productionId);
 
@@ -818,7 +819,10 @@ export const publishArticle = async (
         costPrice: productData.costPrice
       },
       createdBy,
-      warehouseId ? {
+      shopId ? {
+        locationType: 'shop',
+        shopId: shopId
+      } : warehouseId ? {
         locationType: 'warehouse',
         warehouseId: warehouseId
       } : undefined
@@ -987,7 +991,7 @@ export const bulkPublishArticles = async (
 
       // Extract selectedChargeIds before passing to publishArticle (remove from productData)
       const { selectedChargeIds: chargeIds, ...productDataWithoutCharges } = productData;
-      const product = await publishArticle(productionId, articleId, companyId, productDataWithoutCharges, chargeIds, warehouseId);
+      const product = await publishArticle(productionId, articleId, companyId, productDataWithoutCharges, chargeIds, warehouseId, shopId);
       results.push({ articleId, product });
     } catch (error: any) {
       errors.push({ articleId, error: error.message || 'Unknown error' });
@@ -1206,7 +1210,8 @@ export const publishProduction = async (
   },
   companyId: string,
   userId: string,
-  warehouseId?: string // Optional: warehouse to transfer product to
+  warehouseId?: string, // Optional: warehouse to transfer product to
+  shopId?: string // Optional: shop to transfer product to
 ): Promise<{ production: Production; product: import('../../../types/models').Product }> => {
   const productionRef = doc(db, COLLECTION_NAME, productionId);
   let productId: string | null = null;
@@ -1381,7 +1386,10 @@ export const publishProduction = async (
         costPrice: productData.costPrice
       },
       createdBy,
-      warehouseId ? {
+      shopId ? {
+        locationType: 'shop',
+        shopId: shopId
+      } : warehouseId ? {
         locationType: 'warehouse',
         warehouseId: warehouseId
       } : undefined

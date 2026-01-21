@@ -3,8 +3,9 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { AlertTriangle, Package, ChevronDown, ChevronUp } from 'lucide-react';
 import { Modal, ModalFooter, PriceInput } from '@components/common';
 import { useAuth } from '@contexts/AuthContext';
-import { useProductCategories, useWarehouses } from '@hooks/data/useFirestore';
+import { useProductCategories, useWarehouses, useShops } from '@hooks/data/useFirestore';
 import { useMatiereStocks } from '@hooks/business/useMatiereStocks';
+import { getDefaultShop } from '@services/firestore/shops/shopService';
 import { showSuccessToast, showErrorToast, showWarningToast } from '@utils/core/toast';
 import { formatPrice } from '@utils/formatting/formatPrice';
 import { calculateMaterialsForArticleFromProduction } from '@utils/productions/materialCalculations';
@@ -26,6 +27,7 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
   const { user, company } = useAuth();
   const { categories } = useProductCategories();
   const { warehouses } = useWarehouses();
+  const { shops } = useShops();
   const { matiereStocks } = useMatiereStocks();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [publishMode, setPublishMode] = useState<'all' | 'selected'>('all'); // 'all' for legacy, 'selected' for articles
@@ -51,6 +53,8 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
     barCode: '',
     isVisible: true,
     validatedCostPrice: '', // Add cost validation field
+    destinationType: 'shop' as 'shop' | 'warehouse', // Type of destination
+    shopId: '', // Shop to transfer products to
     warehouseId: '' // Warehouse to transfer products to
   });
 
@@ -108,16 +112,35 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
       setFieldErrors({});
       
       // Initialize form data
-      setFormData({
-        name: production.name,
-        category: '',
-        sellingPrice: '',
-        cataloguePrice: '',
-        description: production.description || '',
-        barCode: '',
-        isVisible: true,
-        validatedCostPrice: (production.validatedCostPrice || production.calculatedCostPrice || 0).toString()
-      });
+      const initializeFormData = async () => {
+        // Get default shop for default selection
+        let defaultShopId = '';
+        if (company?.id) {
+          try {
+            const defaultShop = await getDefaultShop(company.id);
+            if (defaultShop) {
+              defaultShopId = defaultShop.id;
+            }
+          } catch (error) {
+            console.error('Error loading default shop:', error);
+          }
+        }
+
+        setFormData({
+          name: production.name,
+          category: '',
+          sellingPrice: '',
+          cataloguePrice: '',
+          description: production.description || '',
+          barCode: '',
+          isVisible: true,
+          validatedCostPrice: (production.validatedCostPrice || production.calculatedCostPrice || 0).toString(),
+          destinationType: 'shop',
+          shopId: defaultShopId,
+          warehouseId: ''
+        });
+      };
+      initializeFormData();
 
       // Initialize article form data
       const articleDataMap = new Map<string, any>();
@@ -352,7 +375,8 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
         },
         company.id,
         user.uid,
-        formData.warehouseId || undefined
+        formData.destinationType === 'warehouse' ? formData.warehouseId || undefined : undefined,
+        formData.destinationType === 'shop' ? formData.shopId || undefined : undefined
       );
 
       showSuccessToast('Production publiée avec succès');
