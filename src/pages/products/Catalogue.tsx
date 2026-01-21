@@ -5,7 +5,7 @@ import { getCompanyByUserId } from '@services/firestore/firestore';
 import { subscribeToProducts } from '@services/firestore/products/productService';
 import { subscribeToCategories } from '@services/firestore/categories/categoryService';
 import { trackCatalogueView } from '@services/firestore/site/siteService';
-import { subscribeToShops, getDefaultShop } from '@services/firestore/shops/shopService';
+import { subscribeToShops } from '@services/firestore/shops/shopService';
 import { getAvailableStockBatches } from '@services/firestore/stock/stockService';
 import type { Company, Product, Category, Shop } from '../../types/models';
 import { Search, Package, AlertCircle, MapPin, Plus, Heart, Phone, Store } from 'lucide-react';
@@ -44,16 +44,8 @@ const Catalogue = () => {
     }
   };
 
-  // Handle shop selection change
-  const handleShopChange = (newShopId: string) => {
-    setSelectedShopId(newShopId);
-    // Update URL to shop-specific route if not already on one
-    if (companyId && company?.name) {
-      const companyName = company.name.toLowerCase().replace(/\s+/g, '-');
-      const newPath = `/catalogue/${companyName}/${companyId}/shop/${newShopId}`;
-      navigate(newPath, { replace: true });
-    }
-  };
+  // Note: Shop selection is now handled via URL navigation from sidebar links
+  // No need for handleShopChange function anymore
 
   // Product detail modal functions
   const handleProductClick = (product: Product) => {
@@ -216,46 +208,31 @@ const Catalogue = () => {
     return () => unsubscribe();
   }, [company?.id]);
 
-  // Subscribe to shops
+  // Subscribe to shops (for reference, but no longer used for selection)
   useEffect(() => {
     if (!company?.id) return;
 
     const unsubscribe = subscribeToShops(company.id, (shopsData) => {
       setShops(shopsData);
-      // Auto-select default shop if none selected
-      if (!selectedShopId && shopsData.length > 0) {
-        const defaultShop = shopsData.find(s => s.isDefault) || shopsData[0];
-        if (defaultShop) {
-          setSelectedShopId(defaultShop.id);
-        }
-      }
+      // No longer auto-selecting shop - URL determines the shop
     });
 
     return () => unsubscribe();
-  }, [company?.id, selectedShopId]);
+  }, [company?.id]);
 
-  // Initialize shop from URL or default
+  // Initialize shop from URL - if no shopId in URL, use global catalogue (no shop filter)
   useEffect(() => {
     if (shopId && shopId !== selectedShopId) {
       setSelectedShopId(shopId);
-    } else if (!shopId && company?.id && !selectedShopId) {
-      const initializeDefaultShop = async () => {
-        try {
-          const defaultShop = await getDefaultShop(company.id);
-          if (defaultShop) {
-            setSelectedShopId(defaultShop.id);
-          }
-        } catch (error) {
-          console.error('Error loading default shop', error);
-        }
-      };
-      initializeDefaultShop();
+    } else if (!shopId) {
+      // No shopId in URL means global catalogue - clear selectedShopId
+      setSelectedShopId('');
     }
-  }, [shopId, company?.id, selectedShopId]);
+  }, [shopId, selectedShopId]);
 
-  // Load product stock for selected shop
+  // Load product stock for selected shop (or global if no shopId)
   useEffect(() => {
-    if (!company?.id || !selectedShopId || products.length === 0) {
+    if (!company?.id || products.length === 0) {
       setProductStockMap(new Map());
       return;
     }
@@ -265,14 +242,21 @@ const Catalogue = () => {
       
       for (const product of products) {
         try {
-          const batches = await getAvailableStockBatches(
-            product.id,
-            company.id,
-            'product',
-            selectedShopId,
-            undefined,
-            'shop'
-          );
+          // If shopId is selected, load shop-specific stock; otherwise load global stock
+          const batches = selectedShopId
+            ? await getAvailableStockBatches(
+                product.id,
+                company.id,
+                'product',
+                selectedShopId,
+                undefined,
+                'shop'
+              )
+            : await getAvailableStockBatches(
+                product.id,
+                company.id,
+                'product'
+              );
           const totalStock = batches.reduce((sum, batch) => sum + (batch.remainingQuantity || 0), 0);
           stockMap.set(product.id, totalStock);
         } catch (error) {
@@ -383,7 +367,8 @@ const Catalogue = () => {
       );
     }
 
-    // Apply shop stock filter (only show products with stock in selected shop)
+    // Apply shop stock filter (only show products with stock in selected shop, if shop is selected)
+    // If no shopId (global catalogue), show all products regardless of stock location
     if (selectedShopId) {
       result = result.filter(product => {
         const stock = productStockMap.get(product.id) || 0;
@@ -478,27 +463,8 @@ const Catalogue = () => {
             </div>
           </div>
           
-          {/* Shop Selector and Search Bar */}
+          {/* Search Bar */}
           <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-            {/* Shop Selector - Only show if multiple shops exist */}
-            {shops.length > 1 && (
-              <div className="flex items-center gap-2 bg-white bg-opacity-20 rounded-xl px-4 py-2 backdrop-blur-sm">
-                <Store className="h-5 w-5 text-white" />
-                <select
-                  value={selectedShopId}
-                  onChange={(e) => handleShopChange(e.target.value)}
-                  className="bg-transparent text-white border-none outline-none cursor-pointer text-sm sm:text-base font-medium"
-                  style={{ color: 'white' }}
-                >
-                  {shops.map((shop) => (
-                    <option key={shop.id} value={shop.id} style={{ color: '#000' }}>
-                      {shop.name} {shop.isDefault ? '(Par défaut)' : ''}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-            
             {/* Search Bar */}
             <div className="relative flex-1 max-w-2xl">
               <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-theme-brown" />

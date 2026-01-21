@@ -10,6 +10,7 @@ import CreateCompanyModal from '../modals/CreateCompanyModal';
 import Modal, { ModalFooter } from '../common/Modal';
 import { RESOURCES } from '../../constants/resources';
 import { usePWA } from '../../hooks/usePWA';
+import { useShops } from '../../hooks/data/useFirestore';
 
 interface SidebarProps {
   onClose: () => void;
@@ -24,6 +25,7 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
   const { company, currentEmployee, isOwner, effectiveRole } = useAuth();
   const { canAccess, canCreate, canAccessFinance, canAccessHR, canAccessSettings, templateLoading } = useRolePermissions();
   const { isInstalled } = usePWA();
+  const { shops } = useShops();
   const [showCreateCompanyModal, setShowCreateCompanyModal] = React.useState(false);
   const [showCompanyNavigationConfirm, setShowCompanyNavigationConfirm] = React.useState(false);
   const [expensesMenuExpanded, setExpensesMenuExpanded] = React.useState(false);
@@ -31,6 +33,7 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
   const [productsMenuExpanded, setProductsMenuExpanded] = React.useState(false);
   const [magasinMenuExpanded, setMagasinMenuExpanded] = React.useState(false);
   const [productionsMenuExpanded, setProductionsMenuExpanded] = React.useState(false);
+  const [catalogueMenuExpanded, setCatalogueMenuExpanded] = React.useState(false);
   const [isMobile, setIsMobile] = useState(false);
   
   // Detect mobile device
@@ -95,6 +98,11 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
     setMagasinMenuExpanded(location.pathname.includes('/magasin'));
   }, [location.pathname]);
 
+  // Check if catalogue menu should be expanded (if on any catalogue route)
+  React.useEffect(() => {
+    setCatalogueMenuExpanded(location.pathname.startsWith('/catalogue/'));
+  }, [location.pathname]);
+
   const handleCreateCompany = () => {
     window.location.href = '/company/create';
   };
@@ -146,7 +154,6 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
     { name: t('navigation.dashboard'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/dashboard` : '/', icon: <LayoutDashboard size={20} />, resource: 'dashboard' },
     { name: t('navigation.sales'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/sales` : '/sales', icon: <ShoppingCart size={20} />, resource: 'sales' },
     { name: t('navigation.pos'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/pos` : '/pos', icon: <ScanLine size={20} />, resource: 'sales' },
-    { name: t('site.navigation', 'Online Catalogue'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/site` : '/site', icon: <Globe size={20} />, resource: 'settings' },
     { name: t('navigation.orders'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/orders` : '/orders', icon: <ShoppingBag size={20} />, resource: 'orders' },
     {
       name: t('navigation.expenses'),
@@ -271,6 +278,101 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
           </div>
         ) : (
           <ul className="space-y-1 px-2" id='select'>
+          {/* Catalogue Links - Special handling */}
+          {isCompanyRoute && company && !isCompanySelectionRoute && (() => {
+            const companyId = location.pathname.split('/')[2];
+            const companyName = company.name.toLowerCase().replace(/\s+/g, '-');
+            const activeShops = shops?.filter(shop => shop.isActive !== false) || [];
+            const isActualOwner = isOwner || effectiveRole === 'owner';
+            const hasAccess = isActualOwner || canAccess('settings');
+            
+            if (!hasAccess) return null;
+            
+            // If no shops or only one shop, show direct link
+            if (activeShops.length <= 1) {
+              const cataloguePath = activeShops.length === 1 
+                ? `/catalogue/${companyName}/${companyId}/shop/${activeShops[0].id}`
+                : `/catalogue/${companyName}/${companyId}`;
+              
+              return (
+                <li key="catalogue-direct">
+                  <Link
+                    to={cataloguePath}
+                    onClick={() => onClose()}
+                    className={`
+                      flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors
+                      ${location.pathname.startsWith('/catalogue/')
+                        ? 'bg-emerald-50 text-emerald-600'
+                        : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'}
+                    `}
+                  >
+                    <span className="mr-3"><Globe size={20} /></span>
+                    {t('site.navigation', 'Online Catalogue')}
+                  </Link>
+                </li>
+              );
+            }
+            
+            // Multiple shops - show expandable menu
+            return (
+              <li key="catalogue-menu">
+                <button
+                  onClick={() => setCatalogueMenuExpanded(!catalogueMenuExpanded)}
+                  className={`
+                    w-full flex items-center justify-between px-3 py-2 text-sm font-medium rounded-md transition-colors
+                    ${location.pathname.startsWith('/catalogue/')
+                      ? 'bg-emerald-50 text-emerald-600'
+                      : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'}
+                  `}
+                >
+                  <div className="flex items-center">
+                    <span className="mr-3"><Globe size={20} /></span>
+                    {t('site.navigation', 'Online Catalogue')}
+                  </div>
+                  {catalogueMenuExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                </button>
+                {catalogueMenuExpanded && (
+                  <ul className="ml-4 mt-1 space-y-1">
+                    {/* Global Catalogue Link */}
+                    <li>
+                      <Link
+                        to={`/catalogue/${companyName}/${companyId}`}
+                        onClick={() => onClose()}
+                        className={`
+                          flex items-center px-3 py-2 text-sm rounded-md transition-colors
+                          ${location.pathname === `/catalogue/${companyName}/${companyId}` || 
+                            (location.pathname.startsWith(`/catalogue/${companyName}/${companyId}`) && !location.pathname.includes('/shop/'))
+                            ? 'bg-emerald-100 text-emerald-700 font-medium'
+                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}
+                        `}
+                      >
+                        {t('navigation.catalogueGlobal', 'Catalogue Global')}
+                      </Link>
+                    </li>
+                    {/* Shop-specific Catalogue Links */}
+                    {activeShops.map((shop) => (
+                      <li key={shop.id}>
+                        <Link
+                          to={`/catalogue/${companyName}/${companyId}/shop/${shop.id}`}
+                          onClick={() => onClose()}
+                          className={`
+                            flex items-center px-3 py-2 text-sm rounded-md transition-colors
+                            ${location.pathname === `/catalogue/${companyName}/${companyId}/shop/${shop.id}`
+                              ? 'bg-emerald-100 text-emerald-700 font-medium'
+                              : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}
+                          `}
+                        >
+                          <Store size={14} className="mr-2" />
+                          {shop.name}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </li>
+            );
+          })()}
+          
           {navigationItems.map((item) => {
             // En mode sélection, tous les liens sont activés mais interceptés
             if (isCompanySelectionRoute) {
