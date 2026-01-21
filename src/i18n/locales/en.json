@@ -2585,5 +2585,62 @@
       "deactivateSuccess": "Shop {{name}} has been deactivated successfully",
       "toggleActiveError": "Error toggling shop active status"
     }
+  },
+  "replenishmentRequests": {
+    "title": "Stock Replenishment Requests",
+    "subtitle": "Manage stock replenishment requests from shops",
+    "requestReplenishment": "Request Replenishment",
+    "noRequests": "No requests",
+    "noRequestsMessage": "No requests match your filters",
+    "noRequestsEmpty": "No replenishment requests have been created yet",
+    "units": "units",
+    "status": {
+      "pending": "Pending",
+      "approved": "Approved",
+      "rejected": "Rejected",
+      "fulfilled": "Fulfilled"
+    },
+    "filters": {
+      "status": "Status",
+      "shop": "Shop",
+      "date": "Date",
+      "today": "Today",
+      "week": "This Week",
+      "month": "This Month",
+      "searchPlaceholder": "Search by product, shop..."
+    },
+    "approve": "Approve",
+    "reject": "Reject",
+    "fulfill": "Fulfill",
+    "viewTransfer": "View Transfer",
+    "fulfilledAt": "Fulfilled on",
+    "rejectReasonPrompt": "Enter rejection reason (optional):",
+    "modal": {
+      "createTitle": "Request Stock Replenishment",
+      "create": "Create Request",
+      "shop": "Shop",
+      "product": "Product",
+      "selectProduct": "Select a product",
+      "currentStock": "Current Stock in Shop",
+      "quantity": "Quantity Requested",
+      "quantityPlaceholder": "Enter quantity",
+      "notes": "Notes",
+      "notesPlaceholder": "Add any additional notes about this request"
+    },
+    "messages": {
+      "shopRequired": "Shop is required",
+      "productRequired": "Product is required",
+      "quantityRequired": "Quantity must be greater than 0",
+      "shopInactive": "Cannot create replenishment request from an inactive shop",
+      "createSuccess": "Replenishment request created successfully",
+      "createError": "Error creating replenishment request",
+      "approveSuccess": "Request approved successfully",
+      "approveError": "Error approving request",
+      "rejectSuccess": "Request rejected successfully",
+      "rejectError": "Error rejecting request",
+      "fulfillSuccess": "Request fulfilled successfully",
+      "fulfillError": "Error fulfilling request",
+      "noPermission": "You do not have permission to perform this action"
+    }
   }
 } 

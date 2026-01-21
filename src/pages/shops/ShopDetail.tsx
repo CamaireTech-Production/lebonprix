@@ -1,12 +1,15 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Store, MapPin, Users, Package, TrendingUp, ArrowRight } from 'lucide-react';
+import { ArrowLeft, Store, MapPin, Users, Package, TrendingUp, ArrowRight, ShoppingCart } from 'lucide-react';
 import { Card, Button, LoadingScreen, Badge } from '@components/common';
-import { useShops, useSales, useStockTransfers, useProducts } from '@hooks/data/useFirestore';
+import { useShops, useSales, useStockTransfers, useProducts, useStockReplenishmentRequests } from '@hooks/data/useFirestore';
 import { useAuth } from '@contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { getStockBatchesByLocation } from '@services/firestore/stock/stockService';
 import type { StockBatch } from '../../types/models';
+import ReplenishmentRequestModal from '@components/shops/ReplenishmentRequestModal';
+import { PermissionButton, usePermissionCheck } from '@components/permissions';
+import { RESOURCES } from '@constants/resources';
 
 const ShopDetail: React.FC = () => {
   const { t } = useTranslation();
@@ -18,10 +21,13 @@ const ShopDetail: React.FC = () => {
   const { products } = useProducts();
   const { sales, loading: salesLoading } = useSales();
   const { transfers, loading: transfersLoading } = useStockTransfers({ shopId });
+  const { createRequest } = useStockReplenishmentRequests();
+  const { canCreate } = usePermissionCheck(RESOURCES.PRODUCTS);
 
   const [stockBatches, setStockBatches] = React.useState<StockBatch[]>([]);
   const [loadingStock, setLoadingStock] = React.useState(false);
   const [stockError, setStockError] = React.useState<string | null>(null);
+  const [isReplenishmentModalOpen, setIsReplenishmentModalOpen] = useState(false);
 
   const shop = useMemo(
     () => shops.find((s) => s.id === shopId),
@@ -129,6 +135,18 @@ const ShopDetail: React.FC = () => {
             <ArrowLeft className="h-4 w-4 mr-2" />
             {t('shops.backToList', 'Retour aux boutiques')}
           </Button>
+        </div>
+        <div className="flex gap-2">
+          <PermissionButton
+            resource={RESOURCES.PRODUCTS}
+            action="create"
+            onClick={() => setIsReplenishmentModalOpen(true)}
+            disabled={shop?.isActive === false}
+            className="flex items-center gap-2"
+          >
+            <ShoppingCart size={16} />
+            {t('replenishmentRequests.requestReplenishment', 'Demander réapprovisionnement')}
+          </PermissionButton>
         </div>
       </div>
 
@@ -269,6 +287,18 @@ const ShopDetail: React.FC = () => {
           </div>
         )}
       </Card>
+
+      {/* Replenishment Request Modal */}
+      {shop && (
+        <ReplenishmentRequestModal
+          isOpen={isReplenishmentModalOpen}
+          onClose={() => setIsReplenishmentModalOpen(false)}
+          onCreateRequest={async (requestData) => {
+            await createRequest(requestData);
+          }}
+          shop={shop}
+        />
+      )}
     </div>
   );
 };

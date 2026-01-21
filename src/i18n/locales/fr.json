@@ -2620,9 +2620,7 @@
     "messages": {
       "activateSuccess": "Le magasin {{name}} a été activé avec succès",
       "deactivateSuccess": "Le magasin {{name}} a été désactivé avec succès",
-      "toggleActiveError": "Erreur lors du changement de statut du magasin"
-    },
-    "messages": {
+      "toggleActiveError": "Erreur lors du changement de statut du magasin",
       "nameRequired": "Le nom du magasin est requis",
       "userNotAuthenticated": "Utilisateur non authentifié",
       "invalidEmailFormat": "Format d'email invalide",

@@ -47,6 +47,14 @@ import {
 } from '@services/firestore/suppliers/supplierDebtService';
 import { subscribeToStockChanges } from '@services/firestore/stock/stockService';
 import {
+  subscribeToReplenishmentRequests,
+  createReplenishmentRequest,
+  updateReplenishmentRequest,
+  approveReplenishmentRequest,
+  rejectReplenishmentRequest,
+  fulfillReplenishmentRequest
+} from '@services/firestore/stock/stockReplenishmentService';
+import {
   subscribeToProductionFlowSteps,
   createProductionFlowStep,
   updateProductionFlowStep,
@@ -130,7 +138,8 @@ import type {
   Charge,
   Shop,
   Warehouse,
-  StockTransfer
+  StockTransfer,
+  StockReplenishmentRequest
 } from '../types/models';
 import { Timestamp } from 'firebase/firestore';
 import { useAuth } from '../../contexts/AuthContext';
@@ -1331,6 +1340,117 @@ export const useStockTransfers = (filters?: {
     error,
     createTransfer,
     cancelTransfer
+  };
+};
+
+// Stock Replenishment Requests Hook
+export const useStockReplenishmentRequests = (filters?: {
+  shopId?: string;
+  productId?: string;
+  status?: 'pending' | 'approved' | 'rejected' | 'fulfilled';
+  requestedBy?: string;
+}) => {
+  const [requests, setRequests] = useState<StockReplenishmentRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+  const { user, company, currentEmployee, isOwner } = useAuth();
+
+  useEffect(() => {
+    if (!user || !company) {
+      setLoading(false);
+      return;
+    }
+
+    const unsubscribe = subscribeToReplenishmentRequests(
+      company.id,
+      (data) => {
+        setRequests(data);
+        setLoading(false);
+        setError(null);
+      },
+      filters
+    );
+
+    return () => unsubscribe();
+  }, [user, company, filters]);
+
+  const createRequest = async (requestData: {
+    shopId: string;
+    productId: string;
+    quantity: number;
+    notes?: string;
+  }) => {
+    if (!user || !company) throw new Error('User not authenticated');
+    try {
+      let createdBy: ReturnType<typeof getCurrentEmployeeRef> = null;
+      if (user && company) {
+        let userData: Awaited<ReturnType<typeof getUserById>> | null = null;
+        if (isOwner && !currentEmployee) {
+          try {
+            userData = await getUserById(user.uid);
+          } catch (error) {
+            logError('Error fetching user data for createdBy', error);
+          }
+        }
+        createdBy = getCurrentEmployeeRef(currentEmployee, user, isOwner, userData);
+      }
+
+      return await createReplenishmentRequest(
+        {
+          companyId: company.id,
+          shopId: requestData.shopId,
+          productId: requestData.productId,
+          quantity: requestData.quantity,
+          requestedBy: user.uid,
+          status: 'pending',
+          notes: requestData.notes
+        },
+        createdBy
+      );
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
+  };
+
+  const approveRequest = async (requestId: string) => {
+    if (!user || !company) throw new Error('User not authenticated');
+    try {
+      await approveReplenishmentRequest(requestId);
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
+  };
+
+  const rejectRequest = async (requestId: string, reason?: string) => {
+    if (!user || !company) throw new Error('User not authenticated');
+    try {
+      await rejectReplenishmentRequest(requestId, reason);
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
+  };
+
+  const fulfillRequest = async (requestId: string, transferId: string) => {
+    if (!user || !company) throw new Error('User not authenticated');
+    try {
+      await fulfillReplenishmentRequest(requestId, transferId);
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
+  };
+
+  return {
+    requests,
+    loading,
+    error,
+    createRequest,
+    approveRequest,
+    rejectRequest,
+    fulfillRequest
   };
 };
 

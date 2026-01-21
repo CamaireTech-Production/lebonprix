@@ -1001,3 +1001,19 @@ export interface StockTransfer extends BaseModel {
   notes?: string; // Optional notes about the transfer
 }
 
+/**
+ * Stock Replenishment Request - Request from a shop to replenish stock from a warehouse
+ */
+export interface StockReplenishmentRequest extends BaseModel {
+  companyId: string;
+  shopId: string; // Shop requesting replenishment
+  productId: string; // Product to replenish
+  quantity: number; // Quantity requested
+  requestedBy: string; // User ID who created the request
+  status: 'pending' | 'approved' | 'rejected' | 'fulfilled';
+  transferId?: string; // If fulfilled, link to the created transfer
+  fulfilledAt?: Timestamp; // When the request was fulfilled
+  notes?: string; // Optional notes about the request
+  rejectedReason?: string; // Reason for rejection if rejected
+}
+
