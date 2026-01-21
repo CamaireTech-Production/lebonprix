@@ -9,6 +9,7 @@ import { RESOURCES } from '@constants/resources';
 import type { Warehouse } from '../../types/models';
 import { getStockBatchesByLocation } from '@services/firestore/stock/stockService';
 import { useTranslation } from 'react-i18next';
+import { useNavigate, useParams } from 'react-router-dom';
 import AssignUsersModal from '@components/shops/AssignUsersModal';
 import { updateWarehouseUsers } from '@services/firestore/warehouse/warehouseService';
 import { getAccessibleLocations } from '@utils/permissions/locationAccess';
@@ -18,6 +19,8 @@ const Warehouse = () => {
   const { warehouses, loading, error, addWarehouse, updateWarehouse, deleteWarehouse } = useWarehouses();
   const { user, company } = useAuth();
   const { canEdit, canDelete } = usePermissionCheck(RESOURCES.WAREHOUSE);
+  const navigate = useNavigate();
+  const { companyId } = useParams<{ companyId: string }>();
 
   // Modal states
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -298,7 +301,16 @@ const Warehouse = () => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredWarehouses.map((warehouse) => (
-            <Card key={warehouse.id} className="p-4 hover:shadow-lg transition-shadow">
+            <Card
+              key={warehouse.id}
+              className="p-4 hover:shadow-lg transition-shadow cursor-pointer"
+              onClick={() => {
+                const cid = companyId || company?.id;
+                if (cid) {
+                  navigate(`/company/${cid}/warehouse/${warehouse.id}`);
+                }
+              }}
+            >
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <WarehouseIcon className="h-5 w-5 text-green-600" />
@@ -315,7 +327,8 @@ const Warehouse = () => {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => {
+                        onClick={(event) => {
+                          event.stopPropagation();
                           setSelectedWarehouseForAssignment(warehouse);
                           setIsAssignUsersModalOpen(true);
                         }}
@@ -327,7 +340,10 @@ const Warehouse = () => {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => openEditModal(warehouse)}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          openEditModal(warehouse);
+                        }}
                         className="h-8 w-8 p-0"
                       >
                         <Edit2 size={16} />
@@ -338,7 +354,10 @@ const Warehouse = () => {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => openDeleteModal(warehouse)}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        openDeleteModal(warehouse);
+                      }}
                       className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
                     >
                       <Trash2 size={16} />

@@ -9,6 +9,7 @@ import { RESOURCES } from '@constants/resources';
 import type { Shop } from '../../types/models';
 import { getStockBatchesByLocation } from '@services/firestore/stock/stockService';
 import { useTranslation } from 'react-i18next';
+import { useNavigate, useParams } from 'react-router-dom';
 import AssignUsersModal from '@components/shops/AssignUsersModal';
 import { updateShopUsers } from '@services/firestore/shops/shopService';
 import { getAccessibleLocations } from '@utils/permissions/locationAccess';
@@ -18,6 +19,8 @@ const Shops = () => {
   const { shops, loading, error, addShop, updateShop, deleteShop } = useShops();
   const { user, company } = useAuth();
   const { canEdit, canDelete } = usePermissionCheck(RESOURCES.SHOPS);
+  const navigate = useNavigate();
+  const { companyId } = useParams<{ companyId: string }>();
 
   // Modal states
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -324,7 +327,16 @@ const Shops = () => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredShops.map((shop) => (
-            <Card key={shop.id} className="p-4 hover:shadow-lg transition-shadow">
+            <Card
+              key={shop.id}
+              className="p-4 hover:shadow-lg transition-shadow cursor-pointer"
+              onClick={() => {
+                const cid = companyId || company?.id;
+                if (cid) {
+                  navigate(`/company/${cid}/shops/${shop.id}`);
+                }
+              }}
+            >
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <Store className="h-5 w-5 text-blue-600" />
@@ -342,6 +354,8 @@ const Shops = () => {
                         variant="ghost"
                         size="sm"
                         onClick={() => {
+                          // Empêcher la navigation vers le détail
+                          event?.stopPropagation();
                           setSelectedShopForAssignment(shop);
                           setIsAssignUsersModalOpen(true);
                         }}
@@ -353,7 +367,10 @@ const Shops = () => {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => openEditModal(shop)}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          openEditModal(shop);
+                        }}
                         className="h-8 w-8 p-0"
                       >
                         <Edit2 size={16} />
@@ -364,7 +381,10 @@ const Shops = () => {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => openDeleteModal(shop)}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        openDeleteModal(shop);
+                      }}
                       className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
                     >
                       <Trash2 size={16} />
