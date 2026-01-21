@@ -949,7 +949,9 @@ export interface Shop extends BaseModel {
   phone?: string; // Shop phone number
   email?: string; // Shop email
   isDefault: boolean; // True for default shop (auto-created, non-deletable if only shop)
-  assignedUsers?: string[]; // Array of user IDs assigned to this shop
+  isActive: boolean; // True if shop is active (can be used for sales, transfers, etc.)
+  assignedUsers?: string[]; // Array of user IDs with full access (read + write)
+  readOnlyUsers?: string[]; // Array of user IDs with read-only access
   managerId?: string; // Primary shop manager user ID
   // Catalogue settings for shop-specific catalogue
   catalogueSettings?: {
@@ -972,6 +974,9 @@ export interface Warehouse extends BaseModel {
   location?: string; // General location description
   address?: string; // Full address
   isDefault: boolean; // True for default warehouse (auto-created, non-deletable if only warehouse)
+  isActive: boolean; // True if warehouse is active (can be used for transfers, etc.)
+  assignedUsers?: string[]; // Array of user IDs with full access (read + write)
+  readOnlyUsers?: string[]; // Array of user IDs with read-only access
 }
 
 /**

@@ -57,12 +57,15 @@ export const createWarehouse = async (
       companyId,
       userId: data.userId || companyId,
       isDefault: data.isDefault || false,
+      isActive: data.isActive !== undefined ? data.isActive : true, // Default to active
       createdAt: now,
       updatedAt: now,
     };
 
     if (data.location) warehouseData.location = data.location;
     if (data.address) warehouseData.address = data.address;
+    if (data.assignedUsers && data.assignedUsers.length > 0) warehouseData.assignedUsers = data.assignedUsers;
+    if (data.readOnlyUsers && data.readOnlyUsers.length > 0) warehouseData.readOnlyUsers = data.readOnlyUsers;
     if (createdBy) warehouseData.createdBy = createdBy;
 
     batch.set(warehouseRef, warehouseData);
@@ -169,6 +172,44 @@ export const deleteWarehouse = async (
 
   } catch (error) {
     logError('Error deleting warehouse', error);
+    throw error;
+  }
+};
+
+/**
+ * Update warehouse users (assignedUsers and readOnlyUsers)
+ */
+export const updateWarehouseUsers = async (
+  warehouseId: string,
+  assignedUsers: string[],
+  readOnlyUsers: string[],
+  companyId: string
+): Promise<void> => {
+  try {
+    const warehouseRef = doc(db, 'warehouses', warehouseId);
+    const warehouseSnap = await getDoc(warehouseRef);
+
+    if (!warehouseSnap.exists()) {
+      throw new Error('Warehouse not found');
+    }
+
+    const warehouseData = warehouseSnap.data() as Warehouse;
+    if (warehouseData.companyId !== companyId) {
+      throw new Error('Unauthorized');
+    }
+
+    const updateData: any = {
+      updatedAt: serverTimestamp()
+    };
+
+    // Set arrays (empty array if no users)
+    updateData.assignedUsers = assignedUsers.length > 0 ? assignedUsers : [];
+    updateData.readOnlyUsers = readOnlyUsers.length > 0 ? readOnlyUsers : [];
+
+    await updateDoc(warehouseRef, updateData);
+
+  } catch (error) {
+    logError('Error updating warehouse users', error);
     throw error;
   }
 };

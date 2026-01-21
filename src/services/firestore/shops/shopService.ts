@@ -60,6 +60,7 @@ export const createShop = async (
       companyId,
       userId: data.userId || companyId,
       isDefault: data.isDefault || false,
+      isActive: data.isActive !== undefined ? data.isActive : true, // Default to active
       createdAt: now,
       updatedAt: now,
     };
@@ -70,6 +71,7 @@ export const createShop = async (
     if (data.email) shopData.email = data.email;
     if (data.managerId) shopData.managerId = data.managerId;
     if (data.assignedUsers && data.assignedUsers.length > 0) shopData.assignedUsers = data.assignedUsers;
+    if (data.readOnlyUsers && data.readOnlyUsers.length > 0) shopData.readOnlyUsers = data.readOnlyUsers;
     if (data.catalogueSettings) shopData.catalogueSettings = data.catalogueSettings;
     if (createdBy) shopData.createdBy = createdBy;
 
@@ -316,6 +318,44 @@ export const removeUserFromShop = async (
 
   } catch (error) {
     logError('Error removing user from shop', error);
+    throw error;
+  }
+};
+
+/**
+ * Update shop users (assignedUsers and readOnlyUsers)
+ */
+export const updateShopUsers = async (
+  shopId: string,
+  assignedUsers: string[],
+  readOnlyUsers: string[],
+  companyId: string
+): Promise<void> => {
+  try {
+    const shopRef = doc(db, 'shops', shopId);
+    const shopSnap = await getDoc(shopRef);
+
+    if (!shopSnap.exists()) {
+      throw new Error('Shop not found');
+    }
+
+    const shopData = shopSnap.data() as Shop;
+    if (shopData.companyId !== companyId) {
+      throw new Error('Unauthorized');
+    }
+
+    const updateData: any = {
+      updatedAt: serverTimestamp()
+    };
+
+    // Set arrays (empty array if no users)
+    updateData.assignedUsers = assignedUsers.length > 0 ? assignedUsers : [];
+    updateData.readOnlyUsers = readOnlyUsers.length > 0 ? readOnlyUsers : [];
+
+    await updateDoc(shopRef, updateData);
+
+  } catch (error) {
+    logError('Error updating shop users', error);
     throw error;
   }
 };

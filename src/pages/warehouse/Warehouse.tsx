@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Plus, Edit2, Trash2, MapPin, Warehouse as WarehouseIcon, Package, Search } from 'lucide-react';
+import { Plus, Edit2, Trash2, MapPin, Warehouse as WarehouseIcon, Package, Search, UserCheck, Eye, Users } from 'lucide-react';
 import { Card, Button, Badge, Modal, ModalFooter, Input, Textarea, LoadingScreen } from '@components/common';
 import { useWarehouses } from '@hooks/data/useFirestore';
 import { useAuth } from '@contexts/AuthContext';
@@ -9,6 +9,9 @@ import { RESOURCES } from '@constants/resources';
 import type { Warehouse } from '../../types/models';
 import { getStockBatchesByLocation } from '@services/firestore/stock/stockService';
 import { useTranslation } from 'react-i18next';
+import AssignUsersModal from '@components/shops/AssignUsersModal';
+import { updateWarehouseUsers } from '@services/firestore/warehouse/warehouseService';
+import { getAccessibleLocations } from '@utils/permissions/locationAccess';
 
 const Warehouse = () => {
   const { t } = useTranslation();
@@ -20,6 +23,8 @@ const Warehouse = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isAssignUsersModalOpen, setIsAssignUsersModalOpen] = useState(false);
+  const [selectedWarehouseForAssignment, setSelectedWarehouseForAssignment] = useState<Warehouse | null>(null);
   
   // Form states
   const [currentWarehouse, setCurrentWarehouse] = useState<Warehouse | null>(null);
@@ -88,17 +93,23 @@ const Warehouse = () => {
     };
   }, [warehouses, company?.id]);
 
-  // Filter warehouses
+  // Filter warehouses by permissions and search
   const filteredWarehouses = useMemo(() => {
-    if (!searchQuery) return warehouses;
+    if (!user || !company) return [];
+    
+    // Filter by permissions (only show warehouses user can access)
+    const accessibleWarehouses = getAccessibleLocations(user, warehouses, 'read');
+    
+    // Filter by search query
+    if (!searchQuery) return accessibleWarehouses;
     
     const query = searchQuery.toLowerCase();
-    return warehouses.filter(warehouse =>
+    return accessibleWarehouses.filter(warehouse =>
       warehouse.name.toLowerCase().includes(query) ||
       (warehouse.location && warehouse.location.toLowerCase().includes(query)) ||
       (warehouse.address && warehouse.address.toLowerCase().includes(query))
     );
-  }, [warehouses, searchQuery]);
+  }, [warehouses, searchQuery, user, company]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -300,14 +311,28 @@ const Warehouse = () => {
                 </div>
                 <div className="flex gap-1">
                   {canEdit && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => openEditModal(warehouse)}
-                      className="h-8 w-8 p-0"
-                    >
-                      <Edit2 size={16} />
-                    </Button>
+                    <>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedWarehouseForAssignment(warehouse);
+                          setIsAssignUsersModalOpen(true);
+                        }}
+                        className="h-8 w-8 p-0"
+                        title="Assigner des utilisateurs"
+                      >
+                        <Users size={16} />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => openEditModal(warehouse)}
+                        className="h-8 w-8 p-0"
+                      >
+                        <Edit2 size={16} />
+                      </Button>
+                    </>
                   )}
                   {canDelete && !warehouse.isDefault && (
                     <Button
@@ -335,6 +360,32 @@ const Warehouse = () => {
                     <span>{warehouse.address}</span>
                   </div>
                 )}
+                {/* Assigned Users Display */}
+                {(warehouse.assignedUsers && warehouse.assignedUsers.length > 0) || (warehouse.readOnlyUsers && warehouse.readOnlyUsers.length > 0) ? (
+                  <div className="space-y-1">
+                    {warehouse.assignedUsers && warehouse.assignedUsers.length > 0 && (
+                      <div className="flex items-center gap-2">
+                        <UserCheck size={14} className="text-green-600" />
+                        <span className="text-xs">
+                          {warehouse.assignedUsers.length} accès complet
+                        </span>
+                      </div>
+                    )}
+                    {warehouse.readOnlyUsers && warehouse.readOnlyUsers.length > 0 && (
+                      <div className="flex items-center gap-2">
+                        <Eye size={14} className="text-blue-600" />
+                        <span className="text-xs">
+                          {warehouse.readOnlyUsers.length} lecture seule
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                ) : warehouse.isDefault ? (
+                  <div className="flex items-center gap-2 text-xs text-gray-500">
+                    <Users size={14} />
+                    <span>Accessible à tous les employés</span>
+                  </div>
+                ) : null}
                 <div className="flex items-center gap-2 pt-2 border-t">
                   <Package size={14} />
                   <span className="font-medium">
@@ -478,6 +529,32 @@ const Warehouse = () => {
           </p>
         )}
       </Modal>
+
+      {/* Assign Users Modal */}
+      {selectedWarehouseForAssignment && (
+        <AssignUsersModal
+          isOpen={isAssignUsersModalOpen}
+          onClose={() => {
+            setIsAssignUsersModalOpen(false);
+            setSelectedWarehouseForAssignment(null);
+          }}
+          locationType="warehouse"
+          locationId={selectedWarehouseForAssignment.id}
+          locationName={selectedWarehouseForAssignment.name}
+          currentAssignedUsers={selectedWarehouseForAssignment.assignedUsers || []}
+          currentReadOnlyUsers={selectedWarehouseForAssignment.readOnlyUsers || []}
+          onUpdate={async (assignedUsers, readOnlyUsers) => {
+            if (!company?.id) return;
+            await updateWarehouseUsers(
+              selectedWarehouseForAssignment.id,
+              assignedUsers,
+              readOnlyUsers,
+              company.id
+            );
+            // Refresh warehouses list will happen automatically via subscription
+          }}
+        />
+      )}
     </div>
   );
 };

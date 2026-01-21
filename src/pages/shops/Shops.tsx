@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Plus, Edit2, Trash2, MapPin, Store, Users, Badge as BadgeIcon, Search } from 'lucide-react';
+import { Plus, Edit2, Trash2, MapPin, Store, Users, Badge as BadgeIcon, Search, UserCheck, Eye } from 'lucide-react';
 import { Card, Button, Badge, Modal, ModalFooter, Input, Textarea, Table, LoadingScreen } from '@components/common';
 import { useShops } from '@hooks/data/useFirestore';
 import { useAuth } from '@contexts/AuthContext';
@@ -9,6 +9,9 @@ import { RESOURCES } from '@constants/resources';
 import type { Shop } from '../../types/models';
 import { getStockBatchesByLocation } from '@services/firestore/stock/stockService';
 import { useTranslation } from 'react-i18next';
+import AssignUsersModal from '@components/shops/AssignUsersModal';
+import { updateShopUsers } from '@services/firestore/shops/shopService';
+import { getAccessibleLocations } from '@utils/permissions/locationAccess';
 
 const Shops = () => {
   const { t } = useTranslation();
@@ -20,6 +23,8 @@ const Shops = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isAssignUsersModalOpen, setIsAssignUsersModalOpen] = useState(false);
+  const [selectedShopForAssignment, setSelectedShopForAssignment] = useState<Shop | null>(null);
   
   // Form states
   const [currentShop, setCurrentShop] = useState<Shop | null>(null);
@@ -90,17 +95,23 @@ const Shops = () => {
     };
   }, [shops, company?.id]);
 
-  // Filter shops
+  // Filter shops by permissions and search
   const filteredShops = useMemo(() => {
-    if (!searchQuery) return shops;
+    if (!user || !company) return [];
+    
+    // Filter by permissions (only show shops user can access)
+    const accessibleShops = getAccessibleLocations(user, shops, 'read');
+    
+    // Filter by search query
+    if (!searchQuery) return accessibleShops;
     
     const query = searchQuery.toLowerCase();
-    return shops.filter(shop =>
+    return accessibleShops.filter(shop =>
       shop.name.toLowerCase().includes(query) ||
       (shop.location && shop.location.toLowerCase().includes(query)) ||
       (shop.address && shop.address.toLowerCase().includes(query))
     );
-  }, [shops, searchQuery]);
+  }, [shops, searchQuery, user, company]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -326,14 +337,28 @@ const Shops = () => {
                 </div>
                 <div className="flex gap-1">
                   {canEdit && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => openEditModal(shop)}
-                      className="h-8 w-8 p-0"
-                    >
-                      <Edit2 size={16} />
-                    </Button>
+                    <>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedShopForAssignment(shop);
+                          setIsAssignUsersModalOpen(true);
+                        }}
+                        className="h-8 w-8 p-0"
+                        title="Assigner des utilisateurs"
+                      >
+                        <Users size={16} />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => openEditModal(shop)}
+                        className="h-8 w-8 p-0"
+                      >
+                        <Edit2 size={16} />
+                      </Button>
+                    </>
                   )}
                   {canDelete && !shop.isDefault && (
                     <Button
@@ -373,12 +398,32 @@ const Shops = () => {
                     <span>{shop.email}</span>
                   </div>
                 )}
-                {shop.assignedUsers && shop.assignedUsers.length > 0 && (
-                  <div className="flex items-center gap-2">
-                    <Users size={14} />
-                    <span>{shop.assignedUsers.length} {t('shops.users')}</span>
+                {/* Assigned Users Display */}
+                {(shop.assignedUsers && shop.assignedUsers.length > 0) || (shop.readOnlyUsers && shop.readOnlyUsers.length > 0) ? (
+                  <div className="space-y-1">
+                    {shop.assignedUsers && shop.assignedUsers.length > 0 && (
+                      <div className="flex items-center gap-2">
+                        <UserCheck size={14} className="text-green-600" />
+                        <span className="text-xs">
+                          {shop.assignedUsers.length} accès complet
+                        </span>
+                      </div>
+                    )}
+                    {shop.readOnlyUsers && shop.readOnlyUsers.length > 0 && (
+                      <div className="flex items-center gap-2">
+                        <Eye size={14} className="text-blue-600" />
+                        <span className="text-xs">
+                          {shop.readOnlyUsers.length} lecture seule
+                        </span>
+                      </div>
+                    )}
                   </div>
-                )}
+                ) : shop.isDefault ? (
+                  <div className="flex items-center gap-2 text-xs text-gray-500">
+                    <Users size={14} />
+                    <span>Accessible à tous les employés</span>
+                  </div>
+                ) : null}
                 <div className="flex items-center gap-2 pt-2 border-t">
                   <BadgeIcon size={14} />
                   <span className="font-medium">
@@ -552,6 +597,32 @@ const Shops = () => {
           </p>
         )}
       </Modal>
+
+      {/* Assign Users Modal */}
+      {selectedShopForAssignment && (
+        <AssignUsersModal
+          isOpen={isAssignUsersModalOpen}
+          onClose={() => {
+            setIsAssignUsersModalOpen(false);
+            setSelectedShopForAssignment(null);
+          }}
+          locationType="shop"
+          locationId={selectedShopForAssignment.id}
+          locationName={selectedShopForAssignment.name}
+          currentAssignedUsers={selectedShopForAssignment.assignedUsers || []}
+          currentReadOnlyUsers={selectedShopForAssignment.readOnlyUsers || []}
+          onUpdate={async (assignedUsers, readOnlyUsers) => {
+            if (!company?.id) return;
+            await updateShopUsers(
+              selectedShopForAssignment.id,
+              assignedUsers,
+              readOnlyUsers,
+              company.id
+            );
+            // Refresh shops list will happen automatically via subscription
+          }}
+        />
+      )}
     </div>
   );
 };
