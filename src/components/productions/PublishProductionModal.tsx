@@ -250,6 +250,16 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
         return;
       }
 
+      // Validate destination is selected
+      if (formData.destinationType === 'shop' && !formData.shopId) {
+        showErrorToast('Veuillez sélectionner un magasin');
+        return;
+      }
+      if (formData.destinationType === 'warehouse' && !formData.warehouseId) {
+        showErrorToast('Veuillez sélectionner un entrepôt');
+        return;
+      }
+
       setIsSubmitting(true);
       try {
         const { bulkPublishArticles } = await import('@services/firestore/productions/productionService');
@@ -337,6 +347,16 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
       return;
     }
 
+    // Validate destination is selected
+    if (formData.destinationType === 'shop' && !formData.shopId) {
+      showErrorToast('Veuillez sélectionner un magasin');
+      return;
+    }
+    if (formData.destinationType === 'warehouse' && !formData.warehouseId) {
+      showErrorToast('Veuillez sélectionner un entrepôt');
+      return;
+    }
+
     if (!stockValidation.isValid) {
       showErrorToast('Stock insuffisant pour certains matériaux');
       return;
@@ -409,8 +429,8 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
           disabled={
             isSubmitting || 
             (hasArticles && publishMode === 'selected' 
-              ? selectedArticles.size === 0
-              : !stockValidation.isValid || !formData.validatedCostPrice || parseFloat(formData.validatedCostPrice) < 0 || !formData.name.trim() || !formData.sellingPrice || parseFloat(formData.sellingPrice) < 0)
+              ? selectedArticles.size === 0 || (formData.destinationType === 'shop' && !formData.shopId) || (formData.destinationType === 'warehouse' && !formData.warehouseId)
+              : !stockValidation.isValid || !formData.validatedCostPrice || parseFloat(formData.validatedCostPrice) < 0 || !formData.name.trim() || !formData.sellingPrice || parseFloat(formData.sellingPrice) < 0 || (formData.destinationType === 'shop' && !formData.shopId) || (formData.destinationType === 'warehouse' && !formData.warehouseId))
           }
         />
       }
@@ -422,37 +442,27 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
           <div className="space-y-3">
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">
-                Type de destination
+                Type de destination <span className="text-red-500">*</span>
               </label>
               <select
-                value={formData.shopId ? 'shop' : formData.warehouseId ? 'warehouse' : 'none'}
+                value={formData.destinationType}
                 onChange={(e) => {
-                  const newDestinationType = e.target.value as 'shop' | 'warehouse' | 'none';
-                  if (newDestinationType === 'none') {
-                    setFormData(prev => ({
-                      ...prev,
-                      destinationType: 'shop', // Keep default but clear IDs
-                      shopId: '',
-                      warehouseId: ''
-                    }));
-                  } else {
-                    setFormData(prev => ({
-                      ...prev,
-                      destinationType: newDestinationType as 'shop' | 'warehouse',
-                      shopId: newDestinationType === 'shop' ? prev.shopId : '',
-                      warehouseId: newDestinationType === 'warehouse' ? prev.warehouseId : ''
-                    }));
-                  }
+                  const newDestinationType = e.target.value as 'shop' | 'warehouse';
+                  setFormData(prev => ({
+                    ...prev,
+                    destinationType: newDestinationType,
+                    shopId: newDestinationType === 'shop' ? prev.shopId : '',
+                    warehouseId: newDestinationType === 'warehouse' ? prev.warehouseId : ''
+                  }));
                 }}
                 className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="none">Aucun (stock global)</option>
                 <option value="shop">Magasin</option>
                 <option value="warehouse">Entrepôt</option>
               </select>
             </div>
             
-            {(formData.shopId || (!formData.shopId && !formData.warehouseId && formData.destinationType === 'shop')) && (
+            {formData.destinationType === 'shop' && (
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">
                   Magasin <span className="text-red-500">*</span>
@@ -478,7 +488,7 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
               </div>
             )}
             
-            {(formData.warehouseId || (!formData.shopId && !formData.warehouseId && formData.destinationType === 'warehouse')) && (
+            {formData.destinationType === 'warehouse' && (
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">
                   Entrepôt <span className="text-red-500">*</span>
@@ -505,11 +515,9 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
             )}
           </div>
           <p className="text-xs text-gray-500 mt-2">
-            {formData.shopId
+            {formData.destinationType === 'shop'
               ? 'Le stock sera créé directement dans le magasin sélectionné'
-              : formData.warehouseId
-              ? 'Le stock sera créé directement dans l\'entrepôt sélectionné'
-              : 'Le stock sera créé en stock global (sans emplacement spécifique)'}
+              : 'Le stock sera créé directement dans l\'entrepôt sélectionné'}
           </p>
         </div>
 
