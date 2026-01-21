@@ -6,7 +6,7 @@ import { useWarehouses, useStockTransfers, useProducts } from '@hooks/data/useFi
 import { useAuth } from '@contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { getStockBatchesByLocation } from '@services/firestore/stock/stockService';
-import type { StockBatch } from '../../types/models';
+import type { StockBatch, Product } from '../../types/models';
 
 const WarehouseDetail: React.FC = () => {
   const { t } = useTranslation();
@@ -47,23 +47,42 @@ const WarehouseDetail: React.FC = () => {
     loadStock();
   }, [company?.id, warehouseId]);
 
-  const stockByProduct = useMemo(() => {
-    const map = new Map<string, number>();
-    stockBatches.forEach((batch) => {
-      if (!batch.productId) return;
-      const current = map.get(batch.productId) || 0;
-      map.set(batch.productId, current + (batch.remainingQuantity || 0));
-    });
-    return map;
-  }, [stockBatches]);
+  // Filter and aggregate products with stock for this warehouse
+  // Only show products that:
+  // 1. Have stock in this warehouse (remainingQuantity > 0)
+  // 2. Product exists and is not soft-deleted
+  // 3. Product is available
+  const productsWithStock = useMemo(() => {
+    const productStockMap = new Map<string, { product: Product; stock: number }>();
 
-  const productIndex = useMemo(() => {
-    const index = new Map<string, { name: string }>();
-    products.forEach((p) => {
-      index.set(p.id, { name: p.name });
+    stockBatches.forEach((batch) => {
+      // Skip if no product ID or no remaining quantity
+      if (!batch.productId || !batch.remainingQuantity || batch.remainingQuantity <= 0) {
+        return;
+      }
+
+      // Find the product
+      const product = products.find(p => p.id === batch.productId);
+      
+      // Skip if product doesn't exist, is deleted, or is unavailable
+      if (!product || product.isDeleted === true || product.isAvailable === false) {
+        return;
+      }
+
+      // Aggregate stock for this product
+      const existing = productStockMap.get(batch.productId);
+      if (existing) {
+        existing.stock += batch.remainingQuantity;
+      } else {
+        productStockMap.set(batch.productId, {
+          product,
+          stock: batch.remainingQuantity
+        });
+      }
     });
-    return index;
-  }, [products]);
+
+    return productStockMap;
+  }, [stockBatches, products]);
 
   if (!warehouseId) {
     return (
@@ -161,7 +180,7 @@ const WarehouseDetail: React.FC = () => {
           <Card className="p-4 flex items-center justify-between">
             <div>
               <p className="text-xs text-gray-500 uppercase">Produits en stock</p>
-              <p className="text-lg font-semibold">{stockByProduct.size}</p>
+              <p className="text-lg font-semibold">{productsWithStock.size}</p>
             </div>
             <Package className="h-6 w-6 text-amber-600" />
           </Card>
@@ -186,7 +205,7 @@ const WarehouseDetail: React.FC = () => {
         {stockError && (
           <p className="text-red-600 text-sm mb-2">{stockError}</p>
         )}
-        {stockByProduct.size === 0 ? (
+        {productsWithStock.size === 0 ? (
           <p className="text-sm text-gray-500">Aucun stock pour cet entrepôt.</p>
         ) : (
           <div className="overflow-x-auto">
@@ -198,12 +217,10 @@ const WarehouseDetail: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {Array.from(stockByProduct.entries()).map(([productId, qty]) => (
+                {Array.from(productsWithStock.entries()).map(([productId, { product, stock }]) => (
                   <tr key={productId} className="border-b last:border-0">
-                    <td className="py-2 pr-4">
-                      {productIndex.get(productId)?.name || productId}
-                    </td>
-                    <td className="py-2 pr-4">{qty}</td>
+                    <td className="py-2 pr-4">{product.name}</td>
+                    <td className="py-2 pr-4">{stock}</td>
                   </tr>
                 ))}
               </tbody>
