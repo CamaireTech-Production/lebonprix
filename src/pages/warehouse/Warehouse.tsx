@@ -107,8 +107,19 @@ const Warehouse = () => {
   const filteredWarehouses = useMemo(() => {
     if (!user || !company) return [];
     
+    // Create user object with required properties for permission check
+    const userForPermissions = {
+      id: user.uid,
+      isOwner: isActualOwner,
+      role: effectiveRole || undefined,
+      companyId: company.id
+    };
+    
     // Filter by permissions (only show warehouses user can access)
-    let accessibleWarehouses = getAccessibleLocations(user, warehouses, 'read');
+    // For owners, show all warehouses regardless of permissions
+    let accessibleWarehouses = isActualOwner 
+      ? warehouses 
+      : getAccessibleLocations(userForPermissions, warehouses, 'read');
     
     // Filter inactive warehouses for employees (owners/admins can see all)
     if (!isActualOwner) {
@@ -124,7 +135,7 @@ const Warehouse = () => {
       (warehouse.location && warehouse.location.toLowerCase().includes(query)) ||
       (warehouse.address && warehouse.address.toLowerCase().includes(query))
     );
-  }, [warehouses, searchQuery, user, company, isActualOwner]);
+  }, [warehouses, searchQuery, user, company, isActualOwner, effectiveRole]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;

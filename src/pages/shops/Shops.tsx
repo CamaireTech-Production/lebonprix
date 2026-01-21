@@ -111,8 +111,19 @@ const Shops = () => {
   const filteredShops = useMemo(() => {
     if (!user || !company) return [];
     
+    // Create user object with required properties for permission check
+    const userForPermissions = {
+      id: user.uid,
+      isOwner: isActualOwner,
+      role: effectiveRole || undefined,
+      companyId: company.id
+    };
+    
     // Filter by permissions (only show shops user can access)
-    let accessibleShops = getAccessibleLocations(user, shops, 'read');
+    // For owners, show all shops regardless of permissions
+    let accessibleShops = isActualOwner 
+      ? shops 
+      : getAccessibleLocations(userForPermissions, shops, 'read');
     
     // Filter inactive shops for employees (owners/admins can see all)
     if (!isActualOwner) {
@@ -128,7 +139,7 @@ const Shops = () => {
       (shop.location && shop.location.toLowerCase().includes(query)) ||
       (shop.address && shop.address.toLowerCase().includes(query))
     );
-  }, [shops, searchQuery, user, company, isActualOwner]);
+  }, [shops, searchQuery, user, company, isActualOwner, effectiveRole]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;

@@ -29,14 +29,15 @@ export function canAccessLocation(
   location: Location,
   permission: LocationPermission = 'read'
 ): boolean {
-  // 1. Location désactivée → Seuls owner/admin peuvent voir
-  if (!location.isActive) {
-    return user.isOwner === true || user.role === 'admin' || user.role === 'owner';
-  }
-
-  // 2. Owner/Admin ont tous les droits
+  // 2. Owner/Admin ont tous les droits (check this first, before checking isActive)
   if (user.isOwner === true || user.role === 'admin' || user.role === 'owner') {
     return true;
+  }
+
+  // 1. Location désactivée → Seuls owner/admin peuvent voir (already handled above, but keep for clarity)
+  // Note: isActive === false means explicitly disabled, undefined/null means active by default
+  if (location.isActive === false) {
+    return false; // Non-owners cannot see inactive locations
   }
 
   // 3. Vérifier permissions selon le type
@@ -93,7 +94,8 @@ export function canCreateOperationFromLocation(
   user: User | { id: string; isOwner?: boolean; role?: string; companyId?: string },
   location: Location
 ): boolean {
-  if (!location.isActive) {
+  // Only explicitly disabled locations (isActive === false) block operations
+  if (location.isActive === false) {
     return false;
   }
   return canAccessLocation(user, location, 'write');
@@ -107,7 +109,8 @@ export function canCreateTransfer(
   fromLocation: Location,
   toLocation: Location
 ): boolean {
-  if (!fromLocation.isActive || !toLocation.isActive) {
+  // Only explicitly disabled locations (isActive === false) block transfers
+  if (fromLocation.isActive === false || toLocation.isActive === false) {
     return false;
   }
 
