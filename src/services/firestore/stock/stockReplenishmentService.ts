@@ -17,6 +17,11 @@ import {
 import { db } from '../../core/firebase';
 import { logError } from '@utils/core/logger';
 import type { StockReplenishmentRequest, EmployeeRef } from '../../../types/models';
+import { 
+  notifyReplenishmentRequestCreated,
+  notifyReplenishmentRequestFulfilled,
+  notifyReplenishmentRequestRejected
+} from '../../../utils/notifications/notificationHelpers';
 
 // ============================================================================
 // STOCK REPLENISHMENT REQUEST OPERATIONS
@@ -72,12 +77,25 @@ export const createReplenishmentRequest = async (
 
     await batch.commit();
 
-    return {
+    const createdRequest = {
       id: requestRef.id,
       ...requestData,
       createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 },
       updatedAt: { seconds: Date.now() / 1000, nanoseconds: 0 }
     } as StockReplenishmentRequest;
+
+    // Notify managers about the new request (async, don't wait)
+    notifyReplenishmentRequestCreated(
+      data.companyId,
+      requestRef.id,
+      data.shopId,
+      data.productId,
+      data.quantity
+    ).catch(err => {
+      logError('Error sending notification for replenishment request', err);
+    });
+
+    return createdRequest;
 
   } catch (error) {
     logError('Error creating replenishment request', error);

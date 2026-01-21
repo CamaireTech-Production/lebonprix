@@ -2633,5 +2633,88 @@
       "deleteSuccess": "Magasin supprimé avec succès",
       "deleteError": "Erreur lors de la suppression du magasin"
     }
+  },
+  "replenishmentRequests": {
+    "title": "Demandes de Réapprovisionnement",
+    "subtitle": "Gérez les demandes de réapprovisionnement de stock depuis les magasins",
+    "requestReplenishment": "Demander réapprovisionnement",
+    "noRequests": "Aucune demande",
+    "noRequestsMessage": "Aucune demande ne correspond à vos filtres",
+    "noRequestsEmpty": "Aucune demande de réapprovisionnement n'a encore été créée",
+    "units": "unités",
+    "status": {
+      "pending": "En attente",
+      "approved": "Approuvée",
+      "rejected": "Rejetée",
+      "fulfilled": "Remplie"
+    },
+    "filters": {
+      "status": "Statut",
+      "shop": "Magasin",
+      "date": "Date",
+      "today": "Aujourd'hui",
+      "week": "Cette semaine",
+      "month": "Ce mois",
+      "searchPlaceholder": "Rechercher par produit, magasin..."
+    },
+    "approve": "Approuver",
+    "reject": "Rejeter",
+    "fulfill": "Remplir",
+    "viewTransfer": "Voir le transfert",
+    "fulfilledAt": "Remplie le",
+    "rejectReasonPrompt": "Entrez la raison du rejet (optionnel) :",
+    "modal": {
+      "createTitle": "Demander un Réapprovisionnement",
+      "create": "Créer la demande",
+      "shop": "Magasin",
+      "product": "Produit",
+      "selectProduct": "Sélectionner un produit",
+      "currentStock": "Stock actuel dans le magasin",
+      "quantity": "Quantité demandée",
+      "quantityPlaceholder": "Entrer la quantité",
+      "notes": "Notes",
+      "notesPlaceholder": "Ajouter des notes supplémentaires sur cette demande"
+    },
+    "messages": {
+      "shopRequired": "Le magasin est requis",
+      "productRequired": "Le produit est requis",
+      "quantityRequired": "La quantité doit être supérieure à 0",
+      "shopInactive": "Impossible de créer une demande de réapprovisionnement depuis un magasin désactivé",
+      "createSuccess": "Demande de réapprovisionnement créée avec succès",
+      "createError": "Erreur lors de la création de la demande",
+      "approveSuccess": "Demande approuvée avec succès",
+      "approveError": "Erreur lors de l'approbation de la demande",
+      "rejectSuccess": "Demande rejetée avec succès",
+      "rejectError": "Erreur lors du rejet de la demande",
+      "fulfillSuccess": "Demande remplie avec succès",
+      "fulfillError": "Erreur lors du remplissage de la demande",
+      "noPermission": "Vous n'avez pas la permission d'effectuer cette action"
+    }
+  },
+  "notifications": {
+    "title": "Notifications",
+    "subtitle": "Gérez vos notifications",
+    "pageTitle": "Notifications",
+    "pageSubtitle": "Consultez et gérez toutes vos notifications",
+    "noNotifications": "Aucune notification",
+    "noNotificationsFiltered": "Aucune notification ne correspond à vos filtres",
+    "noNotificationsEmpty": "Vous n'avez aucune notification pour le moment",
+    "unread": "Non lues",
+    "read": "Lues",
+    "markAllRead": "Tout marquer comme lu",
+    "markSelectedRead": "Marquer la sélection comme lue",
+    "viewAll": "Voir toutes les notifications",
+    "close": "Fermer",
+    "filters": {
+      "type": "Type",
+      "status": "Statut"
+    },
+    "types": {
+      "replenishmentRequestCreated": "Demande de réapprovisionnement créée",
+      "replenishmentRequestFulfilled": "Demande de réapprovisionnement remplie",
+      "replenishmentRequestRejected": "Demande de réapprovisionnement rejetée",
+      "transferCreated": "Transfert créé",
+      "stockLow": "Stock faible"
+    }
   }
 } 

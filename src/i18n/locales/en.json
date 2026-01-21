@@ -2642,5 +2642,31 @@
       "fulfillError": "Error fulfilling request",
       "noPermission": "You do not have permission to perform this action"
     }
+  },
+  "notifications": {
+    "title": "Notifications",
+    "subtitle": "Manage your notifications",
+    "pageTitle": "Notifications",
+    "pageSubtitle": "View and manage all your notifications",
+    "noNotifications": "No notifications",
+    "noNotificationsFiltered": "No notifications match your filters",
+    "noNotificationsEmpty": "You have no notifications yet",
+    "unread": "Unread",
+    "read": "Read",
+    "markAllRead": "Mark all as read",
+    "markSelectedRead": "Mark selected as read",
+    "viewAll": "View all notifications",
+    "close": "Close",
+    "filters": {
+      "type": "Type",
+      "status": "Status"
+    },
+    "types": {
+      "replenishmentRequestCreated": "Replenishment Request Created",
+      "replenishmentRequestFulfilled": "Replenishment Request Fulfilled",
+      "replenishmentRequestRejected": "Replenishment Request Rejected",
+      "transferCreated": "Transfer Created",
+      "stockLow": "Stock Low"
+    }
   }
 } 

@@ -55,6 +55,15 @@ import {
   fulfillReplenishmentRequest
 } from '@services/firestore/stock/stockReplenishmentService';
 import {
+  subscribeToNotifications,
+  createNotification,
+  createNotificationsForUsers,
+  markNotificationAsRead,
+  markNotificationsAsRead,
+  markAllNotificationsAsRead,
+  getUnreadNotificationsCount
+} from '@services/firestore/notifications/notificationService';
+import {
   subscribeToProductionFlowSteps,
   createProductionFlowStep,
   updateProductionFlowStep,
@@ -139,7 +148,8 @@ import type {
   Shop,
   Warehouse,
   StockTransfer,
-  StockReplenishmentRequest
+  StockReplenishmentRequest,
+  Notification
 } from '../types/models';
 import { Timestamp } from 'firebase/firestore';
 import { useAuth } from '../../contexts/AuthContext';
@@ -1451,6 +1461,119 @@ export const useStockReplenishmentRequests = (filters?: {
     approveRequest,
     rejectRequest,
     fulfillRequest
+  };
+};
+
+// Notifications Hook
+export const useNotifications = (filters?: {
+  companyId?: string;
+  read?: boolean;
+  type?: Notification['type'];
+  limit?: number;
+}) => {
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const { user, company } = useAuth();
+
+  useEffect(() => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
+    const unsubscribe = subscribeToNotifications(
+      user.uid,
+      (data) => {
+        setNotifications(data);
+        setLoading(false);
+        setError(null);
+        // Update unread count
+        const unread = data.filter(n => !n.read).length;
+        setUnreadCount(unread);
+      },
+      {
+        ...filters,
+        companyId: filters?.companyId || company?.id
+      }
+    );
+
+    return () => unsubscribe();
+  }, [user, company?.id, filters]);
+
+  // Also fetch unread count separately for real-time updates
+  useEffect(() => {
+    if (!user) return;
+
+    const fetchUnreadCount = async () => {
+      try {
+        const count = await getUnreadNotificationsCount(
+          user.uid,
+          filters?.companyId || company?.id
+        );
+        setUnreadCount(count);
+      } catch (err) {
+        // Silently fail, count will be updated via subscription
+      }
+    };
+
+    fetchUnreadCount();
+    const interval = setInterval(fetchUnreadCount, 30000); // Update every 30 seconds
+    return () => clearInterval(interval);
+  }, [user, company?.id, filters?.companyId]);
+
+  const markAsRead = async (notificationId: string) => {
+    if (!user) throw new Error('User not authenticated');
+    try {
+      await markNotificationAsRead(notificationId);
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
+  };
+
+  const markMultipleAsRead = async (notificationIds: string[]) => {
+    if (!user) throw new Error('User not authenticated');
+    try {
+      await markNotificationsAsRead(notificationIds);
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
+  };
+
+  const markAllAsRead = async () => {
+    if (!user) throw new Error('User not authenticated');
+    try {
+      await markAllNotificationsAsRead(user.uid, filters?.companyId || company?.id);
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
+  };
+
+  const createNotificationForUser = async (
+    notificationData: Omit<Notification, 'id' | 'createdAt' | 'updatedAt'>
+  ) => {
+    if (!user) throw new Error('User not authenticated');
+    try {
+      return await createNotification(notificationData);
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
+  };
+
+  return {
+    notifications,
+    unreadCount,
+    loading,
+    error,
+    markAsRead,
+    markMultipleAsRead,
+    markAllAsRead,
+    createNotificationForUser
   };
 };
 

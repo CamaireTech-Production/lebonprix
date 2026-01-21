@@ -23,6 +23,7 @@ import {
   createStockBatch,
   createStockChange 
 } from './stockService';
+import { notifyTransferCreated } from '../../../utils/notifications/notificationHelpers';
 
 // ============================================================================
 // STOCK TRANSFER OPERATIONS
@@ -286,12 +287,29 @@ export const transferStockBetweenLocations = async (
 
     await batch.commit();
 
-    return {
+    const createdTransfer = {
       id: transferRef.id,
       ...transferData,
       createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 },
       updatedAt: { seconds: Date.now() / 1000, nanoseconds: 0 }
     } as StockTransfer;
+
+    // Notify users about the transfer (async, don't wait)
+    notifyTransferCreated(
+      companyId,
+      transferRef.id,
+      transferType,
+      productId,
+      quantity,
+      fromShopId,
+      fromWarehouseId,
+      toShopId,
+      toWarehouseId
+    ).catch(err => {
+      logError('Error sending notification for transfer', err);
+    });
+
+    return createdTransfer;
 
   } catch (error) {
     logError('Error transferring stock', error);

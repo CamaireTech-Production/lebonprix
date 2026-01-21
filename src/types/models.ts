@@ -1017,3 +1017,24 @@ export interface StockReplenishmentRequest extends BaseModel {
   rejectedReason?: string; // Reason for rejection if rejected
 }
 
+/**
+ * Notification - User notifications for various events
+ */
+export interface Notification extends BaseModel {
+  userId: string; // User who should receive this notification
+  companyId: string; // Company context for the notification
+  type: 'replenishment_request_created' | 'replenishment_request_fulfilled' | 
+        'replenishment_request_rejected' | 'transfer_created' | 'stock_low';
+  title: string; // Notification title
+  message: string; // Notification message
+  data?: {
+    requestId?: string; // For replenishment request notifications
+    transferId?: string; // For transfer notifications
+    shopId?: string; // For shop-related notifications
+    warehouseId?: string; // For warehouse-related notifications
+    productId?: string; // For product-related notifications
+  };
+  read: boolean; // Whether the notification has been read
+  readAt?: Timestamp; // When the notification was read
+}
+
