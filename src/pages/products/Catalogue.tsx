@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useCart } from '../../contexts/CartContext';
 import { getCompanyByUserId } from '@services/firestore/firestore';
@@ -8,13 +8,13 @@ import { trackCatalogueView } from '@services/firestore/site/siteService';
 import { subscribeToShops } from '@services/firestore/shops/shopService';
 import { getAvailableStockBatches } from '@services/firestore/stock/stockService';
 import type { Company, Product, Category, Shop } from '../../types/models';
-import { Search, Package, AlertCircle, MapPin, Plus, Heart, Phone, Store } from 'lucide-react';
+import { Search, Package, AlertCircle, MapPin, Plus, Heart, Phone } from 'lucide-react';
 import { Button, FloatingCartButton, ProductDetailModal, ImageWithSkeleton, LanguageSwitcher } from '@components/common';
 
 const placeholderImg = '/placeholder.png';
 
 const Catalogue = () => {
-  const { companyId, shopId } = useParams<{ companyName: string; companyId: string; shopId?: string }>();
+  const { companyId } = useParams<{ companyName: string; companyId: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const categoryParam = searchParams.get('category'); // For backward compatibility
@@ -24,7 +24,7 @@ const Catalogue = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [shops, setShops] = useState<Shop[]>([]);
-  const [selectedShopId, setSelectedShopId] = useState<string>(shopId || '');
+  const [selectedShopId, setSelectedShopId] = useState<string>('');
   const [productStockMap, setProductStockMap] = useState<Map<string, number>>(new Map());
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,8 +44,10 @@ const Catalogue = () => {
     }
   };
 
-  // Note: Shop selection is now handled via URL navigation from sidebar links
-  // No need for handleShopChange function anymore
+  // Handle shop selection change
+  const handleShopChange = (shopId: string) => {
+    setSelectedShopId(shopId);
+  };
 
   // Product detail modal functions
   const handleProductClick = (product: Product) => {
@@ -208,27 +210,23 @@ const Catalogue = () => {
     return () => unsubscribe();
   }, [company?.id]);
 
-  // Subscribe to shops (for reference, but no longer used for selection)
+  // Subscribe to shops
   useEffect(() => {
     if (!company?.id) return;
 
     const unsubscribe = subscribeToShops(company.id, (shopsData) => {
       setShops(shopsData);
-      // No longer auto-selecting shop - URL determines the shop
+      // Auto-select first active shop if none selected
+      if (!selectedShopId && shopsData.length > 0) {
+        const firstActiveShop = shopsData.find(shop => shop.isActive !== false);
+        if (firstActiveShop) {
+          setSelectedShopId(firstActiveShop.id);
+        }
+      }
     });
 
     return () => unsubscribe();
-  }, [company?.id]);
-
-  // Initialize shop from URL - if no shopId in URL, use global catalogue (no shop filter)
-  useEffect(() => {
-    if (shopId && shopId !== selectedShopId) {
-      setSelectedShopId(shopId);
-    } else if (!shopId) {
-      // No shopId in URL means global catalogue - clear selectedShopId
-      setSelectedShopId('');
-    }
-  }, [shopId, selectedShopId]);
+  }, [company?.id, selectedShopId]);
 
   // Load product stock for selected shop (or global if no shopId)
   useEffect(() => {
@@ -463,7 +461,7 @@ const Catalogue = () => {
             </div>
           </div>
           
-          {/* Search Bar */}
+          {/* Search Bar and Shop Selection */}
           <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
             {/* Search Bar */}
             <div className="relative flex-1 max-w-2xl">
@@ -476,6 +474,25 @@ const Catalogue = () => {
                 className="w-full pl-12 pr-4 py-4 bg-white rounded-xl border-0 focus:outline-none text-gray-900 placeholder-gray-500 text-lg shadow-lg"
               />
             </div>
+            
+            {/* Shop Selection Dropdown */}
+            {shops.length > 0 && (
+              <div className="w-full sm:w-auto">
+                <select
+                  value={selectedShopId}
+                  onChange={(e) => handleShopChange(e.target.value)}
+                  className="w-full sm:w-auto px-4 py-4 bg-white rounded-xl border-0 focus:outline-none text-gray-900 text-lg shadow-lg cursor-pointer"
+                  style={{ minWidth: '200px' }}
+                >
+                  <option value="">Tous les magasins (Stock global)</option>
+                  {shops.filter(shop => shop.isActive !== false).map((shop) => (
+                    <option key={shop.id} value={shop.id}>
+                      {shop.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
         </div>
       </div>
