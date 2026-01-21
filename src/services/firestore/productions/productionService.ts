@@ -949,7 +949,8 @@ export const bulkPublishArticles = async (
     isVisible?: boolean;
     selectedChargeIds?: string[]; // IDs of charges selected for each article
   }>,
-  warehouseId?: string // Optional: warehouse to transfer products to
+  warehouseId?: string, // Optional: warehouse to transfer products to
+  shopId?: string // Optional: shop to transfer products to
 ): Promise<Array<{ articleId: string; product: import('../../../types/models').Product }>> => {
   // Get production to calculate default product data
   const production = await getProduction(productionId, companyId);
