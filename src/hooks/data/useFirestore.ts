@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { 
   createSale, 
   updateSaleStatus, 
@@ -1275,6 +1275,15 @@ export const useStockTransfers = (filters?: {
   const [error, setError] = useState<Error | null>(null);
   const { user, company, currentEmployee, isOwner } = useAuth();
 
+  // Memoize filters to prevent infinite loops when object reference changes
+  const memoizedFilters = useMemo(() => filters, [
+    filters?.productId,
+    filters?.shopId,
+    filters?.warehouseId,
+    filters?.transferType,
+    filters?.status
+  ]);
+
   useEffect(() => {
     if (!user || !company) {
       setLoading(false);
@@ -1297,14 +1306,14 @@ export const useStockTransfers = (filters?: {
         setError(err);
         setLoading(false);
       },
-      filters
+      memoizedFilters
     );
 
     return () => {
       console.log('[useStockTransfers] Cleaning up subscription');
       unsubscribe();
     };
-  }, [user, company, filters]);
+  }, [user, company, memoizedFilters]);
 
   const createTransfer = async (transferData: {
     transferType: StockTransfer['transferType'];
@@ -1376,6 +1385,14 @@ export const useStockReplenishmentRequests = (filters?: {
   const [error, setError] = useState<Error | null>(null);
   const { user, company, currentEmployee, isOwner } = useAuth();
 
+  // Memoize filters to prevent infinite loops when object reference changes
+  const memoizedFilters = useMemo(() => filters, [
+    filters?.shopId,
+    filters?.productId,
+    filters?.status,
+    filters?.requestedBy
+  ]);
+
   useEffect(() => {
     if (!user || !company) {
       setLoading(false);
@@ -1389,11 +1406,11 @@ export const useStockReplenishmentRequests = (filters?: {
         setLoading(false);
         setError(null);
       },
-      filters
+      memoizedFilters
     );
 
     return () => unsubscribe();
-  }, [user, company, filters]);
+  }, [user, company, memoizedFilters]);
 
   const createRequest = async (requestData: {
     shopId: string;
