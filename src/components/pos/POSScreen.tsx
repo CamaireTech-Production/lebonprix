@@ -127,6 +127,7 @@ export const POSScreen: React.FC = () => {
             window.history.replaceState(null, '', `/company/${companyId}/pos/shop/${newShopId}`);
           }
         }}
+        creditSalesCount={creditSalesCount}
       />
 
       <div className="flex-1 flex overflow-hidden">

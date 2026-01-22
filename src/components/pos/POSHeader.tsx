@@ -8,9 +8,10 @@ interface POSHeaderProps {
   shops?: Array<{ id: string; name: string; isDefault?: boolean }>;
   selectedShopId?: string;
   onShopChange?: (shopId: string) => void;
+  creditSalesCount?: number;
 }
 
-export const POSHeader: React.FC<POSHeaderProps> = ({ companyName, shops, selectedShopId, onShopChange }) => {
+export const POSHeader: React.FC<POSHeaderProps> = ({ companyName, shops, selectedShopId, onShopChange, creditSalesCount = 0 }) => {
   const { user, currentEmployee, isOwner, company } = useAuth();
   const navigate = useNavigate();
   const { companyId } = useParams<{ companyId: string }>();
