@@ -89,7 +89,7 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
   checkoutSettings,
   customers,
   applyTVA = false,
-  tvaRate = 19.24,
+  tvaRate = 19.25,
   onTVAToggle,
   defaultInventoryMethod,
 }) => {

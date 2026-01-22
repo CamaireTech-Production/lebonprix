@@ -64,7 +64,7 @@ export function usePOS() {
     status: 'commande',
     inventoryMethod: getDefaultInventoryMethod(),
     applyTVA: false,
-    tvaRate: 19.24,
+    tvaRate: 19.25,
   });
 
   // Update inventory method when settings change
