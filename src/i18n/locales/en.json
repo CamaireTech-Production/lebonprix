@@ -489,7 +489,10 @@
       "copyTrackingLink": "Copy Tracking Link",
       "copyLinkOnly": "Copy link only",
       "copyWithMessage": "Copy with message",
-      "deleteSale": "Delete Sale"
+      "deleteSale": "Delete Sale",
+      "settleCredit": "Settle Credit",
+      "refundCredit": "Refund Credit",
+      "cancelCredit": "Cancel Credit"
     },
     "table": {
       "rowsPerPage": "Rows per page:",
@@ -621,7 +624,55 @@
           "editSale": "Edit Sale",
           "printInvoice": "Print Invoice",
           "downloadPDF": "Download PDF",
-          "shareInvoice": "Share Invoice"
+          "shareInvoice": "Share Invoice",
+          "title": "Actions"
+        },
+        "saleId": "Sale ID",
+        "summary": {
+          "date": "Date",
+          "customer": "Customer",
+          "totalAmount": "Total Amount",
+          "items": "Items",
+          "productCount": "product(s)"
+        },
+        "products": {
+          "title": "Products",
+          "quantity": "Quantity",
+          "basePrice": "Base Price",
+          "negotiatedPrice": "Negotiated Price",
+          "productTotal": "Product Total",
+          "table": {
+            "product": "Product",
+            "qty": "Qty",
+            "unitPrice": "Unit Price",
+            "total": "Total"
+          }
+        },
+        "creditInformation": {
+          "title": "Credit Information",
+          "remaining": "Remaining",
+          "paid": "Paid"
+        },
+        "statusTimeline": {
+          "title": "Status & Timeline",
+          "showHistory": "Show History",
+          "hideHistory": "Hide History"
+        },
+        "invoicePreview": "Invoice Preview",
+        "orderInformation": {
+          "title": "Order Information",
+          "orderNumber": "Order Number",
+          "createdDate": "Created Date",
+          "createdBy": "Created By"
+        },
+        "paymentInformation": {
+          "title": "Payment Information",
+          "paymentStatus": "Payment Status",
+          "creditAmount": "Credit Amount"
+        },
+        "refundHistory": {
+          "show": "Show",
+          "hide": "Hide"
         }
       },
       "link": {

@@ -20,6 +20,7 @@ import type { Sale, SaleDetails, Product, StockBatch, OrderStatus, PaymentStatus
 import type { InventoryMethod } from '@utils/inventory/inventoryManagement';
 import type { InventoryResult } from '@utils/inventory/inventoryManagement';
 import { createAuditLog } from '../shared';
+import { createFinanceEntry } from '../finance/financeService';
 
 // Temporary imports from firestore.ts - will be moved to stock/ and finance/ later
 // These functions will be imported from their respective services after refactoring
@@ -365,13 +366,10 @@ export const createSale = async (
     
     const normalizedStatus = data.status || 'paid';
     
-    // Validate credit sales: require customer name and phone (customerSourceId is optional)
+    // Validate credit sales: require customer name only (phone and quarter are optional)
     if (normalizedStatus === 'credit') {
       if (!data.customerInfo?.name || data.customerInfo.name.trim() === '') {
         throw new Error('Customer name is required for credit sales. Please enter customer name.');
-      }
-      if (!data.customerInfo?.phone || data.customerInfo.phone.trim() === '') {
-        throw new Error('Customer phone is required for credit sales. Please enter customer phone.');
       }
     }
     
@@ -912,18 +910,20 @@ export const refundCreditSale = async (
   const currentTotalRefunded = sale.totalRefunded || 0;
   const newTotalRefunded = currentTotalRefunded + refundAmount;
 
-  // Update sale with refund
-  const existingRefunds = sale.refunds || [];
-  batch.update(saleRef, {
+  // Check if refund is complete (fully refunded)
+  const isFullyRefunded = newRemainingAmount === 0;
+
+  // Prepare sale update data
+  const saleUpdateData: any = {
     remainingAmount: newRemainingAmount,
     totalRefunded: newTotalRefunded,
-    refunds: [...existingRefunds, refundEntry],
+    refunds: [...(sale.refunds || []), refundEntry],
     updatedAt: serverTimestamp(),
     // Add refund to status history
     statusHistory: [
       ...(sale.statusHistory || []),
       {
-        status: sale.status, // Keep current status
+        status: sale.status, // Keep current status for now
         timestamp: new Date().toISOString(),
         userId,
         refundAmount,
@@ -931,16 +931,76 @@ export const refundCreditSale = async (
         ...(reason ? { refundReason: reason } : {})
       }
     ]
-  });
+  };
+
+  // If fully refunded, change status to 'paid' and update paymentStatus
+  if (isFullyRefunded) {
+    saleUpdateData.status = 'paid';
+    saleUpdateData.paymentStatus = 'paid';
+    // Update status history entry to reflect the status change
+    saleUpdateData.statusHistory = [
+      ...(sale.statusHistory || []),
+      {
+        status: 'paid',
+        timestamp: new Date().toISOString(),
+        userId,
+        refundAmount,
+        refundId,
+        refundComplete: true,
+        ...(reason ? { refundReason: reason } : {})
+      }
+    ];
+  }
+
+  // Update sale with refund
+  batch.update(saleRef, saleUpdateData);
 
   createAuditLog(batch, 'update', 'sale', saleId, { 
     action: 'refund', 
     refundAmount, 
     remainingAmount: newRemainingAmount,
-    totalRefunded: newTotalRefunded
+    totalRefunded: newTotalRefunded,
+    isFullyRefunded,
+    ...(isFullyRefunded ? { statusChangedTo: 'paid' } : {})
   }, userId);
 
   await batch.commit();
+
+  // If fully refunded, create finance entry after batch commit
+  // This ensures the sale update is committed first
+  if (isFullyRefunded && sale.companyId) {
+    try {
+      // Build description for finance entry
+      let financeDescription = reason 
+        ? `Refund for sale #${saleId}: ${reason}`
+        : `Full refund for sale #${saleId}`;
+      
+      // Add payment method and transaction reference to description if available
+      if (paymentMethod) {
+        financeDescription += ` (${paymentMethod})`;
+      }
+      if (transactionReference) {
+        financeDescription += ` - Ref: ${transactionReference}`;
+      }
+
+      // Create finance entry with negative amount (outflow)
+      await createFinanceEntry({
+        userId,
+        companyId: sale.companyId,
+        sourceType: 'sale',
+        sourceId: saleId,
+        type: 'sale_refund',
+        amount: -Math.abs(refundAmount), // Negative amount for refund (outflow)
+        description: financeDescription,
+        date: Timestamp.now(),
+        isDeleted: false
+      });
+    } catch (financeError) {
+      // Log error but don't throw - the refund was already processed
+      logError('Error creating finance entry for refund', financeError);
+      // Note: The sale status was already updated, so this is a non-critical error
+    }
+  }
 };
 
 export const addSaleWithValidation = async () => {
