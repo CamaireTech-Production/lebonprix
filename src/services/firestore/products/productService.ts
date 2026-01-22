@@ -78,7 +78,13 @@ export const createProduct = async (
     isCredit?: boolean;
     costPrice?: number;
   },
-  createdBy?: import('../../../types/models').EmployeeRef | null
+  createdBy?: import('../../../types/models').EmployeeRef | null,
+  locationInfo?: {
+    locationType?: 'warehouse' | 'shop' | 'production' | 'global';
+    warehouseId?: string;
+    shopId?: string;
+    productionId?: string;
+  }
 ): Promise<Product> => {
   try {
     // Validate product data
@@ -146,7 +152,7 @@ export const createProduct = async (
     if (initialStock > 0) {
       if (supplierInfo?.costPrice !== undefined) {
         stockBatchRef = doc(collection(db, 'stockBatches'));
-        const stockBatchData = {
+        const stockBatchData: any = {
           id: stockBatchRef.id,
           type: 'product' as const, // Always product for product batches
           productId: productRef.id,
@@ -161,6 +167,23 @@ export const createProduct = async (
           remainingQuantity: initialStock,
           status: 'active'
         };
+
+        // Add location information if provided
+        if (locationInfo) {
+          if (locationInfo.locationType) {
+            stockBatchData.locationType = locationInfo.locationType;
+          }
+          if (locationInfo.warehouseId) {
+            stockBatchData.warehouseId = locationInfo.warehouseId;
+          }
+          if (locationInfo.shopId) {
+            stockBatchData.shopId = locationInfo.shopId;
+          }
+          if (locationInfo.productionId) {
+            stockBatchData.productionId = locationInfo.productionId;
+          }
+        }
+
         batch.set(stockBatchRef, stockBatchData);
 
         // Create stock change with batch reference
@@ -171,11 +194,17 @@ export const createProduct = async (
           'creation',
           userId,
           companyId,
+          'product',
           supplierInfo.supplierId,
           supplierInfo.isOwnPurchase,
           supplierInfo.isCredit,
           supplierInfo.costPrice,
-          stockBatchRef.id
+          stockBatchRef.id,
+          undefined,
+          undefined,
+          locationInfo?.locationType,
+          locationInfo?.shopId,
+          locationInfo?.warehouseId
         );
 
         // Note: Supplier debt will be created after batch commit (see below)

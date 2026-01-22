@@ -1,11 +1,13 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useCart } from '../../contexts/CartContext';
 import { getCompanyByUserId } from '@services/firestore/firestore';
 import { subscribeToProducts } from '@services/firestore/products/productService';
 import { subscribeToCategories } from '@services/firestore/categories/categoryService';
 import { trackCatalogueView } from '@services/firestore/site/siteService';
-import type { Company, Product, Category } from '../../types/models';
+import { subscribeToShops } from '@services/firestore/shops/shopService';
+import { getAvailableStockBatches } from '@services/firestore/stock/stockService';
+import type { Company, Product, Category, Shop } from '../../types/models';
 import { Search, Package, AlertCircle, MapPin, Plus, Heart, Phone } from 'lucide-react';
 import { Button, FloatingCartButton, ProductDetailModal, ImageWithSkeleton, LanguageSwitcher } from '@components/common';
 
@@ -21,6 +23,9 @@ const Catalogue = () => {
   const [company, setCompany] = useState<Company | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [shops, setShops] = useState<Shop[]>([]);
+  const [selectedShopId, setSelectedShopId] = useState<string>('');
+  const [productStockMap, setProductStockMap] = useState<Map<string, number>>(new Map());
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -33,10 +38,15 @@ const Catalogue = () => {
   // Cart management functions (now using global context)
   const handleAddToCart = (product: Product) => {
     if (companyId) {
-      addToCart(product, 1, undefined, undefined, companyId);
+      addToCart(product, 1, undefined, undefined, companyId, selectedShopId);
     } else {
       addToCart(product, 1);
     }
+  };
+
+  // Handle shop selection change
+  const handleShopChange = (shopId: string) => {
+    setSelectedShopId(shopId);
   };
 
   // Product detail modal functions
@@ -200,6 +210,65 @@ const Catalogue = () => {
     return () => unsubscribe();
   }, [company?.id]);
 
+  // Subscribe to shops
+  useEffect(() => {
+    if (!company?.id) return;
+
+    const unsubscribe = subscribeToShops(company.id, (shopsData) => {
+      setShops(shopsData);
+      // Auto-select first active shop if none selected
+      if (!selectedShopId && shopsData.length > 0) {
+        const firstActiveShop = shopsData.find(shop => shop.isActive !== false);
+        if (firstActiveShop) {
+          setSelectedShopId(firstActiveShop.id);
+        }
+      }
+    });
+
+    return () => unsubscribe();
+  }, [company?.id, selectedShopId]);
+
+  // Load product stock for selected shop (or global if no shopId)
+  useEffect(() => {
+    if (!company?.id || products.length === 0) {
+      setProductStockMap(new Map());
+      return;
+    }
+
+    const loadProductStock = async () => {
+      const stockMap = new Map<string, number>();
+      
+      for (const product of products) {
+        try {
+          // If shopId is selected, load shop-specific stock; otherwise load global stock
+          const batches = selectedShopId
+            ? await getAvailableStockBatches(
+                product.id,
+                company.id,
+                'product',
+                selectedShopId,
+                undefined,
+                'shop'
+              )
+            : await getAvailableStockBatches(
+                product.id,
+                company.id,
+                'product'
+              );
+          const totalStock = batches.reduce((sum, batch) => sum + (batch.remainingQuantity || 0), 0);
+          stockMap.set(product.id, totalStock);
+        } catch (error) {
+          console.error(`Error loading stock for product ${product.id}:`, error);
+          stockMap.set(product.id, 0);
+        }
+      }
+      
+      setProductStockMap(stockMap);
+    };
+
+    loadProductStock();
+  }, [company?.id, selectedShopId, products]);
+
   // Track catalogue view for analytics (gracefully handle errors for non-authenticated users)
   useEffect(() => {
     if (company?.id) {
@@ -276,7 +345,7 @@ const Catalogue = () => {
     navigate(newUrl, { replace: true });
   };
 
-  // Apply search and category filters
+  // Apply search, category, and shop stock filters
   useEffect(() => {
     let result = [...products];
 
@@ -296,8 +365,17 @@ const Catalogue = () => {
       );
     }
 
+    // Apply shop stock filter (only show products with stock in selected shop, if shop is selected)
+    // If no shopId (global catalogue), show all products regardless of stock location
+    if (selectedShopId) {
+      result = result.filter(product => {
+        const stock = productStockMap.get(product.id) || 0;
+        return stock > 0;
+      });
+    }
+
     setFilteredProducts(result);
-  }, [products, searchQuery, selectedCategories, categoryParam, categoriesParam]);
+  }, [products, searchQuery, selectedCategories, selectedShopId, productStockMap, categoryParam, categoriesParam]);
 
   if (loading) {
     return (
@@ -383,19 +461,41 @@ const Catalogue = () => {
             </div>
           </div>
           
-          {/* Search Bar */}
-          <div className="relative max-w-2xl">
-            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-theme-brown" />
-            <input
+          {/* Search Bar and Shop Selection */}
+          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+            {/* Search Bar */}
+            <div className="relative flex-1 max-w-2xl">
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-theme-brown" />
+              <input
                 type="text"
-              placeholder="Rechercher des produits..."
+                placeholder="Rechercher des produits..."
                 value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-12 pr-4 py-4 bg-white rounded-xl border-0 focus:outline-none text-gray-900 placeholder-gray-500 text-lg shadow-lg"
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-12 pr-4 py-4 bg-white rounded-xl border-0 focus:outline-none text-gray-900 placeholder-gray-500 text-lg shadow-lg"
               />
             </div>
-                </div>
+            
+            {/* Shop Selection Dropdown */}
+            {shops.length > 0 && (
+              <div className="w-full sm:w-auto">
+                <select
+                  value={selectedShopId}
+                  onChange={(e) => handleShopChange(e.target.value)}
+                  className="w-full sm:w-auto px-4 py-4 bg-white rounded-xl border-0 focus:outline-none text-gray-900 text-lg shadow-lg cursor-pointer"
+                  style={{ minWidth: '200px' }}
+                >
+                  <option value="">Tous les magasins (Stock global)</option>
+                  {shops.filter(shop => shop.isActive !== false).map((shop) => (
+                    <option key={shop.id} value={shop.id}>
+                      {shop.name}
+                    </option>
+                  ))}
+                </select>
               </div>
+            )}
+          </div>
+        </div>
+      </div>
 
       {/* Category Filter Chips */}
       {products.length > 0 && (

@@ -38,6 +38,10 @@ interface FormState {
   saleDate: string;
   inventoryMethod: 'fifo' | 'lifo' | 'cmup';
   products: FormProduct[];
+  // Location fields for shop/warehouse system
+  sourceType: 'shop' | 'warehouse' | '';
+  shopId: string;
+  warehouseId: string;
 }
 
 export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
@@ -90,6 +94,9 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
     saleDate: new Date().toISOString().slice(0, 10),
     inventoryMethod: getDefaultInventoryMethod(),
     products: [{ id: crypto.randomUUID(), product: null, quantity: '', negotiatedPrice: '' }],
+    sourceType: '', // No default - user must select
+    shopId: '',
+    warehouseId: ''
   });
 
   // Update inventory method when settings change
@@ -247,6 +254,9 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
       saleDate: new Date().toISOString().slice(0, 10),
       inventoryMethod: getDefaultInventoryMethod(),
       products: [{ id: crypto.randomUUID(), product: null, quantity: '', negotiatedPrice: '' }],
+      sourceType: '',
+      shopId: '',
+      warehouseId: ''
     });
     setFoundCustomer(null);
     setShowCustomerDropdown(false);
@@ -276,13 +286,16 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
       return errors;
     }
     
-    // Validate credit sales: require customer name and phone (customerSourceId is optional)
-    if (formData.status === 'credit') {
-      if (!formData.customerName || formData.customerName.trim() === '') {
-        errors.customerName = t('sales.messages.errors.customerNameRequiredForCredit') || 'Customer name is required for credit sales. Please enter customer name.';
+    // Validate location selection
+    if (!formData.sourceType) {
+      errors.sourceType = t('sales.messages.warnings.sourceTypeRequired') || 'Veuillez sélectionner un type de source (magasin ou entrepôt)';
+    } else if (formData.sourceType === 'shop') {
+      if (!formData.shopId) {
+        errors.shopId = t('sales.messages.warnings.shopRequired') || 'Veuillez sélectionner un magasin';
       }
-      if (!formData.customerPhone || formData.customerPhone.trim() === '') {
-        errors.customerPhone = t('sales.messages.errors.customerPhoneRequiredForCredit') || 'Customer phone is required for credit sales. Please enter customer phone.';
+    } else if (formData.sourceType === 'warehouse') {
+      if (!formData.warehouseId) {
+        errors.warehouseId = t('sales.messages.warnings.warehouseRequired') || 'Veuillez sélectionner un entrepôt';
       }
     }
     
@@ -365,6 +378,10 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
         paymentStatus: 'pending' as const,
         inventoryMethod: formData.inventoryMethod,
         saleDate: formData.saleDate || new Date().toISOString(),
+        // Location fields
+        sourceType: formData.sourceType,
+        ...(formData.shopId && { shopId: formData.shopId }),
+        ...(formData.warehouseId && { warehouseId: formData.warehouseId })
       };
 
       // Validate sale data with translations

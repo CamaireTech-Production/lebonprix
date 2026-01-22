@@ -8,11 +8,13 @@ import { logError } from '@utils/core/logger';
 import { formatPrice } from '@utils/formatting/formatPrice';
 import type { Sale, StockBatch } from '../../types/models';
 import SaleDetailsModal from './SaleDetailsModal';
-import { getProductStockBatches } from '@services/firestore/stock/stockService';
+import { getProductStockBatches, getAvailableStockBatches, getStockBatchesByLocation } from '@services/firestore/stock/stockService';
 import { showWarningToast } from '@utils/core/toast';
 import { useAuth } from '@contexts/AuthContext';
 import { useAllStockBatches } from '@hooks/business/useStockBatches';
 import { buildProductStockMap, getEffectiveProductStock } from '@utils/inventory/stockHelpers';
+import { useShops, useWarehouses } from '@hooks/data/useFirestore';
+import { getDefaultShop } from '@services/firestore/shops/shopService';
 
 const LOW_STOCK_THRESHOLD = 5;
 
@@ -31,7 +33,9 @@ interface ProductStockInfo {
 
 const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdded }) => {
   const { t } = useTranslation();
-  const { company } = useAuth();
+  const { company, user } = useAuth();
+  const { shops, loading: shopsLoading, error: shopsError } = useShops();
+  const { warehouses, loading: warehousesLoading, error: warehousesError } = useWarehouses();
   
   // Load all stock batches to display stock in product selection list
   const { batches: allBatches, loading: batchesLoading } = useAllStockBatches('product');
@@ -69,6 +73,25 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
     handleSelectCustomer,
   } = useAddSaleForm();
 
+  // No default shop initialization - user must explicitly select
+
+  // Filter active shops/warehouses (for employees, owner/admin can see all)
+  const activeShops = useMemo(() => {
+    if (!shops) return [];
+    if (user?.isOwner || user?.role === 'admin') {
+      return shops; // Owner/admin can see all shops (including inactive)
+    }
+    return shops.filter(shop => shop.isActive !== false);
+  }, [shops, user]);
+
+  const activeWarehouses = useMemo(() => {
+    if (!warehouses) return [];
+    if (user?.isOwner || user?.role === 'admin') {
+      return warehouses; // Owner/admin can see all warehouses (including inactive)
+    }
+    return warehouses.filter(warehouse => warehouse.isActive !== false);
+  }, [warehouses, user]);
+
 
 
   const [viewedSale, setViewedSale] = useState<Sale | null>(null);
@@ -77,12 +100,17 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
   const [productStockInfo, setProductStockInfo] = useState<Map<string, ProductStockInfo>>(new Map());
   const [loadingStockInfo, setLoadingStockInfo] = useState<Set<string>>(new Set());
   const [showAdditionalCustomerInfo, setShowAdditionalCustomerInfo] = useState(false);
+  const [productsWithStock, setProductsWithStock] = useState<Map<string, { product: any; stock: number }>>(new Map());
+  const [loadingProductsWithStock, setLoadingProductsWithStock] = useState(false);
+  const [isLocationUserSelected, setIsLocationUserSelected] = useState(false);
 
 
 
-  // Load stock batch information for products
+  // Load stock batch information for products (location-aware)
   const loadProductStockInfo = async (productId: string) => {
-    if (productStockInfo.has(productId) || loadingStockInfo.has(productId)) {
+    // Clear cached info when location changes to force reload
+    const cacheKey = `${productId}-${formData.sourceType}-${formData.shopId}-${formData.warehouseId}`;
+    if (productStockInfo.has(cacheKey) || loadingStockInfo.has(productId)) {
       return;
     }
 
@@ -92,18 +120,45 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
       if (!company?.id) {
         throw new Error('Company ID not available');
       }
-      const batches = await getProductStockBatches(productId, company.id);
-      const availableBatches = batches.filter(batch => batch.remainingQuantity > 0 && batch.status === 'active');
-      const totalStock = availableBatches.reduce((sum, batch) => sum + batch.remainingQuantity, 0);
-      const totalValue = availableBatches.reduce((sum, batch) => sum + (batch.costPrice * batch.remainingQuantity), 0);
+      
+      // Determine location filters based on form data
+      let locationType: 'warehouse' | 'shop' | 'production' | 'global' | undefined;
+      let queryShopId: string | undefined;
+      let queryWarehouseId: string | undefined;
+      
+      if (formData.sourceType === 'shop' && formData.shopId) {
+        locationType = 'shop';
+        queryShopId = formData.shopId;
+      } else if (formData.sourceType === 'warehouse' && formData.warehouseId) {
+        locationType = 'warehouse';
+        queryWarehouseId = formData.warehouseId;
+      }
+      
+      // Get location-aware stock batches
+      const batches = await getAvailableStockBatches(
+        productId,
+        company.id,
+        'product',
+        queryShopId,
+        queryWarehouseId,
+        locationType
+      );
+      
+      const totalStock = batches.reduce((sum, batch) => sum + (batch.remainingQuantity || 0), 0);
+      const totalValue = batches.reduce((sum, batch) => sum + (batch.costPrice * (batch.remainingQuantity || 0)), 0);
       const averageCostPrice = totalStock > 0 ? totalValue / totalStock : 0;
 
-      setProductStockInfo(prev => new Map(prev).set(productId, {
-        productId,
-        batches: availableBatches.sort((a, b) => (a.createdAt.seconds || 0) - (b.createdAt.seconds || 0)), // Sort by creation time (FIFO order)
-        totalStock,
-        averageCostPrice
-      }));
+      setProductStockInfo(prev => {
+        const newMap = new Map(prev);
+        // Use cache key to store location-specific stock info
+        newMap.set(cacheKey, {
+          productId,
+          batches: batches.sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0)), // Sort by creation time (FIFO order)
+          totalStock,
+          averageCostPrice
+        });
+        return newMap;
+      });
     } catch (error) {
       logError('Error loading stock info for product', error);
     } finally {
@@ -115,20 +170,136 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
     }
   };
 
-  // Load stock info when products are selected
+  // Helper function to get product stock info
+  const getProductStockInfo = (productId: string): ProductStockInfo | undefined => {
+    const cacheKey = `${productId}-${formData.sourceType}-${formData.shopId}-${formData.warehouseId}`;
+    return productStockInfo.get(cacheKey);
+  };
+
+  // Load products with stock when source location is USER-SELECTED
+  useEffect(() => {
+    if (!isOpen || !company?.id) {
+      setProductsWithStock(new Map());
+      return;
+    }
+
+    // Only load products if location was explicitly selected by user
+    if (!isLocationUserSelected) {
+      setProductsWithStock(new Map());
+      return;
+    }
+
+    // Also check if we have a valid source type and location ID
+    if (!formData.sourceType || (formData.sourceType === 'shop' && !formData.shopId) || (formData.sourceType === 'warehouse' && !formData.warehouseId)) {
+      setProductsWithStock(new Map());
+      return;
+    }
+
+    const loadProductsWithStock = async () => {
+      // Determine source location based on form data
+      let sourceShopId: string | undefined;
+      let sourceWarehouseId: string | undefined;
+      let sourceLocationType: 'warehouse' | 'shop' | undefined;
+
+      if (formData.sourceType === 'shop' && formData.shopId) {
+        sourceShopId = formData.shopId;
+        sourceLocationType = 'shop';
+      } else if (formData.sourceType === 'warehouse' && formData.warehouseId) {
+        sourceWarehouseId = formData.warehouseId;
+        sourceLocationType = 'warehouse';
+      } else {
+        // No location selected, clear products with stock
+        setProductsWithStock(new Map());
+        return;
+      }
+
+      setLoadingProductsWithStock(true);
+      try {
+        // Get all stock batches for the source location
+        const batches = await getStockBatchesByLocation(
+          company.id,
+          'product',
+          sourceShopId,
+          sourceWarehouseId,
+          sourceLocationType
+        );
+
+        // Filter batches with remaining quantity > 0
+        const availableBatches = batches.filter(
+          batch => batch.remainingQuantity && batch.remainingQuantity > 0 && batch.status === 'active'
+        );
+
+        // Aggregate by product
+        const productStockMap = new Map<string, { product: any; stock: number }>();
+
+        availableBatches.forEach((batch) => {
+          if (!batch.productId) return;
+
+          const product = products?.find(p => p.id === batch.productId);
+          if (!product || product.isDeleted === true || product.isAvailable === false) {
+            return;
+          }
+
+          const existing = productStockMap.get(batch.productId);
+          const stock = batch.remainingQuantity || 0;
+
+          if (existing) {
+            existing.stock += stock;
+          } else {
+            productStockMap.set(batch.productId, {
+              product,
+              stock
+            });
+          }
+        });
+
+        setProductsWithStock(productStockMap);
+      } catch (error) {
+        logError('Error loading products with stock:', error);
+        setProductsWithStock(new Map());
+      } finally {
+        setLoadingProductsWithStock(false);
+      }
+    };
+
+    loadProductsWithStock();
+  }, [isOpen, formData.sourceType, formData.shopId, formData.warehouseId, company?.id, products, isLocationUserSelected]);
+
+  // Load stock info when products are selected or location changes
   useEffect(() => {
     formData.products.forEach(formProduct => {
-      if (formProduct.product && !productStockInfo.has(formProduct.product.id)) {
+      if (formProduct.product) {
+        // Reload stock info when location changes or product is selected
         loadProductStockInfo(formProduct.product.id);
       }
     });
-  }, [formData.products]);
+  }, [formData.products, formData.sourceType, formData.shopId, formData.warehouseId]);
 
 
 
   // Product options for react-select
-  // Filter by availability only - stock is checked from batches dynamically
-  const availableProducts = products?.filter(p => p.isAvailable) || [];
+  // Filter by stock availability in selected location (similar to transfer modal)
+  const availableProducts = useMemo(() => {
+    // Only filter by location if user has explicitly selected a location
+    if (!isLocationUserSelected) {
+      // If no location is user-selected, return empty array (products will show message to select location first)
+      return [];
+    }
+    
+    // If a location is selected, only show products with stock in that location
+    if (formData.sourceType === 'shop' && formData.shopId) {
+      return Array.from(productsWithStock.values())
+        .map(({ product }) => product)
+        .filter(product => product && product.isAvailable !== false);
+    } else if (formData.sourceType === 'warehouse' && formData.warehouseId) {
+      return Array.from(productsWithStock.values())
+        .map(({ product }) => product)
+        .filter(product => product && product.isAvailable !== false);
+    }
+    // If no location selected, return empty array
+    return [];
+  }, [products, productsWithStock, formData.sourceType, formData.shopId, formData.warehouseId, isLocationUserSelected]);
+
   const filteredProducts = (productSearchQuery
     ? availableProducts.filter(product =>
         product.name.toLowerCase().includes(productSearchQuery.toLowerCase())
@@ -150,14 +321,20 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
           <div className="text-sm text-gray-500">
             {(() => {
               // First check if we have detailed stock info (for products already added to form)
-              const stockInfo = productStockInfo.get(product.id);
+              const cacheKey = `${product.id}-${formData.sourceType}-${formData.shopId}-${formData.warehouseId}`;
+              const stockInfo = productStockInfo.get(cacheKey);
               if (stockInfo) {
                 return `${stockInfo.totalStock} in stock`;
               }
-              // Otherwise, use stockMap from batches (already loaded)
+              // Check productsWithStock for location-specific stock
+              const productWithStock = productsWithStock.get(product.id);
+              if (productWithStock) {
+                return `${productWithStock.stock} in stock`;
+              }
+              // Otherwise, use stockMap from batches (already loaded) - this is global stock
               if (!batchesLoading && stockMap) {
                 const stock = getEffectiveProductStock(product, stockMap);
-                return `${stock} in stock`;
+                return `${stock} in stock (global)`;
               }
               return 'Loading stock...';
             })()} - {formatPrice(product.sellingPrice)} XAF
@@ -189,6 +366,8 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
   const handleClose = () => {
     resetForm();
     setProductStockInfo(new Map());
+    setProductsWithStock(new Map());
+    setIsLocationUserSelected(false);
     onClose();
   };
 
@@ -215,7 +394,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
     handleProductChange(index, option);
     if (option && option.value) {
       const productId = option.value.id;
-      const stockInfo = productStockInfo.get(productId);
+      const stockInfo = getProductStockInfo(productId);
       const currentStock = stockInfo?.totalStock ?? 0;
       const remainingAfter = currentStock - 1;
       if (remainingAfter <= LOW_STOCK_THRESHOLD && remainingAfter >= 0) {
@@ -234,7 +413,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
     const product = fp?.product;
     const qty = field === 'quantity' ? parseInt(value || '0', 10) : parseInt(fp?.quantity || '0', 10);
     if (product && !isNaN(qty) && qty > 0) {
-      const stockInfo = productStockInfo.get(product.id);
+      const stockInfo = getProductStockInfo(product.id);
       const currentStock = stockInfo?.totalStock ?? 0;
       const remainingAfter = currentStock - qty;
       if (remainingAfter <= LOW_STOCK_THRESHOLD && remainingAfter >= 0) {
@@ -264,6 +443,128 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
       <div className="flex flex-col lg:flex-row gap-6 max-w-4xl mx-auto">
         {/* Main Form */}
         <div className="flex-1 space-y-6">
+          {/* Source Location Selection */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
+            <h3 className="text-sm font-semibold text-gray-900">Source de la vente</h3>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Type de source
+                </label>
+                <select
+                  value={formData.sourceType}
+                  onChange={(e) => {
+                    const newSourceType = e.target.value as 'shop' | 'warehouse' | '';
+                    setFormData(prev => ({
+                      ...prev,
+                      sourceType: newSourceType,
+                      // Clear the opposite location when type changes
+                      shopId: newSourceType === 'shop' ? prev.shopId : '',
+                      warehouseId: newSourceType === 'warehouse' ? prev.warehouseId : ''
+                    }));
+                    // Reset location selection flag when source type changes
+                    setIsLocationUserSelected(false);
+                    setProductsWithStock(new Map()); // Clear products when type changes
+                  }}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Sélectionner un type de source</option>
+                  <option value="shop">Magasin</option>
+                  <option value="warehouse">Entrepôt</option>
+                </select>
+              </div>
+              
+              {formData.sourceType === 'shop' ? (
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Magasin <span className="text-red-500">*</span>
+                  </label>
+                  {shopsLoading ? (
+                    <div className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md bg-gray-50">
+                      Chargement des magasins...
+                    </div>
+                  ) : shopsError ? (
+                    <div className="w-full px-3 py-2 text-sm border border-red-300 rounded-md bg-red-50 text-red-700">
+                      Erreur lors du chargement des magasins
+                    </div>
+                  ) : activeShops.length === 0 ? (
+                    <div className="w-full px-3 py-2 text-sm border border-yellow-300 rounded-md bg-yellow-50 text-yellow-700">
+                      Aucun magasin actif disponible. Veuillez créer un magasin ou activer un magasin existant.
+                    </div>
+                  ) : (
+                    <select
+                      value={formData.shopId}
+                      onChange={(e) => {
+                        const selectedShop = activeShops.find(s => s.id === e.target.value);
+                        if (selectedShop && selectedShop.isActive === false) {
+                          showWarningToast('Ce magasin est désactivé. Veuillez sélectionner un magasin actif.');
+                          return;
+                        }
+                        setFormData(prev => ({ ...prev, shopId: e.target.value }));
+                        // Mark as user-selected when shop is explicitly chosen
+                        setIsLocationUserSelected(true);
+                      }}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    >
+                      <option value="">Sélectionner un magasin</option>
+                      {activeShops.map(shop => (
+                        <option key={shop.id} value={shop.id}>
+                          {shop.name} {shop.isDefault && '(Par défaut)'} {shop.isActive === false && '(Désactivé)'}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              ) : formData.sourceType === 'warehouse' ? (
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Entrepôt <span className="text-red-500">*</span>
+                  </label>
+                  {warehousesLoading ? (
+                    <div className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md bg-gray-50">
+                      Chargement des entrepôts...
+                    </div>
+                  ) : warehousesError ? (
+                    <div className="w-full px-3 py-2 text-sm border border-red-300 rounded-md bg-red-50 text-red-700">
+                      Erreur lors du chargement des entrepôts
+                    </div>
+                  ) : activeWarehouses.length === 0 ? (
+                    <div className="w-full px-3 py-2 text-sm border border-yellow-300 rounded-md bg-yellow-50 text-yellow-700">
+                      Aucun entrepôt actif disponible. Veuillez créer un entrepôt ou activer un entrepôt existant.
+                    </div>
+                  ) : (
+                    <select
+                      value={formData.warehouseId}
+                      onChange={(e) => {
+                        const selectedWarehouse = activeWarehouses.find(w => w.id === e.target.value);
+                        if (selectedWarehouse && selectedWarehouse.isActive === false) {
+                          showWarningToast('Cet entrepôt est désactivé. Veuillez sélectionner un entrepôt actif.');
+                          return;
+                        }
+                        setFormData(prev => ({ ...prev, warehouseId: e.target.value }));
+                        // Mark as user-selected when warehouse is explicitly chosen
+                        setIsLocationUserSelected(true);
+                      }}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    >
+                      <option value="">Sélectionner un entrepôt</option>
+                      {activeWarehouses.map(warehouse => (
+                        <option key={warehouse.id} value={warehouse.id}>
+                          {warehouse.name} {warehouse.isDefault && '(Par défaut)'} {warehouse.isActive === false && '(Désactivé)'}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              ) : null}
+            </div>
+            <p className="text-xs text-gray-500">
+              Le stock sera consommé depuis l'emplacement sélectionné
+            </p>
+          </div>
+
           {/* Customer Information Section */}
           <div className="space-y-4">
             <div className="relative">
@@ -574,7 +875,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                           <p className="font-medium">{product.product.name}</p>
                           <p className="text-sm text-gray-500">
                             {(() => {
-                              const stockInfo = productStockInfo.get(product.product.id);
+                              const stockInfo = getProductStockInfo(product.product.id);
                               if (stockInfo) {
                                 return `${stockInfo.totalStock} in stock`;
                               }
@@ -597,7 +898,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                       
                       {/* Stock Batch Information */}
                       {(() => {
-                        const stockInfo = productStockInfo.get(product.product.id);
+                        const stockInfo = getProductStockInfo(product.product.id);
                         const isLoading = loadingStockInfo.has(product.product.id);
                         
                         return (
@@ -630,14 +931,14 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                           type="number"
                           min="1"
                           max={(() => {
-                            const stockInfo = productStockInfo.get(product.product.id);
+                            const stockInfo = getProductStockInfo(product.product.id);
                             return (stockInfo?.totalStock ?? 0).toString();
                           })()}
                           value={product.quantity}
                           onChange={(e) => onProductInputChange(index, 'quantity', e.target.value)}
                           required
                           helpText={(() => {
-                            const stockInfo = productStockInfo.get(product.product.id);
+                            const stockInfo = getProductStockInfo(product.product.id);
                             const stock = stockInfo?.totalStock ?? 0;
                             return `Cannot exceed ${stock}`;
                           })()}
@@ -713,7 +1014,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                           <span className="text-sm font-medium text-gray-700">Available Stock:</span>
                         <span className="ml-2">
                           {(() => {
-                            const stockInfo = productStockInfo.get(product.product.id);
+                            const stockInfo = getProductStockInfo(product.product.id);
                             return stockInfo?.totalStock ?? 0;
                           })()}
                         </span>
@@ -722,7 +1023,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                     
                     {/* Stock Batch Information - Mobile */}
                     {(() => {
-                      const stockInfo = productStockInfo.get(product.product.id);
+                            const stockInfo = getProductStockInfo(product.product.id);
                       const isLoading = loadingStockInfo.has(product.product.id);
                       
                       return (
@@ -756,14 +1057,14 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                         min="1"
                         step="1"
                         max={(() => {
-                          const stockInfo = productStockInfo.get(product.product.id);
+                          const stockInfo = getProductStockInfo(product.product.id);
                           return (stockInfo?.totalStock ?? 0).toString();
                         })()}
                         value={product.quantity}
                         onChange={(e) => onProductInputChange(index, 'quantity', e.target.value)}
                         required
                           helpText={(() => {
-                            const stockInfo = productStockInfo.get(product.product.id);
+                            const stockInfo = getProductStockInfo(product.product.id);
                             const stock = stockInfo?.totalStock ?? 0;
                             return `Cannot exceed ${stock}`;
                           })()}
@@ -894,6 +1195,13 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
               </div>
             {/* Available Products */}
               <div className="space-y-2">
+            {!isLocationUserSelected ? (
+              <div className="text-sm text-gray-500 p-3">Sélectionnez d'abord un magasin ou un entrepôt pour voir les produits disponibles</div>
+            ) : loadingProductsWithStock && (formData.shopId || formData.warehouseId) ? (
+              <div className="text-sm text-gray-500 p-3">Chargement des produits...</div>
+            ) : productsWithStock.size === 0 && (formData.shopId || formData.warehouseId) && !loadingProductsWithStock ? (
+              <div className="text-sm text-gray-500 p-3">Aucun produit avec stock disponible dans cette source</div>
+            ) : (
             <div className="space-y-2 max-h-[calc(100vh-400px)] overflow-y-auto">
                   {filteredProducts.map(product => (
                 <button
@@ -921,14 +1229,19 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                       <p className="text-sm text-gray-500">
                             {(() => {
                               // First check if we have detailed stock info (for products already added to form)
-                              const stockInfo = productStockInfo.get(product.id);
+                              const stockInfo = getProductStockInfo(product.id);
                               if (stockInfo) {
                                 return `${stockInfo.totalStock} in stock`;
                               }
-                              // Otherwise, use stockMap from batches (already loaded)
+                              // Check productsWithStock for location-specific stock
+                              const productWithStock = productsWithStock.get(product.id);
+                              if (productWithStock) {
+                                return `${productWithStock.stock} in stock`;
+                              }
+                              // Otherwise, use stockMap from batches (already loaded) - this is global stock
                               if (!batchesLoading && stockMap) {
                                 const stock = getEffectiveProductStock(product, stockMap);
-                                return `${stock} in stock`;
+                                return `${stock} in stock (global)`;
                               }
                               return 'Loading stock...';
                             })()} - {formatPrice(product.sellingPrice)} XAF
@@ -938,6 +1251,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                 </button>
               ))}
             </div>
+            )}
                 {/* View More Button */}
                 {availableProducts.length > 10 && (
                   <button

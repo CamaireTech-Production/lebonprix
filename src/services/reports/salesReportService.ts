@@ -36,6 +36,7 @@ export const SALES_REPORT_FIELDS: ReportField[] = [
   { key: 'status', label: 'Statut', type: 'text', defaultSelected: true },
   { key: 'paymentStatus', label: 'Paiement', type: 'text', defaultSelected: true },
   { key: 'deliveryFee', label: 'Frais de livraison', type: 'currency', defaultSelected: false },
+  { key: 'sourceLocation', label: 'Source', type: 'text', defaultSelected: false },
   { key: 'date', label: 'Date', type: 'date', defaultSelected: true }
 ];
 
@@ -44,7 +45,9 @@ export const SALES_REPORT_FIELDS: ReportField[] = [
  */
 export const transformSalesToReportData = (
   sales: Sale[],
-  products: Product[]
+  products: Product[],
+  shops?: Array<{ id: string; name: string }>,
+  warehouses?: Array<{ id: string; name: string }>
 ): SalesReportData[] => {
   return sales
     .filter(sale => sale.isAvailable !== false)
@@ -76,6 +79,16 @@ export const transformSalesToReportData = (
         'cancelled': 'Annulé'
       };
 
+      // Get source location name
+      let sourceLocation: string | undefined;
+      if (sale.sourceType === 'shop' && sale.shopId && shops) {
+        const shop = shops.find(s => s.id === sale.shopId);
+        sourceLocation = shop ? shop.name : `Boutique ${sale.shopId}`;
+      } else if (sale.sourceType === 'warehouse' && sale.warehouseId && warehouses) {
+        const warehouse = warehouses.find(w => w.id === sale.warehouseId);
+        sourceLocation = warehouse ? warehouse.name : `Entrepôt ${sale.warehouseId}`;
+      }
+
       return {
         id: sale.id,
         customerName: sale.customerInfo?.name || 'Client non spécifié',
@@ -87,7 +100,11 @@ export const transformSalesToReportData = (
         status: statusLabels[sale.status] || sale.status,
         paymentStatus: paymentStatusLabels[sale.paymentStatus] || sale.paymentStatus,
         date,
-        deliveryFee: sale.deliveryFee
+        deliveryFee: sale.deliveryFee,
+        sourceLocation,
+        sourceType: sale.sourceType,
+        shopId: sale.shopId,
+        warehouseId: sale.warehouseId
       };
     });
 };
@@ -144,6 +161,21 @@ export const filterSalesReportData = (
   }
   if (config.filters.amountMax !== undefined) {
     filtered = filtered.filter(item => item.totalAmount <= config.filters.amountMax!);
+  }
+
+  // Filter by shop
+  if (config.filters.shopId) {
+    filtered = filtered.filter(item => item.shopId === config.filters.shopId);
+  }
+
+  // Filter by warehouse
+  if (config.filters.warehouseId) {
+    filtered = filtered.filter(item => item.warehouseId === config.filters.warehouseId);
+  }
+
+  // Filter by source type
+  if (config.filters.sourceType && config.filters.sourceType !== 'all') {
+    filtered = filtered.filter(item => item.sourceType === config.filters.sourceType);
   }
 
   return filtered;
@@ -239,11 +271,13 @@ export const generateSalesReport = (
   sales: Sale[],
   products: Product[],
   config: SalesReportConfig,
-  options: ExportOptions
+  options: ExportOptions,
+  shops?: Array<{ id: string; name: string }>,
+  warehouses?: Array<{ id: string; name: string }>
 ): ReportResult => {
   try {
     // Transform data
-    const reportData = transformSalesToReportData(sales, products);
+    const reportData = transformSalesToReportData(sales, products, shops, warehouses);
 
     // Apply filters
     const filteredData = filterSalesReportData(reportData, config);

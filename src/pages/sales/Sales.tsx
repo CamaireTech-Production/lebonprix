@@ -1549,6 +1549,7 @@ const Sales: React.FC = () => {
         onClose={() => setIsReportModalOpen(false)}
         sales={sales}
         products={products}
+        companyId={company?.id || ''}
         companyName={company?.name}
         companyLogo={company?.logo}
       />

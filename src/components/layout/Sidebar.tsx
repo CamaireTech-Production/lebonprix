@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, Link, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, ShoppingCart, DollarSign, Package2, FileBarChart, Settings, X, Receipt, Users, Building2, Plus, Grid3X3, ShoppingBag, UserCheck, ChevronDown, ChevronRight, Loader2, Phone, ScanLine, Warehouse, Factory, Globe, Shield, Briefcase } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, DollarSign, Package2, FileBarChart, Settings, X, Receipt, Users, Building2, Plus, Grid3X3, ShoppingBag, UserCheck, ChevronDown, ChevronRight, Loader2, Phone, ScanLine, Warehouse, Factory, Globe, Shield, Briefcase, Store, Package, ArrowRight } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useRolePermissions } from '../../hooks/business/useRolePermissions';
 import UserAvatar from '../common/UserAvatar';
@@ -95,6 +95,7 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
     setMagasinMenuExpanded(location.pathname.includes('/magasin'));
   }, [location.pathname]);
 
+
   const handleCreateCompany = () => {
     window.location.href = '/company/create';
   };
@@ -186,7 +187,7 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
       ]
     },
     {
-      name: t('navigation.warehouse'),
+      name: t('navigation.magasinMatiere', 'Magasin Matière'),
       path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/magasin` : '/magasin',
       icon: <Warehouse size={20} />,
       resource: RESOURCES.MAGASIN,
@@ -195,6 +196,24 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
         { name: t('navigation.warehouseMenu.categories'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/magasin/categories` : '/magasin/categories', resource: RESOURCES.MAGASIN },
         { name: t('navigation.warehouseMenu.stocks'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/magasin/stocks` : '/magasin/stocks', resource: RESOURCES.MAGASIN },
       ]
+    },
+    {
+      name: t('navigation.warehouseProducts', 'Entrepôt Produits'),
+      path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/warehouse` : '/warehouse',
+      icon: <Package size={20} />,
+      resource: RESOURCES.WAREHOUSE
+    },
+    {
+      name: t('navigation.shops', 'Boutiques'),
+      path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/shops` : '/shops',
+      icon: <Store size={20} />,
+      resource: RESOURCES.SHOPS
+    },
+    {
+      name: t('navigation.stockTransfers', 'Transferts de stock'),
+      path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/stock-transfers` : '/stock-transfers',
+      icon: <ArrowRight size={20} />,
+      resource: RESOURCES.PRODUCTS
     },
     { name: t('navigation.suppliers'), path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/suppliers` : '/suppliers', icon: <Users size={20} />, resource: RESOURCES.SUPPLIERS },
     {
@@ -312,12 +331,12 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
             // Check if this is the "Mes Entreprises" link that needs confirmation
             const isCompaniesManagementLink = item.path === '/companies' && isCompanyRoute;
             
-            // Check if this item has subItems (expansible menu)
-            const hasSubItems = (item as any).subItems && Array.isArray((item as any).subItems);
+            // Check if this item has subItems (expansible menu) - must have items in the array
+            const hasSubItems = (item as any).subItems && Array.isArray((item as any).subItems) && (item as any).subItems.length > 0;
             const isExpensesItem = item.name === t('navigation.expenses');
             const isContactsItem = item.name === t('navigation.contacts');
             const isProductsItem = item.name === t('navigation.products');
-            const isMagasinItem = item.name === t('navigation.warehouse');
+            const isMagasinItem = item.name === t('navigation.magasinMatiere', 'Magasin Matière');
             const isProductionsItem = item.name === t('navigation.productions');
             const isExpanded = (isExpensesItem && expensesMenuExpanded) || (isContactsItem && contactsMenuExpanded) || (isProductsItem && productsMenuExpanded) || (isMagasinItem && magasinMenuExpanded) || (isProductionsItem && productionsMenuExpanded);
             
