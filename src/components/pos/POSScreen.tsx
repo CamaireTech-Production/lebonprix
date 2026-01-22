@@ -12,11 +12,26 @@ import { useAuth } from '@contexts/AuthContext';
 import { useParams } from 'react-router-dom';
 import type { Sale } from '../../types/models';
 import { getEffectiveProductStock } from '@utils/inventory/stockHelpers';
+import { useInfiniteSales } from '@hooks/data/useInfiniteSales';
+import { countCreditSales } from '@utils/calculations/financialCalculations';
 
 export const POSScreen: React.FC = () => {
   const { company } = useAuth();
   const { companyId, shopId } = useParams<{ companyId: string; shopId?: string }>();
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  
+  // Get sales data for credit sales count
+  const { sales } = useInfiniteSales();
+  
+  // Calculate credit sales count
+  const creditSalesCount = useMemo(() => {
+    if (!sales || sales.length === 0) return 0;
+    // Filter only active credit sales (not cancelled/deleted)
+    const activeCreditSales = sales.filter(sale => 
+      sale.status === 'credit' && sale.isAvailable !== false
+    );
+    return activeCreditSales.length;
+  }, [sales]);
 
   const {
     cart,

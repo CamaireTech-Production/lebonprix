@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ChevronRight, ChevronDown, Package, AlertCircle, Search, Trash2, Settings, AlertTriangle } from 'lucide-react';
+import { ChevronRight, ChevronLeft, ChevronDown, Package, AlertCircle, Search, Trash2, Settings, AlertTriangle } from 'lucide-react';
 import { Button, Input, Modal, LoadingScreen } from '@components/common';
 import { useMatieres } from '@hooks/business/useMatieres';
 import { useAllStockBatches } from '@hooks/business/useStockBatches';
 import { useStockChanges } from '@hooks/data/useFirestore';
 import MatiereRestockModal from '../../components/magasin/MatiereRestockModal';
+import MatiereDirectConsumptionModal from '../../components/magasin/MatiereDirectConsumptionModal';
 import UnifiedBatchAdjustmentModal from '../../components/magasin/UnifiedBatchAdjustmentModal';
 import BatchDeleteModal from '../../components/common/BatchDeleteModal';
 import { usePermissionCheck } from '@components/permissions';
@@ -81,6 +82,7 @@ const Stocks = () => {
   
   // Modal states
   const [restockModalOpen, setRestockModalOpen] = useState(false);
+  const [directConsumptionModalOpen, setDirectConsumptionModalOpen] = useState(false);
   const [adjustModalOpen, setAdjustModalOpen] = useState(false);
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -136,6 +138,17 @@ const Stocks = () => {
     setRestockModalOpen(true);
   };
 
+  const handleDirectConsumption = (matiere: Matiere) => {
+    setSelectedMatiere(matiere);
+    setSelectedBatch(null);
+    const matiereBatches = batchesByMatiere.get(matiere.id) || [];
+    const remaining = matiereBatches.reduce((sum, b) => sum + (b.remainingQuantity || 0), 0);
+    const total = matiereBatches.reduce((sum, b) => sum + (b.quantity || 0), 0);
+    setSelectedBatchTotals(matiereBatches.length ? { remaining, total } : undefined);
+    setExpandedMatiereId(matiere.id || '');
+    setDirectConsumptionModalOpen(true);
+  };
+
   const handleAdjust = (matiere: Matiere, batch?: StockBatch) => {
     setSelectedMatiere(matiere);
     setSelectedBatch(batch || null);
@@ -159,9 +172,12 @@ const Stocks = () => {
   };
 
   const handleModalSuccess = () => {
+    // Clear search filter and reset pagination to ensure all matieres are visible after restock
     // Note: useMatieres uses real-time subscription, so data updates automatically
-    // No need to manually refresh
+    setSearch('');
+    setPage(1);
     setRestockModalOpen(false);
+    setDirectConsumptionModalOpen(false);
     setAdjustModalOpen(false);
     setHistoryModalOpen(false);
     setDeleteModalOpen(false);
@@ -171,6 +187,7 @@ const Stocks = () => {
 
   const handleModalClose = () => {
     setRestockModalOpen(false);
+    setDirectConsumptionModalOpen(false);
     setAdjustModalOpen(false);
     setHistoryModalOpen(false);
     setDeleteModalOpen(false);
@@ -329,6 +346,16 @@ const Stocks = () => {
                         >
                           {t('navigation.warehouseMenu.stocksPage.actions.history')}
                         </Button>
+                        {batchRemaining > 0 && (
+                          <Button 
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleDirectConsumption(matiere)}
+                            className="whitespace-nowrap"
+                          >
+                            {t('navigation.warehouseMenu.stocksPage.actions.destock')}
+                          </Button>
+                        )}
                         <Button 
                           size="sm"
                           onClick={() => handleRestock(matiere)}
@@ -476,8 +503,9 @@ const Stocks = () => {
                 size="sm"
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={currentPage === 1 || loading}
+                title={t('navigation.warehouseMenu.stocksPage.messages.previous')}
               >
-                {t('navigation.warehouseMenu.stocksPage.messages.previous')}
+                <ChevronLeft size={16} />
               </Button>
               <div className="flex items-center space-x-1">
                 <span className="text-gray-600">{t('navigation.warehouseMenu.stocksPage.messages.page')}</span>
@@ -501,8 +529,9 @@ const Stocks = () => {
                 size="sm"
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={currentPage === totalPages || loading}
+                title={t('navigation.warehouseMenu.stocksPage.messages.next')}
               >
-                {t('navigation.warehouseMenu.stocksPage.messages.next')}
+                <ChevronRight size={16} />
               </Button>
             </div>
           </div>
@@ -512,6 +541,14 @@ const Stocks = () => {
       {/* Stock Operation Modals */}
       <MatiereRestockModal
         isOpen={restockModalOpen}
+        onClose={handleModalClose}
+        matiere={selectedMatiere}
+        batchTotals={selectedBatchTotals}
+        onSuccess={handleModalSuccess}
+      />
+
+      <MatiereDirectConsumptionModal
+        isOpen={directConsumptionModalOpen}
         onClose={handleModalClose}
         matiere={selectedMatiere}
         batchTotals={selectedBatchTotals}

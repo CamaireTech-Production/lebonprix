@@ -1,5 +1,5 @@
 import { useAddSaleForm } from '@hooks/forms/useAddSaleForm';
-import { Modal, ModalFooter, Input, PriceInput, Button, ImageWithSkeleton, LocationAutocomplete } from '@components/common';
+import { Modal, ModalFooter, Input, PriceInput, Button, ImageWithSkeleton, LocationAutocomplete, Select as CommonSelect } from '@components/common';
 import Select from 'react-select';
 import { Plus, Trash2, Info, ChevronDown, ChevronUp} from 'lucide-react';
 import { useState, useEffect, useMemo } from 'react';
@@ -569,7 +569,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
           <div className="space-y-4">
             <div className="relative">
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Phone
+                  Phone {formData.status === 'credit' && <span className="text-red-600">*</span>}
               </label>
               <div className="flex space-x-2">
                 <Input
@@ -579,9 +579,9 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                   onChange={handlePhoneChange}
                   onBlur={handlePhoneBlur}
                     placeholder="Phone"
-                  className="flex-1"
+                  className={`flex-1 ${formData.status === 'credit' && !formData.customerPhone ? 'border-red-300' : ''}`}
                   required
-                    helpText="Enter customer phone number"
+                    helpText={formData.status === 'credit' ? "Required for credit sales" : "Enter customer phone number"}
                   ref={phoneInputRef}
                 />
               </div>
@@ -655,10 +655,11 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
             <div className="grid grid-cols-2 gap-4">
               <div className="relative">
                 <Input
-                    label="Name"
+                    label={formData.status === 'credit' ? "Name *" : "Name"}
                   name="customerName"
                   value={formData.customerName}
                   onChange={handleInputChange}
+                  className={formData.status === 'credit' && !formData.customerName ? 'border-red-300' : ''}
                 />
                 
                 {/* Customer Dropdown - Name based recommendations */}
@@ -1124,71 +1125,58 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                 value={formData.status}
                 onChange={(e) => handleInputChange({ target: { name: e.target.name, value: e.target.value } } as any)}
               >
-                  <option value="commande">Commande</option>
-                  <option value="under_delivery">Under Delivery</option>
-                  <option value="paid">Paid</option>
+                  <option value="commande">{t('sales.filters.status.commande') || 'Commande'}</option>
+                  <option value="under_delivery">{t('sales.filters.status.under_delivery') || 'Under Delivery'}</option>
+                  <option value="paid">{t('sales.filters.status.paid') || 'Paid'}</option>
+                  <option value="credit">{t('sales.filters.status.credit') || 'Credit'}</option>
+                  <option value="draft">{t('sales.filters.status.draft') || 'Draft'}</option>
               </select>
+              {formData.status === 'credit' && (
+                <div className="mt-2 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                  <p className="text-sm text-orange-800 font-medium">
+                    {t('sales.modals.add.creditSaleWarning') || '⚠️ For credit sales, customer name and phone are required.'}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
           
           {/* Inventory Method Selection */}
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700">
-              {t('sales.modals.add.inventoryMethod.title')}
-            </label>
-            <div className="flex flex-wrap gap-4">
-              <label className="flex items-center space-x-2">
-                <input
-                  type="radio"
-                  name="inventoryMethod"
-                  value="fifo"
-                  checked={formData.inventoryMethod === 'fifo'}
-                  onChange={handleInputChange}
-                  className="form-radio h-4 w-4 text-emerald-600 border-gray-300"
-                />
-                <span className="text-sm text-gray-700">
-                  <strong>{t('sales.modals.add.inventoryMethod.fifo')}</strong>
-                </span>
-                <span className="text-xs text-gray-500">
-                  {t('sales.modals.add.inventoryMethod.fifoDescription')}
-                </span>
-              </label>
-              <label className="flex items-center space-x-2">
-                <input
-                  type="radio"
-                  name="inventoryMethod"
-                  value="lifo"
-                  checked={formData.inventoryMethod === 'lifo'}
-                  onChange={handleInputChange}
-                  className="form-radio h-4 w-4 text-emerald-600 border-gray-300"
-                />
-                <span className="text-sm text-gray-700">
-                  <strong>{t('sales.modals.add.inventoryMethod.lifo')}</strong>
-                </span>
-                <span className="text-xs text-gray-500">
-                  {t('sales.modals.add.inventoryMethod.lifoDescription')}
-                </span>
-              </label>
-              <label className="flex items-center space-x-2">
-                <input
-                  type="radio"
-                  name="inventoryMethod"
-                  value="cmup"
-                  checked={formData.inventoryMethod === 'cmup'}
-                  onChange={handleInputChange}
-                  className="form-radio h-4 w-4 text-emerald-600 border-gray-300"
-                />
-                <span className="text-sm text-gray-700">
-                  <strong>{t('sales.modals.add.inventoryMethod.cmup')}</strong>
-                </span>
-                <span className="text-xs text-gray-500">
-                  {t('sales.modals.add.inventoryMethod.cmupDescription')}
-                </span>
-              </label>
-            </div>
-            <p className="text-xs text-gray-500">
-              {t('sales.modals.add.inventoryMethod.helpText')}
-            </p>
+          <div>
+            <CommonSelect
+              label={t('sales.modals.add.inventoryMethod.title')}
+              name="inventoryMethod"
+              value={formData.inventoryMethod}
+              onChange={(e) => {
+                handleInputChange({
+                  target: {
+                    name: 'inventoryMethod',
+                    value: e.target.value
+                  }
+                } as React.ChangeEvent<HTMLInputElement>);
+              }}
+              options={[
+                {
+                  value: 'fifo',
+                  label: t('sales.modals.add.inventoryMethod.fifo')
+                },
+                {
+                  value: 'lifo',
+                  label: t('sales.modals.add.inventoryMethod.lifo')
+                },
+                {
+                  value: 'cmup',
+                  label: t('sales.modals.add.inventoryMethod.cmup')
+                }
+              ]}
+              helpText={
+                formData.inventoryMethod === 'fifo'
+                  ? t('sales.modals.add.inventoryMethod.fifoDescription')
+                  : formData.inventoryMethod === 'lifo'
+                  ? t('sales.modals.add.inventoryMethod.lifoDescription')
+                  : t('sales.modals.add.inventoryMethod.cmupDescription')
+              }
+            />
           </div>
         </div>
         {/* Products Side Panel - Desktop View */}

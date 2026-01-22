@@ -390,17 +390,23 @@ export function usePOS(shopId?: string) {
       const tvaAmount = state.applyTVA ? cartTotals.subtotal * (state.tvaRate / 100) : 0;
       const finalTotal = cartTotals.subtotal + (paymentData?.deliveryFee ?? state.deliveryFee) - discountAmount + tvaAmount;
 
+      // Determine sale status
+      const saleStatus = paymentData?.status || state.status || 'paid';
+      const isCreditSale = saleStatus === 'credit';
+      
       // Prepare raw sale data for validation
       // Note: products will be enriched with costPrice, profit, profitMargin by createSale
-      const rawSaleData = {
+      const rawSaleData: any = {
         products: saleProducts as any, // Products will be enriched by createSale
         totalAmount: finalTotal,
         userId: user.uid,
         companyId: company.id,
-        status: paymentData?.status || state.status,
-        paymentStatus: paymentData?.paymentMethod === 'cash' && paymentData.amountReceived && paymentData.amountReceived >= finalTotal 
-          ? 'paid' as const 
-          : 'pending' as const,
+        status: saleStatus,
+        paymentStatus: isCreditSale 
+          ? 'pending' as const 
+          : (paymentData?.paymentMethod === 'cash' && paymentData.amountReceived && paymentData.amountReceived >= finalTotal 
+            ? 'paid' as const 
+            : 'pending' as const),
         customerInfo: {
           name: customerInfo.name || 'Client de passage',
           phone: customerInfo.phone || '',
@@ -410,8 +416,11 @@ export function usePOS(shopId?: string) {
         inventoryMethod: paymentData?.inventoryMethod || state.inventoryMethod || getDefaultInventoryMethod(),
         saleDate: paymentData?.saleDate || new Date().toISOString(),
         customerSourceId: paymentData?.customerSourceId || state.customer?.sourceId || '',
-        paymentMethod: paymentData?.paymentMethod || '',
-        transactionReference: paymentData?.transactionReference || '',
+        // Only include paymentMethod for paid sales (Firestore doesn't allow undefined)
+        ...(isCreditSale ? {} : {
+          paymentMethod: paymentData?.paymentMethod || '',
+          transactionReference: paymentData?.transactionReference || '',
+        }),
         notes: paymentData?.notes || '',
         tax: tvaAmount, // TVA amount
         tvaRate: state.applyTVA ? state.tvaRate : 0, // TVA percentage rate
@@ -420,6 +429,11 @@ export function usePOS(shopId?: string) {
         sourceType: state.sourceType,
         ...(state.shopId && { shopId: state.shopId }),
       };
+
+      // Add credit-specific fields
+      if (isCreditSale && paymentData?.creditDueDate) {
+        rawSaleData.creditDueDate = paymentData.creditDueDate;
+      }
 
       // Validate sale data with translations
       if (!validateSaleData(rawSaleData, t)) {

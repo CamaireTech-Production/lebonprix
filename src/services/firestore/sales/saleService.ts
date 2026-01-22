@@ -38,6 +38,23 @@ const syncFinanceEntryWithSale = async (sale: Sale) => {
     return;
   }
 
+  // Only create financial entries for paid sales
+  // Credit sales should not have financial entries until they are paid
+  if (sale.status !== 'paid') {
+    // If sale is not paid, check if there's an existing finance entry and mark it as deleted
+    // This handles cases where a sale might have been changed from paid to credit
+    const q = query(collection(db, 'finances'), where('sourceType', '==', 'sale'), where('sourceId', '==', sale.id));
+    const snap = await getDocs(q);
+    
+    if (!snap.empty) {
+      // Mark existing entry as deleted if sale is no longer paid
+      const { updateFinanceEntry } = await import('../firestore');
+      const docId = snap.docs[0].id;
+      await updateFinanceEntry(docId, { isDeleted: true });
+    }
+    return;
+  }
+
   const q = query(collection(db, 'finances'), where('sourceType', '==', 'sale'), where('sourceId', '==', sale.id));
   const snap = await getDocs(q);
   
@@ -282,7 +299,18 @@ export const createSale = async (
     const averageProfitMargin = totalCost > 0 ? (totalProfit / totalCost) * 100 : 0;
     
     const normalizedStatus = data.status || 'paid';
-    const normalizedPaymentStatus = data.paymentStatus || 'paid';
+    
+    // Validate credit sales: require customer name and phone (customerSourceId is optional)
+    if (normalizedStatus === 'credit') {
+      if (!data.customerInfo?.name || data.customerInfo.name.trim() === '') {
+        throw new Error('Customer name is required for credit sales. Please enter customer name.');
+      }
+      if (!data.customerInfo?.phone || data.customerInfo.phone.trim() === '') {
+        throw new Error('Customer phone is required for credit sales. Please enter customer phone.');
+      }
+    }
+    
+    const normalizedPaymentStatus = data.paymentStatus || (normalizedStatus === 'credit' ? 'pending' : 'paid');
     const quarterValue = data.customerInfo?.quarter?.trim();
     // Build customerInfo without quarter first, then conditionally add it
     const baseCustomerInfo = data.customerInfo || { name: 'divers', phone: '' };
@@ -323,6 +351,45 @@ export const createSale = async (
     // Determine sourceType if not provided (default to shop)
     const sourceType = data.sourceType || (data.shopId ? 'shop' : data.warehouseId ? 'warehouse' : 'shop');
     
+    // Handle credit due date if provided
+    let normalizedCreditDueDate: Timestamp | undefined = undefined;
+    if ((data as any).creditDueDate) {
+      const dueDate = (data as any).creditDueDate;
+      if (dueDate instanceof Date) {
+        normalizedCreditDueDate = Timestamp.fromDate(dueDate);
+      } else if (typeof dueDate === 'string') {
+        const dueDateObj = new Date(dueDate);
+        if (!isNaN(dueDateObj.getTime())) {
+          normalizedCreditDueDate = Timestamp.fromDate(dueDateObj);
+        }
+      } else if (dueDate && typeof dueDate === 'object' && 'seconds' in dueDate) {
+        normalizedCreditDueDate = dueDate as Timestamp;
+      }
+    }
+    
+    // Calculate remaining amount for credit sales
+    const paidAmount = (data as any).paidAmount || 0;
+    const remainingAmount = normalizedStatus === 'credit' 
+      ? (data.totalAmount - paidAmount)
+      : 0;
+    
+    // Initialize status history with the initial status
+    const initialStatusHistory = [{
+      status: normalizedStatus,
+      timestamp: normalizedCreatedAt instanceof Date 
+        ? normalizedCreatedAt.toISOString() 
+        : (typeof normalizedCreatedAt === 'object' && normalizedCreatedAt !== null && 'seconds' in normalizedCreatedAt
+          ? new Date(normalizedCreatedAt.seconds * 1000).toISOString()
+          : new Date().toISOString()),
+      userId: userId
+    }];
+    
+    // Add payment method to initial status history if it's a paid sale
+    if (normalizedStatus === 'paid' && (data as any).paymentMethod) {
+      initialStatusHistory[0].paymentMethod = (data as any).paymentMethod;
+    }
+    
+    // Build sale data, excluding undefined values (Firestore doesn't allow undefined)
     const saleData: any = {
       ...data,
       products: enhancedProducts,
@@ -337,7 +404,14 @@ export const createSale = async (
       inventoryMethod: normalizedInventoryMethod,
       sourceType, // Add sourceType
       createdAt: normalizedCreatedAt,
-      updatedAt: serverTimestamp()
+      updatedAt: serverTimestamp(),
+      statusHistory: initialStatusHistory,
+      // Credit sale fields
+      ...(normalizedStatus === 'credit' ? {
+        remainingAmount,
+        paidAmount: paidAmount || 0,
+        ...(normalizedCreditDueDate ? { creditDueDate: normalizedCreditDueDate } : {})
+      } : {})
     };
     
     // Add location fields if provided
@@ -391,7 +465,11 @@ export const updateSaleStatus = async (
   id: string,
   status: OrderStatus,
   paymentStatus: PaymentStatus,
-  userId: string
+  userId: string,
+  paymentMethod?: 'cash' | 'mobile_money' | 'card',
+  amountPaid?: number,
+  transactionReference?: string,
+  mobileMoneyPhone?: string
 ): Promise<void> => {
   const saleRef = doc(db, 'sales', id);
   const saleSnap = await getDoc(saleRef);
@@ -407,19 +485,75 @@ export const updateSaleStatus = async (
   
   const batch = writeBatch(db);
   
-  batch.update(saleRef, {
+  // Track old status for transition logic
+  const oldStatus = sale.status;
+  const isCreditToPaidTransition = oldStatus === 'credit' && status === 'paid';
+  
+  // Prepare status history entry with payment details
+  const statusHistoryEntry: any = {
+    status,
+    timestamp: new Date().toISOString(),
+    userId
+  };
+  
+  if (paymentMethod) {
+    statusHistoryEntry.paymentMethod = paymentMethod;
+  }
+  if (amountPaid !== undefined) {
+    statusHistoryEntry.amountPaid = amountPaid;
+  }
+  if (transactionReference) {
+    statusHistoryEntry.transactionReference = transactionReference;
+  }
+  if (mobileMoneyPhone) {
+    statusHistoryEntry.mobileMoneyPhone = mobileMoneyPhone;
+  }
+  
+  // Prepare update data
+  const updateData: any = {
     status,
     paymentStatus,
     updatedAt: serverTimestamp(),
     statusHistory: [
       ...(sale.statusHistory || []),
-      { status, timestamp: new Date().toISOString() }
+      statusHistoryEntry
     ]
-  });
+  };
+
+  // If transitioning from credit to paid, update remaining amount and payment method
+  if (isCreditToPaidTransition) {
+    const currentPaidAmount = sale.paidAmount || 0;
+    const currentRemainingAmount = sale.remainingAmount || sale.totalAmount;
+    const actualAmountPaid = amountPaid ?? currentRemainingAmount;
+    
+    updateData.remainingAmount = Math.max(0, currentRemainingAmount - actualAmountPaid);
+    updateData.paidAmount = currentPaidAmount + actualAmountPaid;
+    
+    if (paymentMethod) {
+      updateData.paymentMethod = paymentMethod;
+    }
+  }
+  
+  batch.update(saleRef, updateData);
   
   createAuditLog(batch, 'update', 'sale', id, { status, paymentStatus }, userId);
   
   await batch.commit();
+
+  // If transitioning from credit to paid, create financial entry
+  if (isCreditToPaidTransition) {
+    try {
+      // Get updated sale to sync finance entry
+      const updatedSaleSnap = await getDoc(saleRef);
+      if (updatedSaleSnap.exists()) {
+        const updatedSale = { id: updatedSaleSnap.id, ...updatedSaleSnap.data() } as Sale;
+        await syncFinanceEntryWithSale(updatedSale);
+      }
+    } catch (syncError) {
+      logError('Error syncing finance entry after credit to paid transition', syncError);
+      // Don't throw - the status update succeeded, finance sync is secondary
+    }
+  }
 };
 
 export const updateSaleDocument = async (
@@ -561,7 +695,194 @@ export const softDeleteSale = async (saleId: string, companyId: string): Promise
   }
 };
 
+export const cancelCreditSale = async (saleId: string, userId: string, companyId: string): Promise<void> => {
+  const saleRef = doc(db, 'sales', saleId);
+  const saleSnap = await getDoc(saleRef);
+  
+  if (!saleSnap.exists()) {
+    throw new Error('Sale not found');
+  }
+
+  const sale = saleSnap.data() as Sale;
+  
+  // Verify authorization
+  if (sale.companyId !== companyId) {
+    throw new Error('Unauthorized to cancel this sale');
+  }
+  
+  // Only allow cancelling credit sales
+  if (sale.status !== 'credit') {
+    throw new Error('Only credit sales can be cancelled');
+  }
+  
+  // Prevent cancelling if already paid
+  if (sale.paidAmount && sale.paidAmount > 0) {
+    throw new Error('Cannot cancel credit sale that has been partially or fully paid');
+  }
+
+  const batch = writeBatch(db);
+
+  // Restore product stock AND batches (same logic as deleteSale)
+  for (const product of sale.products) {
+    const productRef = doc(db, 'products', product.productId);
+    const productSnap = await getDoc(productRef);
+    
+    if (!productSnap.exists()) {
+      throw new Error(`Product with ID ${product.productId} not found`);
+    }
+    
+    const productData = productSnap.data() as Product;
+    if (productData.companyId !== companyId) {
+      throw new Error(`Unauthorized to modify product ${productData.name}`);
+    }
+    
+    // Restore the stock
+    batch.update(productRef, {
+      stock: (productData.stock || 0) + product.quantity,
+      updatedAt: serverTimestamp()
+    });
+
+    // Restore batches
+    if (product.consumedBatches && product.consumedBatches.length > 0) {
+      for (const consumedBatch of product.consumedBatches) {
+        const batchRef = doc(db, 'stockBatches', consumedBatch.batchId);
+        const batchSnap = await getDoc(batchRef);
+        
+        if (batchSnap.exists()) {
+          const batchData = batchSnap.data() as StockBatch;
+          const restoredQuantity = batchData.remainingQuantity + consumedBatch.consumedQuantity;
+          
+          batch.update(batchRef, {
+            remainingQuantity: restoredQuantity,
+            status: restoredQuantity > 0 ? 'active' : 'depleted',
+            updatedAt: serverTimestamp()
+          });
+        }
+      }
+    } else if (product.batchLevelProfits && product.batchLevelProfits.length > 0) {
+      for (const batchProfit of product.batchLevelProfits) {
+        const batchRef = doc(db, 'stockBatches', batchProfit.batchId);
+        const batchSnap = await getDoc(batchRef);
+        
+        if (batchSnap.exists()) {
+          const batchData = batchSnap.data() as StockBatch;
+          const restoredQuantity = batchData.remainingQuantity + batchProfit.consumedQuantity;
+          
+          batch.update(batchRef, {
+            remainingQuantity: restoredQuantity,
+            status: restoredQuantity > 0 ? 'active' : 'depleted',
+            updatedAt: serverTimestamp()
+          });
+        }
+      }
+    }
+  }
+
+  // Update sale status to cancelled
+  batch.update(saleRef, {
+    status: 'cancelled' as OrderStatus,
+    paymentStatus: 'cancelled' as PaymentStatus,
+    updatedAt: serverTimestamp(),
+    statusHistory: [
+      ...(sale.statusHistory || []),
+      {
+        status: 'cancelled',
+        timestamp: new Date().toISOString(),
+        userId
+      }
+    ]
+  });
+
+  createAuditLog(batch, 'update', 'sale', saleId, { status: 'cancelled', reason: 'credit_sale_cancelled' }, userId);
+  
+  await batch.commit();
+};
+
+export const refundCreditSale = async (
+  saleId: string,
+  refundAmount: number,
+  userId: string,
+  reason?: string,
+  paymentMethod?: 'cash' | 'mobile_money' | 'card',
+  transactionReference?: string
+): Promise<void> => {
+  const saleRef = doc(db, 'sales', saleId);
+  const saleSnap = await getDoc(saleRef);
+  
+  if (!saleSnap.exists()) {
+    throw new Error('Sale not found');
+  }
+
+  const sale = saleSnap.data() as Sale;
+  
+  // Validate: Only allow refunds for credit sales
+  if (sale.status !== 'credit') {
+    throw new Error('Refunds can only be processed for credit sales');
+  }
+
+  // Validate: Refund amount must be positive
+  if (refundAmount <= 0) {
+    throw new Error('Refund amount must be greater than zero');
+  }
+
+  // Validate: Refund amount cannot exceed remaining amount
+  const currentRemainingAmount = sale.remainingAmount ?? sale.totalAmount;
+  if (refundAmount > currentRemainingAmount) {
+    throw new Error(`Refund amount (${refundAmount}) cannot exceed remaining amount (${currentRemainingAmount})`);
+  }
+
+  const batch = writeBatch(db);
+
+  // Generate unique refund ID
+  const refundId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+  // Create refund entry
+  const refundEntry = {
+    id: refundId,
+    amount: refundAmount,
+    timestamp: new Date().toISOString(),
+    userId,
+    ...(reason ? { reason } : {}),
+    ...(paymentMethod ? { paymentMethod } : {}),
+    ...(transactionReference ? { transactionReference } : {})
+  };
+
+  // Calculate new values
+  const newRemainingAmount = Math.max(0, currentRemainingAmount - refundAmount);
+  const currentTotalRefunded = sale.totalRefunded || 0;
+  const newTotalRefunded = currentTotalRefunded + refundAmount;
+
+  // Update sale with refund
+  const existingRefunds = sale.refunds || [];
+  batch.update(saleRef, {
+    remainingAmount: newRemainingAmount,
+    totalRefunded: newTotalRefunded,
+    refunds: [...existingRefunds, refundEntry],
+    updatedAt: serverTimestamp(),
+    // Add refund to status history
+    statusHistory: [
+      ...(sale.statusHistory || []),
+      {
+        status: sale.status, // Keep current status
+        timestamp: new Date().toISOString(),
+        userId,
+        refundAmount,
+        refundId,
+        ...(reason ? { refundReason: reason } : {})
+      }
+    ]
+  });
+
+  createAuditLog(batch, 'update', 'sale', saleId, { 
+    action: 'refund', 
+    refundAmount, 
+    remainingAmount: newRemainingAmount,
+    totalRefunded: newTotalRefunded
+  }, userId);
+
+  await batch.commit();
+};
+
 export const addSaleWithValidation = async () => {
   // Implementation remains the same
 };
-

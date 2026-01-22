@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { DollarSign, TrendingUp, Receipt, Users } from 'lucide-react';
+import { DollarSign, TrendingUp, Receipt, Users, Clock } from 'lucide-react';
 import StatCard from './StatCard';
 import { SkeletonStatCard } from '@components/common';
 import { useCompanyColors } from '@hooks/business/useCompanyColors';
@@ -19,6 +19,8 @@ const getIcon = (iconType: StatCardData['iconType']) => {
       return <Receipt size={20} />;
     case 'users':
       return <Users size={20} />;
+    case 'credit':
+      return <Clock size={20} />;
     default:
       return <DollarSign size={20} />;
   }
@@ -49,6 +51,7 @@ const StatsSection = ({ statCards }: StatsSectionProps) => {
               trend={card.trend}
               trendData={card.trendData}
               periodLabel={card.periodLabel}
+              subtitle={card.subtitle}
             />
           )
         ))}

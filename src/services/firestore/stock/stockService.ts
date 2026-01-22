@@ -202,6 +202,115 @@ export const consumeStockFromBatches = async (
     throw new Error(`No available stock batches found for ${type} ${productIdOrMatiereId}${locationInfo ? ` in ${locationInfo}` : ''}`);
   }
 
+  // Check total available stock
+  const totalAvailable = availableBatches.reduce((sum, b) => sum + b.remainingQuantity, 0);
+  if (totalAvailable < quantity) {
+    throw new Error(`Insufficient stock available for ${type} ${productIdOrMatiereId}. Need ${quantity}, available ${totalAvailable}`);
+  }
+
+  // CMUP: Use weighted average cost for all consumed units
+  if (method === 'CMUP') {
+    // Calculate weighted average cost
+    let totalValue = 0;
+    let totalQuantity = 0;
+    for (const stockBatch of availableBatches) {
+      totalValue += stockBatch.costPrice * stockBatch.remainingQuantity;
+      totalQuantity += stockBatch.remainingQuantity;
+    }
+    const weightedAverageCost = totalQuantity > 0 ? totalValue / totalQuantity : 0;
+
+    let remainingQuantity = quantity;
+    const consumedBatches: Array<{
+      batchId: string;
+      costPrice: number;
+      consumedQuantity: number;
+      remainingQuantity: number;
+    }> = [];
+
+    // Consume proportionally from all batches
+    for (const stockBatch of availableBatches) {
+      if (remainingQuantity <= 0) break;
+      
+      // Calculate proportional consumption based on batch's share of total stock
+      const batchProportion = stockBatch.remainingQuantity / totalAvailable;
+      const proportionalQuantity = Math.min(
+        Math.ceil(quantity * batchProportion),
+        stockBatch.remainingQuantity,
+        remainingQuantity
+      );
+      
+      const consumeQuantity = Math.min(remainingQuantity, proportionalQuantity, stockBatch.remainingQuantity);
+      const newRemainingQuantity = stockBatch.remainingQuantity - consumeQuantity;
+
+      const batchRef = doc(db, 'stockBatches', stockBatch.id);
+      batch.update(batchRef, {
+        remainingQuantity: newRemainingQuantity,
+        status: newRemainingQuantity === 0 ? 'depleted' : 'active'
+      });
+
+      consumedBatches.push({
+        batchId: stockBatch.id,
+        costPrice: weightedAverageCost, // Use weighted average for CMUP
+        consumedQuantity: consumeQuantity,
+        remainingQuantity: newRemainingQuantity
+      });
+
+      remainingQuantity -= consumeQuantity;
+    }
+
+    // If there's still remaining quantity, consume from batches in order
+    if (remainingQuantity > 0) {
+      const sortedBatches = availableBatches.sort((a, b) => 
+        (a.createdAt.seconds || 0) - (b.createdAt.seconds || 0)
+      );
+      
+      for (const stockBatch of sortedBatches) {
+        if (remainingQuantity <= 0) break;
+        
+        const alreadyConsumed = consumedBatches.find(cb => cb.batchId === stockBatch.id);
+        const availableFromBatch = alreadyConsumed 
+          ? stockBatch.remainingQuantity - alreadyConsumed.consumedQuantity
+          : stockBatch.remainingQuantity;
+        
+        if (availableFromBatch > 0) {
+          const consumeQuantity = Math.min(remainingQuantity, availableFromBatch);
+          const newRemainingQuantity = stockBatch.remainingQuantity - consumeQuantity;
+          
+          const batchRef = doc(db, 'stockBatches', stockBatch.id);
+          batch.update(batchRef, {
+            remainingQuantity: newRemainingQuantity,
+            status: newRemainingQuantity === 0 ? 'depleted' : 'active'
+          });
+          
+          if (alreadyConsumed) {
+            alreadyConsumed.consumedQuantity += consumeQuantity;
+            alreadyConsumed.remainingQuantity = newRemainingQuantity;
+          } else {
+            consumedBatches.push({
+              batchId: stockBatch.id,
+              costPrice: weightedAverageCost,
+              consumedQuantity: consumeQuantity,
+              remainingQuantity: newRemainingQuantity
+            });
+          }
+          
+          remainingQuantity -= consumeQuantity;
+        }
+      }
+    }
+
+    const totalCost = weightedAverageCost * quantity;
+    const primaryBatchId = consumedBatches.length > 0 ? consumedBatches[0].batchId : '';
+
+    return {
+      consumedBatches,
+      totalCost,
+      averageCostPrice: weightedAverageCost,
+      primaryBatchId
+    };
+  }
+
+  // FIFO/LIFO: Sequential consumption
   const sortedBatches = availableBatches.sort((a, b) => {
     if (method === 'FIFO') {
       return (a.createdAt.seconds || 0) - (b.createdAt.seconds || 0);

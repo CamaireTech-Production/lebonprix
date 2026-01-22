@@ -1,7 +1,7 @@
 import { Modal, ModalFooter, Card, Badge, Button } from '@components/common';
 import Invoice from './Invoice';
 import type { Sale, Product, Customer } from '../../types/models';
-import { Download, Share, Printer } from 'lucide-react';
+import { Download, Share, Printer, DollarSign, Clock, X, RotateCcw } from 'lucide-react';
 import { generatePDF, generatePDFBlob } from '@utils/core/pdf';
 import { generateInvoiceFileName } from '@utils/core/fileUtils';
 import { useTranslation } from 'react-i18next';
@@ -21,9 +21,12 @@ interface SaleDetailsModalProps {
   sale: Sale | null;
   products: Product[];
   title?: string;
+  onSettleCredit?: (saleId: string) => void;
+  onCancelCredit?: (saleId: string) => void;
+  onRefundCredit?: (saleId: string) => void;
 }
 
-const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({ isOpen, onClose, sale, products, title }) => {
+const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({ isOpen, onClose, sale, products, title, onSettleCredit, onCancelCredit, onRefundCredit }) => {
   const { t } = useTranslation();
   const [isSharing, setIsSharing] = useState(false);
   const { company } = useAuth();
@@ -367,6 +370,65 @@ const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({ isOpen, onClose, sa
             <Invoice sale={sale} products={products || []} />
           </div>
         </div>
+        {/* Credit Sale Information - Prominent for Credit Sales */}
+        {sale.status === 'credit' && (
+          <Card className="bg-orange-50 border-orange-200">
+            <div className="p-4">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center space-x-2">
+                  <Clock className="text-orange-600" size={20} />
+                  <h3 className="text-lg font-semibold text-orange-900">
+                    {t('sales.modals.view.creditSale.title') || 'Credit Sale'}
+                  </h3>
+                </div>
+                <Badge variant="warning">
+                  {t('sales.filters.status.credit') || 'Credit'}
+                </Badge>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm font-medium text-orange-700">
+                    {t('sales.modals.view.creditSale.totalAmount') || 'Total Amount'}
+                  </p>
+                  <p className="mt-1 text-lg font-semibold text-orange-900">
+                    {formatPrice(sale.totalAmount)} XAF
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-orange-700">
+                    {t('sales.modals.view.creditSale.remainingAmount') || 'Remaining Amount'}
+                  </p>
+                  <p className="mt-1 text-lg font-semibold text-red-600">
+                    {formatPrice(sale.remainingAmount ?? sale.totalAmount)} XAF
+                  </p>
+                </div>
+                {sale.creditDueDate && (
+                  <div>
+                    <p className="text-sm font-medium text-orange-700">
+                      {t('sales.modals.view.creditSale.dueDate') || 'Due Date'}
+                    </p>
+                    <p className="mt-1 text-sm text-orange-900">
+                      {sale.creditDueDate.seconds 
+                        ? new Date(sale.creditDueDate.seconds * 1000).toLocaleDateString()
+                        : '-'}
+                    </p>
+                  </div>
+                )}
+                {sale.paidAmount && sale.paidAmount > 0 && (
+                  <div>
+                    <p className="text-sm font-medium text-orange-700">
+                      {t('sales.modals.view.creditSale.paidAmount') || 'Paid Amount'}
+                    </p>
+                    <p className="mt-1 text-sm text-green-600">
+                      {formatPrice(sale.paidAmount)} XAF
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </Card>
+        )}
+
         {/* Customer Information Card */}
         <Card>
           <div className="p-4">
@@ -483,17 +545,205 @@ const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({ isOpen, onClose, sa
           </div>
         </Card>
         {/* Status Information */}
-        <div className="flex justify-between items-center">
-          <div>
-            <p className="text-sm font-medium text-gray-500">{t('sales.modals.view.status.orderStatus')}</p>
-            <Badge variant={
-              sale.status === 'paid' ? 'success' :
-              sale.status === 'under_delivery' ? 'info' : 'warning'
-            }>
-              {t(`sales.filters.status.${sale.status}`)}
-            </Badge>
+        <Card>
+          <div className="p-4">
+            <div className="flex justify-between items-start mb-4">
+              <div>
+                <p className="text-sm font-medium text-gray-500 mb-2">
+                  {t('sales.modals.view.status.orderStatus')}
+                </p>
+                <Badge variant={
+                  sale.status === 'paid' ? 'success' :
+                  sale.status === 'credit' ? 'warning' :
+                  sale.status === 'under_delivery' ? 'info' : 'default'
+                }>
+                  {t(`sales.filters.status.${sale.status}`)}
+                </Badge>
+              </div>
+              {sale.status === 'credit' && (
+                <div className="flex space-x-2 flex-wrap gap-2">
+                  {onSettleCredit && (
+                    <Button
+                      variant="solid"
+                      icon={<DollarSign size={16} />}
+                      onClick={() => {
+                        onSettleCredit(sale.id);
+                        onClose();
+                      }}
+                      className="bg-emerald-600 hover:bg-emerald-700"
+                    >
+                      {t('sales.actions.settleCredit') || 'Mark as Paid'}
+                    </Button>
+                  )}
+                  {onRefundCredit && (sale.remainingAmount ?? sale.totalAmount) > 0 && (
+                    <Button
+                      variant="outline"
+                      icon={<RotateCcw size={16} />}
+                      onClick={() => {
+                        onRefundCredit(sale.id);
+                      }}
+                      className="border-orange-500 text-orange-600 hover:bg-orange-50"
+                    >
+                      {t('sales.actions.refundCredit') || 'Refund'}
+                    </Button>
+                  )}
+                  {onCancelCredit && (
+                    <Button
+                      variant="outline"
+                      icon={<X size={16} />}
+                      onClick={() => {
+                        if (window.confirm(t('sales.modals.view.confirmCancelCredit') || 'Are you sure you want to cancel this credit sale? Stock will be restored.')) {
+                          onCancelCredit(sale.id);
+                          onClose();
+                        }
+                      }}
+                      className="border-red-300 text-red-600 hover:bg-red-50"
+                    >
+                      {t('sales.actions.cancelCredit') || 'Cancel Credit'}
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Status History */}
+            {(() => {
+              // Build complete status history including current status if not in history
+              const statusHistory = sale.statusHistory || [];
+              const currentStatusInHistory = statusHistory.some(entry => entry.status === sale.status);
+              
+              // If current status is not in history, add it (for existing sales created before statusHistory was implemented)
+              const completeHistory = currentStatusInHistory 
+                ? statusHistory 
+                : [
+                    ...statusHistory,
+                    {
+                      status: sale.status,
+                      timestamp: sale.createdAt?.seconds 
+                        ? new Date(sale.createdAt.seconds * 1000).toISOString()
+                        : new Date().toISOString(),
+                      userId: sale.userId || sale.companyId
+                    }
+                  ];
+              
+              if (completeHistory.length > 0) {
+                return (
+                  <div className="mt-4 pt-4 border-t border-gray-200">
+                    <h4 className="text-sm font-medium text-gray-700 mb-3">
+                      {t('sales.modals.view.statusHistory.title') || 'Status History'}
+                    </h4>
+                    <div className="space-y-2">
+                      {completeHistory
+                        .slice()
+                        .reverse()
+                        .map((historyEntry, index) => {
+                          const date = historyEntry.timestamp 
+                            ? new Date(historyEntry.timestamp)
+                            : null;
+                          return (
+                            <div key={index} className="flex items-start space-x-3 p-2 bg-gray-50 rounded">
+                              <div className="flex-1">
+                                <div className="flex items-center space-x-2">
+                                  <Badge variant={
+                                    historyEntry.status === 'paid' ? 'success' :
+                                    historyEntry.status === 'credit' ? 'warning' :
+                                    historyEntry.status === 'under_delivery' ? 'info' : 'default'
+                                  }>
+                                    {t(`sales.filters.status.${historyEntry.status}`) || historyEntry.status}
+                                  </Badge>
+                                  {historyEntry.paymentMethod && (
+                                    <span className="text-xs text-gray-500">
+                                      ({t(`pos.payment.methods.${historyEntry.paymentMethod}`) || historyEntry.paymentMethod})
+                                    </span>
+                                  )}
+                                </div>
+                                {date && (
+                                  <p className="text-xs text-gray-500 mt-1">
+                                    {date.toLocaleString()}
+                                  </p>
+                                )}
+                                {historyEntry.amountPaid && (
+                                  <p className="text-xs text-gray-600 mt-1">
+                                    {t('sales.modals.view.statusHistory.amountPaid') || 'Amount Paid'}: {formatPrice(historyEntry.amountPaid)} XAF
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  </div>
+                );
+              }
+              return null;
+            })()}
+
+            {/* Refund History */}
+            {sale.refunds && sale.refunds.length > 0 && (
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <h4 className="text-sm font-medium text-gray-700 mb-3">
+                  {t('sales.refund.history') || 'Refund History'}
+                </h4>
+                <div className="space-y-2">
+                  {sale.refunds
+                    .slice()
+                    .reverse()
+                    .map((refund, index) => {
+                      const date = refund.timestamp 
+                        ? new Date(refund.timestamp)
+                        : null;
+                      return (
+                        <div key={refund.id || index} className="flex items-start space-x-3 p-2 bg-red-50 rounded">
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-2">
+                              <Badge variant="danger">
+                                {t('sales.refund.refund') || 'Refund'}
+                              </Badge>
+                              <span className="text-sm font-semibold text-red-600">
+                                {formatPrice(refund.amount)} XAF
+                              </span>
+                              {refund.paymentMethod && (
+                                <span className="text-xs text-gray-500">
+                                  ({t(`pos.payment.methods.${refund.paymentMethod}`) || refund.paymentMethod})
+                                </span>
+                              )}
+                            </div>
+                            {date && (
+                              <p className="text-xs text-gray-500 mt-1">
+                                {date.toLocaleString()}
+                              </p>
+                            )}
+                            {refund.reason && (
+                              <p className="text-xs text-gray-600 mt-1">
+                                {t('sales.refund.reason') || 'Reason'}: {refund.reason}
+                              </p>
+                            )}
+                            {refund.transactionReference && (
+                              <p className="text-xs text-gray-500 mt-1">
+                                {t('pos.payment.transactionReference') || 'Reference'}: {refund.transactionReference}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+                {sale.totalRefunded && sale.totalRefunded > 0 && (
+                  <div className="mt-3 pt-3 border-t border-gray-200">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium text-gray-700">
+                        {t('sales.refund.totalRefunded') || 'Total Refunded'}:
+                      </span>
+                      <span className="text-lg font-bold text-red-600">
+                        {formatPrice(sale.totalRefunded)} XAF
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
-        </div>
+        </Card>
       </div>
     </Modal>
   );

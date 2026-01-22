@@ -412,6 +412,8 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
       // Show success toast notification for sale completion
       showSuccessToast(t('sales.messages.saleAdded') + ` - ${totalAmount.toLocaleString()} XAF`);
       
+      return newSale;
+      
       // Sauvegarder le client AVANT de réinitialiser le formulaire
       if (autoSaveCustomer && customerPhone && customerName && company?.id) {
         try {
@@ -495,6 +497,9 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
           errorMessage = t('sales.messages.errors.insufficientStock') || 'Insufficient stock for one or more products';
         } else if (errorMsg.includes('unauthorized')) {
           errorMessage = t('sales.messages.errors.unauthorized') || 'Unauthorized to perform this action';
+        } else if (errorMsg.includes('credit sales') || errorMsg.includes('customer source') || errorMsg.includes('customer name') || errorMsg.includes('customer phone') || errorMsg.includes('required for credit') || errorMsg.includes('please select') || errorMsg.includes('please enter')) {
+          // Show the actual error message for credit sales validation
+          errorMessage = error.message || t('sales.messages.errors.invalidCustomerData') || 'Invalid customer data for credit sale';
         } else if (errorMsg.includes('quarter') || errorMsg.includes('customer')) {
           errorMessage = t('sales.messages.errors.invalidCustomerData') || 'Invalid customer data. Please check the quarter field.';
         } else {

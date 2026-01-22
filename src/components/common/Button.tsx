@@ -108,6 +108,7 @@ const Button = ({
 
 export const FloatingActionButton: React.FC<{ onClick: () => void; label?: string }> = ({ onClick, label }) => {
   const [hovered, setHovered] = React.useState(false);
+  const buttonRef = React.useRef<HTMLButtonElement>(null);
   const { company } = useAuth();
   
   // Get dashboard colors
@@ -122,6 +123,20 @@ export const FloatingActionButton: React.FC<{ onClick: () => void; label?: strin
   
   const colors = getDashboardColors();
   
+  // Update button color when hover state changes - use direct style assignment
+  React.useEffect(() => {
+    if (buttonRef.current) {
+      const newColor = hovered ? colors.secondary : colors.primary;
+      // Direct assignment to ensure it applies to the entire button
+      buttonRef.current.style.backgroundColor = newColor;
+      // Also ensure all children inherit
+      const icon = buttonRef.current.querySelector('svg');
+      if (icon) {
+        icon.style.color = 'white';
+      }
+    }
+  }, [hovered, colors.secondary, colors.primary]);
+  
   return (
     <div className="fixed bottom-20 right-6 z-50 flex flex-col items-end">
       {hovered && label && (
@@ -130,24 +145,19 @@ export const FloatingActionButton: React.FC<{ onClick: () => void; label?: strin
         </div>
       )}
       <button
+        ref={buttonRef}
         onClick={onClick}
-        onMouseEnter={(e) => {
-          setHovered(true);
-          (e.target as HTMLButtonElement).style.backgroundColor = colors.secondary;
-        }}
-        onMouseLeave={(e) => {
-          setHovered(false);
-          (e.target as HTMLButtonElement).style.backgroundColor = colors.primary;
-        }}
-        className="text-white rounded-full shadow-lg w-16 h-16 flex items-center justify-center transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2"
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        className="text-white rounded-full shadow-lg w-16 h-16 flex items-center justify-center transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 hover:scale-105"
         style={{
           backgroundColor: colors.primary,
           '--tw-ring-color': colors.primary
-        } as React.CSSProperties}
+        } as React.CSSProperties & { backgroundColor: string }}
         aria-label={label || 'Add'}
         title={label || 'Add'}
       >
-        <Plus size={32} />
+        <Plus size={32} className="pointer-events-none" style={{ color: 'inherit' }} />
       </button>
     </div>
   );
