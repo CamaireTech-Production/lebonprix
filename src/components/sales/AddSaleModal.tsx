@@ -569,7 +569,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
           <div className="space-y-4">
             <div className="relative">
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Phone {formData.status === 'credit' && <span className="text-red-600">*</span>}
+                  Phone
               </label>
               <div className="flex space-x-2">
                 <Input
@@ -579,9 +579,8 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                   onChange={handlePhoneChange}
                   onBlur={handlePhoneBlur}
                     placeholder="Phone"
-                  className={`flex-1 ${formData.status === 'credit' && !formData.customerPhone ? 'border-red-300' : ''}`}
-                  required
-                    helpText={formData.status === 'credit' ? "Required for credit sales" : "Enter customer phone number"}
+                  className="flex-1"
+                  helpText="Enter customer phone number (optional for credit sales)"
                   ref={phoneInputRef}
                 />
               </div>

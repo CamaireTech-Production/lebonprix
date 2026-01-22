@@ -15,7 +15,6 @@ import {
   ChevronsRight,
   FileText,
   Clock,
-  DollarSign,
   RotateCcw
 } from 'lucide-react';
 import Select from 'react-select';
@@ -741,33 +740,18 @@ const Sales: React.FC = () => {
               >
                 <Eye size={16} />
               </button>
-              {sale.status === 'credit' && (
-                <>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSaleToSettle(sale);
-                      setIsSettleCreditModalOpen(true);
-                    }}
-                    className="text-orange-600 hover:text-orange-900"
-                    title={t('sales.actions.settleCredit') || 'Mark as Paid'}
-                  >
-                    <DollarSign size={16} />
-                  </button>
-                  {(sale.remainingAmount ?? sale.totalAmount) > 0 && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSaleToRefund(sale);
-                        setIsRefundCreditModalOpen(true);
-                      }}
-                      className="text-red-600 hover:text-red-900"
-                      title={t('sales.actions.refundCredit') || 'Refund'}
-                    >
-                      <RotateCcw size={16} />
-                    </button>
-                  )}
-                </>
+              {sale.status === 'credit' && (sale.remainingAmount ?? sale.totalAmount) > 0 && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSaleToRefund(sale);
+                    setIsRefundCreditModalOpen(true);
+                  }}
+                  className="text-orange-600 hover:text-orange-900"
+                  title={t('sales.actions.refundCredit') || 'Remboursement'}
+                >
+                  <RotateCcw size={16} />
+                </button>
               )}
               <button
                 onClick={(e) => {

@@ -69,9 +69,7 @@ export function usePOS(shopId?: string) {
     status: 'commande',
     inventoryMethod: getDefaultInventoryMethod(),
     applyTVA: false,
-    tvaRate: 19.24,
-    shopId: shopId || '',
-    sourceType: 'shop', // POS is always for shops
+    tvaRate: 19.25,
   });
 
   // Initialize default shop if not provided

@@ -286,6 +286,13 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
       return errors;
     }
     
+    // Validate credit sales: require customer name only (phone and quarter are optional)
+    if (formData.status === 'credit') {
+      if (!formData.customerName || formData.customerName.trim() === '') {
+        errors.customerName = t('sales.messages.errors.customerNameRequiredForCredit') || 'Customer name is required for credit sales. Please enter customer name.';
+      }
+    }
+    
     // Validate location selection
     if (!formData.sourceType) {
       errors.sourceType = t('sales.messages.warnings.sourceTypeRequired') || 'Veuillez sélectionner un type de source (magasin ou entrepôt)';
