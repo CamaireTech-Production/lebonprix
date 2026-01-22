@@ -31,5 +31,6 @@ firebase-service-account.json
 *.sw?
 .env
 __MACOSX/._.env
+_backup_site_management
 
 le-bon-prix-finances-firebase-adminsdk-fbsvc-530fd9488e.json
