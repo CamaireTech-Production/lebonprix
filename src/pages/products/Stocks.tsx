@@ -10,6 +10,7 @@ import UnifiedBatchAdjustmentModal from '../../components/products/UnifiedBatchA
 import BatchDeleteModal from '../../components/common/BatchDeleteModal';
 import { usePermissionCheck } from '@components/permissions';
 import { RESOURCES } from '@constants/resources';
+import { getUserById } from '@services/utilities/userService';
 import type { Product, StockBatch, StockChange } from '../../types/models';
 
 const PAGE_SIZES = [10, 20, 50];
@@ -88,6 +89,7 @@ const Stocks = () => {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [selectedBatch, setSelectedBatch] = useState<StockBatch | null>(null);
   const [selectedBatchTotals, setSelectedBatchTotals] = useState<{ remaining: number; total: number } | undefined>(undefined);
+  const [userNamesMap, setUserNamesMap] = useState<Map<string, string>>(new Map());
 
   useEffect(() => {
     setPage(1);
@@ -198,6 +200,43 @@ const Stocks = () => {
         return dateB - dateA; // Newest first
       });
   }, [stockChanges, selectedProduct]);
+
+  // Fetch user names for stock changes
+  useEffect(() => {
+    const fetchUserNames = async () => {
+      if (!productStockChanges || productStockChanges.length === 0) {
+        return;
+      }
+
+      const userIds = new Set<string>();
+      productStockChanges.forEach((change: StockChange) => {
+        if (change.userId) {
+          userIds.add(change.userId);
+        }
+      });
+
+      const namesMap = new Map<string, string>();
+      const fetchPromises = Array.from(userIds).map(async (userId) => {
+        try {
+          const user = await getUserById(userId);
+          if (user) {
+            const fullName = user.username || user.email || userId;
+            namesMap.set(userId, fullName);
+          } else {
+            namesMap.set(userId, userId); // Fallback to userId if user not found
+          }
+        } catch (error) {
+          console.error(`Error fetching user ${userId}:`, error);
+          namesMap.set(userId, userId); // Fallback to userId on error
+        }
+      });
+
+      await Promise.all(fetchPromises);
+      setUserNamesMap(namesMap);
+    };
+
+    fetchUserNames();
+  }, [productStockChanges]);
 
   // Show loading screen on initial load
   if (loading && products.length === 0) {
@@ -585,6 +624,7 @@ const Stocks = () => {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="text-left px-4 py-2 text-xs font-semibold text-gray-600">{t('products.stocksPage.historyModal.columns.date')}</th>
+                  <th className="text-left px-4 py-2 text-xs font-semibold text-gray-600">{t('products.stocksPage.historyModal.columns.user')}</th>
                   <th className="text-left px-4 py-2 text-xs font-semibold text-gray-600">{t('products.stocksPage.historyModal.columns.change')}</th>
                   <th className="text-left px-4 py-2 text-xs font-semibold text-gray-600">{t('products.stocksPage.historyModal.columns.reason')}</th>
                   <th className="text-left px-4 py-2 text-xs font-semibold text-gray-600">{t('products.stocksPage.historyModal.columns.supplier')}</th>
@@ -595,7 +635,7 @@ const Stocks = () => {
               <tbody className="divide-y divide-gray-200">
                 {productStockChanges.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                    <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
                       {t('products.stocksPage.historyModal.noHistoryFound')}
                     </td>
                   </tr>
@@ -606,6 +646,7 @@ const Stocks = () => {
                       : change.isOwnPurchase
                       ? t('products.stocksPage.payment.ownPurchase')
                       : '—';
+                    const userName = change.userId ? (userNamesMap.get(change.userId) || change.userId) : '—';
                     
                     return (
                       <tr key={change.id} className="hover:bg-gray-50">
@@ -613,6 +654,9 @@ const Stocks = () => {
                           {change.createdAt?.seconds
                             ? new Date(change.createdAt.seconds * 1000).toLocaleString()
                             : '—'}
+                        </td>
+                        <td className="px-4 py-2 text-gray-700">
+                          {userName}
                         </td>
                         <td className={`px-4 py-2 font-medium ${
                           change.change > 0 ? 'text-green-600' : 'text-red-600'

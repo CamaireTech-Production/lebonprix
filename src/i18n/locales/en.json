@@ -127,6 +127,11 @@
           "depleted": "depleted",
           "activeDepleted": "{{active}} active / {{depleted}} depleted"
         },
+        "payment": {
+          "credit": "Credit",
+          "paid": "Paid",
+          "ownPurchase": "Own purchase"
+        },
         "messages": {
           "errorLoading": "Error Loading Matieres",
           "failedToLoad": "Failed to load matieres. Please try again.",
@@ -152,6 +157,7 @@
           "currentStock": "Current Stock:",
           "columns": {
             "date": "Date",
+            "user": "User",
             "change": "Change",
             "reason": "Reason",
             "supplier": "Supplier",
@@ -1092,6 +1098,7 @@
         "currentStock": "Current Stock:",
         "columns": {
           "date": "Date",
+          "user": "User",
           "change": "Change",
           "reason": "Reason",
           "supplier": "Supplier",
