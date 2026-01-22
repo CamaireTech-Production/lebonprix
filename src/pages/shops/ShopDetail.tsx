@@ -286,18 +286,21 @@ const ShopDetail: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {transfers.slice(0, 10).map((tr) => (
-                  <tr key={tr.id} className="border-b last:border-0">
-                    <td className="py-2 pr-4">{tr.transferType}</td>
-                    <td className="py-2 pr-4">{tr.productId}</td>
-                    <td className="py-2 pr-4">{tr.quantity}</td>
-                    <td className="py-2 pr-4">
-                      <Badge variant={tr.status === 'completed' ? 'success' : tr.status === 'pending' ? 'warning' : 'danger'}>
-                        {tr.status}
-                      </Badge>
-                    </td>
-                  </tr>
-                ))}
+                {transfers.slice(0, 10).map((tr) => {
+                  const product = products.find(p => p.id === tr.productId);
+                  return (
+                    <tr key={tr.id} className="border-b last:border-0">
+                      <td className="py-2 pr-4">{tr.transferType}</td>
+                      <td className="py-2 pr-4">{product?.name || tr.productId}</td>
+                      <td className="py-2 pr-4">{tr.quantity}</td>
+                      <td className="py-2 pr-4">
+                        <Badge variant={tr.status === 'completed' ? 'success' : tr.status === 'pending' ? 'warning' : 'danger'}>
+                          {tr.status}
+                        </Badge>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
