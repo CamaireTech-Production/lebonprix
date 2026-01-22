@@ -31,8 +31,9 @@ const Select: React.FC<SelectProps> = ({
       )}
       <select
         className={`
-          block w-full rounded-md border-gray-300 shadow-sm
+          block w-full px-4 py-3 rounded-md border border-gray-200 shadow-sm
           focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm
+          bg-white text-gray-900
           ${error ? 'border-red-300' : ''}
           ${className}
         `}
