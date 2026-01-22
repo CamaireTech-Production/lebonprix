@@ -8,7 +8,7 @@ import { logError } from '@utils/core/logger';
 import { formatPrice } from '@utils/formatting/formatPrice';
 import type { Sale, StockBatch } from '../../types/models';
 import SaleDetailsModal from './SaleDetailsModal';
-import { getProductStockBatches, getAvailableStockBatches } from '@services/firestore/stock/stockService';
+import { getProductStockBatches, getAvailableStockBatches, getStockBatchesByLocation } from '@services/firestore/stock/stockService';
 import { showWarningToast } from '@utils/core/toast';
 import { useAuth } from '@contexts/AuthContext';
 import { useAllStockBatches } from '@hooks/business/useStockBatches';
@@ -74,6 +74,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
   } = useAddSaleForm();
 
   // Initialize default shop when modal opens (after formData is available)
+  // But don't mark it as user-selected, so products won't load automatically
   useEffect(() => {
     if (isOpen && company?.id && !formData.shopId && !formData.warehouseId && !shopsLoading && !warehousesLoading) {
       const initializeDefaultShop = async () => {
@@ -85,6 +86,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
               sourceType: 'shop',
               shopId: defaultShop.id
             }));
+            // Don't set isLocationUserSelected to true - this is auto-initialization
           } else if (warehouses && warehouses.length > 0) {
             // If no active default shop, try default warehouse
             const defaultWarehouse = warehouses.find(w => w.isDefault && w.isActive !== false);
@@ -94,6 +96,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                 sourceType: 'warehouse',
                 warehouseId: defaultWarehouse.id
               }));
+              // Don't set isLocationUserSelected to true - this is auto-initialization
             }
           }
         } catch (error) {
@@ -129,6 +132,9 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
   const [productStockInfo, setProductStockInfo] = useState<Map<string, ProductStockInfo>>(new Map());
   const [loadingStockInfo, setLoadingStockInfo] = useState<Set<string>>(new Set());
   const [showAdditionalCustomerInfo, setShowAdditionalCustomerInfo] = useState(false);
+  const [productsWithStock, setProductsWithStock] = useState<Map<string, { product: any; stock: number }>>(new Map());
+  const [loadingProductsWithStock, setLoadingProductsWithStock] = useState(false);
+  const [isLocationUserSelected, setIsLocationUserSelected] = useState(false);
 
 
 
@@ -202,6 +208,89 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
     return productStockInfo.get(cacheKey);
   };
 
+  // Load products with stock when source location is USER-SELECTED (not auto-initialized)
+  useEffect(() => {
+    if (!isOpen || !company?.id) {
+      setProductsWithStock(new Map());
+      return;
+    }
+
+    // Only load products if location was explicitly selected by user
+    if (!isLocationUserSelected) {
+      setProductsWithStock(new Map());
+      return;
+    }
+
+    const loadProductsWithStock = async () => {
+      // Determine source location based on form data
+      let sourceShopId: string | undefined;
+      let sourceWarehouseId: string | undefined;
+      let sourceLocationType: 'warehouse' | 'shop' | undefined;
+
+      if (formData.sourceType === 'shop' && formData.shopId) {
+        sourceShopId = formData.shopId;
+        sourceLocationType = 'shop';
+      } else if (formData.sourceType === 'warehouse' && formData.warehouseId) {
+        sourceWarehouseId = formData.warehouseId;
+        sourceLocationType = 'warehouse';
+      } else {
+        // No location selected, clear products with stock
+        setProductsWithStock(new Map());
+        return;
+      }
+
+      setLoadingProductsWithStock(true);
+      try {
+        // Get all stock batches for the source location
+        const batches = await getStockBatchesByLocation(
+          company.id,
+          'product',
+          sourceShopId,
+          sourceWarehouseId,
+          sourceLocationType
+        );
+
+        // Filter batches with remaining quantity > 0
+        const availableBatches = batches.filter(
+          batch => batch.remainingQuantity && batch.remainingQuantity > 0 && batch.status === 'active'
+        );
+
+        // Aggregate by product
+        const productStockMap = new Map<string, { product: any; stock: number }>();
+
+        availableBatches.forEach((batch) => {
+          if (!batch.productId) return;
+
+          const product = products?.find(p => p.id === batch.productId);
+          if (!product || product.isDeleted === true || product.isAvailable === false) {
+            return;
+          }
+
+          const existing = productStockMap.get(batch.productId);
+          const stock = batch.remainingQuantity || 0;
+
+          if (existing) {
+            existing.stock += stock;
+          } else {
+            productStockMap.set(batch.productId, {
+              product,
+              stock
+            });
+          }
+        });
+
+        setProductsWithStock(productStockMap);
+      } catch (error) {
+        logError('Error loading products with stock:', error);
+        setProductsWithStock(new Map());
+      } finally {
+        setLoadingProductsWithStock(false);
+      }
+    };
+
+    loadProductsWithStock();
+  }, [isOpen, formData.sourceType, formData.shopId, formData.warehouseId, company?.id, products, isLocationUserSelected]);
+
   // Load stock info when products are selected or location changes
   useEffect(() => {
     formData.products.forEach(formProduct => {
@@ -215,8 +304,28 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
 
 
   // Product options for react-select
-  // Filter by availability only - stock is checked from batches dynamically
-  const availableProducts = products?.filter(p => p.isAvailable) || [];
+  // Filter by stock availability in selected location (similar to transfer modal)
+  const availableProducts = useMemo(() => {
+    // Only filter by location if user has explicitly selected a location
+    if (!isLocationUserSelected) {
+      // If no location is user-selected, return empty array (products will show message to select location first)
+      return [];
+    }
+    
+    // If a location is selected, only show products with stock in that location
+    if (formData.sourceType === 'shop' && formData.shopId) {
+      return Array.from(productsWithStock.values())
+        .map(({ product }) => product)
+        .filter(product => product && product.isAvailable !== false);
+    } else if (formData.sourceType === 'warehouse' && formData.warehouseId) {
+      return Array.from(productsWithStock.values())
+        .map(({ product }) => product)
+        .filter(product => product && product.isAvailable !== false);
+    }
+    // If no location selected, return empty array
+    return [];
+  }, [products, productsWithStock, formData.sourceType, formData.shopId, formData.warehouseId, isLocationUserSelected]);
+
   const filteredProducts = (productSearchQuery
     ? availableProducts.filter(product =>
         product.name.toLowerCase().includes(productSearchQuery.toLowerCase())
@@ -242,6 +351,11 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
               const stockInfo = productStockInfo.get(cacheKey);
               if (stockInfo) {
                 return `${stockInfo.totalStock} in stock`;
+              }
+              // Check productsWithStock for location-specific stock
+              const productWithStock = productsWithStock.get(product.id);
+              if (productWithStock) {
+                return `${productWithStock.stock} in stock`;
               }
               // Otherwise, use stockMap from batches (already loaded) - this is global stock
               if (!batchesLoading && stockMap) {
@@ -278,6 +392,8 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
   const handleClose = () => {
     resetForm();
     setProductStockInfo(new Map());
+    setProductsWithStock(new Map());
+    setIsLocationUserSelected(false);
     onClose();
   };
 
@@ -371,6 +487,9 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                       shopId: newSourceType === 'shop' ? prev.shopId : '',
                       warehouseId: newSourceType === 'warehouse' ? prev.warehouseId : ''
                     }));
+                    // Mark as user-selected when source type changes
+                    setIsLocationUserSelected(false); // Reset, will be set when shop/warehouse is selected
+                    setProductsWithStock(new Map()); // Clear products when type changes
                   }}
                   className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
@@ -406,6 +525,8 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                           return;
                         }
                         setFormData(prev => ({ ...prev, shopId: e.target.value }));
+                        // Mark as user-selected when shop is explicitly chosen
+                        setIsLocationUserSelected(true);
                       }}
                       className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       required
@@ -448,6 +569,8 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                           return;
                         }
                         setFormData(prev => ({ ...prev, warehouseId: e.target.value }));
+                        // Mark as user-selected when warehouse is explicitly chosen
+                        setIsLocationUserSelected(true);
                       }}
                       className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       required
@@ -1110,6 +1233,13 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
               </div>
             {/* Available Products */}
               <div className="space-y-2">
+            {!isLocationUserSelected ? (
+              <div className="text-sm text-gray-500 p-3">Sélectionnez d'abord un magasin ou un entrepôt pour voir les produits disponibles</div>
+            ) : loadingProductsWithStock && (formData.shopId || formData.warehouseId) ? (
+              <div className="text-sm text-gray-500 p-3">Chargement des produits...</div>
+            ) : productsWithStock.size === 0 && (formData.shopId || formData.warehouseId) && !loadingProductsWithStock ? (
+              <div className="text-sm text-gray-500 p-3">Aucun produit avec stock disponible dans cette source</div>
+            ) : (
             <div className="space-y-2 max-h-[calc(100vh-400px)] overflow-y-auto">
                   {filteredProducts.map(product => (
                 <button
@@ -1141,10 +1271,15 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                               if (stockInfo) {
                                 return `${stockInfo.totalStock} in stock`;
                               }
-                              // Otherwise, use stockMap from batches (already loaded)
+                              // Check productsWithStock for location-specific stock
+                              const productWithStock = productsWithStock.get(product.id);
+                              if (productWithStock) {
+                                return `${productWithStock.stock} in stock`;
+                              }
+                              // Otherwise, use stockMap from batches (already loaded) - this is global stock
                               if (!batchesLoading && stockMap) {
                                 const stock = getEffectiveProductStock(product, stockMap);
-                                return `${stock} in stock`;
+                                return `${stock} in stock (global)`;
                               }
                               return 'Loading stock...';
                             })()} - {formatPrice(product.sellingPrice)} XAF
@@ -1154,6 +1289,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                 </button>
               ))}
             </div>
+            )}
                 {/* View More Button */}
                 {availableProducts.length > 10 && (
                   <button

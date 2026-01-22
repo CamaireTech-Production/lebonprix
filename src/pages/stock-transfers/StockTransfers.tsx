@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Plus, ArrowRight, Package, Search, Filter, X } from 'lucide-react';
-import { Card, Button, Badge, Modal, ModalFooter, Input, LoadingScreen, Table } from '@components/common';
+import { Card, Button, Badge, Modal, ModalFooter, Input, LoadingScreen } from '@components/common';
 import { useStockTransfers, useProducts, useShops, useWarehouses } from '@hooks/data/useFirestore';
 import { useAuth } from '@contexts/AuthContext';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
@@ -294,13 +294,44 @@ const StockTransfers = () => {
 
       {/* Error Display */}
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-          {error.message}
-        </div>
+        <Card className="p-4 bg-red-50 border border-red-200">
+          <div className="text-red-700">
+            <p className="font-medium">Erreur lors du chargement des transferts</p>
+            <p className="text-sm mt-1">{error.message}</p>
+            {error.message?.includes('Index requis') && (
+              <div className="mt-3 p-3 bg-white rounded border border-red-200">
+                <p className="text-xs font-medium mb-2">Pour créer l'index requis :</p>
+                <ol className="text-xs list-decimal list-inside space-y-1 text-gray-700">
+                  <li>Ouvrez la <a href="https://console.firebase.google.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">Firebase Console</a></li>
+                  <li>Allez dans Firestore Database → Indexes</li>
+                  <li>Cliquez sur "Create Index"</li>
+                  <li>Collection ID: <code className="bg-gray-100 px-1 rounded">stockTransfers</code></li>
+                  <li>Champs à indexer:
+                    <ul className="list-disc list-inside ml-4 mt-1">
+                      <li><code className="bg-gray-100 px-1 rounded">companyId</code> (Ascending)</li>
+                      <li><code className="bg-gray-100 px-1 rounded">createdAt</code> (Descending)</li>
+                    </ul>
+                  </li>
+                  <li>Cliquez sur "Create"</li>
+                </ol>
+                <p className="text-xs mt-2 text-gray-600">
+                  L'index sera créé automatiquement. Cela peut prendre quelques minutes.
+                </p>
+              </div>
+            )}
+            <p className="text-xs mt-2 text-red-600">
+              Vérifiez la console du navigateur pour plus de détails.
+            </p>
+          </div>
+        </Card>
       )}
 
       {/* Transfers List */}
-      {filteredTransfers.length === 0 ? (
+      {loading ? (
+        <Card className="p-8 text-center">
+          <div className="text-gray-500">Chargement des transferts...</div>
+        </Card>
+      ) : filteredTransfers.length === 0 ? (
         <Card className="p-8 text-center">
           <Package className="mx-auto h-12 w-12 text-gray-400 mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">Aucun transfert</h3>
@@ -323,32 +354,42 @@ const StockTransfers = () => {
       ) : (
         <Card className="overflow-hidden">
           <div className="overflow-x-auto">
-            <Table>
-              <thead>
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
                 <tr>
-                  <th>Date</th>
-                  <th>Produit</th>
-                  <th>Type</th>
-                  <th>Source</th>
-                  <th>Destination</th>
-                  <th>Quantité</th>
-                  <th>Statut</th>
-                  <th>Actions</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Produit</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Destination</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantité</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Statut</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="bg-white divide-y divide-gray-200">
                 {filteredTransfers.map((transfer) => {
+                  if (!transfer || !transfer.id) {
+                    console.warn('Invalid transfer data:', transfer);
+                    return null;
+                  }
                   const product = products?.find(p => p.id === transfer.productId);
                   return (
-                    <tr key={transfer.id}>
-                      <td>
+                    <tr key={transfer.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {transfer.createdAt?.seconds
                           ? format(new Date(transfer.createdAt.seconds * 1000), 'dd/MM/yyyy HH:mm')
+                          : transfer.createdAt
+                          ? format(new Date(transfer.createdAt as any), 'dd/MM/yyyy HH:mm')
                           : '-'}
                       </td>
-                      <td className="font-medium">{product?.name || transfer.productId}</td>
-                      <td>{getTransferTypeLabel(transfer.transferType)}</td>
-                      <td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {product?.name || transfer.productId || 'N/A'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {transfer.transferType ? getTransferTypeLabel(transfer.transferType) : 'N/A'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {transfer.fromWarehouseId && (
                           <span>📦 {getLocationName(transfer.fromWarehouseId, 'warehouse')}</span>
                         )}
@@ -358,18 +399,28 @@ const StockTransfers = () => {
                         {transfer.fromProductionId && (
                           <span>🏭 Production {transfer.fromProductionId.slice(0, 8)}</span>
                         )}
+                        {!transfer.fromWarehouseId && !transfer.fromShopId && !transfer.fromProductionId && (
+                          <span className="text-gray-400">-</span>
+                        )}
                       </td>
-                      <td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {transfer.toWarehouseId && (
                           <span>📦 {getLocationName(transfer.toWarehouseId, 'warehouse')}</span>
                         )}
                         {transfer.toShopId && (
                           <span>🏪 {getLocationName(transfer.toShopId, 'shop')}</span>
                         )}
+                        {!transfer.toWarehouseId && !transfer.toShopId && (
+                          <span className="text-gray-400">-</span>
+                        )}
                       </td>
-                      <td className="font-medium">{transfer.quantity}</td>
-                      <td>{getStatusBadge(transfer.status)}</td>
-                      <td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {transfer.quantity || 0}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {getStatusBadge(transfer.status || 'completed')}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {transfer.status === 'pending' && (
                           <Button
                             variant="ghost"
@@ -388,7 +439,7 @@ const StockTransfers = () => {
                   );
                 })}
               </tbody>
-            </Table>
+            </table>
           </div>
         </Card>
       )}

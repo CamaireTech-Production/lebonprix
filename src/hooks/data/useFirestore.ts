@@ -1276,23 +1276,34 @@ export const useStockTransfers = (filters?: {
   const { user, company, currentEmployee, isOwner } = useAuth();
 
   useEffect(() => {
-    if (!user || !company) return;
+    if (!user || !company) {
+      setLoading(false);
+      return;
+    }
+    
+    console.log('[useStockTransfers] Setting up subscription for company:', company.id);
+    setLoading(true);
     
     const unsubscribe = subscribeToStockTransfers(
       company.id,
       (data) => {
+        console.log('[useStockTransfers] Received transfers:', data.length);
         setTransfers(data);
         setLoading(false);
         setError(null);
       },
       (err) => {
+        console.error('[useStockTransfers] Subscription error:', err);
         setError(err);
         setLoading(false);
       },
       filters
     );
 
-    return () => unsubscribe();
+    return () => {
+      console.log('[useStockTransfers] Cleaning up subscription');
+      unsubscribe();
+    };
   }, [user, company, filters]);
 
   const createTransfer = async (transferData: {

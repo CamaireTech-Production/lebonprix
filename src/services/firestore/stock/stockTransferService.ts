@@ -316,6 +316,8 @@ export const transferStockBetweenLocations = async (
 
 /**
  * Get all transfers for a company
+ * Uses simple query (companyId + createdAt) to avoid complex index requirements
+ * Filtering is done client-side
  */
 export const getStockTransfers = async (
   companyId: string,
@@ -327,35 +329,45 @@ export const getStockTransfers = async (
     status?: StockTransfer['status'];
   }
 ): Promise<StockTransfer[]> => {
+  // Use simple query with just companyId and createdAt to avoid complex index requirements
+  // All filtering will be done client-side
   const constraints: any[] = [
     where('companyId', '==', companyId),
+    orderBy('createdAt', 'desc')
   ];
-
-  if (filters?.productId) {
-    constraints.push(where('productId', '==', filters.productId));
-  }
-  if (filters?.shopId) {
-    constraints.push(where('toShopId', '==', filters.shopId));
-  }
-  if (filters?.warehouseId) {
-    constraints.push(where('toWarehouseId', '==', filters.warehouseId));
-  }
-  if (filters?.transferType) {
-    constraints.push(where('transferType', '==', filters.transferType));
-  }
-  if (filters?.status) {
-    constraints.push(where('status', '==', filters.status));
-  }
-
-  constraints.push(orderBy('createdAt', 'desc'));
 
   const q = query(collection(db, 'stockTransfers'), ...constraints);
   
   const snapshot = await getDocs(q);
-  return snapshot.docs.map(doc => ({
+  let transfers = snapshot.docs.map(doc => ({
     id: doc.id,
     ...doc.data()
   })) as StockTransfer[];
+
+  // Apply client-side filtering if filters are provided
+  if (filters) {
+    if (filters.productId) {
+      transfers = transfers.filter(t => t.productId === filters.productId);
+    }
+    if (filters.shopId) {
+      transfers = transfers.filter(t => 
+        t.fromShopId === filters.shopId || t.toShopId === filters.shopId
+      );
+    }
+    if (filters.warehouseId) {
+      transfers = transfers.filter(t => 
+        t.fromWarehouseId === filters.warehouseId || t.toWarehouseId === filters.warehouseId
+      );
+    }
+    if (filters.transferType) {
+      transfers = transfers.filter(t => t.transferType === filters.transferType);
+    }
+    if (filters.status) {
+      transfers = transfers.filter(t => t.status === filters.status);
+    }
+  }
+
+  return transfers;
 };
 
 /**
@@ -414,6 +426,8 @@ export const cancelStockTransfer = async (
 
 /**
  * Subscribe to stock transfers for a company
+ * Uses simple query (companyId + createdAt) to avoid complex index requirements
+ * Filtering is done client-side
  */
 export const subscribeToStockTransfers = (
   companyId: string,
@@ -427,43 +441,90 @@ export const subscribeToStockTransfers = (
     status?: StockTransfer['status'];
   }
 ): (() => void) => {
+  // Use simple query with just companyId and createdAt to avoid complex index requirements
+  // All filtering will be done client-side
   const constraints: any[] = [
     where('companyId', '==', companyId),
+    orderBy('createdAt', 'desc')
   ];
-
-  if (filters?.productId) {
-    constraints.push(where('productId', '==', filters.productId));
-  }
-  if (filters?.shopId) {
-    constraints.push(where('toShopId', '==', filters.shopId));
-  }
-  if (filters?.warehouseId) {
-    constraints.push(where('toWarehouseId', '==', filters.warehouseId));
-  }
-  if (filters?.transferType) {
-    constraints.push(where('transferType', '==', filters.transferType));
-  }
-  if (filters?.status) {
-    constraints.push(where('status', '==', filters.status));
-  }
-
-  constraints.push(orderBy('createdAt', 'desc'));
 
   const q = query(collection(db, 'stockTransfers'), ...constraints);
 
   return onSnapshot(
     q,
     (snapshot) => {
-      const transfers = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as StockTransfer[];
-      callback(transfers);
+      try {
+        let transfers = snapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            ...data,
+            // Ensure createdAt and updatedAt are properly handled
+            createdAt: data.createdAt || null,
+            updatedAt: data.updatedAt || null
+          };
+        }) as StockTransfer[];
+
+        // Apply client-side filtering if filters are provided
+        if (filters) {
+          if (filters.productId) {
+            transfers = transfers.filter(t => t.productId === filters.productId);
+          }
+          if (filters.shopId) {
+            transfers = transfers.filter(t => 
+              t.fromShopId === filters.shopId || t.toShopId === filters.shopId
+            );
+          }
+          if (filters.warehouseId) {
+            transfers = transfers.filter(t => 
+              t.fromWarehouseId === filters.warehouseId || t.toWarehouseId === filters.warehouseId
+            );
+          }
+          if (filters.transferType) {
+            transfers = transfers.filter(t => t.transferType === filters.transferType);
+          }
+          if (filters.status) {
+            transfers = transfers.filter(t => t.status === filters.status);
+          }
+        }
+        
+        console.log(`[StockTransfers] Loaded ${transfers.length} transfers for company ${companyId}`);
+        callback(transfers);
+      } catch (error) {
+        console.error('[StockTransfers] Error processing snapshot:', error);
+        logError('Error processing stock transfers snapshot', error);
+        if (onError) {
+          onError(error as Error);
+        }
+      }
     },
-    (error) => {
-      logError('Error subscribing to stock transfers', error);
-      if (onError) {
-        onError(new Error(error.message));
+    (error: any) => {
+      console.error('[StockTransfers] Subscription error:', error);
+      
+      // Check if it's an index error
+      if (error?.code === 'failed-precondition' || error?.message?.includes('index')) {
+        const errorMessage = `Index requis pour les transferts de stock. 
+Veuillez créer l'index dans Firebase Console:
+- Collection: stockTransfers
+- Champs: companyId (ASC), createdAt (DESC)
+
+Ou cliquez sur le lien dans la console du navigateur pour créer l'index automatiquement.`;
+        
+        logError('Index manquant pour stockTransfers', error);
+        if (onError) {
+          onError(new Error(errorMessage));
+        }
+        
+        // Try to extract and log the index creation URL if available
+        if (error.message) {
+          console.error('Détails de l\'erreur:', error.message);
+          console.error('Veuillez créer l\'index requis dans Firebase Console');
+        }
+      } else {
+        logError('Error subscribing to stock transfers', error);
+        if (onError) {
+          onError(new Error(error.message || 'Failed to subscribe to stock transfers'));
+        }
       }
     }
   );
