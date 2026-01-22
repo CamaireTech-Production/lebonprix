@@ -49,6 +49,7 @@ import { format } from 'date-fns';
 import { PermissionButton, usePermissionCheck } from '@components/permissions';
 import { RESOURCES } from '@constants/resources';
 import { countCreditSales } from '@utils/calculations/financialCalculations';
+import { useSearchParams } from 'react-router-dom';
 
 interface FormProduct {
   product: Product | null;
@@ -63,6 +64,7 @@ interface ProductOption {
 
 const Sales: React.FC = () => {
   const { t } = useTranslation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const {
     sales,
     loading: salesLoading,
@@ -150,6 +152,15 @@ const Sales: React.FC = () => {
 
   // Use centralized phone normalization for comparison
   const normalizePhone = normalizePhoneForComparison;
+
+  // Read status filter from URL query parameter on mount
+  useEffect(() => {
+    const statusParam = searchParams.get('status');
+    if (statusParam) {
+      setFilterStatus(statusParam);
+      setPage(1); // Reset to first page when filter is applied from URL
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (showCustomerDropdown && phoneInputRef.current) {
