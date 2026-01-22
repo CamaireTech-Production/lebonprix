@@ -73,39 +73,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
     handleSelectCustomer,
   } = useAddSaleForm();
 
-  // Initialize default shop when modal opens (after formData is available)
-  // But don't mark it as user-selected, so products won't load automatically
-  useEffect(() => {
-    if (isOpen && company?.id && !formData.shopId && !formData.warehouseId && !shopsLoading && !warehousesLoading) {
-      const initializeDefaultShop = async () => {
-        try {
-          const defaultShop = await getDefaultShop(company.id);
-          if (defaultShop && defaultShop.isActive !== false) {
-            setFormData(prev => ({
-              ...prev,
-              sourceType: 'shop',
-              shopId: defaultShop.id
-            }));
-            // Don't set isLocationUserSelected to true - this is auto-initialization
-          } else if (warehouses && warehouses.length > 0) {
-            // If no active default shop, try default warehouse
-            const defaultWarehouse = warehouses.find(w => w.isDefault && w.isActive !== false);
-            if (defaultWarehouse) {
-              setFormData(prev => ({
-                ...prev,
-                sourceType: 'warehouse',
-                warehouseId: defaultWarehouse.id
-              }));
-              // Don't set isLocationUserSelected to true - this is auto-initialization
-            }
-          }
-        } catch (error) {
-          logError('Error loading default shop', error);
-        }
-      };
-      initializeDefaultShop();
-    }
-  }, [isOpen, company?.id, formData.shopId, formData.warehouseId, shopsLoading, warehousesLoading, warehouses, setFormData]);
+  // No default shop initialization - user must explicitly select
 
   // Filter active shops/warehouses (for employees, owner/admin can see all)
   const activeShops = useMemo(() => {
@@ -208,7 +176,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
     return productStockInfo.get(cacheKey);
   };
 
-  // Load products with stock when source location is USER-SELECTED (not auto-initialized)
+  // Load products with stock when source location is USER-SELECTED
   useEffect(() => {
     if (!isOpen || !company?.id) {
       setProductsWithStock(new Map());
@@ -217,6 +185,12 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
 
     // Only load products if location was explicitly selected by user
     if (!isLocationUserSelected) {
+      setProductsWithStock(new Map());
+      return;
+    }
+
+    // Also check if we have a valid source type and location ID
+    if (!formData.sourceType || (formData.sourceType === 'shop' && !formData.shopId) || (formData.sourceType === 'warehouse' && !formData.warehouseId)) {
       setProductsWithStock(new Map());
       return;
     }
@@ -480,25 +454,27 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                 <select
                   value={formData.sourceType}
                   onChange={(e) => {
-                    const newSourceType = e.target.value as 'shop' | 'warehouse';
+                    const newSourceType = e.target.value as 'shop' | 'warehouse' | '';
                     setFormData(prev => ({
                       ...prev,
                       sourceType: newSourceType,
+                      // Clear the opposite location when type changes
                       shopId: newSourceType === 'shop' ? prev.shopId : '',
                       warehouseId: newSourceType === 'warehouse' ? prev.warehouseId : ''
                     }));
-                    // Mark as user-selected when source type changes
-                    setIsLocationUserSelected(false); // Reset, will be set when shop/warehouse is selected
+                    // Reset location selection flag when source type changes
+                    setIsLocationUserSelected(false);
                     setProductsWithStock(new Map()); // Clear products when type changes
                   }}
                   className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
+                  <option value="">Sélectionner un type de source</option>
                   <option value="shop">Magasin</option>
                   <option value="warehouse">Entrepôt</option>
                 </select>
               </div>
               
-              {formData.sourceType === 'shop' && (
+              {formData.sourceType === 'shop' ? (
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">
                     Magasin <span className="text-red-500">*</span>
@@ -540,9 +516,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                     </select>
                   )}
                 </div>
-              )}
-              
-              {formData.sourceType === 'warehouse' && (
+              ) : formData.sourceType === 'warehouse' ? (
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">
                     Entrepôt <span className="text-red-500">*</span>
@@ -584,7 +558,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                     </select>
                   )}
                 </div>
-              )}
+              ) : null}
             </div>
             <p className="text-xs text-gray-500">
               Le stock sera consommé depuis l'emplacement sélectionné

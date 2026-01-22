@@ -39,7 +39,7 @@ interface FormState {
   inventoryMethod: 'fifo' | 'lifo' | 'cmup';
   products: FormProduct[];
   // Location fields for shop/warehouse system
-  sourceType: 'shop' | 'warehouse';
+  sourceType: 'shop' | 'warehouse' | '';
   shopId: string;
   warehouseId: string;
 }
@@ -94,7 +94,7 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
     saleDate: new Date().toISOString().slice(0, 10),
     inventoryMethod: getDefaultInventoryMethod(),
     products: [{ id: crypto.randomUUID(), product: null, quantity: '', negotiatedPrice: '' }],
-    sourceType: 'shop', // Default to shop
+    sourceType: '', // No default - user must select
     shopId: '',
     warehouseId: ''
   });
@@ -254,7 +254,7 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
       saleDate: new Date().toISOString().slice(0, 10),
       inventoryMethod: getDefaultInventoryMethod(),
       products: [{ id: crypto.randomUUID(), product: null, quantity: '', negotiatedPrice: '' }],
-      sourceType: 'shop',
+      sourceType: '',
       shopId: '',
       warehouseId: ''
     });
@@ -287,7 +287,9 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
     }
     
     // Validate location selection
-    if (formData.sourceType === 'shop') {
+    if (!formData.sourceType) {
+      errors.sourceType = t('sales.messages.warnings.sourceTypeRequired') || 'Veuillez sélectionner un type de source (magasin ou entrepôt)';
+    } else if (formData.sourceType === 'shop') {
       if (!formData.shopId) {
         errors.shopId = t('sales.messages.warnings.shopRequired') || 'Veuillez sélectionner un magasin';
       }
