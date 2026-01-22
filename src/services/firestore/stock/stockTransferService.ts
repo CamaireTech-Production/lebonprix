@@ -70,11 +70,7 @@ export const transferStockBetweenLocations = async (
   } = transferData;
 
   // Validate transfer type and required fields
-  if (transferType === 'production_to_warehouse') {
-    if (!fromProductionId || !toWarehouseId) {
-      throw new Error('fromProductionId and toWarehouseId are required for production_to_warehouse transfer');
-    }
-  } else if (transferType === 'warehouse_to_shop') {
+  if (transferType === 'warehouse_to_shop') {
     if (!fromWarehouseId || !toShopId) {
       throw new Error('fromWarehouseId and toShopId are required for warehouse_to_shop transfer');
     }
@@ -85,6 +81,10 @@ export const transferStockBetweenLocations = async (
   } else if (transferType === 'shop_to_shop') {
     if (!fromShopId || !toShopId) {
       throw new Error('fromShopId and toShopId are required for shop_to_shop transfer');
+    }
+  } else if (transferType === 'shop_to_warehouse') {
+    if (!fromShopId || !toWarehouseId) {
+      throw new Error('fromShopId and toWarehouseId are required for shop_to_warehouse transfer');
     }
   } else {
     throw new Error(`Invalid transfer type: ${transferType}`);
@@ -103,12 +103,10 @@ export const transferStockBetweenLocations = async (
     let sourceWarehouseId: string | undefined;
     let sourceLocationType: 'warehouse' | 'shop' | 'production' | 'global' | undefined;
 
-    if (transferType === 'production_to_warehouse') {
-      sourceLocationType = 'production';
-    } else if (transferType === 'warehouse_to_shop' || transferType === 'warehouse_to_warehouse') {
+    if (transferType === 'warehouse_to_shop' || transferType === 'warehouse_to_warehouse') {
       sourceWarehouseId = fromWarehouseId;
       sourceLocationType = 'warehouse';
-    } else if (transferType === 'shop_to_shop') {
+    } else if (transferType === 'shop_to_shop' || transferType === 'shop_to_warehouse') {
       sourceShopId = fromShopId;
       sourceLocationType = 'shop';
     }
@@ -125,8 +123,7 @@ export const transferStockBetweenLocations = async (
 
     if (availableBatches.length === 0) {
       const locationInfo = sourceShopId ? `shop ${sourceShopId}` : 
-                          sourceWarehouseId ? `warehouse ${sourceWarehouseId}` : 
-                          fromProductionId ? `production ${fromProductionId}` : '';
+                          sourceWarehouseId ? `warehouse ${sourceWarehouseId}` : '';
       throw new Error(`No available stock found in ${locationInfo}`);
     }
 
@@ -154,7 +151,7 @@ export const transferStockBetweenLocations = async (
     let destWarehouseId: string | undefined;
     let destLocationType: 'warehouse' | 'shop' | 'production' | 'global';
 
-    if (transferType === 'production_to_warehouse' || transferType === 'warehouse_to_warehouse') {
+    if (transferType === 'warehouse_to_warehouse' || transferType === 'shop_to_warehouse') {
       destWarehouseId = toWarehouseId;
       destLocationType = 'warehouse';
     } else {

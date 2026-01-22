@@ -983,7 +983,7 @@ export interface Warehouse extends BaseModel {
  * Stock Transfer - Tracks product transfers between locations
  */
 export interface StockTransfer extends BaseModel {
-  transferType: 'production_to_warehouse' | 'warehouse_to_shop' | 'warehouse_to_warehouse' | 'shop_to_shop';
+  transferType: 'warehouse_to_shop' | 'warehouse_to_warehouse' | 'shop_to_shop' | 'shop_to_warehouse';
   // Source location (one of these will be set based on transferType)
   fromWarehouseId?: string; // If transferring from warehouse
   fromShopId?: string; // If transferring from shop
