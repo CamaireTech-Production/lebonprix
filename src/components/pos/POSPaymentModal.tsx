@@ -17,7 +17,7 @@ import type { CartItem } from '@hooks/forms/usePOS';
 
 export interface POSPaymentData {
   // Payment
-  paymentMethod: 'cash' | 'mobile_money' | 'card';
+  paymentMethod?: 'cash' | 'mobile_money' | 'card'; // Optional for credit sales
   amountReceived?: number;
   change?: number;
   transactionReference: string; // Empty string if not provided
@@ -372,13 +372,9 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
   const handleComplete = async () => {
     // For credit sales, skip payment method validation
     if (saleType === 'credit') {
-      // Validate credit sales: require customer name and phone
+      // Validate credit sales: require customer name only (phone and quarter are optional)
       if (!customerName || customerName.trim() === '') {
         showErrorToast(t('sales.messages.errors.customerNameRequiredForCredit') || 'Customer name is required for credit sales');
-        return;
-      }
-      if (!customerPhone || customerPhone.trim() === '') {
-        showErrorToast(t('sales.messages.errors.customerPhoneRequiredForCredit') || 'Customer phone is required for credit sales');
         return;
       }
     } else {
@@ -405,7 +401,7 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
     }
 
     const paymentData: POSPaymentData = {
-      paymentMethod: saleType === 'credit' ? undefined : paymentMethod, // No payment method for credit
+      paymentMethod: saleType === 'credit' ? undefined : (paymentMethod ?? undefined), // No payment method for credit
       amountReceived: saleType === 'paid' && paymentMethod === 'cash' && amountReceived && amountReceived.trim() !== '' 
         ? parseFloat(amountReceived) 
         : undefined,
@@ -1280,10 +1276,10 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
                       <User size={20} className="text-orange-600 mt-0.5" />
                       <div className="flex-1">
                         <div className="text-sm font-semibold text-orange-800 mb-1">
-                          {t('pos.payment.creditRequirement') || 'Customer Required'}
+                          {t('pos.payment.creditRequirement') || 'Customer Name Required'}
                         </div>
                         <div className="text-xs text-orange-700">
-                          {t('pos.payment.creditRequirementDescription') || 'Please select a customer from the customer section below. Credit sales require a customer to be selected.'}
+                          {t('pos.payment.creditRequirementDescription') || 'The customer name is required for credit sales. Please enter the customer name in the client information section below.'}
                         </div>
                       </div>
                     </div>
@@ -1547,12 +1543,18 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
                 )}
               </div>
               <div className="relative">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {t('pos.payment.customerName')}
+                  {saleType === 'credit' && <span className="text-red-600 ml-1">*</span>}
+                </label>
                 <Input
-                  label={t('pos.payment.customerName')}
                   type="text"
                   value={customerName}
                   onChange={handleCustomerNameChange}
                   ref={nameInputRef}
+                  error={saleType === 'credit' && (!customerName || customerName.trim() === '') ? (t('sales.messages.errors.customerNameRequiredForCredit') || 'Customer name is required for credit sales') : undefined}
+                  helpText={saleType === 'credit' ? (t('pos.payment.customerNameRequiredForCredit') || 'Required for credit sales') : undefined}
+                  className={saleType === 'credit' && (!customerName || customerName.trim() === '') ? 'border-red-300' : ''}
                 />
                 
                 {/* Customer Dropdown - shown below name field when name field is active */}
@@ -1916,7 +1918,7 @@ export const POSPaymentModal: React.FC<POSPaymentModalProps> = ({
               isSubmitting || 
               isPrinting || 
               (saleType === 'paid' && !paymentMethod) ||
-              (saleType === 'credit' && (!customerName || !customerPhone || customerName.trim() === '' || customerPhone.trim() === ''))
+              (saleType === 'credit' && (!customerName || customerName.trim() === ''))
             }
             className="flex-1 px-4 py-3 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 font-medium"
             style={{ backgroundColor: colors.primary }}
