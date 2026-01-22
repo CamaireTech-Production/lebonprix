@@ -590,9 +590,9 @@
       "copyLinkOnly": "Copier le lien uniquement",
       "copyWithMessage": "Copier avec message",
       "deleteSale": "Supprimer la vente",
-      "settleCredit": "Marquer comme Payé",
+      "settleCredit": "Régler le Crédit",
       "cancelCredit": "Annuler le Crédit",
-      "refundCredit": "Remboursement"
+      "refundCredit": "Rembourser le Crédit"
     },
     "table": {
       "rowsPerPage": "Lignes par page :",
@@ -731,7 +731,55 @@
           "editSale": "Modifier la Vente",
           "printInvoice": "Imprimer la Facture",
           "downloadPDF": "Télécharger PDF",
-          "shareInvoice": "Partager la Facture"
+          "shareInvoice": "Partager la Facture",
+          "title": "Actions"
+        },
+        "saleId": "ID de Vente",
+        "summary": {
+          "date": "Date",
+          "customer": "Client",
+          "totalAmount": "Montant Total",
+          "items": "Articles",
+          "productCount": "produit(s)"
+        },
+        "products": {
+          "title": "Produits",
+          "quantity": "Quantité",
+          "basePrice": "Prix de Base",
+          "negotiatedPrice": "Prix Négocié",
+          "productTotal": "Total Produit",
+          "table": {
+            "product": "Produit",
+            "qty": "Qté",
+            "unitPrice": "Prix Unitaire",
+            "total": "Total"
+          }
+        },
+        "creditInformation": {
+          "title": "Informations de Crédit",
+          "remaining": "Restant",
+          "paid": "Payé"
+        },
+        "statusTimeline": {
+          "title": "Statut et Chronologie",
+          "showHistory": "Afficher l'Historique",
+          "hideHistory": "Masquer l'Historique"
+        },
+        "invoicePreview": "Aperçu de la Facture",
+        "orderInformation": {
+          "title": "Informations de la Commande",
+          "orderNumber": "Numéro de Commande",
+          "createdDate": "Date de Création",
+          "createdBy": "Créé par"
+        },
+        "paymentInformation": {
+          "title": "Informations de Paiement",
+          "paymentStatus": "Statut du Paiement",
+          "creditAmount": "Montant du Crédit"
+        },
+        "refundHistory": {
+          "show": "Afficher",
+          "hide": "Masquer"
         }
       },
       "link": {

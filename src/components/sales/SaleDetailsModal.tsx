@@ -1,7 +1,7 @@
 import { Modal, ModalFooter, Card, Badge, Button } from '@components/common';
 import Invoice from './Invoice';
 import type { Sale, Product, Customer } from '../../types/models';
-import { Download, Share, Printer, Clock, X, RotateCcw } from 'lucide-react';
+import { Download, Share, Printer, Clock, X, RotateCcw, ChevronDown, ChevronUp, FileText, User, Package, DollarSign, Calendar, CreditCard } from 'lucide-react';
 import { generatePDF, generatePDFBlob } from '@utils/core/pdf';
 import { generateInvoiceFileName } from '@utils/core/fileUtils';
 import { useTranslation } from 'react-i18next';
@@ -13,6 +13,7 @@ import CustomerAdditionalInfo from '../customers/CustomerAdditionalInfo';
 import { useCustomers } from '@hooks/data/useFirestore';
 import { normalizePhoneForComparison } from '@utils/core/phoneUtils';
 import { useCustomerSources } from '@hooks/business/useCustomerSources';
+import { formatCreatorName } from '@utils/business/employeeUtils';
 import type { CustomerSource } from '../../types/models';
 
 interface SaleDetailsModalProps {
@@ -34,6 +35,12 @@ const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({ isOpen, onClose, sa
   const { sources } = useCustomerSources();
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [customerSource, setCustomerSource] = useState<CustomerSource | null>(null);
+  
+  // Collapsible sections state
+  const [isCustomerExpanded, setIsCustomerExpanded] = useState(false);
+  const [isInvoiceExpanded, setIsInvoiceExpanded] = useState(false);
+  const [isStatusHistoryExpanded, setIsStatusHistoryExpanded] = useState(false);
+  const [isRefundHistoryExpanded, setIsRefundHistoryExpanded] = useState(false);
 
   // Récupérer le client complet depuis la collection customers
   useEffect(() => {
@@ -323,12 +330,54 @@ const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({ isOpen, onClose, sa
     };
   };
 
+  // Helper function to get sale number
+  const getSaleNumber = (timestamp: any) => {
+    if (!timestamp?.seconds) return 'N/A';
+    const date = new Date(timestamp.seconds * 1000);
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    return (
+      date.getFullYear().toString() +
+      pad(date.getMonth() + 1) +
+      pad(date.getDate()) +
+      pad(date.getHours()) +
+      pad(date.getMinutes()) +
+      pad(date.getSeconds())
+    );
+  };
+
+  // Build complete status history
+  const statusHistory = sale.statusHistory || [];
+  const currentStatusInHistory = statusHistory.some(entry => entry.status === sale.status);
+  const completeHistory = currentStatusInHistory 
+    ? statusHistory 
+    : [
+        ...statusHistory,
+        {
+          status: sale.status,
+          timestamp: sale.createdAt?.seconds 
+            ? new Date(sale.createdAt.seconds * 1000).toISOString()
+            : new Date().toISOString(),
+          userId: sale.userId || sale.companyId
+        }
+      ];
+
+  // Calculate subtotal
+  const calculateSubtotal = () => {
+    return sale.products.reduce((total, product) => {
+      const price = product.negotiatedPrice || product.basePrice;
+      return total + (price * product.quantity);
+    }, 0);
+  };
+
+  const subtotal = calculateSubtotal();
+  const totalAmount = subtotal + (sale.deliveryFee ?? 0);
+
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
       title={title || t('sales.modals.view.title')}
-      size="lg"
+      size="xl"
       footer={
         <ModalFooter
           onCancel={onClose}
@@ -338,396 +387,527 @@ const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({ isOpen, onClose, sa
         />
       }
     >
-      <div className="space-y-6">
-        {/* Invoice Actions */}
-        <div className="flex justify-end space-x-2 mb-4 sticky top-0 bg-white z-10 py-2">
-          <Button
-            variant="outline"
-            icon={<Printer size={16} />}
-            onClick={handlePrint}
-          >
-            {t('sales.modals.view.actions.printInvoice')}
-          </Button>
-          <Button
-            variant="outline"
-            icon={<Download size={16} />}
-            onClick={handleDownloadPDF}
-          >
-            {t('sales.modals.view.actions.downloadPDF')}
-          </Button>
-          <Button
-            variant="outline"
-            icon={<Share size={16} />}
-            onClick={handleShareInvoice}
-            isLoading={isSharing}
-          >
-            {t('sales.modals.view.actions.shareInvoice')}
-          </Button>
-        </div>
-        {/* Invoice Preview */}
-        <div className="border rounded-lg overflow-hidden">
-          <div className="max-h-[calc(100vh-200px)] overflow-y-auto" id="invoice-wrapper">
-            <Invoice sale={sale} products={products || []} />
+      <div className="space-y-4">
+        {/* Header Section - Sale ID, Status, Actions */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-gray-200">
+          <div className="flex items-center gap-3">
+            <div>
+              <p className="text-xs text-gray-500">{t('sales.modals.view.saleId') || 'Sale ID'}</p>
+              <p className="text-lg font-semibold text-gray-900">#{getSaleNumber(sale.createdAt)}</p>
+            </div>
+            <Badge variant={
+              sale.status === 'paid' ? 'success' :
+              sale.status === 'credit' ? 'warning' :
+              sale.status === 'under_delivery' ? 'info' : 'default'
+            }>
+              {t(`sales.filters.status.${sale.status}`)}
+            </Badge>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              icon={<Printer size={16} />}
+              onClick={handlePrint}
+              className="text-sm"
+            >
+              <span className="hidden sm:inline">{t('sales.modals.view.actions.printInvoice')}</span>
+              <span className="sm:hidden">{t('sales.modals.view.actions.printInvoice')}</span>
+            </Button>
+            <Button
+              variant="outline"
+              icon={<Download size={16} />}
+              onClick={handleDownloadPDF}
+              className="text-sm"
+            >
+              <span className="hidden sm:inline">{t('sales.modals.view.actions.downloadPDF')}</span>
+              <span className="sm:hidden">{t('sales.modals.view.actions.downloadPDF')}</span>
+            </Button>
+            <Button
+              variant="outline"
+              icon={<Share size={16} />}
+              onClick={handleShareInvoice}
+              isLoading={isSharing}
+              className="text-sm"
+            >
+              <span className="hidden sm:inline">{t('sales.modals.view.actions.shareInvoice')}</span>
+              <span className="sm:hidden">{t('sales.modals.view.actions.shareInvoice')}</span>
+            </Button>
           </div>
         </div>
-        {/* Credit Sale Information - Prominent for Credit Sales */}
-        {sale.status === 'credit' && (
-          <Card className="bg-orange-50 border-orange-200">
-            <div className="p-4">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center space-x-2">
-                  <Clock className="text-orange-600" size={20} />
-                  <h3 className="text-lg font-semibold text-orange-900">
-                    {t('sales.modals.view.creditSale.title') || 'Credit Sale'}
-                  </h3>
-                </div>
-                <Badge variant="warning">
-                  {t('sales.filters.status.credit') || 'Credit'}
-                </Badge>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm font-medium text-orange-700">
-                    {t('sales.modals.view.creditSale.totalAmount') || 'Total Amount'}
-                  </p>
-                  <p className="mt-1 text-lg font-semibold text-orange-900">
-                    {formatPrice(sale.totalAmount)} XAF
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-orange-700">
-                    {t('sales.modals.view.creditSale.remainingAmount') || 'Remaining Amount'}
-                  </p>
-                  <p className="mt-1 text-lg font-semibold text-red-600">
-                    {formatPrice(sale.remainingAmount ?? sale.totalAmount)} XAF
-                  </p>
-                </div>
-                {sale.creditDueDate && (
-                  <div>
-                    <p className="text-sm font-medium text-orange-700">
-                      {t('sales.modals.view.creditSale.dueDate') || 'Due Date'}
-                    </p>
-                    <p className="mt-1 text-sm text-orange-900">
-                      {sale.creditDueDate.seconds 
-                        ? new Date(sale.creditDueDate.seconds * 1000).toLocaleDateString()
-                        : '-'}
-                    </p>
-                  </div>
-                )}
-                {sale.paidAmount && sale.paidAmount > 0 && (
-                  <div>
-                    <p className="text-sm font-medium text-orange-700">
-                      {t('sales.modals.view.creditSale.paidAmount') || 'Paid Amount'}
-                    </p>
-                    <p className="mt-1 text-sm text-green-600">
-                      {formatPrice(sale.paidAmount)} XAF
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </Card>
-        )}
 
-        {/* Customer Information Card */}
-        <Card>
-          <div className="p-4">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">{t('sales.modals.view.customerInfo.title')}</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm font-medium text-gray-500">{t('sales.modals.view.customerInfo.name')}</p>
-                <p className="mt-1 text-sm text-gray-900">{sale.customerInfo.name}</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-500">{t('sales.modals.view.customerInfo.phone')}</p>
-                <a
-                  href={`tel:${sale.customerInfo.phone}`}
-                  className="mt-1 text-sm text-blue-600 hover:text-blue-900"
-                >
-                  {sale.customerInfo.phone}
-                </a>
-              </div>
-            </div>
-            {customerSource && (
-              <div className="mt-4 pt-4 border-t border-gray-200">
-                <p className="text-sm font-medium text-gray-500 mb-1">Source Clientelle</p>
-                <div className="flex items-center gap-2">
-                  {customerSource.color && (
-                    <div
-                      className="w-4 h-4 rounded-full"
-                      style={{ backgroundColor: customerSource.color }}
-                    />
-                  )}
-                  <p className="text-sm text-gray-900">{customerSource.name}</p>
+        {/* Two Column Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {/* Left Column - Main Content (2/3 width) */}
+          <div className="lg:col-span-2 space-y-4">
+            {/* Quick Summary Card */}
+            <Card>
+              <div className="p-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">{t('sales.modals.view.summary.date') || 'Date'}</p>
+                    <p className="text-sm font-medium text-gray-900">
+                      {sale.createdAt?.seconds 
+                        ? new Date(sale.createdAt.seconds * 1000).toLocaleDateString()
+                        : 'N/A'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">{t('sales.modals.view.summary.customer') || 'Customer'}</p>
+                    <p className="text-sm font-medium text-gray-900 truncate">{sale.customerInfo.name}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">{t('sales.modals.view.summary.totalAmount') || 'Total Amount'}</p>
+                    <p className="text-lg font-bold text-emerald-600">{formatPrice(totalAmount)} XAF</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">{t('sales.modals.view.summary.items') || 'Items'}</p>
+                    <p className="text-sm font-medium text-gray-900">{sale.products.length} {t('sales.modals.view.summary.productCount') || 'product(s)'}</p>
+                  </div>
                 </div>
-                {customerSource.description && (
-                  <p className="text-xs text-gray-500 mt-1">{customerSource.description}</p>
-                )}
               </div>
-            )}
-            
-            {/* Informations supplémentaires du client */}
-            {customer ? (
-              <CustomerAdditionalInfo customer={customer} />
-            ) : (
-              // Si le client n'est pas trouvé dans la collection, créer un Customer à partir de sale.customerInfo
-              // pour permettre l'affichage des informations de base
-              <div className="mt-4 border-t border-gray-200 pt-4">
-                <p className="text-xs text-gray-500 italic">
-                  Le client n'a pas été sauvegardé dans la collection avec des informations supplémentaires. 
-                  Les informations supplémentaires sont disponibles uniquement pour les clients sauvegardés.
-                </p>
+            </Card>
+
+            {/* Products Table */}
+            <Card>
+              <div className="p-4">
+                <h3 className="text-base font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                  <Package size={18} />
+                  {t('sales.modals.view.products.title')}
+                </h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-gray-200">
+                        <th className="text-left py-2 px-2 font-medium text-gray-700">{t('sales.modals.view.products.table.product') || 'Product'}</th>
+                        <th className="text-right py-2 px-2 font-medium text-gray-700">{t('sales.modals.view.products.table.qty') || 'Qty'}</th>
+                        <th className="text-right py-2 px-2 font-medium text-gray-700">{t('sales.modals.view.products.table.unitPrice') || 'Unit Price'}</th>
+                        <th className="text-right py-2 px-2 font-medium text-gray-700">{t('sales.modals.view.products.table.total') || 'Total'}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sale.products.map((product, index) => {
+                        const productData = products?.find(p => p.id === product.productId);
+                        const unitPrice = product.negotiatedPrice || product.basePrice;
+                        const productTotal = unitPrice * product.quantity;
+                        return (
+                          <tr key={index} className="border-b border-gray-100">
+                            <td className="py-2 px-2">
+                              <p className="font-medium text-gray-900">{productData?.name || 'Unknown'}</p>
+                              {product.negotiatedPrice && product.negotiatedPrice !== product.basePrice && (
+                                <p className="text-xs text-gray-500">
+                                  Base: {formatPrice(product.basePrice)} XAF
+                                </p>
+                              )}
+                            </td>
+                            <td className="text-right py-2 px-2 text-gray-900">{product.quantity}</td>
+                            <td className="text-right py-2 px-2 text-gray-900">{formatPrice(unitPrice)} XAF</td>
+                            <td className="text-right py-2 px-2 font-medium text-emerald-600">{formatPrice(productTotal)} XAF</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            )}
-          </div>
-        </Card>
-        {/* Products Card */}
-        <Card>
-          <div className="p-4">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">{t('sales.modals.view.products.title')}</h3>
-            <div className="space-y-4">
-              {sale.products.map((product, index) => {
-                const productData = products?.find(p => p.id === product.productId);
-                return (
-                  <div key={index} className="p-4 bg-gray-50 rounded-lg">
-                    <div className="flex justify-between items-start">
+            </Card>
+
+            {/* Customer Details - Collapsible */}
+            <Card>
+              <div className="p-4">
+                <button
+                  onClick={() => setIsCustomerExpanded(!isCustomerExpanded)}
+                  className="w-full flex items-center justify-between text-left"
+                >
+                  <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+                    <User size={18} />
+                    {t('sales.modals.view.customerInfo.title')}
+                  </h3>
+                  {isCustomerExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                </button>
+                {isCustomerExpanded && (
+                  <div className="mt-4 pt-4 border-t border-gray-200 space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <p className="font-medium text-gray-900">{productData?.name}</p>
-                        <p className="text-sm text-gray-500">{t('sales.modals.view.products.quantity')}: {product.quantity}</p>
+                        <p className="text-xs text-gray-500 mb-1">{t('sales.modals.view.customerInfo.name')}</p>
+                        <p className="text-sm text-gray-900">{sale.customerInfo.name}</p>
                       </div>
-                      <div className="text-right">
-                        <p className="text-sm text-gray-500">{t('sales.modals.view.products.basePrice')}</p>
-                        <p className="font-medium text-gray-900">{formatPrice(product.basePrice)} XAF</p>
-                        {product.negotiatedPrice && (
-                          <>
-                            <p className="text-sm text-gray-500 mt-1">{t('sales.modals.view.products.negotiatedPrice')}</p>
-                            <p className="font-medium text-emerald-600">{formatPrice(product.negotiatedPrice)} XAF</p>
-                          </>
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">{t('sales.modals.view.customerInfo.phone')}</p>
+                        <a
+                          href={`tel:${sale.customerInfo.phone}`}
+                          className="text-sm text-blue-600 hover:text-blue-900"
+                        >
+                          {sale.customerInfo.phone}
+                        </a>
+                      </div>
+                    </div>
+                    {customerSource && (
+                      <div className="pt-3 border-t border-gray-200">
+                        <p className="text-xs text-gray-500 mb-2">Source Clientelle</p>
+                        <div className="flex items-center gap-2">
+                          {customerSource.color && (
+                            <div
+                              className="w-4 h-4 rounded-full"
+                              style={{ backgroundColor: customerSource.color }}
+                            />
+                          )}
+                          <p className="text-sm text-gray-900">{customerSource.name}</p>
+                        </div>
+                        {customerSource.description && (
+                          <p className="text-xs text-gray-500 mt-1">{customerSource.description}</p>
                         )}
                       </div>
-                    </div>
-                    <div className="mt-2 pt-2 border-t border-gray-200">
-                      <p className="text-sm text-gray-500">{t('sales.modals.view.products.productTotal')}</p>
-                      <p className="font-medium text-emerald-600">
-                        {formatPrice((product.negotiatedPrice || product.basePrice) * product.quantity)} XAF
-                      </p>
-                    </div>
+                    )}
+                    {customer ? (
+                      <div className="pt-3 border-t border-gray-200">
+                        <CustomerAdditionalInfo customer={customer} />
+                      </div>
+                    ) : (
+                      <div className="pt-3 border-t border-gray-200">
+                        <p className="text-xs text-gray-500 italic">
+                          Le client n'a pas été sauvegardé dans la collection avec des informations supplémentaires.
+                        </p>
+                      </div>
+                    )}
                   </div>
-                );
-              })}
-            </div>
-          </div>
-        </Card>
-        {/* Order Summary Card */}
-        <Card>
-          <div className="p-4">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">{t('sales.modals.view.orderSummary.title')}</h3>
-            <div className="space-y-3">
-              <div className="flex justify-between">
-                <p className="text-sm text-gray-500">{t('sales.modals.view.orderSummary.subtotal')}</p>
-                <p className="text-sm text-gray-900">{formatPrice(sale.totalAmount)} XAF</p>
+                )}
               </div>
-              {(sale.deliveryFee ?? 0) > 0 && (
-                <div className="flex justify-between">
-                  <p className="text-sm text-gray-500">{t('sales.modals.view.orderSummary.deliveryFee')}</p>
-                  <p className="text-sm text-gray-900">{formatPrice(sale.deliveryFee ?? 0)} XAF</p>
-                </div>
-              )}
-              <div className="pt-3 border-t border-gray-200">
-                <div className="flex justify-between">
-                  <p className="font-medium text-gray-900">{t('sales.modals.view.orderSummary.totalAmount')}</p>
-                  <p className="font-medium text-emerald-600">
-                    {formatPrice(sale.totalAmount + (sale.deliveryFee ?? 0))} XAF
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </Card>
-        {/* Status Information */}
-        <Card>
-          <div className="p-4">
-            <div className="flex justify-between items-start mb-4">
-              <div>
-                <p className="text-sm font-medium text-gray-500 mb-2">
-                  {t('sales.modals.view.status.orderStatus')}
-                </p>
-                <Badge variant={
-                  sale.status === 'paid' ? 'success' :
-                  sale.status === 'credit' ? 'warning' :
-                  sale.status === 'under_delivery' ? 'info' : 'default'
-                }>
-                  {t(`sales.filters.status.${sale.status}`)}
-                </Badge>
-              </div>
-              {sale.status === 'credit' && onRefundCredit && (sale.remainingAmount ?? sale.totalAmount) > 0 && (
-                <div className="flex space-x-2 flex-wrap gap-2">
-                  <button
-                    onClick={() => {
-                      onRefundCredit(sale.id);
-                    }}
-                    className="text-orange-600 hover:text-orange-900"
-                    title={t('sales.actions.refundCredit') || 'Remboursement'}
-                  >
-                    <RotateCcw size={16} />
-                  </button>
-                  {onCancelCredit && (
-                    <Button
-                      variant="outline"
-                      icon={<X size={16} />}
-                      onClick={() => {
-                        if (window.confirm(t('sales.modals.view.confirmCancelCredit') || 'Are you sure you want to cancel this credit sale? Stock will be restored.')) {
-                          onCancelCredit(sale.id);
-                          onClose();
-                        }
-                      }}
-                      className="border-red-300 text-red-600 hover:bg-red-50"
-                    >
-                      {t('sales.actions.cancelCredit') || 'Cancel Credit'}
-                    </Button>
-                  )}
-                </div>
-              )}
-            </div>
+            </Card>
 
-            {/* Status History */}
-            {(() => {
-              // Build complete status history including current status if not in history
-              const statusHistory = sale.statusHistory || [];
-              const currentStatusInHistory = statusHistory.some(entry => entry.status === sale.status);
-              
-              // If current status is not in history, add it (for existing sales created before statusHistory was implemented)
-              const completeHistory = currentStatusInHistory 
-                ? statusHistory 
-                : [
-                    ...statusHistory,
-                    {
-                      status: sale.status,
-                      timestamp: sale.createdAt?.seconds 
-                        ? new Date(sale.createdAt.seconds * 1000).toISOString()
-                        : new Date().toISOString(),
-                      userId: sale.userId || sale.companyId
-                    }
-                  ];
-              
-              if (completeHistory.length > 0) {
-                return (
-                  <div className="mt-4 pt-4 border-t border-gray-200">
-                    <h4 className="text-sm font-medium text-gray-700 mb-3">
-                      {t('sales.modals.view.statusHistory.title') || 'Status History'}
-                    </h4>
-                    <div className="space-y-2">
-                      {completeHistory
-                        .slice()
-                        .reverse()
-                        .map((historyEntry, index) => {
-                          const date = historyEntry.timestamp 
-                            ? new Date(historyEntry.timestamp)
-                            : null;
-                          return (
-                            <div key={index} className="flex items-start space-x-3 p-2 bg-gray-50 rounded">
-                              <div className="flex-1">
-                                <div className="flex items-center space-x-2">
-                                  <Badge variant={
-                                    historyEntry.status === 'paid' ? 'success' :
-                                    historyEntry.status === 'credit' ? 'warning' :
-                                    historyEntry.status === 'under_delivery' ? 'info' : 'default'
-                                  }>
-                                    {t(`sales.filters.status.${historyEntry.status}`) || historyEntry.status}
-                                  </Badge>
-                                  {historyEntry.paymentMethod && (
-                                    <span className="text-xs text-gray-500">
-                                      ({t(`pos.payment.methods.${historyEntry.paymentMethod}`) || historyEntry.paymentMethod})
-                                    </span>
-                                  )}
-                                </div>
-                                {date && (
-                                  <p className="text-xs text-gray-500 mt-1">
-                                    {date.toLocaleString()}
-                                  </p>
-                                )}
-                                {historyEntry.amountPaid && (
-                                  <p className="text-xs text-gray-600 mt-1">
-                                    {t('sales.modals.view.statusHistory.amountPaid') || 'Amount Paid'}: {formatPrice(historyEntry.amountPaid)} XAF
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                    </div>
-                  </div>
-                );
-              }
-              return null;
-            })()}
-
-            {/* Refund History */}
-            {sale.refunds && sale.refunds.length > 0 && (
-              <div className="mt-4 pt-4 border-t border-gray-200">
-                <h4 className="text-sm font-medium text-gray-700 mb-3">
-                  {t('sales.refund.history') || 'Refund History'}
-                </h4>
+            {/* Financial Summary */}
+            <Card>
+              <div className="p-4">
+                <h3 className="text-base font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                  <DollarSign size={18} />
+                  {t('sales.modals.view.orderSummary.title')}
+                </h3>
                 <div className="space-y-2">
-                  {sale.refunds
-                    .slice()
-                    .reverse()
-                    .map((refund, index) => {
-                      const date = refund.timestamp 
-                        ? new Date(refund.timestamp)
-                        : null;
-                      return (
-                        <div key={refund.id || index} className="flex items-start space-x-3 p-2 bg-red-50 rounded">
-                          <div className="flex-1">
-                            <div className="flex items-center space-x-2">
-                              <Badge variant="danger">
-                                {t('sales.refund.refund') || 'Refund'}
-                              </Badge>
-                              <span className="text-sm font-semibold text-red-600">
-                                {formatPrice(refund.amount)} XAF
-                              </span>
-                              {refund.paymentMethod && (
-                                <span className="text-xs text-gray-500">
-                                  ({t(`pos.payment.methods.${refund.paymentMethod}`) || refund.paymentMethod})
-                                </span>
-                              )}
-                            </div>
-                            {date && (
-                              <p className="text-xs text-gray-500 mt-1">
-                                {date.toLocaleString()}
-                              </p>
-                            )}
-                            {refund.reason && (
-                              <p className="text-xs text-gray-600 mt-1">
-                                {t('sales.refund.reason') || 'Reason'}: {refund.reason}
-                              </p>
-                            )}
-                            {refund.transactionReference && (
-                              <p className="text-xs text-gray-500 mt-1">
-                                {t('pos.payment.transactionReference') || 'Reference'}: {refund.transactionReference}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">{t('sales.modals.view.orderSummary.subtotal')}</span>
+                    <span className="text-gray-900">{formatPrice(subtotal)} XAF</span>
+                  </div>
+                  {(sale.deliveryFee ?? 0) > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">{t('sales.modals.view.orderSummary.deliveryFee')}</span>
+                      <span className="text-gray-900">{formatPrice(sale.deliveryFee ?? 0)} XAF</span>
+                    </div>
+                  )}
+                  <div className="pt-2 border-t border-gray-200 flex justify-between">
+                    <span className="font-semibold text-gray-900">{t('sales.modals.view.orderSummary.totalAmount')}</span>
+                    <span className="text-lg font-bold text-emerald-600">{formatPrice(totalAmount)} XAF</span>
+                  </div>
                 </div>
-                {sale.totalRefunded && sale.totalRefunded > 0 && (
-                  <div className="mt-3 pt-3 border-t border-gray-200">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium text-gray-700">
-                        {t('sales.refund.totalRefunded') || 'Total Refunded'}:
-                      </span>
-                      <span className="text-lg font-bold text-red-600">
-                        {formatPrice(sale.totalRefunded)} XAF
-                      </span>
+                {/* Credit Sale Info */}
+                {sale.status === 'credit' && (
+                  <div className="mt-4 pt-4 border-t border-orange-200 bg-orange-50 rounded-lg p-3">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Clock className="text-orange-600" size={18} />
+                      <h4 className="text-sm font-semibold text-orange-900">{t('sales.modals.view.creditInformation.title') || 'Credit Information'}</h4>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <p className="text-xs text-orange-700">{t('sales.modals.view.creditInformation.remaining') || 'Remaining'}</p>
+                        <p className="font-semibold text-red-600">{formatPrice(sale.remainingAmount ?? sale.totalAmount)} XAF</p>
+                      </div>
+                      {sale.paidAmount && sale.paidAmount > 0 && (
+                        <div>
+                          <p className="text-xs text-orange-700">{t('sales.modals.view.creditInformation.paid') || 'Paid'}</p>
+                          <p className="font-semibold text-green-600">{formatPrice(sale.paidAmount)} XAF</p>
+                        </div>
+                      )}
+                      {sale.creditDueDate && (
+                        <div className="col-span-2">
+                          <p className="text-xs text-orange-700">{t('sales.modals.view.creditSale.dueDate') || 'Due Date'}</p>
+                          <p className="text-sm text-orange-900">
+                            {sale.creditDueDate.seconds 
+                              ? new Date(sale.creditDueDate.seconds * 1000).toLocaleDateString()
+                              : '-'}
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
               </div>
-            )}
+            </Card>
+
+            {/* Status Timeline */}
+            <Card>
+              <div className="p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+                    <Clock size={18} />
+                    {t('sales.modals.view.statusTimeline.title') || 'Status & Timeline'}
+                  </h3>
+                  {completeHistory.length > 0 && (
+                    <button
+                      onClick={() => setIsStatusHistoryExpanded(!isStatusHistoryExpanded)}
+                      className="text-sm text-gray-600 hover:text-gray-900 flex items-center gap-1"
+                    >
+                      {isStatusHistoryExpanded 
+                        ? (t('sales.modals.view.statusTimeline.hideHistory') || 'Hide History')
+                        : (t('sales.modals.view.statusTimeline.showHistory') || 'Show History')}
+                      {isStatusHistoryExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                    </button>
+                  )}
+                </div>
+                {completeHistory.length > 0 && isStatusHistoryExpanded && (
+                  <div className="mt-3 pt-3 border-t border-gray-200 space-y-2">
+                    {completeHistory
+                      .slice()
+                      .reverse()
+                      .map((historyEntry, index) => {
+                        const date = historyEntry.timestamp 
+                          ? new Date(historyEntry.timestamp)
+                          : null;
+                        return (
+                          <div key={index} className="flex items-start gap-3 p-2 bg-gray-50 rounded">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <Badge variant={
+                                  historyEntry.status === 'paid' ? 'success' :
+                                  historyEntry.status === 'credit' ? 'warning' :
+                                  historyEntry.status === 'under_delivery' ? 'info' : 'default'
+                                }>
+                                  {t(`sales.filters.status.${historyEntry.status}`) || historyEntry.status}
+                                </Badge>
+                                {historyEntry.paymentMethod && (
+                                  <span className="text-xs text-gray-500">
+                                    ({t(`pos.payment.methods.${historyEntry.paymentMethod}`) || historyEntry.paymentMethod})
+                                  </span>
+                                )}
+                              </div>
+                              {date && (
+                                <p className="text-xs text-gray-500 mt-1">{date.toLocaleString()}</p>
+                              )}
+                              {historyEntry.amountPaid && (
+                                <p className="text-xs text-gray-600 mt-1">
+                                  {t('sales.modals.view.statusHistory.amountPaid') || 'Amount Paid'}: {formatPrice(historyEntry.amountPaid)} XAF
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                )}
+                {/* Refund History */}
+                {sale.refunds && sale.refunds.length > 0 && (
+                  <div className="mt-4 pt-4 border-t border-gray-200">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-sm font-semibold text-gray-700">
+                        {t('sales.refund.history') || 'Refund History'}
+                      </h4>
+                      <button
+                        onClick={() => setIsRefundHistoryExpanded(!isRefundHistoryExpanded)}
+                        className="text-xs text-gray-600 hover:text-gray-900 flex items-center gap-1"
+                      >
+                        {isRefundHistoryExpanded 
+                          ? (t('sales.modals.view.refundHistory.hide') || 'Hide')
+                          : (t('sales.modals.view.refundHistory.show') || 'Show')}
+                        {isRefundHistoryExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                      </button>
+                    </div>
+                    {isRefundHistoryExpanded && (
+                      <div className="space-y-2">
+                        {sale.refunds
+                          .slice()
+                          .reverse()
+                          .map((refund, index) => {
+                            const date = refund.timestamp 
+                              ? new Date(refund.timestamp)
+                              : null;
+                            return (
+                              <div key={refund.id || index} className="flex items-start gap-3 p-2 bg-red-50 rounded">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <Badge variant="error">
+                                      {t('sales.refund.refund') || 'Refund'}
+                                    </Badge>
+                                    <span className="text-sm font-semibold text-red-600">
+                                      {formatPrice(refund.amount)} XAF
+                                    </span>
+                                    {refund.paymentMethod && (
+                                      <span className="text-xs text-gray-500">
+                                        ({t(`pos.payment.methods.${refund.paymentMethod}`) || refund.paymentMethod})
+                                      </span>
+                                    )}
+                                  </div>
+                                  {date && (
+                                    <p className="text-xs text-gray-500 mt-1">{date.toLocaleString()}</p>
+                                  )}
+                                  {refund.reason && (
+                                    <p className="text-xs text-gray-600 mt-1">
+                                      {t('sales.refund.reason') || 'Reason'}: {refund.reason}
+                                    </p>
+                                  )}
+                                  {refund.transactionReference && (
+                                    <p className="text-xs text-gray-500 mt-1">
+                                      {t('pos.payment.transactionReference') || 'Reference'}: {refund.transactionReference}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        {sale.totalRefunded && sale.totalRefunded > 0 && (
+                          <div className="mt-3 pt-3 border-t border-gray-200">
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm font-medium text-gray-700">
+                                {t('sales.refund.totalRefunded') || 'Total Refunded'}:
+                              </span>
+                              <span className="text-lg font-bold text-red-600">
+                                {formatPrice(sale.totalRefunded)} XAF
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </Card>
+
+            {/* Invoice Preview - Collapsible */}
+            <Card>
+              <div className="p-4">
+                <button
+                  onClick={() => setIsInvoiceExpanded(!isInvoiceExpanded)}
+                  className="w-full flex items-center justify-between text-left"
+                >
+                  <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+                    <FileText size={18} />
+                    {t('sales.modals.view.invoicePreview') || 'Invoice Preview'}
+                  </h3>
+                  {isInvoiceExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                </button>
+                {/* Always render invoice for printing, but hide when collapsed */}
+                <div className={isInvoiceExpanded ? "mt-4 pt-4 border-t border-gray-200" : "hidden"}>
+                  <div className="border rounded-lg overflow-hidden">
+                    <div className={isInvoiceExpanded ? "max-h-[600px] overflow-y-auto" : ""} id="invoice-wrapper">
+                      <Invoice sale={sale} products={products || []} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </Card>
           </div>
-        </Card>
+
+          {/* Right Column - Sidebar (1/3 width) */}
+          <div className="lg:col-span-1">
+            <div className="lg:sticky lg:top-4 space-y-4">
+              {/* Order Information Card */}
+              <Card>
+                <div className="p-4">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                    <Calendar size={16} />
+                    {t('sales.modals.view.orderInformation.title') || 'Order Information'}
+                  </h3>
+                  <div className="space-y-3 text-sm">
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">{t('sales.modals.view.orderInformation.orderNumber') || 'Order Number'}</p>
+                      <p className="text-sm font-medium text-gray-900">#{getSaleNumber(sale.createdAt)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">{t('sales.modals.view.orderInformation.createdDate') || 'Created Date'}</p>
+                      <p className="text-sm text-gray-900">
+                        {sale.createdAt?.seconds 
+                          ? new Date(sale.createdAt.seconds * 1000).toLocaleString()
+                          : 'N/A'}
+                      </p>
+                    </div>
+                    {sale.createdBy && (
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">{t('sales.modals.view.orderInformation.createdBy') || 'Created By'}</p>
+                        <p className="text-sm text-gray-900">{formatCreatorName(sale.createdBy)}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </Card>
+
+              {/* Payment Information Card */}
+              <Card>
+                <div className="p-4">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                    <CreditCard size={16} />
+                    {t('sales.modals.view.paymentInformation.title') || 'Payment Information'}
+                  </h3>
+                  <div className="space-y-3 text-sm">
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">{t('sales.modals.view.paymentInformation.paymentStatus') || 'Payment Status'}</p>
+                      <Badge variant={
+                        sale.status === 'paid' ? 'success' :
+                        sale.status === 'credit' ? 'warning' :
+                        sale.status === 'under_delivery' ? 'info' : 'default'
+                      }>
+                        {t(`sales.filters.status.${sale.status}`)}
+                      </Badge>
+                    </div>
+                    {sale.status === 'credit' && (
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">{t('sales.modals.view.paymentInformation.creditAmount') || 'Credit Amount'}</p>
+                        <p className="text-sm font-semibold text-orange-600">
+                          {formatPrice(sale.remainingAmount ?? sale.totalAmount)} XAF
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </Card>
+
+              {/* Actions Card */}
+              {sale.status === 'credit' && (onSettleCredit || onRefundCredit || onCancelCredit) && (
+                <Card>
+                  <div className="p-4">
+                    <h3 className="text-sm font-semibold text-gray-900 mb-3">{t('sales.modals.view.actions.title') || 'Actions'}</h3>
+                    <div className="space-y-2">
+                      {onSettleCredit && (sale.remainingAmount ?? sale.totalAmount) > 0 && (
+                        <Button
+                          variant="default"
+                          onClick={() => {
+                            onSettleCredit(sale.id);
+                          }}
+                          className="w-full"
+                        >
+                          {t('sales.actions.settleCredit') || 'Settle Credit'}
+                        </Button>
+                      )}
+                      {onRefundCredit && (sale.remainingAmount ?? sale.totalAmount) > 0 && (
+                        <Button
+                          variant="outline"
+                          icon={<RotateCcw size={16} />}
+                          onClick={() => {
+                            onRefundCredit(sale.id);
+                          }}
+                          className="w-full"
+                        >
+                          {t('sales.actions.refundCredit') || 'Refund Credit'}
+                        </Button>
+                      )}
+                      {onCancelCredit && (
+                        <Button
+                          variant="outline"
+                          icon={<X size={16} />}
+                          onClick={() => {
+                            if (window.confirm(t('sales.modals.view.confirmCancelCredit') || 'Are you sure you want to cancel this credit sale? Stock will be restored.')) {
+                              onCancelCredit(sale.id);
+                              onClose();
+                            }
+                          }}
+                          className="w-full border-red-300 text-red-600 hover:bg-red-50"
+                        >
+                          {t('sales.actions.cancelCredit') || 'Cancel Credit'}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </Card>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
     </Modal>
   );
