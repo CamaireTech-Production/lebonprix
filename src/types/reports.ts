@@ -125,6 +125,9 @@ export interface StockReportConfig extends BaseReportConfig {
     products?: string[];
     status?: ('active' | 'depleted' | 'corrected' | 'deleted')[];
     suppliers?: string[];
+    shopId?: string; // Filter by shop
+    warehouseId?: string; // Filter by warehouse
+    locationType?: 'warehouse' | 'shop' | 'production' | 'global' | 'all'; // Filter by location type
   };
 }
 
@@ -132,13 +135,19 @@ export interface StockReportData {
   id: string;
   productName: string;
   batchNumber?: string;
+  location?: string; // Location name (shop/warehouse name)
   quantity: number;
   remainingQuantity: number;
   damagedQuantity?: number;
   costPrice: number;
+  totalValue?: number; // quantity * costPrice
+  remainingValue?: number; // remainingQuantity * costPrice
   supplier?: string;
   status: string;
   createdAt?: Date;
+  locationType?: 'warehouse' | 'shop' | 'production' | 'global';
+  shopId?: string;
+  warehouseId?: string;
 }
 
 // Sales report types
@@ -149,6 +158,9 @@ export interface SalesReportConfig extends BaseReportConfig {
     customers?: string[];
     amountMin?: number;
     amountMax?: number;
+    shopId?: string; // Filter by shop
+    warehouseId?: string; // Filter by warehouse
+    sourceType?: 'shop' | 'warehouse' | 'all'; // Filter by source type
   };
 }
 
@@ -164,6 +176,10 @@ export interface SalesReportData {
   paymentStatus: string;
   date: Date;
   deliveryFee?: number;
+  sourceLocation?: string; // Shop or warehouse name
+  sourceType?: 'shop' | 'warehouse';
+  shopId?: string;
+  warehouseId?: string;
 }
 
 // Report generation result

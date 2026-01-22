@@ -51,6 +51,13 @@ const ProductionCategories = lazy(() => import('../pages/productions/Categories'
 const ProductionDetail = lazy(() => import('../pages/productions/ProductionDetail'));
 const Charges = lazy(() => import('../pages/productions/Charges'));
 const Site = lazy(() => import('../pages/site/Site'));
+const Warehouse = lazy(() => import('../pages/warehouse/Warehouse'));
+const WarehouseDetail = lazy(() => import('../pages/warehouse/WarehouseDetail'));
+const Shops = lazy(() => import('../pages/shops/Shops'));
+const ShopDetail = lazy(() => import('../pages/shops/ShopDetail'));
+const StockTransfers = lazy(() => import('../pages/stock-transfers/StockTransfers'));
+const ReplenishmentRequests = lazy(() => import('../pages/replenishment-requests/ReplenishmentRequests'));
+const Notifications = lazy(() => import('../pages/notifications/Notifications'));
 
 interface AppRoutesProps {
   isAddSaleModalOpen: boolean;
@@ -72,6 +79,7 @@ export const AppRoutes: React.FC<AppRoutesProps> = ({ isAddSaleModalOpen, setIsA
       {/* Public Routes */}
       <Route path="/track/:id" element={<LazyPage><TimelinePage /></LazyPage>} />
       <Route path="/catalogue/:companyName/:companyId" element={<LazyPage><Catalogue /></LazyPage>} />
+      <Route path="/catalogue/:companyName/:companyId/shop/:shopId" element={<LazyPage><Catalogue /></LazyPage>} />
       <Route path="/catalogue/:companyName/:companyId/product/:productId" element={<LazyPage><ProductDetailPage /></LazyPage>} />
       <Route path="/checkout/:companyId" element={<LazyPage><SingleCheckout /></LazyPage>} />
       {/* Public Invite Activation Route - Redirects to login for backward compatibility */}
@@ -96,6 +104,7 @@ export const AppRoutes: React.FC<AppRoutesProps> = ({ isAddSaleModalOpen, setIsA
           <Route path="dashboard" element={<LazyPage><Dashboard /></LazyPage>} />
           <Route path="sales" element={<LazyPage><Sales /></LazyPage>} />
           <Route path="pos" element={<RoleRoute requiredResource="sales" requiredAction="create"><LazyPage><POS /></LazyPage></RoleRoute>} />
+          <Route path="pos/shop/:shopId" element={<RoleRoute requiredResource="sales" requiredAction="create"><LazyPage><POS /></LazyPage></RoleRoute>} />
           <Route path="orders" element={<LazyPage><Orders /></LazyPage>} />
           <Route path="expenses" element={<Navigate to="expenses/list" replace />} />
           <Route path="expenses/list" element={<LazyPage><ExpensesList /></LazyPage>} />
@@ -116,6 +125,13 @@ export const AppRoutes: React.FC<AppRoutesProps> = ({ isAddSaleModalOpen, setIsA
           <Route path="magasin/matieres" element={<RoleRoute requiredResource={RESOURCES.MAGASIN}><LazyPage><MagasinMatieres /></LazyPage></RoleRoute>} />
           <Route path="magasin/categories" element={<RoleRoute requiredResource={RESOURCES.MAGASIN}><LazyPage><MagasinCategories /></LazyPage></RoleRoute>} />
           <Route path="magasin/stocks" element={<RoleRoute requiredResource={RESOURCES.MAGASIN}><LazyPage><MagasinStocks /></LazyPage></RoleRoute>} />
+          <Route path="warehouse" element={<RoleRoute requiredResource={RESOURCES.WAREHOUSE}><LazyPage><Warehouse /></LazyPage></RoleRoute>} />
+          <Route path="warehouse/:warehouseId" element={<RoleRoute requiredResource={RESOURCES.WAREHOUSE}><LazyPage><WarehouseDetail /></LazyPage></RoleRoute>} />
+          <Route path="shops" element={<RoleRoute requiredResource={RESOURCES.SHOPS}><LazyPage><Shops /></LazyPage></RoleRoute>} />
+          <Route path="shops/:shopId" element={<RoleRoute requiredResource={RESOURCES.SHOPS}><LazyPage><ShopDetail /></LazyPage></RoleRoute>} />
+          <Route path="stock-transfers" element={<RoleRoute requiredResource={RESOURCES.PRODUCTS}><LazyPage><StockTransfers /></LazyPage></RoleRoute>} />
+          <Route path="replenishment-requests" element={<RoleRoute requiredResource={RESOURCES.PRODUCTS}><LazyPage><ReplenishmentRequests /></LazyPage></RoleRoute>} />
+          <Route path="notifications" element={<LazyPage><Notifications /></LazyPage>} />
           <Route path="suppliers" element={<LazyPage><Suppliers /></LazyPage>} />
           <Route path="contacts" element={<RoleRoute requiredResource="customers"><LazyPage><Contacts /></LazyPage></RoleRoute>} />
           <Route path="contacts/sources" element={<RoleRoute requiredResource="customers"><LazyPage><CustomerSources /></LazyPage></RoleRoute>} />

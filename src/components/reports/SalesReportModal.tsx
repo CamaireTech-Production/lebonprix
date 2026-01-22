@@ -17,12 +17,15 @@ import {
   filterSalesReportData,
   generateSalesReport
 } from '../../services/reports/salesReportService';
+import { useShops } from '../../hooks/data/useFirestore';
+import { useWarehouses } from '../../hooks/data/useFirestore';
 
 interface SalesReportModalProps {
   isOpen: boolean;
   onClose: () => void;
   sales: Sale[];
   products: Product[];
+  companyId: string;
   companyName?: string;
   companyLogo?: string;
 }
@@ -32,9 +35,14 @@ const SalesReportModal: React.FC<SalesReportModalProps> = ({
   onClose,
   sales,
   products,
+  companyId,
   companyName = '',
   companyLogo = ''
 }) => {
+  // Get shops and warehouses
+  const { shops } = useShops(companyId);
+  const { warehouses } = useWarehouses(companyId);
+
   // Report configuration state
   const [reportFormat, setReportFormat] = useState<ReportFormat>('csv');
   const [periodType, setPeriodType] = useState<'all' | 'today' | 'week' | 'month' | 'year' | 'custom'>('all');
@@ -51,6 +59,9 @@ const SalesReportModal: React.FC<SalesReportModalProps> = ({
   const [selectedPaymentStatuses, setSelectedPaymentStatuses] = useState<string[]>([]);
   const [amountMin, setAmountMin] = useState<number | undefined>(undefined);
   const [amountMax, setAmountMax] = useState<number | undefined>(undefined);
+  const [selectedShopId, setSelectedShopId] = useState<string>('all');
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string>('all');
+  const [selectedSourceType, setSelectedSourceType] = useState<'shop' | 'warehouse' | 'all'>('all');
 
   // Preview state
   const [showPreview, setShowPreview] = useState(false);
@@ -76,7 +87,7 @@ const SalesReportModal: React.FC<SalesReportModalProps> = ({
     if (showPreview) {
       updatePreview();
     }
-  }, [dateRange, selectedStatuses, selectedPaymentStatuses, amountMin, amountMax, sales, products]);
+  }, [dateRange, selectedStatuses, selectedPaymentStatuses, amountMin, amountMax, selectedShopId, selectedWarehouseId, selectedSourceType, sales, products, shops, warehouses]);
 
   const updatePreview = () => {
     const config: SalesReportConfig = {
@@ -89,14 +100,22 @@ const SalesReportModal: React.FC<SalesReportModalProps> = ({
         status: selectedStatuses.length > 0 ? selectedStatuses : undefined,
         paymentStatus: selectedPaymentStatuses.length > 0 ? selectedPaymentStatuses : undefined,
         amountMin,
-        amountMax
+        amountMax,
+        shopId: selectedShopId !== 'all' ? selectedShopId : undefined,
+        warehouseId: selectedWarehouseId !== 'all' ? selectedWarehouseId : undefined,
+        sourceType: selectedSourceType !== 'all' ? selectedSourceType : undefined
       }
     };
 
     // Filter sales (only non-deleted)
     const activeSales = sales.filter(s => s.isAvailable !== false);
 
-    const reportData = transformSalesToReportData(activeSales, products);
+    const reportData = transformSalesToReportData(
+      activeSales, 
+      products,
+      shops?.map(s => ({ id: s.id, name: s.name })),
+      warehouses?.map(w => ({ id: w.id, name: w.name }))
+    );
     const filteredData = filterSalesReportData(reportData, config);
     setPreviewData(filteredData);
   };
@@ -115,7 +134,10 @@ const SalesReportModal: React.FC<SalesReportModalProps> = ({
           status: selectedStatuses.length > 0 ? selectedStatuses : undefined,
           paymentStatus: selectedPaymentStatuses.length > 0 ? selectedPaymentStatuses : undefined,
           amountMin,
-          amountMax
+          amountMax,
+          shopId: selectedShopId !== 'all' ? selectedShopId : undefined,
+          warehouseId: selectedWarehouseId !== 'all' ? selectedWarehouseId : undefined,
+          sourceType: selectedSourceType !== 'all' ? selectedSourceType : undefined
         }
       };
 
@@ -131,7 +153,9 @@ const SalesReportModal: React.FC<SalesReportModalProps> = ({
           companyName,
           companyLogo,
           includeTimestamp: true
-        }
+        },
+        shops?.map(s => ({ id: s.id, name: s.name })),
+        warehouses?.map(w => ({ id: w.id, name: w.name }))
       );
 
       if (!result.success) {
@@ -196,6 +220,9 @@ const SalesReportModal: React.FC<SalesReportModalProps> = ({
     setSelectedPaymentStatuses([]);
     setAmountMin(undefined);
     setAmountMax(undefined);
+    setSelectedShopId('all');
+    setSelectedWarehouseId('all');
+    setSelectedSourceType('all');
   };
 
   return (
@@ -391,6 +418,67 @@ const SalesReportModal: React.FC<SalesReportModalProps> = ({
                     placeholder="∞"
                   />
                 </div>
+              </div>
+
+              {/* Location Filters */}
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Type de source
+                  </label>
+                  <select
+                    value={selectedSourceType}
+                    onChange={e => setSelectedSourceType(e.target.value as 'shop' | 'warehouse' | 'all')}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white
+                             focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
+                  >
+                    <option value="all">Toutes les sources</option>
+                    <option value="shop">Boutiques uniquement</option>
+                    <option value="warehouse">Entrepôts uniquement</option>
+                  </select>
+                </div>
+
+                {selectedSourceType === 'shop' || selectedSourceType === 'all' ? (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      Boutique
+                    </label>
+                    <select
+                      value={selectedShopId}
+                      onChange={e => setSelectedShopId(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white
+                               focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
+                    >
+                      <option value="all">Toutes les boutiques</option>
+                      {shops?.map(shop => (
+                        <option key={shop.id} value={shop.id}>
+                          {shop.name} {shop.isDefault ? '(Par défaut)' : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : null}
+
+                {selectedSourceType === 'warehouse' || selectedSourceType === 'all' ? (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      Entrepôt
+                    </label>
+                    <select
+                      value={selectedWarehouseId}
+                      onChange={e => setSelectedWarehouseId(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white
+                               focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
+                    >
+                      <option value="all">Tous les entrepôts</option>
+                      {warehouses?.map(warehouse => (
+                        <option key={warehouse.id} value={warehouse.id}>
+                          {warehouse.name} {warehouse.isDefault ? '(Par défaut)' : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : null}
               </div>
             </div>
           )}

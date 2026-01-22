@@ -4,6 +4,8 @@ import { Company } from '../../../types/models';
 import CompanyManager from '../../storage/CompanyManager';
 import { getUserById, removeCompanyFromUser } from '../../utilities/userService';
 import { addUserToCompany } from './userCompanySyncService';
+import { createShop } from '../shops/shopService';
+import { createWarehouse } from '../warehouse/warehouseService';
 
 export interface CompanyData {
   name: string;
@@ -87,6 +89,43 @@ export const createCompany = async (
 
     // 6. Sauvegarder dans le cache local
     CompanyManager.save(companyId, company);
+
+    // 7. Create default shop and warehouse
+    try {
+      console.log('🏪 Création du magasin par défaut...');
+      await createShop(
+        {
+          name: 'Boutique Principale',
+          companyId,
+          userId,
+          isDefault: true,
+          location: companyData.location,
+          address: companyData.location
+        },
+        companyId,
+        null // No createdBy for auto-created default shop
+      );
+      console.log('✅ Magasin par défaut créé');
+
+      console.log('📦 Création de l\'entrepôt par défaut...');
+      await createWarehouse(
+        {
+          name: 'Entrepôt Principal',
+          companyId,
+          userId,
+          isDefault: true,
+          location: companyData.location,
+          address: companyData.location
+        },
+        companyId,
+        null // No createdBy for auto-created default warehouse
+      );
+      console.log('✅ Entrepôt par défaut créé');
+    } catch (error) {
+      // Log error but don't fail company creation
+      console.error('⚠️ Erreur lors de la création du magasin/entrepôt par défaut:', error);
+      // Continue - company is already created, shop/warehouse can be created later
+    }
 
     console.log(`✅ Entreprise ${companyData.name} créée avec succès`);
     return company;

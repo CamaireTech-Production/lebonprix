@@ -24,6 +24,8 @@ export const RESOURCES = {
   EXPENSES: 'expenses',
   MAGASIN: 'magasin',
   PRODUCTIONS: 'productions',
+  WAREHOUSE: 'warehouse',
+  SHOPS: 'shops',
 
   // Sub-resources (Granular permissions)
   // Products sub-resources
@@ -68,8 +70,10 @@ export const RESOURCE_LABELS: Record<Resource, string> = {
   [RESOURCES.CATEGORIES]: 'Catégories',
   [RESOURCES.SUPPLIERS]: 'Fournisseurs',
   [RESOURCES.EXPENSES]: 'Dépenses',
-  [RESOURCES.MAGASIN]: 'Magasin',
+  [RESOURCES.MAGASIN]: 'Magasin Matière',
   [RESOURCES.PRODUCTIONS]: 'Productions',
+  [RESOURCES.WAREHOUSE]: 'Entrepôt Produits',
+  [RESOURCES.SHOPS]: 'Boutiques',
   [RESOURCES.PRODUCTS_CATEGORIES]: 'Catégories Produits',
   [RESOURCES.PRODUCTS_STOCKS]: 'Stocks Produits',
   [RESOURCES.MAGASIN_CATEGORIES]: 'Catégories Matières',
@@ -100,6 +104,8 @@ export const ALL_RESOURCES: Resource[] = [
   RESOURCES.EXPENSES,
   RESOURCES.MAGASIN,
   RESOURCES.PRODUCTIONS,
+  RESOURCES.WAREHOUSE,
+  RESOURCES.SHOPS,
   RESOURCES.PRODUCTS_CATEGORIES,
   RESOURCES.PRODUCTS_STOCKS,
   RESOURCES.MAGASIN_CATEGORIES,

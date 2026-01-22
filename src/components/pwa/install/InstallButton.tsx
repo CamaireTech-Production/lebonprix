@@ -92,10 +92,10 @@ export const InstallButton: React.FC = () => {
           </div>
           <button
             onClick={handleInstallClick}
-            className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors flex items-center space-x-2"
+            className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors inline-flex flex-row items-center justify-center gap-2"
           >
-            <Download className="h-4 w-4" />
-            <span>{deferredPrompt ? 'Installer Maintenant' : 'Installer'}</span>
+            <Download className="h-4 w-4 flex-shrink-0" />
+            <span className="whitespace-nowrap">{deferredPrompt ? 'Installer Maintenant' : 'Installer'}</span>
           </button>
         </div>
         

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
-import { Menu, Bell, Search, User, Settings, LogOut, Users, ScanLine } from 'lucide-react';
+import { Menu, Search, User, Settings, LogOut, Users, ScanLine } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import UserAvatar from '../common/UserAvatar';
 import LanguageSwitcher from '../common/LanguageSwitcher';
@@ -8,6 +8,7 @@ import { DownloadAppButton } from '../pwa';
 import { PWAStatusIndicator } from '../pwa';
 import { useTranslation } from 'react-i18next';
 import { useRolePermissions } from '../../hooks/business/useRolePermissions';
+import NotificationBell from '../notifications/NotificationBell';
 
 interface NavbarProps {
   onMenuClick: () => void;
@@ -115,12 +116,8 @@ const Navbar = ({ onMenuClick, isSelectionMode }: NavbarProps) => {
           {/* Download App Button */}
           <DownloadAppButton variant="header" showText={false} />
           
-          <button 
-            className="p-1 rounded-full text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
-            aria-label={t('header.notifications')}
-          >
-            <Bell className="h-5 w-5" />
-          </button>
+          {/* Notifications Bell */}
+          {isCompanyRoute && !isSelectionMode && <NotificationBell />}
 
           {/* User dropdown */}
           <div className="relative" ref={dropdownRef}>
