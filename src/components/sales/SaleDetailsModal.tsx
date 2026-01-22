@@ -1,7 +1,7 @@
 import { Modal, ModalFooter, Card, Badge, Button } from '@components/common';
 import Invoice from './Invoice';
 import type { Sale, Product, Customer } from '../../types/models';
-import { Download, Share, Printer, DollarSign, Clock, X, RotateCcw } from 'lucide-react';
+import { Download, Share, Printer, Clock, X, RotateCcw } from 'lucide-react';
 import { generatePDF, generatePDFBlob } from '@utils/core/pdf';
 import { generateInvoiceFileName } from '@utils/core/fileUtils';
 import { useTranslation } from 'react-i18next';
@@ -560,33 +560,17 @@ const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({ isOpen, onClose, sa
                   {t(`sales.filters.status.${sale.status}`)}
                 </Badge>
               </div>
-              {sale.status === 'credit' && (
+              {sale.status === 'credit' && onRefundCredit && (sale.remainingAmount ?? sale.totalAmount) > 0 && (
                 <div className="flex space-x-2 flex-wrap gap-2">
-                  {onSettleCredit && (
-                    <Button
-                      variant="solid"
-                      icon={<DollarSign size={16} />}
-                      onClick={() => {
-                        onSettleCredit(sale.id);
-                        onClose();
-                      }}
-                      className="bg-emerald-600 hover:bg-emerald-700"
-                    >
-                      {t('sales.actions.settleCredit') || 'Mark as Paid'}
-                    </Button>
-                  )}
-                  {onRefundCredit && (sale.remainingAmount ?? sale.totalAmount) > 0 && (
-                    <Button
-                      variant="outline"
-                      icon={<RotateCcw size={16} />}
-                      onClick={() => {
-                        onRefundCredit(sale.id);
-                      }}
-                      className="border-orange-500 text-orange-600 hover:bg-orange-50"
-                    >
-                      {t('sales.actions.refundCredit') || 'Refund'}
-                    </Button>
-                  )}
+                  <button
+                    onClick={() => {
+                      onRefundCredit(sale.id);
+                    }}
+                    className="text-orange-600 hover:text-orange-900"
+                    title={t('sales.actions.refundCredit') || 'Remboursement'}
+                  >
+                    <RotateCcw size={16} />
+                  </button>
                   {onCancelCredit && (
                     <Button
                       variant="outline"
