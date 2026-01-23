@@ -41,8 +41,25 @@ jobs:
         echo "VITE_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID_PROD }}" >> .env
         echo "VITE_FIREBASE_APP_ID=${{ secrets.VITE_FIREBASE_APP_ID_PROD }}" >> .env
         echo "VITE_FIREBASE_MEASUREMENT_ID=${{ secrets.VITE_FIREBASE_MEASUREMENT_ID_PROD }}" >> .env
-        echo "VITE_BACKEND_API_URL=${{ secrets.VITE_BACKEND_API_URL_PROD || 'http://93.127.203.115:8888' }}" >> .env
+        
+        # Get backend URL and force HTTP for IP addresses (HTTPS doesn't work with IPs)
+        BACKEND_URL="${{ secrets.VITE_BACKEND_API_URL_PROD || 'http://93.127.203.115:8888' }}"
+        # If URL starts with https:// and contains IP address, change to http://
+        if echo "$BACKEND_URL" | grep -qE '^https://[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}'; then
+          BACKEND_URL=$(echo "$BACKEND_URL" | sed 's|^https://|http://|')
+          echo "⚠️ Converted HTTPS to HTTP for IP address: $BACKEND_URL"
+        fi
+        echo "VITE_BACKEND_API_URL=$BACKEND_URL" >> .env
         echo "VITE_BACKEND_API_KEY=${{ secrets.VITE_BACKEND_API_KEY_PROD }}" >> .env
+        
+        # Verify the URL is HTTP (not HTTPS with IP)
+        if grep -qE '^VITE_BACKEND_API_URL=https://[0-9]' .env; then
+          echo "❌ ERROR: Backend URL is still HTTPS with IP address!"
+          cat .env | grep VITE_BACKEND_API_URL
+          exit 1
+        fi
+        echo "✅ Backend URL verified as HTTP:"
+        grep VITE_BACKEND_API_URL .env
 
         
     - name: Clean and install dependencies
