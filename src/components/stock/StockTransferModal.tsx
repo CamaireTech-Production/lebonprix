@@ -292,11 +292,11 @@ const StockTransferModal: React.FC<StockTransferModalProps> = ({
         }
       }
       if (!formData.toShopId) {
-        errors.push('Le magasin de destination est requis');
+        errors.push('La boutique de destination est requise');
       } else {
         const destShop = shops?.find(s => s.id === formData.toShopId);
         if (destShop && destShop.isActive === false) {
-          errors.push('Le magasin de destination est désactivé');
+          errors.push('La boutique de destination est désactivée');
         }
       }
     } else if (formData.transferType === 'warehouse_to_warehouse') {
@@ -321,31 +321,31 @@ const StockTransferModal: React.FC<StockTransferModalProps> = ({
       }
     } else if (formData.transferType === 'shop_to_shop') {
       if (!formData.fromShopId) {
-        errors.push('Le magasin source est requis');
+        errors.push('La boutique source est requise');
       } else {
         const sourceShop = shops?.find(s => s.id === formData.fromShopId);
         if (sourceShop && sourceShop.isActive === false) {
-          errors.push('Le magasin source est désactivé');
+          errors.push('La boutique source est désactivée');
         }
       }
       if (!formData.toShopId) {
-        errors.push('Le magasin de destination est requis');
+        errors.push('La boutique de destination est requise');
       } else {
         const destShop = shops?.find(s => s.id === formData.toShopId);
         if (destShop && destShop.isActive === false) {
-          errors.push('Le magasin de destination est désactivé');
+          errors.push('La boutique de destination est désactivée');
         }
       }
       if (formData.fromShopId === formData.toShopId) {
-        errors.push('Le magasin source et de destination doivent être différents');
+        errors.push('La boutique source et de destination doivent être différentes');
       }
     } else if (formData.transferType === 'shop_to_warehouse') {
       if (!formData.fromShopId) {
-        errors.push('Le magasin source est requis');
+        errors.push('La boutique source est requise');
       } else {
         const sourceShop = shops?.find(s => s.id === formData.fromShopId);
         if (sourceShop && sourceShop.isActive === false) {
-          errors.push('Le magasin source est désactivé');
+          errors.push('La boutique source est désactivée');
         }
       }
       if (!formData.toWarehouseId) {
@@ -446,7 +446,7 @@ const StockTransferModal: React.FC<StockTransferModalProps> = ({
   // Shop options - filter out inactive shops
   const shopOptions = useMemo(() => {
     const options: Array<{ label: string; value: string }> = [
-      { label: 'Sélectionner un magasin', value: '' }
+      { label: 'Sélectionner une boutique', value: '' }
     ];
     const activeShops = (shops || [])
       .filter(shop => shop.isActive !== false)
@@ -476,10 +476,10 @@ const StockTransferModal: React.FC<StockTransferModalProps> = ({
   // Transfer type options - removed production_to_warehouse, added shop_to_warehouse
   const transferTypeOptions = [
     { label: 'Sélectionner un type de transfert', value: '' },
-    { label: 'Entrepôt → Magasin', value: 'warehouse_to_shop' },
+    { label: 'Entrepôt → Boutique', value: 'warehouse_to_shop' },
     { label: 'Entrepôt → Entrepôt', value: 'warehouse_to_warehouse' },
-    { label: 'Magasin → Magasin', value: 'shop_to_shop' },
-    { label: 'Magasin → Entrepôt', value: 'shop_to_warehouse' }
+    { label: 'Boutique → Boutique', value: 'shop_to_shop' },
+    { label: 'Boutique → Entrepôt', value: 'shop_to_warehouse' }
   ];
 
   // Helper to determine if source location field should be enabled
@@ -563,7 +563,7 @@ const StockTransferModal: React.FC<StockTransferModalProps> = ({
         {(formData.transferType === 'shop_to_shop' || formData.transferType === 'shop_to_warehouse') && (
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Magasin source <span className="text-red-500">*</span>
+              Boutique source <span className="text-red-500">*</span>
             </label>
             <Select
               value={formData.fromShopId || ''}
@@ -578,7 +578,7 @@ const StockTransferModal: React.FC<StockTransferModalProps> = ({
         {(formData.transferType === 'warehouse_to_shop' || formData.transferType === 'shop_to_shop') && (
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Magasin de destination <span className="text-red-500">*</span>
+              Boutique de destination <span className="text-red-500">*</span>
             </label>
             <Select
               value={formData.toShopId || ''}

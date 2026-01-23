@@ -252,7 +252,7 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
 
       // Validate destination is selected
       if (formData.destinationType === 'shop' && !formData.shopId) {
-        showErrorToast('Veuillez sélectionner un magasin');
+        showErrorToast('Veuillez sélectionner une boutique');
         return;
       }
       if (formData.destinationType === 'warehouse' && !formData.warehouseId) {
@@ -349,7 +349,7 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
 
     // Validate destination is selected
     if (formData.destinationType === 'shop' && !formData.shopId) {
-      showErrorToast('Veuillez sélectionner un magasin');
+      showErrorToast('Veuillez sélectionner une boutique');
       return;
     }
     if (formData.destinationType === 'warehouse' && !formData.warehouseId) {
@@ -457,7 +457,7 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
                 }}
                 className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="shop">Magasin</option>
+                <option value="shop">Boutique</option>
                 <option value="warehouse">Entrepôt</option>
               </select>
             </div>
@@ -465,11 +465,11 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
             {formData.destinationType === 'shop' && (
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Magasin <span className="text-red-500">*</span>
+                  Boutique <span className="text-red-500">*</span>
                 </label>
                 {shops?.length === 0 ? (
                   <div className="w-full px-3 py-2 text-sm border border-yellow-300 rounded-md bg-yellow-50 text-yellow-700">
-                    Aucun magasin disponible. Veuillez créer un magasin.
+                    Aucune boutique disponible. Veuillez créer une boutique.
                   </div>
                 ) : (
                   <select
@@ -477,7 +477,7 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
                     onChange={(e) => setFormData({ ...formData, shopId: e.target.value })}
                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="">Sélectionner un magasin</option>
+                    <option value="">Sélectionner une boutique</option>
                     {shops?.map(shop => (
                       <option key={shop.id} value={shop.id}>
                         {shop.name} {shop.isDefault ? '(Par défaut)' : ''}
@@ -516,7 +516,7 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
           </div>
           <p className="text-xs text-gray-500 mt-2">
             {formData.destinationType === 'shop'
-              ? 'Le stock sera créé directement dans le magasin sélectionné'
+              ? 'Le stock sera créé directement dans la boutique sélectionnée'
               : 'Le stock sera créé directement dans l\'entrepôt sélectionné'}
           </p>
         </div>

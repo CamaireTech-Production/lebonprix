@@ -70,7 +70,7 @@ export const RESOURCE_LABELS: Record<Resource, string> = {
   [RESOURCES.CATEGORIES]: 'Catégories',
   [RESOURCES.SUPPLIERS]: 'Fournisseurs',
   [RESOURCES.EXPENSES]: 'Dépenses',
-  [RESOURCES.MAGASIN]: 'Magasin Matière',
+  [RESOURCES.MAGASIN]: 'Entrepôt de Matière',
   [RESOURCES.PRODUCTIONS]: 'Productions',
   [RESOURCES.WAREHOUSE]: 'Entrepôt Produits',
   [RESOURCES.SHOPS]: 'Boutiques',

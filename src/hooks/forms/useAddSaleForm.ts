@@ -295,10 +295,10 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
     
     // Validate location selection
     if (!formData.sourceType) {
-      errors.sourceType = t('sales.messages.warnings.sourceTypeRequired') || 'Veuillez sélectionner un type de source (magasin ou entrepôt)';
+      errors.sourceType = t('sales.messages.warnings.sourceTypeRequired') || 'Veuillez sélectionner un type de source (boutique ou entrepôt)';
     } else if (formData.sourceType === 'shop') {
       if (!formData.shopId) {
-        errors.shopId = t('sales.messages.warnings.shopRequired') || 'Veuillez sélectionner un magasin';
+        errors.shopId = t('sales.messages.warnings.shopRequired') || 'Veuillez sélectionner une boutique';
       }
     } else if (formData.sourceType === 'warehouse') {
       if (!formData.warehouseId) {

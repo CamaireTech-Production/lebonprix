@@ -205,8 +205,8 @@ export const notifyReplenishmentRequestRejected = async (
 
     const title = 'Demande de réapprovisionnement rejetée';
     const message = reason
-      ? `Votre demande pour ${productName || 'produit'} dans ${shopName || 'magasin'} a été rejetée: ${reason}`
-      : `Votre demande pour ${productName || 'produit'} dans ${shopName || 'magasin'} a été rejetée`;
+      ? `Votre demande pour ${productName || 'produit'} dans ${shopName || 'boutique'} a été rejetée: ${reason}`
+      : `Votre demande pour ${productName || 'produit'} dans ${shopName || 'boutique'} a été rejetée`;
 
     await createNotificationsForUsers(
       [userId],

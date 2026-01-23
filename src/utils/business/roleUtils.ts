@@ -74,7 +74,7 @@ export const getRoleLabel = (role: UserRole | 'owner'): string => {
   const labels: Record<UserRole | 'owner', string> = {
     'staff': 'Vendeur',
     'manager': 'Gestionnaire',
-    'admin': 'Magasinier',
+    'admin': 'Boutiquier',
     'owner': 'Propriétaire',
   };
   return labels[role] || role;

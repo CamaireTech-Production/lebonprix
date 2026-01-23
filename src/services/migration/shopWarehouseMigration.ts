@@ -81,18 +81,18 @@ export const migrateCompany = async (
       }
 
       if (options.dryRun) {
-        console.log('🔍 [DRY RUN] Création du magasin par défaut...');
+        console.log('🔍 [DRY RUN] Création de la boutique par défaut...');
         shopCreated = true;
         // Create a mock shop for dry run
         defaultShop = { id: 'mock-shop-id', ...shopData } as any;
       } else {
-        console.log('🏪 Création du magasin par défaut...');
+        console.log('🏪 Création de la boutique par défaut...');
         defaultShop = await createShop(shopData, companyId, null);
         shopCreated = true;
-        console.log('✅ Magasin par défaut créé');
+        console.log('✅ Boutique par défaut créée');
       }
     } else if (options.skipExisting) {
-      console.log('⏭️  Magasin par défaut existe déjà, ignoré');
+      console.log('⏭️  Boutique par défaut existe déjà, ignorée');
     }
 
     // 2. Check if default warehouse exists, create if not

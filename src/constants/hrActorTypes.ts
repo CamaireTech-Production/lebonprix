@@ -26,7 +26,7 @@ export type HRActorType = typeof HR_ACTOR_TYPES[keyof typeof HR_ACTOR_TYPES];
 export const HR_ACTOR_TYPE_LABELS: Record<string, string> = {
   [HR_ACTOR_TYPES.GARDIEN]: 'Gardien',
   [HR_ACTOR_TYPES.CAISSIER]: 'Caissier(ère)',
-  [HR_ACTOR_TYPES.MAGASINIER]: 'Magasinier',
+  [HR_ACTOR_TYPES.MAGASINIER]: 'Boutiquier',
   [HR_ACTOR_TYPES.LIVREUR]: 'Livreur',
   [HR_ACTOR_TYPES.COMPTABLE]: 'Comptable',
   [HR_ACTOR_TYPES.MANAGER]: 'Manager',

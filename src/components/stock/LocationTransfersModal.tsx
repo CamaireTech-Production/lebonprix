@@ -64,10 +64,10 @@ const LocationTransfersModal: React.FC<LocationTransfersModalProps> = ({
 
   const getTransferTypeLabel = (type: StockTransfer['transferType']): string => {
     const labels: Record<StockTransfer['transferType'], string> = {
-      'warehouse_to_shop': 'Entrepôt → Magasin',
+      'warehouse_to_shop': 'Entrepôt → Boutique',
       'warehouse_to_warehouse': 'Entrepôt → Entrepôt',
-      'shop_to_shop': 'Magasin → Magasin',
-      'shop_to_warehouse': 'Magasin → Entrepôt'
+      'shop_to_shop': 'Boutique → Boutique',
+      'shop_to_warehouse': 'Boutique → Entrepôt'
     };
     return labels[type] || type;
   };

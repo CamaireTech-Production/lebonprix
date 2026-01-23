@@ -127,10 +127,10 @@ const StockTransfers = () => {
 
   const getTransferTypeLabel = (type: StockTransfer['transferType']): string => {
     const labels: Record<StockTransfer['transferType'], string> = {
-      'warehouse_to_shop': 'Entrepôt → Magasin',
+      'warehouse_to_shop': 'Entrepôt → Boutique',
       'warehouse_to_warehouse': 'Entrepôt → Entrepôt',
-      'shop_to_shop': 'Magasin → Magasin',
-      'shop_to_warehouse': 'Magasin → Entrepôt'
+      'shop_to_shop': 'Boutique → Boutique',
+      'shop_to_warehouse': 'Boutique → Entrepôt'
     };
     return labels[type] || type;
   };
@@ -205,10 +205,10 @@ const StockTransfers = () => {
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="all">Tous les types</option>
-              <option value="warehouse_to_shop">Entrepôt → Magasin</option>
+              <option value="warehouse_to_shop">Entrepôt → Boutique</option>
               <option value="warehouse_to_warehouse">Entrepôt → Entrepôt</option>
-              <option value="shop_to_shop">Magasin → Magasin</option>
-              <option value="shop_to_warehouse">Magasin → Entrepôt</option>
+              <option value="shop_to_shop">Boutique → Boutique</option>
+              <option value="shop_to_warehouse">Boutique → Entrepôt</option>
             </select>
           </div>
 

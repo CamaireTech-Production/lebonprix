@@ -91,7 +91,7 @@ export const POSHeader: React.FC<POSHeaderProps> = ({ companyName, shops, select
         {/* Shop Selector */}
         {shops && shops.length > 1 && (
           <div className="flex items-center space-x-2">
-            <span className="text-sm opacity-90" style={{ color: colors.headerText }}>Magasin:</span>
+            <span className="text-sm opacity-90" style={{ color: colors.headerText }}>Boutique:</span>
             <select
               value={selectedShopId || ''}
               onChange={(e) => {
@@ -115,7 +115,7 @@ export const POSHeader: React.FC<POSHeaderProps> = ({ companyName, shops, select
         )}
         {shops && shops.length === 1 && selectedShopId && (
           <div className="flex items-center space-x-2 text-sm" style={{ color: colors.headerText }}>
-            <span className="opacity-90">Magasin:</span>
+            <span className="opacity-90">Boutique:</span>
             <span className="font-semibold">{shops[0].name}</span>
           </div>
         )}
