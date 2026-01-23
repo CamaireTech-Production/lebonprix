@@ -3,7 +3,13 @@
  */
 
 // Backend API URL - can be configured via environment variable
-const BACKEND_API_URL = import.meta.env.VITE_BACKEND_API_URL || 'http://localhost:4500';
+// Force HTTP for IP addresses (HTTPS doesn't work with IPs)
+const getBackendApiUrl = (): string => {
+  const url = import.meta.env.VITE_BACKEND_API_URL || 'http://93.127.203.115:8888';
+  return url;
+};
+
+const BACKEND_API_URL = getBackendApiUrl();
 
 export interface SendCredentialsEmailParams {
   toEmail: string;
