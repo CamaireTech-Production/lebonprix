@@ -3,33 +3,39 @@
  */
 
 // Backend API URL - can be configured via environment variable
-// Force HTTP for IP addresses (HTTPS doesn't work with IPs)
+// CRITICAL: Force HTTP for IP addresses - HTTPS doesn't work with IPs
+// This function ALWAYS returns HTTP when an IP address is detected
 const getBackendApiUrl = (): string => {
   let url = import.meta.env.VITE_BACKEND_API_URL || 'http://93.127.203.115:8888';
   
-  // CRITICAL: Force HTTP for IP addresses - HTTPS doesn't work with IPs
-  // Match IP address pattern (e.g., 93.127.203.115) in URL
-  const ipPattern = /^https:\/\/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/;
+  // ENFORCE HTTP: If URL contains ANY IP address pattern, force HTTP
+  // Match IP address pattern anywhere in the URL (e.g., 93.127.203.115)
+  const ipPattern = /\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/;
+  
   if (ipPattern.test(url)) {
-    url = url.replace('https://', 'http://');
-    console.warn('⚠️ Backend URL changed from HTTPS to HTTP (IP addresses don\'t support HTTPS):', url);
+    // If URL contains IP address, FORCE HTTP (remove https:// if present)
+    url = url.replace(/^https:\/\//, 'http://');
+    // Ensure it starts with http://
+    if (!url.startsWith('http://') && !url.startsWith('http://')) {
+      url = 'http://' + url.replace(/^https?:\/\//, '');
+    }
+    console.warn('🔒 ENFORCED HTTP for IP address (HTTPS not supported):', url);
   }
   
-  // Also handle case where URL might have https:// with IP but no port specified
-  if (url.startsWith('https://') && /\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/.test(url)) {
+  // Final check: If somehow still HTTPS with IP, force conversion
+  if (url.startsWith('https://') && ipPattern.test(url)) {
     url = url.replace('https://', 'http://');
-    console.warn('⚠️ Backend URL changed from HTTPS to HTTP (IP addresses don\'t support HTTPS):', url);
+    console.error('❌ CRITICAL: Forced HTTPS to HTTP conversion:', url);
   }
   
   return url;
 };
 
-const BACKEND_API_URL = getBackendApiUrl();
-
-// Debug: Log the backend URL being used (only in development)
-if (import.meta.env.DEV) {
-  console.log('🔧 Backend API URL:', BACKEND_API_URL);
-}
+// DO NOT cache the URL - always get it fresh to enforce HTTP
+// This ensures runtime enforcement works even if env var changes
+const getBackendApiUrlFresh = (): string => {
+  return getBackendApiUrl();
+};
 
 /**
  * Get Firebase source based on environment
@@ -87,14 +93,25 @@ export const createUserViaBackend = async (
     // Automatically determine Firebase source
     const firebaseSource = getFirebaseSource();
     
-    // Final safeguard: Ensure URL is HTTP if it's an IP address
-    let apiUrl = BACKEND_API_URL;
+    // FINAL ENFORCEMENT: Get fresh URL and force HTTP for IP addresses
+    let apiUrl = getBackendApiUrlFresh();
+    
+    // Double-check: If still HTTPS with IP, force HTTP
     if (apiUrl.startsWith('https://') && /\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/.test(apiUrl)) {
       apiUrl = apiUrl.replace('https://', 'http://');
-      console.error('❌ CRITICAL: Backend URL was HTTPS with IP, forced to HTTP:', apiUrl);
+      console.error('❌ CRITICAL: Runtime enforcement - forced HTTPS to HTTP:', apiUrl);
     }
     
-    const response = await fetch(`${apiUrl}/api/users/create`, {
+    // ABSOLUTE FINAL CHECK: Force HTTP if IP detected (last chance before fetch)
+    const finalUrl = apiUrl.replace(/^https:\/\/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/, 'http://$1');
+    if (finalUrl !== apiUrl) {
+      console.error('🚨 LAST-MINUTE ENFORCEMENT: Changed HTTPS to HTTP:', finalUrl);
+    }
+    
+    // Log the final URL being used
+    console.log('🌐 Making API request to:', finalUrl);
+    
+    const response = await fetch(`${finalUrl}/api/users/create`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
