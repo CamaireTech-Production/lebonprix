@@ -617,21 +617,39 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
                       <div className="flex-1">
                         <div className="flex items-center justify-between">
                           <div className="flex-1">
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
                               <h5 className="font-medium text-gray-900">{articleData.name}</h5>
-                              {hasStockIssues && (
-                                <div className="flex items-center gap-1 text-red-600" title="Stock insuffisant">
+                              {hasStockIssues && articleValidation && (
+                                <div className="flex items-center gap-1 text-red-600 bg-red-100 px-2 py-1 rounded" title="Stock insuffisant">
                                   <XCircle size={16} className="text-red-600" />
-                                  <span className="text-xs font-medium">Stock insuffisant</span>
+                                  <span className="text-xs font-semibold">Stock insuffisant</span>
                                 </div>
                               )}
                               {!hasStockIssues && articleValidation && articleValidation.materialStatuses.length > 0 && (
-                                <div className="flex items-center gap-1 text-green-600" title="Stock suffisant">
+                                <div className="flex items-center gap-1 text-green-600 bg-green-100 px-2 py-1 rounded" title="Stock suffisant">
                                   <CheckCircle2 size={16} className="text-green-600" />
+                                  <span className="text-xs font-semibold">Stock OK</span>
                                 </div>
                               )}
                             </div>
                             <p className="text-xs text-gray-500">Quantité: {article.quantity} unité(s)</p>
+                            {/* Show out of stock materials directly in header for quick visibility */}
+                            {hasStockIssues && articleValidation && (
+                              <div className="mt-2 space-y-1">
+                                {articleValidation.materialStatuses
+                                  .filter(m => m.status === 'out_of_stock')
+                                  .map((material, idx) => (
+                                    <div key={idx} className="text-xs text-red-700 bg-red-50 px-2 py-1 rounded border border-red-200">
+                                      <span className="font-medium">{material.matiereName}:</span>{' '}
+                                      Requis: <strong>{material.required} {material.unit}</strong> | 
+                                      Disponible: <strong>{material.available} {material.unit}</strong>
+                                      {material.shortage && (
+                                        <> | <span className="font-semibold text-red-800">Manque: {material.shortage} {material.unit}</span></>
+                                      )}
+                                    </div>
+                                  ))}
+                              </div>
+                            )}
                           </div>
                           <div className="flex items-center gap-3">
                             {/* Cost Price Display */}
@@ -970,86 +988,174 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
                           const validation = articleValidation;
                           const hasIssues = validation && !validation.isValid;
                           const hasLowStock = validation && validation.materialStatuses.some(m => m.status === 'low_stock');
+                          const outOfStockMaterials = validation?.materialStatuses.filter(m => m.status === 'out_of_stock') || [];
+                          const lowStockMaterials = validation?.materialStatuses.filter(m => m.status === 'low_stock') || [];
+                          const sufficientMaterials = validation?.materialStatuses.filter(m => m.status === 'sufficient') || [];
                           
                           return (
-                            <div className={`border rounded p-3 ${
+                            <div className={`border-2 rounded-lg p-4 ${
                               hasIssues 
-                                ? 'bg-red-50 border-red-200' 
+                                ? 'bg-red-50 border-red-400' 
                                 : hasLowStock 
-                                  ? 'bg-yellow-50 border-yellow-200'
-                                  : 'bg-green-50 border-green-200'
+                                  ? 'bg-yellow-50 border-yellow-400'
+                                  : 'bg-green-50 border-green-400'
                             }`}>
-                              <div className="flex items-center gap-2 mb-2">
+                              <div className="flex items-center gap-2 mb-3">
                                 {hasIssues ? (
                                   <>
-                                    <XCircle size={16} className="text-red-600" />
-                                    <p className="text-xs font-medium text-red-800">Stock insuffisant pour certains matériaux</p>
+                                    <XCircle size={18} className="text-red-600 flex-shrink-0" />
+                                    <div>
+                                      <p className="text-sm font-semibold text-red-900">
+                                        Stock insuffisant - {outOfStockMaterials.length} matériau(x) en rupture
+                                      </p>
+                                      <p className="text-xs text-red-700 mt-0.5">
+                                        Veuillez réapprovisionner les matériaux ci-dessous avant de publier
+                                      </p>
+                                    </div>
                                   </>
                                 ) : hasLowStock ? (
                                   <>
-                                    <AlertTriangle size={16} className="text-yellow-600" />
-                                    <p className="text-xs font-medium text-yellow-800">Stock faible pour certains matériaux</p>
+                                    <AlertTriangle size={18} className="text-yellow-600 flex-shrink-0" />
+                                    <div>
+                                      <p className="text-sm font-semibold text-yellow-900">
+                                        Stock faible - {lowStockMaterials.length} matériau(x) avec stock limité
+                                      </p>
+                                      <p className="text-xs text-yellow-700 mt-0.5">
+                                        Le stock est suffisant mais faible, pensez à réapprovisionner
+                                      </p>
+                                    </div>
                                   </>
                                 ) : (
                                   <>
-                                    <CheckCircle2 size={16} className="text-green-600" />
-                                    <p className="text-xs font-medium text-green-800">Stock suffisant pour tous les matériaux</p>
+                                    <CheckCircle2 size={18} className="text-green-600 flex-shrink-0" />
+                                    <p className="text-sm font-semibold text-green-900">
+                                      Stock suffisant pour tous les matériaux
+                                    </p>
                                   </>
                                 )}
                               </div>
-                              <div className="space-y-2">
-                                {validation?.materialStatuses.map((matStatus, idx) => {
-                                  const mat = articleMaterials.find(m => m.matiereId === matStatus.matiereId);
-                                  if (!mat) return null;
-                                  
-                                  return (
-                                    <div 
-                                      key={idx} 
-                                      className={`flex items-center justify-between text-xs p-2 rounded ${
-                                        matStatus.status === 'out_of_stock'
-                                          ? 'bg-red-100 border border-red-300'
-                                          : matStatus.status === 'low_stock'
-                                            ? 'bg-yellow-100 border border-yellow-300'
-                                            : 'bg-green-100 border border-green-300'
-                                      }`}
-                                    >
-                                      <div className="flex items-center gap-2">
-                                        {matStatus.status === 'out_of_stock' ? (
-                                          <XCircle size={14} className="text-red-600 flex-shrink-0" />
-                                        ) : matStatus.status === 'low_stock' ? (
-                                          <AlertTriangle size={14} className="text-yellow-600 flex-shrink-0" />
-                                        ) : (
-                                          <CheckCircle2 size={14} className="text-green-600 flex-shrink-0" />
-                                        )}
-                                        <span className={`font-medium ${
-                                          matStatus.status === 'out_of_stock' ? 'text-red-800' : 
-                                          matStatus.status === 'low_stock' ? 'text-yellow-800' : 
-                                          'text-green-800'
-                                        }`}>
-                                          {matStatus.matiereName}:
-                                        </span>
-                                        <span className={matStatus.status === 'out_of_stock' ? 'text-red-700' : 'text-gray-700'}>
-                                          {matStatus.required} {matStatus.unit}
-                                        </span>
-                                      </div>
-                                      <div className="flex items-center gap-2">
-                                        <span className={`text-xs ${
-                                          matStatus.status === 'out_of_stock' ? 'text-red-700 font-medium' : 
-                                          matStatus.status === 'low_stock' ? 'text-yellow-700' : 
-                                          'text-green-700'
-                                        }`}>
-                                          Stock: {matStatus.available} {matStatus.unit}
-                                        </span>
-                                        {matStatus.shortage && (
-                                          <span className="text-xs text-red-600 font-medium">
-                                            (Manque: {matStatus.shortage} {matStatus.unit})
-                                          </span>
-                                        )}
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
+                              
+                              {/* Out of Stock Materials - Most Important */}
+                              {outOfStockMaterials.length > 0 && (
+                                <div className="mb-3">
+                                  <h6 className="text-xs font-semibold text-red-900 mb-2 uppercase tracking-wide">
+                                    Matériaux en rupture de stock ({outOfStockMaterials.length})
+                                  </h6>
+                                  <div className="space-y-2">
+                                    {outOfStockMaterials.map((matStatus, idx) => {
+                                      const mat = articleMaterials.find(m => m.matiereId === matStatus.matiereId);
+                                      if (!mat) return null;
+                                      
+                                      return (
+                                        <div 
+                                          key={idx} 
+                                          className="bg-red-100 border-2 border-red-400 rounded-lg p-3"
+                                        >
+                                          <div className="flex items-start gap-2 mb-2">
+                                            <XCircle size={16} className="text-red-600 flex-shrink-0 mt-0.5" />
+                                            <div className="flex-1">
+                                              <span className="font-semibold text-red-900 text-sm">
+                                                {matStatus.matiereName}
+                                              </span>
+                                            </div>
+                                          </div>
+                                          <div className="grid grid-cols-2 gap-2 text-xs ml-6">
+                                            <div>
+                                              <span className="text-red-700">Quantité requise:</span>
+                                              <span className="font-bold text-red-900 ml-1">
+                                                {matStatus.required} {matStatus.unit}
+                                              </span>
+                                            </div>
+                                            <div>
+                                              <span className="text-red-700">Stock disponible:</span>
+                                              <span className="font-bold text-red-900 ml-1">
+                                                {matStatus.available} {matStatus.unit}
+                                              </span>
+                                            </div>
+                                            {matStatus.shortage && (
+                                              <div className="col-span-2 mt-1 pt-1 border-t border-red-300">
+                                                <span className="text-red-800 font-semibold">
+                                                  ⚠️ Manque: {matStatus.shortage} {matStatus.unit}
+                                                </span>
+                                              </div>
+                                            )}
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              )}
+                              
+                              {/* Low Stock Materials */}
+                              {lowStockMaterials.length > 0 && (
+                                <div className="mb-3">
+                                  <h6 className="text-xs font-semibold text-yellow-900 mb-2 uppercase tracking-wide">
+                                    Stock faible ({lowStockMaterials.length})
+                                  </h6>
+                                  <div className="space-y-1">
+                                    {lowStockMaterials.map((matStatus, idx) => {
+                                      const mat = articleMaterials.find(m => m.matiereId === matStatus.matiereId);
+                                      if (!mat) return null;
+                                      
+                                      return (
+                                        <div 
+                                          key={idx} 
+                                          className="bg-yellow-100 border border-yellow-300 rounded p-2 text-xs"
+                                        >
+                                          <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                              <AlertTriangle size={14} className="text-yellow-600 flex-shrink-0" />
+                                              <span className="font-medium text-yellow-900">{matStatus.matiereName}:</span>
+                                              <span className="text-yellow-800">
+                                                {matStatus.required} {matStatus.unit} requis
+                                              </span>
+                                            </div>
+                                            <span className="text-yellow-700">
+                                              {matStatus.available} {matStatus.unit} disponible
+                                            </span>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              )}
+                              
+                              {/* Sufficient Stock Materials */}
+                              {sufficientMaterials.length > 0 && (
+                                <div>
+                                  <h6 className="text-xs font-semibold text-green-900 mb-2 uppercase tracking-wide">
+                                    Stock suffisant ({sufficientMaterials.length})
+                                  </h6>
+                                  <div className="space-y-1">
+                                    {sufficientMaterials.map((matStatus, idx) => {
+                                      const mat = articleMaterials.find(m => m.matiereId === matStatus.matiereId);
+                                      if (!mat) return null;
+                                      
+                                      return (
+                                        <div 
+                                          key={idx} 
+                                          className="bg-green-100 border border-green-300 rounded p-2 text-xs"
+                                        >
+                                          <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                              <CheckCircle2 size={14} className="text-green-600 flex-shrink-0" />
+                                              <span className="font-medium text-green-900">{matStatus.matiereName}:</span>
+                                              <span className="text-green-800">
+                                                {matStatus.required} {matStatus.unit} requis
+                                              </span>
+                                            </div>
+                                            <span className="text-green-700">
+                                              {matStatus.available} {matStatus.unit} disponible
+                                            </span>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           );
                         })()}
