@@ -2182,6 +2182,31 @@
       "source": "Source",
       "totalRevenue": "CA Total",
       "totalProfit": "Profit Total"
+    },
+    "statusBreakdown": {
+      "title": "Répartition par Statut",
+      "paid": "Payé",
+      "credit": "Crédit",
+      "commande": "Commande",
+      "underDelivery": "En Livraison",
+      "draft": "Brouillon",
+      "sales": "ventes"
+    },
+    "creditSales": {
+      "title": "Rapport des Ventes à Crédit",
+      "totalCreditSales": "Total des Ventes à Crédit",
+      "sales": "ventes",
+      "totalOutstanding": "Total Impayé",
+      "unpaid": "Montant impayé",
+      "totalPaid": "Total Payé",
+      "paidAmount": "Montant Payé",
+      "outstandingCredits": "Crédits Impayés",
+      "date": "Date",
+      "customer": "Client",
+      "totalAmount": "Montant Total",
+      "remaining": "Restant",
+      "dueDate": "Date d'Échéance",
+      "showingFirst": "Affichage des 10 premiers sur {{total}} ventes à crédit"
     }
   },
   "orders": {

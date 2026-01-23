@@ -3,9 +3,9 @@
  */
 
 // Backend API URL - can be configured via environment variable
-// Now using domain with SSL support (geskap-api.camairetech.com)
+// Using domain on port 8888 (geskap-api.camairetech.com:8888)
 const getBackendApiUrl = (): string => {
-  const url = import.meta.env.VITE_BACKEND_API_URL || 'https://geskap-api.camairetech.com';
+  const url = import.meta.env.VITE_BACKEND_API_URL || 'http://geskap-api.camairetech.com:8888';
   
   // DEBUG: Log URL being used
   console.log('🔍 [DEBUG] Backend URL from env:', url);
