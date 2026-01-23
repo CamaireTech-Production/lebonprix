@@ -6,27 +6,49 @@
 // CRITICAL: Force HTTP for IP addresses - HTTPS doesn't work with IPs
 // This function ALWAYS returns HTTP when an IP address is detected
 const getBackendApiUrl = (): string => {
-  let url = import.meta.env.VITE_BACKEND_API_URL || 'http://93.127.203.115:8888';
+  const originalUrl = import.meta.env.VITE_BACKEND_API_URL || 'http://93.127.203.115:8888';
+  let url = originalUrl;
+  
+  // DEBUG: Log original URL
+  console.log('🔍 [DEBUG] Original Backend URL from env:', originalUrl);
+  console.log('🔍 [DEBUG] Protocol:', originalUrl.startsWith('https://') ? 'HTTPS' : originalUrl.startsWith('http://') ? 'HTTP' : 'UNKNOWN');
   
   // ENFORCE HTTP: If URL contains ANY IP address pattern, force HTTP
   // Match IP address pattern anywhere in the URL (e.g., 93.127.203.115)
   const ipPattern = /\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/;
+  const hasIp = ipPattern.test(url);
   
-  if (ipPattern.test(url)) {
+  console.log('🔍 [DEBUG] Contains IP address:', hasIp);
+  if (hasIp) {
+    console.log('🔍 [DEBUG] IP address detected, enforcing HTTP...');
+  }
+  
+  if (hasIp) {
     // If URL contains IP address, FORCE HTTP (remove https:// if present)
+    const beforeConversion = url;
     url = url.replace(/^https:\/\//, 'http://');
     // Ensure it starts with http://
     if (!url.startsWith('http://') && !url.startsWith('http://')) {
       url = 'http://' + url.replace(/^https?:\/\//, '');
     }
-    console.warn('🔒 ENFORCED HTTP for IP address (HTTPS not supported):', url);
+    
+    if (beforeConversion !== url) {
+      console.warn('🔒 [ENFORCEMENT] Changed from HTTPS to HTTP:', beforeConversion, '→', url);
+    } else {
+      console.log('✅ [ENFORCEMENT] Already HTTP:', url);
+    }
   }
   
   // Final check: If somehow still HTTPS with IP, force conversion
   if (url.startsWith('https://') && ipPattern.test(url)) {
+    const beforeFinal = url;
     url = url.replace('https://', 'http://');
-    console.error('❌ CRITICAL: Forced HTTPS to HTTP conversion:', url);
+    console.error('❌ [CRITICAL] Final enforcement - Forced HTTPS to HTTP:', beforeFinal, '→', url);
   }
+  
+  // Final debug log
+  console.log('🔍 [DEBUG] Final Backend URL:', url);
+  console.log('🔍 [DEBUG] Final Protocol:', url.startsWith('https://') ? 'HTTPS ⚠️' : url.startsWith('http://') ? 'HTTP ✅' : 'UNKNOWN ❌');
   
   return url;
 };
@@ -67,21 +89,26 @@ export const sendCredentialsEmail = async (
   try {
     // FINAL ENFORCEMENT: Get fresh URL and force HTTP for IP addresses
     let apiUrl = getBackendApiUrlFresh();
+    console.log('🔍 [DEBUG] API URL after getBackendApiUrlFresh():', apiUrl);
+    console.log('🔍 [DEBUG] Is HTTPS?', apiUrl.startsWith('https://'));
     
     // Double-check: If still HTTPS with IP, force HTTP
     if (apiUrl.startsWith('https://') && /\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/.test(apiUrl)) {
+      const before = apiUrl;
       apiUrl = apiUrl.replace('https://', 'http://');
-      console.error('❌ CRITICAL: Runtime enforcement - forced HTTPS to HTTP:', apiUrl);
+      console.error('❌ [CRITICAL] Runtime enforcement - forced HTTPS to HTTP:', before, '→', apiUrl);
     }
     
     // ABSOLUTE FINAL CHECK: Force HTTP if IP detected (last chance before fetch)
     const finalUrl = apiUrl.replace(/^https:\/\/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/, 'http://$1');
     if (finalUrl !== apiUrl) {
-      console.error('🚨 LAST-MINUTE ENFORCEMENT: Changed HTTPS to HTTP:', finalUrl);
+      console.error('🚨 [LAST-MINUTE] Changed HTTPS to HTTP:', apiUrl, '→', finalUrl);
     }
     
-    // Log the final URL being used
-    console.log('🌐 Making API request to:', finalUrl);
+    // Final debug log before fetch
+    console.log('🌐 [FINAL] Making API request to:', finalUrl);
+    console.log('🌐 [FINAL] Protocol:', finalUrl.startsWith('https://') ? 'HTTPS ⚠️' : finalUrl.startsWith('http://') ? 'HTTP ✅' : 'UNKNOWN ❌');
+    console.log('🌐 [FINAL] Full endpoint:', `${finalUrl}/api/users/send-credentials`);
     
     const response = await fetch(`${finalUrl}/api/users/send-credentials`, {
       method: 'POST',
