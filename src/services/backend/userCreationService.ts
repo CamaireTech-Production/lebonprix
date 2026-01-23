@@ -136,9 +136,24 @@ export const createUserViaBackend = async (
     // Final debug log before fetch
     console.log('🌐 [FINAL] Making API request to:', finalUrl);
     console.log('🌐 [FINAL] Protocol:', finalUrl.startsWith('https://') ? 'HTTPS ⚠️' : finalUrl.startsWith('http://') ? 'HTTP ✅' : 'UNKNOWN ❌');
-    console.log('🌐 [FINAL] Full endpoint:', `${finalUrl}/api/users/create`);
     
-    const response = await fetch(`${finalUrl}/api/users/create`, {
+    // Construct the full endpoint URL
+    let endpointUrl = `${finalUrl}/api/users/create`;
+    
+    // ABSOLUTE FINAL ENFORCEMENT: Force HTTP in the actual URL string
+    // This handles cases where the URL might have been constructed elsewhere
+    endpointUrl = endpointUrl.replace(/^https:\/\/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/, 'http://$1');
+    
+    console.log('🌐 [FINAL] Full endpoint URL:', endpointUrl);
+    console.log('🌐 [FINAL] Endpoint Protocol:', endpointUrl.startsWith('https://') ? 'HTTPS ⚠️' : endpointUrl.startsWith('http://') ? 'HTTP ✅' : 'UNKNOWN ❌');
+    
+    // Verify one more time before fetch
+    if (endpointUrl.startsWith('https://') && /\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/.test(endpointUrl)) {
+      endpointUrl = endpointUrl.replace('https://', 'http://');
+      console.error('🚨 [PRE-FETCH] Last second enforcement - forced HTTPS to HTTP:', endpointUrl);
+    }
+    
+    const response = await fetch(endpointUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
