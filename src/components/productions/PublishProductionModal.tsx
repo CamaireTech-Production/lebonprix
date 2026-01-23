@@ -1,6 +1,6 @@
 // Publish Production Modal - Convert production to product (supports multi-article)
 import React, { useState, useEffect, useMemo } from 'react';
-import { AlertTriangle, Package, ChevronDown, ChevronUp } from 'lucide-react';
+import { AlertTriangle, Package, ChevronDown, ChevronUp, XCircle, CheckCircle2 } from 'lucide-react';
 import { Modal, ModalFooter, PriceInput } from '@components/common';
 import { useAuth } from '@contexts/AuthContext';
 import { useProductCategories } from '@hooks/data/useFirestore';
@@ -66,39 +66,157 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
     }>;
   }>({});
 
-  // Stock validation
-  const stockValidation = useMemo(() => {
-    if (!production) return { isValid: true, errors: [] };
-
-    const errors: string[] = [];
-    for (const material of production.materials) {
-      const stockInfo = matiereStocks.find(ms => ms.matiereId === material.matiereId);
-      const availableStock = stockInfo?.currentStock || 0;
-      
-      if (availableStock < material.requiredQuantity) {
-        const unit = material.unit || 'unité';
-        errors.push(
-          `${material.matiereName}: Stock insuffisant (requis: ${material.requiredQuantity} ${unit}, disponible: ${availableStock} ${unit})`
-        );
-      }
-    }
-
-    return {
-      isValid: errors.length === 0,
-      errors
-    };
-  }, [production, matiereStocks]);
-
-  // Check if production has articles (multi-article mode)
+  // Check if production has articles (multi-article mode) - MUST be defined first
   const hasArticles = useMemo(() => {
     return production && production.articles && production.articles.length > 0;
   }, [production]);
 
-  // Get publishable articles (not already published)
+  // Get publishable articles (not already published) - MUST be defined before articleStockValidation
   const publishableArticles = useMemo(() => {
     if (!production || !production.articles) return [];
     return production.articles.filter(a => a.status !== 'published');
   }, [production]);
+
+  // Stock validation for legacy mode (production.materials)
+  const stockValidation = useMemo(() => {
+    if (!production) return { isValid: true, errors: [], materialStatuses: [] };
+
+    const errors: string[] = [];
+    const materialStatuses: Array<{
+      matiereId: string;
+      matiereName: string;
+      required: number;
+      available: number;
+      unit: string;
+      status: 'out_of_stock' | 'low_stock' | 'sufficient';
+      shortage?: number;
+    }> = [];
+
+    for (const material of production.materials) {
+      const stockInfo = matiereStocks.find(ms => ms.matiereId === material.matiereId);
+      const availableStock = stockInfo?.currentStock || 0;
+      const required = material.requiredQuantity;
+      const unit = material.unit || 'unité';
+      
+      let status: 'out_of_stock' | 'low_stock' | 'sufficient';
+      let shortage: number | undefined;
+
+      if (availableStock < required) {
+        status = 'out_of_stock';
+        shortage = required - availableStock;
+        errors.push(
+          `${material.matiereName}: Stock insuffisant (requis: ${required} ${unit}, disponible: ${availableStock} ${unit})`
+        );
+      } else if (availableStock < required * 1.2) {
+        // Low stock (less than 120% of required)
+        status = 'low_stock';
+      } else {
+        status = 'sufficient';
+      }
+
+      materialStatuses.push({
+        matiereId: material.matiereId,
+        matiereName: material.matiereName,
+        required,
+        available: availableStock,
+        unit,
+        status,
+        shortage
+      });
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors,
+      materialStatuses
+    };
+  }, [production, matiereStocks]);
+
+  // Stock validation for articles (multi-article mode) - MUST be defined after hasArticles and publishableArticles
+  const articleStockValidation = useMemo(() => {
+    if (!production || !hasArticles) return new Map();
+
+    const validationMap = new Map<string, {
+      isValid: boolean;
+      errors: string[];
+      materialStatuses: Array<{
+        matiereId: string;
+        matiereName: string;
+        required: number;
+        available: number;
+        unit: string;
+        status: 'out_of_stock' | 'low_stock' | 'sufficient';
+        shortage?: number;
+      }>;
+    }>();
+
+    publishableArticles.forEach(article => {
+      const articleMaterials = article.materials || [];
+      const errors: string[] = [];
+      const materialStatuses: Array<{
+        matiereId: string;
+        matiereName: string;
+        required: number;
+        available: number;
+        unit: string;
+        status: 'out_of_stock' | 'low_stock' | 'sufficient';
+        shortage?: number;
+      }> = [];
+
+      articleMaterials.forEach(material => {
+        const stockInfo = matiereStocks.find(ms => ms.matiereId === material.matiereId);
+        const availableStock = stockInfo?.currentStock || 0;
+        const required = material.requiredQuantity;
+        const unit = material.unit || 'unité';
+        
+        let status: 'out_of_stock' | 'low_stock' | 'sufficient';
+        let shortage: number | undefined;
+
+        if (availableStock < required) {
+          status = 'out_of_stock';
+          shortage = required - availableStock;
+          errors.push(
+            `${material.matiereName}: Stock insuffisant (requis: ${required} ${unit}, disponible: ${availableStock} ${unit})`
+          );
+        } else if (availableStock < required * 1.2) {
+          status = 'low_stock';
+        } else {
+          status = 'sufficient';
+        }
+
+        materialStatuses.push({
+          matiereId: material.matiereId,
+          matiereName: material.matiereName,
+          required,
+          available: availableStock,
+          unit,
+          status,
+          shortage
+        });
+      });
+
+      validationMap.set(article.id, {
+        isValid: errors.length === 0,
+        errors,
+        materialStatuses
+      });
+    });
+
+    return validationMap;
+  }, [production, hasArticles, publishableArticles, matiereStocks]);
+
+  // Check if any selected article has insufficient stock - MUST be defined after articleStockValidation
+  const hasInsufficientStockForSelectedArticles = useMemo(() => {
+    if (!hasArticles || publishMode !== 'selected') return false;
+    
+    for (const articleId of selectedArticles) {
+      const validation = articleStockValidation.get(articleId);
+      if (validation && !validation.isValid) {
+        return true;
+      }
+    }
+    return false;
+  }, [hasArticles, publishMode, selectedArticles, articleStockValidation]);
 
   useEffect(() => {
     if (isOpen && production) {
@@ -222,6 +340,26 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
           }, 100);
         }
         showErrorToast('Veuillez remplir tous les champs requis pour les articles sélectionnés');
+        return;
+      }
+
+      // Validate stock for selected articles
+      if (hasInsufficientStockForSelectedArticles) {
+        showErrorToast('Stock insuffisant pour certains matériaux des articles sélectionnés');
+        // Expand first article with stock issues
+        for (const articleId of selectedArticles) {
+          const validation = articleStockValidation.get(articleId);
+          if (validation && !validation.isValid) {
+            setExpandedArticleId(articleId);
+            setTimeout(() => {
+              const articleElement = document.querySelector(`[data-article-id="${articleId}"]`);
+              if (articleElement) {
+                articleElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }
+            }, 100);
+            break;
+          }
+        }
         return;
       }
 
@@ -375,7 +513,7 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
           disabled={
             isSubmitting || 
             (hasArticles && publishMode === 'selected' 
-              ? selectedArticles.size === 0
+              ? selectedArticles.size === 0 || hasInsufficientStockForSelectedArticles
               : !stockValidation.isValid || !formData.validatedCostPrice || parseFloat(formData.validatedCostPrice) < 0 || !formData.name.trim() || !formData.sellingPrice || parseFloat(formData.sellingPrice) < 0)
           }
         />
@@ -434,8 +572,24 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
                   production.totalArticlesQuantity || 0
                 );
 
+                // Get stock validation for this article
+                const articleValidation = articleStockValidation.get(article.id);
+                const hasStockIssues = articleValidation && !articleValidation.isValid;
+
                 return (
-                  <div key={article.id} className={`border rounded-lg transition-all ${isSelected ? 'border-blue-500 bg-blue-50 shadow-sm' : 'border-gray-200 bg-white'}`}>
+                  <div 
+                    key={article.id} 
+                    data-article-id={article.id}
+                    className={`border rounded-lg transition-all ${
+                      isSelected 
+                        ? hasStockIssues 
+                          ? 'border-red-500 bg-red-50 shadow-sm' 
+                          : 'border-blue-500 bg-blue-50 shadow-sm'
+                        : hasStockIssues
+                          ? 'border-red-300 bg-red-50'
+                          : 'border-gray-200 bg-white'
+                    }`}
+                  >
                     {/* Checkbox and Article Header - Clickable to expand/collapse */}
                     <div 
                       className="flex items-start gap-3 p-4 cursor-pointer hover:bg-gray-50 transition-colors"
@@ -462,8 +616,21 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
                       />
                       <div className="flex-1">
                         <div className="flex items-center justify-between">
-                          <div>
-                            <h5 className="font-medium text-gray-900">{articleData.name}</h5>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <h5 className="font-medium text-gray-900">{articleData.name}</h5>
+                              {hasStockIssues && (
+                                <div className="flex items-center gap-1 text-red-600" title="Stock insuffisant">
+                                  <XCircle size={16} className="text-red-600" />
+                                  <span className="text-xs font-medium">Stock insuffisant</span>
+                                </div>
+                              )}
+                              {!hasStockIssues && articleValidation && articleValidation.materialStatuses.length > 0 && (
+                                <div className="flex items-center gap-1 text-green-600" title="Stock suffisant">
+                                  <CheckCircle2 size={16} className="text-green-600" />
+                                </div>
+                              )}
+                            </div>
                             <p className="text-xs text-gray-500">Quantité: {article.quantity} unité(s)</p>
                           </div>
                           <div className="flex items-center gap-3">
@@ -798,27 +965,94 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
                           <label className="ml-2 text-xs text-gray-700">Visible dans le catalogue</label>
                         </div>
 
-                        {/* Materials Preview for this article */}
-                        {articleMaterials.length > 0 && (
-                          <div className="bg-yellow-50 border border-yellow-200 rounded p-2">
-                            <p className="text-xs font-medium text-yellow-800 mb-1">Matériaux à consommer pour cet article:</p>
-                            <div className="space-y-1">
-                              {articleMaterials.map((mat, idx) => {
-                                const stockInfo = matiereStocks.find(ms => ms.matiereId === mat.matiereId);
-                                const availableStock = stockInfo?.currentStock || 0;
-                                const isInsufficient = availableStock < mat.requiredQuantity;
-                                return (
-                                  <div key={idx} className={`text-xs ${isInsufficient ? 'text-red-700' : 'text-yellow-700'}`}>
-                                    {mat.matiereName}: {mat.requiredQuantity} {mat.unit || 'unité'} 
-                                    {isInsufficient && (
-                                      <span className="ml-1 font-medium">(Stock insuffisant: {availableStock} disponible)</span>
-                                    )}
-                                  </div>
-                                );
-                              })}
+                        {/* Materials Preview for this article with enhanced stock validation */}
+                        {articleMaterials.length > 0 && (() => {
+                          const validation = articleValidation;
+                          const hasIssues = validation && !validation.isValid;
+                          const hasLowStock = validation && validation.materialStatuses.some(m => m.status === 'low_stock');
+                          
+                          return (
+                            <div className={`border rounded p-3 ${
+                              hasIssues 
+                                ? 'bg-red-50 border-red-200' 
+                                : hasLowStock 
+                                  ? 'bg-yellow-50 border-yellow-200'
+                                  : 'bg-green-50 border-green-200'
+                            }`}>
+                              <div className="flex items-center gap-2 mb-2">
+                                {hasIssues ? (
+                                  <>
+                                    <XCircle size={16} className="text-red-600" />
+                                    <p className="text-xs font-medium text-red-800">Stock insuffisant pour certains matériaux</p>
+                                  </>
+                                ) : hasLowStock ? (
+                                  <>
+                                    <AlertTriangle size={16} className="text-yellow-600" />
+                                    <p className="text-xs font-medium text-yellow-800">Stock faible pour certains matériaux</p>
+                                  </>
+                                ) : (
+                                  <>
+                                    <CheckCircle2 size={16} className="text-green-600" />
+                                    <p className="text-xs font-medium text-green-800">Stock suffisant pour tous les matériaux</p>
+                                  </>
+                                )}
+                              </div>
+                              <div className="space-y-2">
+                                {validation?.materialStatuses.map((matStatus, idx) => {
+                                  const mat = articleMaterials.find(m => m.matiereId === matStatus.matiereId);
+                                  if (!mat) return null;
+                                  
+                                  return (
+                                    <div 
+                                      key={idx} 
+                                      className={`flex items-center justify-between text-xs p-2 rounded ${
+                                        matStatus.status === 'out_of_stock'
+                                          ? 'bg-red-100 border border-red-300'
+                                          : matStatus.status === 'low_stock'
+                                            ? 'bg-yellow-100 border border-yellow-300'
+                                            : 'bg-green-100 border border-green-300'
+                                      }`}
+                                    >
+                                      <div className="flex items-center gap-2">
+                                        {matStatus.status === 'out_of_stock' ? (
+                                          <XCircle size={14} className="text-red-600 flex-shrink-0" />
+                                        ) : matStatus.status === 'low_stock' ? (
+                                          <AlertTriangle size={14} className="text-yellow-600 flex-shrink-0" />
+                                        ) : (
+                                          <CheckCircle2 size={14} className="text-green-600 flex-shrink-0" />
+                                        )}
+                                        <span className={`font-medium ${
+                                          matStatus.status === 'out_of_stock' ? 'text-red-800' : 
+                                          matStatus.status === 'low_stock' ? 'text-yellow-800' : 
+                                          'text-green-800'
+                                        }`}>
+                                          {matStatus.matiereName}:
+                                        </span>
+                                        <span className={matStatus.status === 'out_of_stock' ? 'text-red-700' : 'text-gray-700'}>
+                                          {matStatus.required} {matStatus.unit}
+                                        </span>
+                                      </div>
+                                      <div className="flex items-center gap-2">
+                                        <span className={`text-xs ${
+                                          matStatus.status === 'out_of_stock' ? 'text-red-700 font-medium' : 
+                                          matStatus.status === 'low_stock' ? 'text-yellow-700' : 
+                                          'text-green-700'
+                                        }`}>
+                                          Stock: {matStatus.available} {matStatus.unit}
+                                        </span>
+                                        {matStatus.shortage && (
+                                          <span className="text-xs text-red-600 font-medium">
+                                            (Manque: {matStatus.shortage} {matStatus.unit})
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
                             </div>
-                          </div>
-                        )}
+                          );
+                        })()}
                       </div>
                     )}
                   </div>
@@ -829,20 +1063,65 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
         ) : (
           /* Legacy mode: Show single product form (only if no articles) */
           <>
-            {/* Stock Validation Warning */}
+            {/* Enhanced Stock Validation Warning */}
             {!stockValidation.isValid && (
-              <div className="bg-red-50 border border-red-200 rounded-md p-4">
+              <div className="bg-red-50 border-2 border-red-400 rounded-md p-4 shadow-sm">
                 <div className="flex items-start">
-                  <AlertTriangle className="h-5 w-5 text-red-600 mt-0.5 mr-3" />
+                  <XCircle className="h-6 w-6 text-red-600 mt-0.5 mr-3 flex-shrink-0" />
                   <div className="flex-1">
-                    <h4 className="text-sm font-medium text-red-900 mb-2">
-                      Stock insuffisant pour certains matériaux
+                    <h4 className="text-base font-semibold text-red-900 mb-3 flex items-center gap-2">
+                      <span>Stock insuffisant - Publication impossible</span>
                     </h4>
-                    <ul className="list-disc list-inside text-sm text-red-700 space-y-1">
-                      {stockValidation.errors.map((error, idx) => (
-                        <li key={idx}>{error}</li>
-                      ))}
-                    </ul>
+                    <p className="text-sm text-red-800 mb-3">
+                      Les matériaux suivants n'ont pas suffisamment de stock disponible :
+                    </p>
+                    <div className="space-y-2">
+                      {stockValidation.materialStatuses
+                        .filter(m => m.status === 'out_of_stock')
+                        .map((material, idx) => (
+                          <div 
+                            key={idx}
+                            className="bg-red-100 border border-red-300 rounded p-2 flex items-center justify-between"
+                          >
+                            <div className="flex items-center gap-2">
+                              <XCircle size={16} className="text-red-600 flex-shrink-0" />
+                              <span className="font-medium text-red-900">{material.matiereName}</span>
+                            </div>
+                            <div className="flex items-center gap-3 text-sm">
+                              <span className="text-red-700">
+                                Requis: <strong>{material.required} {material.unit}</strong>
+                              </span>
+                              <span className="text-red-600">|</span>
+                              <span className="text-red-700">
+                                Disponible: <strong>{material.available} {material.unit}</strong>
+                              </span>
+                              {material.shortage && (
+                                <>
+                                  <span className="text-red-600">|</span>
+                                  <span className="text-red-800 font-semibold">
+                                    Manque: {material.shortage} {material.unit}
+                                  </span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                    {stockValidation.materialStatuses.some(m => m.status === 'low_stock') && (
+                      <div className="mt-3 pt-3 border-t border-red-300">
+                        <p className="text-sm font-medium text-yellow-800 mb-2">Avertissements (stock faible) :</p>
+                        <div className="space-y-1">
+                          {stockValidation.materialStatuses
+                            .filter(m => m.status === 'low_stock')
+                            .map((material, idx) => (
+                              <div key={idx} className="flex items-center gap-2 text-sm text-yellow-800">
+                                <AlertTriangle size={14} className="text-yellow-600" />
+                                <span>{material.matiereName}: {material.available} {material.unit} disponible (requis: {material.required} {material.unit})</span>
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1002,29 +1281,60 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
           </div>
         </div>
 
-            {/* Materials Summary (only for legacy mode) */}
+            {/* Enhanced Materials Summary (only for legacy mode) */}
             {production.materials.length > 0 && (
               <div className="border-t border-gray-200 pt-4">
-                <h4 className="text-sm font-medium text-gray-900 mb-2">Matériaux à consommer:</h4>
+                <h4 className="text-sm font-medium text-gray-900 mb-3">Matériaux à consommer:</h4>
                 <div className="space-y-2">
-                  {production.materials.map((material, idx) => {
-                    const stockInfo = matiereStocks.find(ms => ms.matiereId === material.matiereId);
-                    const availableStock = stockInfo?.currentStock || 0;
-                    const isInsufficient = availableStock < material.requiredQuantity;
+                  {stockValidation.materialStatuses.map((material, idx) => {
+                    const isOutOfStock = material.status === 'out_of_stock';
+                    const isLowStock = material.status === 'low_stock';
+                    const isSufficient = material.status === 'sufficient';
 
                     return (
                       <div
                         key={idx}
-                        className={`flex justify-between items-center text-sm p-2 rounded ${
-                          isInsufficient ? 'bg-red-50' : 'bg-gray-50'
+                        className={`flex items-center justify-between text-sm p-3 rounded border ${
+                          isOutOfStock 
+                            ? 'bg-red-50 border-red-300' 
+                            : isLowStock 
+                              ? 'bg-yellow-50 border-yellow-300'
+                              : 'bg-green-50 border-green-300'
                         }`}
                       >
-                        <span className={isInsufficient ? 'text-red-700' : 'text-gray-700'}>
-                          {material.matiereName}: {material.requiredQuantity} {material.unit || 'unité'}
-                        </span>
-                        <span className={isInsufficient ? 'text-red-700 font-medium' : 'text-gray-600'}>
-                          Stock: {availableStock} {material.unit || 'unité'}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          {isOutOfStock ? (
+                            <XCircle size={16} className="text-red-600 flex-shrink-0" />
+                          ) : isLowStock ? (
+                            <AlertTriangle size={16} className="text-yellow-600 flex-shrink-0" />
+                          ) : (
+                            <CheckCircle2 size={16} className="text-green-600 flex-shrink-0" />
+                          )}
+                          <span className={`font-medium ${
+                            isOutOfStock ? 'text-red-800' : 
+                            isLowStock ? 'text-yellow-800' : 
+                            'text-green-800'
+                          }`}>
+                            {material.matiereName}:
+                          </span>
+                          <span className={isOutOfStock ? 'text-red-700' : 'text-gray-700'}>
+                            {material.required} {material.unit}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className={`text-xs ${
+                            isOutOfStock ? 'text-red-700 font-medium' : 
+                            isLowStock ? 'text-yellow-700' : 
+                            'text-green-700'
+                          }`}>
+                            Stock: {material.available} {material.unit}
+                          </span>
+                          {material.shortage && (
+                            <span className="text-xs text-red-600 font-semibold">
+                              (Manque: {material.shortage} {material.unit})
+                            </span>
+                          )}
+                        </div>
                       </div>
                     );
                   })}
