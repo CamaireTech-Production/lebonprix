@@ -1,0 +1,6 @@
+# SPA fallback - redirect all routes to index.html
+/*    /index.html   200
+
+# Force HTTPS
+http://app.restoflowapp.com/*    https://app.restoflowapp.com/:splat    301!
+https://app.restoflowapp.com/*   https://app.restoflowapp.com/:splat    200

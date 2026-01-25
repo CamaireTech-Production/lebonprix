@@ -1,0 +1,28 @@
+/*
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  X-XSS-Protection: 1; mode=block
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: geolocation=(), microphone=(), camera=()
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.gstatic.com https://www.google.com https://apis.google.com https://*.campay.net https://*.cinetpay.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://*.googleapis.com https://*.firebase.com https://*.firebaseapp.com https://*.campay.net https://*.cinetpay.com wss://*.firebase.com; frame-src 'self' https://*.google.com https://*.firebase.com https://*.firebaseapp.com https://*.campay.net https://*.cinetpay.com;
+
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/icons/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/sw.js
+  Cache-Control: public, max-age=0, must-revalidate
+
+/workbox-*
+  Cache-Control: public, max-age=0, must-revalidate
+
+/registerSW.js
+  Cache-Control: public, max-age=0, must-revalidate
+
+/manifest.webmanifest
+  Cache-Control: public, max-age=86400
+
+/offline.html
+  Cache-Control: public, max-age=0, must-revalidate

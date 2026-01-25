@@ -1,0 +1,62 @@
+## Refactor Roadmap
+
+- [x] Stabilise Template Core
+  - [x] Centralise template customisation defaults/tokens (`normalizeTemplateCustomizations`).
+  - [x] Extract shared template primitives (header, navigation, cards).
+    - [x] Move header UI into `TemplateHeader`.
+    - [x] Move category navigation into `TemplateCategoryTabs`.
+    - [x] Extract dish/card components (`MenuGrid`, `MenuCard`, `CategoryTitle`).
+  - [x] Rewire `DefaultTemplate` to consume the shared primitives end to end.
+- [x] Streamline Order Experiences: rebuild the public order flow on top of the shared primitives and align logic with the menu template.
+  - [x] Extract cart UI into reusable `CartPanel` component.
+  - [x] Extract checkout form into `CheckoutForm` component.
+  - [x] Create `OrderCard` and `OrderGrid` for order-specific UI.
+  - [x] Extract cart logic into `useCart` hook.
+  - [x] Extract checkout logic into `useCheckout` hook.
+  - [x] Refactor `DefaultOrderTemplate` (reduced from 1340 to 450 lines).
+  - [x] Refactor `DefaultDailyOrderTemplate` (reduced from 1340 to 450 lines).
+- [x] Harden Firestore Layer: introduce a scoped data-access module and migrate services to the new API.
+  - [x] Create scoped data-access module with restaurant-scoped collections.
+  - [x] Create typed Firestore service interfaces.
+  - [x] Implement restaurant-scoped CRUD operations.
+  - [x] Add error handling and retry logic.
+  - [x] Migrate existing services to use new data-access layer.
+  - [x] Add data validation and type safety.
+- [x] Refresh Offline Sync: move offline caching to IndexedDB with per-restaurant scoping and reliable replay/error handling.
+  - [x] Create IndexedDB-based offline storage system.
+  - [x] Implement per-restaurant data scoping in IndexedDB.
+  - [x] Create reliable replay/error handling system.
+  - [x] Implement conflict resolution for offline operations.
+  - [x] Create offline-first data synchronization.
+  - [x] Migrate existing localStorage-based offline sync.
+- [x] Clean Up Auth & Admin: separate admin/restaurant auth code paths, drop legacy mocks, and secure privileged routes.
+  - [x] Create unified authentication system.
+  - [x] Separate admin and restaurant auth code paths.
+  - [x] Remove legacy mocks and hardcoded credentials.
+  - [x] Secure privileged routes with proper guards.
+  - [x] Implement role-based access control.
+  - [x] Create authentication middleware.
+- [x] Harden Services & Utilities: split oversized helpers (e.g. storage service) into focused modules with validation/tests.
+  - [x] Split storage service into focused modules.
+  - [x] Create validation utilities with tests.
+  - [x] Refactor metadata generator into smaller utilities.
+  - [x] Create focused service modules.
+  - [x] Add comprehensive error handling.
+  - [x] Create service tests and validation.
+- [x] Tighten UI/UX Consistency: replace `dangerouslySetInnerHTML`, move to CSS variables/styled primitives, and align design tokens.
+  - [x] Create CSS variables and design tokens system.
+  - [x] Replace dangerouslySetInnerHTML with safe alternatives.
+  - [x] Create styled primitives for consistent UI.
+  - [x] Align design tokens across components.
+  - [x] Create theme system with CSS variables.
+- [x] Expand Tests & Tooling: add unit/integration coverage for shared hooks/components and lint rules around template settings.
+  - [x] Create comprehensive test suite for hooks.
+  - [x] Add component testing with React Testing Library.
+  - [x] Create integration tests for services.
+  - [x] Add lint rules for template settings.
+  - [x] Create testing utilities and mocks.
+- [x] Update Documentation & Assets: reflect the single-template reality and describe the new architecture/components.
+  - [x] Create architecture overview documentation.
+  - [x] Create component library documentation.
+  - [x] Update README with new architecture.
+  - [x] Create development guide updates.
