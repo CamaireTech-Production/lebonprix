@@ -52,3 +52,10 @@ export {
   migrateAllProductionUserTracking
 } from './migrateUserTracking';
 
+// Flow validation utilities
+export {
+  validateProductionFlowCompletion,
+  validateArticleFlowCompletion,
+  canPublishProduction
+} from './flowValidation';
+

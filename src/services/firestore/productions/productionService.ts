@@ -685,6 +685,13 @@ export const publishArticle = async (
       throw new Error('Article is already published');
     }
 
+    // STEP 1.5: Validate flow completion
+    const { validateArticleFlowCompletion } = await import('@utils/productions/flowValidation');
+    const flowValidation = await validateArticleFlowCompletion(production, articleId);
+    if (!flowValidation.isValid) {
+      throw new Error(flowValidation.errorMessage || 'Toutes les étapes du flux doivent être passées avant de publier');
+    }
+
     // STEP 2: Get materials needed for this article (from article.materials)
     const articleMaterials = article.materials || [];
     
@@ -1265,6 +1272,13 @@ export const publishProduction = async (
     const production = await getProduction(productionId, companyId);
     if (!production) {
       throw new Error('Production not found');
+    }
+
+    // STEP 2.5: Validate flow completion
+    const { validateProductionFlowCompletion } = await import('@utils/productions/flowValidation');
+    const flowValidation = await validateProductionFlowCompletion(production);
+    if (!flowValidation.isValid) {
+      throw new Error(flowValidation.errorMessage || 'Toutes les étapes du flux doivent être passées avant de publier');
     }
 
     // STEP 3: Validate stock availability

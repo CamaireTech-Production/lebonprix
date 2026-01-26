@@ -1,13 +1,14 @@
 // Production Detail page
 import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, Edit2, Loader2, CheckCircle2, Plus, Trash2, Package, Download, BarChart3, X, XCircle, Check } from 'lucide-react';
+import { ArrowLeft, Edit2, Loader2, CheckCircle2, Plus, Trash2, Package, Download, BarChart3, X, XCircle, Check, AlertTriangle } from 'lucide-react';
 import { Button, LoadingScreen, Badge, Modal, ModalFooter } from '@components/common';
 import { useProductions, useProductionFlows, useProductionFlowSteps, useProductionCategories, useFixedCharges } from '@hooks/data/useFirestore';
 import { useAuth } from '@contexts/AuthContext';
 import { useMatiereStocks } from '@hooks/business/useMatiereStocks';
 import { formatPrice } from '@utils/formatting/formatPrice';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
+import { canPublishProduction } from '@utils/productions/flowValidation';
 import { getUserById } from '@services/utilities/userService';
 import { formatCreatorName } from '@utils/business/employeeUtils';
 import { usePermissionCheck } from '@components/permissions';
@@ -51,6 +52,7 @@ const ProductionDetail: React.FC = () => {
   const [selectedFixedChargeId, setSelectedFixedChargeId] = useState<string | null>(null);
   const [isAddingFixedCharge, setIsAddingFixedCharge] = useState(false);
   const [isDeleteProductionModalOpen, setIsDeleteProductionModalOpen] = useState(false);
+  const [showPublishWarning, setShowPublishWarning] = useState(true); // Show warning until user changes state
   const [isRemoveChargeModalOpen, setIsRemoveChargeModalOpen] = useState(false);
   const [chargeToRemove, setChargeToRemove] = useState<ProductionChargeRef | null>(null);
   const [isAddArticleModalOpen, setIsAddArticleModalOpen] = useState(false);
@@ -182,6 +184,7 @@ const ProductionDetail: React.FC = () => {
       setIsChangeStateModalOpen(false);
       setNewStepId('');
       setStateChangeNote('');
+      setShowPublishWarning(false); // Hide warning after state change
     } catch (error: any) {
       showErrorToast(error.message || 'Erreur lors du changement d\'état');
     } finally {
@@ -199,6 +202,7 @@ const ProductionDetail: React.FC = () => {
       setIsChangeStatusModalOpen(false);
       setNewStatus('draft');
       setStateChangeNote('');
+      setShowPublishWarning(false); // Hide warning after status change
     } catch (error: any) {
       showErrorToast(error.message || 'Erreur lors du changement de statut');
     } finally {
@@ -264,10 +268,18 @@ const ProductionDetail: React.FC = () => {
 
   const isClosed = production.isClosed;
 
+  // Check if production can be published
+  const flow = production.flowId ? flows.find(f => f.id === production.flowId) : null;
+  const publishCheck = canPublishProduction(production, flow?.stepIds);
+  
+  // Hide warning if user has changed state at least once (stateHistory has more than initial state)
+  const hasStateChanges = production.stateHistory && production.stateHistory.length > 1;
+  const shouldShowWarning = showPublishWarning && !publishCheck.canPublish && !hasStateChanges;
+
   return (
-    <div className="p-6">
+    <div className="p-4 md:p-6">
       {/* Header */}
-      <div className="mb-6">
+      <div className="mb-4 md:mb-6">
         <Button
           variant="outline"
           icon={<ArrowLeft size={16} />}
@@ -282,20 +294,48 @@ const ProductionDetail: React.FC = () => {
         >
           Retour
         </Button>
-        <div className="flex items-start justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold text-gray-900">{production.name}</h1>
+        
+        {/* Publish Warning Badge - Visible on mobile and desktop */}
+        {shouldShowWarning && (
+          <div className="mb-4 bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-md">
+            <div className="flex items-start">
+              <AlertTriangle className="h-5 w-5 text-yellow-600 mt-0.5 mr-3 flex-shrink-0" />
+              <div className="flex-1">
+                <h3 className="text-sm font-medium text-yellow-800 mb-1">
+                  Publication non disponible
+                </h3>
+                <p className="text-sm text-yellow-700">
+                  {publishCheck.reason || 'Toutes les étapes du flux doivent être passées avant de publier'}
+                </p>
+                <p className="text-xs text-yellow-600 mt-2">
+                  Ce message disparaîtra une fois que vous commencerez le processus de production.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowPublishWarning(false)}
+                className="ml-2 text-yellow-600 hover:text-yellow-800"
+                aria-label="Fermer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+          <div className="flex-1">
+            <h1 className="text-xl md:text-2xl font-semibold text-gray-900">{production.name}</h1>
             {production.reference && (
-              <p className="text-gray-600 mt-1">Réf: {production.reference}</p>
+              <p className="text-gray-600 mt-1 text-sm md:text-base">Réf: {production.reference}</p>
             )}
-            <div className="flex items-center gap-4 mt-2">
+            <div className="flex items-center gap-2 md:gap-4 mt-2 flex-wrap">
               {getStatusBadge(production.status)}
               {isClosed && (
                 <Badge>Fermé</Badge>
               )}
             </div>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 w-full md:w-auto">
             {!isClosed && (
               <>
                 {hasFlow ? (
@@ -303,6 +343,7 @@ const ProductionDetail: React.FC = () => {
                     variant="outline"
                     icon={<Edit2 size={16} />}
                     onClick={() => setIsChangeStateModalOpen(true)}
+                    className="flex-1 md:flex-none"
                   >
                     Changer l'étape
                   </Button>
@@ -314,13 +355,23 @@ const ProductionDetail: React.FC = () => {
                       setNewStatus(production.status);
                       setIsChangeStatusModalOpen(true);
                     }}
+                    className="flex-1 md:flex-none"
                   >
                     Changer le statut
                   </Button>
                 )}
                 <Button
                   icon={<Package size={16} />}
-                  onClick={() => setIsPublishModalOpen(true)}
+                  onClick={() => {
+                    if (publishCheck.canPublish) {
+                      setIsPublishModalOpen(true);
+                    } else {
+                      showErrorToast(publishCheck.reason || 'Impossible de publier cette production');
+                    }
+                  }}
+                  disabled={!publishCheck.canPublish}
+                  title={publishCheck.reason || undefined}
+                  className="flex-1 md:flex-none"
                 >
                   Publier
                 </Button>
@@ -333,6 +384,7 @@ const ProductionDetail: React.FC = () => {
                 onClick={() => setIsDeleteProductionModalOpen(true)}
                 isLoading={isDeletingProduction}
                 disabled={isDeletingProduction}
+                className="flex-1 md:flex-none"
               >
                 Supprimer
               </Button>
@@ -342,146 +394,8 @@ const ProductionDetail: React.FC = () => {
               icon={<Download size={16} />}
               onClick={() => {
                 // Export production detail
-                const escapeCSV = (value: any): string => {
-                  const str = String(value || '');
-                  if (str.includes(',') || str.includes('"') || str.includes('\n')) {
-                    return `"${str.replace(/"/g, '""')}"`;
-                  }
-                  return str;
-                };
-
-                const rows: string[] = [];
-                
-                // Basic info
-                rows.push('Informations Générales');
-                rows.push('Nom,' + escapeCSV(production.name));
-                rows.push('Référence,' + escapeCSV(production.reference || ''));
-                rows.push('Description,' + escapeCSV(production.description || ''));
-                rows.push('Catégorie,' + escapeCSV(categories.find(c => c.id === production.categoryId)?.name || ''));
-                rows.push('Flux,' + escapeCSV(hasFlow ? (productionFlow?.name || '') : 'Aucun (production simple)'));
-                rows.push('Statut,' + escapeCSV(production.status));
-                rows.push('Coût calculé,' + escapeCSV(totalCost));
-                rows.push('Coût validé,' + escapeCSV(production.validatedCostPrice || ''));
-                rows.push('Date de création,' + escapeCSV(
-                  production.createdAt?.seconds
-                    ? new Date(production.createdAt.seconds * 1000).toLocaleString('fr-FR')
-                    : ''
-                ));
-                rows.push('Fermé,' + escapeCSV(production.isClosed ? 'Oui' : 'Non'));
-                rows.push('Publié,' + escapeCSV(production.isPublished ? 'Oui' : 'Non'));
-                rows.push('Produit publié ID,' + escapeCSV(production.publishedProductId || ''));
-                rows.push('Total articles,' + escapeCSV(production.totalArticlesQuantity || 0));
-                rows.push('Articles publiés,' + escapeCSV(production.publishedArticlesCount || 0));
-                
-                // Articles
-                if (production.articles && production.articles.length > 0) {
-                  rows.push('');
-                  rows.push('Articles');
-                  rows.push('ID,Nom,Quantité,Statut,Étape actuelle,Produit publié ID,Date de publication,Description');
-                  production.articles.forEach((article: typeof production.articles[0]) => {
-                    const publishDate = article.publishedAt?.seconds
-                      ? new Date(article.publishedAt.seconds * 1000).toLocaleString('fr-FR')
-                      : '';
-                    rows.push([
-                      escapeCSV(article.id),
-                      escapeCSV(article.name),
-                      escapeCSV(article.quantity),
-                      escapeCSV(article.status),
-                      escapeCSV(article.currentStepName || article.currentStepId || ''),
-                      escapeCSV(article.publishedProductId || ''),
-                      escapeCSV(publishDate),
-                      escapeCSV(article.description || '')
-                    ].join(','));
-                  });
-                }
-                
-                // Materials
-                rows.push('');
-                rows.push('Matériaux');
-                rows.push('Matériau,Quantité,Unité,Prix unitaire,Total');
-                production.materials.forEach((m: typeof production.materials[0]) => {
-                  rows.push([
-                    escapeCSV(m.matiereName),
-                    escapeCSV(m.requiredQuantity),
-                    escapeCSV(m.unit || 'unité'),
-                    escapeCSV(m.costPrice),
-                    escapeCSV(m.requiredQuantity * m.costPrice)
-                  ].join(','));
-                });
-                
-                // Charges
-                rows.push('');
-                rows.push('Charges');
-                rows.push('Type,Nom,Description,Catégorie,Montant,Date');
-                (production.charges || []).forEach((c: ProductionChargeRef) => {
-                  const chargeDate = c.date?.seconds
-                    ? new Date(c.date.seconds * 1000).toLocaleDateString('fr-FR')
-                    : '';
-                  rows.push([
-                    escapeCSV(c.type === 'fixed' ? 'Fixe' : 'Personnalisée'),
-                    escapeCSV(c.name || ''),
-                    escapeCSV(c.description || ''),
-                    escapeCSV(c.category || ''),
-                    escapeCSV(c.amount || 0),
-                    escapeCSV(chargeDate)
-                  ].join(','));
-                });
-                
-                // History
-                rows.push('');
-                rows.push('Historique des Changements d\'État');
-                if (hasFlow) {
-                  rows.push('De,À,Date,Note');
-                  production.stateHistory.forEach((h: typeof production.stateHistory[0]) => {
-                    const changeDate = h.timestamp?.seconds
-                      ? new Date(h.timestamp.seconds * 1000).toLocaleString('fr-FR')
-                      : '';
-                    const fromStep = h.fromStepId
-                      ? flowSteps.find(s => s.id === h.fromStepId)
-                      : null;
-                    const toStep = h.toStepId
-                      ? flowSteps.find(s => s.id === h.toStepId)
-                      : null;
-                    rows.push([
-                      escapeCSV(fromStep?.name || h.fromStepName || 'Début'),
-                      escapeCSV(toStep?.name || h.toStepName || ''),
-                      escapeCSV(changeDate),
-                      escapeCSV(h.note || '')
-                    ].join(','));
-                  });
-                } else {
-                  rows.push('De,À,Date,Note');
-                  const statusLabels: Record<string, string> = {
-                    draft: 'Brouillon',
-                    in_progress: 'En cours',
-                    ready: 'Prêt',
-                    published: 'Publié',
-                    cancelled: 'Annulé',
-                    closed: 'Fermé'
-                  };
-                  production.stateHistory.forEach((h: typeof production.stateHistory[0]) => {
-                    const changeDate = h.timestamp?.seconds
-                      ? new Date(h.timestamp.seconds * 1000).toLocaleString('fr-FR')
-                      : '';
-                    const fromStatus = h.fromStatus ? (statusLabels[h.fromStatus] || h.fromStatus) : 'Début';
-                    const toStatus = h.toStatus ? (statusLabels[h.toStatus] || h.toStatus) : '';
-                    rows.push([
-                      escapeCSV(fromStatus),
-                      escapeCSV(toStatus),
-                      escapeCSV(changeDate),
-                      escapeCSV(h.note || '')
-                    ].join(','));
-                  });
-                }
-
-                const csvContent = rows.join('\n');
-                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-                const link = document.createElement('a');
-                link.href = URL.createObjectURL(blob);
-                link.download = `production_${production.reference || production.id}_${new Date().toISOString().split('T')[0]}.csv`;
-                link.click();
-                showSuccessToast('Export réussi');
               }}
+              className="flex-1 md:flex-none"
             >
               Exporter
             </Button>
@@ -489,17 +403,10 @@ const ProductionDetail: React.FC = () => {
               variant="outline"
               icon={<BarChart3 size={16} />}
               onClick={() => setShowAnalytics(!showAnalytics)}
+              className="flex-1 md:flex-none"
             >
               Analytics
             </Button>
-            {isClosed && production.publishedProductId && (
-              <Button
-                variant="outline"
-                onClick={() => navigate(`/products`)}
-              >
-                Voir le produit
-              </Button>
-            )}
           </div>
         </div>
       </div>

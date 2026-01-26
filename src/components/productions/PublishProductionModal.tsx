@@ -3,11 +3,12 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { AlertTriangle, Package, ChevronDown, ChevronUp, XCircle, CheckCircle2 } from 'lucide-react';
 import { Modal, ModalFooter, PriceInput } from '@components/common';
 import { useAuth } from '@contexts/AuthContext';
-import { useProductCategories } from '@hooks/data/useFirestore';
+import { useProductCategories, useProductionFlows } from '@hooks/data/useFirestore';
 import { useMatiereStocks } from '@hooks/business/useMatiereStocks';
 import { showSuccessToast, showErrorToast, showWarningToast } from '@utils/core/toast';
 import { formatPrice } from '@utils/formatting/formatPrice';
 import { calculateMaterialsForArticleFromProduction } from '@utils/productions/materialCalculations';
+import { canPublishProduction } from '@utils/productions/flowValidation';
 import type { Production, ProductionArticle } from '../../types/models';
 
 interface PublishProductionModalProps {
@@ -26,6 +27,7 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
   const { user, company } = useAuth();
   const { categories } = useProductCategories();
   const { matiereStocks } = useMatiereStocks();
+  const { flows } = useProductionFlows();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [publishMode, setPublishMode] = useState<'all' | 'selected'>('all'); // 'all' for legacy, 'selected' for articles
   const [selectedArticles, setSelectedArticles] = useState<Set<string>>(new Set());
@@ -40,7 +42,9 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
     isVisible: boolean;
     costPrice: string;
     selectedChargeIds: string[]; // IDs of charges selected for this article
+    quantity: string; // Quantity to publish (can be different from article.quantity)
   }>>(new Map());
+  const [flowValidationError, setFlowValidationError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     category: '',
@@ -63,6 +67,7 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
       name?: boolean;
       sellingPrice?: boolean;
       costPrice?: boolean;
+      quantity?: boolean;
     }>;
   }>({});
 
@@ -260,7 +265,8 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
               barCode: '',
               isVisible: true,
               costPrice: roundedCostPrice.toString(),
-              selectedChargeIds: [] // Default: no charges selected, user selects which charges to include
+              selectedChargeIds: [], // Default: no charges selected, user selects which charges to include
+              quantity: article.quantity.toString() // Initialize with article's quantity
             });
           }
         });
@@ -291,12 +297,15 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
       }
 
       // Validate all selected articles have required data
-      const articleErrors = new Map<string, { name?: boolean; sellingPrice?: boolean; costPrice?: boolean }>();
+      const articleErrors = new Map<string, { name?: boolean; sellingPrice?: boolean; costPrice?: boolean; quantity?: boolean }>();
       let hasErrors = false;
 
       for (const articleId of selectedArticles) {
+        const article = production.articles?.find(a => a.id === articleId);
+        if (!article) continue;
+        
         const articleData = articleFormData.get(articleId);
-        const errors: { name?: boolean; sellingPrice?: boolean; costPrice?: boolean } = {};
+        const errors: { name?: boolean; sellingPrice?: boolean; costPrice?: boolean; quantity?: boolean } = {};
         
         if (!articleData) {
           showErrorToast(`Données manquantes pour l'article ${articleId}`);
@@ -316,6 +325,13 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
         
         if (!articleData.costPrice || parseFloat(articleData.costPrice) < 0) {
           errors.costPrice = true;
+          hasErrors = true;
+        }
+
+        // Validate quantity
+        const publishQuantity = parseFloat(articleData.quantity) || 0;
+        if (publishQuantity <= 0 || publishQuantity > article.quantity) {
+          errors.quantity = true;
           hasErrors = true;
         }
 
@@ -377,11 +393,14 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
             ? categories.find(cat => cat.id === articleData.category)
             : null;
 
+          // Use the quantity from form data (can be modified by user)
+          const publishQuantity = parseFloat(articleData.quantity) || production.articles?.find(a => a.id === articleId)?.quantity || 0;
+          
           productDataMap.set(articleId, {
             name: articleData.name.trim(),
             costPrice: parseFloat(articleData.costPrice),
             sellingPrice: parseFloat(articleData.sellingPrice),
-            stock: production.articles?.find(a => a.id === articleId)?.quantity || 0,
+            stock: publishQuantity,
             category: selectedCategory?.name || undefined,
             cataloguePrice: articleData.cataloguePrice && articleData.cataloguePrice.trim()
               ? parseFloat(articleData.cataloguePrice)
@@ -497,6 +516,11 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
 
   if (!isOpen || !production) return null;
 
+  // Check if production can be published (flow validation)
+  const flow = production.flowId ? flows.find(f => f.id === production.flowId) : null;
+  const publishCheck = canPublishProduction(production, flow?.stepIds);
+  const cannotPublishDueToFlow = !publishCheck.canPublish;
+
   return (
     <Modal
       isOpen={isOpen}
@@ -512,6 +536,7 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
           isLoading={isSubmitting}
           disabled={
             isSubmitting || 
+            cannotPublishDueToFlow ||
             (hasArticles && publishMode === 'selected' 
               ? selectedArticles.size === 0 || hasInsufficientStockForSelectedArticles
               : !stockValidation.isValid || !formData.validatedCostPrice || parseFloat(formData.validatedCostPrice) < 0 || !formData.name.trim() || !formData.sellingPrice || parseFloat(formData.sellingPrice) < 0)
@@ -520,6 +545,33 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
       }
     >
       <div className="space-y-6">
+        {/* Flow Validation Error - Show if flow is not complete */}
+        {cannotPublishDueToFlow && (
+          <div className="bg-red-50 border border-red-200 rounded-md p-4">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="h-5 w-5 text-red-600 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-red-900 mb-1">
+                  Impossible de publier cette production
+                </p>
+                <p className="text-xs text-red-700">
+                  {publishCheck.reason || 'Toutes les étapes du flux doivent être passées avant de publier'}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Flow Validation Error from async validation */}
+        {flowValidationError && !cannotPublishDueToFlow && (
+          <div className="bg-red-50 border border-red-200 rounded-md p-4">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-red-600" />
+              <p className="text-sm font-medium text-red-900">{flowValidationError}</p>
+            </div>
+          </div>
+        )}
+
         {/* Article Selection Mode (if has articles) */}
         {hasArticles && publishableArticles.length > 0 ? (
           <div className="space-y-4">
@@ -715,6 +767,43 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
                           />
                           {fieldErrors.articles?.get(article.id)?.name && (
                             <p className="mt-1 text-xs text-red-500">Ce champ est requis</p>
+                          )}
+                        </div>
+
+                        {/* Quantity to Publish */}
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                            Quantité à publier <span className="text-red-500">*</span>
+                          </label>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              min="1"
+                              step="1"
+                              value={articleData.quantity}
+                              onChange={(e) => {
+                                const newData = new Map(articleFormData);
+                                const current = newData.get(article.id) || articleData;
+                                const inputValue = parseFloat(e.target.value) || 1;
+                                const maxQuantity = article.quantity;
+                                const quantity = Math.min(Math.max(1, inputValue), maxQuantity);
+                                newData.set(article.id, { ...current, quantity: quantity.toString() });
+                                setArticleFormData(newData);
+                              }}
+                              className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              placeholder="Quantité"
+                            />
+                            <span className="text-xs text-gray-500 whitespace-nowrap">
+                              (max: {article.quantity})
+                            </span>
+                          </div>
+                          <p className="mt-1 text-xs text-gray-500">
+                            Quantité créée: {article.quantity} unité(s)
+                          </p>
+                          {fieldErrors.articles?.get(article.id)?.quantity && (
+                            <p className="mt-1 text-xs text-red-500">
+                              La quantité doit être entre 1 et {article.quantity}
+                            </p>
                           )}
                         </div>
 
