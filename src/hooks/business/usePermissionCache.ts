@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { PermissionTemplate } from '../../types/permissions';
-import { getTemplateById } from '@services/firestore/employees/permissionTemplateService';
+import { getTemplateById, subscribeToTemplate } from '@services/firestore/employees/permissionTemplateService';
 import { getUserById } from '@services/utilities/userService';
 import { logError } from '@utils/core/logger';
+import type { Unsubscribe } from 'firebase/firestore';
 
 // Cache configuration
 const CACHE_KEY_PREFIX = 'permission_cache_';
@@ -141,6 +142,9 @@ export function usePermissionCache(
   // Track if we're currently loading to prevent concurrent loads
   const isLoadingRef = useRef(false);
   
+  // Track real-time subscription
+  const unsubscribeRef = useRef<Unsubscribe | null>(null);
+  
   // Memoize userCompanies to get stable reference for template ID extraction
   // Extract only the template ID we need to avoid array reference changes
   // Use a stable string key for comparison to prevent unnecessary recalculations
@@ -198,6 +202,35 @@ export function usePermissionCache(
             setLoading(false);
           }
         }
+        
+        // Set up real-time listener even for cached templates (if template ID exists)
+        // This ensures we detect deletions in real-time even when using cached data
+        if (cached.templateId) {
+          // Clean up any existing subscription
+          if (unsubscribeRef.current) {
+            unsubscribeRef.current();
+            unsubscribeRef.current = null;
+          }
+          
+          // Set up real-time listener
+          unsubscribeRef.current = subscribeToTemplate(companyId, cached.templateId, (updatedTemplate) => {
+            // Template was deleted or updated
+            if (isMounted.current) {
+              // Update cache
+              saveToCache(userId, companyId, updatedTemplate, cached.templateId);
+              lastTemplateIdRef.current = cached.templateId;
+              templateRef.current = updatedTemplate;
+              
+              // Update state immediately
+              setTemplate(updatedTemplate);
+              // If template was deleted (null), we're done loading
+              if (!updatedTemplate) {
+                setLoading(false);
+              }
+            }
+          });
+        }
+        
         return;
       }
     }
@@ -224,11 +257,35 @@ export function usePermissionCache(
       }
 
       // Skip loading if template ID hasn't changed (unless forcing refresh)
+      // But still set up real-time listener
       if (!forceRefresh && templateId === lastTemplateIdRef.current && templateRef.current) {
         isLoadingRef.current = false;
         if (isMounted.current) {
           setLoading(false);
         }
+        
+        // Set up real-time listener even if template ID hasn't changed
+        if (templateId) {
+          // Clean up any existing subscription
+          if (unsubscribeRef.current) {
+            unsubscribeRef.current();
+            unsubscribeRef.current = null;
+          }
+          
+          // Set up real-time listener
+          unsubscribeRef.current = subscribeToTemplate(companyId, templateId, (updatedTemplate) => {
+            if (isMounted.current) {
+              saveToCache(userId, companyId, updatedTemplate, templateId);
+              lastTemplateIdRef.current = templateId;
+              templateRef.current = updatedTemplate;
+              setTemplate(updatedTemplate);
+              if (!updatedTemplate) {
+                setLoading(false);
+              }
+            }
+          });
+        }
+        
         return;
       }
 
@@ -251,6 +308,34 @@ export function usePermissionCache(
         setTemplate(loadedTemplate);
         setLoading(false);
       }
+      
+      // Set up real-time listener if we have a template ID (even if template is null - to detect when it's created)
+      // This will detect when the template is deleted or created in real-time
+      if (templateId) {
+        // Clean up any existing subscription
+        if (unsubscribeRef.current) {
+          unsubscribeRef.current();
+          unsubscribeRef.current = null;
+        }
+        
+        // Set up real-time listener
+        unsubscribeRef.current = subscribeToTemplate(companyId, templateId, (updatedTemplate) => {
+          // Template was deleted or updated
+          if (isMounted.current) {
+            // Update cache
+            saveToCache(userId, companyId, updatedTemplate, templateId);
+            lastTemplateIdRef.current = templateId;
+            templateRef.current = updatedTemplate;
+            
+            // Update state immediately
+            setTemplate(updatedTemplate);
+            // If template was deleted (null), we're done loading
+            if (!updatedTemplate) {
+              setLoading(false);
+            }
+          }
+        });
+      }
     } catch (err) {
       logError('Error in permission cache', err);
       if (isMounted.current) {
@@ -269,6 +354,11 @@ export function usePermissionCache(
 
     return () => {
       isMounted.current = false;
+      // Clean up real-time subscription
+      if (unsubscribeRef.current) {
+        unsubscribeRef.current();
+        unsubscribeRef.current = null;
+      }
     };
   }, [loadTemplate]);
 
@@ -312,6 +402,13 @@ export function usePermissionCache(
       clearFromCache(userId, companyId);
       lastTemplateIdRef.current = null;
       templateRef.current = null;
+      
+      // Clean up real-time subscription
+      if (unsubscribeRef.current) {
+        unsubscribeRef.current();
+        unsubscribeRef.current = null;
+      }
+      
       if (isMounted.current) {
         setTemplate(null);
       }

@@ -26,6 +26,8 @@ import LatestOrdersTable from '../../components/dashboard/LatestOrdersTable';
 import { useFilteredDashboardData } from '@hooks/business/useFilteredDashboardData';
 import { useDashboardCharts } from '@hooks/business/useDashboardCharts';
 import { useDashboardStats } from '@hooks/business/useDashboardStats';
+import { useRolePermissions } from '@hooks/business/useRolePermissions';
+import PermissionTemplateMissing from '@components/auth/PermissionTemplateMissing';
 
 const Dashboard = () => {
   const { t } = useTranslation();
@@ -40,6 +42,9 @@ const Dashboard = () => {
   const [allSales, setAllSales] = useState<Sale[]>([]);
   const [loadingAllSales, setLoadingAllSales] = useState(false);
   const { user, company } = useAuth();
+  
+  // 🔒 CHECK PERMISSIONS: Check if permission template is missing
+  const { isTemplateMissing, templateLoading } = useRolePermissions(companyId);
   
   // 🔄 BACKGROUND LOADING: Load secondary data in background (don't block UI)
   const { expenses, loading: expensesLoading } = useExpenses();
@@ -244,6 +249,12 @@ const Dashboard = () => {
   // 🚀 SHOW UI IMMEDIATELY: Only block for essential data
   if (essentialDataLoading) {
     return <LoadingScreen />;
+  }
+
+  // 🔒 CHECK IF TEMPLATE IS MISSING: Show message instead of dashboard
+  // Wait for template loading to complete before showing the message
+  if (!templateLoading && isTemplateMissing) {
+    return <PermissionTemplateMissing />;
   }
 
   return (
