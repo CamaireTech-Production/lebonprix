@@ -193,8 +193,8 @@ export const updateExpense = async (
   await syncFinanceEntryWithExpense(updatedExpense);
 };
 
-export const softDeleteExpense = async (expenseId: string, userId: string): Promise<void> => {
-  await updateExpense(expenseId, { isAvailable: false }, userId);
+export const softDeleteExpense = async (expenseId: string, companyId: string): Promise<void> => {
+  await updateExpense(expenseId, { isAvailable: false }, companyId);
   
   const q = query(collection(db, 'finances'), where('sourceType', '==', 'expense'), where('sourceId', '==', expenseId));
   const snap = await getDocs(q);
@@ -220,8 +220,11 @@ export const softDeleteExpenseWithImage = async (expense: Expense, userId: strin
     }
   }
   
-  // Soft delete the expense
-  await softDeleteExpense(expense.id, userId);
+  // Soft delete the expense - use expense.companyId instead of userId
+  if (!expense.companyId) {
+    throw new Error('Cannot delete expense: expense.companyId is missing');
+  }
+  await softDeleteExpense(expense.id, expense.companyId);
 };
 
 // ============================================================================
