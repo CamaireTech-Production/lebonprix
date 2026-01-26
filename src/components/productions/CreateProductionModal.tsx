@@ -1,6 +1,6 @@
 // Create Production Modal - Multi-step wizard
 import React, { useState, useMemo, useCallback } from 'react';
-import { X, ChevronLeft, ChevronRight, Plus, Trash2, Loader2, CheckCircle2 } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, Plus, Trash2, Loader2, CheckCircle2, AlertTriangle, XCircle } from 'lucide-react';
 import { Modal, Button, LoadingScreen, PriceInput } from '@components/common';
 import ImageWithSkeleton from '@components/common/ImageWithSkeleton';
 import { useAuth } from '@contexts/AuthContext';
@@ -512,7 +512,11 @@ const CreateProductionModal: React.FC<CreateProductionModalProps> = ({
           quantity: articleData.quantity,
           status: 'draft',
           materials: articleMaterials, // Materials specific to this article
-          calculatedCostPrice: articleMaterialCost // Cost from materials only (without charges)
+          calculatedCostPrice: articleMaterialCost, // Cost from materials only (without charges)
+          // Initialize publishing tracking fields
+          publishedQuantity: 0,
+          remainingQuantity: articleData.quantity,
+          publications: []
         };
         
         // Only add optional fields if they have values (avoid undefined)
@@ -1061,65 +1065,141 @@ const CreateProductionModal: React.FC<CreateProductionModalProps> = ({
                         </div>
                       ) : (
                         <div className="space-y-3 mb-3">
-                          {articleMaterials.map((material, materialIndex) => (
-                            <div key={materialIndex} className="border border-gray-200 rounded-md p-3 bg-gray-50">
-                              <div className="grid grid-cols-2 gap-3 mb-3">
-                                <div>
-                                  <label className="block text-xs font-medium text-gray-700 mb-1">
-                                    Matériau <span className="text-red-500">*</span>
-                                  </label>
-                                  <select
-                                    value={material.matiereId}
-                                    onChange={(e) => handleUpdateMaterial(article.id, materialIndex, 'matiereId', e.target.value)}
-                                    className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                  >
-                                    <option value="">Sélectionner...</option>
-                                    {matieres.map(matiere => (
-                                      <option key={matiere.id} value={matiere.id}>
-                                        {matiere.name} ({getAvailableStock(matiere.id)} {matiere.unit || 'unité'})
-                                      </option>
-                                    ))}
-                                  </select>
-                                </div>
-                                <div>
-                                  <label className="block text-xs font-medium text-gray-700 mb-1">
-                                    Quantité requise <span className="text-red-500">*</span>
-                                  </label>
-                                  <div className="flex items-center space-x-2">
-                                    <input
-                                      ref={handleNumberInputRef}
-                                      type="number"
-                                      value={material.requiredQuantity || ''}
-                                      onChange={(e) => handleUpdateMaterial(article.id, materialIndex, 'requiredQuantity', parseFloat(e.target.value) || 0)}
-                                      className="flex-1 px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                      min="0"
-                                      step="0.01"
-                                    />
-                                    <span className="text-xs text-gray-500">{material.unit || 'unité'}</span>
+                          {articleMaterials.map((material, materialIndex) => {
+                            // Calculate stock status for this material
+                            const availableStock = material.matiereId ? getAvailableStock(material.matiereId) : 0;
+                            const requiredQuantity = material.requiredQuantity || 0;
+                            const isOutOfStock = material.matiereId && requiredQuantity > 0 && availableStock < requiredQuantity;
+                            const isLowStock = material.matiereId && requiredQuantity > 0 && availableStock >= requiredQuantity && availableStock < requiredQuantity * 1.2;
+                            const isSufficient = material.matiereId && requiredQuantity > 0 && availableStock >= requiredQuantity * 1.2;
+                            const shortage = isOutOfStock ? requiredQuantity - availableStock : undefined;
+
+                            return (
+                              <div 
+                                key={materialIndex} 
+                                className={`border rounded-md p-3 ${
+                                  isOutOfStock 
+                                    ? 'border-red-300 bg-red-50' 
+                                    : isLowStock 
+                                      ? 'border-yellow-300 bg-yellow-50'
+                                      : material.matiereId && requiredQuantity > 0
+                                        ? 'border-green-300 bg-green-50'
+                                        : 'border-gray-200 bg-gray-50'
+                                }`}
+                              >
+                                <div className="grid grid-cols-2 gap-3 mb-3">
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                                      Matériau <span className="text-red-500">*</span>
+                                    </label>
+                                    <div className="relative">
+                                      <select
+                                        value={material.matiereId}
+                                        onChange={(e) => handleUpdateMaterial(article.id, materialIndex, 'matiereId', e.target.value)}
+                                        className={`w-full px-2 py-1.5 text-sm border rounded-md focus:outline-none focus:ring-2 ${
+                                          isOutOfStock
+                                            ? 'border-red-500 focus:ring-red-500 bg-red-50'
+                                            : isLowStock
+                                              ? 'border-yellow-500 focus:ring-yellow-500 bg-yellow-50'
+                                              : 'border-gray-300 focus:ring-blue-500'
+                                        }`}
+                                      >
+                                        <option value="">Sélectionner...</option>
+                                        {matieres.map(matiere => (
+                                          <option key={matiere.id} value={matiere.id}>
+                                            {matiere.name} ({getAvailableStock(matiere.id)} {matiere.unit || 'unité'})
+                                          </option>
+                                        ))}
+                                      </select>
+                                      {material.matiereId && (
+                                        <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                                          {isOutOfStock ? (
+                                            <XCircle size={16} className="text-red-600" title="Stock insuffisant" />
+                                          ) : isLowStock ? (
+                                            <AlertTriangle size={16} className="text-yellow-600" title="Stock faible" />
+                                          ) : isSufficient ? (
+                                            <CheckCircle2 size={16} className="text-green-600" title="Stock suffisant" />
+                                          ) : null}
+                                        </div>
+                                      )}
+                                    </div>
+                                    {/* Stock status message */}
+                                    {material.matiereId && requiredQuantity > 0 && (
+                                      <div className={`mt-1 text-xs flex items-center gap-1 ${
+                                        isOutOfStock 
+                                          ? 'text-red-700 font-medium' 
+                                          : isLowStock 
+                                            ? 'text-yellow-700'
+                                            : 'text-green-700'
+                                      }`}>
+                                        {isOutOfStock ? (
+                                          <>
+                                            <XCircle size={12} />
+                                            <span>Stock insuffisant: {availableStock} {material.unit || 'unité'} disponible (requis: {requiredQuantity} {material.unit || 'unité'})</span>
+                                            {shortage && (
+                                              <span className="font-semibold"> - Manque: {shortage} {material.unit || 'unité'}</span>
+                                            )}
+                                          </>
+                                        ) : isLowStock ? (
+                                          <>
+                                            <AlertTriangle size={12} />
+                                            <span>Stock faible: {availableStock} {material.unit || 'unité'} disponible (requis: {requiredQuantity} {material.unit || 'unité'})</span>
+                                          </>
+                                        ) : (
+                                          <>
+                                            <CheckCircle2 size={12} />
+                                            <span>Stock suffisant: {availableStock} {material.unit || 'unité'} disponible</span>
+                                          </>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                                      Quantité requise <span className="text-red-500">*</span>
+                                    </label>
+                                    <div className="flex items-center space-x-2">
+                                      <input
+                                        ref={handleNumberInputRef}
+                                        type="number"
+                                        value={material.requiredQuantity || ''}
+                                        onChange={(e) => handleUpdateMaterial(article.id, materialIndex, 'requiredQuantity', parseFloat(e.target.value) || 0)}
+                                        className={`flex-1 px-2 py-1.5 text-sm border rounded-md focus:outline-none focus:ring-2 ${
+                                          isOutOfStock
+                                            ? 'border-red-500 focus:ring-red-500 bg-red-50'
+                                            : isLowStock
+                                              ? 'border-yellow-500 focus:ring-yellow-500 bg-yellow-50'
+                                              : 'border-gray-300 focus:ring-blue-500'
+                                        }`}
+                                        min="0"
+                                        step="0.01"
+                                      />
+                                      <span className="text-xs text-gray-500">{material.unit || 'unité'}</span>
+                                    </div>
                                   </div>
                                 </div>
+                                
+                                {material.matiereId && (
+                                  <div className="flex items-center justify-between text-xs mb-2">
+                                    <span className="text-gray-600">
+                                      Prix unitaire: {formatPrice(material.costPrice)}
+                                    </span>
+                                    <span className="font-medium text-gray-900">
+                                      Total: {formatPrice(material.requiredQuantity * material.costPrice)}
+                                    </span>
+                                  </div>
+                                )}
+                                
+                                <button
+                                  onClick={() => handleRemoveMaterial(article.id, materialIndex)}
+                                  className="text-red-600 hover:text-red-800 text-xs flex items-center"
+                                >
+                                  <Trash2 size={12} className="mr-1" />
+                                  Supprimer
+                                </button>
                               </div>
-                              
-                              {material.matiereId && (
-                                <div className="flex items-center justify-between text-xs mb-2">
-                                  <span className="text-gray-600">
-                                    Prix unitaire: {formatPrice(material.costPrice)}
-                                  </span>
-                                  <span className="font-medium text-gray-900">
-                                    Total: {formatPrice(material.requiredQuantity * material.costPrice)}
-                                  </span>
-                                </div>
-                              )}
-                              
-                              <button
-                                onClick={() => handleRemoveMaterial(article.id, materialIndex)}
-                                className="text-red-600 hover:text-red-800 text-xs flex items-center"
-                              >
-                                <Trash2 size={12} className="mr-1" />
-                                Supprimer
-                              </button>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       )}
 

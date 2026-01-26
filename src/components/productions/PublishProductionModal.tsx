@@ -1,14 +1,15 @@
 // Publish Production Modal - Convert production to product (supports multi-article)
 import React, { useState, useEffect, useMemo } from 'react';
-import { AlertTriangle, Package, ChevronDown, ChevronUp } from 'lucide-react';
+import { AlertTriangle, Package, ChevronDown, ChevronUp, XCircle, CheckCircle2 } from 'lucide-react';
 import { Modal, ModalFooter, PriceInput } from '@components/common';
 import { useAuth } from '@contexts/AuthContext';
-import { useProductCategories, useWarehouses, useShops } from '@hooks/data/useFirestore';
+import { useProductCategories, useProductionFlows, useWarehouses, useShops } from '@hooks/data/useFirestore';
 import { useMatiereStocks } from '@hooks/business/useMatiereStocks';
 import { getDefaultShop } from '@services/firestore/shops/shopService';
 import { showSuccessToast, showErrorToast, showWarningToast } from '@utils/core/toast';
 import { formatPrice } from '@utils/formatting/formatPrice';
 import { calculateMaterialsForArticleFromProduction } from '@utils/productions/materialCalculations';
+import { canPublishProduction } from '@utils/productions/flowValidation';
 import type { Production, ProductionArticle } from '../../types/models';
 
 interface PublishProductionModalProps {
@@ -29,6 +30,7 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
   const { warehouses } = useWarehouses();
   const { shops } = useShops();
   const { matiereStocks } = useMatiereStocks();
+  const { flows } = useProductionFlows();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [publishMode, setPublishMode] = useState<'all' | 'selected'>('all'); // 'all' for legacy, 'selected' for articles
   const [selectedArticles, setSelectedArticles] = useState<Set<string>>(new Set());
@@ -43,7 +45,9 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
     isVisible: boolean;
     costPrice: string;
     selectedChargeIds: string[]; // IDs of charges selected for this article
+    quantity: string; // Quantity to publish (can be different from article.quantity)
   }>>(new Map());
+  const [flowValidationError, setFlowValidationError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     category: '',
@@ -69,42 +73,161 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
       name?: boolean;
       sellingPrice?: boolean;
       costPrice?: boolean;
+      quantity?: boolean;
     }>;
   }>({});
 
-  // Stock validation
-  const stockValidation = useMemo(() => {
-    if (!production) return { isValid: true, errors: [] };
-
-    const errors: string[] = [];
-    for (const material of production.materials) {
-      const stockInfo = matiereStocks.find(ms => ms.matiereId === material.matiereId);
-      const availableStock = stockInfo?.currentStock || 0;
-      
-      if (availableStock < material.requiredQuantity) {
-        const unit = material.unit || 'unité';
-        errors.push(
-          `${material.matiereName}: Stock insuffisant (requis: ${material.requiredQuantity} ${unit}, disponible: ${availableStock} ${unit})`
-        );
-      }
-    }
-
-    return {
-      isValid: errors.length === 0,
-      errors
-    };
-  }, [production, matiereStocks]);
-
-  // Check if production has articles (multi-article mode)
+  // Check if production has articles (multi-article mode) - MUST be defined first
   const hasArticles = useMemo(() => {
     return production && production.articles && production.articles.length > 0;
   }, [production]);
 
-  // Get publishable articles (not already published)
+  // Get publishable articles (not already published) - MUST be defined before articleStockValidation
   const publishableArticles = useMemo(() => {
     if (!production || !production.articles) return [];
     return production.articles.filter(a => a.status !== 'published');
   }, [production]);
+
+  // Stock validation for legacy mode (production.materials)
+  const stockValidation = useMemo(() => {
+    if (!production) return { isValid: true, errors: [], materialStatuses: [] };
+
+    const errors: string[] = [];
+    const materialStatuses: Array<{
+      matiereId: string;
+      matiereName: string;
+      required: number;
+      available: number;
+      unit: string;
+      status: 'out_of_stock' | 'low_stock' | 'sufficient';
+      shortage?: number;
+    }> = [];
+
+    for (const material of production.materials) {
+      const stockInfo = matiereStocks.find(ms => ms.matiereId === material.matiereId);
+      const availableStock = stockInfo?.currentStock || 0;
+      const required = material.requiredQuantity;
+      const unit = material.unit || 'unité';
+      
+      let status: 'out_of_stock' | 'low_stock' | 'sufficient';
+      let shortage: number | undefined;
+
+      if (availableStock < required) {
+        status = 'out_of_stock';
+        shortage = required - availableStock;
+        errors.push(
+          `${material.matiereName}: Stock insuffisant (requis: ${required} ${unit}, disponible: ${availableStock} ${unit})`
+        );
+      } else if (availableStock < required * 1.2) {
+        // Low stock (less than 120% of required)
+        status = 'low_stock';
+      } else {
+        status = 'sufficient';
+      }
+
+      materialStatuses.push({
+        matiereId: material.matiereId,
+        matiereName: material.matiereName,
+        required,
+        available: availableStock,
+        unit,
+        status,
+        shortage
+      });
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors,
+      materialStatuses
+    };
+  }, [production, matiereStocks]);
+
+  // Stock validation for articles (multi-article mode) - MUST be defined after hasArticles and publishableArticles
+  const articleStockValidation = useMemo(() => {
+    if (!production || !hasArticles) return new Map();
+
+    const validationMap = new Map<string, {
+      isValid: boolean;
+      errors: string[];
+      materialStatuses: Array<{
+        matiereId: string;
+        matiereName: string;
+        required: number;
+        available: number;
+        unit: string;
+        status: 'out_of_stock' | 'low_stock' | 'sufficient';
+        shortage?: number;
+      }>;
+    }>();
+
+    publishableArticles.forEach(article => {
+      const articleMaterials = article.materials || [];
+      const errors: string[] = [];
+      const materialStatuses: Array<{
+        matiereId: string;
+        matiereName: string;
+        required: number;
+        available: number;
+        unit: string;
+        status: 'out_of_stock' | 'low_stock' | 'sufficient';
+        shortage?: number;
+      }> = [];
+
+      articleMaterials.forEach(material => {
+        const stockInfo = matiereStocks.find(ms => ms.matiereId === material.matiereId);
+        const availableStock = stockInfo?.currentStock || 0;
+        const required = material.requiredQuantity;
+        const unit = material.unit || 'unité';
+        
+        let status: 'out_of_stock' | 'low_stock' | 'sufficient';
+        let shortage: number | undefined;
+
+        if (availableStock < required) {
+          status = 'out_of_stock';
+          shortage = required - availableStock;
+          errors.push(
+            `${material.matiereName}: Stock insuffisant (requis: ${required} ${unit}, disponible: ${availableStock} ${unit})`
+          );
+        } else if (availableStock < required * 1.2) {
+          status = 'low_stock';
+        } else {
+          status = 'sufficient';
+        }
+
+        materialStatuses.push({
+          matiereId: material.matiereId,
+          matiereName: material.matiereName,
+          required,
+          available: availableStock,
+          unit,
+          status,
+          shortage
+        });
+      });
+
+      validationMap.set(article.id, {
+        isValid: errors.length === 0,
+        errors,
+        materialStatuses
+      });
+    });
+
+    return validationMap;
+  }, [production, hasArticles, publishableArticles, matiereStocks]);
+
+  // Check if any selected article has insufficient stock - MUST be defined after articleStockValidation
+  const hasInsufficientStockForSelectedArticles = useMemo(() => {
+    if (!hasArticles || publishMode !== 'selected') return false;
+    
+    for (const articleId of selectedArticles) {
+      const validation = articleStockValidation.get(articleId);
+      if (validation && !validation.isValid) {
+        return true;
+      }
+    }
+    return false;
+  }, [hasArticles, publishMode, selectedArticles, articleStockValidation]);
 
   useEffect(() => {
     if (isOpen && production) {
@@ -158,6 +281,21 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
             // Round to integer (no decimals for XAF)
             const roundedCostPrice = Math.round(articleCostPrice);
             
+            // NEW: Calculate remaining quantity for partial publishing
+            // Calculate from publications array if available (source of truth)
+            let publishedQuantity = article.publishedQuantity;
+            if (publishedQuantity === undefined && article.publications && article.publications.length > 0) {
+              // Calculate from publications array
+              publishedQuantity = article.publications.reduce((sum, pub) => sum + (pub.quantity || 0), 0);
+            }
+            publishedQuantity = publishedQuantity || 0;
+            
+            // Calculate remaining quantity
+            let remainingQuantity = article.remainingQuantity;
+            if (remainingQuantity === undefined) {
+              remainingQuantity = article.quantity - publishedQuantity;
+            }
+            
             articleDataMap.set(article.id, {
               name: article.name,
               category: '',
@@ -167,7 +305,8 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
               barCode: '',
               isVisible: true,
               costPrice: roundedCostPrice.toString(),
-              selectedChargeIds: [] // Default: no charges selected, user selects which charges to include
+              selectedChargeIds: [], // Default: no charges selected, user selects which charges to include
+              quantity: remainingQuantity.toString() // Initialize with remaining quantity (not total quantity)
             });
           }
         });
@@ -198,12 +337,15 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
       }
 
       // Validate all selected articles have required data
-      const articleErrors = new Map<string, { name?: boolean; sellingPrice?: boolean; costPrice?: boolean }>();
+      const articleErrors = new Map<string, { name?: boolean; sellingPrice?: boolean; costPrice?: boolean; quantity?: boolean }>();
       let hasErrors = false;
 
       for (const articleId of selectedArticles) {
+        const article = production.articles?.find(a => a.id === articleId);
+        if (!article) continue;
+        
         const articleData = articleFormData.get(articleId);
-        const errors: { name?: boolean; sellingPrice?: boolean; costPrice?: boolean } = {};
+        const errors: { name?: boolean; sellingPrice?: boolean; costPrice?: boolean; quantity?: boolean } = {};
         
         if (!articleData) {
           showErrorToast(`Données manquantes pour l'article ${articleId}`);
@@ -223,6 +365,30 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
         
         if (!articleData.costPrice || parseFloat(articleData.costPrice) < 0) {
           errors.costPrice = true;
+          hasErrors = true;
+        }
+
+        // NEW: Validate quantity against remaining quantity (for partial publishing)
+        const publishQuantity = parseFloat(articleData.quantity) || 0;
+        
+        // Calculate published quantity from publications array if available (source of truth)
+        let publishedQuantity = article.publishedQuantity;
+        if (publishedQuantity === undefined && article.publications && article.publications.length > 0) {
+          publishedQuantity = article.publications.reduce((sum, pub) => sum + (pub.quantity || 0), 0);
+        }
+        publishedQuantity = publishedQuantity || 0;
+        
+        // Calculate remaining quantity
+        let remainingQuantity = article.remainingQuantity;
+        if (remainingQuantity === undefined) {
+          remainingQuantity = article.quantity - publishedQuantity;
+        }
+        
+        if (publishQuantity <= 0) {
+          errors.quantity = true;
+          hasErrors = true;
+        } else if (publishQuantity > remainingQuantity) {
+          errors.quantity = true;
           hasErrors = true;
         }
 
@@ -250,6 +416,26 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
         return;
       }
 
+      // Validate stock for selected articles
+      if (hasInsufficientStockForSelectedArticles) {
+        showErrorToast('Stock insuffisant pour certains matériaux des articles sélectionnés');
+        // Expand first article with stock issues
+        for (const articleId of selectedArticles) {
+          const validation = articleStockValidation.get(articleId);
+          if (validation && !validation.isValid) {
+            setExpandedArticleId(articleId);
+            setTimeout(() => {
+              const articleElement = document.querySelector(`[data-article-id="${articleId}"]`);
+              if (articleElement) {
+                articleElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }
+            }, 100);
+            break;
+          }
+        }
+        return;
+      }
+
       // Validate destination is selected
       if (formData.destinationType === 'shop' && !formData.shopId) {
         showErrorToast('Veuillez sélectionner un magasin');
@@ -274,11 +460,14 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
             ? categories.find(cat => cat.id === articleData.category)
             : null;
 
+          // Use the quantity from form data (can be modified by user)
+          const publishQuantity = parseFloat(articleData.quantity) || production.articles?.find(a => a.id === articleId)?.quantity || 0;
+          
           productDataMap.set(articleId, {
             name: articleData.name.trim(),
             costPrice: parseFloat(articleData.costPrice),
             sellingPrice: parseFloat(articleData.sellingPrice),
-            stock: production.articles?.find(a => a.id === articleId)?.quantity || 0,
+            stock: publishQuantity,
             category: selectedCategory?.name || undefined,
             cataloguePrice: articleData.cataloguePrice && articleData.cataloguePrice.trim()
               ? parseFloat(articleData.cataloguePrice)
@@ -413,6 +602,11 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
 
   if (!isOpen || !production) return null;
 
+  // Check if production can be published (flow validation)
+  const flow = production.flowId ? flows.find(f => f.id === production.flowId) : null;
+  const publishCheck = canPublishProduction(production, flow?.stepIds);
+  const cannotPublishDueToFlow = !publishCheck.canPublish;
+
   return (
     <Modal
       isOpen={isOpen}
@@ -428,14 +622,42 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
           isLoading={isSubmitting}
           disabled={
             isSubmitting || 
+            cannotPublishDueToFlow ||
             (hasArticles && publishMode === 'selected' 
-              ? selectedArticles.size === 0 || (formData.destinationType === 'shop' && !formData.shopId) || (formData.destinationType === 'warehouse' && !formData.warehouseId)
+              ? selectedArticles.size === 0 || hasInsufficientStockForSelectedArticles || (formData.destinationType === 'shop' && !formData.shopId) || (formData.destinationType === 'warehouse' && !formData.warehouseId)
               : !stockValidation.isValid || !formData.validatedCostPrice || parseFloat(formData.validatedCostPrice) < 0 || !formData.name.trim() || !formData.sellingPrice || parseFloat(formData.sellingPrice) < 0 || (formData.destinationType === 'shop' && !formData.shopId) || (formData.destinationType === 'warehouse' && !formData.warehouseId))
           }
         />
       }
     >
       <div className="space-y-6">
+        {/* Flow Validation Error - Show if flow is not complete */}
+        {cannotPublishDueToFlow && (
+          <div className="bg-red-50 border border-red-200 rounded-md p-4">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="h-5 w-5 text-red-600 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-red-900 mb-1">
+                  Impossible de publier cette production
+                </p>
+                <p className="text-xs text-red-700">
+                  {publishCheck.reason || 'Toutes les étapes du flux doivent être passées avant de publier'}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Flow Validation Error from async validation */}
+        {flowValidationError && !cannotPublishDueToFlow && (
+          <div className="bg-red-50 border border-red-200 rounded-md p-4">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-red-600" />
+              <p className="text-sm font-medium text-red-900">{flowValidationError}</p>
+            </div>
+          </div>
+        )}
+
         {/* Destination Location Selection */}
         <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg space-y-3">
           <h3 className="text-sm font-semibold text-gray-900">Destination de la production</h3>
@@ -573,8 +795,24 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
                   production.totalArticlesQuantity || 0
                 );
 
+                // Get stock validation for this article
+                const articleValidation = articleStockValidation.get(article.id);
+                const hasStockIssues = articleValidation && !articleValidation.isValid;
+
                 return (
-                  <div key={article.id} className={`border rounded-lg transition-all ${isSelected ? 'border-blue-500 bg-blue-50 shadow-sm' : 'border-gray-200 bg-white'}`}>
+                  <div 
+                    key={article.id} 
+                    data-article-id={article.id}
+                    className={`border rounded-lg transition-all ${
+                      isSelected 
+                        ? hasStockIssues 
+                          ? 'border-red-500 bg-red-50 shadow-sm' 
+                          : 'border-blue-500 bg-blue-50 shadow-sm'
+                        : hasStockIssues
+                          ? 'border-red-300 bg-red-50'
+                          : 'border-gray-200 bg-white'
+                    }`}
+                  >
                     {/* Checkbox and Article Header - Clickable to expand/collapse */}
                     <div 
                       className="flex items-start gap-3 p-4 cursor-pointer hover:bg-gray-50 transition-colors"
@@ -601,9 +839,66 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
                       />
                       <div className="flex-1">
                         <div className="flex items-center justify-between">
-                          <div>
-                            <h5 className="font-medium text-gray-900">{articleData.name}</h5>
-                            <p className="text-xs text-gray-500">Quantité: {article.quantity} unité(s)</p>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h5 className="font-medium text-gray-900">{articleData.name}</h5>
+                              {hasStockIssues && articleValidation && (
+                                <div className="flex items-center gap-1 text-red-600 bg-red-100 px-2 py-1 rounded" title="Stock insuffisant">
+                                  <XCircle size={16} className="text-red-600" />
+                                  <span className="text-xs font-semibold">Stock insuffisant</span>
+                                </div>
+                              )}
+                              {!hasStockIssues && articleValidation && articleValidation.materialStatuses.length > 0 && (
+                                <div className="flex items-center gap-1 text-green-600 bg-green-100 px-2 py-1 rounded" title="Stock suffisant">
+                                  <CheckCircle2 size={16} className="text-green-600" />
+                                  <span className="text-xs font-semibold">Stock OK</span>
+                                </div>
+                              )}
+                            </div>
+                            <div className="text-xs text-gray-500 space-y-0.5">
+                              <p>Quantité totale: {article.quantity} unité(s)</p>
+                              {(() => {
+                                // Calculate published quantity from publications array if available
+                                let publishedQty = article.publishedQuantity;
+                                if (publishedQty === undefined && article.publications && article.publications.length > 0) {
+                                  publishedQty = article.publications.reduce((sum, pub) => sum + (pub.quantity || 0), 0);
+                                }
+                                publishedQty = publishedQty || 0;
+                                const remainingQty = article.remainingQuantity ?? (article.quantity - publishedQty);
+                                
+                                return (
+                                  <>
+                                    {publishedQty > 0 && (
+                                      <p className="text-green-600">
+                                        Publiée: {publishedQty} unité(s)
+                                      </p>
+                                    )}
+                                    {remainingQty > 0 && (
+                                      <p className="text-blue-600 font-medium">
+                                        Restante: {remainingQty} unité(s)
+                                      </p>
+                                    )}
+                                  </>
+                                );
+                              })()}
+                            </div>
+                            {/* Show out of stock materials directly in header for quick visibility */}
+                            {hasStockIssues && articleValidation && (
+                              <div className="mt-2 space-y-1">
+                                {articleValidation.materialStatuses
+                                  .filter(m => m.status === 'out_of_stock')
+                                  .map((material, idx) => (
+                                    <div key={idx} className="text-xs text-red-700 bg-red-50 px-2 py-1 rounded border border-red-200">
+                                      <span className="font-medium">{material.matiereName}:</span>{' '}
+                                      Requis: <strong>{material.required} {material.unit}</strong> | 
+                                      Disponible: <strong>{material.available} {material.unit}</strong>
+                                      {material.shortage && (
+                                        <> | <span className="font-semibold text-red-800">Manque: {material.shortage} {material.unit}</span></>
+                                      )}
+                                    </div>
+                                  ))}
+                              </div>
+                            )}
                           </div>
                           <div className="flex items-center gap-3">
                             {/* Cost Price Display */}
@@ -669,6 +964,104 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
                           />
                           {fieldErrors.articles?.get(article.id)?.name && (
                             <p className="mt-1 text-xs text-red-500">Ce champ est requis</p>
+                          )}
+                        </div>
+
+                        {/* Quantity to Publish */}
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                            Quantité à publier <span className="text-red-500">*</span>
+                          </label>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              min="1"
+                              step="1"
+                              value={articleData.quantity}
+                              onChange={(e) => {
+                                const newData = new Map(articleFormData);
+                                const current = newData.get(article.id) || articleData;
+                                const inputValue = parseFloat(e.target.value) || 1;
+                                // Calculate published quantity from publications array if available
+                                let publishedQty = article.publishedQuantity;
+                                if (publishedQty === undefined && article.publications && article.publications.length > 0) {
+                                  publishedQty = article.publications.reduce((sum, pub) => sum + (pub.quantity || 0), 0);
+                                }
+                                publishedQty = publishedQty || 0;
+                                const remainingQty = article.remainingQuantity ?? (article.quantity - publishedQty);
+                                const maxQuantity = remainingQty;
+                                const quantity = Math.min(Math.max(1, inputValue), maxQuantity);
+                                newData.set(article.id, { ...current, quantity: quantity.toString() });
+                                setArticleFormData(newData);
+                              }}
+                              className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              placeholder="Quantité"
+                            />
+                            <span className="text-xs text-gray-500 whitespace-nowrap">
+                              (max: {(() => {
+                                let publishedQty = article.publishedQuantity;
+                                if (publishedQty === undefined && article.publications && article.publications.length > 0) {
+                                  publishedQty = article.publications.reduce((sum, pub) => sum + (pub.quantity || 0), 0);
+                                }
+                                publishedQty = publishedQty || 0;
+                                return article.remainingQuantity ?? (article.quantity - publishedQty);
+                              })()})
+                            </span>
+                          </div>
+                          <div className="mt-1 text-xs text-gray-500 space-y-0.5">
+                            <p>Quantité totale créée: {article.quantity} unité(s)</p>
+                            {(() => {
+                              // Calculate published quantity from publications array if available
+                              let publishedQty = article.publishedQuantity;
+                              if (publishedQty === undefined && article.publications && article.publications.length > 0) {
+                                publishedQty = article.publications.reduce((sum, pub) => sum + (pub.quantity || 0), 0);
+                              }
+                              publishedQty = publishedQty || 0;
+                              
+                              // Calculate initial remaining quantity
+                              const initialRemainingQty = article.remainingQuantity ?? (article.quantity - publishedQty);
+                              
+                              // Get the quantity user wants to publish now
+                              const publishQtyNow = parseFloat(articleData.quantity) || 0;
+                              
+                              // Calculate remaining quantity AFTER this publication
+                              const remainingAfterPublish = initialRemainingQty - publishQtyNow;
+                              
+                              return (
+                                <>
+                                  {publishedQty > 0 && (
+                                    <p className="text-green-600">
+                                      Déjà publiée: {publishedQty} unité(s)
+                                    </p>
+                                  )}
+                                  {publishQtyNow > 0 && (
+                                    <p className="text-purple-600">
+                                      À publier maintenant: {publishQtyNow} unité(s)
+                                    </p>
+                                  )}
+                                  <p className={`font-medium ${remainingAfterPublish >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
+                                    Quantité restante après publication: {Math.max(0, remainingAfterPublish)} unité(s)
+                                  </p>
+                                  {remainingAfterPublish < 0 && (
+                                    <p className="text-red-500 text-xs italic">
+                                      ⚠️ La quantité à publier dépasse la quantité restante disponible
+                                    </p>
+                                  )}
+                                </>
+                              );
+                            })()}
+                          </div>
+                          {fieldErrors.articles?.get(article.id)?.quantity && (
+                            <p className="mt-1 text-xs text-red-500">
+                              La quantité doit être entre 1 et {(() => {
+                                let publishedQty = article.publishedQuantity;
+                                if (publishedQty === undefined && article.publications && article.publications.length > 0) {
+                                  publishedQty = article.publications.reduce((sum, pub) => sum + (pub.quantity || 0), 0);
+                                }
+                                publishedQty = publishedQty || 0;
+                                return article.remainingQuantity ?? (article.quantity - publishedQty);
+                              })()}
+                            </p>
                           )}
                         </div>
 
@@ -937,27 +1330,182 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
                           <label className="ml-2 text-xs text-gray-700">Visible dans le catalogue</label>
                         </div>
 
-                        {/* Materials Preview for this article */}
-                        {articleMaterials.length > 0 && (
-                          <div className="bg-yellow-50 border border-yellow-200 rounded p-2">
-                            <p className="text-xs font-medium text-yellow-800 mb-1">Matériaux à consommer pour cet article:</p>
-                            <div className="space-y-1">
-                              {articleMaterials.map((mat, idx) => {
-                                const stockInfo = matiereStocks.find(ms => ms.matiereId === mat.matiereId);
-                                const availableStock = stockInfo?.currentStock || 0;
-                                const isInsufficient = availableStock < mat.requiredQuantity;
-                                return (
-                                  <div key={idx} className={`text-xs ${isInsufficient ? 'text-red-700' : 'text-yellow-700'}`}>
-                                    {mat.matiereName}: {mat.requiredQuantity} {mat.unit || 'unité'} 
-                                    {isInsufficient && (
-                                      <span className="ml-1 font-medium">(Stock insuffisant: {availableStock} disponible)</span>
-                                    )}
+                        {/* Materials Preview for this article with enhanced stock validation */}
+                        {articleMaterials.length > 0 && (() => {
+                          const validation = articleValidation;
+                          const hasIssues = validation && !validation.isValid;
+                          const hasLowStock = validation && validation.materialStatuses.some(m => m.status === 'low_stock');
+                          const outOfStockMaterials = validation?.materialStatuses.filter(m => m.status === 'out_of_stock') || [];
+                          const lowStockMaterials = validation?.materialStatuses.filter(m => m.status === 'low_stock') || [];
+                          const sufficientMaterials = validation?.materialStatuses.filter(m => m.status === 'sufficient') || [];
+                          
+                          return (
+                            <div className={`border-2 rounded-lg p-4 ${
+                              hasIssues 
+                                ? 'bg-red-50 border-red-400' 
+                                : hasLowStock 
+                                  ? 'bg-yellow-50 border-yellow-400'
+                                  : 'bg-green-50 border-green-400'
+                            }`}>
+                              <div className="flex items-center gap-2 mb-3">
+                                {hasIssues ? (
+                                  <>
+                                    <XCircle size={18} className="text-red-600 flex-shrink-0" />
+                                    <div>
+                                      <p className="text-sm font-semibold text-red-900">
+                                        Stock insuffisant - {outOfStockMaterials.length} matériau(x) en rupture
+                                      </p>
+                                      <p className="text-xs text-red-700 mt-0.5">
+                                        Veuillez réapprovisionner les matériaux ci-dessous avant de publier
+                                      </p>
+                                    </div>
+                                  </>
+                                ) : hasLowStock ? (
+                                  <>
+                                    <AlertTriangle size={18} className="text-yellow-600 flex-shrink-0" />
+                                    <div>
+                                      <p className="text-sm font-semibold text-yellow-900">
+                                        Stock faible - {lowStockMaterials.length} matériau(x) avec stock limité
+                                      </p>
+                                      <p className="text-xs text-yellow-700 mt-0.5">
+                                        Le stock est suffisant mais faible, pensez à réapprovisionner
+                                      </p>
+                                    </div>
+                                  </>
+                                ) : (
+                                  <>
+                                    <CheckCircle2 size={18} className="text-green-600 flex-shrink-0" />
+                                    <p className="text-sm font-semibold text-green-900">
+                                      Stock suffisant pour tous les matériaux
+                                    </p>
+                                  </>
+                                )}
+                              </div>
+                              
+                              {/* Out of Stock Materials - Most Important */}
+                              {outOfStockMaterials.length > 0 && (
+                                <div className="mb-3">
+                                  <h6 className="text-xs font-semibold text-red-900 mb-2 uppercase tracking-wide">
+                                    Matériaux en rupture de stock ({outOfStockMaterials.length})
+                                  </h6>
+                                  <div className="space-y-2">
+                                    {outOfStockMaterials.map((matStatus, idx) => {
+                                      const mat = articleMaterials.find(m => m.matiereId === matStatus.matiereId);
+                                      if (!mat) return null;
+                                      
+                                      return (
+                                        <div 
+                                          key={idx} 
+                                          className="bg-red-100 border-2 border-red-400 rounded-lg p-3"
+                                        >
+                                          <div className="flex items-start gap-2 mb-2">
+                                            <XCircle size={16} className="text-red-600 flex-shrink-0 mt-0.5" />
+                                            <div className="flex-1">
+                                              <span className="font-semibold text-red-900 text-sm">
+                                                {matStatus.matiereName}
+                                              </span>
+                                            </div>
+                                          </div>
+                                          <div className="grid grid-cols-2 gap-2 text-xs ml-6">
+                                            <div>
+                                              <span className="text-red-700">Quantité requise:</span>
+                                              <span className="font-bold text-red-900 ml-1">
+                                                {matStatus.required} {matStatus.unit}
+                                              </span>
+                                            </div>
+                                            <div>
+                                              <span className="text-red-700">Stock disponible:</span>
+                                              <span className="font-bold text-red-900 ml-1">
+                                                {matStatus.available} {matStatus.unit}
+                                              </span>
+                                            </div>
+                                            {matStatus.shortage && (
+                                              <div className="col-span-2 mt-1 pt-1 border-t border-red-300">
+                                                <span className="text-red-800 font-semibold">
+                                                  ⚠️ Manque: {matStatus.shortage} {matStatus.unit}
+                                                </span>
+                                              </div>
+                                            )}
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
                                   </div>
-                                );
-                              })}
+                                </div>
+                              )}
+                              
+                              {/* Low Stock Materials */}
+                              {lowStockMaterials.length > 0 && (
+                                <div className="mb-3">
+                                  <h6 className="text-xs font-semibold text-yellow-900 mb-2 uppercase tracking-wide">
+                                    Stock faible ({lowStockMaterials.length})
+                                  </h6>
+                                  <div className="space-y-1">
+                                    {lowStockMaterials.map((matStatus, idx) => {
+                                      const mat = articleMaterials.find(m => m.matiereId === matStatus.matiereId);
+                                      if (!mat) return null;
+                                      
+                                      return (
+                                        <div 
+                                          key={idx} 
+                                          className="bg-yellow-100 border border-yellow-300 rounded p-2 text-xs"
+                                        >
+                                          <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                              <AlertTriangle size={14} className="text-yellow-600 flex-shrink-0" />
+                                              <span className="font-medium text-yellow-900">{matStatus.matiereName}:</span>
+                                              <span className="text-yellow-800">
+                                                {matStatus.required} {matStatus.unit} requis
+                                              </span>
+                                            </div>
+                                            <span className="text-yellow-700">
+                                              {matStatus.available} {matStatus.unit} disponible
+                                            </span>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              )}
+                              
+                              {/* Sufficient Stock Materials */}
+                              {sufficientMaterials.length > 0 && (
+                                <div>
+                                  <h6 className="text-xs font-semibold text-green-900 mb-2 uppercase tracking-wide">
+                                    Stock suffisant ({sufficientMaterials.length})
+                                  </h6>
+                                  <div className="space-y-1">
+                                    {sufficientMaterials.map((matStatus, idx) => {
+                                      const mat = articleMaterials.find(m => m.matiereId === matStatus.matiereId);
+                                      if (!mat) return null;
+                                      
+                                      return (
+                                        <div 
+                                          key={idx} 
+                                          className="bg-green-100 border border-green-300 rounded p-2 text-xs"
+                                        >
+                                          <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                              <CheckCircle2 size={14} className="text-green-600 flex-shrink-0" />
+                                              <span className="font-medium text-green-900">{matStatus.matiereName}:</span>
+                                              <span className="text-green-800">
+                                                {matStatus.required} {matStatus.unit} requis
+                                              </span>
+                                            </div>
+                                            <span className="text-green-700">
+                                              {matStatus.available} {matStatus.unit} disponible
+                                            </span>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              )}
                             </div>
-                          </div>
-                        )}
+                          );
+                        })()}
                       </div>
                     )}
                   </div>
@@ -968,20 +1516,65 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
         ) : (
           /* Legacy mode: Show single product form (only if no articles) */
           <>
-            {/* Stock Validation Warning */}
+            {/* Enhanced Stock Validation Warning */}
             {!stockValidation.isValid && (
-              <div className="bg-red-50 border border-red-200 rounded-md p-4">
+              <div className="bg-red-50 border-2 border-red-400 rounded-md p-4 shadow-sm">
                 <div className="flex items-start">
-                  <AlertTriangle className="h-5 w-5 text-red-600 mt-0.5 mr-3" />
+                  <XCircle className="h-6 w-6 text-red-600 mt-0.5 mr-3 flex-shrink-0" />
                   <div className="flex-1">
-                    <h4 className="text-sm font-medium text-red-900 mb-2">
-                      Stock insuffisant pour certains matériaux
+                    <h4 className="text-base font-semibold text-red-900 mb-3 flex items-center gap-2">
+                      <span>Stock insuffisant - Publication impossible</span>
                     </h4>
-                    <ul className="list-disc list-inside text-sm text-red-700 space-y-1">
-                      {stockValidation.errors.map((error, idx) => (
-                        <li key={idx}>{error}</li>
-                      ))}
-                    </ul>
+                    <p className="text-sm text-red-800 mb-3">
+                      Les matériaux suivants n'ont pas suffisamment de stock disponible :
+                    </p>
+                    <div className="space-y-2">
+                      {stockValidation.materialStatuses
+                        .filter(m => m.status === 'out_of_stock')
+                        .map((material, idx) => (
+                          <div 
+                            key={idx}
+                            className="bg-red-100 border border-red-300 rounded p-2 flex items-center justify-between"
+                          >
+                            <div className="flex items-center gap-2">
+                              <XCircle size={16} className="text-red-600 flex-shrink-0" />
+                              <span className="font-medium text-red-900">{material.matiereName}</span>
+                            </div>
+                            <div className="flex items-center gap-3 text-sm">
+                              <span className="text-red-700">
+                                Requis: <strong>{material.required} {material.unit}</strong>
+                              </span>
+                              <span className="text-red-600">|</span>
+                              <span className="text-red-700">
+                                Disponible: <strong>{material.available} {material.unit}</strong>
+                              </span>
+                              {material.shortage && (
+                                <>
+                                  <span className="text-red-600">|</span>
+                                  <span className="text-red-800 font-semibold">
+                                    Manque: {material.shortage} {material.unit}
+                                  </span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                    {stockValidation.materialStatuses.some(m => m.status === 'low_stock') && (
+                      <div className="mt-3 pt-3 border-t border-red-300">
+                        <p className="text-sm font-medium text-yellow-800 mb-2">Avertissements (stock faible) :</p>
+                        <div className="space-y-1">
+                          {stockValidation.materialStatuses
+                            .filter(m => m.status === 'low_stock')
+                            .map((material, idx) => (
+                              <div key={idx} className="flex items-center gap-2 text-sm text-yellow-800">
+                                <AlertTriangle size={14} className="text-yellow-600" />
+                                <span>{material.matiereName}: {material.available} {material.unit} disponible (requis: {material.required} {material.unit})</span>
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1141,29 +1734,60 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
           </div>
         </div>
 
-            {/* Materials Summary (only for legacy mode) */}
+            {/* Enhanced Materials Summary (only for legacy mode) */}
             {production.materials.length > 0 && (
               <div className="border-t border-gray-200 pt-4">
-                <h4 className="text-sm font-medium text-gray-900 mb-2">Matériaux à consommer:</h4>
+                <h4 className="text-sm font-medium text-gray-900 mb-3">Matériaux à consommer:</h4>
                 <div className="space-y-2">
-                  {production.materials.map((material, idx) => {
-                    const stockInfo = matiereStocks.find(ms => ms.matiereId === material.matiereId);
-                    const availableStock = stockInfo?.currentStock || 0;
-                    const isInsufficient = availableStock < material.requiredQuantity;
+                  {stockValidation.materialStatuses.map((material, idx) => {
+                    const isOutOfStock = material.status === 'out_of_stock';
+                    const isLowStock = material.status === 'low_stock';
+                    const isSufficient = material.status === 'sufficient';
 
                     return (
                       <div
                         key={idx}
-                        className={`flex justify-between items-center text-sm p-2 rounded ${
-                          isInsufficient ? 'bg-red-50' : 'bg-gray-50'
+                        className={`flex items-center justify-between text-sm p-3 rounded border ${
+                          isOutOfStock 
+                            ? 'bg-red-50 border-red-300' 
+                            : isLowStock 
+                              ? 'bg-yellow-50 border-yellow-300'
+                              : 'bg-green-50 border-green-300'
                         }`}
                       >
-                        <span className={isInsufficient ? 'text-red-700' : 'text-gray-700'}>
-                          {material.matiereName}: {material.requiredQuantity} {material.unit || 'unité'}
-                        </span>
-                        <span className={isInsufficient ? 'text-red-700 font-medium' : 'text-gray-600'}>
-                          Stock: {availableStock} {material.unit || 'unité'}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          {isOutOfStock ? (
+                            <XCircle size={16} className="text-red-600 flex-shrink-0" />
+                          ) : isLowStock ? (
+                            <AlertTriangle size={16} className="text-yellow-600 flex-shrink-0" />
+                          ) : (
+                            <CheckCircle2 size={16} className="text-green-600 flex-shrink-0" />
+                          )}
+                          <span className={`font-medium ${
+                            isOutOfStock ? 'text-red-800' : 
+                            isLowStock ? 'text-yellow-800' : 
+                            'text-green-800'
+                          }`}>
+                            {material.matiereName}:
+                          </span>
+                          <span className={isOutOfStock ? 'text-red-700' : 'text-gray-700'}>
+                            {material.required} {material.unit}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className={`text-xs ${
+                            isOutOfStock ? 'text-red-700 font-medium' : 
+                            isLowStock ? 'text-yellow-700' : 
+                            'text-green-700'
+                          }`}>
+                            Stock: {material.available} {material.unit}
+                          </span>
+                          {material.shortage && (
+                            <span className="text-xs text-red-600 font-semibold">
+                              (Manque: {material.shortage} {material.unit})
+                            </span>
+                          )}
+                        </div>
                       </div>
                     );
                   })}
@@ -1178,4 +1802,3 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
 };
 
 export default PublishProductionModal;
-

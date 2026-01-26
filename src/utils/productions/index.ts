@@ -20,6 +20,7 @@ export {
   calculateMaterialsForArticleFromProduction,
   calculateMaterialsCost,
   calculateCostPerUnit,
+  calculateMaterialsForPartialPublish,
   type MaterialWithPerUnit
 } from './materialCalculations';
 
@@ -51,4 +52,11 @@ export {
   migrateProductionChargesUserTracking,
   migrateAllProductionUserTracking
 } from './migrateUserTracking';
+
+// Flow validation utilities
+export {
+  validateProductionFlowCompletion,
+  validateArticleFlowCompletion,
+  canPublishProduction
+} from './flowValidation';
 
