@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@contexts/AuthContext';
 import { Building2, Plus, Users, Crown, Shield, User, Settings, LogOut } from 'lucide-react';
@@ -8,6 +8,7 @@ import { showErrorToast } from '@utils/core/toast';
 import PendingInvitationsBanner from '@components/invitations/PendingInvitationsBanner';
 import { getCompanyById } from '@services/firestore/companies/companyPublic';
 import { getUserById } from '@services/utilities/userService';
+import { getTemplateById } from '@services/firestore/employees/permissionTemplateService';
 
 interface CompanyCardProps {
   company: UserCompanyRef;
@@ -149,10 +150,57 @@ const EmployeeDashboard: React.FC = () => {
     }
   }, [selectCompany, navigate]);
 
-  // Auto-redirect if only one company
+  // Track if we've already attempted auto-redirect to prevent loops
+  const hasAttemptedAutoRedirect = useRef(false);
+  const lastUserCompaniesKey = useRef<string>('');
+
+  // Reset auto-redirect flag when userCompanies change
   useEffect(() => {
+    const currentKey = userCompanies.map(c => c.companyId).join(',');
+    if (currentKey !== lastUserCompaniesKey.current) {
+      hasAttemptedAutoRedirect.current = false;
+      lastUserCompaniesKey.current = currentKey;
+    }
+  }, [userCompanies]);
+
+  // Auto-redirect if only one company (but check permissions first for employees)
+  useEffect(() => {
+    // Only auto-redirect once per company list
+    if (hasAttemptedAutoRedirect.current) return;
+    
     if (userCompanies.length === 1) {
-      handleCompanySelect(userCompanies[0].companyId);
+      const companyRef = userCompanies[0];
+      const companyId = companyRef.companyId;
+      
+      // Check if user is owner/admin (they don't need permission templates)
+      if (companyRef.role === 'owner' || companyRef.role === 'admin') {
+        // Owner/admin can always access, redirect immediately
+        hasAttemptedAutoRedirect.current = true;
+        handleCompanySelect(companyId);
+        return;
+      }
+      
+      // For employees, check if permission template exists before redirecting
+      if (companyRef.permissionTemplateId) {
+        // Check if template exists
+        getTemplateById(companyId, companyRef.permissionTemplateId)
+          .then((template) => {
+            hasAttemptedAutoRedirect.current = true;
+            if (template) {
+              // Template exists, safe to redirect
+              handleCompanySelect(companyId);
+            }
+            // If template is null, don't redirect - let user see the list
+            // They can click manually and will see the PermissionTemplateMissing message
+          })
+          .catch(() => {
+            // Error loading template, don't auto-redirect
+            hasAttemptedAutoRedirect.current = true;
+          });
+      } else {
+        // No template ID, don't auto-redirect
+        hasAttemptedAutoRedirect.current = true;
+      }
     }
   }, [userCompanies, handleCompanySelect]);
 
