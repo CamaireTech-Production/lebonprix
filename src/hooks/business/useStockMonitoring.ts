@@ -123,46 +123,76 @@ export const useStockMonitoring = (options: StockMonitoringOptions = {}) => {
 
     let isMounted = true;
     let unsubscribeFn: (() => void) | null = null;
+    let isUnsubscribing = false;
 
-    try {
-      const q = query(
-        collection(db, 'stockBatches'),
-        where('companyId', '==', company.id),
-        where('status', '==', 'active')
-      );
+    const setupListener = () => {
+      try {
+        const q = query(
+          collection(db, 'stockBatches'),
+          where('companyId', '==', company.id),
+          where('status', '==', 'active')
+        );
 
-      unsubscribeFn = onSnapshot(
-        q,
-        (snapshot) => {
-          if (!isMounted || !processStockChangesRef.current) return;
+        unsubscribeFn = onSnapshot(
+          q,
+          (snapshot) => {
+            // Double-check mounted state and unsubscribe flag
+            if (!isMounted || isUnsubscribing || !processStockChangesRef.current) {
+              return;
+            }
 
-          const batches = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-          })) as StockBatch[];
+            try {
+              const batches = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+              })) as StockBatch[];
 
-          // Process changes (will be debounced)
-          processStockChangesRef.current(batches);
-        },
-        (error) => {
-          if (isMounted) {
-            logError('Error in stock monitoring subscription', error);
+              // Process changes (will be debounced)
+              if (processStockChangesRef.current) {
+                processStockChangesRef.current(batches);
+              }
+            } catch (error) {
+              // Silently handle errors in callback to prevent breaking the listener
+              if (isMounted && !isUnsubscribing) {
+                logError('Error processing stock changes', error);
+              }
+            }
+          },
+          (error) => {
+            // Only log if still mounted and not unsubscribing
+            if (isMounted && !isUnsubscribing) {
+              logError('Error in stock monitoring subscription', error);
+            }
           }
+        );
+      } catch (error) {
+        if (isMounted) {
+          logError('Error setting up stock monitoring subscription', error);
         }
-      );
-    } catch (error) {
-      logError('Error setting up stock monitoring subscription', error);
-    }
+      }
+    };
+
+    // Small delay to ensure previous listener is fully cleaned up
+    const setupTimer = setTimeout(setupListener, 100);
 
     return () => {
       isMounted = false;
+      isUnsubscribing = true;
+      
+      // Clear setup timer if still pending
+      clearTimeout(setupTimer);
+      
+      // Clean up listener
       if (unsubscribeFn) {
         try {
           unsubscribeFn();
         } catch (error) {
-          // Ignore errors during cleanup
+          // Ignore errors during cleanup - listener might already be closed
         }
+        unsubscribeFn = null;
       }
+      
+      // Clean up debounce timer
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current);
         debounceTimerRef.current = null;
