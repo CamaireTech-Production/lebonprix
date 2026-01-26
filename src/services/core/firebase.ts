@@ -3,6 +3,7 @@ import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, getFirestore, Firestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
+import { getAnalytics, isSupported, Analytics } from "firebase/analytics";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -29,7 +30,25 @@ const db = initializeFirestore(app, {
 const dbNoCache = getFirestore(app);
 const storage = getStorage(app);
 
-export { auth, db, dbNoCache, storage, app };
+// Initialize Analytics (only in browser environment)
+let analytics: Analytics | null = null;
+
+if (typeof window !== 'undefined') {
+  // Check if Analytics is supported before initializing
+  isSupported().then((supported) => {
+    if (supported) {
+      try {
+        analytics = getAnalytics(app);
+      } catch (error) {
+        console.warn('[Firebase] Analytics initialization failed:', error);
+      }
+    }
+  }).catch((error) => {
+    console.warn('[Firebase] Analytics support check failed:', error);
+  });
+}
+
+export { auth, db, dbNoCache, storage, app, analytics };
 export { getFirestore } from "firebase/firestore";
-export type { Firestore };
+export type { Firestore, Analytics };
 
