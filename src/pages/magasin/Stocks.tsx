@@ -4,13 +4,14 @@ import { ChevronRight, ChevronLeft, ChevronDown, Package, AlertCircle, Search, T
 import { Button, Input, Modal, LoadingScreen } from '@components/common';
 import { useMatieres } from '@hooks/business/useMatieres';
 import { useAllStockBatches } from '@hooks/business/useStockBatches';
-import { useStockChanges } from '@hooks/data/useFirestore';
+import { useStockChanges, useSuppliers } from '@hooks/data/useFirestore';
 import MatiereRestockModal from '../../components/magasin/MatiereRestockModal';
 import MatiereDirectConsumptionModal from '../../components/magasin/MatiereDirectConsumptionModal';
 import UnifiedBatchAdjustmentModal from '../../components/magasin/UnifiedBatchAdjustmentModal';
 import BatchDeleteModal from '../../components/common/BatchDeleteModal';
 import { usePermissionCheck } from '@components/permissions';
 import { RESOURCES } from '@constants/resources';
+import { getUserById } from '@services/utilities/userService';
 import type { Matiere, StockBatch, StockChange } from '../../types/models';
 
 const PAGE_SIZES = [10, 20, 50];
@@ -73,6 +74,7 @@ const Stocks = () => {
   const { matieres, loading, error: matieresError } = useMatieres();
   const { batches, loading: batchesLoading, error: batchesError } = useAllStockBatches('matiere');
   const { stockChanges } = useStockChanges('matiere');
+  const { suppliers } = useSuppliers();
   const { canDelete } = usePermissionCheck(RESOURCES.MAGASIN);
 
   const [expandedMatiereId, setExpandedMatiereId] = useState<string | null>(null);
@@ -89,6 +91,7 @@ const Stocks = () => {
   const [selectedMatiere, setSelectedMatiere] = useState<Matiere | null>(null);
   const [selectedBatch, setSelectedBatch] = useState<StockBatch | null>(null);
   const [selectedBatchTotals, setSelectedBatchTotals] = useState<{ remaining: number; total: number } | undefined>(undefined);
+  const [userNamesMap, setUserNamesMap] = useState<Map<string, string>>(new Map());
 
   useEffect(() => {
     setPage(1);
@@ -125,6 +128,14 @@ const Stocks = () => {
     });
     return map;
   }, [batches]);
+
+  const suppliersMap = useMemo(() => {
+    const map = new Map<string, string>();
+    suppliers.forEach((supplier) => {
+      map.set(supplier.id, supplier.name);
+    });
+    return map;
+  }, [suppliers]);
 
 
   const handleRestock = (matiere: Matiere) => {
@@ -205,6 +216,43 @@ const Stocks = () => {
         return dateB - dateA; // Newest first
       });
   }, [stockChanges, selectedMatiere]);
+
+  // Fetch user names for stock changes
+  useEffect(() => {
+    const fetchUserNames = async () => {
+      if (!matiereStockChanges || matiereStockChanges.length === 0) {
+        return;
+      }
+
+      const userIds = new Set<string>();
+      matiereStockChanges.forEach((change: StockChange) => {
+        if (change.userId) {
+          userIds.add(change.userId);
+        }
+      });
+
+      const namesMap = new Map<string, string>();
+      const fetchPromises = Array.from(userIds).map(async (userId) => {
+        try {
+          const user = await getUserById(userId);
+          if (user) {
+            const fullName = user.username || user.email || userId;
+            namesMap.set(userId, fullName);
+          } else {
+            namesMap.set(userId, userId); // Fallback to userId if user not found
+          }
+        } catch (error) {
+          console.error(`Error fetching user ${userId}:`, error);
+          namesMap.set(userId, userId); // Fallback to userId on error
+        }
+      });
+
+      await Promise.all(fetchPromises);
+      setUserNamesMap(namesMap);
+    };
+
+    fetchUserNames();
+  }, [matiereStockChanges]);
 
   // Show loading screen on initial load
   if (loading && matieres.length === 0) {
@@ -594,6 +642,7 @@ const Stocks = () => {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="text-left px-4 py-2 text-xs font-semibold text-gray-600">{t('navigation.warehouseMenu.stocksPage.historyModal.columns.date')}</th>
+                  <th className="text-left px-4 py-2 text-xs font-semibold text-gray-600">{t('navigation.warehouseMenu.stocksPage.historyModal.columns.user')}</th>
                   <th className="text-left px-4 py-2 text-xs font-semibold text-gray-600">{t('navigation.warehouseMenu.stocksPage.historyModal.columns.change')}</th>
                   <th className="text-left px-4 py-2 text-xs font-semibold text-gray-600">{t('navigation.warehouseMenu.stocksPage.historyModal.columns.reason')}</th>
                   <th className="text-left px-4 py-2 text-xs font-semibold text-gray-600">{t('navigation.warehouseMenu.stocksPage.historyModal.columns.supplier')}</th>
@@ -604,18 +653,27 @@ const Stocks = () => {
               <tbody className="divide-y divide-gray-200">
                 {matiereStockChanges.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                    <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
                       {t('navigation.warehouseMenu.stocksPage.historyModal.noHistoryFound')}
                     </td>
                   </tr>
                 ) : (
                   matiereStockChanges.map((change: any) => {
+                    const userName = change.userId ? (userNamesMap.get(change.userId) || change.userId) : '—';
+                    const supplierName = change.supplierId
+                      ? (suppliersMap.get(change.supplierId) || change.supplierId)
+                      : change.isOwnPurchase
+                      ? t('navigation.warehouseMenu.stocksPage.payment.ownPurchase')
+                      : '—';
                     return (
                       <tr key={change.id} className="hover:bg-gray-50">
                         <td className="px-4 py-2 text-gray-700">
                           {change.createdAt?.seconds
                             ? new Date(change.createdAt.seconds * 1000).toLocaleString()
                             : '—'}
+                        </td>
+                        <td className="px-4 py-2 text-gray-700">
+                          {userName}
                         </td>
                         <td className={`px-4 py-2 font-medium ${
                           change.change > 0 ? 'text-green-600' : 'text-red-600'
@@ -624,6 +682,19 @@ const Stocks = () => {
                           <span className="ml-1 text-xs text-gray-500">({selectedMatiere?.unit || ''})</span>
                         </td>
                         <td className="px-4 py-2 text-gray-700 capitalize">{change.reason}</td>
+                        <td className="px-4 py-2 text-gray-700">{supplierName}</td>
+                        <td className="px-4 py-2 text-gray-700">
+                          {change.isOwnPurchase ? (
+                            '—'
+                          ) : change.isCredit ? (
+                            <span className="text-red-600">{t('navigation.warehouseMenu.stocksPage.payment.credit')}</span>
+                          ) : (
+                            <span className="text-green-600">{t('navigation.warehouseMenu.stocksPage.payment.paid')}</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-2 text-gray-700">
+                          {change.costPrice ? `${change.costPrice.toLocaleString()} XAF` : '—'}
+                        </td>
                       </tr>
                     );
                   })

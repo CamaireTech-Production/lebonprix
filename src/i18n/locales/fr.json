@@ -138,6 +138,11 @@
           "depleted": "épuisé",
           "activeDepleted": "{{active}} actif / {{depleted}} épuisé"
         },
+        "payment": {
+          "credit": "Crédit",
+          "paid": "Payé",
+          "ownPurchase": "Achat Personnel"
+        },
         "messages": {
           "errorLoading": "Erreur lors du chargement des matières",
           "failedToLoad": "Échec du chargement des matières. Veuillez réessayer.",
@@ -163,6 +168,7 @@
           "currentStock": "Stock actuel :",
           "columns": {
             "date": "Date",
+            "user": "Utilisateur",
             "change": "Changement",
             "reason": "Raison",
             "supplier": "Fournisseur",
@@ -1145,6 +1151,7 @@
         "currentStock": "Stock actuel :",
         "columns": {
           "date": "Date",
+          "user": "Utilisateur",
           "change": "Changement",
           "reason": "Raison",
           "supplier": "Fournisseur",
