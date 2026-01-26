@@ -5,8 +5,8 @@ import { FirestoreService } from '../firestoreService';
 import { MediaItem } from '../../types';
 
 // Re-export new functions with legacy names for backward compatibility
-export { 
-  uploadImage: uploadImageNew,
+export {
+  uploadImageNew as uploadImage,
   uploadImages,
   base64ToBlob,
   extractFilenameFromBase64,

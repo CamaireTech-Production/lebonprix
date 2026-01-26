@@ -81,6 +81,16 @@ Restoflow/
 │   │   │   ├── LoadingSpinner.tsx
 │   │   │   └── index.ts               # Exports all UI components
 │   │   ├── customers/                 # Customer-specific components
+│   │   ├── expenses/                  # Expense-specific components
+│   │   ├── pos/                       # POS system components
+│   │   │   ├── POSScreen.tsx          # Main 3-column layout
+│   │   │   ├── POSHeader.tsx          # Header with order type selector
+│   │   │   ├── POSDishGrid.tsx        # Dish selection grid
+│   │   │   ├── POSCart.tsx            # Cart with tips, instructions
+│   │   │   ├── POSTableSelector.tsx   # Table selection modal
+│   │   │   ├── POSOrdersSidebar.tsx   # Active orders & drafts
+│   │   │   ├── POSPaymentModal.tsx    # Payment processing
+│   │   │   └── index.ts
 │   │   ├── auth/                      # Authentication components
 │   │   └── ...
 │   │
@@ -93,18 +103,31 @@ Restoflow/
 │   │   └── config.ts                  # Firebase initialization (exports db, auth, storage)
 │   │
 │   ├── hooks/
-│   │   └── business/                  # Business logic hooks
-│   │       ├── useCustomers.ts
-│   │       ├── useExpenses.ts
-│   │       ├── useSuppliers.ts
-│   │       ├── useMatieres.ts
-│   │       └── ...
+│   │   ├── business/                  # Business logic hooks
+│   │   │   ├── useCustomers.ts
+│   │   │   ├── useExpenses.ts
+│   │   │   ├── useExpenseCategories.ts
+│   │   │   ├── useSuppliers.ts
+│   │   │   ├── useMatieres.ts
+│   │   │   └── ...
+│   │   └── pos/                       # POS-specific hooks
+│   │       ├── useRestaurantPOS.ts    # Main POS hook (cart, orders, payment)
+│   │       └── index.ts
 │   │
 │   ├── pages/
 │   │   ├── auth/                      # Login, Register, etc.
 │   │   ├── restaurant/                # Restaurant management pages
 │   │   │   ├── customers/
 │   │   │   │   ├── CustomersPage.tsx
+│   │   │   │   └── index.ts
+│   │   │   ├── expenses/              # Expense management with tabs
+│   │   │   │   ├── ExpensesLayout.tsx # Tab layout (List, Categories, Analytics)
+│   │   │   │   ├── ExpensesList.tsx
+│   │   │   │   ├── ExpensesCategories.tsx
+│   │   │   │   ├── ExpensesAnalytics.tsx
+│   │   │   │   └── index.ts
+│   │   │   ├── pos/                   # POS page
+│   │   │   │   ├── POSPage.tsx
 │   │   │   │   └── index.ts
 │   │   │   ├── dashboard/
 │   │   │   ├── menu/
@@ -136,11 +159,15 @@ Restoflow/
 │   │
 │   ├── types/
 │   │   ├── index.ts                   # Original Restoflow types
-│   │   └── geskap.ts                  # Geskap types (Customer, Expense, Supplier, etc.)
+│   │   ├── geskap.ts                  # Geskap types (Customer, Expense, Supplier, etc.)
+│   │   └── pos.ts                     # POS-specific types
 │   │
 │   ├── utils/
 │   │   ├── i18n.ts                    # Translations (EN/FR)
 │   │   ├── phoneUtils.ts              # Cameroon phone formatting
+│   │   ├── dateUtils.ts               # Date formatting utilities
+│   │   ├── pos/
+│   │   │   └── posDraftStorage.ts     # Draft save/restore (localStorage)
 │   │   └── calculations/
 │   │       ├── expenseCalculations.ts
 │   │       ├── financialCalculations.ts
@@ -267,6 +294,8 @@ restaurants/
     ├── stockBatches/{batchId}
     ├── stockChanges/{changeId}
     ├── sales/{saleId}
+    ├── orders/{orderId}               # Kitchen tracking
+    ├── tables/{tableId}
     ├── employeeRefs/{userId}
     ├── invitations/{inviteId}
     ├── permissionTemplates/{templateId}
@@ -316,6 +345,104 @@ Full customer CRUD with search, stats, and DashboardLayout integration.
 
 **Route:** `/customers`
 **Navigation:** Sidebar "Customers" with Users icon
+
+### Phase 3: Expense Management ✅
+Full expense tracking with categories, analytics, and tabbed layout.
+
+**Key Files:**
+- `src/pages/restaurant/expenses/ExpensesLayout.tsx` - Tab layout wrapper
+- `src/pages/restaurant/expenses/ExpensesList.tsx` - Expense list with CRUD
+- `src/pages/restaurant/expenses/ExpensesCategories.tsx` - Category management
+- `src/pages/restaurant/expenses/ExpensesAnalytics.tsx` - Analytics dashboard
+- `src/components/expenses/` - Expense form components
+- `src/hooks/business/useExpenseCategories.ts`
+
+**Routes:** `/expenses`, `/expenses/list`, `/expenses/categories`, `/expenses/analytics`
+**Navigation:** Sidebar "Expenses" with DollarSign icon
+
+**Features:**
+- Expense CRUD with category assignment
+- Category management (default categories auto-created)
+- Analytics with charts and summaries
+- Date range filtering
+- Search and filter by category
+
+### Phase 7: POS System ✅
+Complete Point of Sale system with 3-column layout, table selection, payment processing.
+
+**Key Files Created:**
+
+*Types & Foundation:*
+- `src/types/pos.ts` - POS types (POSCartItem, POSState, POSPaymentData, etc.)
+- `src/utils/pos/posDraftStorage.ts` - Draft save/restore utility
+- `src/hooks/pos/useRestaurantPOS.ts` - Main POS hook (cart, orders, payment)
+- `src/hooks/pos/index.ts` - Barrel export
+
+*UI Components:*
+- `src/components/pos/POSHeader.tsx` - Header with order type selector
+- `src/components/pos/POSDishGrid.tsx` - Dish selection with categories
+- `src/components/pos/POSCart.tsx` - Cart with tips, special instructions
+- `src/components/pos/POSTableSelector.tsx` - Table selection modal
+- `src/components/pos/POSOrdersSidebar.tsx` - Active orders & drafts
+- `src/components/pos/POSPaymentModal.tsx` - Cash/Card/Mobile payment
+- `src/components/pos/POSScreen.tsx` - 3-column layout orchestrator
+- `src/components/pos/index.ts` - Barrel export
+
+*Pages:*
+- `src/pages/restaurant/pos/POSPage.tsx` - POS page wrapper
+- `src/pages/restaurant/pos/index.ts` - Barrel export
+
+**Route:** `/pos`
+**Navigation:** Sidebar "POS" with ShoppingCart icon
+
+**Features:**
+- 3-column layout (Orders Sidebar | Cart | Dish Grid)
+- Category filtering for dishes
+- Special instructions per item
+- Table assignment with status update
+- Order types: Dine-in / Takeaway / Delivery
+- Tip support with presets (0, 500, 1000, 2000 XAF)
+- Draft save/resume (localStorage)
+- Cash, Card, Mobile Money payments
+- Amount received & change calculation
+- Active orders tracking
+- Kitchen ticket & receipt printing (placeholder)
+- Creates both Order (kitchen) + Sale (financial) records
+
+### Phase 5: Inventory/Ingredient Management ✅
+Full inventory management with ingredients, categories, and stock tracking.
+
+**Key Files Created:**
+
+*Pages:*
+- `src/pages/restaurant/inventory/InventoryLayout.tsx` - Tab layout wrapper
+- `src/pages/restaurant/inventory/IngredientsPage.tsx` - Ingredient CRUD
+- `src/pages/restaurant/inventory/InventoryCategoriesPage.tsx` - Category management
+- `src/pages/restaurant/inventory/StocksPage.tsx` - Stock levels & restock
+- `src/pages/restaurant/inventory/index.ts` - Barrel export
+
+**Routes:** `/inventory`, `/inventory/ingredients`, `/inventory/categories`, `/inventory/stocks`
+**Navigation:** Sidebar "Inventory" with Package icon
+
+**Features:**
+- Ingredient CRUD with units (kg, g, L, mL, piece, portion, box, bottle)
+- Category management with default categories auto-creation
+- Stock level overview with status indicators (In Stock, Low Stock, Out of Stock)
+- Restock functionality with batch tracking
+- Stock history view per ingredient
+- Stats cards (total ingredients, low stock items, inventory value)
+- Search and filter by category/status
+- Uses existing `useMatieres` and `useStockBatches` hooks
+- Integrates with FIFO stock management
+
+**Database Collections:**
+- `restaurants/{id}/matieres/` - Ingredients
+- `restaurants/{id}/inventoryCategories/` - Ingredient categories
+- `restaurants/{id}/stockBatches/` - Stock batches
+
+**Default Categories:**
+- Vegetables, Fruits, Meat & Poultry, Seafood, Dairy, Grains & Pasta
+- Oils & Fats, Spices & Seasonings, Beverages, Condiments, Other
 
 ---
 
@@ -501,58 +628,33 @@ npm run dev    # Test in browser
 
 ## Pending Phases
 
-### Phase 3: Expense Management (NEXT)
-
-**Goal:** Full expense tracking with categories, filters, and reporting.
-
-**Source Reference:** `Geskap/src/pages/expenses/`
-
-**Steps:**
-1. Create `src/pages/restaurant/expenses/ExpensesPage.tsx`
-2. Create `src/pages/restaurant/expenses/ExpenseCategoriesPage.tsx`
-3. Create `src/pages/restaurant/expenses/index.ts`
-4. Create `src/components/expenses/ExpenseFormModal.tsx`
-5. Add routes: `/expenses`, `/expense-categories`
-6. Add Sidebar navigation
-7. Add i18n translations
-
-**Database Collections:**
-- `restaurants/{id}/expenses/`
-- `restaurants/{id}/expenseTypes/`
-
-**Default Expense Categories:**
-Food Supplies, Beverages, Utilities, Rent, Salaries, Equipment, Maintenance, Marketing, Delivery
-
----
-
-### Phase 4: Supplier Management
+### Phase 4: Supplier Management (NEXT)
 
 **Goal:** Supplier database with debt tracking.
 
 **Source Reference:** `Geskap/src/pages/suppliers/Suppliers.tsx`
 
+**Steps:**
+1. Create `src/pages/restaurant/suppliers/SuppliersPage.tsx`
+2. Create `src/pages/restaurant/suppliers/index.ts`
+3. Create `src/components/suppliers/SupplierFormModal.tsx`
+4. Add route: `/suppliers`
+5. Add Sidebar navigation
+6. Add i18n translations
+
 **Database:**
 - `restaurants/{id}/suppliers/`
 - `restaurants/{id}/supplierDebts/`
 
----
-
-### Phase 5: Inventory/Ingredient Management
-
-**Goal:** Ingredient tracking with stock levels, batches, and alerts.
-
-**Source Reference:** `Geskap/src/pages/magasin/`
-
-**UI Adaptation:** Rename "Matiere" to "Ingredient" in all user-facing text.
-
-**Database:**
-- `restaurants/{id}/matieres/`
-- `restaurants/{id}/stockBatches/`
-- `restaurants/{id}/stockChanges/`
+**Features to implement:**
+- Supplier CRUD (name, contact, phone, address)
+- Debt tracking per supplier
+- Payment history
+- Search and filter
 
 ---
 
-### Phase 6: Staff & Permission System
+### Phase 6: Staff & Permission System (NEXT)
 
 **Goal:** Employee management with role-based permissions.
 
@@ -562,26 +664,25 @@ Food Supplies, Beverages, Utilities, Rent, Salaries, Equipment, Maintenance, Mar
 
 **Restaurant Roles:** Owner, Manager, Chef, Server/Waiter, Cashier, Delivery
 
+**Steps:**
+1. Create `src/pages/restaurant/staff/StaffPage.tsx`
+2. Create `src/pages/restaurant/staff/PermissionsPage.tsx`
+3. Create `src/components/staff/` components
+4. Create `src/components/permissions/` components
+5. Add routes: `/staff`, `/staff/permissions`
+6. Add Sidebar navigation
+7. Add i18n translations
+
 **Database:**
 - `restaurants/{id}/employeeRefs/`
 - `restaurants/{id}/invitations/`
 - `restaurants/{id}/permissionTemplates/`
 
----
-
-### Phase 7: POS System
-
-**Goal:** Point of sale for taking orders, processing payments.
-
-**Source Reference:**
-- `Geskap/src/pages/pos/POS.tsx`
-- `Geskap/src/hooks/forms/usePOS.ts`
-
-**Restaurant Adaptations:**
-- Integrate with existing table management
-- Use dishes (from menu) instead of products
-- Add tip support
-- Kitchen ticket generation
+**Features to implement:**
+- Employee invitation system
+- Role assignment
+- Permission templates
+- Access control for different areas
 
 ---
 
@@ -595,6 +696,19 @@ Food Supplies, Beverages, Utilities, Rent, Salaries, Equipment, Maintenance, Mar
 
 **KPIs:** Daily/weekly/monthly revenue, Average order value, Popular dishes, Food cost %, Profit margins
 
+**Steps:**
+1. Enhance `src/pages/restaurant/dashboard/Dashboard.tsx`
+2. Create `src/pages/restaurant/reports/ReportsPage.tsx`
+3. Create `src/components/reports/` chart components
+4. Add routes: `/reports`
+5. Add Sidebar navigation
+6. Add i18n translations
+
+**Dependencies to add:**
+```bash
+npm install recharts date-fns
+```
+
 ---
 
 ### Phase 9: Integration & Polish
@@ -602,9 +716,10 @@ Food Supplies, Beverages, Utilities, Rent, Salaries, Equipment, Maintenance, Mar
 **Tasks:**
 1. Complete Sidebar organization
 2. Offline support for new collections
-3. Payment provider integration (Campay/CinetPay)
+3. Payment provider integration (Campay/CinetPay) with POS
 4. Complete i18n translations
 5. Full manual QA
+6. Performance optimization (code splitting)
 
 ---
 
@@ -613,12 +728,14 @@ Food Supplies, Beverages, Utilities, Rent, Salaries, Equipment, Maintenance, Mar
 | What | Source (Geskap) | Target (Restoflow) |
 |------|-----------------|-------------------|
 | All Types | `Geskap/src/types/models.ts` | `Restoflow/src/types/geskap.ts` |
-| POS Logic | `Geskap/src/hooks/forms/usePOS.ts` | Phase 7 |
-| Stock FIFO | `Geskap/src/services/firestore/stock/` | `Restoflow/src/services/firestore/stock/` |
+| POS Types | - | `Restoflow/src/types/pos.ts` ✅ |
+| POS Hook | `Geskap/src/hooks/forms/usePOS.ts` | `Restoflow/src/hooks/pos/useRestaurantPOS.ts` ✅ |
+| POS Components | `Geskap/src/components/pos/` | `Restoflow/src/components/pos/` ✅ |
+| Stock FIFO | `Geskap/src/services/firestore/stock/` | `Restoflow/src/services/firestore/stock/` ✅ |
 | Permissions | `Geskap/src/pages/permissions/` | Phase 6 |
-| Expense Page | `Geskap/src/pages/expenses/ExpensesList.tsx` | Phase 3 |
+| Expense Page | `Geskap/src/pages/expenses/ExpensesList.tsx` | `Restoflow/src/pages/restaurant/expenses/` ✅ |
 | Supplier Page | `Geskap/src/pages/suppliers/Suppliers.tsx` | Phase 4 |
-| Inventory | `Geskap/src/pages/magasin/Matieres.tsx` | Phase 5 |
+| Inventory | `Geskap/src/pages/magasin/Matieres.tsx` | `Restoflow/src/pages/restaurant/inventory/` ✅ |
 
 ---
 
@@ -632,10 +749,11 @@ Check for TypeScript errors. Common issues:
 - Missing imports
 - Type mismatches
 - Missing translations
+- Duplicate i18n keys
 
 ### Known Warnings (Safe to Ignore)
-1. **Duplicate i18n keys:** `checkout`, `order_summary`, `customer_information` duplicated in `utils/i18n.ts`
-2. **Large bundle size:** Main chunk >500KB (will optimize in Phase 9)
+1. **Large bundle size:** Main chunk >500KB (will optimize in Phase 9)
+2. **Campay dynamic import warning:** Static vs dynamic import mismatch
 
 ### Common Fixes
 
@@ -649,6 +767,9 @@ import DashboardLayout from '../../../components/layout/DashboardLayout';
 **Missing translations:**
 Add keys to both `en` and `fr` sections in `src/utils/i18n.ts`
 
+**Duplicate i18n keys:**
+Search for the key in the file and remove duplicates. Keep only one occurrence per language section.
+
 **Page not showing in sidebar:**
 1. Check route is added in `App.tsx`
 2. Check navItem is added in `Sidebar.tsx`
@@ -658,23 +779,57 @@ Add keys to both `en` and `fr` sections in `src/utils/i18n.ts`
 
 ## Quick Start for Next Phase
 
-To start **Phase 3 (Expense Management)**:
+### Option A: Phase 4 (Supplier Management)
 
 1. Read source files:
-   - `Geskap/src/pages/expenses/ExpensesList.tsx`
-   - `Geskap/src/pages/expenses/ExpensesCategories.tsx`
+   - `Geskap/src/pages/suppliers/Suppliers.tsx`
 
 2. Verify foundation exists:
-   - `Restoflow/src/types/geskap.ts` (Expense type)
-   - `Restoflow/src/services/firestore/expenses/expenseService.ts`
-   - `Restoflow/src/hooks/business/useExpenses.ts`
+   - `Restoflow/src/types/geskap.ts` (Supplier, SupplierDebt types)
+   - `Restoflow/src/services/firestore/suppliers/supplierService.ts`
+   - `Restoflow/src/hooks/business/useSuppliers.ts`
 
 3. Create page following [How to Create New Features](#how-to-create-new-features)
 
-4. Test: `npm run dev`, navigate to `/expenses`
+4. Test: `npm run dev`, navigate to `/suppliers`
+
+### Option B: Phase 6 (Staff & Permissions)
+
+1. Read source files:
+   - `Geskap/src/pages/permissions/PermissionsManagement.tsx`
+   - `Geskap/src/pages/hr/HRManagement.tsx`
+
+2. Verify foundation exists:
+   - `Restoflow/src/types/geskap.ts` (User, EmployeeRef, Invitation, PermissionTemplate types)
+   - `Restoflow/src/services/firestore/employees/`
+   - `Restoflow/src/hooks/business/usePermissions.ts`
+
+3. Create pages following [How to Create New Features](#how-to-create-new-features)
+
+4. Test: `npm run dev`, navigate to `/staff`
 
 ---
 
-*Last Updated: January 25, 2026*
-*Phase Status: 0-2 Complete, 3-9 Pending*
-*Next Phase: 3 (Expense Management)*
+## Current Sidebar Navigation
+
+```
+Dashboard
+POS                    ✅ NEW
+Dishes
+Categories
+[Delivery]             (conditional)
+Ads Management
+[Tables]               (conditional)
+[Orders]               (conditional)
+[Contacts]             (conditional)
+Customers              ✅
+Inventory              ✅ NEW
+Expenses               ✅
+Settings
+```
+
+---
+
+*Last Updated: January 26, 2026*
+*Phase Status: 0-3, 5, 7 Complete | 4, 6, 8-9 Pending*
+*Next Phase: 4 (Supplier Management) or 6 (Staff & Permissions)*

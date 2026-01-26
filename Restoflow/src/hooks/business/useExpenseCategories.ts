@@ -15,20 +15,33 @@ interface UseExpenseCategoriesOptions {
 
 interface UseExpenseCategoriesReturn {
   categories: ExpenseType[];
+  categoryUsageCounts: Record<string, number>;
   loading: boolean;
   error: string | null;
   addCategory: (name: string) => Promise<ExpenseType>;
-  updateCategory: (categoryId: string, updates: Partial<ExpenseType>) => Promise<void>;
+  updateCategory: (categoryId: string, name: string) => Promise<void>;
   deleteCategory: (categoryId: string) => Promise<void>;
-  getCategoryCounts: () => Promise<Record<string, number>>;
+  refreshCounts: () => Promise<void>;
 }
 
 export const useExpenseCategories = ({
   restaurantId
 }: UseExpenseCategoriesOptions): UseExpenseCategoriesReturn => {
   const [categories, setCategories] = useState<ExpenseType[]>([]);
+  const [categoryUsageCounts, setCategoryUsageCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Fetch category usage counts
+  const fetchCounts = useCallback(async () => {
+    if (!restaurantId) return;
+    try {
+      const counts = await getExpenseCountByCategory(restaurantId);
+      setCategoryUsageCounts(counts);
+    } catch (err) {
+      console.error('Error fetching category counts:', err);
+    }
+  }, [restaurantId]);
 
   useEffect(() => {
     if (!restaurantId) {
@@ -43,63 +56,64 @@ export const useExpenseCategories = ({
     const unsubscribe = subscribeToExpenseTypes(restaurantId, (data) => {
       setCategories(data);
       setLoading(false);
+      // Fetch counts when categories load
+      fetchCounts();
     });
 
     return () => unsubscribe();
-  }, [restaurantId]);
+  }, [restaurantId, fetchCounts]);
 
   const handleAddCategory = useCallback(
     async (name: string) => {
       try {
-        return await createExpenseType(restaurantId, name);
+        const newCategory = await createExpenseType(restaurantId, name);
+        // Refresh counts after adding
+        await fetchCounts();
+        return newCategory;
       } catch (err: any) {
         setError(err.message);
         throw err;
       }
     },
-    [restaurantId]
+    [restaurantId, fetchCounts]
   );
 
   const handleUpdateCategory = useCallback(
-    async (categoryId: string, updates: Partial<ExpenseType>) => {
+    async (categoryId: string, name: string) => {
       try {
-        await updateExpenseType(restaurantId, categoryId, updates);
+        await updateExpenseType(restaurantId, categoryId, { name });
+        // Refresh counts after updating
+        await fetchCounts();
       } catch (err: any) {
         setError(err.message);
         throw err;
       }
     },
-    [restaurantId]
+    [restaurantId, fetchCounts]
   );
 
   const handleDeleteCategory = useCallback(
     async (categoryId: string) => {
       try {
         await deleteExpenseType(restaurantId, categoryId);
+        // Refresh counts after deleting
+        await fetchCounts();
       } catch (err: any) {
         setError(err.message);
         throw err;
       }
     },
-    [restaurantId]
+    [restaurantId, fetchCounts]
   );
-
-  const handleGetCategoryCounts = useCallback(async () => {
-    try {
-      return await getExpenseCountByCategory(restaurantId);
-    } catch (err: any) {
-      setError(err.message);
-      throw err;
-    }
-  }, [restaurantId]);
 
   return {
     categories,
+    categoryUsageCounts,
     loading,
     error,
     addCategory: handleAddCategory,
     updateCategory: handleUpdateCategory,
     deleteCategory: handleDeleteCategory,
-    getCategoryCounts: handleGetCategoryCounts
+    refreshCounts: fetchCounts
   };
 };

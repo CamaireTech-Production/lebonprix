@@ -35,6 +35,9 @@ import RestaurantDetail from './pages/admin/RestaurantDetail';
 import RestaurantInspector from './pages/admin/RestaurantInspector';
 import ContactsPage from './pages/restaurant/contacts/ContactsPage';
 import { CustomersPage } from './pages/restaurant/customers';
+import { ExpensesLayout, ExpensesList, ExpensesCategories, ExpensesAnalytics } from './pages/restaurant/expenses';
+import { POSPage } from './pages/restaurant/pos';
+import { InventoryLayout, IngredientsPage, InventoryCategoriesPage, StocksPage } from './pages/restaurant/inventory';
 import ResetPassword from './pages/auth/ResetPassword';
 import DeliveryManagement from './pages/restaurant/delivery/DeliveryManagement';
 import AdsManagementFast from './pages/restaurant/ads/AdsManagementFast';
@@ -263,6 +266,49 @@ function App() {
                     </ProtectedRoute>
                   }
                 />
+                {/* Expenses Routes with nested layout */}
+                <Route
+                  path="/expenses"
+                  element={
+                    <ProtectedRoute>
+                      <VerificationWrapper>
+                        <ExpensesLayout />
+                      </VerificationWrapper>
+                    </ProtectedRoute>
+                  }
+                >
+                  <Route index element={<Navigate to="/expenses/list" replace />} />
+                  <Route path="list" element={<ExpensesList />} />
+                  <Route path="categories" element={<ExpensesCategories />} />
+                  <Route path="analytics" element={<ExpensesAnalytics />} />
+                </Route>
+                {/* POS Route */}
+                <Route
+                  path="/pos"
+                  element={
+                    <ProtectedRoute>
+                      <VerificationWrapper>
+                        <POSPage />
+                      </VerificationWrapper>
+                    </ProtectedRoute>
+                  }
+                />
+                {/* Inventory Routes with nested layout */}
+                <Route
+                  path="/inventory"
+                  element={
+                    <ProtectedRoute>
+                      <VerificationWrapper>
+                        <InventoryLayout />
+                      </VerificationWrapper>
+                    </ProtectedRoute>
+                  }
+                >
+                  <Route index element={<Navigate to="/inventory/ingredients" replace />} />
+                  <Route path="ingredients" element={<IngredientsPage />} />
+                  <Route path="categories" element={<InventoryCategoriesPage />} />
+                  <Route path="stocks" element={<StocksPage />} />
+                </Route>
                 {/* Default routes */}
                 <Route path="/" element={<Navigate to="/login" replace />} />
                 <Route path="*" element={<Navigate to="/login" replace />} />
