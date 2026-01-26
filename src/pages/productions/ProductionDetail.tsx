@@ -697,13 +697,34 @@ const ProductionDetail: React.FC = () => {
                   {production.articles.map((article: typeof production.articles[0]) => {
                     const articleStep = getArticleCurrentStep(article);
                     const isSelected = selectedArticles.has(article.id);
-                    const canPublish = article.status === 'ready' || article.status === 'in_progress';
+                    const canPublish = article.status === 'ready' || article.status === 'in_progress' || article.status === 'partially_published';
                     const isPublished = article.status === 'published';
+                    const isPartiallyPublished = article.status === 'partially_published';
+                    
+                    // Calculate published quantity from publications array if available (source of truth)
+                    let publishedQuantity = article.publishedQuantity;
+                    if (publishedQuantity === undefined) {
+                      if (article.publications && article.publications.length > 0) {
+                        // Calculate from publications array (most accurate)
+                        publishedQuantity = article.publications.reduce((sum, pub) => sum + (pub.quantity || 0), 0);
+                      } else if (article.status === 'published') {
+                        // Backward compatibility: if status is 'published' but no publications, assume all was published
+                        publishedQuantity = article.quantity;
+                      } else {
+                        publishedQuantity = 0;
+                      }
+                    }
+                    
+                    // Calculate remaining quantity
+                    let remainingQuantity = article.remainingQuantity;
+                    if (remainingQuantity === undefined) {
+                      remainingQuantity = article.quantity - publishedQuantity;
+                    }
 
                     return (
                       <div key={article.id} className={`border rounded-md p-4 ${isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}>
                         <div className="flex items-start gap-4">
-                          {!isClosed && !isPublished && (
+                              {!isClosed && canPublish && (
                             <div className="pt-1">
                               <input
                                 type="checkbox"
@@ -729,6 +750,7 @@ const ProductionDetail: React.FC = () => {
                                   article.status === 'draft' ? 'bg-gray-100 text-gray-800' :
                                   article.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
                                   article.status === 'ready' ? 'bg-green-100 text-green-800' :
+                                  article.status === 'partially_published' ? 'bg-yellow-100 text-yellow-800' :
                                   article.status === 'published' ? 'bg-purple-100 text-purple-800' :
                                   'bg-red-100 text-red-800'
                                 }`}>
@@ -748,6 +770,12 @@ const ProductionDetail: React.FC = () => {
                                     <>
                                       <CheckCircle2 className="w-3 h-3 text-green-600" />
                                       Prêt
+                                    </>
+                                  )}
+                                  {article.status === 'partially_published' && (
+                                    <>
+                                      <Package className="w-3 h-3 text-yellow-600" />
+                                      Partiellement publié
                                     </>
                                   )}
                                   {article.status === 'published' && (
@@ -813,11 +841,14 @@ const ProductionDetail: React.FC = () => {
                                           }, 0);
                                           const articleCostPrice = article.calculatedCostPrice || articleMaterialsCost;
                                           
+                                          // NEW: Use remaining quantity for partial publishing
+                                          const publishQuantity = remainingQuantity > 0 ? remainingQuantity : article.quantity;
+                                          
                                           await publishArticle(production.id, article.id, companyId || production.companyId, {
                                             name: article.name,
                                             costPrice: articleCostPrice,
                                             sellingPrice: 0, // User will need to set this - can be enhanced later
-                                            stock: article.quantity,
+                                            stock: publishQuantity,
                                             description: article.description || production.description,
                                             isVisible: true
                                           });
@@ -841,8 +872,44 @@ const ProductionDetail: React.FC = () => {
                             </div>
                             <div className="text-sm text-gray-600 space-y-1">
                               <div>
-                                <span className="font-medium">Quantité:</span> {article.quantity} unité{article.quantity !== 1 ? 's' : ''}
+                                <span className="font-medium">Quantité totale:</span> {article.quantity} unité{article.quantity !== 1 ? 's' : ''}
                               </div>
+                              {(publishedQuantity > 0 || isPublished || isPartiallyPublished) && (
+                                <div className="text-green-600">
+                                  <span className="font-medium">Publiée:</span> {publishedQuantity} unité{publishedQuantity !== 1 ? 's' : ''}
+                                </div>
+                              )}
+                              {remainingQuantity > 0 && (
+                                <div className="text-blue-600 font-medium">
+                                  <span className="font-medium">Restante:</span> {remainingQuantity} unité{remainingQuantity !== 1 ? 's' : ''}
+                                </div>
+                              )}
+                              {remainingQuantity === 0 && publishedQuantity === article.quantity && (
+                                <div className="text-gray-500 text-xs italic">
+                                  Toutes les unités ont été publiées
+                                </div>
+                              )}
+                              {article.publications && article.publications.length > 0 && (
+                                <div className="mt-2 pt-2 border-t border-gray-200">
+                                  <p className="text-xs font-medium text-gray-700 mb-1">Historique des publications:</p>
+                                  <div className="space-y-1">
+                                    {article.publications.map((pub, idx) => (
+                                      <div key={pub.id || idx} className="text-xs text-gray-600 bg-gray-50 p-2 rounded">
+                                        <div className="flex justify-between items-center">
+                                          <span>{pub.quantity} unité{pub.quantity !== 1 ? 's' : ''}</span>
+                                          <span className="text-gray-500">
+                                            {pub.publishedAt?.toDate?.()?.toLocaleDateString('fr-FR') || 'Date inconnue'}
+                                          </span>
+                                        </div>
+                                        <div className="text-gray-500 mt-0.5">
+                                          Coût: {pub.costPrice?.toLocaleString('fr-FR') || '0'} XAF | 
+                                          Prix: {pub.sellingPrice?.toLocaleString('fr-FR') || '0'} XAF
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
                               {articleStep && (
                                 <div className="flex items-center space-x-2">
                                   <span className="font-medium">Étape:</span>

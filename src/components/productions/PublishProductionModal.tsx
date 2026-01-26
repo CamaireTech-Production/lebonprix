@@ -256,6 +256,21 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
             // Round to integer (no decimals for XAF)
             const roundedCostPrice = Math.round(articleCostPrice);
             
+            // NEW: Calculate remaining quantity for partial publishing
+            // Calculate from publications array if available (source of truth)
+            let publishedQuantity = article.publishedQuantity;
+            if (publishedQuantity === undefined && article.publications && article.publications.length > 0) {
+              // Calculate from publications array
+              publishedQuantity = article.publications.reduce((sum, pub) => sum + (pub.quantity || 0), 0);
+            }
+            publishedQuantity = publishedQuantity || 0;
+            
+            // Calculate remaining quantity
+            let remainingQuantity = article.remainingQuantity;
+            if (remainingQuantity === undefined) {
+              remainingQuantity = article.quantity - publishedQuantity;
+            }
+            
             articleDataMap.set(article.id, {
               name: article.name,
               category: '',
@@ -266,7 +281,7 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
               isVisible: true,
               costPrice: roundedCostPrice.toString(),
               selectedChargeIds: [], // Default: no charges selected, user selects which charges to include
-              quantity: article.quantity.toString() // Initialize with article's quantity
+              quantity: remainingQuantity.toString() // Initialize with remaining quantity (not total quantity)
             });
           }
         });
@@ -328,9 +343,26 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
           hasErrors = true;
         }
 
-        // Validate quantity
+        // NEW: Validate quantity against remaining quantity (for partial publishing)
         const publishQuantity = parseFloat(articleData.quantity) || 0;
-        if (publishQuantity <= 0 || publishQuantity > article.quantity) {
+        
+        // Calculate published quantity from publications array if available (source of truth)
+        let publishedQuantity = article.publishedQuantity;
+        if (publishedQuantity === undefined && article.publications && article.publications.length > 0) {
+          publishedQuantity = article.publications.reduce((sum, pub) => sum + (pub.quantity || 0), 0);
+        }
+        publishedQuantity = publishedQuantity || 0;
+        
+        // Calculate remaining quantity
+        let remainingQuantity = article.remainingQuantity;
+        if (remainingQuantity === undefined) {
+          remainingQuantity = article.quantity - publishedQuantity;
+        }
+        
+        if (publishQuantity <= 0) {
+          errors.quantity = true;
+          hasErrors = true;
+        } else if (publishQuantity > remainingQuantity) {
           errors.quantity = true;
           hasErrors = true;
         }
@@ -684,7 +716,33 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
                                 </div>
                               )}
                             </div>
-                            <p className="text-xs text-gray-500">Quantité: {article.quantity} unité(s)</p>
+                            <div className="text-xs text-gray-500 space-y-0.5">
+                              <p>Quantité totale: {article.quantity} unité(s)</p>
+                              {(() => {
+                                // Calculate published quantity from publications array if available
+                                let publishedQty = article.publishedQuantity;
+                                if (publishedQty === undefined && article.publications && article.publications.length > 0) {
+                                  publishedQty = article.publications.reduce((sum, pub) => sum + (pub.quantity || 0), 0);
+                                }
+                                publishedQty = publishedQty || 0;
+                                const remainingQty = article.remainingQuantity ?? (article.quantity - publishedQty);
+                                
+                                return (
+                                  <>
+                                    {publishedQty > 0 && (
+                                      <p className="text-green-600">
+                                        Publiée: {publishedQty} unité(s)
+                                      </p>
+                                    )}
+                                    {remainingQty > 0 && (
+                                      <p className="text-blue-600 font-medium">
+                                        Restante: {remainingQty} unité(s)
+                                      </p>
+                                    )}
+                                  </>
+                                );
+                              })()}
+                            </div>
                             {/* Show out of stock materials directly in header for quick visibility */}
                             {hasStockIssues && articleValidation && (
                               <div className="mt-2 space-y-1">
@@ -785,7 +843,14 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
                                 const newData = new Map(articleFormData);
                                 const current = newData.get(article.id) || articleData;
                                 const inputValue = parseFloat(e.target.value) || 1;
-                                const maxQuantity = article.quantity;
+                                // Calculate published quantity from publications array if available
+                                let publishedQty = article.publishedQuantity;
+                                if (publishedQty === undefined && article.publications && article.publications.length > 0) {
+                                  publishedQty = article.publications.reduce((sum, pub) => sum + (pub.quantity || 0), 0);
+                                }
+                                publishedQty = publishedQty || 0;
+                                const remainingQty = article.remainingQuantity ?? (article.quantity - publishedQty);
+                                const maxQuantity = remainingQty;
                                 const quantity = Math.min(Math.max(1, inputValue), maxQuantity);
                                 newData.set(article.id, { ...current, quantity: quantity.toString() });
                                 setArticleFormData(newData);
@@ -794,15 +859,69 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
                               placeholder="Quantité"
                             />
                             <span className="text-xs text-gray-500 whitespace-nowrap">
-                              (max: {article.quantity})
+                              (max: {(() => {
+                                let publishedQty = article.publishedQuantity;
+                                if (publishedQty === undefined && article.publications && article.publications.length > 0) {
+                                  publishedQty = article.publications.reduce((sum, pub) => sum + (pub.quantity || 0), 0);
+                                }
+                                publishedQty = publishedQty || 0;
+                                return article.remainingQuantity ?? (article.quantity - publishedQty);
+                              })()})
                             </span>
                           </div>
-                          <p className="mt-1 text-xs text-gray-500">
-                            Quantité créée: {article.quantity} unité(s)
-                          </p>
+                          <div className="mt-1 text-xs text-gray-500 space-y-0.5">
+                            <p>Quantité totale créée: {article.quantity} unité(s)</p>
+                            {(() => {
+                              // Calculate published quantity from publications array if available
+                              let publishedQty = article.publishedQuantity;
+                              if (publishedQty === undefined && article.publications && article.publications.length > 0) {
+                                publishedQty = article.publications.reduce((sum, pub) => sum + (pub.quantity || 0), 0);
+                              }
+                              publishedQty = publishedQty || 0;
+                              
+                              // Calculate initial remaining quantity
+                              const initialRemainingQty = article.remainingQuantity ?? (article.quantity - publishedQty);
+                              
+                              // Get the quantity user wants to publish now
+                              const publishQtyNow = parseFloat(articleData.quantity) || 0;
+                              
+                              // Calculate remaining quantity AFTER this publication
+                              const remainingAfterPublish = initialRemainingQty - publishQtyNow;
+                              
+                              return (
+                                <>
+                                  {publishedQty > 0 && (
+                                    <p className="text-green-600">
+                                      Déjà publiée: {publishedQty} unité(s)
+                                    </p>
+                                  )}
+                                  {publishQtyNow > 0 && (
+                                    <p className="text-purple-600">
+                                      À publier maintenant: {publishQtyNow} unité(s)
+                                    </p>
+                                  )}
+                                  <p className={`font-medium ${remainingAfterPublish >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
+                                    Quantité restante après publication: {Math.max(0, remainingAfterPublish)} unité(s)
+                                  </p>
+                                  {remainingAfterPublish < 0 && (
+                                    <p className="text-red-500 text-xs italic">
+                                      ⚠️ La quantité à publier dépasse la quantité restante disponible
+                                    </p>
+                                  )}
+                                </>
+                              );
+                            })()}
+                          </div>
                           {fieldErrors.articles?.get(article.id)?.quantity && (
                             <p className="mt-1 text-xs text-red-500">
-                              La quantité doit être entre 1 et {article.quantity}
+                              La quantité doit être entre 1 et {(() => {
+                                let publishedQty = article.publishedQuantity;
+                                if (publishedQty === undefined && article.publications && article.publications.length > 0) {
+                                  publishedQty = article.publications.reduce((sum, pub) => sum + (pub.quantity || 0), 0);
+                                }
+                                publishedQty = publishedQty || 0;
+                                return article.remainingQuantity ?? (article.quantity - publishedQty);
+                              })()}
                             </p>
                           )}
                         </div>

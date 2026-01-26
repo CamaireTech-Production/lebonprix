@@ -20,6 +20,7 @@ export {
   calculateMaterialsForArticleFromProduction,
   calculateMaterialsCost,
   calculateCostPerUnit,
+  calculateMaterialsForPartialPublish,
   type MaterialWithPerUnit
 } from './materialCalculations';
 

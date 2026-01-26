@@ -512,7 +512,11 @@ const CreateProductionModal: React.FC<CreateProductionModalProps> = ({
           quantity: articleData.quantity,
           status: 'draft',
           materials: articleMaterials, // Materials specific to this article
-          calculatedCostPrice: articleMaterialCost // Cost from materials only (without charges)
+          calculatedCostPrice: articleMaterialCost, // Cost from materials only (without charges)
+          // Initialize publishing tracking fields
+          publishedQuantity: 0,
+          remainingQuantity: articleData.quantity,
+          publications: []
         };
         
         // Only add optional fields if they have values (avoid undefined)

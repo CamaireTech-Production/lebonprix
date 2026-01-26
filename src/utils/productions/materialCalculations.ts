@@ -118,3 +118,41 @@ export const calculateCostPerUnit = (materialsPerUnit: MaterialWithPerUnit[]): n
   }, 0);
 };
 
+/**
+ * Calculate materials needed for a partial publication
+ * 
+ * When publishing only part of an article (e.g., 5 out of 10 units),
+ * we need to calculate the proportional material consumption.
+ * 
+ * Formula: materialsForPublish = articleMaterials * (publishQuantity / articleQuantity)
+ * 
+ * @param articleMaterials - Materials required for the full article quantity
+ * @param publishQuantity - Quantity to publish (must be <= articleQuantity)
+ * @param articleQuantity - Total quantity of the article
+ * @returns Materials required for the partial publication
+ */
+export const calculateMaterialsForPartialPublish = (
+  articleMaterials: ProductionMaterial[],
+  publishQuantity: number,
+  articleQuantity: number
+): ProductionMaterial[] => {
+  if (articleQuantity <= 0) {
+    throw new Error('Article quantity must be greater than 0');
+  }
+  
+  if (publishQuantity <= 0) {
+    throw new Error('Publish quantity must be greater than 0');
+  }
+  
+  if (publishQuantity > articleQuantity) {
+    throw new Error('Publish quantity cannot exceed article quantity');
+  }
+  
+  const ratio = publishQuantity / articleQuantity;
+  
+  return articleMaterials.map(material => ({
+    ...material,
+    requiredQuantity: material.requiredQuantity * ratio
+  }));
+};
+
