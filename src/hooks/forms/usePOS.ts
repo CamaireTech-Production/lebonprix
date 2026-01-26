@@ -1,7 +1,8 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
-import { useSales, useProducts, useCustomers } from '@hooks/data/useFirestore';
+import { useSales, useProducts, useCustomers, useShops } from '@hooks/data/useFirestore';
 import { useCustomerSources } from '@hooks/business/useCustomerSources';
 import { useAuth } from '@contexts/AuthContext';
+import { getDefaultShop } from '@services/firestore/shops/shopService';
 import { useTranslation } from 'react-i18next';
 import { showSuccessToast, showErrorToast, showWarningToast } from '@utils/core/toast';
 import { getCurrentEmployeeRef, formatCreatorName } from '@utils/business/employeeUtils';
@@ -37,13 +38,17 @@ interface POSState {
   inventoryMethod: 'fifo' | 'lifo' | 'cmup';
   applyTVA: boolean;
   tvaRate: number;
+  // Location fields for shop/warehouse system
+  shopId: string;
+  sourceType: 'shop' | 'warehouse';
 }
 
-export function usePOS() {
+export function usePOS(shopId?: string) {
   const { t } = useTranslation();
   const { addSale } = useSales();
   const { products } = useProducts();
   const { customers, addCustomer } = useCustomers();
+  const { shops } = useShops();
   const { activeSources } = useCustomerSources();
   const { user, company, currentEmployee, isOwner } = useAuth();
   const { batches: allBatches } = useAllStockBatches();
@@ -67,6 +72,26 @@ export function usePOS() {
     tvaRate: 19.25,
   });
 
+  // Initialize default shop if not provided
+  useEffect(() => {
+    if (!state.shopId && company?.id) {
+      const initializeDefaultShop = async () => {
+        try {
+          const defaultShop = await getDefaultShop(company.id);
+          if (defaultShop) {
+            setState(prev => ({
+              ...prev,
+              shopId: defaultShop.id
+            }));
+          }
+        } catch (error) {
+          logError('Error loading default shop for POS', error);
+        }
+      };
+      initializeDefaultShop();
+    }
+  }, [company?.id, state.shopId]);
+
   // Update inventory method when settings change
   useEffect(() => {
     if (checkoutSettings?.defaultInventoryMethod) {
@@ -80,11 +105,22 @@ export function usePOS() {
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const [customerSearch, setCustomerSearch] = useState('');
 
-  // Build stock map from all batches (batches are source of truth)
-  const stockMap = useMemo(
-    () => buildProductStockMap(allBatches || []),
-    [allBatches]
-  );
+  // Build stock map from batches filtered by shop (location-aware)
+  const stockMap = useMemo(() => {
+    if (!state.shopId) {
+      // If no shop selected, use all batches (backward compatible)
+      return buildProductStockMap(allBatches || []);
+    }
+    // Filter batches by shop
+    const shopBatches = (allBatches || []).filter(batch => 
+      batch.type === 'product' && 
+      batch.locationType === 'shop' && 
+      batch.shopId === state.shopId &&
+      batch.status === 'active' &&
+      (batch.remainingQuantity || 0) > 0
+    );
+    return buildProductStockMap(shopBatches);
+  }, [allBatches, state.shopId]);
 
   const searchInputRef = useRef<HTMLInputElement>(null);
   const customerInputRef = useRef<HTMLInputElement>(null);
@@ -387,6 +423,9 @@ export function usePOS() {
         tax: tvaAmount, // TVA amount
         tvaRate: state.applyTVA ? state.tvaRate : 0, // TVA percentage rate
         tvaApplied: state.applyTVA, // Whether TVA was applied
+        // Location fields for shop/warehouse system
+        sourceType: state.sourceType,
+        ...(state.shopId && { shopId: state.shopId }),
       };
 
       // Add credit-specific fields
@@ -741,6 +780,9 @@ export function usePOS() {
     activeSources,
     products,
     checkoutSettings,
+    shops,
+    selectedShop: shops?.find(s => s.id === state.shopId) || null,
+    shopId: state.shopId,
 
     // Refs
     searchInputRef,
@@ -767,6 +809,9 @@ export function usePOS() {
     focusSearch,
     setAutoSaveCustomer,
     setShowCustomerDropdown,
+    setShop: (shopId: string) => {
+      setState(prev => ({ ...prev, shopId, cart: [] })); // Clear cart when shop changes
+    },
     stockMap, // Expose stockMap for components that need it
   };
 }

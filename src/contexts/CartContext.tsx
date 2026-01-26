@@ -12,12 +12,13 @@ interface CartItem {
   category: string;
   selectedColor?: string;
   selectedSize?: string;
+  shopId?: string; // Shop ID for shop-specific cart items
 }
 
 // Cart context interface
 interface CartContextType {
   cart: CartItem[];
-  addToCart: (product: Product, quantity?: number, selectedColor?: string, selectedSize?: string, companyId?: string) => void;
+  addToCart: (product: Product, quantity?: number, selectedColor?: string, selectedSize?: string, companyId?: string, shopId?: string) => void;
   updateCartItem: (productId: string, quantity: number, selectedColor?: string, selectedSize?: string) => void;
   removeFromCart: (productId: string, selectedColor?: string, selectedSize?: string) => void;
   clearCart: () => void;
@@ -30,6 +31,8 @@ interface CartContextType {
   clearCartForCompany: (companyId: string) => void;
   currentCompanyId: string | null;
   setCurrentCompanyId: (companyId: string | null) => void;
+  currentShopId: string | null;
+  setCurrentShopId: (shopId: string | null) => void;
 }
 
 // Create the context
@@ -39,6 +42,7 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [currentCompanyId, setCurrentCompanyId] = useState<string | null>(null);
+  const [currentShopId, setCurrentShopId] = useState<string | null>(null);
 
   // Generate unique key for cart item (product + color + size combination)
   const getItemKey = (productId: string, selectedColor?: string, selectedSize?: string) => {
@@ -51,13 +55,15 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     quantity: number = 1, 
     selectedColor?: string, 
     selectedSize?: string,
-    companyId?: string
+    companyId?: string,
+    shopId?: string
   ) => {
     const itemKey = getItemKey(product.id, selectedColor, selectedSize);
     
     setCart(prevCart => {
       const existingItemIndex = prevCart.findIndex(item => 
-        getItemKey(item.productId, item.selectedColor, item.selectedSize) === itemKey
+        getItemKey(item.productId, item.selectedColor, item.selectedSize) === itemKey &&
+        item.shopId === shopId // Match shopId as well
       );
 
       if (existingItemIndex >= 0) {
@@ -70,7 +76,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         
         // Dispatch event to open cart drawer
         window.dispatchEvent(new CustomEvent('cart:itemAdded', { 
-          detail: { product, quantity, isUpdate: true, companyId } 
+          detail: { product, quantity, isUpdate: true, companyId, shopId } 
         }));
         
         return updatedCart;
@@ -84,12 +90,13 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           image: product.images?.[0],
           category: product.category,
           selectedColor,
-          selectedSize
+          selectedSize,
+          shopId
         };
         
         // Dispatch event to open cart drawer
         window.dispatchEvent(new CustomEvent('cart:itemAdded', { 
-          detail: { product, quantity, isUpdate: false, companyId } 
+          detail: { product, quantity, isUpdate: false, companyId, shopId } 
         }));
         
         return [...prevCart, newItem];
@@ -102,7 +109,14 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setCurrentCompanyId(companyId);
       });
     }
-  }, [currentCompanyId]);
+    
+    // Set currentShopId if provided
+    if (shopId && shopId !== currentShopId) {
+      startTransition(() => {
+        setCurrentShopId(shopId);
+      });
+    }
+  }, [currentCompanyId, currentShopId]);
 
   // Update cart item quantity
   const updateCartItem = useCallback((
@@ -255,7 +269,9 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     saveCartForCompany,
     clearCartForCompany,
     currentCompanyId,
-    setCurrentCompanyId
+    setCurrentCompanyId,
+    currentShopId,
+    setCurrentShopId
   };
 
   return (

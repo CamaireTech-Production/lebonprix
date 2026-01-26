@@ -22,139 +22,14 @@ import type { InventoryResult } from '@utils/inventory/inventoryManagement';
 import { createAuditLog } from '../shared';
 import { createFinanceEntry } from '../finance/financeService';
 
-// Temporary imports from firestore.ts - will be moved to stock/ and finance/ later
-// These functions will be imported from their respective services after refactoring
-const getAvailableStockBatches = async (productId: string, companyId: string): Promise<StockBatch[]> => {
-  // Query without isDeleted filter to get all batches (including old ones without field)
-  const q = query(
-    collection(db, 'stockBatches'),
-    where('companyId', '==', companyId),
-    where('type', '==', 'product'),
-    where('productId', '==', productId),
-    where('remainingQuantity', '>', 0),
-    where('status', '==', 'active'),
-    orderBy('createdAt', 'asc')
-  );
-  
-  const snapshot = await getDocs(q);
-  const allBatches = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as StockBatch[];
-  
-  // Filter client-side to exclude only explicitly deleted batches (like useAllStockBatches does)
-  return allBatches.filter(batch => batch.isDeleted !== true);
-};
+// Import location-aware stock functions from stock service
+import { 
+  getAvailableStockBatches,
+  consumeStockFromBatches,
+  createStockChange as createStockChangeService
+} from '../stock/stockService';
 
-const consumeStockFromBatches = async (
-  batch: WriteBatch,
-  productId: string,
-  companyId: string,
-  quantity: number,
-  method: InventoryMethod = 'FIFO'
-): Promise<InventoryResult> => {
-  const availableBatches = await getAvailableStockBatches(productId, companyId);
-  
-  if (availableBatches.length === 0) {
-    throw new Error(`No available stock batches found for product ${productId}`);
-  }
-
-  const sortedBatches = availableBatches.sort((a, b) => {
-    if (method === 'FIFO') {
-      return (a.createdAt.seconds || 0) - (b.createdAt.seconds || 0);
-    } else {
-      return (b.createdAt.seconds || 0) - (a.createdAt.seconds || 0);
-    }
-  });
-
-  let remainingQuantity = quantity;
-  const consumedBatches: Array<{
-    batchId: string;
-    costPrice: number;
-    consumedQuantity: number;
-    remainingQuantity: number;
-  }> = [];
-  let totalCost = 0;
-  let totalConsumedQuantity = 0;
-
-  for (const stockBatch of sortedBatches) {
-    if (remainingQuantity <= 0) break;
-
-    const consumeQuantity = Math.min(remainingQuantity, stockBatch.remainingQuantity);
-    const newRemainingQuantity = stockBatch.remainingQuantity - consumeQuantity;
-
-    const batchRef = doc(db, 'stockBatches', stockBatch.id);
-    batch.update(batchRef, {
-      remainingQuantity: newRemainingQuantity,
-      status: newRemainingQuantity === 0 ? 'depleted' : 'active'
-    });
-
-    consumedBatches.push({
-      batchId: stockBatch.id,
-      costPrice: stockBatch.costPrice,
-      consumedQuantity: consumeQuantity,
-      remainingQuantity: newRemainingQuantity
-    });
-
-    totalCost += stockBatch.costPrice * consumeQuantity;
-    totalConsumedQuantity += consumeQuantity;
-    remainingQuantity -= consumeQuantity;
-  }
-
-  if (remainingQuantity > 0) {
-    throw new Error(`Insufficient stock available for product ${productId}. Need ${quantity}, available ${quantity - remainingQuantity}`);
-  }
-
-  const averageCostPrice = totalConsumedQuantity > 0 ? totalCost / totalConsumedQuantity : 0;
-  const primaryBatchId = consumedBatches.length > 0 ? consumedBatches[0].batchId : '';
-
-  return {
-    consumedBatches,
-    totalCost,
-    averageCostPrice,
-    primaryBatchId
-  };
-};
-
-const createStockChange = (
-  batch: WriteBatch,
-  productId: string,
-  change: number,
-  reason: any,
-  userId: string,
-  companyId: string,
-  supplierId?: string,
-  isOwnPurchase?: boolean,
-  isCredit?: boolean,
-  costPrice?: number,
-  batchId?: string,
-  saleId?: string,
-  batchConsumptions?: Array<{
-    batchId: string;
-    costPrice: number;
-    consumedQuantity: number;
-    remainingQuantity: number;
-  }>
-) => {
-  const stockChangeRef = doc(collection(db, 'stockChanges'));
-  const stockChangeData: any = {
-    type: 'product' as const, // Always product for sales
-    change,
-    reason,
-    userId,
-    companyId,
-    productId,
-    createdAt: serverTimestamp(),
-  };
-  
-  if (typeof supplierId !== 'undefined') stockChangeData.supplierId = supplierId;
-  if (typeof isOwnPurchase !== 'undefined') stockChangeData.isOwnPurchase = isOwnPurchase;
-  if (typeof isCredit !== 'undefined') stockChangeData.isCredit = isCredit;
-  if (typeof costPrice !== 'undefined') stockChangeData.costPrice = costPrice;
-  if (typeof batchId !== 'undefined') stockChangeData.batchId = batchId;
-  if (typeof saleId !== 'undefined') stockChangeData.saleId = saleId;
-  if (batchConsumptions && batchConsumptions.length > 0) stockChangeData.batchConsumptions = batchConsumptions;
-  
-  batch.set(stockChangeRef, stockChangeData);
-  return stockChangeRef.id;
-};
+// createStockChange is now imported from stock service
 
 const syncFinanceEntryWithSale = async (sale: Sale) => {
   const { logWarning } = await import('@utils/core/logger');
@@ -289,22 +164,77 @@ export const createSale = async (
         throw new Error(`Unauthorized to sell product ${productData.name}`);
       }
       
-      // Check stock from batches (source of truth)
-      const availableBatches = await getAvailableStockBatches(product.productId, companyId);
+      // Determine source location for stock consumption
+      const sourceType = data.sourceType || 'shop'; // Default to shop
+      const shopId = data.shopId;
+      const warehouseId = data.warehouseId;
+      
+      // Validate that selected location is active
+      if (sourceType === 'shop' && shopId) {
+        const shopRef = doc(db, 'shops', shopId);
+        const shopSnap = await getDoc(shopRef);
+        if (shopSnap.exists()) {
+          const shopData = shopSnap.data();
+          if (shopData.isActive === false) {
+            throw new Error('Le magasin sélectionné est désactivé. Veuillez sélectionner un magasin actif.');
+          }
+        }
+      } else if (sourceType === 'warehouse' && warehouseId) {
+        const warehouseRef = doc(db, 'warehouses', warehouseId);
+        const warehouseSnap = await getDoc(warehouseRef);
+        if (warehouseSnap.exists()) {
+          const warehouseData = warehouseSnap.data();
+          if (warehouseData.isActive === false) {
+            throw new Error('L\'entrepôt sélectionné est désactivé. Veuillez sélectionner un entrepôt actif.');
+          }
+        }
+      }
+      
+      // Determine location type and IDs for stock query
+      let locationType: 'warehouse' | 'shop' | 'production' | 'global' | undefined;
+      let queryShopId: string | undefined;
+      let queryWarehouseId: string | undefined;
+      
+      if (sourceType === 'shop' && shopId) {
+        locationType = 'shop';
+        queryShopId = shopId;
+      } else if (sourceType === 'warehouse' && warehouseId) {
+        locationType = 'warehouse';
+        queryWarehouseId = warehouseId;
+      }
+      // If no location specified, use global stock (backward compatible)
+      
+      // Check stock from batches (source of truth) - location-aware
+      const availableBatches = await getAvailableStockBatches(
+        product.productId,
+        companyId,
+        'product',
+        queryShopId,
+        queryWarehouseId,
+        locationType
+      );
       const availableStock = availableBatches.reduce((sum, b) => sum + (b.remainingQuantity || 0), 0);
       
       if (availableStock < product.quantity) {
-        throw new Error(`Insufficient stock for product ${productData.name}. Available: ${availableStock}, Requested: ${product.quantity}`);
+        const locationInfo = queryShopId ? `shop ${queryShopId}` : 
+                            queryWarehouseId ? `warehouse ${queryWarehouseId}` : 
+                            'global stock';
+        throw new Error(`Insufficient stock for product ${productData.name} in ${locationInfo}. Available: ${availableStock}, Requested: ${product.quantity}`);
       }
       
       const inventoryMethod: InventoryMethod = ((data as any).inventoryMethod?.toUpperCase() as InventoryMethod) || (productData as any).inventoryMethod || 'FIFO';
       
+      // Consume stock from location-aware batches
       const inventoryResult = await consumeStockFromBatches(
         batch,
         product.productId,
         companyId,
         product.quantity,
-        inventoryMethod
+        inventoryMethod,
+        'product',
+        queryShopId,
+        queryWarehouseId,
+        locationType
       );
       
       let productProfit = 0;
@@ -345,20 +275,25 @@ export const createSale = async (
         updatedAt: serverTimestamp()
       });
       
-      createStockChange(
+      // Create stock change with location information
+      createStockChangeService(
         batch, 
         product.productId, 
         -product.quantity, 
         'sale', 
         userId,
         companyId,
+        'product',
         undefined,
         undefined,
         undefined,
         inventoryResult.averageCostPrice,
         inventoryResult.primaryBatchId,
         saleRef.id,
-        inventoryResult.consumedBatches
+        inventoryResult.consumedBatches,
+        locationType,
+        queryShopId,
+        queryWarehouseId
       );
     }
     
@@ -411,6 +346,9 @@ export const createSale = async (
       normalizedCreatedAt = (data as any).createdAt as any;
     }
     
+    // Determine sourceType if not provided (default to shop)
+    const sourceType = data.sourceType || (data.shopId ? 'shop' : data.warehouseId ? 'warehouse' : 'shop');
+    
     // Handle credit due date if provided
     let normalizedCreditDueDate: Timestamp | undefined = undefined;
     if ((data as any).creditDueDate) {
@@ -462,6 +400,7 @@ export const createSale = async (
       customerInfo: normalizedCustomerInfo,
       deliveryFee: normalizedDeliveryFee,
       inventoryMethod: normalizedInventoryMethod,
+      sourceType, // Add sourceType
       createdAt: normalizedCreatedAt,
       updatedAt: serverTimestamp(),
       statusHistory: initialStatusHistory,
@@ -473,12 +412,13 @@ export const createSale = async (
       } : {})
     };
     
-    // Remove undefined values (Firestore doesn't allow undefined)
-    Object.keys(saleData).forEach(key => {
-      if (saleData[key] === undefined) {
-        delete saleData[key];
-      }
-    });
+    // Add location fields if provided
+    if (data.shopId) {
+      saleData.shopId = data.shopId;
+    }
+    if (data.warehouseId) {
+      saleData.warehouseId = data.warehouseId;
+    }
     
     if (createdBy) {
       saleData.createdBy = createdBy;
@@ -1006,4 +946,3 @@ export const refundCreditSale = async (
 export const addSaleWithValidation = async () => {
   // Implementation remains the same
 };
-

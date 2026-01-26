@@ -179,6 +179,10 @@ export interface Sale extends BaseModel {
   averageProfitMargin?: number;
   tvaRate?: number; // TVA percentage rate
   tvaApplied?: boolean; // Whether TVA was applied
+  // Location tracking for warehouse/shop system
+  sourceType?: 'shop' | 'warehouse'; // Where the sale originated from
+  shopId?: string; // Only if sourceType === 'shop'
+  warehouseId?: string; // Only if sourceType === 'warehouse'
   // Credit sale fields
   creditDueDate?: Timestamp; // Optional due date for credit sales
   paidAmount?: number; // Amount paid (for partial payments, future enhancement)
@@ -239,6 +243,9 @@ export interface Customer {
   howKnown?: string; // Comment il a connu l'entreprise
   customerSourceId?: string; // Source principale du client
   firstSourceId?: string; // Première source enregistrée (pour historique)
+  // Shop association for warehouse/shop system
+  primaryShopId?: string; // Preferred shop for this customer
+  associatedShops?: string[]; // Array of shop IDs where customer has made purchases
 }
 
 export interface CustomerSource extends BaseModel {
@@ -301,7 +308,7 @@ export interface StockChange {
   productId?: string; // Only if type === 'product'
   matiereId?: string; // Only if type === 'matiere'
   change: number; // + for restock, - for sale, etc.
-  reason: 'sale' | 'restock' | 'adjustment' | 'creation' | 'cost_correction' | 'damage' | 'manual_adjustment' | 'production' | 'batch_deletion' | 'quantity_correction' | 'direct_consumption';
+  reason: 'sale' | 'restock' | 'adjustment' | 'creation' | 'cost_correction' | 'damage' | 'manual_adjustment' | 'production' | 'batch_deletion' | 'quantity_correction' | 'transfer' | 'direct_consumption';
   supplierId?: string; // Reference to supplier if applicable
   isOwnPurchase?: boolean; // true if own purchase, false if from supplier
   isCredit?: boolean; // true if on credit, false if paid (only relevant if from supplier)
@@ -326,6 +333,11 @@ export interface StockChange {
     consumedQuantity: number;
     remainingQuantity: number; // remaining after this consumption
   }>;
+  // Location tracking for warehouse/shop system
+  locationType?: 'warehouse' | 'shop' | 'production' | 'global'; // Where this stock change occurred
+  warehouseId?: string; // Only if locationType === 'warehouse'
+  shopId?: string; // Only if locationType === 'shop'
+  transferId?: string; // Reference to StockTransfer if this change is part of a transfer
 }
 
 // Stock batch for FIFO inventory tracking (NEW!)
@@ -350,6 +362,11 @@ export interface StockBatch {
   isDeleted?: boolean; // Soft delete flag
   deletedAt?: Timestamp; // When the batch was deleted
   deletedBy?: string; // User who deleted the batch
+  // Location tracking for warehouse/shop system
+  locationType?: 'warehouse' | 'shop' | 'production' | 'global'; // Where this stock batch is located
+  warehouseId?: string; // Only if locationType === 'warehouse'
+  shopId?: string; // Only if locationType === 'shop'
+  productionId?: string; // Only if locationType === 'production'
 }
 
 /**
@@ -499,6 +516,9 @@ export interface UserCompanyRef {
   permissionTemplateId?: string;
   // Optional: userId (firebaseUid) - needed for operations like deletion
   userId?: string;
+  // Shop and warehouse assignments for warehouse/shop system
+  assignedShops?: string[]; // Array of shop IDs assigned to this user
+  assignedWarehouses?: string[]; // Array of warehouse IDs assigned to this user
 }
 
 // ❌ SUPPRIMÉ - Plus utilisé dans l'architecture simplifiée
@@ -950,3 +970,105 @@ export interface ActionRequest {
   updatedAt: Timestamp;
 }
 
+// ============================================================================
+// WAREHOUSE & SHOP MODELS
+// ============================================================================
+
+/**
+ * Shop - Retail location where products are sold
+ */
+export interface Shop extends BaseModel {
+  name: string;
+  location?: string; // General location description
+  address?: string; // Full address
+  phone?: string; // Shop phone number
+  email?: string; // Shop email
+  isDefault: boolean; // True for default shop (auto-created, non-deletable if only shop)
+  isActive: boolean; // True if shop is active (can be used for sales, transfers, etc.)
+  assignedUsers?: string[]; // Array of user IDs with full access (read + write)
+  readOnlyUsers?: string[]; // Array of user IDs with read-only access
+  managerId?: string; // Primary shop manager user ID
+  // Catalogue settings for shop-specific catalogue
+  catalogueSettings?: {
+    isPublic: boolean; // Whether shop catalogue is publicly accessible
+    customDomain?: string; // Custom domain for shop catalogue
+    seoSettings?: {
+      metaTitle?: string;
+      metaDescription?: string;
+      metaKeywords?: string[];
+      ogImage?: string;
+    };
+  };
+}
+
+/**
+ * Warehouse - Central warehouse for finished products
+ */
+export interface Warehouse extends BaseModel {
+  name: string;
+  location?: string; // General location description
+  address?: string; // Full address
+  isDefault: boolean; // True for default warehouse (auto-created, non-deletable if only warehouse)
+  isActive: boolean; // True if warehouse is active (can be used for transfers, etc.)
+  assignedUsers?: string[]; // Array of user IDs with full access (read + write)
+  readOnlyUsers?: string[]; // Array of user IDs with read-only access
+}
+
+/**
+ * Stock Transfer - Tracks product transfers between locations
+ */
+export interface StockTransfer extends BaseModel {
+  transferType: 'warehouse_to_shop' | 'warehouse_to_warehouse' | 'shop_to_shop' | 'shop_to_warehouse';
+  // Source location (one of these will be set based on transferType)
+  fromWarehouseId?: string; // If transferring from warehouse
+  fromShopId?: string; // If transferring from shop
+  fromProductionId?: string; // If transferring from production
+  // Destination location (one of these will be set based on transferType)
+  toWarehouseId?: string; // If transferring to warehouse
+  toShopId?: string; // If transferring to shop
+  // Product and quantity
+  productId: string; // Product being transferred
+  quantity: number; // Quantity being transferred
+  batchIds: string[]; // Array of stock batch IDs being transferred
+  // Status
+  status: 'pending' | 'completed' | 'cancelled';
+  // Notes
+  notes?: string; // Optional notes about the transfer
+}
+
+/**
+ * Stock Replenishment Request - Request from a shop to replenish stock from a warehouse
+ */
+export interface StockReplenishmentRequest extends BaseModel {
+  companyId: string;
+  shopId: string; // Shop requesting replenishment
+  productId: string; // Product to replenish
+  quantity: number; // Quantity requested
+  requestedBy: string; // User ID who created the request
+  status: 'pending' | 'approved' | 'rejected' | 'fulfilled';
+  transferId?: string; // If fulfilled, link to the created transfer
+  fulfilledAt?: Timestamp; // When the request was fulfilled
+  notes?: string; // Optional notes about the request
+  rejectedReason?: string; // Reason for rejection if rejected
+}
+
+/**
+ * Notification - User notifications for various events
+ */
+export interface Notification extends BaseModel {
+  userId: string; // User who should receive this notification
+  companyId: string; // Company context for the notification
+  type: 'replenishment_request_created' | 'replenishment_request_fulfilled' | 
+        'replenishment_request_rejected' | 'transfer_created' | 'stock_low';
+  title: string; // Notification title
+  message: string; // Notification message
+  data?: {
+    requestId?: string; // For replenishment request notifications
+    transferId?: string; // For transfer notifications
+    shopId?: string; // For shop-related notifications
+    warehouseId?: string; // For warehouse-related notifications
+    productId?: string; // For product-related notifications
+  };
+  read: boolean; // Whether the notification has been read
+  readAt?: Timestamp; // When the notification was read
+}

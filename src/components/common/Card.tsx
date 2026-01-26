@@ -1,6 +1,6 @@
-import { ReactNode } from 'react';
+import { ReactNode, HTMLAttributes } from 'react';
 
-interface CardProps {
+interface CardProps extends Omit<HTMLAttributes<HTMLDivElement>, 'title'> {
   title?: string;
   subtitle?: string;
   children: ReactNode;
@@ -9,9 +9,9 @@ interface CardProps {
   contentClassName?: string;
 }
 
-const Card = ({ title, subtitle, children, className = '', footer, contentClassName }: CardProps) => {
+const Card = ({ title, subtitle, children, className = '', footer, contentClassName, ...divProps }: CardProps) => {
   return (
-    <div className={`bg-white rounded-lg shadow-md overflow-hidden ${className}`}>
+    <div className={`bg-white rounded-lg shadow-md overflow-hidden ${className}`} {...divProps}>
       {(title || subtitle) && (
         <div className="p-4 border-b border-gray-200">
           {title && <h3 className="text-lg font-semibold text-gray-800">{title}</h3>}

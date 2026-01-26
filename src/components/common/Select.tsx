@@ -31,10 +31,10 @@ const Select: React.FC<SelectProps> = ({
       )}
       <select
         className={`
-          block w-full rounded-md border border-gray-400 shadow-sm
-          px-4 py-2.5 text-sm
-          focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500 focus:outline-none
-          ${error ? 'border-red-400' : ''}
+          block w-full px-4 py-3 rounded-md border border-gray-200 shadow-sm
+          focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm
+          bg-white text-gray-900
+          ${error ? 'border-red-300' : ''}
           ${className}
         `}
         {...props}

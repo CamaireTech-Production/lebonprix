@@ -3,8 +3,9 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { AlertTriangle, Package, ChevronDown, ChevronUp, XCircle, CheckCircle2 } from 'lucide-react';
 import { Modal, ModalFooter, PriceInput } from '@components/common';
 import { useAuth } from '@contexts/AuthContext';
-import { useProductCategories, useProductionFlows } from '@hooks/data/useFirestore';
+import { useProductCategories, useProductionFlows, useWarehouses, useShops } from '@hooks/data/useFirestore';
 import { useMatiereStocks } from '@hooks/business/useMatiereStocks';
+import { getDefaultShop } from '@services/firestore/shops/shopService';
 import { showSuccessToast, showErrorToast, showWarningToast } from '@utils/core/toast';
 import { formatPrice } from '@utils/formatting/formatPrice';
 import { calculateMaterialsForArticleFromProduction } from '@utils/productions/materialCalculations';
@@ -26,6 +27,8 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
 }) => {
   const { user, company } = useAuth();
   const { categories } = useProductCategories();
+  const { warehouses } = useWarehouses();
+  const { shops } = useShops();
   const { matiereStocks } = useMatiereStocks();
   const { flows } = useProductionFlows();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -53,7 +56,10 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
     description: '',
     barCode: '',
     isVisible: true,
-    validatedCostPrice: '' // Add cost validation field
+    validatedCostPrice: '', // Add cost validation field
+    destinationType: 'shop' as 'shop' | 'warehouse', // Type of destination
+    shopId: '', // Shop to transfer products to
+    warehouseId: '' // Warehouse to transfer products to
   });
 
   // Field error tracking for highlighting
@@ -229,16 +235,35 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
       setFieldErrors({});
       
       // Initialize form data
-      setFormData({
-        name: production.name,
-        category: '',
-        sellingPrice: '',
-        cataloguePrice: '',
-        description: production.description || '',
-        barCode: '',
-        isVisible: true,
-        validatedCostPrice: (production.validatedCostPrice || production.calculatedCostPrice || 0).toString()
-      });
+      const initializeFormData = async () => {
+        // Get default shop for default selection
+        let defaultShopId = '';
+        if (company?.id) {
+          try {
+            const defaultShop = await getDefaultShop(company.id);
+            if (defaultShop) {
+              defaultShopId = defaultShop.id;
+            }
+          } catch (error) {
+            console.error('Error loading default shop:', error);
+          }
+        }
+
+        setFormData({
+          name: production.name,
+          category: '',
+          sellingPrice: '',
+          cataloguePrice: '',
+          description: production.description || '',
+          barCode: '',
+          isVisible: true,
+          validatedCostPrice: (production.validatedCostPrice || production.calculatedCostPrice || 0).toString(),
+          destinationType: 'shop',
+          shopId: defaultShopId,
+          warehouseId: ''
+        });
+      };
+      initializeFormData();
 
       // Initialize article form data
       const articleDataMap = new Map<string, any>();
@@ -411,6 +436,16 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
         return;
       }
 
+      // Validate destination is selected
+      if (formData.destinationType === 'shop' && !formData.shopId) {
+        showErrorToast('Veuillez sélectionner un magasin');
+        return;
+      }
+      if (formData.destinationType === 'warehouse' && !formData.warehouseId) {
+        showErrorToast('Veuillez sélectionner un entrepôt');
+        return;
+      }
+
       setIsSubmitting(true);
       try {
         const { bulkPublishArticles } = await import('@services/firestore/productions/productionService');
@@ -444,7 +479,14 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
           });
         }
 
-        const results = await bulkPublishArticles(production.id, Array.from(selectedArticles), company.id, productDataMap);
+        const results = await bulkPublishArticles(
+          production.id,
+          Array.from(selectedArticles),
+          company.id,
+          productDataMap,
+          formData.destinationType === 'warehouse' ? formData.warehouseId || undefined : undefined,
+          formData.destinationType === 'shop' ? formData.shopId || undefined : undefined
+        );
         showSuccessToast(`${results.length} article(s) publié(s) avec succès`);
         onClose();
         if (onSuccess) onSuccess();
@@ -494,6 +536,16 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
       return;
     }
 
+    // Validate destination is selected
+    if (formData.destinationType === 'shop' && !formData.shopId) {
+      showErrorToast('Veuillez sélectionner un magasin');
+      return;
+    }
+    if (formData.destinationType === 'warehouse' && !formData.warehouseId) {
+      showErrorToast('Veuillez sélectionner un entrepôt');
+      return;
+    }
+
     if (!stockValidation.isValid) {
       showErrorToast('Stock insuffisant pour certains matériaux');
       return;
@@ -532,7 +584,9 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
           costPrice: parseFloat(formData.validatedCostPrice)
         },
         company.id,
-        user.uid
+        user.uid,
+        formData.destinationType === 'warehouse' ? formData.warehouseId || undefined : undefined,
+        formData.destinationType === 'shop' ? formData.shopId || undefined : undefined
       );
 
       showSuccessToast('Production publiée avec succès');
@@ -570,8 +624,8 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
             isSubmitting || 
             cannotPublishDueToFlow ||
             (hasArticles && publishMode === 'selected' 
-              ? selectedArticles.size === 0 || hasInsufficientStockForSelectedArticles
-              : !stockValidation.isValid || !formData.validatedCostPrice || parseFloat(formData.validatedCostPrice) < 0 || !formData.name.trim() || !formData.sellingPrice || parseFloat(formData.sellingPrice) < 0)
+              ? selectedArticles.size === 0 || hasInsufficientStockForSelectedArticles || (formData.destinationType === 'shop' && !formData.shopId) || (formData.destinationType === 'warehouse' && !formData.warehouseId)
+              : !stockValidation.isValid || !formData.validatedCostPrice || parseFloat(formData.validatedCostPrice) < 0 || !formData.name.trim() || !formData.sellingPrice || parseFloat(formData.sellingPrice) < 0 || (formData.destinationType === 'shop' && !formData.shopId) || (formData.destinationType === 'warehouse' && !formData.warehouseId))
           }
         />
       }
@@ -603,6 +657,91 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
             </div>
           </div>
         )}
+
+        {/* Destination Location Selection */}
+        <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg space-y-3">
+          <h3 className="text-sm font-semibold text-gray-900">Destination de la production</h3>
+          <div className="space-y-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Type de destination <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={formData.destinationType}
+                onChange={(e) => {
+                  const newDestinationType = e.target.value as 'shop' | 'warehouse';
+                  setFormData(prev => ({
+                    ...prev,
+                    destinationType: newDestinationType,
+                    shopId: newDestinationType === 'shop' ? prev.shopId : '',
+                    warehouseId: newDestinationType === 'warehouse' ? prev.warehouseId : ''
+                  }));
+                }}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="shop">Magasin</option>
+                <option value="warehouse">Entrepôt</option>
+              </select>
+            </div>
+            
+            {formData.destinationType === 'shop' && (
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Magasin <span className="text-red-500">*</span>
+                </label>
+                {shops?.length === 0 ? (
+                  <div className="w-full px-3 py-2 text-sm border border-yellow-300 rounded-md bg-yellow-50 text-yellow-700">
+                    Aucun magasin disponible. Veuillez créer un magasin.
+                  </div>
+                ) : (
+                  <select
+                    value={formData.shopId}
+                    onChange={(e) => setFormData({ ...formData, shopId: e.target.value })}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Sélectionner un magasin</option>
+                    {shops?.map(shop => (
+                      <option key={shop.id} value={shop.id}>
+                        {shop.name} {shop.isDefault ? '(Par défaut)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            )}
+            
+            {formData.destinationType === 'warehouse' && (
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Entrepôt <span className="text-red-500">*</span>
+                </label>
+                {warehouses?.length === 0 ? (
+                  <div className="w-full px-3 py-2 text-sm border border-yellow-300 rounded-md bg-yellow-50 text-yellow-700">
+                    Aucun entrepôt disponible. Veuillez créer un entrepôt.
+                  </div>
+                ) : (
+                  <select
+                    value={formData.warehouseId}
+                    onChange={(e) => setFormData({ ...formData, warehouseId: e.target.value })}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Sélectionner un entrepôt</option>
+                    {warehouses?.map(warehouse => (
+                      <option key={warehouse.id} value={warehouse.id}>
+                        {warehouse.name} {warehouse.isDefault ? '(Par défaut)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            )}
+          </div>
+          <p className="text-xs text-gray-500 mt-2">
+            {formData.destinationType === 'shop'
+              ? 'Le stock sera créé directement dans le magasin sélectionné'
+              : 'Le stock sera créé directement dans l\'entrepôt sélectionné'}
+          </p>
+        </div>
 
         {/* Article Selection Mode (if has articles) */}
         {hasArticles && publishableArticles.length > 0 ? (
@@ -1663,4 +1802,3 @@ const PublishProductionModal: React.FC<PublishProductionModalProps> = ({
 };
 
 export default PublishProductionModal;
-
