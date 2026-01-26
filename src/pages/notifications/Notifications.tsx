@@ -77,7 +77,8 @@ const Notifications: React.FC = () => {
         
         // Navigate to product detail if productId exists
         if (notifProductId && cid) {
-          navigate(`/company/${cid}/products/${notifProductId}`);
+          // Navigate to products page with productId query param to open modal
+          navigate(`/company/${cid}/products?productId=${notifProductId}`);
         } else if (matiereId && cid) {
           navigate(`/company/${cid}/magasin/matieres`);
         } else if (shopId && cid) {
@@ -165,22 +166,34 @@ const Notifications: React.FC = () => {
   };
 
   const handleStockAlertAction = (e: React.MouseEvent, notification: Notification, action: 'view' | 'restock') => {
+    e.preventDefault();
     e.stopPropagation();
+    
     const { productId, matiereId } = notification.data || {};
     const cid = companyId || company?.id;
 
+    if (!cid) {
+      console.error('Company ID is missing');
+      return;
+    }
+
     if (action === 'view') {
-      if (productId && cid) {
-        navigate(`/company/${cid}/products/${productId}`);
-      } else if (matiereId && cid) {
-        navigate(`/company/${cid}/magasin/matieres`);
-      } else if (cid) {
-        navigate(`/company/${cid}/products/stocks`);
+      if (productId) {
+        // Navigate to products page with productId query param to open modal
+        navigate(`/company/${cid}/products?productId=${productId}`, { replace: false });
+      } else if (matiereId) {
+        navigate(`/company/${cid}/magasin/matieres`, { replace: false });
+      } else {
+        navigate(`/company/${cid}/products/stocks`, { replace: false });
       }
     } else if (action === 'restock') {
       // Navigate to stock replenishment or stock management
-      if (cid) {
-        navigate(`/company/${cid}/replenishment-requests?create=true`);
+      if (productId) {
+        // Navigate to products page with productId and action=restock query params
+        navigate(`/company/${cid}/products?productId=${productId}&action=restock`, { replace: false });
+      } else {
+        // Navigate to replenishment requests page to create new request
+        navigate(`/company/${cid}/replenishment-requests?create=true`, { replace: false });
       }
     }
   };
@@ -336,16 +349,26 @@ const Notifications: React.FC = () => {
                             {notification.message}
                           </p>
                           {(notification.type === 'stock_low' || notification.type === 'stock_rupture') && (
-                            <div className="flex gap-2 mt-3">
+                            <div className="flex gap-2 mt-3" onClick={(e) => e.stopPropagation()}>
                               <button
-                                onClick={(e) => handleStockAlertAction(e, notification, 'view')}
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleStockAlertAction(e, notification, 'view');
+                                }}
                                 className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded-md transition-colors"
                               >
                                 <Eye className="h-3.5 w-3.5" />
                                 Voir
                               </button>
                               <button
-                                onClick={(e) => handleStockAlertAction(e, notification, 'restock')}
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleStockAlertAction(e, notification, 'restock');
+                                }}
                                 className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-green-600 hover:text-green-800 hover:bg-green-100 rounded-md transition-colors"
                               >
                                 <Plus className="h-3.5 w-3.5" />

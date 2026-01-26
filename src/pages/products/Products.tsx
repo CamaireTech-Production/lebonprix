@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Grid, List, Plus, Search, Edit2, Upload, Trash2, CheckSquare, Square, Info, Eye, EyeOff, QrCode, ExternalLink, FileText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { Card, Button, Badge, Modal, ModalFooter, Input, ImageWithSkeleton, LoadingScreen, SyncIndicator, PriceInput } from '@components/common';
 import { useProducts, useStockChanges, useCategories, useSuppliers } from '@hooks/data/useFirestore';
 import { useInfiniteProducts } from '@hooks/data/useInfiniteProducts';
@@ -38,6 +38,7 @@ const Products = () => {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   // Check if we're in a company route
   const isCompanyRoute = location.pathname.startsWith('/company/');
@@ -236,6 +237,30 @@ const Products = () => {
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [detailProduct, setDetailProduct] = useState<Product | null>(null);
   const [detailTab, setDetailTab] = useState<'details' | 'stock'>('details');
+
+  // Check for productId in URL params and open product detail modal
+  useEffect(() => {
+    const productIdFromUrl = searchParams.get('productId');
+    const actionFromUrl = searchParams.get('action');
+    
+    // Only process if we have a productId in URL and products are loaded
+    if (productIdFromUrl && infiniteProducts.length > 0 && !isDetailModalOpen && !infiniteLoading) {
+      const product = infiniteProducts.find(p => p.id === productIdFromUrl);
+      if (product) {
+        setDetailProduct(product);
+        setIsDetailModalOpen(true);
+        // Set tab based on action
+        if (actionFromUrl === 'restock') {
+          setDetailTab('stock');
+        }
+        // Clean up URL params after opening modal
+        const newSearchParams = new URLSearchParams(searchParams);
+        newSearchParams.delete('productId');
+        newSearchParams.delete('action');
+        setSearchParams(newSearchParams, { replace: true });
+      }
+    }
+  }, [searchParams, infiniteProducts, isDetailModalOpen, infiniteLoading, setSearchParams]);
 
   // Add state for stock history table controls
   const [stockHistoryPage, setStockHistoryPage] = useState(1);

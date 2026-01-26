@@ -156,23 +156,34 @@ const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({ onClose }
   };
 
   const handleStockAlertAction = (e: React.MouseEvent, notification: Notification, action: 'view' | 'restock') => {
+    e.preventDefault();
     e.stopPropagation();
+    
     const { productId, matiereId } = notification.data || {};
     const companyId = company?.id;
 
+    if (!companyId) {
+      console.error('Company ID is missing');
+      return;
+    }
+
     if (action === 'view') {
-      if (productId && companyId) {
-        navigate(`/company/${companyId}/products/${productId}`);
-      } else if (matiereId && companyId) {
-        navigate(`/company/${companyId}/magasin/matieres`);
+      if (productId) {
+        // Navigate to products page with productId query param to open modal
+        navigate(`/company/${companyId}/products?productId=${productId}`, { replace: false });
+      } else if (matiereId) {
+        navigate(`/company/${companyId}/magasin/matieres`, { replace: false });
+      } else {
+        navigate(`/company/${companyId}/products/stocks`, { replace: false });
       }
       onClose();
     } else if (action === 'restock') {
       // Navigate to stock management or purchase order creation
-      if (productId && companyId) {
-        navigate(`/company/${companyId}/products/${productId}?action=restock`);
-      } else if (companyId) {
-        navigate(`/company/${companyId}/products/stocks`);
+      if (productId) {
+        // Navigate to products page with productId and action=restock query params
+        navigate(`/company/${companyId}/products?productId=${productId}&action=restock`, { replace: false });
+      } else {
+        navigate(`/company/${companyId}/replenishment-requests?create=true`, { replace: false });
       }
       onClose();
     }
@@ -264,21 +275,31 @@ const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({ onClose }
                           {notification.message}
                         </p>
                         {(notification.type === 'stock_low' || notification.type === 'stock_rupture') && (
-                          <div className="flex gap-2 mt-2">
-                            <div
-                              onClick={(e) => handleStockAlertAction(e, notification, 'view')}
+                          <div className="flex gap-2 mt-2" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleStockAlertAction(e, notification, 'view');
+                              }}
                               className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
                             >
                               <Eye className="h-3 w-3" />
                               Voir
-                            </div>
-                            <div
-                              onClick={(e) => handleStockAlertAction(e, notification, 'restock')}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleStockAlertAction(e, notification, 'restock');
+                              }}
                               className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-green-600 hover:text-green-800 hover:bg-green-50 rounded-md transition-colors cursor-pointer"
                             >
                               <Plus className="h-3 w-3" />
                               Réapprovisionner
-                            </div>
+                            </button>
                           </div>
                         )}
                         <p className="text-xs text-gray-400 mt-2">
@@ -330,21 +351,31 @@ const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({ onClose }
                           {notification.message}
                         </p>
                         {(notification.type === 'stock_low' || notification.type === 'stock_rupture') && (
-                          <div className="flex gap-2 mt-2">
-                            <div
-                              onClick={(e) => handleStockAlertAction(e, notification, 'view')}
+                          <div className="flex gap-2 mt-2" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleStockAlertAction(e, notification, 'view');
+                              }}
                               className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
                             >
                               <Eye className="h-3 w-3" />
                               Voir
-                            </div>
-                            <div
-                              onClick={(e) => handleStockAlertAction(e, notification, 'restock')}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleStockAlertAction(e, notification, 'restock');
+                              }}
                               className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-green-600 hover:text-green-800 hover:bg-green-50 rounded-md transition-colors cursor-pointer"
                             >
                               <Plus className="h-3 w-3" />
                               Réapprovisionner
-                            </div>
+                            </button>
                           </div>
                         )}
                         <p className="text-xs text-gray-400 mt-2">
