@@ -1,5 +1,6 @@
 import { Plus, Minus, Trash2, ShoppingCart, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useState, useEffect } from 'react';
 import { ImageWithSkeleton, PriceInput } from '@components/common';
 import { formatPrice } from '@utils/formatting/formatPrice';
 import type { CartItem } from '@hooks/forms/usePOS';
@@ -66,74 +67,19 @@ export const POSCart: React.FC<POSCartProps> = ({
           cart.map(item => {
             const price = item.negotiatedPrice ?? item.product.sellingPrice;
             const itemTotal = price * item.quantity;
+            const effectiveStock = getEffectiveProductStock(item.product, stockMap);
 
             return (
-              <div
+              <QuantityInputItem
                 key={item.product.id}
-                className="bg-gray-50 rounded-lg p-3 border border-gray-200"
-              >
-                <div className="flex items-start space-x-3">
-                  <div className="w-16 h-16 rounded overflow-hidden bg-gray-100 flex-shrink-0">
-                    <ImageWithSkeleton
-                      src={item.product.images && item.product.images.length > 0 ? item.product.images[0] : '/placeholder.png'}
-                      alt={item.product.name}
-                      className="w-full h-full object-cover"
-                      placeholder="/placeholder.png"
-                    />
-                  </div>
-                  
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium text-sm mb-1">{item.product.name}</div>
-                    <div className="text-xs text-gray-600 mb-2">
-                      {formatPrice(price)} XAF × {item.quantity}
-                    </div>
-                    
-                    {/* Quantity Controls */}
-                    <div className="flex items-center space-x-2 mb-2">
-                      <button
-                        onClick={() => onUpdateQuantity(item.product.id, item.quantity - 1)}
-                        className="p-1 bg-white border border-gray-300 rounded hover:bg-gray-50"
-                      >
-                        <Minus size={14} />
-                      </button>
-                      <span className="text-sm font-medium w-8 text-center">{item.quantity}</span>
-                      <button
-                        onClick={() => onUpdateQuantity(item.product.id, item.quantity + 1)}
-                        disabled={item.quantity >= getEffectiveProductStock(item.product, stockMap)}
-                        className="p-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <Plus size={14} />
-                      </button>
-                    </div>
-
-                    {/* Negotiated Price Input */}
-                    {item.negotiatedPrice !== undefined && (
-                      <PriceInput
-                        name={`negotiatedPrice-${item.product.id}`}
-                        value={item.negotiatedPrice.toString()}
-                        onChange={(e) => {
-                          const value = parseFloat(e.target.value);
-                          onUpdateNegotiatedPrice(item.product.id, isNaN(value) || e.target.value === '' ? undefined : value);
-                        }}
-                        placeholder="Negotiated price"
-                        className="w-full px-2 py-1 text-xs mb-2"
-                      />
-                    )}
-                  </div>
-
-                  <div className="flex flex-col items-end">
-                    <button
-                      onClick={() => onRemoveItem(item.product.id)}
-                      className="p-1 text-red-600 hover:text-red-800 mb-2"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                    <div className="text-sm font-semibold text-emerald-600">
-                      {formatPrice(itemTotal)} XAF
-                    </div>
-                  </div>
-                </div>
-              </div>
+                item={item}
+                price={price}
+                itemTotal={itemTotal}
+                effectiveStock={effectiveStock}
+                onUpdateQuantity={onUpdateQuantity}
+                onRemoveItem={onRemoveItem}
+                onUpdateNegotiatedPrice={onUpdateNegotiatedPrice}
+              />
             );
           })
         )}
@@ -181,6 +127,156 @@ export const POSCart: React.FC<POSCartProps> = ({
           </button>
         </div>
       )}
+    </div>
+  );
+};
+
+// Quantity Input Item Component
+interface QuantityInputItemProps {
+  item: CartItem;
+  price: number;
+  itemTotal: number;
+  effectiveStock: number;
+  onUpdateQuantity: (productId: string, quantity: number) => void;
+  onRemoveItem: (productId: string) => void;
+  onUpdateNegotiatedPrice: (productId: string, price: number | undefined) => void;
+}
+
+const QuantityInputItem: React.FC<QuantityInputItemProps> = ({
+  item,
+  price,
+  itemTotal,
+  effectiveStock,
+  onUpdateQuantity,
+  onRemoveItem,
+  onUpdateNegotiatedPrice,
+}) => {
+  const [inputValue, setInputValue] = useState<string>(item.quantity.toString());
+  const [isFocused, setIsFocused] = useState(false);
+
+  // Update input value when item quantity changes externally
+  useEffect(() => {
+    if (!isFocused) {
+      setInputValue(item.quantity.toString());
+    }
+  }, [item.quantity, isFocused]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    // Allow empty string, numbers, and leading zeros (will be validated on blur)
+    if (value === '' || /^\d*$/.test(value)) {
+      setInputValue(value);
+    }
+  };
+
+  const handleInputBlur = () => {
+    setIsFocused(false);
+    const numValue = parseInt(inputValue, 10);
+    
+    if (inputValue === '' || isNaN(numValue) || numValue < 1) {
+      // Reset to current quantity if invalid
+      setInputValue(item.quantity.toString());
+      return;
+    }
+
+    // Clamp to stock limit
+    const finalQuantity = Math.min(numValue, effectiveStock);
+    if (finalQuantity !== item.quantity) {
+      onUpdateQuantity(item.product.id, finalQuantity);
+    } else {
+      setInputValue(finalQuantity.toString());
+    }
+  };
+
+  const handleInputFocus = () => {
+    setIsFocused(true);
+    // Select all text when focused for easy replacement
+    setTimeout(() => {
+      const input = document.activeElement as HTMLInputElement;
+      if (input) {
+        input.select();
+      }
+    }, 0);
+  };
+
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.currentTarget.blur();
+    }
+  };
+
+  return (
+    <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+      <div className="flex items-start space-x-3">
+        <div className="w-16 h-16 rounded overflow-hidden bg-gray-100 flex-shrink-0">
+          <ImageWithSkeleton
+            src={item.product.images && item.product.images.length > 0 ? item.product.images[0] : '/placeholder.png'}
+            alt={item.product.name}
+            className="w-full h-full object-cover"
+            placeholder="/placeholder.png"
+          />
+        </div>
+        
+        <div className="flex-1 min-w-0">
+          <div className="font-medium text-sm mb-1">{item.product.name}</div>
+          <div className="text-xs text-gray-600 mb-2">
+            {formatPrice(price)} XAF × {item.quantity}
+          </div>
+          
+          {/* Quantity Controls */}
+          <div className="flex items-center space-x-2 mb-2">
+            <button
+              onClick={() => onUpdateQuantity(item.product.id, item.quantity - 1)}
+              className="p-1 bg-white border border-gray-300 rounded hover:bg-gray-50"
+            >
+              <Minus size={14} />
+            </button>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={inputValue}
+              onChange={handleInputChange}
+              onBlur={handleInputBlur}
+              onFocus={handleInputFocus}
+              onKeyDown={handleInputKeyDown}
+              className="text-sm font-medium w-12 text-center border border-gray-300 rounded px-1 py-0.5 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+            />
+            <button
+              onClick={() => onUpdateQuantity(item.product.id, item.quantity + 1)}
+              disabled={item.quantity >= effectiveStock}
+              className="p-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Plus size={14} />
+            </button>
+          </div>
+
+          {/* Negotiated Price Input */}
+          {item.negotiatedPrice !== undefined && (
+            <PriceInput
+              name={`negotiatedPrice-${item.product.id}`}
+              value={item.negotiatedPrice.toString()}
+              onChange={(e) => {
+                const value = parseFloat(e.target.value);
+                onUpdateNegotiatedPrice(item.product.id, isNaN(value) || e.target.value === '' ? undefined : value);
+              }}
+              placeholder="Negotiated price"
+              className="w-full px-2 py-1 text-xs mb-2"
+            />
+          )}
+        </div>
+
+        <div className="flex flex-col items-end">
+          <button
+            onClick={() => onRemoveItem(item.product.id)}
+            className="p-1 text-red-600 hover:text-red-800 mb-2"
+          >
+            <Trash2 size={16} />
+          </button>
+          <div className="text-sm font-semibold text-emerald-600">
+            {formatPrice(itemTotal)} XAF
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
