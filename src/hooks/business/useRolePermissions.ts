@@ -25,6 +25,12 @@ export function useRolePermissions(companyId?: string) {
     // Un utilisateur est owner si isOwner est true OU si effectiveRole est 'owner'
     const isActualOwner = isOwner || effectiveRole === 'owner';
 
+    // Check if template is missing: user has permissionTemplateId but template is null and loading is done
+    const currentCompanyId = company?.id || companyId;
+    const userCompanyRef = userCompanies?.find((c) => c.companyId === currentCompanyId);
+    const hasTemplateId = !!userCompanyRef?.permissionTemplateId;
+    const isTemplateMissing = !isActualOwner && hasTemplateId && !template && !templateLoading && !!currentCompanyId;
+
     // Si owner, retourner permissions complètes (pas besoin de template)
     if (isActualOwner) {
       const ownerPermissions: RolePermissions = {
@@ -71,6 +77,7 @@ export function useRolePermissions(companyId?: string) {
         permissions: ownerPermissions,
         template: null,
         templateLoading: false,
+        isTemplateMissing: false,
         canAccess,
         canCreate,
         canEdit,
@@ -130,6 +137,7 @@ export function useRolePermissions(companyId?: string) {
         permissions: emptyPermissions,
         template: null,
         templateLoading,
+        isTemplateMissing,
         canAccess,
         canCreate,
         canEdit,
@@ -188,6 +196,7 @@ export function useRolePermissions(companyId?: string) {
       permissions: effectivePermissions,
       template,
       templateLoading,
+      isTemplateMissing: false,
       canAccess,
       canCreate,
       canEdit,
@@ -199,5 +208,5 @@ export function useRolePermissions(companyId?: string) {
       isOwner: false,
       refreshPermissions: stableRefreshCache,
     };
-  }, [effectiveRole, isOwner, template, templateLoading, companyId, stableRefreshCache]);
+  }, [effectiveRole, isOwner, template, templateLoading, companyId, company?.id, userCompanies, stableRefreshCache]);
 }
