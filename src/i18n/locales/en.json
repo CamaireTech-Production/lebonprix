@@ -2727,7 +2727,8 @@
       "replenishmentRequestFulfilled": "Replenishment Request Fulfilled",
       "replenishmentRequestRejected": "Replenishment Request Rejected",
       "transferCreated": "Transfer Created",
-      "stockLow": "Stock Low"
+      "stockLow": "Stock Low",
+      "stockRupture": "Stock Out"
     }
   }
 } 

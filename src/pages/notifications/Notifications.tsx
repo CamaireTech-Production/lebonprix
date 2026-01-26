@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Bell, CheckCircle, XCircle, Package, ShoppingCart, ArrowRight, AlertCircle, Filter, X } from 'lucide-react';
+import { Bell, CheckCircle, XCircle, Package, ShoppingCart, ArrowRight, AlertCircle, Filter, X, Eye, Plus, AlertTriangle } from 'lucide-react';
 import { Card, Button, Badge, LoadingScreen, Select } from '@components/common';
 import { useNotifications } from '@hooks/data/useFirestore';
 import { useAuth } from '@contexts/AuthContext';
@@ -72,8 +72,15 @@ const Notifications: React.FC = () => {
         if (cid) {
           navigate(`/company/${cid}/stock-transfers`);
         }
-      } else if (notification.type === 'stock_low') {
-        if (shopId && cid) {
+      } else if (notification.type === 'stock_low' || notification.type === 'stock_rupture') {
+        const { productId: notifProductId, matiereId } = notification.data || {};
+        
+        // Navigate to product detail if productId exists
+        if (notifProductId && cid) {
+          navigate(`/company/${cid}/products/${notifProductId}`);
+        } else if (matiereId && cid) {
+          navigate(`/company/${cid}/magasin/matieres`);
+        } else if (shopId && cid) {
           navigate(`/company/${cid}/shops/${shopId}`);
         } else if (warehouseId && cid) {
           navigate(`/company/${cid}/warehouse/${warehouseId}`);
@@ -131,6 +138,8 @@ const Notifications: React.FC = () => {
         return <ArrowRight className="h-5 w-5" />;
       case 'stock_low':
         return <AlertCircle className="h-5 w-5" />;
+      case 'stock_rupture':
+        return <AlertTriangle className="h-5 w-5" />;
       default:
         return <Bell className="h-5 w-5" />;
     }
@@ -148,8 +157,31 @@ const Notifications: React.FC = () => {
         return 'text-indigo-600 bg-indigo-50';
       case 'stock_low':
         return 'text-yellow-600 bg-yellow-50';
+      case 'stock_rupture':
+        return 'text-red-600 bg-red-50';
       default:
         return 'text-gray-600 bg-gray-50';
+    }
+  };
+
+  const handleStockAlertAction = (e: React.MouseEvent, notification: Notification, action: 'view' | 'restock') => {
+    e.stopPropagation();
+    const { productId, matiereId } = notification.data || {};
+    const cid = companyId || company?.id;
+
+    if (action === 'view') {
+      if (productId && cid) {
+        navigate(`/company/${cid}/products/${productId}`);
+      } else if (matiereId && cid) {
+        navigate(`/company/${cid}/magasin/matieres`);
+      } else if (cid) {
+        navigate(`/company/${cid}/products/stocks`);
+      }
+    } else if (action === 'restock') {
+      // Navigate to stock replenishment or stock management
+      if (cid) {
+        navigate(`/company/${cid}/replenishment-requests?create=true`);
+      }
     }
   };
 
@@ -198,36 +230,35 @@ const Notifications: React.FC = () => {
       <Card className="p-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              {t('notifications.filters.type', 'Type')}
-            </label>
             <Select
+              label={t('notifications.filters.type', 'Type')}
               value={filterType}
               onChange={(e) => setFilterType(e.target.value as typeof filterType)}
               className="w-full"
-            >
-              <option value="all">{t('common.all', 'All')}</option>
-              <option value="replenishment_request_created">{t('notifications.types.replenishmentRequestCreated', 'Replenishment Request Created')}</option>
-              <option value="replenishment_request_fulfilled">{t('notifications.types.replenishmentRequestFulfilled', 'Replenishment Request Fulfilled')}</option>
-              <option value="replenishment_request_rejected">{t('notifications.types.replenishmentRequestRejected', 'Replenishment Request Rejected')}</option>
-              <option value="transfer_created">{t('notifications.types.transferCreated', 'Transfer Created')}</option>
-              <option value="stock_low">{t('notifications.types.stockLow', 'Stock Low')}</option>
-            </Select>
+              options={[
+                { value: 'all', label: t('common.all', 'All') },
+                { value: 'replenishment_request_created', label: t('notifications.types.replenishmentRequestCreated', 'Replenishment Request Created') },
+                { value: 'replenishment_request_fulfilled', label: t('notifications.types.replenishmentRequestFulfilled', 'Replenishment Request Fulfilled') },
+                { value: 'replenishment_request_rejected', label: t('notifications.types.replenishmentRequestRejected', 'Replenishment Request Rejected') },
+                { value: 'transfer_created', label: t('notifications.types.transferCreated', 'Transfer Created') },
+                { value: 'stock_low', label: t('notifications.types.stockLow', 'Stock Low') },
+                { value: 'stock_rupture', label: t('notifications.types.stockRupture', 'Stock Out') }
+              ]}
+            />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              {t('notifications.filters.status', 'Status')}
-            </label>
             <Select
+              label={t('notifications.filters.status', 'Status')}
               value={filterRead}
               onChange={(e) => setFilterRead(e.target.value as typeof filterRead)}
               className="w-full"
-            >
-              <option value="all">{t('common.all', 'All')}</option>
-              <option value="unread">{t('notifications.unread', 'Unread')}</option>
-              <option value="read">{t('notifications.read', 'Read')}</option>
-            </Select>
+              options={[
+                { value: 'all', label: t('common.all', 'All') },
+                { value: 'unread', label: t('notifications.unread', 'Unread') },
+                { value: 'read', label: t('notifications.read', 'Read') }
+              ]}
+            />
           </div>
         </div>
       </Card>
@@ -256,8 +287,14 @@ const Notifications: React.FC = () => {
               {unreadNotifications.map((notification) => (
                 <Card
                   key={notification.id}
-                  className={`p-4 cursor-pointer hover:shadow-md transition-shadow border-l-4 ${
-                    notification.read ? 'border-transparent' : 'border-blue-500'
+                  className={`p-5 cursor-pointer hover:shadow-lg transition-all border-l-4 mb-3 ${
+                    notification.read 
+                      ? 'border-transparent bg-gray-50' 
+                      : notification.type === 'stock_rupture'
+                      ? 'border-red-500 bg-red-50/30'
+                      : notification.type === 'stock_low'
+                      ? 'border-yellow-500 bg-yellow-50/30'
+                      : 'border-blue-500 bg-blue-50/30'
                   }`}
                   onClick={() => handleNotificationClick(notification)}
                 >
@@ -269,29 +306,57 @@ const Notifications: React.FC = () => {
                         e.stopPropagation();
                         toggleNotificationSelection(notification.id);
                       }}
-                      className="mt-1"
+                      className="mt-1.5 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                     />
-                    <div className={`flex-shrink-0 p-2 rounded-lg ${getNotificationColor(notification.type)}`}>
+                    <div className={`flex-shrink-0 p-3 rounded-lg ${getNotificationColor(notification.type)}`}>
                       {getNotificationIcon(notification.type)}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-start justify-between gap-2 mb-2">
                         <div className="flex-1">
-                          <p className="text-sm font-semibold text-gray-900">
-                            {notification.title}
-                          </p>
-                          <p className="text-sm text-gray-600 mt-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <p className="text-base font-semibold text-gray-900">
+                              {notification.title}
+                            </p>
+                            {!notification.read && (
+                              <div className="flex-shrink-0">
+                                <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
+                              </div>
+                            )}
+                            {(notification.type === 'stock_low' || notification.type === 'stock_rupture') && (
+                              <Badge 
+                                variant={notification.type === 'stock_rupture' ? 'destructive' : 'warning'}
+                                className="text-xs"
+                              >
+                                {notification.type === 'stock_rupture' ? 'Rupture' : 'Stock Bas'}
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-sm text-gray-700 mt-1 leading-relaxed">
                             {notification.message}
                           </p>
-                          <p className="text-xs text-gray-400 mt-2">
+                          {(notification.type === 'stock_low' || notification.type === 'stock_rupture') && (
+                            <div className="flex gap-2 mt-3">
+                              <button
+                                onClick={(e) => handleStockAlertAction(e, notification, 'view')}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded-md transition-colors"
+                              >
+                                <Eye className="h-3.5 w-3.5" />
+                                Voir
+                              </button>
+                              <button
+                                onClick={(e) => handleStockAlertAction(e, notification, 'restock')}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-green-600 hover:text-green-800 hover:bg-green-100 rounded-md transition-colors"
+                              >
+                                <Plus className="h-3.5 w-3.5" />
+                                Réapprovisionner
+                              </button>
+                            </div>
+                          )}
+                          <p className="text-xs text-gray-500 mt-3">
                             {formatNotificationDate(notification.createdAt)}
                           </p>
                         </div>
-                        {!notification.read && (
-                          <div className="flex-shrink-0">
-                            <div className="h-2 w-2 rounded-full bg-blue-500" />
-                          </div>
-                        )}
                       </div>
                     </div>
                   </div>
@@ -313,7 +378,7 @@ const Notifications: React.FC = () => {
               {readNotifications.map((notification) => (
                 <Card
                   key={notification.id}
-                  className="p-4 cursor-pointer hover:shadow-md transition-shadow opacity-75"
+                  className="p-5 cursor-pointer hover:shadow-md transition-all opacity-75 mb-3 border border-gray-200"
                   onClick={() => handleNotificationClick(notification)}
                 >
                   <div className="flex items-start gap-4">
@@ -324,16 +389,16 @@ const Notifications: React.FC = () => {
                         e.stopPropagation();
                         toggleNotificationSelection(notification.id);
                       }}
-                      className="mt-1"
+                      className="mt-1.5 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                     />
-                    <div className={`flex-shrink-0 p-2 rounded-lg ${getNotificationColor(notification.type)}`}>
+                    <div className={`flex-shrink-0 p-3 rounded-lg ${getNotificationColor(notification.type)} opacity-60`}>
                       {getNotificationIcon(notification.type)}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-700">
+                      <p className="text-sm font-medium text-gray-600 mb-1">
                         {notification.title}
                       </p>
-                      <p className="text-sm text-gray-500 mt-1">
+                      <p className="text-sm text-gray-500 mt-1 leading-relaxed">
                         {notification.message}
                       </p>
                       <p className="text-xs text-gray-400 mt-2">

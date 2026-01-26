@@ -3,6 +3,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { CartProvider } from './contexts/CartContext';
 import { PWAProvider } from './contexts/PWAContext';
+import { StockMonitoringProvider } from './components/notifications/StockMonitoringProvider';
 import LoadingScreen from './components/common/LoadingScreen';
 import { Toaster } from 'react-hot-toast';
 import { PWAErrorHandler, PWAUpdateNotification, ErrorBoundary } from './components/pwa';
@@ -14,11 +15,13 @@ function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <CartProvider>
-          <PWAProvider>
-            <AppWithFAB isAddSaleModalOpen={isAddSaleModalOpen} setIsAddSaleModalOpen={setIsAddSaleModalOpen} />
-          </PWAProvider>
-        </CartProvider>
+        <StockMonitoringProvider>
+          <CartProvider>
+            <PWAProvider>
+              <AppWithFAB isAddSaleModalOpen={isAddSaleModalOpen} setIsAddSaleModalOpen={setIsAddSaleModalOpen} />
+            </PWAProvider>
+          </CartProvider>
+        </StockMonitoringProvider>
       </AuthProvider>
     </BrowserRouter>
   );
