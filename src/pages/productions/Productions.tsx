@@ -3,6 +3,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Plus, Eye, Loader2, Search, Filter, X, Trash2, Edit2, Package, List, Columns, Workflow } from 'lucide-react';
 import { Button, LoadingScreen, Input, Badge, Modal, ModalFooter } from '@components/common';
 import { useProductions, useProductionFlows, useProductionCategories, useProductionFlowSteps } from '@hooks/data/useFirestore';
+import { canPublishProduction } from '@utils/productions/flowValidation';
 import { formatPrice } from '@utils/formatting/formatPrice';
 import CreateProductionModal from '@components/productions/CreateProductionModal';
 import PublishProductionModal from '@components/productions/PublishProductionModal';
@@ -887,13 +888,30 @@ const Productions: React.FC = () => {
                           >
                             <Edit2 size={16} />
                           </button>
-                          <button
-                            onClick={(e) => handleOpenPublishModal(production, e)}
-                            className="text-green-600 hover:text-green-900"
-                            title="Publier"
-                          >
-                            <Package size={16} />
-                          </button>
+                          {(() => {
+                            const flow = production.flowId ? flows.find(f => f.id === production.flowId) : null;
+                            const publishCheck = canPublishProduction(production, flow?.stepIds);
+                            return (
+                              <button
+                                onClick={(e) => {
+                                  if (publishCheck.canPublish) {
+                                    handleOpenPublishModal(production, e);
+                                  } else {
+                                    showErrorToast(publishCheck.reason || 'Impossible de publier cette production');
+                                  }
+                                }}
+                                disabled={!publishCheck.canPublish}
+                                className={`${
+                                  publishCheck.canPublish
+                                    ? 'text-green-600 hover:text-green-900'
+                                    : 'text-gray-400 cursor-not-allowed opacity-50'
+                                }`}
+                                title={publishCheck.canPublish ? 'Publier' : publishCheck.reason || 'Impossible de publier'}
+                              >
+                                <Package size={16} />
+                              </button>
+                            );
+                          })()}
                         </>
                       )}
                       {canDelete && canDeleteProduction(production) && (

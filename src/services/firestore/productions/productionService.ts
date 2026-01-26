@@ -7,12 +7,14 @@ import {
   where,
   orderBy,
   getDoc,
+  getDocs,
   onSnapshot,
   serverTimestamp,
   writeBatch,
   arrayUnion,
   Timestamp,
-  runTransaction
+  runTransaction,
+  limit
 } from 'firebase/firestore';
 import { db } from '../../core/firebase';
 import { logError } from '@utils/core/logger';
@@ -683,8 +685,50 @@ export const publishArticle = async (
 
     const article = production.articles[articleIndex];
 
-    if (article.status === 'published') {
-      throw new Error('Article is already published');
+    // NEW: Check if article is fully published
+    // Calculate published quantity from publications array if available (source of truth)
+    let publishedQuantity = article.publishedQuantity;
+    if (publishedQuantity === undefined) {
+      if (article.publications && article.publications.length > 0) {
+        // Calculate from publications array (most accurate)
+        publishedQuantity = article.publications.reduce((sum, pub) => sum + (pub.quantity || 0), 0);
+      } else if (article.status === 'published') {
+        // Backward compatibility: if status is 'published' but no publications, assume all was published
+        publishedQuantity = article.quantity;
+      } else {
+        publishedQuantity = 0;
+      }
+    }
+    
+    // Calculate remaining quantity
+    let remainingQuantity = article.remainingQuantity;
+    if (remainingQuantity === undefined) {
+      remainingQuantity = article.quantity - publishedQuantity;
+    }
+    
+    // Allow republishing if there's remaining quantity, even if status is 'published' (backward compatibility)
+    if (article.status === 'published' && remainingQuantity <= 0) {
+      throw new Error('Article is already fully published');
+    }
+    
+    // If status is 'published' but there's remaining quantity, it means it was published before our update
+    // We'll update it to 'partially_published' during the update
+
+    // NEW: Validate publish quantity
+    const publishQuantity = productData.stock || article.quantity;
+    if (publishQuantity <= 0) {
+      throw new Error('La quantité à publier doit être supérieure à 0');
+    }
+    
+    if (publishQuantity > remainingQuantity) {
+      throw new Error(`La quantité à publier (${publishQuantity}) ne peut pas dépasser la quantité restante (${remainingQuantity})`);
+    }
+
+    // STEP 1.5: Validate flow completion
+    const { validateArticleFlowCompletion } = await import('@utils/productions/flowValidation');
+    const flowValidation = await validateArticleFlowCompletion(production, articleId);
+    if (!flowValidation.isValid) {
+      throw new Error(flowValidation.errorMessage || 'Toutes les étapes du flux doivent être passées avant de publier');
     }
 
     // STEP 2: Get materials needed for this article (from article.materials)
@@ -694,9 +738,17 @@ export const publishArticle = async (
       throw new Error(`Aucun matériau défini pour l'article "${article.name}". Veuillez ajouter des matériaux à cet article.`);
     }
 
-    // STEP 3: Validate stock availability
+    // NEW: Calculate proportional materials for partial publication
+    const { calculateMaterialsForPartialPublish } = await import('@utils/productions/materialCalculations');
+    const materialsForPublish = calculateMaterialsForPartialPublish(
+      articleMaterials,
+      publishQuantity,
+      article.quantity
+    );
+
+    // STEP 3: Validate stock availability for the publish quantity
     const { getAvailableStockBatches } = await import('../stock/stockService');
-    for (const material of articleMaterials) {
+    for (const material of materialsForPublish) {
       const availableBatches = await getAvailableStockBatches(material.matiereId, production.companyId, 'matiere');
       const totalAvailable = availableBatches.reduce((sum, batch) => sum + batch.remainingQuantity, 0);
       
@@ -724,7 +776,8 @@ export const publishArticle = async (
 
     const materialsBatch = writeBatch(db);
     
-    for (const material of articleMaterials) {
+    // NEW: Use proportional materials for partial publication
+    for (const material of materialsForPublish) {
       const inventoryResult = await consumeStockFromBatches(
         materialsBatch,
         material.matiereId,
@@ -790,60 +843,165 @@ export const publishArticle = async (
       }
     }
 
-    // STEP 6: Create product
+    // STEP 6: Create or update product (Option A: Same product, multiple batches)
     const { createProduct } = await import('../products/productService');
-    const product = await createProduct(
-      {
-        name: productData.name || article.name,
-        reference: `${production.reference}-${articleId.substring(0, 8)}`,
-        category: productData.category,
-        sellingPrice: productData.sellingPrice,
-        cataloguePrice: productData.cataloguePrice ?? productData.sellingPrice,
-        stock: productData.stock || article.quantity,
+    // createStockChange already imported above for materials consumption
+    
+    let product: import('../../../types/models').Product;
+    let stockBatchId: string;
+    
+    // Check if article has been published before (has publishedProductId)
+    if (article.publishedProductId) {
+      // Article already has a product - add to existing product
+      const productRef = doc(db, 'products', article.publishedProductId);
+      const productSnap = await getDoc(productRef);
+      
+      if (!productSnap.exists()) {
+        throw new Error('Produit associé introuvable');
+      }
+      
+      product = { id: productSnap.id, ...productSnap.data() } as import('../../../types/models').Product;
+      
+      // Add stock batch to existing product
+      const stockBatchRef = doc(collection(db, 'stockBatches'));
+      stockBatchId = stockBatchRef.id;
+      
+      const stockBatchData = {
+        id: stockBatchId,
+        type: 'product' as const,
+        productId: product.id,
+        quantity: publishQuantity,
         costPrice: productData.costPrice,
-        images: article.images || production.images || [],
-        imagePaths: production.imagePaths || [],
-        description: productData.description || article.description || production.description,
-        barCode: productData.barCode,
-        isVisible: productData.isVisible !== false,
-        tags: [],
-        userId: currentUserId, // Use current user, not production.userId
-        enableBatchTracking: true,
-        isAvailable: true,
-        companyId: production.companyId
-      },
-      production.companyId,
-      {
+        createdAt: serverTimestamp(),
+        userId: currentUserId,
+        companyId: production.companyId,
+        remainingQuantity: publishQuantity,
+        status: 'active' as const,
         isOwnPurchase: true,
-        isCredit: false,
-        costPrice: productData.costPrice
-      },
-      createdBy,
-      shopId ? {
-        locationType: 'shop',
-        shopId: shopId
-      } : warehouseId ? {
-        locationType: 'warehouse',
-        warehouseId: warehouseId
-      } : undefined
-    );
+        isCredit: false
+      };
+      
+      const stockBatchWrite = writeBatch(db);
+      stockBatchWrite.set(stockBatchRef, stockBatchData);
+      
+      // Create stock change for this batch
+      createStockChange(
+        stockBatchWrite,
+        product.id,
+        publishQuantity,
+        'production',
+        currentUserId,
+        production.companyId,
+        undefined, // supplierId
+        true, // isOwnPurchase
+        false, // isCredit
+        productData.costPrice,
+        stockBatchId
+      );
+      
+      await stockBatchWrite.commit();
+    } else {
+      // First publication - create new product
+      product = await createProduct(
+        {
+          name: productData.name || article.name,
+          reference: `${production.reference}-${articleId.substring(0, 8)}`,
+          category: productData.category,
+          sellingPrice: productData.sellingPrice,
+          cataloguePrice: productData.cataloguePrice ?? productData.sellingPrice,
+          stock: publishQuantity,
+          costPrice: productData.costPrice,
+          images: article.images || production.images || [],
+          imagePaths: production.imagePaths || [],
+          description: productData.description || article.description || production.description,
+          barCode: productData.barCode,
+          isVisible: productData.isVisible !== false,
+          tags: [],
+          userId: currentUserId,
+          enableBatchTracking: true,
+          isAvailable: true,
+          companyId: production.companyId
+        },
+        production.companyId,
+        {
+          isOwnPurchase: true,
+          isCredit: false,
+          costPrice: productData.costPrice
+        },
+        createdBy,
+        shopId ? {
+          locationType: 'shop',
+          shopId: shopId
+        } : warehouseId ? {
+          locationType: 'warehouse',
+          warehouseId: warehouseId
+        } : undefined
+      );
+      
+      // Get the stock batch ID from the created product (first batch)
+      // Query for the batch created during product creation
+      const stockBatchesQuery = query(
+        collection(db, 'stockBatches'),
+        where('productId', '==', product.id),
+        orderBy('createdAt', 'desc'),
+        limit(1)
+      );
+      const stockBatchesSnap = await getDocs(stockBatchesQuery);
+      if (!stockBatchesSnap.empty) {
+        stockBatchId = stockBatchesSnap.docs[0].id;
+      } else {
+        // Fallback: generate a new batch ID (shouldn't happen, but handle gracefully)
+        throw new Error('Impossible de trouver le batch de stock créé pour le produit');
+      }
+    }
 
     // STEP 7: Update article and production
     const updateBatch = writeBatch(db);
 
     // currentUserId already retrieved above for stock changes and product creation
 
-    // Update article
+    // NEW: Calculate new published quantities
+    const newPublishedQuantity = publishedQuantity + publishQuantity;
+    const newRemainingQuantity = article.quantity - newPublishedQuantity;
+    
+    // NEW: Determine article status
+    let newArticleStatus: 'partially_published' | 'published';
+    if (newRemainingQuantity <= 0) {
+      newArticleStatus = 'published';
+    } else {
+      newArticleStatus = 'partially_published';
+    }
+    
+    // NEW: Create publication record
+    const publicationId = doc(collection(db, 'temp')).id; // Generate unique ID
+    const publication = {
+      id: publicationId,
+      quantity: publishQuantity,
+      productId: product.id,
+      stockBatchId: stockBatchId,
+      publishedAt: Timestamp.now(),
+      publishedBy: currentUserId,
+      costPrice: productData.costPrice,
+      sellingPrice: productData.sellingPrice,
+      ...(selectedChargeIds && selectedChargeIds.length > 0 && { selectedChargeIds })
+    };
+    
+    // NEW: Update article with publication tracking
     const updatedArticles = [...production.articles];
+    const existingPublications = article.publications || [];
     updatedArticles[articleIndex] = {
       ...article,
-      status: 'published',
-      publishedProductId: product.id,
-      publishedAt: Timestamp.now(),
-      publishedBy: currentUserId // Track who published this article
+      status: newArticleStatus,
+      publishedQuantity: newPublishedQuantity,
+      remainingQuantity: newRemainingQuantity,
+      publications: [...existingPublications, publication],
+      // Keep legacy fields for backward compatibility
+      publishedProductId: product.id, // Always point to the product
+      publishedAt: article.publishedAt || Timestamp.now(), // First publication date
+      publishedBy: article.publishedBy || currentUserId // First publisher
     };
 
-    // Calculate published articles count
+    // Calculate published articles count (all articles fully published)
     const publishedCount = updatedArticles.filter(a => a.status === 'published').length;
     const allPublished = updatedArticles.length > 0 && updatedArticles.every(a => a.status === 'published');
 
@@ -1043,7 +1201,11 @@ export const addArticleToProduction = async (
     const articleId = `article_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
     const newArticle: ProductionArticle = {
       ...article,
-      id: articleId
+      id: articleId,
+      // Ensure publishing tracking fields are initialized if not provided
+      publishedQuantity: article.publishedQuantity ?? 0,
+      remainingQuantity: article.remainingQuantity ?? article.quantity,
+      publications: article.publications || []
     };
 
     // Get existing articles or initialize empty array
@@ -1278,6 +1440,13 @@ export const publishProduction = async (
     const production = await getProduction(productionId, companyId);
     if (!production) {
       throw new Error('Production not found');
+    }
+
+    // STEP 2.5: Validate flow completion
+    const { validateProductionFlowCompletion } = await import('@utils/productions/flowValidation');
+    const flowValidation = await validateProductionFlowCompletion(production);
+    if (!flowValidation.isValid) {
+      throw new Error(flowValidation.errorMessage || 'Toutes les étapes du flux doivent être passées avant de publier');
     }
 
     // STEP 3: Validate stock availability
@@ -1518,4 +1687,3 @@ export const publishProduction = async (
     throw error;
   }
 };
-

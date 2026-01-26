@@ -604,20 +604,40 @@ export interface ProductionMaterial {
  * Production Article - Individual article/item produced in a production
  * Each production can produce multiple articles with different quantities
  */
+/**
+ * Production Article Publication - Tracks individual publication batch
+ */
+export interface ProductionArticlePublication {
+  id: string; // Unique ID for this publication
+  quantity: number; // Quantity published in this batch
+  productId: string; // ID of the product (same product for all publications of this article)
+  stockBatchId: string; // ID of the stock batch created for this publication
+  publishedAt: Timestamp;
+  publishedBy: string; // User ID who published
+  costPrice: number; // Cost price at time of publication
+  sellingPrice: number; // Selling price at time of publication
+  selectedChargeIds?: string[]; // Charge IDs included in this publication
+}
+
 export interface ProductionArticle {
   id: string; // Unique ID (auto-generated)
   name: string; // User-entered OR auto-generated from production name
-  quantity: number; // Number of units to produce for this article
-  status: 'draft' | 'in_progress' | 'ready' | 'published' | 'cancelled';
+  quantity: number; // Number of units to produce for this article (total quantity)
+  status: 'draft' | 'in_progress' | 'ready' | 'partially_published' | 'published' | 'cancelled';
   
   // Flow stage tracking (uses production flowId)
   currentStepId?: string; // Current step in production flow
   currentStepName?: string; // Denormalized step name
   
-  // Publishing
-  publishedProductId?: string; // If published, reference to Product
-  publishedAt?: Timestamp;
-  publishedBy?: string;
+  // Publishing tracking (NEW: supports partial publishing)
+  publishedQuantity: number; // Total quantity already published across all publications
+  remainingQuantity: number; // Quantity remaining to be published (quantity - publishedQuantity)
+  publications: ProductionArticlePublication[]; // History of all publications for this article
+  
+  // Legacy fields (kept for backward compatibility)
+  publishedProductId?: string; // ID of the product (first publication or current product)
+  publishedAt?: Timestamp; // Date of first publication
+  publishedBy?: string; // User who made first publication
   
   // Optional metadata
   description?: string;
