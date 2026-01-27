@@ -15,7 +15,7 @@ import {
   Timestamp
 } from 'firebase/firestore';
 import { db } from '../../core/firebase';
-import { logError } from '@utils/core/logger';
+import { logError, logFirestoreIndexError } from '@utils/core/logger';
 import type { HRActor, HRActorStatus } from '../../../types/models';
 
 const HR_ACTORS_COLLECTION = 'hrActors';
@@ -94,8 +94,13 @@ export async function getHRActors(companyId: string): Promise<HRActor[]> {
 
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => doc.data() as HRActor);
-  } catch (error) {
-    logError('Error fetching HR Actors', error);
+  } catch (error: any) {
+    // Check if it's a missing index error
+    if (error?.code === 'failed-precondition' || error?.message?.includes('index')) {
+      logFirestoreIndexError('getHRActors', error);
+    } else {
+      logError('Error fetching HR Actors', error);
+    }
     throw error;
   }
 }
@@ -117,8 +122,13 @@ export async function getHRActorsByStatus(
 
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => doc.data() as HRActor);
-  } catch (error) {
-    logError(`Error fetching HR Actors with status ${status}`, error);
+  } catch (error: any) {
+    // Check if it's a missing index error
+    if (error?.code === 'failed-precondition' || error?.message?.includes('index')) {
+      logFirestoreIndexError(`getHRActorsByStatus (status: ${status})`, error);
+    } else {
+      logError(`Error fetching HR Actors with status ${status}`, error);
+    }
     throw error;
   }
 }
@@ -246,8 +256,13 @@ export function subscribeToHRActors(
       const actors: HRActor[] = snapshot.docs.map(doc => doc.data() as HRActor);
       callback(actors);
     },
-    (error) => {
-      logError(`Error in subscribeToHRActors listener for company ${companyId}`, error);
+    (error: any) => {
+      // Check if it's a missing index error
+      if (error?.code === 'failed-precondition' || error?.message?.includes('index')) {
+        logFirestoreIndexError(`subscribeToHRActors (company: ${companyId})`, error);
+      } else {
+        logError(`Error in subscribeToHRActors listener for company ${companyId}`, error);
+      }
     }
   );
 }
@@ -273,8 +288,13 @@ export function subscribeToHRActorsByStatus(
       const actors: HRActor[] = snapshot.docs.map(doc => doc.data() as HRActor);
       callback(actors);
     },
-    (error) => {
-      logError(`Error in subscribeToHRActorsByStatus listener for company ${companyId}`, error);
+    (error: any) => {
+      // Check if it's a missing index error
+      if (error?.code === 'failed-precondition' || error?.message?.includes('index')) {
+        logFirestoreIndexError(`subscribeToHRActorsByStatus (company: ${companyId}, status: ${status})`, error);
+      } else {
+        logError(`Error in subscribeToHRActorsByStatus listener for company ${companyId}`, error);
+      }
     }
   );
 }

@@ -91,3 +91,61 @@ function sanitizeError(error: any): any {
   
   return sanitizeData(error);
 }
+
+/**
+ * Extracts Firestore index creation link from error message
+ * @param error - The Firestore error object
+ * @returns The index creation URL if found, null otherwise
+ */
+export function extractFirestoreIndexLink(error: any): string | null {
+  if (!error) return null;
+  
+  const errorMessage = error?.message || error?.toString() || '';
+  
+  // Firestore errors typically contain a link like:
+  // https://console.firebase.google.com/project/[PROJECT_ID]/firestore/indexes?create_composite=...
+  const indexLinkRegex = /https:\/\/console\.firebase\.google\.com\/project\/[^\/]+\/firestore\/indexes[^\s\)]+/;
+  const match = errorMessage.match(indexLinkRegex);
+  
+  if (match && match[0]) {
+    return match[0];
+  }
+  
+  // Also check if the link is in the error object itself
+  if (error?.indexUrl) {
+    return error.indexUrl;
+  }
+  
+  return null;
+}
+
+/**
+ * Logs Firestore index error with prominent link display
+ * @param context - Context description (e.g., "subscribeToHRActors")
+ * @param error - The Firestore error object
+ */
+export function logFirestoreIndexError(context: string, error: any): void {
+  const indexLink = extractFirestoreIndexLink(error);
+  
+  console.error(`\n${'='.repeat(80)}`);
+  console.error(`[FIRESTORE INDEX ERROR] ${context}`);
+  console.error(`${'='.repeat(80)}`);
+  
+  if (indexLink) {
+    console.error('\n🔗 MISSING FIRESTORE INDEX DETECTED!');
+    console.error('\n📋 Click the link below to create the required index:');
+    console.error(`\n${indexLink}\n`);
+    console.error('💡 The index will be created automatically. This may take a few minutes.');
+  } else {
+    console.error('\n⚠️  Missing Firestore index detected, but no direct link found.');
+    console.error('Please check the Firebase Console → Firestore → Indexes');
+    if (error?.message) {
+      console.error('\nError details:', error.message);
+    }
+  }
+  
+  console.error(`${'='.repeat(80)}\n`);
+  
+  // Also log the full error for debugging
+  logError(`Firestore index error in ${context}`, error);
+}
