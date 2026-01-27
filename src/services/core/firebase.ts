@@ -4,6 +4,7 @@ import { getAuth } from "firebase/auth";
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, getFirestore, Firestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getAnalytics, isSupported, Analytics } from "firebase/analytics";
+import { getMessaging, getToken, onMessage, Messaging, isSupported as isMessagingSupported } from "firebase/messaging";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -48,7 +49,26 @@ if (typeof window !== 'undefined') {
   });
 }
 
-export { auth, db, dbNoCache, storage, app, analytics };
+// Initialize Messaging (only in browser environment)
+let messaging: Messaging | null = null;
+
+if (typeof window !== 'undefined') {
+  // Check if Messaging is supported before initializing
+  isMessagingSupported().then((supported) => {
+    if (supported) {
+      try {
+        messaging = getMessaging(app);
+      } catch (error) {
+        console.warn('[Firebase] Messaging initialization failed:', error);
+      }
+    }
+  }).catch((error) => {
+    console.warn('[Firebase] Messaging support check failed:', error);
+  });
+}
+
+export { auth, db, dbNoCache, storage, app, analytics, messaging };
 export { getFirestore } from "firebase/firestore";
-export type { Firestore, Analytics };
+export { getToken, onMessage } from "firebase/messaging";
+export type { Firestore, Analytics, Messaging };
 

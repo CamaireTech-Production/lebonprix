@@ -1,5 +1,6 @@
-import { Save, RotateCcw, Calculator, ShoppingCart, Settings } from 'lucide-react';
+import { Save, RotateCcw, Calculator, ShoppingCart, Settings, AlertTriangle } from 'lucide-react';
 import type { CheckoutSettings, CheckoutSettingsUpdate } from '../../types/checkoutSettings';
+import type { Company } from '../../types/models';
 
 interface SalesAndPOSTabProps {
   settings: CheckoutSettings | null;
@@ -8,6 +9,8 @@ interface SalesAndPOSTabProps {
   onResetSettings: () => Promise<void>;
   isLoading: boolean;
   isSaving: boolean;
+  company: Company | null;
+  onUpdateCompany: (updates: Partial<Company>) => Promise<void>;
 }
 
 export const SalesAndPOSTab: React.FC<SalesAndPOSTabProps> = ({
@@ -17,6 +20,8 @@ export const SalesAndPOSTab: React.FC<SalesAndPOSTabProps> = ({
   onResetSettings,
   isLoading,
   isSaving,
+  company,
+  onUpdateCompany,
 }) => {
 
   if (isLoading || !settings) {
@@ -222,6 +227,66 @@ export const SalesAndPOSTab: React.FC<SalesAndPOSTabProps> = ({
                   <p className="mt-1 text-sm text-blue-700">
                     This setting only affects new sales. Existing sales will keep their original valuation method. 
                     You can change the method for individual sales when creating them.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Stock Management Section */}
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="flex items-center mb-6">
+          <AlertTriangle className="h-5 w-5 text-emerald-600 mr-2" />
+          <h3 className="text-lg font-semibold text-gray-800">Stock Management</h3>
+        </div>
+
+        <div className="space-y-6">
+          {/* Low Stock Threshold */}
+          <div className="space-y-4">
+            <div>
+              <label htmlFor="lowStockThreshold" className="block text-sm font-medium text-gray-900 mb-2">
+                Low Stock Alert Threshold
+              </label>
+              <p className="text-sm text-gray-600 mb-4">
+                Set the minimum stock level that triggers low stock alerts. Products with stock at or below this threshold will generate notifications for managers.
+              </p>
+            </div>
+
+            <div className="flex items-center space-x-4">
+              <div className="flex-1">
+                <input
+                  id="lowStockThreshold"
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={company?.lowStockThreshold ?? 10}
+                  onChange={(e) => {
+                    const value = parseInt(e.target.value, 10) || 0;
+                    onUpdateCompany({ lowStockThreshold: value }).catch(console.error);
+                  }}
+                  className="block w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
+                  placeholder="10"
+                />
+              </div>
+              <div className="text-sm text-gray-600">
+                <span className="font-medium">units</span>
+              </div>
+            </div>
+
+            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <AlertTriangle className="h-5 w-5 text-blue-600" />
+                </div>
+                <div className="ml-3">
+                  <h4 className="text-sm font-medium text-blue-800">
+                    How it works
+                  </h4>
+                  <p className="mt-1 text-sm text-blue-700">
+                    When a product's stock falls to or below this threshold, managers will receive automatic notifications. 
+                    Stock at 0 will trigger a "Rupture de stock" (Out of Stock) alert, while stock above 0 but at or below the threshold will trigger a "Stock faible" (Low Stock) alert.
                   </p>
                 </div>
               </div>

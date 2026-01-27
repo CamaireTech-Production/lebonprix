@@ -1511,24 +1511,52 @@ export const useNotifications = (filters?: {
       return;
     }
 
-    const unsubscribe = subscribeToNotifications(
-      user.uid,
-      (data) => {
-        setNotifications(data);
-        setLoading(false);
-        setError(null);
-        // Update unread count
-        const unread = data.filter(n => !n.read).length;
-        setUnreadCount(unread);
-      },
-      {
-        ...filters,
-        companyId: filters?.companyId || company?.id
-      }
-    );
+    let isMounted = true;
+    let unsubscribeFn: (() => void) | null = null;
 
-    return () => unsubscribe();
-  }, [user, company?.id, filters]);
+    // Create stable filter object to prevent unnecessary recreations
+    const stableFilters = {
+      companyId: filters?.companyId || company?.id,
+      read: filters?.read,
+      type: filters?.type,
+      limit: filters?.limit
+    };
+
+    try {
+      unsubscribeFn = subscribeToNotifications(
+        user.uid,
+        (data) => {
+          if (!isMounted) return;
+          
+          setNotifications(data);
+          setLoading(false);
+          setError(null);
+          // Update unread count
+          const unread = data.filter(n => !n.read).length;
+          setUnreadCount(unread);
+        },
+        stableFilters
+      );
+    } catch (error) {
+      if (isMounted) {
+        logError('Error setting up notifications subscription', error);
+        setError(error as Error);
+        setLoading(false);
+      }
+    }
+
+    return () => {
+      isMounted = false;
+      if (unsubscribeFn) {
+        try {
+          unsubscribeFn();
+        } catch (error) {
+          // Ignore errors during cleanup
+        }
+        unsubscribeFn = null;
+      }
+    };
+  }, [user?.uid, company?.id, filters?.companyId, filters?.read, filters?.type, filters?.limit]);
 
   // Also fetch unread count separately for real-time updates
   useEffect(() => {

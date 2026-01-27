@@ -95,6 +95,7 @@ const Settings = () => {
     currentPassword: '',
     newPassword: '',
     confirmPassword: '',
+    lowStockThreshold: 10,
   });
 
   // Update form data when company data becomes available
@@ -124,6 +125,8 @@ const Settings = () => {
         primaryColor: company.primaryColor || '#183524',
         secondaryColor: company.secondaryColor || '#e2b069',
         tertiaryColor: company.tertiaryColor || '#2a4a3a',
+        // Stock management
+        lowStockThreshold: company.lowStockThreshold ?? 10,
       }));
     }
   }, [company]);
@@ -339,8 +342,14 @@ const Settings = () => {
   };
   
   const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    const { name, value, type } = e.target;
+    // Handle number inputs
+    if (type === 'number') {
+      const numValue = value === '' ? 0 : parseInt(value, 10);
+      setFormData(prev => ({ ...prev, [name]: isNaN(numValue) ? 0 : numValue }));
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }));
+    }
     // Clear password error when user starts typing
     if (name.startsWith('password') || name === 'currentPassword') {
       setPasswordError('');
@@ -456,7 +465,9 @@ const Settings = () => {
         // Legacy colors (for backward compatibility)
         primaryColor: formData.primaryColor,
         secondaryColor: formData.secondaryColor,
-        tertiaryColor: formData.tertiaryColor
+        tertiaryColor: formData.tertiaryColor,
+        // Stock management
+        lowStockThreshold: formData.lowStockThreshold || 10
       };
 
       try {
@@ -3498,6 +3509,8 @@ const Settings = () => {
           onResetSettings={handleResetCheckoutSettings}
           isLoading={checkoutLoading}
           isSaving={checkoutSaving}
+          company={company}
+          onUpdateCompany={updateCompany}
         />
       )}
 

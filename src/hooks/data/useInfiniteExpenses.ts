@@ -1,8 +1,9 @@
 // src/hooks/useInfiniteExpenses.ts
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@contexts/AuthContext';
 import { query, collection, where, orderBy, limit, startAfter, getDocs, DocumentSnapshot } from 'firebase/firestore';
 import { db } from '@services/core/firebase';
+import { subscribeToExpenses } from '@services/firestore/expenses/expenseService';
 import ExpensesManager from '@services/storage/ExpensesManager';
 import BackgroundSyncService from '@services/utilities/backgroundSync';
 import type { Expense } from '../../types/models';
@@ -32,6 +33,9 @@ export const useInfiniteExpenses = (): UseInfiniteExpensesReturn => {
   const [hasMore, setHasMore] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [lastDoc, setLastDoc] = useState<DocumentSnapshot | null>(null);
+  const subscriptionUnsubscribeRef = useRef<(() => void) | null>(null);
+  const paginatedExpensesRef = useRef<Expense[]>([]); // Track expenses loaded via pagination
+  const isInitialLoadRef = useRef(true);
 
   // Load initial expenses
   const loadInitialExpenses = useCallback(async () => {
@@ -76,7 +80,16 @@ export const useInfiniteExpenses = (): UseInfiniteExpensesReturn => {
         ...doc.data()
       })) as Expense[];
 
-      setExpenses(expensesData);
+      // Store paginated expenses separately (for merging with real-time updates)
+      paginatedExpensesRef.current = expensesData;
+      
+      // Note: Real-time subscription will update the expenses state
+      // We only set initial state if subscription hasn't kicked in yet
+      if (isInitialLoadRef.current) {
+        setExpenses(expensesData);
+        isInitialLoadRef.current = false;
+      }
+      
       setLastDoc(snapshot.docs[snapshot.docs.length - 1] || null);
       setHasMore(snapshot.docs.length === EXPENSES_PER_PAGE);
       
@@ -115,8 +128,19 @@ export const useInfiniteExpenses = (): UseInfiniteExpensesReturn => {
       })) as Expense[];
 
       if (newExpenses.length > 0) {
+        // Add to paginated expenses ref
+        paginatedExpensesRef.current = [...paginatedExpensesRef.current, ...newExpenses];
+        
         setExpenses(prev => {
-          const updatedExpenses = [...prev, ...newExpenses];
+          // Merge with existing expenses, avoiding duplicates
+          const existingIds = new Set(prev.map(e => e.id));
+          const uniqueNewExpenses = newExpenses.filter(e => !existingIds.has(e.id));
+          const updatedExpenses = [...prev, ...uniqueNewExpenses].sort((a, b) => {
+            const aTime = a.createdAt?.seconds || 0;
+            const bTime = b.createdAt?.seconds || 0;
+            return bTime - aTime; // Descending order
+          });
+          
           // Update localStorage with all expenses
           ExpensesManager.save(company.id, updatedExpenses);
           console.log(`✅ More expenses loaded: ${newExpenses.length} items (total: ${updatedExpenses.length})`);
@@ -140,14 +164,24 @@ export const useInfiniteExpenses = (): UseInfiniteExpensesReturn => {
     setExpenses([]);
     setLastDoc(null);
     setHasMore(true);
+    paginatedExpensesRef.current = [];
+    isInitialLoadRef.current = true;
     loadInitialExpenses();
   }, [loadInitialExpenses]);
 
   // Function to manually add an expense to the local state
+  // Note: This is mainly for optimistic updates. The real-time subscription will handle the actual update.
   const addExpense = useCallback((newExpense: Expense) => {
-    if (!user?.uid || !company?.id) return;
+    if (!user?.uid || !company?.id || !newExpense.id) return;
     
     setExpenses(prev => {
+      // Check if expense already exists to avoid duplicates
+      const exists = prev.some(exp => exp.id === newExpense.id);
+      if (exists) {
+        console.log('⚠️ Expense already exists, skipping manual add (subscription will handle it)');
+        return prev;
+      }
+      
       // Add the new expense at the beginning (most recent first)
       const updatedExpenses = [newExpense, ...prev];
       // Update localStorage with the new expense
@@ -184,8 +218,73 @@ export const useInfiniteExpenses = (): UseInfiniteExpensesReturn => {
     });
   }, [user?.uid, company?.id]);
 
+  // Real-time subscription effect
+  useEffect(() => {
+    if (!user?.uid || !company?.id) {
+      // Cleanup subscription if user/company changes
+      if (subscriptionUnsubscribeRef.current) {
+        subscriptionUnsubscribeRef.current();
+        subscriptionUnsubscribeRef.current = null;
+      }
+      return;
+    }
+
+    // Set up real-time subscription
+    console.log('📡 Setting up real-time subscription for expenses');
+    const unsubscribe = subscribeToExpenses(company.id, (realTimeExpenses) => {
+      console.log('🔄 Real-time update received:', realTimeExpenses.length, 'expenses');
+      
+      setExpenses(prevExpenses => {
+        // Create a map of expenses by ID for quick lookup and deduplication
+        const expenseMap = new Map<string, Expense>();
+        
+        // First, add all real-time expenses (first 100 from subscription)
+        // These are the source of truth from Firestore - subscription data takes priority
+        realTimeExpenses.forEach(exp => {
+          expenseMap.set(exp.id, exp);
+        });
+        
+        // Then, add paginated expenses that are beyond the subscription limit
+        // Only include expenses that are not in the real-time list
+        paginatedExpensesRef.current.forEach(exp => {
+          if (!expenseMap.has(exp.id)) {
+            expenseMap.set(exp.id, exp);
+          }
+        });
+        
+        // Convert map back to array and sort by createdAt (most recent first)
+        // Using Map ensures no duplicates - subscription data is source of truth
+        const mergedExpenses = Array.from(expenseMap.values()).sort((a, b) => {
+          const aTime = a.createdAt?.seconds || 0;
+          const bTime = b.createdAt?.seconds || 0;
+          return bTime - aTime; // Descending order
+        });
+        
+        // Update localStorage
+        ExpensesManager.save(company.id, mergedExpenses);
+        
+        return mergedExpenses;
+      });
+      
+      setSyncing(false);
+      setLoading(false);
+    });
+    
+    subscriptionUnsubscribeRef.current = unsubscribe;
+    
+    // Cleanup on unmount or when dependencies change
+    return () => {
+      if (subscriptionUnsubscribeRef.current) {
+        subscriptionUnsubscribeRef.current();
+        subscriptionUnsubscribeRef.current = null;
+      }
+    };
+  }, [user?.uid, company?.id]);
+
+  // Initial load effect
   useEffect(() => {
     if (user?.uid && company?.id) {
+      isInitialLoadRef.current = true;
       loadInitialExpenses();
     } else {
       setExpenses([]);
@@ -193,6 +292,7 @@ export const useInfiniteExpenses = (): UseInfiniteExpensesReturn => {
       setHasMore(true);
       setLoading(false);
       setError(null);
+      paginatedExpensesRef.current = [];
     }
   }, [user?.uid, company?.id, loadInitialExpenses]);
 
