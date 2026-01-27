@@ -300,6 +300,9 @@ export const subscribeToNotifications = (
     limit?: number;
   }
 ): (() => void) => {
+  let isActive = true;
+  let unsubscribeFn: (() => void) | null = null;
+
   try {
     let q = query(
       collection(db, 'notifications'),
@@ -323,20 +326,51 @@ export const subscribeToNotifications = (
       q = query(q, limit(filters.limit));
     }
 
-    return onSnapshot(
+    unsubscribeFn = onSnapshot(
       q,
       (snapshot) => {
-        const notifications = snapshot.docs.map(doc => doc.data() as Notification);
-        callback(notifications);
+        // Only process if subscription is still active
+        if (!isActive) return;
+        
+        try {
+          const notifications = snapshot.docs.map(doc => doc.data() as Notification);
+          callback(notifications);
+        } catch (error) {
+          // Silently handle errors in callback to prevent breaking the listener
+          if (isActive) {
+            logError('Error processing notifications snapshot', error);
+          }
+        }
       },
       (error) => {
-        logError('Error subscribing to notifications', error);
-        callback([]);
+        // Only log if subscription is still active
+        if (isActive) {
+          logError('Error subscribing to notifications', error);
+          try {
+            callback([]);
+          } catch (callbackError) {
+            // Ignore callback errors during error handling
+          }
+        }
       }
     );
 
+    // Return unsubscribe function that marks as inactive first
+    return () => {
+      isActive = false;
+      if (unsubscribeFn) {
+        try {
+          unsubscribeFn();
+        } catch (error) {
+          // Ignore errors during cleanup - listener might already be closed
+        }
+        unsubscribeFn = null;
+      }
+    };
+
   } catch (error) {
     logError('Error setting up notifications subscription', error);
+    isActive = false;
     return () => {}; // Return empty unsubscribe function
   }
 };

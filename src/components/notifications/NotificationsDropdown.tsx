@@ -11,7 +11,10 @@ import {
   ShoppingCart, 
   ArrowRight,
   AlertCircle,
-  X
+  AlertTriangle,
+  X,
+  Eye,
+  Plus
 } from 'lucide-react';
 import { Button, Badge, LoadingScreen } from '@components/common';
 import type { Notification } from '../../types/models';
@@ -70,8 +73,15 @@ const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({ onClose }
           navigate(`/company/${companyId}/stock-transfers`);
           onClose();
         }
-      } else if (notification.type === 'stock_low') {
-        if (shopId && companyId) {
+      } else if (notification.type === 'stock_low' || notification.type === 'stock_rupture') {
+        const { productId: notifProductId, matiereId } = notification.data || {};
+        
+        // Navigate to product detail if productId exists
+        if (notifProductId && companyId) {
+          navigate(`/company/${companyId}/products/${notifProductId}`);
+        } else if (matiereId && companyId) {
+          navigate(`/company/${companyId}/magasin/matieres`);
+        } else if (shopId && companyId) {
           navigate(`/company/${companyId}/shops/${shopId}`);
         } else if (warehouseId && companyId) {
           navigate(`/company/${companyId}/warehouse/${warehouseId}`);
@@ -101,13 +111,15 @@ const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({ onClose }
         return <ArrowRight className="h-4 w-4" />;
       case 'stock_low':
         return <AlertCircle className="h-4 w-4" />;
+      case 'stock_rupture':
+        return <AlertTriangle className="h-4 w-4" />;
       default:
         return <Bell className="h-4 w-4" />;
     }
   };
 
-  const getNotificationColor = (type: Notification['type']) => {
-    switch (type) {
+  const getNotificationColor = (notification: Notification) => {
+    switch (notification.type) {
       case 'replenishment_request_created':
         return 'text-blue-600';
       case 'replenishment_request_fulfilled':
@@ -118,8 +130,62 @@ const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({ onClose }
         return 'text-indigo-600';
       case 'stock_low':
         return 'text-yellow-600';
+      case 'stock_rupture':
+        return 'text-red-600';
       default:
         return 'text-gray-600';
+    }
+  };
+
+  const getStockAlertBadge = (notification: Notification) => {
+    if (notification.type === 'stock_rupture') {
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">
+          Rupture
+        </span>
+      );
+    }
+    if (notification.type === 'stock_low') {
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+          Stock faible
+        </span>
+      );
+    }
+    return null;
+  };
+
+  const handleStockAlertAction = (e: React.MouseEvent, notification: Notification, action: 'view' | 'restock') => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const { productId, matiereId } = notification.data || {};
+    const companyId = company?.id;
+
+    if (!companyId) {
+      console.error('Company ID is missing');
+      return;
+    }
+
+    if (action === 'view') {
+      if (productId) {
+        // Navigate to products page with productId query param to open modal
+        navigate(`/company/${companyId}/products?productId=${productId}`, { replace: false });
+      } else if (matiereId) {
+        navigate(`/company/${companyId}/magasin/matieres`, { replace: false });
+      } else {
+        navigate(`/company/${companyId}/products/stocks`, { replace: false });
+      }
+      onClose();
+    } else if (action === 'restock') {
+      // Navigate to stock management or purchase order creation
+      if (productId) {
+        // Navigate to products page with productId and action=restock query params
+        navigate(`/company/${companyId}/products?productId=${productId}&action=restock`, { replace: false });
+      } else {
+        navigate(`/company/${companyId}/replenishment-requests?create=true`, { replace: false });
+      }
+      onClose();
     }
   };
 
@@ -181,43 +247,79 @@ const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({ onClose }
           <>
             {/* Unread Notifications */}
             {unreadNotifications.length > 0 && (
-              <div className="py-2">
+              <div className="px-2 py-2 space-y-2">
                 {unreadNotifications.map((notification) => (
-                  <button
+                  <div
                     key={notification.id}
                     onClick={() => handleNotificationClick(notification)}
-                    disabled={isMarkingAsRead === notification.id}
-                    className="w-full px-4 py-3 text-left hover:bg-gray-50 border-l-4 border-blue-500 transition-colors"
+                    className={`w-full px-3 py-3 rounded-lg cursor-pointer hover:bg-gray-50 transition-all border border-gray-200 ${
+                      notification.type === 'stock_rupture'
+                        ? 'border-l-4 border-l-red-500 bg-red-50/10'
+                        : notification.type === 'stock_low'
+                        ? 'border-l-4 border-l-yellow-500 bg-yellow-50/10'
+                        : 'border-l-4 border-l-blue-500 bg-blue-50/10'
+                    }`}
                   >
                     <div className="flex items-start gap-3">
-                      <div className={`flex-shrink-0 mt-0.5 ${getNotificationColor(notification.type)}`}>
+                      <div className={`flex-shrink-0 mt-0.5 p-1.5 rounded ${getNotificationColor(notification)}`}>
                         {getNotificationIcon(notification.type)}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900">
-                          {notification.title}
-                        </p>
-                        <p className="text-sm text-gray-600 mt-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="text-sm font-medium text-gray-900">
+                            {notification.title}
+                          </p>
+                          {getStockAlertBadge(notification)}
+                        </div>
+                        <p className="text-sm text-gray-600 mt-1 leading-relaxed">
                           {notification.message}
                         </p>
-                        <p className="text-xs text-gray-400 mt-1">
+                        {(notification.type === 'stock_low' || notification.type === 'stock_rupture') && (
+                          <div className="flex gap-2 mt-2" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleStockAlertAction(e, notification, 'view');
+                              }}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
+                            >
+                              <Eye className="h-3 w-3" />
+                              Voir
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleStockAlertAction(e, notification, 'restock');
+                              }}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-green-600 hover:text-green-800 hover:bg-green-50 rounded-md transition-colors cursor-pointer"
+                            >
+                              <Plus className="h-3 w-3" />
+                              Réapprovisionner
+                            </button>
+                          </div>
+                        )}
+                        <p className="text-xs text-gray-400 mt-2">
                           {formatNotificationDate(notification.createdAt)}
                         </p>
                       </div>
                       {!notification.read && (
-                        <div className="flex-shrink-0">
-                          <div className="h-2 w-2 rounded-full bg-blue-500" />
+                        <div className="flex-shrink-0 mt-1">
+                          <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
                         </div>
                       )}
                     </div>
-                  </button>
+                  </div>
                 ))}
               </div>
             )}
 
             {/* Read Notifications */}
             {readNotifications.length > 0 && unreadNotifications.length > 0 && (
-              <div className="border-t border-gray-200">
+              <div className="border-t border-gray-200 my-2">
                 <div className="px-4 py-2 bg-gray-50">
                   <p className="text-xs font-medium text-gray-500 uppercase">
                     {t('notifications.read', 'Read')}
@@ -227,30 +329,61 @@ const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({ onClose }
             )}
 
             {readNotifications.length > 0 && (
-              <div className="py-2">
+              <div className="px-2 py-2 space-y-2">
                 {readNotifications.map((notification) => (
-                  <button
+                  <div
                     key={notification.id}
                     onClick={() => handleNotificationClick(notification)}
-                    className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors opacity-75"
+                    className="w-full px-3 py-3 rounded-lg cursor-pointer hover:bg-gray-50 transition-all border border-gray-200 opacity-75"
                   >
                     <div className="flex items-start gap-3">
-                      <div className={`flex-shrink-0 mt-0.5 ${getNotificationColor(notification.type)}`}>
+                      <div className={`flex-shrink-0 mt-0.5 p-1.5 rounded ${getNotificationColor(notification)} opacity-60`}>
                         {getNotificationIcon(notification.type)}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-700">
-                          {notification.title}
-                        </p>
-                        <p className="text-sm text-gray-500 mt-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="text-sm font-medium text-gray-700">
+                            {notification.title}
+                          </p>
+                          {getStockAlertBadge(notification)}
+                        </div>
+                        <p className="text-sm text-gray-500 mt-1 leading-relaxed">
                           {notification.message}
                         </p>
-                        <p className="text-xs text-gray-400 mt-1">
+                        {(notification.type === 'stock_low' || notification.type === 'stock_rupture') && (
+                          <div className="flex gap-2 mt-2" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleStockAlertAction(e, notification, 'view');
+                              }}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
+                            >
+                              <Eye className="h-3 w-3" />
+                              Voir
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleStockAlertAction(e, notification, 'restock');
+                              }}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-green-600 hover:text-green-800 hover:bg-green-50 rounded-md transition-colors cursor-pointer"
+                            >
+                              <Plus className="h-3 w-3" />
+                              Réapprovisionner
+                            </button>
+                          </div>
+                        )}
+                        <p className="text-xs text-gray-400 mt-2">
                           {formatNotificationDate(notification.createdAt)}
                         </p>
                       </div>
                     </div>
-                  </button>
+                  </div>
                 ))}
               </div>
             )}

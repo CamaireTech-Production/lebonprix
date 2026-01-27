@@ -2892,7 +2892,8 @@
       "replenishmentRequestFulfilled": "Demande de réapprovisionnement remplie",
       "replenishmentRequestRejected": "Demande de réapprovisionnement rejetée",
       "transferCreated": "Transfert créé",
-      "stockLow": "Stock faible"
+      "stockLow": "Stock faible",
+      "stockRupture": "Rupture de stock"
     }
   }
 } 
