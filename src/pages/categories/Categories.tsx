@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Plus, Search, Edit2, Trash2, Grid, List, Upload, X } from 'lucide-react';
 // import { useTranslation } from 'react-i18next';
-import { SkeletonTable } from "@components/common";
+import { SkeletonTable, SyncIndicator } from "@components/common";
 import { useAuth } from '@contexts/AuthContext';
 import { FirebaseStorageService } from '@services/core/firebaseStorage';
 import { getCurrentEmployeeRef, formatCreatorName } from '@utils/business/employeeUtils';

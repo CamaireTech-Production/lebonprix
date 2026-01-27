@@ -1329,6 +1329,7 @@ const Settings = () => {
                           src={formData.logo}
                           alt="Company logo"
                           className="h-16 w-16 object-cover rounded-lg"
+                          loading="lazy"
                         />
                       ) : (
                         <div className="h-16 w-16 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center">
