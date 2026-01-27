@@ -1823,6 +1823,7 @@
       "loan": "Prêt",
       "expense": "Dépense",
       "sale": "Vente",
+      "sale_refund": "Remboursement de Vente",
       "refund": "Remboursement",
       "debt": "Dette",
       "supplier_debt": "Dette Fournisseur",

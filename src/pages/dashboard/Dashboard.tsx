@@ -17,7 +17,7 @@ import ProfitPeriodModal from '../../components/dashboard/ProfitPeriodModal';
 import DashboardHeader from '../../components/dashboard/DashboardHeader';
 import StatsSection from '../../components/dashboard/StatsSection';
 import DonutChartsSection from '../../components/dashboard/DonutChartsSection';
-import DataLoadingStatus from '../../components/dashboard/DataLoadingStatus';
+// OPTIMIZATION: Removed DataLoadingStatus import - no longer needed since we don't load all sales
 import CalculationsModal from '../../components/dashboard/CalculationsModal';
 import TopSales from '../../components/dashboard/TopSales';
 import BestClients from '../../components/dashboard/BestClients';
@@ -332,12 +332,7 @@ const Dashboard = () => {
             />
           )}
           
-          {/* Data Loading Status */}
-          <DataLoadingStatus
-            loadingAllSales={loadingAllSales}
-            allSalesCount={allSales.length}
-            recentSalesCount={sales?.length || 0}
-          />
+          {/* Data Loading Status - Removed since we no longer load all sales (optimization) */}
 
           {/* Donut Charts - visible if user has charts permission */}
           {canViewCharts && (
@@ -385,7 +380,7 @@ const Dashboard = () => {
           {/* Latest Orders Table - visible if user has permission */}
           {canViewLatestOrders && (
             <>
-              {(salesLoading || loadingAllSales) ? (
+              {salesLoading ? (
                 <SkeletonTable rows={5} />
               ) : (
                 <LatestOrdersTable

@@ -1678,6 +1678,7 @@
       "loan": "Loan",
       "expense": "Expense",
       "sale": "Sale",
+      "sale_refund": "Sale Refund",
       "refund": "Refund",
       "debt": "Debt",
       "supplier_debt": "Supplier Debt",
