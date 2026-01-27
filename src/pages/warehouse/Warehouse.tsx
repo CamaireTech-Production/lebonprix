@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Plus, Edit2, Trash2, MapPin, Warehouse as WarehouseIcon, Package, Search, UserCheck, Eye, Users, Power, PowerOff } from 'lucide-react';
-import { SkeletonTable, Input, Card, Badge, Button, Modal, Textarea } from "@components/common";
+import { SkeletonTable, Input, Card, Badge, Button, Modal, ModalFooter, Textarea } from "@components/common";
 import { useWarehouses, useProducts } from '@hooks/data/useFirestore';
 import { useAuth } from '@contexts/AuthContext';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';

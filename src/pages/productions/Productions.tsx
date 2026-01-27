@@ -1,7 +1,7 @@
 // Productions list page
 import React, { useState, useMemo, useEffect } from 'react';
 import { Plus, Eye, Loader2, Search, Filter, X, Trash2, Edit2, Package, List, Columns, Workflow } from 'lucide-react';
-import { SkeletonTable, Button, Input } from "@components/common";
+import { SkeletonTable, Button, Input, Modal, ModalFooter } from "@components/common";
 import { useProductions, useProductionFlows, useProductionCategories, useProductionFlowSteps } from '@hooks/data/useFirestore';
 import { canPublishProduction } from '@utils/productions/flowValidation';
 import { formatPrice } from '@utils/formatting/formatPrice';

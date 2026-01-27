@@ -1,7 +1,7 @@
 // Production Flow Steps page
 import React, { useState } from 'react';
 import { Plus, Edit2, Trash2, Loader2, Upload, X } from 'lucide-react';
-import { SkeletonTable, Button, Modal } from "@components/common";
+import { SkeletonTable, Button, Modal, ModalFooter } from "@components/common";
 import { useAuth } from '@contexts/AuthContext';
 import { useProductionFlowSteps } from '@hooks/data/useFirestore';
 import { FirebaseStorageService } from '@services/core/firebaseStorage';
