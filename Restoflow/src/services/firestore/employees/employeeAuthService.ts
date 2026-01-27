@@ -52,6 +52,35 @@ export const createEmployeeAccount = async (
     // Create employee document in Firestore
     const employeeRef = doc(db, 'restaurants', restaurantId, 'employeeRefs', firebaseUid);
 
+    // Build employee data object, excluding undefined values (Firestore doesn't allow undefined)
+    const employeeDataForFirestore: Record<string, any> = {
+      username,
+      email: email.toLowerCase(),
+      role,
+      isActive: true,
+      passwordHash: hashPassword(password), // Store for owner reference
+      addedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      createdBy
+    };
+
+    // Only include optional fields if they are defined and not empty
+    if (permissionTemplateId !== undefined && permissionTemplateId !== '') {
+      employeeDataForFirestore.permissionTemplateId = permissionTemplateId;
+    }
+    if (phone !== undefined && phone !== '') {
+      employeeDataForFirestore.phone = phone;
+    }
+    if (photo !== undefined && photo !== '') {
+      employeeDataForFirestore.photo = photo;
+    }
+
+    await setDoc(employeeRef, employeeDataForFirestore);
+
+    // Sign out from secondary auth only - owner stays logged in on primary auth
+    await secondaryAuth.signOut();
+
+    // Build employee object for return (can include undefined for type compatibility)
     const employee: Omit<EmployeeRef, 'id'> = {
       username,
       email: email.toLowerCase(),
@@ -60,19 +89,10 @@ export const createEmployeeAccount = async (
       phone,
       photo,
       isActive: true,
-      passwordHash: hashPassword(password), // Store for owner reference
+      passwordHash: employeeDataForFirestore.passwordHash,
       addedAt: { seconds: Date.now() / 1000, nanoseconds: 0 },
       createdBy
     };
-
-    await setDoc(employeeRef, {
-      ...employee,
-      addedAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
-    });
-
-    // Sign out from secondary auth only - owner stays logged in on primary auth
-    await secondaryAuth.signOut();
 
     return {
       employee: { id: firebaseUid, ...employee } as EmployeeRef,

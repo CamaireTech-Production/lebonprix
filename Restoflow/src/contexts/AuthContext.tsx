@@ -13,10 +13,14 @@ import { doc, getDoc, setDoc, serverTimestamp, onSnapshot } from 'firebase/fires
 import { useNavigate } from 'react-router-dom';
 import { logActivity } from '../services/activityLogService';
 import { Restaurant } from '../types';
+import type { EmployeeRef } from '../types/geskap';
+import { findEmployeeRestaurant } from '../services/firestore/employees/employeeRefService';
 
 interface AuthContextType {
   currentUser: User | null;
   restaurant: Restaurant | null;
+  employee: EmployeeRef | null;
+  isEmployee: boolean;
   loading: boolean;
   isVerified: boolean;
   signIn: (email: string, password: string) => Promise<void>;
@@ -39,6 +43,7 @@ export const useAuth = () => {
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
+  const [employee, setEmployee] = useState<EmployeeRef | null>(null);
   const [loading, setLoading] = useState(true);
   const [isVerified, setIsVerified] = useState(false);
   const navigate = useNavigate();
@@ -47,29 +52,127 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
       if (user) {
-        // Real-time restaurant data
+        // First check if user is a restaurant owner
         const restaurantRef = doc(db, 'restaurants', user.uid);
-        const unsubRestaurant = onSnapshot(restaurantRef, (restaurantDoc) => {
-          if (restaurantDoc.exists()) {
-            const restaurantData = { id: restaurantDoc.id, ...restaurantDoc.data() } as Restaurant;
-            setRestaurant(restaurantData);
-            // Check verification status
-            setIsVerified(restaurantData.isVerified === true && restaurantData.verificationStatus === 'verified');
-          } else {
+        const restaurantDoc = await getDoc(restaurantRef);
+        
+        if (restaurantDoc.exists()) {
+          // User is a restaurant owner
+          const restaurantData = { id: restaurantDoc.id, ...restaurantDoc.data() } as Restaurant;
+          setRestaurant(restaurantData);
+          setEmployee(null);
+          setIsVerified(restaurantData.isVerified === true && restaurantData.verificationStatus === 'verified');
+          
+          // Set up real-time listener for restaurant
+          const unsubRestaurant = onSnapshot(restaurantRef, (doc) => {
+            if (doc.exists()) {
+              const data = { id: doc.id, ...doc.data() } as Restaurant;
+              setRestaurant(data);
+              setIsVerified(data.isVerified === true && data.verificationStatus === 'verified');
+            }
+            setLoading(false);
+          }, (error) => {
+            console.error('Error listening to restaurant data:', error);
             setRestaurant(null);
             setIsVerified(false);
+            setLoading(false);
+          });
+          
+          setLoading(false);
+          return unsubRestaurant;
+        } else {
+          // Check if user is an employee
+          const employeeResult = await findEmployeeRestaurant(user.uid);
+          
+          if (employeeResult) {
+            // User is an employee
+            const { restaurantId, employee: employeeData } = employeeResult;
+            
+            // Load restaurant data
+            const employeeRestaurantRef = doc(db, 'restaurants', restaurantId);
+            const employeeRestaurantDoc = await getDoc(employeeRestaurantRef);
+            
+            if (employeeRestaurantDoc.exists()) {
+              const restaurantData = { id: employeeRestaurantDoc.id, ...employeeRestaurantDoc.data() } as Restaurant;
+              
+              // Check if restaurant is deleted or deactivated
+              if (restaurantData.deleted || restaurantData.isDeleted) {
+                setRestaurant(null);
+                setEmployee(null);
+                setIsVerified(false);
+                setLoading(false);
+                return;
+              }
+              
+              if (restaurantData.isDeactivated || restaurantData.deactivated) {
+                setRestaurant(null);
+                setEmployee(null);
+                setIsVerified(false);
+                setLoading(false);
+                return;
+              }
+              
+              // Check if employee is active
+              if (!employeeData.isActive) {
+                setRestaurant(null);
+                setEmployee(null);
+                setIsVerified(false);
+                setLoading(false);
+                return;
+              }
+              
+              setRestaurant(restaurantData);
+              setEmployee(employeeData);
+              setIsVerified(restaurantData.isVerified === true && restaurantData.verificationStatus === 'verified');
+              
+              // Set up real-time listeners
+              const unsubRestaurant = onSnapshot(employeeRestaurantRef, (doc) => {
+                if (doc.exists()) {
+                  const data = { id: doc.id, ...doc.data() } as Restaurant;
+                  setRestaurant(data);
+                  setIsVerified(data.isVerified === true && data.verificationStatus === 'verified');
+                }
+              });
+              
+              const employeeRef = doc(db, 'restaurants', restaurantId, 'employeeRefs', user.uid);
+              const unsubEmployee = onSnapshot(employeeRef, (doc) => {
+                if (doc.exists()) {
+                  const data = { id: doc.id, ...doc.data() } as EmployeeRef;
+                  setEmployee(data);
+                  
+                  // If employee becomes inactive, sign out
+                  if (!data.isActive) {
+                    firebaseSignOut(auth);
+                  }
+                } else {
+                  // Employee document deleted, sign out
+                  firebaseSignOut(auth);
+                }
+              });
+              
+              setLoading(false);
+              return () => {
+                unsubRestaurant();
+                unsubEmployee();
+              };
+            } else {
+              // Restaurant not found
+              setRestaurant(null);
+              setEmployee(null);
+              setIsVerified(false);
+              setLoading(false);
+            }
+          } else {
+            // Neither restaurant owner nor employee
+            setRestaurant(null);
+            setEmployee(null);
+            setIsVerified(false);
+            setLoading(false);
           }
-          setLoading(false);
-        }, (error) => {
-          console.error('Error listening to restaurant data:', error);
-          setRestaurant(null);
-          setIsVerified(false);
-          setLoading(false);
-        });
-        // Clean up restaurant listener on user change
-        return unsubRestaurant;
+        }
       } else {
         setRestaurant(null);
+        setEmployee(null);
         setIsVerified(false);
         setLoading(false);
       }
@@ -84,37 +187,89 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const cred = await signInWithEmailAndPassword(auth, email, password);
       console.log('[AuthContext] signIn success', { uid: cred.user.uid });
       
-      // Validate restaurant account exists and is not deleted BEFORE navigation
+      // First check if user is a restaurant owner
       const restaurantDoc = await getDoc(doc(db, 'restaurants', cred.user.uid));
-      if (!restaurantDoc.exists()) {
-        // Sign out immediately and throw error
-        await firebaseSignOut(auth);
-        throw new Error('NO_RESTAURANT_ACCOUNT');
+      
+      if (restaurantDoc.exists()) {
+        // User is a restaurant owner
+        const restaurantData = restaurantDoc.data();
+        
+        if (restaurantData?.deleted || restaurantData?.isDeleted) {
+          await firebaseSignOut(auth);
+          throw new Error('RESTAURANT_ACCOUNT_DELETED');
+        }
+        
+        if (restaurantData?.isDeactivated || restaurantData?.deactivated) {
+          await firebaseSignOut(auth);
+          throw new Error('RESTAURANT_ACCOUNT_DISABLED');
+        }
+        
+        // Log activity and navigate
+        await logActivity({
+          userId: cred.user.uid,
+          userEmail: email,
+          action: 'login',
+          entityType: 'restaurant',
+        });
+        
+        console.log('[AuthContext] signIn complete (owner), navigating to dashboard');
+        navigate('/dashboard');
+        return;
       }
       
-      const restaurantData = restaurantDoc.data();
-      if (restaurantData?.deleted || restaurantData?.isDeleted) {
-        // Sign out immediately and throw error
-        await firebaseSignOut(auth);
-        throw new Error('RESTAURANT_ACCOUNT_DELETED');
+      // Check if user is an employee
+      console.log('[AuthContext] Checking if user is an employee...', { uid: cred.user.uid });
+      const employeeResult = await findEmployeeRestaurant(cred.user.uid);
+      console.log('[AuthContext] Employee lookup result:', employeeResult);
+      
+      if (employeeResult) {
+        const { restaurantId, employee: employeeData } = employeeResult;
+        console.log('[AuthContext] Employee found:', { restaurantId, employeeId: employeeData.id, isActive: employeeData.isActive });
+        
+        // Check if employee is active
+        if (!employeeData.isActive) {
+          await firebaseSignOut(auth);
+          throw new Error('EMPLOYEE_ACCOUNT_DISABLED');
+        }
+        
+        // Load restaurant data to verify it's not deleted/deactivated
+        const employeeRestaurantDoc = await getDoc(doc(db, 'restaurants', restaurantId));
+        
+        if (!employeeRestaurantDoc.exists()) {
+          await firebaseSignOut(auth);
+          throw new Error('RESTAURANT_NOT_FOUND');
+        }
+        
+        const restaurantData = employeeRestaurantDoc.data();
+        
+        if (restaurantData?.deleted || restaurantData?.isDeleted) {
+          await firebaseSignOut(auth);
+          throw new Error('RESTAURANT_ACCOUNT_DELETED');
+        }
+        
+        if (restaurantData?.isDeactivated || restaurantData?.deactivated) {
+          await firebaseSignOut(auth);
+          throw new Error('RESTAURANT_ACCOUNT_DISABLED');
+        }
+        
+        // Log activity and navigate
+        await logActivity({
+          userId: cred.user.uid,
+          userEmail: email,
+          action: 'login',
+          entityType: 'employee',
+          details: { restaurantId },
+        });
+        
+        console.log('[AuthContext] signIn complete (employee), navigating to dashboard');
+        navigate('/dashboard');
+        return;
       }
       
-      if (restaurantData?.isDeactivated || restaurantData?.deactivated) {
-        // Sign out immediately and throw error
-        await firebaseSignOut(auth);
-        throw new Error('RESTAURANT_ACCOUNT_DISABLED');
-      }
-      
-      // Only log activity and navigate if account is valid
-      await logActivity({
-        userId: cred.user.uid,
-        userEmail: email,
-        action: 'login',
-        entityType: 'restaurant',
-      });
-      
-      console.log('[AuthContext] signIn complete, navigating to dashboard');
-      navigate('/dashboard');
+      // Neither restaurant owner nor employee
+      console.log('[AuthContext] User is neither restaurant owner nor employee');
+      await firebaseSignOut(auth);
+      throw new Error('NO_RESTAURANT_ACCOUNT');
     } catch (error: unknown) {
       console.error('[AuthContext] signIn error', error);
       
@@ -151,31 +306,91 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       provider.addScope('profile');
       
       const userCredential = await signInWithPopup(auth, provider);
-      const restaurantDoc = await getDoc(doc(db, 'restaurants', userCredential.user.uid));
+      const userId = userCredential.user.uid;
+      const userEmail = userCredential.user.email || '';
       
-      if (!restaurantDoc.exists()) {
-        // Prevent unauthorized account creation - only allow existing accounts
-        await firebaseSignOut(auth); // Sign out the user immediately
-        throw new Error('NO_RESTAURANT_ACCOUNT');
+      // First check if user is a restaurant owner
+      const restaurantDoc = await getDoc(doc(db, 'restaurants', userId));
+      
+      if (restaurantDoc.exists()) {
+        // User is a restaurant owner
+        const restaurantData = restaurantDoc.data();
+        
+        if (restaurantData?.deleted || restaurantData?.isDeleted) {
+          await firebaseSignOut(auth);
+          throw new Error('RESTAURANT_ACCOUNT_DELETED');
+        }
+        
+        if (restaurantData?.isDeactivated || restaurantData?.deactivated) {
+          await firebaseSignOut(auth);
+          throw new Error('RESTAURANT_ACCOUNT_DISABLED');
+        }
+        
+        // Log activity and navigate
+        await logActivity({
+          userId,
+          userEmail,
+          action: 'login_google',
+          entityType: 'restaurant',
+        });
+        
+        console.log('[AuthContext] signInWithGoogle complete (owner), navigating to dashboard');
+        navigate('/dashboard');
+        return;
       }
       
-      // Check if account is not deleted
-      const restaurantData = restaurantDoc.data();
-      if (restaurantData?.deleted) {
-        await firebaseSignOut(auth);
-        throw new Error('RESTAURANT_ACCOUNT_DELETED');
+      // Check if user is an employee
+      console.log('[AuthContext] Checking if user is an employee (Google)...', { uid: userId });
+      const employeeResult = await findEmployeeRestaurant(userId);
+      console.log('[AuthContext] Employee lookup result (Google):', employeeResult);
+      
+      if (employeeResult) {
+        const { restaurantId, employee: employeeData } = employeeResult;
+        console.log('[AuthContext] Employee found (Google):', { restaurantId, employeeId: employeeData.id, isActive: employeeData.isActive });
+        
+        // Check if employee is active
+        if (!employeeData.isActive) {
+          await firebaseSignOut(auth);
+          throw new Error('EMPLOYEE_ACCOUNT_DISABLED');
+        }
+        
+        // Load restaurant data to verify it's not deleted/deactivated
+        const employeeRestaurantDoc = await getDoc(doc(db, 'restaurants', restaurantId));
+        
+        if (!employeeRestaurantDoc.exists()) {
+          await firebaseSignOut(auth);
+          throw new Error('RESTAURANT_NOT_FOUND');
+        }
+        
+        const restaurantData = employeeRestaurantDoc.data();
+        
+        if (restaurantData?.deleted || restaurantData?.isDeleted) {
+          await firebaseSignOut(auth);
+          throw new Error('RESTAURANT_ACCOUNT_DELETED');
+        }
+        
+        if (restaurantData?.isDeactivated || restaurantData?.deactivated) {
+          await firebaseSignOut(auth);
+          throw new Error('RESTAURANT_ACCOUNT_DISABLED');
+        }
+        
+        // Log activity and navigate
+        await logActivity({
+          userId,
+          userEmail,
+          action: 'login_google',
+          entityType: 'employee',
+          details: { restaurantId },
+        });
+        
+        console.log('[AuthContext] signInWithGoogle complete (employee), navigating to dashboard');
+        navigate('/dashboard');
+        return;
       }
       
-      // Only proceed if account exists and is valid
-      await logActivity({
-        userId: userCredential.user.uid,
-        userEmail: userCredential.user.email || '',
-        action: 'login_google',
-        entityType: 'restaurant',
-      });
-      
-      console.log('[AuthContext] signInWithGoogle complete, navigating to dashboard');
-      navigate('/dashboard');
+      // Neither restaurant owner nor employee
+      await firebaseSignOut(auth);
+      throw new Error('NO_RESTAURANT_ACCOUNT');
     } catch (error: unknown) {
       console.error('[AuthContext] signInWithGoogle error', error);
       
@@ -194,6 +409,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         if (error.message === 'RESTAURANT_ACCOUNT_DELETED') {
           const customError = new Error('RESTAURANT_ACCOUNT_DELETED') as Error & { code: string };
           customError.code = 'restaurant-account-deleted';
+          throw customError;
+        }
+        if (error.message === 'EMPLOYEE_ACCOUNT_DISABLED') {
+          const customError = new Error('Your employee account has been disabled. Please contact your restaurant manager.') as Error & { code: string };
+          customError.code = 'employee-account-disabled';
           throw customError;
         }
       }
@@ -237,13 +457,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const signOut = async () => {
     const user = auth.currentUser;
+    const isEmployeeUser = employee !== null;
     await firebaseSignOut(auth);
     if (user) {
       await logActivity({
         userId: user.uid,
         userEmail: user.email || '',
         action: 'logout',
-        entityType: 'restaurant',
+        entityType: isEmployeeUser ? 'employee' : 'restaurant',
+        details: { restaurantId: restaurant?.id },
       });
     }
     navigate('/login');
@@ -274,6 +496,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const value = {
     currentUser,
     restaurant,
+    employee,
+    isEmployee: employee !== null,
     loading,
     isVerified,
     signIn,

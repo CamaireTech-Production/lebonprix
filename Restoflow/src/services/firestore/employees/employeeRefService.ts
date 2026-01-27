@@ -114,17 +114,23 @@ export const getEmployeeRef = async (
   restaurantId: string,
   userId: string
 ): Promise<EmployeeRef | null> => {
-  const employeeRef = doc(db, 'restaurants', restaurantId, 'employeeRefs', userId);
-  const employeeSnap = await getDoc(employeeRef);
+  try {
+    const employeeRef = doc(db, 'restaurants', restaurantId, 'employeeRefs', userId);
+    const employeeSnap = await getDoc(employeeRef);
 
-  if (!employeeSnap.exists()) {
+    if (!employeeSnap.exists()) {
+      return null;
+    }
+
+    const data = employeeSnap.data();
+    return {
+      id: employeeSnap.id,
+      ...data
+    } as EmployeeRef;
+  } catch (error) {
+    console.error(`[getEmployeeRef] Error getting employee for restaurant ${restaurantId}, user ${userId}:`, error);
     return null;
   }
-
-  return {
-    id: employeeSnap.id,
-    ...employeeSnap.data()
-  } as EmployeeRef;
 };
 
 export const getEmployeeRefsByRole = async (
@@ -161,4 +167,41 @@ export const getUserRole = async (
 ): Promise<UserRole | null> => {
   const employee = await getEmployeeRef(restaurantId, userId);
   return employee?.role || null;
+};
+
+/**
+ * Find which restaurant an employee belongs to by searching all restaurants
+ * This is used during employee login to determine their restaurant context
+ */
+export const findEmployeeRestaurant = async (
+  userId: string
+): Promise<{ restaurantId: string; employee: EmployeeRef } | null> => {
+  try {
+    console.log('[findEmployeeRestaurant] Starting search for userId:', userId);
+    // Get all restaurants
+    const restaurantsRef = collection(db, 'restaurants');
+    const restaurantsSnapshot = await getDocs(restaurantsRef);
+    console.log('[findEmployeeRestaurant] Found restaurants:', restaurantsSnapshot.docs.length);
+
+    // Check each restaurant's employeeRefs subcollection
+    for (const restaurantDoc of restaurantsSnapshot.docs) {
+      const restaurantId = restaurantDoc.id;
+      console.log('[findEmployeeRestaurant] Checking restaurant:', restaurantId);
+      const employee = await getEmployeeRef(restaurantId, userId);
+      
+      if (employee) {
+        console.log('[findEmployeeRestaurant] Employee found in restaurant:', restaurantId, employee);
+        return {
+          restaurantId,
+          employee
+        };
+      }
+    }
+
+    console.log('[findEmployeeRestaurant] Employee not found in any restaurant');
+    return null;
+  } catch (error) {
+    console.error('[findEmployeeRestaurant] Error finding employee restaurant:', error);
+    return null;
+  }
 };

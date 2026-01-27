@@ -39,7 +39,7 @@ const Login: React.FC = () => {
       if (error && typeof error === 'object' && 'message' in error) {
         const customError = error as { message: string; code?: string };
         if (customError.message === 'NO_RESTAURANT_ACCOUNT') {
-          errorMessage = 'No restaurant account found. Please create an account first.';
+          errorMessage = 'No account found. Please verify your credentials or contact your restaurant manager if you are an employee.';
         } else if (customError.message === 'RESTAURANT_ACCOUNT_DELETED') {
           errorMessage = t('restaurant_account_deleted', language);
         } else if (customError.message === 'RESTAURANT_ACCOUNT_DISABLED') {
@@ -48,6 +48,8 @@ const Login: React.FC = () => {
           errorMessage = 'No account found with this email. Please create an account first.';
         } else if (customError.message === 'INVALID_CREDENTIALS') {
           errorMessage = 'Invalid email or password. Please check your credentials.';
+        } else if (customError.message === 'EMPLOYEE_ACCOUNT_DISABLED') {
+          errorMessage = 'Your employee account has been disabled. Please contact your restaurant manager.';
         } else if (customError.code === 'auth/invalid-credential' || customError.code === 'auth/wrong-password') {
           errorMessage = t('invalid_credentials', language);
         } else if (customError.code === 'auth/user-not-found') {
@@ -90,6 +92,8 @@ const Login: React.FC = () => {
           errorMessage = 'Your account has been disabled. Please contact support for assistance.';
         } else if (customError.message === 'ACCOUNT_NOT_FOUND') {
           errorMessage = 'No account found with this email. Please create an account first.';
+        } else if (customError.message === 'EMPLOYEE_ACCOUNT_DISABLED') {
+          errorMessage = 'Your employee account has been disabled. Please contact your restaurant manager.';
         } else if (customError.code === 'auth/popup-closed-by-user') {
           errorMessage = t('sign_in_cancelled', language);
         } else if (customError.code === 'auth/popup-blocked') {
