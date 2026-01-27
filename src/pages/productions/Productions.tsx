@@ -1,7 +1,7 @@
 // Productions list page
 import React, { useState, useMemo, useEffect } from 'react';
 import { Plus, Eye, Loader2, Search, Filter, X, Trash2, Edit2, Package, List, Columns, Workflow } from 'lucide-react';
-import { Button, LoadingScreen, Input, Badge, Modal, ModalFooter } from '@components/common';
+import { SkeletonTable } from "@components/common";
 import { useProductions, useProductionFlows, useProductionCategories, useProductionFlowSteps } from '@hooks/data/useFirestore';
 import { canPublishProduction } from '@utils/productions/flowValidation';
 import { formatPrice } from '@utils/formatting/formatPrice';
@@ -505,7 +505,7 @@ const Productions: React.FC = () => {
   };
 
   if (loading) {
-    return <LoadingScreen />;
+    return <SkeletonTable rows={5} />;
   }
 
   return (

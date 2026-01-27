@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@contexts/AuthContext';
 import { useRolePermissions } from '@hooks/business/useRolePermissions';
-import { Card, LoadingScreen } from '@components/common';
+import { SkeletonTable } from "@components/common";
 import InviteEmployeeForm from '@components/hr/InviteEmployeeForm';
 import PendingInvitationsList from '@components/hr/PendingInvitationsList';
 import TeamOverview from '@components/hr/TeamOverview';
@@ -229,7 +229,7 @@ const HRManagement = () => {
   }
 
   if (loading) {
-    return <LoadingScreen />;
+    return <SkeletonTable rows={5} />;
   }
 
   return (

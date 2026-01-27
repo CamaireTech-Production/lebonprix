@@ -1,7 +1,7 @@
 // Production Flows page
 import React, { useState, useMemo } from 'react';
 import { Plus, Edit2, Trash2, Loader2, ArrowUp, ArrowDown, X, Search, ChevronRight, ChevronDown } from 'lucide-react';
-import { Button, Modal, ModalFooter, LoadingScreen } from '@components/common';
+import { SkeletonTable } from "@components/common";
 import { useProductionFlows, useProductionFlowSteps } from '@hooks/data/useFirestore';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
 import { formatCreatorName } from '@utils/business/employeeUtils';
@@ -186,7 +186,7 @@ const Flows: React.FC = () => {
   }, [flows, flowSteps]);
 
   if (loading) {
-    return <LoadingScreen />;
+    return <SkeletonTable rows={5} />;
   }
 
   return (

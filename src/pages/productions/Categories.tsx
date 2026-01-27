@@ -1,7 +1,7 @@
 // Production Categories page
 import React, { useState } from 'react';
 import { Plus, Edit2, Trash2, Loader2, Power, PowerOff, Upload, X } from 'lucide-react';
-import { Button, Modal, ModalFooter, LoadingScreen, Badge } from '@components/common';
+import { SkeletonTable } from "@components/common";
 import { useAuth } from '@contexts/AuthContext';
 import { useProductionCategories } from '@hooks/data/useFirestore';
 import { FirebaseStorageService } from '@services/core/firebaseStorage';
@@ -201,7 +201,7 @@ const Categories: React.FC = () => {
   };
 
   if (loading) {
-    return <LoadingScreen />;
+    return <SkeletonTable rows={5} />;
   }
 
   return (

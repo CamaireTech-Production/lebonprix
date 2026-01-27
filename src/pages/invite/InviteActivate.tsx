@@ -137,7 +137,7 @@ export default function InviteActivate() {
   };
 
   if (loading) {
-    return <LoadingScreen />;
+    return <SkeletonTable rows={5} />;
   }
 
   if (error) {

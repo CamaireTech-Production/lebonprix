@@ -18,7 +18,7 @@ import {
   RotateCcw
 } from 'lucide-react';
 import Select from 'react-select';
-import { Modal, ModalFooter, Input, PriceInput, Badge, Button, Card, ImageWithSkeleton, LoadingScreen, SyncIndicator, DateRangePicker } from '@components/common';
+import { Modal, ModalFooter, Input, PriceInput, Badge, Button, Card, ImageWithSkeleton, SkeletonSalesList, SyncIndicator, DateRangePicker } from '@components/common';
 import { useProducts, useCustomers, useSales } from '@hooks/data/useFirestore';
 import { useCustomerSources } from '@hooks/business/useCustomerSources';
 import { useInfiniteSales } from '@hooks/data/useInfiniteSales';
@@ -857,7 +857,7 @@ const Sales: React.FC = () => {
   );
 
   if (salesLoading || productsLoading) {
-    return <LoadingScreen />;
+    return <SkeletonSalesList rows={15} />;
   }
 
   if (salesError) {

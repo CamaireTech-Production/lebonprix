@@ -2276,10 +2276,10 @@ export const createFinanceEntry = async (entry: Omit<FinanceEntry, 'id' | 'creat
   }
   
   // FIXED: Use batch for manual entries (with audit log) and ensure proper commit
-  // With includeMetadataChanges: true in onSnapshot, batch writes will trigger immediately
+  // Real-time listener will catch this write once it's committed to server
   if (entry.sourceType === 'manual') {
     // For manual entries, we need audit log, so use batch
-    // The onSnapshot listener with includeMetadataChanges will catch this write immediately
+    // The onSnapshot listener will catch this write once committed
     const batch = writeBatch(db);
     batch.set(ref, data);
     await createAuditLog(
@@ -2290,8 +2290,8 @@ export const createFinanceEntry = async (entry: Omit<FinanceEntry, 'id' | 'creat
       { all: { oldValue: null, newValue: data } },
       entry.userId
     );
-    
-    // Commit batch - with includeMetadataChanges: true, onSnapshot will fire immediately
+
+    // Commit batch - onSnapshot will fire once committed to server
     await batch.commit();
   } else {
     // For non-manual entries, simple write is faster

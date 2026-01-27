@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Bell, CheckCircle, XCircle, Package, ShoppingCart, ArrowRight, AlertCircle, Filter, X, Eye, Plus, AlertTriangle } from 'lucide-react';
-import { Card, Button, Badge, LoadingScreen, Select } from '@components/common';
+import { SkeletonTable } from "@components/common";
 import { useNotifications } from '@hooks/data/useFirestore';
 import { useAuth } from '@contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
@@ -206,7 +206,7 @@ const Notifications: React.FC = () => {
   };
 
   if (loading) {
-    return <LoadingScreen />;
+    return <SkeletonTable rows={5} />;
   }
 
   return (

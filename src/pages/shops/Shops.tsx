@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Plus, Edit2, Trash2, MapPin, Store, Users, Badge as BadgeIcon, Search, UserCheck, Eye, Power, PowerOff } from 'lucide-react';
-import { Card, Button, Badge, Modal, ModalFooter, Input, Textarea, Table, LoadingScreen } from '@components/common';
+import { SkeletonTable } from "@components/common";
 import { useShops, useProducts } from '@hooks/data/useFirestore';
 import { useAuth } from '@contexts/AuthContext';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
@@ -334,7 +334,7 @@ const Shops = () => {
   };
 
   if (loading) {
-    return <LoadingScreen />;
+    return <SkeletonTable rows={5} />;
   }
 
   return (

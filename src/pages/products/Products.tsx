@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Grid, List, Plus, Search, Edit2, Upload, Trash2, CheckSquare, Square, Info, Eye, EyeOff, QrCode, ExternalLink, FileText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
-import { Card, Button, Badge, Modal, ModalFooter, Input, ImageWithSkeleton, LoadingScreen, SyncIndicator, PriceInput } from '@components/common';
+import { Card, Button, Badge, Modal, ModalFooter, Input, ImageWithSkeleton, SkeletonProductsGrid, SyncIndicator, PriceInput } from '@components/common';
 import { useProducts, useStockChanges, useCategories, useSuppliers } from '@hooks/data/useFirestore';
 import { useInfiniteProducts } from '@hooks/data/useInfiniteProducts';
 import { useInfiniteScroll } from '@hooks/data/useInfiniteScroll';
@@ -1325,7 +1325,7 @@ const Products = () => {
   };
 
   if (infiniteLoading) {
-    return <LoadingScreen />;
+    return <SkeletonProductsGrid rows={20} />;
   }
 
   if (infiniteError) {

@@ -21,7 +21,7 @@ import { useExpenseStats, ExpenseFilterOptions } from '@hooks/business/useExpens
 import { useExpenseCategories } from '@hooks/business/useExpenseCategories';
 import type { Expense, ExpenseType } from '../../types/models';
 import ExpenseFiltersComponent from './shared/ExpenseFilters';
-import LoadingScreen from '../../components/common/LoadingScreen';
+import { SkeletonTable } from "@components/common";
 
 // Register Chart.js components
 ChartJS.register(
@@ -215,7 +215,7 @@ const ExpensesAnalytics = () => {
   }, [visibleExpenses, dateRange]);
 
   if (loading) {
-    return <LoadingScreen />;
+    return <SkeletonTable rows={5} />;
   }
 
   return (

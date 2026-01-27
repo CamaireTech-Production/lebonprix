@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Plus, Edit2, Trash2, MapPin, Warehouse as WarehouseIcon, Package, Search, UserCheck, Eye, Users, Power, PowerOff } from 'lucide-react';
-import { Card, Button, Badge, Modal, ModalFooter, Input, Textarea, LoadingScreen } from '@components/common';
+import { SkeletonTable } from "@components/common";
 import { useWarehouses, useProducts } from '@hooks/data/useFirestore';
 import { useAuth } from '@contexts/AuthContext';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
@@ -306,7 +306,7 @@ const Warehouse = () => {
   };
 
   if (loading) {
-    return <LoadingScreen />;
+    return <SkeletonTable rows={5} />;
   }
 
   return (

@@ -2,7 +2,7 @@
 import { useState, useMemo } from 'react';
 import { Plus, FileText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Card, Button, SyncIndicator, LoadingScreen } from '@components/common';
+import { Card, Button, SyncIndicator, SkeletonExpensesList } from '@components/common';
 import { useInfiniteExpenses } from '@hooks/data/useInfiniteExpenses';
 import { useInfiniteScroll } from '@hooks/data/useInfiniteScroll';
 import { useExpenseStats } from '@hooks/business/useExpenseStats';
@@ -113,7 +113,7 @@ const ExpensesList = () => {
   };
 
   if (loading) {
-    return <LoadingScreen />;
+    return <SkeletonExpensesList rows={15} />;
   }
 
   return (
