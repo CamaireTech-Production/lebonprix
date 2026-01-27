@@ -22,9 +22,9 @@ const softDeleteSale = async (saleId: string, companyId: string): Promise<void> 
   await deleteSale(saleId, companyId);
 };
 
-const softDeleteExpense = async (expenseId: string, userId: string): Promise<void> => {
+const softDeleteExpense = async (expenseId: string, companyId: string): Promise<void> => {
   const { softDeleteExpense: deleteExpense } = await import('../expenses/expenseService');
-  await deleteExpense(expenseId, userId);
+  await deleteExpense(expenseId, companyId);
 };
 
 // ============================================================================
