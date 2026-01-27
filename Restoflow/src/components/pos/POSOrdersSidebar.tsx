@@ -1,6 +1,6 @@
 // POSOrdersSidebar - Active orders and drafts sidebar
 import React from 'react';
-import { Clock, Play, Trash2, ChefHat, CheckCircle, XCircle } from 'lucide-react';
+import { Clock, Play, Trash2, ChefHat, CheckCircle, XCircle, CreditCard, Edit3 } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { t } from '../../utils/i18n';
 import type { POSOrder, POSDraft } from '../../types/pos';
@@ -11,6 +11,8 @@ interface POSOrdersSidebarProps {
   drafts: POSDraft[];
   onResumeDraft: (draft: POSDraft) => void;
   onDeleteDraft: (draftId: string) => void;
+  onEditOrder?: (order: POSOrder | Order) => void;
+  onPayOrder?: (order: POSOrder | Order) => void;
 }
 
 const POSOrdersSidebar: React.FC<POSOrdersSidebarProps> = ({
@@ -18,6 +20,8 @@ const POSOrdersSidebar: React.FC<POSOrdersSidebarProps> = ({
   drafts,
   onResumeDraft,
   onDeleteDraft,
+  onEditOrder,
+  onPayOrder,
 }) => {
   const { language } = useLanguage();
 
@@ -107,7 +111,7 @@ const POSOrdersSidebar: React.FC<POSOrdersSidebarProps> = ({
               {activeOrders.map(order => (
                 <div
                   key={order.id}
-                  className="bg-white rounded-lg p-3 shadow-sm border border-gray-200"
+                  className="bg-white rounded-lg p-3 shadow-sm border border-gray-200 hover:border-primary/50 transition-colors"
                 >
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center space-x-2">
@@ -131,8 +135,32 @@ const POSOrdersSidebar: React.FC<POSOrdersSidebarProps> = ({
                     {order.items?.length || 0} {(order.items?.length || 0) === 1 ? 'item' : 'items'}
                   </div>
 
-                  <div className="text-sm font-semibold text-primary">
+                  <div className="text-sm font-semibold text-primary mb-2">
                     {formatPrice(order.totalAmount || 0)}
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex items-center space-x-2 pt-2 border-t">
+                    {onEditOrder && (
+                      <button
+                        onClick={() => onEditOrder(order)}
+                        className="flex-1 flex items-center justify-center space-x-1 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded transition-colors"
+                        title={t('edit', language) || 'Edit'}
+                      >
+                        <Edit3 size={12} />
+                        <span>{t('edit', language) || 'Edit'}</span>
+                      </button>
+                    )}
+                    {onPayOrder && order.status !== 'completed' && order.status !== 'cancelled' && (
+                      <button
+                        onClick={() => onPayOrder(order)}
+                        className="flex-1 flex items-center justify-center space-x-1 py-1.5 text-xs font-medium text-white bg-primary hover:bg-primary/90 rounded transition-colors"
+                        title={t('pos_pay', language) || 'Pay'}
+                      >
+                        <CreditCard size={12} />
+                        <span>{t('pos_pay', language) || 'Pay'}</span>
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}

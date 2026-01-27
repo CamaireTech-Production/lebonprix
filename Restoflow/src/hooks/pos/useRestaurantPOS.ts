@@ -19,6 +19,7 @@ import type {
   POSDraft,
   POSCartTotals,
   UseRestaurantPOSReturn,
+  PartialKitchenTicket,
 } from '../../types/pos';
 import type { Dish, Category, Table, Order, OrderItem } from '../../types/index';
 import type { Sale, SaleProduct } from '../../types/geskap';
@@ -60,6 +61,10 @@ export function useRestaurantPOS(): UseRestaurantPOSReturn {
   const [tables, setTables] = useState<Table[]>([]);
   const [activeOrders, setActiveOrders] = useState<Order[]>([]);
   const [drafts, setDrafts] = useState<POSDraft[]>([]);
+
+  // Edit order state
+  const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
+  const [originalOrderItems, setOriginalOrderItems] = useState<POSCartItem[]>([]);
 
   // Use sales hook for creating sales records
   const { createSale } = useSales({ restaurantId, userId });
@@ -130,15 +135,41 @@ export function useRestaurantPOS(): UseRestaurantPOSReturn {
     }
   }, [restaurantId, userId, dishes]);
 
-  // Subscribe to active orders
+  // Subscribe to active orders (only today's orders)
   useEffect(() => {
     if (!restaurantId) return;
 
     const unsubscribe = FirestoreService.subscribeToAllOrders(restaurantId, (orders) => {
-      // Filter to only show non-completed orders
-      const active = orders.filter(
-        o => o.status !== 'completed' && o.status !== 'cancelled' && !o.deleted
-      );
+      // Get start of today
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todayTimestamp = today.getTime();
+
+      // Filter to only show non-completed orders from today
+      const active = orders.filter(o => {
+        // Must not be completed/cancelled/deleted
+        if (o.status === 'completed' || o.status === 'cancelled' || o.deleted) {
+          return false;
+        }
+
+        // Check if order is from today
+        let orderDate: Date | null = null;
+        if (o.createdAt) {
+          if (typeof o.createdAt === 'object' && 'seconds' in o.createdAt) {
+            orderDate = new Date((o.createdAt as any).seconds * 1000);
+          } else if (o.createdAt instanceof Date) {
+            orderDate = o.createdAt;
+          }
+        }
+
+        // Only include orders from today
+        if (orderDate && orderDate.getTime() >= todayTimestamp) {
+          return true;
+        }
+
+        return false;
+      });
+
       setActiveOrders(active);
     });
 
@@ -345,32 +376,65 @@ export function useRestaurantPOS(): UseRestaurantPOSReturn {
     setIsSubmitting(true);
 
     try {
-      // Build order items
-      const orderItems: OrderItem[] = state.cart.map(item => ({
-        id: item.dish.id,
-        menuItemId: item.dish.id,
-        title: item.dish.title,
-        price: item.modifiedPrice ?? item.dish.price,
-        quantity: item.quantity,
-        notes: item.specialInstructions,
-        image: item.dish.image,
-      }));
+      // Build order items (remove undefined values)
+      const orderItems: OrderItem[] = state.cart.map(item => {
+        const itemData: OrderItem = {
+          id: item.dish.id,
+          menuItemId: item.dish.id,
+          title: item.dish.title,
+          price: item.modifiedPrice ?? item.dish.price,
+          quantity: item.quantity,
+        };
+        
+        // Only add optional fields if they have values
+        if (item.specialInstructions) {
+          itemData.notes = item.specialInstructions;
+        }
+        if (item.dish.image) {
+          itemData.image = item.dish.image;
+        }
+        
+        return itemData;
+      });
 
-      // Create the order
+      // Create the order (remove undefined values)
       const orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'> = {
         items: orderItems,
         restaurantId,
         status: 'pending',
         totalAmount: cartTotals.total,
-        tableNumber: paymentData.tableNumber,
-        customerName: paymentData.customerName || state.customer?.name,
-        customerPhone: paymentData.customerPhone || state.customer?.phone,
-        customerLocation: paymentData.customerLocation || state.customer?.location,
-        deliveryFee: state.orderType === 'delivery' ? state.deliveryFee : undefined,
         orderType: state.orderType === 'dine-in' ? 'restaurant' : 'online',
-        paymentMethod: paymentData.paymentMethod === 'mobile_money' ? 'campay' : paymentData.paymentMethod,
-        paymentStatus: 'completed',
+        paymentStatus: paymentData.skipPayment ? 'pending' : 'completed',
       };
+
+      // Only add optional fields if they have values
+      if (paymentData.tableNumber) {
+        orderData.tableNumber = paymentData.tableNumber;
+      }
+      
+      const customerName = paymentData.customerName || state.customer?.name;
+      if (customerName) {
+        orderData.customerName = customerName;
+      }
+      
+      const customerPhone = paymentData.customerPhone || state.customer?.phone;
+      if (customerPhone) {
+        orderData.customerPhone = customerPhone;
+      }
+      
+      const customerLocation = paymentData.customerLocation || state.customer?.location;
+      if (customerLocation) {
+        orderData.customerLocation = customerLocation;
+      }
+      
+      if (state.orderType === 'delivery' && state.deliveryFee > 0) {
+        orderData.deliveryFee = state.deliveryFee;
+      }
+      
+      const paymentMethod = paymentData.paymentMethod === 'mobile_money' ? 'campay' : paymentData.paymentMethod;
+      if (paymentMethod) {
+        orderData.paymentMethod = paymentMethod;
+      }
 
       const orderId = await FirestoreService.createOrder(restaurantId, orderData);
 
@@ -394,39 +458,54 @@ export function useRestaurantPOS(): UseRestaurantPOSReturn {
         paymentMethod: paymentData.paymentMethod,
       };
 
-      // Create sale record for financial tracking
-      const saleProducts: SaleProduct[] = state.cart.map(item => ({
-        productId: item.dish.id,
-        quantity: item.quantity,
-        basePrice: item.dish.price,
-        negotiatedPrice: item.modifiedPrice,
-        costPrice: 0, // Would need ingredient cost tracking
-        profit: (item.modifiedPrice ?? item.dish.price) * item.quantity,
-        profitMargin: 100, // 100% since no cost tracking yet
-      }));
+      // Create sale record for financial tracking (only if payment is not skipped)
+      let sale: Sale | undefined;
+      if (!paymentData.skipPayment) {
+        const saleProducts: SaleProduct[] = state.cart.map(item => ({
+          productId: item.dish.id,
+          quantity: item.quantity,
+          basePrice: item.dish.price,
+          negotiatedPrice: item.modifiedPrice,
+          costPrice: 0, // Would need ingredient cost tracking
+          profit: (item.modifiedPrice ?? item.dish.price) * item.quantity,
+          profitMargin: 100, // 100% since no cost tracking yet
+        }));
 
-      const saleData: Omit<Sale, 'id' | 'createdAt' | 'updatedAt'> = {
-        products: saleProducts,
-        totalAmount: cartTotals.total,
-        status: 'paid',
-        paymentStatus: 'paid',
-        customerInfo: {
-          name: paymentData.customerName || state.customer?.name || '',
-          phone: paymentData.customerPhone || state.customer?.phone || '',
-          quarter: paymentData.customerLocation,
-        },
-        paymentMethod: paymentData.paymentMethod,
-        amountReceived: paymentData.amountReceived,
-        change: paymentData.change,
-        deliveryFee: state.orderType === 'delivery' ? state.deliveryFee : undefined,
-        tableNumber: paymentData.tableNumber,
-        orderId,
-        restaurantId,
-        userId,
-        isAvailable: true,
-      };
+        const saleData: Omit<Sale, 'id' | 'createdAt' | 'updatedAt'> = {
+          products: saleProducts,
+          totalAmount: cartTotals.total,
+          status: 'paid',
+          paymentStatus: 'paid',
+          customerInfo: {
+            name: paymentData.customerName || state.customer?.name || '',
+            phone: paymentData.customerPhone || state.customer?.phone || '',
+          },
+          paymentMethod: paymentData.paymentMethod,
+          orderId,
+          restaurantId,
+          userId,
+          isAvailable: true,
+        };
 
-      const sale = await createSale(saleData);
+        // Only add optional fields if they have values
+        if (paymentData.customerLocation) {
+          saleData.customerInfo.quarter = paymentData.customerLocation;
+        }
+        if (paymentData.amountReceived !== undefined) {
+          saleData.amountReceived = paymentData.amountReceived;
+        }
+        if (paymentData.change !== undefined) {
+          saleData.change = paymentData.change;
+        }
+        if (state.orderType === 'delivery' && state.deliveryFee > 0) {
+          saleData.deliveryFee = state.deliveryFee;
+        }
+        if (paymentData.tableNumber) {
+          saleData.tableNumber = paymentData.tableNumber;
+        }
+
+        sale = await createSale(saleData);
+      }
 
       // Update table status if dine-in
       if (state.orderType === 'dine-in' && state.selectedTable) {
@@ -532,20 +611,355 @@ export function useRestaurantPOS(): UseRestaurantPOSReturn {
   }, [restaurantId, userId, dishes, language]);
 
   // ============================================================
+  // ORDER EDITING
+  // ============================================================
+
+  const loadOrderForEditing = useCallback(async (orderId: string) => {
+    try {
+      setIsSubmitting(true);
+
+      // Fetch all orders and filter by ID
+      const orders = await FirestoreService.getOrders(restaurantId);
+      const order = orders.find(o => o.id === orderId);
+
+      if (!order) {
+        throw new Error(t('pos_order_not_found', language) || 'Order not found');
+      }
+
+      // Convert order items to cart items
+      const cartItems: POSCartItem[] = order.items
+        .map(item => {
+          const dish = dishes.find(d => d.id === item.menuItemId);
+          if (!dish) return null;
+
+          return {
+            dish,
+            quantity: item.quantity,
+            specialInstructions: item.notes,
+            modifiedPrice: item.price !== dish.price ? item.price : undefined,
+          };
+        })
+        .filter((item): item is POSCartItem => item !== null);
+
+      // Store original items for comparison
+      setOriginalOrderItems(cartItems);
+
+      // Load items into cart
+      setState(prev => ({
+        ...prev,
+        cart: cartItems,
+        selectedTable: order.tableNumber ? tables.find(t => t.number === order.tableNumber) || null : null,
+        customer: order.customerName || order.customerPhone
+          ? {
+              name: order.customerName || '',
+              phone: order.customerPhone || '',
+              location: order.customerLocation,
+            }
+          : null,
+      }));
+
+      setEditingOrderId(orderId);
+      toast.success(t('pos_order_loaded', language) || 'Order loaded for editing');
+    } catch (error: any) {
+      console.error('Error loading order for editing:', error);
+      toast.error(error.message || t('pos_order_load_error', language) || 'Failed to load order');
+      throw error;
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [restaurantId, dishes, tables, language]);
+
+  const addItemsToExistingOrder = useCallback(async (
+    orderId: string,
+    newItems: POSCartItem[],
+    kitchenTickets: number
+  ) => {
+    try {
+      setIsSubmitting(true);
+
+      // Convert new items to OrderItem[] (remove undefined values)
+      const orderItems: OrderItem[] = newItems.map(item => {
+        const itemData: OrderItem = {
+          id: item.dish.id,
+          menuItemId: item.dish.id,
+          title: item.dish.title,
+          price: item.modifiedPrice ?? item.dish.price,
+          quantity: item.quantity,
+        };
+        
+        // Only add optional fields if they have values
+        if (item.specialInstructions) {
+          itemData.notes = item.specialInstructions;
+        }
+        if (item.dish.image) {
+          itemData.image = item.dish.image;
+        }
+        
+        return itemData;
+      });
+
+      // Fetch existing order
+      const orders = await FirestoreService.getOrders(restaurantId);
+      const existingOrder = orders.find(o => o.id === orderId);
+
+      if (!existingOrder) {
+        throw new Error(t('pos_order_not_found', language) || 'Order not found');
+      }
+
+      // Merge items (if item already exists, increment quantity)
+      const mergedItems = [...existingOrder.items];
+      orderItems.forEach(newItem => {
+        const existingIndex = mergedItems.findIndex(i => i.menuItemId === newItem.menuItemId);
+        if (existingIndex >= 0) {
+          mergedItems[existingIndex].quantity += newItem.quantity;
+        } else {
+          mergedItems.push(newItem);
+        }
+      });
+
+      // Calculate new total
+      const newTotal = mergedItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+
+      // Update order
+      await FirestoreService.updateOrder(restaurantId, orderId, {
+        items: mergedItems,
+        totalAmount: newTotal,
+      });
+
+      // Create partial kitchen ticket
+      const partialTicket: PartialKitchenTicket = {
+        orderId,
+        orderNumber: `#${orderId.slice(-6)}`,
+        isPartial: true,
+        newItemsOnly: newItems.map(item => ({
+          name: item.dish.title,
+          quantity: item.quantity,
+          specialInstructions: item.specialInstructions,
+        })),
+        tableNumber: existingOrder.tableNumber,
+        orderType: state.orderType,
+        createdAt: new Date(),
+        note: `Additional items for Order #${orderId.slice(-6)}`,
+      };
+
+      // Print partial tickets
+      for (let i = 0; i < kitchenTickets; i++) {
+        printPartialKitchenTicket(partialTicket);
+      }
+
+      // Clear cart and reset edit state
+      setState(initialState);
+      setEditingOrderId(null);
+      setOriginalOrderItems([]);
+
+      toast.success(t('pos_items_added', language) || 'Items added to order');
+    } catch (error: any) {
+      console.error('Error adding items to order:', error);
+      toast.error(error.message || t('pos_add_items_error', language) || 'Failed to add items');
+      throw error;
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [restaurantId, state, language]);
+
+  // ============================================================
   // PRINTING (Placeholder - to be implemented)
   // ============================================================
 
-  const printKitchenTicket = useCallback((order: POSOrder) => {
-    // TODO: Implement kitchen ticket printing
-    console.log('Print kitchen ticket for order:', order.id);
-    toast.success(t('pos_ticket_printed', language) || 'Kitchen ticket sent');
+  // Helper function to create and print HTML ticket
+  const printHTMLTicket = useCallback((htmlContent: string) => {
+    // Create a print window
+    const printWindow = window.open('', '_blank', 'width=300,height=600');
+    if (!printWindow) {
+      toast.error(t('pos_print_blocked', language) || 'Please allow popups to print tickets');
+      return;
+    }
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Kitchen Ticket</title>
+          <style>
+            @media print {
+              @page {
+                size: 80mm auto;
+                margin: 0;
+              }
+              body {
+                margin: 0;
+                padding: 10px;
+                font-family: 'Courier New', monospace;
+                font-size: 12px;
+              }
+            }
+            body {
+              margin: 0;
+              padding: 10px;
+              font-family: 'Courier New', monospace;
+              font-size: 12px;
+              line-height: 1.4;
+            }
+            .ticket {
+              max-width: 80mm;
+              margin: 0 auto;
+            }
+            .header {
+              text-align: center;
+              border-bottom: 2px dashed #000;
+              padding-bottom: 10px;
+              margin-bottom: 10px;
+            }
+            .item {
+              margin: 8px 0;
+              padding-bottom: 8px;
+              border-bottom: 1px dotted #ccc;
+            }
+            .item-name {
+              font-weight: bold;
+            }
+            .item-instructions {
+              font-style: italic;
+              color: #d97706;
+              margin-top: 4px;
+              font-size: 11px;
+            }
+            .footer {
+              border-top: 2px dashed #000;
+              margin-top: 15px;
+              padding-top: 10px;
+              text-align: center;
+              font-size: 10px;
+            }
+          </style>
+        </head>
+        <body>
+          ${htmlContent}
+        </body>
+      </html>
+    `;
+
+    // Write content to the window
+    printWindow.document.open();
+    printWindow.document.write(html);
+    printWindow.document.close();
+
+    // Wait for the document to be ready, then trigger print
+    // Use multiple fallback methods to ensure print dialog opens
+    const triggerPrint = () => {
+      try {
+        printWindow.focus();
+        printWindow.print();
+        
+        // Close window after a delay (user may cancel print)
+        // Don't close immediately to allow print dialog to show
+        setTimeout(() => {
+          // Only close if window is still open (user might have closed it)
+          if (!printWindow.closed) {
+            printWindow.close();
+          }
+        }, 1000);
+      } catch (error) {
+        console.error('Error triggering print:', error);
+        toast.error(t('pos_print_error', language) || 'Failed to open print dialog');
+      }
+    };
+
+    // Try multiple methods to ensure print dialog opens
+    if (printWindow.document.readyState === 'complete') {
+      // Document is already loaded
+      setTimeout(triggerPrint, 100);
+    } else {
+      // Wait for document to load
+      printWindow.addEventListener('load', () => {
+        setTimeout(triggerPrint, 100);
+      }, { once: true });
+      
+      // Fallback: try after a short delay regardless
+      setTimeout(triggerPrint, 500);
+    }
   }, [language]);
 
+  const printKitchenTicket = useCallback((order: POSOrder) => {
+    const orderTypeLabel = order.orderType === 'dine-in' 
+      ? t('pos_dine_in', language) || 'Dine In'
+      : order.orderType === 'takeaway'
+      ? t('pos_takeaway', language) || 'Takeaway'
+      : t('pos_delivery', language) || 'Delivery';
+
+    const htmlContent = `
+      <div class="ticket">
+        <div class="header">
+          <h2 style="margin: 0; font-size: 16px;">${t('pos_kitchen_ticket', language) || 'KITCHEN TICKET'}</h2>
+          <div style="margin-top: 5px; font-size: 11px;">
+            ${new Date().toLocaleString()}
+          </div>
+          <div style="margin-top: 8px;">
+            <span style="background: #e5e7eb; padding: 2px 8px; border-radius: 4px; font-size: 10px;">${orderTypeLabel}</span>
+            ${order.tableNumber ? `<span style="background: #dbeafe; padding: 2px 8px; border-radius: 4px; font-size: 10px; margin-left: 5px;">${t('table', language) || 'Table'} ${order.tableNumber}</span>` : ''}
+          </div>
+        </div>
+        <div class="items">
+          ${order.items.map(item => `
+            <div class="item">
+              <div class="item-name">${item.quantity}x ${item.title}</div>
+              ${item.specialInstructions || item.notes ? `<div class="item-instructions">*** ${item.specialInstructions || item.notes} ***</div>` : ''}
+            </div>
+          `).join('')}
+        </div>
+        <div class="footer">
+          <div>Order #${order.id.slice(-6)}</div>
+          <div style="margin-top: 5px;">${new Date().toLocaleTimeString()}</div>
+        </div>
+      </div>
+    `;
+
+    printHTMLTicket(htmlContent);
+  }, [language, printHTMLTicket]);
+
   const printReceipt = useCallback((order: POSOrder, sale: Sale) => {
-    // TODO: Implement receipt printing
+    // TODO: Implement receipt printing with proper formatting
     console.log('Print receipt for sale:', sale.id);
     toast.success(t('pos_receipt_printed', language) || 'Receipt printed');
   }, [language]);
+
+  const printPartialKitchenTicket = useCallback((ticket: PartialKitchenTicket) => {
+    const orderTypeLabel = ticket.orderType === 'dine-in' 
+      ? t('pos_dine_in', language) || 'Dine In'
+      : ticket.orderType === 'takeaway'
+      ? t('pos_takeaway', language) || 'Takeaway'
+      : t('pos_delivery', language) || 'Delivery';
+
+    const htmlContent = `
+      <div class="ticket">
+        <div class="header">
+          <h2 style="margin: 0; font-size: 16px; color: #d97706;">ADDITIONAL ITEMS</h2>
+          <div style="margin-top: 5px; font-size: 11px;">
+            ${ticket.createdAt.toLocaleString()}
+          </div>
+          <div style="margin-top: 8px;">
+            <span style="background: #e5e7eb; padding: 2px 8px; border-radius: 4px; font-size: 10px;">${orderTypeLabel}</span>
+            ${ticket.tableNumber ? `<span style="background: #dbeafe; padding: 2px 8px; border-radius: 4px; font-size: 10px; margin-left: 5px;">${t('table', language) || 'Table'} ${ticket.tableNumber}</span>` : ''}
+          </div>
+          ${ticket.note ? `<div style="margin-top: 8px; font-size: 11px; font-weight: bold; color: #d97706;">${ticket.note}</div>` : ''}
+        </div>
+        <div class="items">
+          ${ticket.newItemsOnly.map(item => `
+            <div class="item">
+              <div class="item-name">${item.quantity}x ${item.name}</div>
+              ${item.specialInstructions ? `<div class="item-instructions">*** ${item.specialInstructions} ***</div>` : ''}
+            </div>
+          `).join('')}
+        </div>
+        <div class="footer">
+          <div>Order ${ticket.orderNumber}</div>
+          <div style="margin-top: 5px;">${ticket.createdAt.toLocaleTimeString()}</div>
+        </div>
+      </div>
+    `;
+
+    printHTMLTicket(htmlContent);
+  }, [language, printHTMLTicket]);
 
   // ============================================================
   // RETURN
@@ -556,6 +970,8 @@ export function useRestaurantPOS(): UseRestaurantPOSReturn {
     state,
     isSubmitting,
     isLoading,
+    editingOrderId,
+    originalOrderItems,
 
     // Data
     dishes,
@@ -597,6 +1013,10 @@ export function useRestaurantPOS(): UseRestaurantPOSReturn {
     // Order completion
     completeOrder,
 
+    // Order editing
+    loadOrderForEditing,
+    addItemsToExistingOrder,
+
     // Draft management
     saveDraft,
     resumeDraft,
@@ -605,6 +1025,7 @@ export function useRestaurantPOS(): UseRestaurantPOSReturn {
     // Printing
     printKitchenTicket,
     printReceipt,
+    printPartialKitchenTicket,
   };
 }
 

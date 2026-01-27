@@ -38,6 +38,9 @@ import { CustomersPage } from './pages/restaurant/customers';
 import { ExpensesLayout, ExpensesList, ExpensesCategories, ExpensesAnalytics } from './pages/restaurant/expenses';
 import { POSPage } from './pages/restaurant/pos';
 import { InventoryLayout, IngredientsPage, InventoryCategoriesPage, StocksPage } from './pages/restaurant/inventory';
+import { SuppliersPage } from './pages/restaurant/suppliers';
+import { StaffLayout, StaffPage, PermissionsPage } from './pages/restaurant/staff';
+import { ReportsPage } from './pages/restaurant/reports';
 import ResetPassword from './pages/auth/ResetPassword';
 import DeliveryManagement from './pages/restaurant/delivery/DeliveryManagement';
 import AdsManagementFast from './pages/restaurant/ads/AdsManagementFast';
@@ -309,6 +312,42 @@ function App() {
                   <Route path="categories" element={<InventoryCategoriesPage />} />
                   <Route path="stocks" element={<StocksPage />} />
                 </Route>
+                {/* Suppliers Route */}
+                <Route
+                  path="/suppliers"
+                  element={
+                    <ProtectedRoute>
+                      <VerificationWrapper>
+                        <SuppliersPage />
+                      </VerificationWrapper>
+                    </ProtectedRoute>
+                  }
+                />
+                {/* Staff Routes with nested layout */}
+                <Route
+                  path="/staff"
+                  element={
+                    <ProtectedRoute>
+                      <VerificationWrapper>
+                        <StaffLayout />
+                      </VerificationWrapper>
+                    </ProtectedRoute>
+                  }
+                >
+                  <Route index element={<StaffPage />} />
+                  <Route path="permissions" element={<PermissionsPage />} />
+                </Route>
+                {/* Reports Route */}
+                <Route
+                  path="/reports"
+                  element={
+                    <ProtectedRoute>
+                      <VerificationWrapper>
+                        <ReportsPage />
+                      </VerificationWrapper>
+                    </ProtectedRoute>
+                  }
+                />
                 {/* Default routes */}
                 <Route path="/" element={<Navigate to="/login" replace />} />
                 <Route path="*" element={<Navigate to="/login" replace />} />

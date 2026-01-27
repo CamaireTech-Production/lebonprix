@@ -351,7 +351,14 @@ export interface EmployeeRef {
   username: string;
   email: string;
   role: UserRole;
+  permissionTemplateId?: string;
+  phone?: string;
+  photo?: string;
+  isActive: boolean;
+  passwordHash?: string; // Stored securely
   addedAt: Timestamp;
+  updatedAt?: Timestamp;
+  createdBy: string; // Owner who created this employee
 }
 
 export interface UserCompanyRef {

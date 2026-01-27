@@ -1,6 +1,6 @@
 // POSCart - Cart display component for POS
 import React from 'react';
-import { Minus, Plus, Trash2, MessageSquare, Save } from 'lucide-react';
+import { Minus, Plus, Trash2, MessageSquare, Save, Printer } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { t } from '../../utils/i18n';
 import type { POSCartItem, POSCartTotals, POSOrderType } from '../../types/pos';
@@ -9,13 +9,11 @@ interface POSCartProps {
   cart: POSCartItem[];
   cartTotals: POSCartTotals;
   orderType: POSOrderType;
-  tip: number;
   deliveryFee: number;
   tableNumber?: number;
   onUpdateQuantity: (dishId: string, quantity: number) => void;
   onRemoveItem: (dishId: string) => void;
   onUpdateItem: (dishId: string, updates: Partial<POSCartItem>) => void;
-  onTipChange: (tip: number) => void;
   onDeliveryFeeChange: (fee: number) => void;
   onClearCart: () => void;
   onSaveDraft: () => void;
@@ -27,13 +25,11 @@ const POSCart: React.FC<POSCartProps> = ({
   cart,
   cartTotals,
   orderType,
-  tip,
   deliveryFee,
   tableNumber,
   onUpdateQuantity,
   onRemoveItem,
   onUpdateItem,
-  onTipChange,
   onDeliveryFeeChange,
   onClearCart,
   onSaveDraft,
@@ -58,9 +54,6 @@ const POSCart: React.FC<POSCartProps> = ({
     setEditingInstructions(null);
     setTempInstructions('');
   };
-
-  // Tip presets
-  const tipPresets = [0, 500, 1000, 2000];
 
   return (
     <div className="flex flex-col h-full bg-white">
@@ -214,36 +207,6 @@ const POSCart: React.FC<POSCartProps> = ({
       {/* Totals & Actions */}
       {cart.length > 0 && (
         <div className="border-t bg-gray-50 p-4 space-y-3">
-          {/* Tip Section */}
-          <div>
-            <label className="text-sm text-gray-600 mb-1 block">
-              {t('pos_tip', language) || 'Tip'}
-            </label>
-            <div className="flex items-center space-x-2">
-              {tipPresets.map(preset => (
-                <button
-                  key={preset}
-                  onClick={() => onTipChange(preset)}
-                  className={`px-3 py-1 rounded-full text-sm transition-colors ${
-                    tip === preset
-                      ? 'bg-primary text-white'
-                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                  }`}
-                >
-                  {preset === 0 ? t('no_tip', language) || 'No tip' : formatPrice(preset)}
-                </button>
-              ))}
-              <input
-                type="number"
-                value={tip || ''}
-                onChange={(e) => onTipChange(parseInt(e.target.value) || 0)}
-                placeholder={t('pos_custom', language) || 'Custom'}
-                className="w-20 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary"
-                min="0"
-              />
-            </div>
-          </div>
-
           {/* Delivery Fee (only for delivery orders) */}
           {orderType === 'delivery' && (
             <div className="flex items-center justify-between">
@@ -266,12 +229,6 @@ const POSCart: React.FC<POSCartProps> = ({
               <span>{t('subtotal', language) || 'Subtotal'}</span>
               <span>{formatPrice(cartTotals.subtotal)}</span>
             </div>
-            {tip > 0 && (
-              <div className="flex justify-between text-gray-600">
-                <span>{t('pos_tip', language) || 'Tip'}</span>
-                <span>{formatPrice(tip)}</span>
-              </div>
-            )}
             {orderType === 'delivery' && deliveryFee > 0 && (
               <div className="flex justify-between text-gray-600">
                 <span>{t('delivery_fee', language) || 'Delivery'}</span>
@@ -296,7 +253,10 @@ const POSCart: React.FC<POSCartProps> = ({
                 <span>{t('processing', language) || 'Processing...'}</span>
               </>
             ) : (
-              <span>{t('pos_complete_order', language) || 'Complete Order'}</span>
+              <>
+                <span className="text-lg">✓</span>
+                <span>{t('pos_complete_order', language) || 'Complete Order'}</span>
+              </>
             )}
           </button>
         </div>

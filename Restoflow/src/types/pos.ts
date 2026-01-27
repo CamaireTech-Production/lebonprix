@@ -67,6 +67,7 @@ export interface POSPaymentData {
   // Optional
   printReceipt?: boolean;
   printKitchenTicket?: boolean;
+  skipPayment?: boolean; // For kitchen orders without immediate payment
 }
 
 // ============================================================
@@ -178,6 +179,12 @@ export interface POSReceiptItem {
 }
 
 // ============================================================
+// ORDER REVIEW TYPES
+// ============================================================
+
+export type POSOrderReviewMode = 'new' | 'edit';
+
+// ============================================================
 // HOOK RETURN TYPE
 // ============================================================
 
@@ -194,6 +201,8 @@ export interface UseRestaurantPOSReturn {
   state: POSState;
   isSubmitting: boolean;
   isLoading: boolean;
+  editingOrderId: string | null;
+  originalOrderItems: POSCartItem[];
 
   // Data
   dishes: Dish[];
@@ -235,6 +244,10 @@ export interface UseRestaurantPOSReturn {
   // Order completion
   completeOrder: (paymentData: POSPaymentData) => Promise<{ order: POSOrder; sale?: Sale }>;
 
+  // Order editing
+  loadOrderForEditing: (orderId: string) => Promise<void>;
+  addItemsToExistingOrder: (orderId: string, newItems: POSCartItem[], kitchenTickets: number) => Promise<void>;
+
   // Draft management
   saveDraft: () => void;
   resumeDraft: (draft: POSDraft) => void;
@@ -243,6 +256,7 @@ export interface UseRestaurantPOSReturn {
   // Printing
   printKitchenTicket: (order: POSOrder) => void;
   printReceipt: (order: POSOrder, sale: Sale) => void;
+  printPartialKitchenTicket: (ticket: PartialKitchenTicket) => void;
 }
 
 // ============================================================

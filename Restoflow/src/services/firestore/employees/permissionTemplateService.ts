@@ -83,13 +83,11 @@ export const subscribeToPermissionTemplates = (
     return () => {};
   }
 
-  const q = query(
-    collection(db, 'restaurants', restaurantId, 'permissionTemplates'),
-    orderBy('name')
-  );
+  // Use simple query without orderBy to avoid Firestore index issues
+  const collectionRef = collection(db, 'restaurants', restaurantId, 'permissionTemplates');
 
-  return onSnapshot(q, async (snapshot) => {
-    let templates = snapshot.docs.map(doc => ({
+  return onSnapshot(collectionRef, async (snapshot: any) => {
+    let templates = snapshot.docs.map((doc: any) => ({
       id: doc.id,
       ...doc.data()
     })) as PermissionTemplate[];
@@ -99,9 +97,11 @@ export const subscribeToPermissionTemplates = (
       await initializeDefaultTemplates(restaurantId, restaurantId);
       // The subscription will fire again with the new templates
     } else {
+      // Sort client-side to avoid index requirements
+      templates.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
       callback(templates);
     }
-  }, (error) => {
+  }, (error: any) => {
     console.error('Error in permission templates subscription:', error);
     callback([]);
   });

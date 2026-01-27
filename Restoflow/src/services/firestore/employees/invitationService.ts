@@ -30,18 +30,24 @@ export const subscribeToInvitations = (
     return () => {};
   }
 
-  const q = query(
-    collection(db, 'restaurants', restaurantId, 'invitations'),
-    orderBy('createdAt', 'desc')
-  );
+  // Use simple query without orderBy to avoid Firestore index issues
+  const collectionRef = collection(db, 'restaurants', restaurantId, 'invitations');
 
-  return onSnapshot(q, (snapshot) => {
-    const invitations = snapshot.docs.map(doc => ({
+  return onSnapshot(collectionRef, (snapshot: any) => {
+    const invitations = snapshot.docs.map((doc: any) => ({
       id: doc.id,
       ...doc.data()
     })) as Invitation[];
+
+    // Sort client-side to avoid index requirements
+    invitations.sort((a, b) => {
+      const aTime = (a.createdAt as any)?.seconds || 0;
+      const bTime = (b.createdAt as any)?.seconds || 0;
+      return bTime - aTime;
+    });
+
     callback(invitations);
-  }, (error) => {
+  }, (error: any) => {
     console.error('Error in invitations subscription:', error);
     callback([]);
   });
@@ -56,19 +62,27 @@ export const subscribeToPendingInvitations = (
     return () => {};
   }
 
+  // Use query with where but no orderBy to avoid Firestore index issues
   const q = query(
     collection(db, 'restaurants', restaurantId, 'invitations'),
-    where('status', '==', 'pending'),
-    orderBy('createdAt', 'desc')
+    where('status', '==', 'pending')
   );
 
-  return onSnapshot(q, (snapshot) => {
-    const invitations = snapshot.docs.map(doc => ({
+  return onSnapshot(q, (snapshot: any) => {
+    const invitations = snapshot.docs.map((doc: any) => ({
       id: doc.id,
       ...doc.data()
     })) as Invitation[];
+
+    // Sort client-side to avoid index requirements
+    invitations.sort((a, b) => {
+      const aTime = (a.createdAt as any)?.seconds || 0;
+      const bTime = (b.createdAt as any)?.seconds || 0;
+      return bTime - aTime;
+    });
+
     callback(invitations);
-  }, (error) => {
+  }, (error: any) => {
     console.error('Error in pending invitations subscription:', error);
     callback([]);
   });
@@ -153,6 +167,20 @@ export const updateInvitationStatus = async (
   }
 
   await updateDoc(invitationRef, updates);
+};
+
+export const acceptInvitation = async (
+  restaurantId: string,
+  invitationId: string
+): Promise<void> => {
+  await updateInvitationStatus(restaurantId, invitationId, 'accepted');
+};
+
+export const rejectInvitation = async (
+  restaurantId: string,
+  invitationId: string
+): Promise<void> => {
+  await updateInvitationStatus(restaurantId, invitationId, 'rejected');
 };
 
 export const cancelInvitation = async (

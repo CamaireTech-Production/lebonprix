@@ -9,3 +9,4 @@ export { default as LoadingSpinner } from './LoadingSpinner';
 export { default as LoadingMessage } from './LoadingMessage';
 export { default as ProcessingModal } from './ProcessingModal';
 export { default as ColorPicker } from './ColorPicker';
+export { default as Select } from './Select';

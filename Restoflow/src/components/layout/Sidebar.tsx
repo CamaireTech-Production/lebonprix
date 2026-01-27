@@ -24,6 +24,9 @@ import {
   DollarSign,
   ShoppingCart,
   Package,
+  Building2,
+  UserCog,
+  FileText,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -123,6 +126,21 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, open, onClose }) => {
       name: t('expenses', language),
       path: '/expenses',
       icon: <DollarSign size={20} />,
+    },
+    {
+      name: t('suppliers', language),
+      path: '/suppliers',
+      icon: <Building2 size={20} />,
+    },
+    {
+      name: t('staff', language),
+      path: '/staff',
+      icon: <UserCog size={20} />,
+    },
+    {
+      name: t('reports', language),
+      path: '/reports',
+      icon: <FileText size={20} />,
     },
     {
       name: t('settings', language),

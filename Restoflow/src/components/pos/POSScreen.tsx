@@ -7,9 +7,12 @@ import POSCart from './POSCart';
 import POSOrdersSidebar from './POSOrdersSidebar';
 import POSTableSelector from './POSTableSelector';
 import POSPaymentModal from './POSPaymentModal';
+import POSOrderReviewModal from './POSOrderReviewModal';
 import { useRestaurantPOS } from '../../hooks/pos/useRestaurantPOS';
+import { FirestoreService } from '../../services/firestoreService';
 import { LoadingSpinner } from '../ui';
-import type { POSPaymentData } from '../../types/pos';
+import type { POSPaymentData, POSOrder, POSOrderReviewMode, PartialKitchenTicket } from '../../types/pos';
+import type { Order } from '../../types/index';
 
 // Storage key for persisting panel width
 const POS_PANEL_WIDTH_KEY = 'pos_cart_width_percent';
@@ -20,6 +23,8 @@ const POSScreen: React.FC = () => {
     state,
     isSubmitting,
     isLoading,
+    editingOrderId,
+    originalOrderItems,
 
     // Data
     dishes,
@@ -60,6 +65,10 @@ const POSScreen: React.FC = () => {
     // Order completion
     completeOrder,
 
+    // Order editing
+    loadOrderForEditing,
+    addItemsToExistingOrder,
+
     // Draft management
     saveDraft,
     resumeDraft,
@@ -68,11 +77,15 @@ const POSScreen: React.FC = () => {
     // Printing
     printKitchenTicket,
     printReceipt,
+    printPartialKitchenTicket,
   } = useRestaurantPOS();
 
   // Modal states
   const [isTableSelectorOpen, setIsTableSelectorOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [isOrderReviewOpen, setIsOrderReviewOpen] = useState(false);
+  const [reviewMode, setReviewMode] = useState<POSOrderReviewMode>('new');
+  const [orderToPay, setOrderToPay] = useState<POSOrder | Order | null>(null);
 
   // Resizable panel state
   const [cartWidthPercent, setCartWidthPercent] = useState(() => {
@@ -150,24 +163,149 @@ const POSScreen: React.FC = () => {
     setIsTableSelectorOpen(false);
   };
 
+  // Handle complete order - opens review modal
+  const handleCompleteOrder = () => {
+    if (editingOrderId) {
+      setReviewMode('edit');
+    } else {
+      setReviewMode('new');
+    }
+    setIsOrderReviewOpen(true);
+  };
+
+  // Handle edit order - load order back to cart for editing
+  const handleEditOrder = async (order: POSOrder | Order) => {
+    try {
+      await loadOrderForEditing(order.id);
+      setReviewMode('edit');
+      setIsOrderReviewOpen(true);
+    } catch (error) {
+      console.error('Failed to edit order:', error);
+    }
+  };
+
+  // Handle print bon from review modal
+  const handlePrintBon = async (kitchenTickets: number) => {
+    // Close modal immediately to avoid loading state
+    setIsOrderReviewOpen(false);
+
+    try {
+      if (reviewMode === 'edit' && editingOrderId) {
+        // Partial print - only new items
+        const newItems = state.cart.filter(
+          item => !originalOrderItems.some(orig => orig.dish.id === item.dish.id)
+        );
+        
+        if (newItems.length === 0) {
+          return; // No new items to print
+        }
+
+        // Get existing order for ticket data
+        const orders = await FirestoreService.getOrders(restaurantId);
+        const existingOrder = orders.find(o => o.id === editingOrderId);
+        
+        if (existingOrder) {
+          // Print partial tickets immediately (before updating order)
+          for (let i = 0; i < kitchenTickets; i++) {
+            const partialTicket: PartialKitchenTicket = {
+              orderId: editingOrderId,
+              orderNumber: `#${editingOrderId.slice(-6)}`,
+              isPartial: true,
+              newItemsOnly: newItems.map(item => ({
+                name: item.dish.title,
+                quantity: item.quantity,
+                specialInstructions: item.specialInstructions,
+              })),
+              tableNumber: existingOrder.tableNumber,
+              orderType: state.orderType,
+              createdAt: new Date(),
+              note: `Additional items for Order #${editingOrderId.slice(-6)}`,
+            };
+            // Add small delay between prints to avoid popup blocker issues
+            setTimeout(() => {
+              printPartialKitchenTicket(partialTicket);
+            }, i * 500);
+          }
+
+          // Update order in database after printing starts
+          addItemsToExistingOrder(editingOrderId, newItems, 0).catch(err => {
+            console.error('Failed to update order:', err);
+          });
+        }
+      } else {
+        // Full print - all items
+        // Create order first, then print
+        const result = await completeOrder({
+          paymentMethod: 'cash',
+          tip: 0,
+          customerName: state.customer?.name || '',
+          customerPhone: state.customer?.phone || '',
+          orderType: state.orderType,
+          tableId: state.selectedTable?.id,
+          tableNumber: state.selectedTable?.number,
+          printKitchenTicket: true,
+          skipPayment: true,
+        });
+
+        // Print kitchen tickets after order is created
+        if (result.order) {
+          for (let i = 0; i < kitchenTickets; i++) {
+            // Add small delay between prints to avoid popup blocker issues
+            setTimeout(() => {
+              printKitchenTicket(result.order!);
+            }, i * 500);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Failed to print bon:', error);
+    }
+  };
+
+  // Handle save draft from review modal
+  const handleSaveDraftFromReview = () => {
+    saveDraft();
+    setIsOrderReviewOpen(false);
+  };
+
+  // Handle complete payment from review modal
+  const handleCompletePaymentFromReview = () => {
+    setIsOrderReviewOpen(false);
+    setIsPaymentModalOpen(true);
+  };
+
+  // Handle pay order - open payment modal for specific order
+  const handlePayOrder = (order: POSOrder | Order) => {
+    setOrderToPay(order);
+    setIsPaymentModalOpen(true);
+  };
+
   // Handle payment confirmation
   const handlePaymentConfirm = async (paymentData: POSPaymentData) => {
     try {
       const result = await completeOrder(paymentData);
 
-      // Print if requested
-      if (paymentData.printKitchenTicket && result.order) {
-        printKitchenTicket(result.order);
-      }
+      // Print receipt if requested
       if (paymentData.printReceipt && result.order && result.sale) {
         printReceipt(result.order, result.sale);
       }
 
       setIsPaymentModalOpen(false);
+      setOrderToPay(null);
     } catch (error) {
       // Error is handled in the hook
       console.error('Payment failed:', error);
     }
+  };
+
+  // Calculate new items for review modal in edit mode
+  const getNewItems = () => {
+    if (reviewMode === 'edit') {
+      return state.cart.filter(
+        item => !originalOrderItems.some(orig => orig.dish.id === item.dish.id)
+      );
+    }
+    return state.cart;
   };
 
   // Show loading while data is being fetched
@@ -198,6 +336,8 @@ const POSScreen: React.FC = () => {
             drafts={drafts}
             onResumeDraft={resumeDraft}
             onDeleteDraft={deleteDraft}
+            onEditOrder={handleEditOrder}
+            onPayOrder={handlePayOrder}
           />
         </div>
 
@@ -215,17 +355,15 @@ const POSScreen: React.FC = () => {
               cart={state.cart}
               cartTotals={cartTotals}
               orderType={state.orderType}
-              tip={state.tip}
               deliveryFee={state.deliveryFee}
               tableNumber={state.selectedTable?.number}
               onUpdateQuantity={updateCartQuantity}
               onRemoveItem={removeFromCart}
               onUpdateItem={updateCartItem}
-              onTipChange={setTip}
               onDeliveryFeeChange={setDeliveryFee}
               onClearCart={clearCart}
               onSaveDraft={saveDraft}
-              onCompleteOrder={() => setIsPaymentModalOpen(true)}
+              onCompleteOrder={handleCompleteOrder}
               isSubmitting={isSubmitting}
             />
           </div>
@@ -268,17 +406,15 @@ const POSScreen: React.FC = () => {
             cart={state.cart}
             cartTotals={cartTotals}
             orderType={state.orderType}
-            tip={state.tip}
             deliveryFee={state.deliveryFee}
             tableNumber={state.selectedTable?.number}
             onUpdateQuantity={updateCartQuantity}
             onRemoveItem={removeFromCart}
             onUpdateItem={updateCartItem}
-            onTipChange={setTip}
             onDeliveryFeeChange={setDeliveryFee}
             onClearCart={clearCart}
             onSaveDraft={saveDraft}
-            onCompleteOrder={() => setIsPaymentModalOpen(true)}
+            onCompleteOrder={handleCompleteOrder}
             isSubmitting={isSubmitting}
           />
         </div>
@@ -308,16 +444,44 @@ const POSScreen: React.FC = () => {
         onClose={() => setIsTableSelectorOpen(false)}
       />
 
+      {/* Order Review Modal */}
+      <POSOrderReviewModal
+        isOpen={isOrderReviewOpen}
+        mode={reviewMode}
+        existingOrderId={editingOrderId || undefined}
+        existingItems={reviewMode === 'edit' ? originalOrderItems : []}
+        newItems={getNewItems()}
+        cartTotals={cartTotals}
+        orderType={state.orderType}
+        table={state.selectedTable}
+        onClose={() => setIsOrderReviewOpen(false)}
+        onPrintBon={handlePrintBon}
+        onSaveDraft={handleSaveDraftFromReview}
+        onCompletePayment={handleCompletePaymentFromReview}
+        onUpdateItem={updateCartItem}
+        onRemoveItem={removeFromCart}
+        onAddMoreItems={() => setIsOrderReviewOpen(false)}
+      />
+
       {/* Payment Modal */}
       <POSPaymentModal
         isOpen={isPaymentModalOpen}
-        cartTotals={cartTotals}
-        orderType={state.orderType}
-        tableNumber={state.selectedTable?.number}
+        cartTotals={orderToPay ? {
+          subtotal: orderToPay.totalAmount || 0,
+          tip: 0,
+          deliveryFee: 0,
+          total: orderToPay.totalAmount || 0,
+          itemCount: orderToPay.items?.length || 0,
+        } : cartTotals}
+        orderType={orderToPay ? ((orderToPay as POSOrder).orderType || 'dine-in') : state.orderType}
+        tableNumber={orderToPay?.tableNumber || state.selectedTable?.number}
         initialCustomer={state.customer}
-        initialTip={state.tip}
+        initialTip={0}
         onConfirm={handlePaymentConfirm}
-        onClose={() => setIsPaymentModalOpen(false)}
+        onClose={() => {
+          setIsPaymentModalOpen(false);
+          setOrderToPay(null);
+        }}
         isSubmitting={isSubmitting}
       />
     </div>

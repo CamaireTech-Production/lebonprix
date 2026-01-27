@@ -8,6 +8,12 @@ export async function fetchAndCacheAll(restaurantId?: string, collections?: stri
     { key: 'offline_menuItems', ref: collection(db, 'menuItems') },
     { key: 'offline_tables', ref: collection(db, 'tables') },
     { key: 'offline_orders', ref: collection(db, 'orders') },
+    // Restaurant subcollections (require restaurantId to fetch)
+    { key: 'offline_suppliers', isSubcollection: true, path: 'suppliers' },
+    { key: 'offline_employeeRefs', isSubcollection: true, path: 'employeeRefs' },
+    { key: 'offline_invitations', isSubcollection: true, path: 'invitations' },
+    { key: 'offline_permissionTemplates', isSubcollection: true, path: 'permissionTemplates' },
+    { key: 'offline_financeEntries', isSubcollection: true, path: 'financeEntries' },
   ];
 
   // Filter collections if specific ones are requested
@@ -15,14 +21,21 @@ export async function fetchAndCacheAll(restaurantId?: string, collections?: stri
     ? allCollections.filter(c => collections.includes(c.key))
     : allCollections;
 
-  for (const { key, ref } of collectionsToLoad) {
-    let q = ref;
-    if (restaurantId) {
-      q = collection(db, ref.path);
+  for (const coll of collectionsToLoad) {
+    let q;
+    if (coll.isSubcollection && restaurantId) {
+      // Handle restaurant subcollections
+      q = collection(db, 'restaurants', restaurantId, coll.path);
+    } else if (coll.ref) {
+      // Handle top-level collections
+      q = coll.ref;
+    } else {
+      continue; // Skip if no valid reference
     }
+    
     const snap = await getDocs(q);
     const items = snap.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
-    localStorage.setItem(key, JSON.stringify(items));
+    localStorage.setItem(coll.key, JSON.stringify(items));
   }
 }
 

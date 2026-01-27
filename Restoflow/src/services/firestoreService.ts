@@ -127,6 +127,38 @@ export class FirestoreService {
     return firestoreUtils.withRetry(() => orderRepo.update(id, { status }, restaurantId));
   }
 
+  static async getOrderById(restaurantId: string, orderId: string): Promise<Order | null> {
+    const orders = await this.getOrders(restaurantId);
+    return orders.find(order => order.id === orderId) || null;
+  }
+
+  static async addItemsToOrder(restaurantId: string, orderId: string, newItems: Order['items']): Promise<void> {
+    const order = await this.getOrderById(restaurantId, orderId);
+    if (!order) {
+      throw new Error('Order not found');
+    }
+
+    // Merge items (if item already exists, increment quantity)
+    const mergedItems = [...order.items];
+    newItems.forEach(newItem => {
+      const existingIndex = mergedItems.findIndex(i => i.menuItemId === newItem.menuItemId);
+      if (existingIndex >= 0) {
+        mergedItems[existingIndex].quantity += newItem.quantity;
+      } else {
+        mergedItems.push(newItem);
+      }
+    });
+
+    // Calculate new total
+    const newTotal = mergedItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+
+    // Update order
+    await this.updateOrder(restaurantId, orderId, {
+      items: mergedItems,
+      totalAmount: newTotal,
+    });
+  }
+
   // Real-time subscriptions
   static subscribeToTableOrders(
     restaurantId: string,

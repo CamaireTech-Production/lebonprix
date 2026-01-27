@@ -14,7 +14,7 @@ import {
   deleteDoc
 } from 'firebase/firestore';
 import { db } from '../../../firebase/config';
-import type { EmployeeRef, UserRole, Timestamp } from '../../../types/geskap';
+import type { EmployeeRef, UserRole } from '../../../types/geskap';
 
 // ============================================================================
 // EMPLOYEE REF SUBSCRIPTIONS
@@ -29,18 +29,24 @@ export const subscribeToEmployeeRefs = (
     return () => {};
   }
 
-  const q = query(
-    collection(db, 'restaurants', restaurantId, 'employeeRefs'),
-    orderBy('addedAt', 'desc')
-  );
+  // Use simple query without orderBy to avoid Firestore index issues
+  const collectionRef = collection(db, 'restaurants', restaurantId, 'employeeRefs');
 
-  return onSnapshot(q, (snapshot) => {
-    const employees = snapshot.docs.map(doc => ({
+  return onSnapshot(collectionRef, (snapshot: any) => {
+    const employees = snapshot.docs.map((doc: any) => ({
       id: doc.id,
       ...doc.data()
     })) as EmployeeRef[];
+
+    // Sort client-side to avoid index requirements
+    employees.sort((a, b) => {
+      const aTime = (a.addedAt as any)?.seconds || 0;
+      const bTime = (b.addedAt as any)?.seconds || 0;
+      return bTime - aTime;
+    });
+
     callback(employees);
-  }, (error) => {
+  }, (error: any) => {
     console.error('Error in employee refs subscription:', error);
     callback([]);
   });
