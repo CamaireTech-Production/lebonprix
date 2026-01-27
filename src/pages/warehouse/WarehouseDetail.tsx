@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Warehouse as WarehouseIcon, MapPin, Users, Package, ArrowRight } from 'lucide-react';
-import { SkeletonTable } from "@components/common";
+import { SkeletonTable, Card, Button, Badge } from "@components/common";
 import { useWarehouses, useStockTransfers, useProducts } from '@hooks/data/useFirestore';
 import { useAuth } from '@contexts/AuthContext';
 import { useTranslation } from 'react-i18next';

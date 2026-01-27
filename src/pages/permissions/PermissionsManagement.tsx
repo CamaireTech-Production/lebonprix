@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@contexts/AuthContext';
 import { useRolePermissions } from '@hooks/business/useRolePermissions';
-import { SkeletonTable } from "@components/common";
+import { SkeletonTable, Card } from "@components/common";
 import InviteEmployeeForm from '@components/hr/InviteEmployeeForm';
 import PendingInvitationsList from '@components/hr/PendingInvitationsList';
 import TeamOverview from '@components/hr/TeamOverview';

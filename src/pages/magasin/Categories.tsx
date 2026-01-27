@@ -1,7 +1,7 @@
 // Magasin Categories page - shows only matiere categories
 import { useState, useEffect } from 'react';
 import { Plus, Search, Edit2, Trash2, Grid, List, Upload, X } from 'lucide-react';
-import { SkeletonTable } from "@components/common";
+import { SkeletonTable, Card, Button, Input, Modal, ImageWithSkeleton, Badge, SyncIndicator } from "@components/common";
 import { useAuth } from '@contexts/AuthContext';
 import { FirebaseStorageService } from '@services/core/firebaseStorage';
 import { getCurrentEmployeeRef, formatCreatorName } from '@utils/business/employeeUtils';

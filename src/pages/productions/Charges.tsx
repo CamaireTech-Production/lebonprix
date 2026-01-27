@@ -1,7 +1,7 @@
 // Charges management page
 import React, { useState, useMemo } from 'react';
 import { Plus, Edit2, Trash2, Loader2, Search, Filter, X } from 'lucide-react';
-import { SkeletonTable } from "@components/common";
+import { SkeletonTable, Button, Card, Input, Badge } from "@components/common";
 import { useCharges, useFixedCharges, useCustomCharges } from '@hooks/data/useFirestore';
 import { formatPrice } from '@utils/formatting/formatPrice';
 import { showSuccessToast, showErrorToast, showWarningToast } from '@utils/core/toast';
