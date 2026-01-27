@@ -2044,6 +2044,32 @@
       "source": "Source",
       "totalRevenue": "Total Revenue",
       "totalProfit": "Total Profit"
+    },
+    "statusBreakdown": {
+      "title": "Sales Status Breakdown",
+      "paid": "Paid",
+      "credit": "Credit",
+      "commande": "Order",
+      "underDelivery": "Under Delivery",
+      "draft": "Draft",
+      "sales": "sales"
+    },
+    "creditSales": {
+      "title": "Credit Sales Report",
+      "totalCreditSales": "Total Credit Sales",
+      "sales": "sales",
+      "totalOutstanding": "Total Outstanding",
+      "unpaid": "Unpaid amount",
+      "totalPaid": "Total Paid",
+      "paidAmount": "Paid amount",
+      "outstandingCredits": "Outstanding Credits",
+      "date": "Date",
+      "customer": "Customer",
+      "totalAmount": "Total Amount",
+      "paidAmount": "Paid",
+      "remaining": "Remaining",
+      "dueDate": "Due Date",
+      "showingFirst": "Showing first 10 of {{total}} credit sales"
     }
   },
   "orders": {

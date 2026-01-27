@@ -23,7 +23,7 @@ const RevenueByStore = ({ data, onViewMore, className = '' }: RevenueByStoreProp
     <Card className={className}>
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold" style={{color: getCompanyColors().primary}}>
-          {t('dashboard.revenueByStore.title', { defaultValue: 'Revenus par magasin' })}
+          {t('dashboard.revenueByStore.title', { defaultValue: 'Revenus par boutique' })}
         </h3>
         {onViewMore && (
           <button

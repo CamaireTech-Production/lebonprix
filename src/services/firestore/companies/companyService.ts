@@ -92,7 +92,7 @@ export const createCompany = async (
 
     // 7. Create default shop and warehouse
     try {
-      console.log('🏪 Création du magasin par défaut...');
+      console.log('🏪 Création de la boutique par défaut...');
       await createShop(
         {
           name: 'Boutique Principale',
@@ -105,7 +105,7 @@ export const createCompany = async (
         companyId,
         null // No createdBy for auto-created default shop
       );
-      console.log('✅ Magasin par défaut créé');
+      console.log('✅ Boutique par défaut créée');
 
       console.log('📦 Création de l\'entrepôt par défaut...');
       await createWarehouse(
@@ -123,7 +123,7 @@ export const createCompany = async (
       console.log('✅ Entrepôt par défaut créé');
     } catch (error) {
       // Log error but don't fail company creation
-      console.error('⚠️ Erreur lors de la création du magasin/entrepôt par défaut:', error);
+      console.error('⚠️ Erreur lors de la création de la boutique/entrepôt par défaut:', error);
       // Continue - company is already created, shop/warehouse can be created later
     }
 

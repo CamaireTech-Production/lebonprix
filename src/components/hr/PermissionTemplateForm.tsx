@@ -174,7 +174,7 @@ const PermissionTemplateForm = ({ template, onSave, onCancel }: PermissionTempla
                 <option value="">Auto-detect from permissions</option>
                 <option value="staff">Staff (Vendeur)</option>
                 <option value="manager">Manager (Gestionnaire)</option>
-                <option value="admin">Admin (Magasinier)</option>
+                <option value="admin">Admin (Boutiquier)</option>
               </select>
               <p className="text-xs text-gray-500 mt-1">
                 Leave empty to automatically detect based on selected permissions. This is only a label for display purposes - actual access is controlled by the checkboxes below.

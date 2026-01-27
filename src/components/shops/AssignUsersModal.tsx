@@ -113,7 +113,7 @@ const AssignUsersModal: React.FC<AssignUsersModalProps> = ({
       await onUpdate(Array.from(assignedUsers), Array.from(readOnlyUsers));
       showSuccessToast(
         locationType === 'shop' 
-          ? 'Utilisateurs assignés au magasin avec succès'
+          ? 'Utilisateurs assignés à la boutique avec succès'
           : 'Utilisateurs assignés à l\'entrepôt avec succès'
       );
       onClose();
@@ -172,7 +172,7 @@ const AssignUsersModal: React.FC<AssignUsersModalProps> = ({
           </p>
           {locationType === 'shop' && (
             <p className="text-sm text-blue-700 mt-2">
-              <strong>Note :</strong> Si aucun utilisateur n'est assigné et que c'est le magasin par défaut, tous les employés de l'entreprise y ont accès.
+              <strong>Note :</strong> Si aucun utilisateur n'est assigné et que c'est la boutique par défaut, tous les employés de l'entreprise y ont accès.
             </p>
           )}
         </div>

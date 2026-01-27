@@ -104,7 +104,7 @@ const MobileNav = () => {
       resource: 'products' 
     },
     { 
-      name: 'Magasin', 
+      name: 'Entrepôt de Matière', 
       path: isCompanyRoute ? `/company/${companyId}/magasin` : '/magasin', 
       icon: <Warehouse size={20} />, 
       resource: RESOURCES.MAGASIN 

@@ -137,7 +137,7 @@ const ShopDetail: React.FC = () => {
           Retour
         </Button>
         <Card className="p-4">
-          <p className="text-gray-600">Magasin introuvable.</p>
+          <p className="text-gray-600">Boutique introuvable.</p>
         </Card>
       </div>
     );
@@ -241,7 +241,7 @@ const ShopDetail: React.FC = () => {
           <p className="text-red-600 text-sm mb-2">{stockError}</p>
         )}
         {productsWithStock.size === 0 ? (
-          <p className="text-sm text-gray-500">Aucun stock pour ce magasin.</p>
+          <p className="text-sm text-gray-500">Aucun stock pour cette boutique.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
@@ -269,11 +269,11 @@ const ShopDetail: React.FC = () => {
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-md font-semibold flex items-center gap-2">
             <ArrowRight className="h-4 w-4" />
-            Derniers transferts liés à ce magasin
+            Derniers transferts liés à cette boutique
           </h2>
         </div>
         {transfers.length === 0 ? (
-          <p className="text-sm text-gray-500">Aucun transfert pour ce magasin.</p>
+          <p className="text-sm text-gray-500">Aucun transfert pour cette boutique.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">

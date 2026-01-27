@@ -187,7 +187,7 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
       ]
     },
     {
-      name: t('navigation.magasinMatiere', 'Magasin Matière'),
+      name: t('navigation.magasinMatiere', 'Entrepôt de Matière'),
       path: isCompanyRoute ? `/company/${location.pathname.split('/')[2]}/magasin` : '/magasin',
       icon: <Warehouse size={20} />,
       resource: RESOURCES.MAGASIN,
@@ -336,7 +336,7 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
             const isExpensesItem = item.name === t('navigation.expenses');
             const isContactsItem = item.name === t('navigation.contacts');
             const isProductsItem = item.name === t('navigation.products');
-            const isMagasinItem = item.name === t('navigation.magasinMatiere', 'Magasin Matière');
+            const isMagasinItem = item.name === t('navigation.magasinMatiere', 'Entrepôt de Matière');
             const isProductionsItem = item.name === t('navigation.productions');
             const isExpanded = (isExpensesItem && expensesMenuExpanded) || (isContactsItem && contactsMenuExpanded) || (isProductsItem && productsMenuExpanded) || (isMagasinItem && magasinMenuExpanded) || (isProductionsItem && productionsMenuExpanded);
             
@@ -473,7 +473,7 @@ const Sidebar = ({ onClose, isSelectionMode }: SidebarProps) => {
                 <p className="text-xs text-gray-500 truncate">
                   {currentEmployee.role === 'staff' ? 'Vendeur' : 
                    currentEmployee.role === 'manager' ? 'Gestionnaire' : 
-                   currentEmployee.role === 'admin' ? 'Magasinier' : currentEmployee.role}
+                   currentEmployee.role === 'admin' ? 'Boutiquier' : currentEmployee.role}
                 </p>
               </div>
             ) : (
