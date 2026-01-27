@@ -469,7 +469,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                   className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">Sélectionner un type de source</option>
-                  <option value="shop">Magasin</option>
+                  <option value="shop">Boutique</option>
                   <option value="warehouse">Entrepôt</option>
                 </select>
               </div>
@@ -477,19 +477,19 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
               {formData.sourceType === 'shop' ? (
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">
-                    Magasin <span className="text-red-500">*</span>
+                    Boutique <span className="text-red-500">*</span>
                   </label>
                   {shopsLoading ? (
                     <div className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md bg-gray-50">
-                      Chargement des magasins...
+                      Chargement des boutiques...
                     </div>
                   ) : shopsError ? (
                     <div className="w-full px-3 py-2 text-sm border border-red-300 rounded-md bg-red-50 text-red-700">
-                      Erreur lors du chargement des magasins
+                      Erreur lors du chargement des boutiques
                     </div>
                   ) : activeShops.length === 0 ? (
                     <div className="w-full px-3 py-2 text-sm border border-yellow-300 rounded-md bg-yellow-50 text-yellow-700">
-                      Aucun magasin actif disponible. Veuillez créer un magasin ou activer un magasin existant.
+                      Aucune boutique active disponible. Veuillez créer une boutique ou activer une boutique existante.
                     </div>
                   ) : (
                     <select
@@ -497,7 +497,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                       onChange={(e) => {
                         const selectedShop = activeShops.find(s => s.id === e.target.value);
                         if (selectedShop && selectedShop.isActive === false) {
-                          showWarningToast('Ce magasin est désactivé. Veuillez sélectionner un magasin actif.');
+                          showWarningToast('Cette boutique est désactivée. Veuillez sélectionner une boutique active.');
                           return;
                         }
                         setFormData(prev => ({ ...prev, shopId: e.target.value }));
@@ -507,7 +507,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                       className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       required
                     >
-                      <option value="">Sélectionner un magasin</option>
+                      <option value="">Sélectionner une boutique</option>
                       {activeShops.map(shop => (
                         <option key={shop.id} value={shop.id}>
                           {shop.name} {shop.isDefault && '(Par défaut)'} {shop.isActive === false && '(Désactivé)'}
@@ -1195,7 +1195,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
             {/* Available Products */}
               <div className="space-y-2">
             {!isLocationUserSelected ? (
-              <div className="text-sm text-gray-500 p-3">Sélectionnez d'abord un magasin ou un entrepôt pour voir les produits disponibles</div>
+              <div className="text-sm text-gray-500 p-3">Sélectionnez d'abord une boutique ou un entrepôt pour voir les produits disponibles</div>
             ) : loadingProductsWithStock && (formData.shopId || formData.warehouseId) ? (
               <div className="text-sm text-gray-500 p-3">Chargement des produits...</div>
             ) : productsWithStock.size === 0 && (formData.shopId || formData.warehouseId) && !loadingProductsWithStock ? (

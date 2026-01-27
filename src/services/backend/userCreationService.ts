@@ -3,7 +3,22 @@
  */
 
 // Backend API URL - can be configured via environment variable
-const BACKEND_API_URL = import.meta.env.VITE_BACKEND_API_URL || 'http://localhost:4500';
+// Using domain on port 8888 (geskap-api.camairetech.com:8888)
+const getBackendApiUrl = (): string => {
+  const url = import.meta.env.VITE_BACKEND_API_URL || 'http://geskap-api.camairetech.com:8888';
+  
+  // DEBUG: Log URL being used
+  console.log('🔍 [DEBUG] Backend URL from env:', url);
+  console.log('🔍 [DEBUG] Protocol:', url.startsWith('https://') ? 'HTTPS ✅' : url.startsWith('http://') ? 'HTTP' : 'UNKNOWN');
+  
+  return url;
+};
+
+// DO NOT cache the URL - always get it fresh to enforce HTTP
+// This ensures runtime enforcement works even if env var changes
+const getBackendApiUrlFresh = (): string => {
+  return getBackendApiUrl();
+};
 
 /**
  * Get Firebase source based on environment
@@ -61,7 +76,15 @@ export const createUserViaBackend = async (
     // Automatically determine Firebase source
     const firebaseSource = getFirebaseSource();
     
-    const response = await fetch(`${BACKEND_API_URL}/api/users/create`, {
+    // Get backend URL (now using domain with SSL)
+    const apiUrl = getBackendApiUrlFresh();
+    const endpointUrl = `${apiUrl}/api/users/create`;
+    
+    // Debug log
+    console.log('🌐 [FINAL] Making API request to:', endpointUrl);
+    console.log('🌐 [FINAL] Protocol:', endpointUrl.startsWith('https://') ? 'HTTPS ✅' : endpointUrl.startsWith('http://') ? 'HTTP' : 'UNKNOWN');
+    
+    const response = await fetch(endpointUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

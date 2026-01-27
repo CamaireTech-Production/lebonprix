@@ -176,7 +176,7 @@ export const createSale = async (
         if (shopSnap.exists()) {
           const shopData = shopSnap.data();
           if (shopData.isActive === false) {
-            throw new Error('Le magasin sélectionné est désactivé. Veuillez sélectionner un magasin actif.');
+            throw new Error('La boutique sélectionnée est désactivée. Veuillez sélectionner une boutique active.');
           }
         }
       } else if (sourceType === 'warehouse' && warehouseId) {

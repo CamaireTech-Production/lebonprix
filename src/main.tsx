@@ -2,6 +2,10 @@
 // This ensures we capture ALL logs, even if React fails to load
 import './services/consoleLogger.ts';
 
+// Note: Using domain with SSL (geskap-api.camairetech.com)
+// No need for HTTP enforcement - domain supports HTTPS properly
+console.log('🌐 [GLOBAL] Backend will use domain with SSL support');
+
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';

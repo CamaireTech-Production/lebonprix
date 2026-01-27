@@ -484,7 +484,7 @@ const Catalogue = () => {
                   className="w-full sm:w-auto px-4 py-4 bg-white rounded-xl border-0 focus:outline-none text-gray-900 text-lg shadow-lg cursor-pointer"
                   style={{ minWidth: '200px' }}
                 >
-                  <option value="">Tous les magasins (Stock global)</option>
+                  <option value="">Toutes les boutiques (Stock global)</option>
                   {shops.filter(shop => shop.isActive !== false).map((shop) => (
                     <option key={shop.id} value={shop.id}>
                       {shop.name}

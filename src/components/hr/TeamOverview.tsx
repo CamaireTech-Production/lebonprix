@@ -102,7 +102,7 @@ const TeamOverview = ({ teamMembers, onRefresh, companyId }: TeamOverviewProps) 
   const getRoleDisplayName = (role: string) => {
     switch (role) {
       case 'owner': return 'Owner (Propriétaire)';
-      case 'admin': return 'Admin (Magasinier)';
+      case 'admin': return 'Admin (Boutiquier)';
       case 'manager': return 'Manager (Gestionnaire)';
       case 'staff': return 'Staff (Vendeur)';
       default: return role;
