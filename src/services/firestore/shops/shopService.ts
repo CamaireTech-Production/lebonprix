@@ -214,7 +214,8 @@ export const getShopsByCompany = async (companyId: string): Promise<Shop[]> => {
     const q = query(
       collection(db, 'shops'),
       where('companyId', '==', companyId),
-      orderBy('createdAt', 'asc')
+      orderBy('createdAt', 'asc'),
+      limit(50) // OPTIMIZATION: Added limit to reduce Firebase reads
     );
 
     const snapshot = await getDocs(q);
@@ -372,7 +373,8 @@ export const getUserShops = async (
       collection(db, 'shops'),
       where('companyId', '==', companyId),
       where('assignedUsers', 'array-contains', userId),
-      orderBy('createdAt', 'asc')
+      orderBy('createdAt', 'asc'),
+      limit(50) // OPTIMIZATION: Added limit to reduce Firebase reads
     );
 
     const snapshot = await getDocs(q);

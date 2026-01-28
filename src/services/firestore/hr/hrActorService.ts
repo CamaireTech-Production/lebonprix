@@ -85,12 +85,15 @@ export async function createHRActor(
 /**
  * Get all HR Actors for a company
  */
-export async function getHRActors(companyId: string): Promise<HRActor[]> {
+export async function getHRActors(companyId: string, limitCount?: number): Promise<HRActor[]> {
   try {
+    // OPTIMIZATION: Added limit to reduce Firebase reads
+    const defaultLimit = 100; // OPTIMIZATION: Default limit to reduce Firebase reads
     const q = query(
       collection(db, HR_ACTORS_COLLECTION),
       where('companyId', '==', companyId),
-      orderBy('createdAt', 'desc')
+      orderBy('createdAt', 'desc'),
+      limit(limitCount || defaultLimit)
     );
 
     const snapshot = await getDocs(q);
@@ -111,14 +114,18 @@ export async function getHRActors(companyId: string): Promise<HRActor[]> {
  */
 export async function getHRActorsByStatus(
   companyId: string,
-  status: HRActorStatus
+  status: HRActorStatus,
+  limitCount?: number
 ): Promise<HRActor[]> {
   try {
+    // OPTIMIZATION: Added limit to reduce Firebase reads
+    const defaultLimit = 100; // OPTIMIZATION: Default limit to reduce Firebase reads
     const q = query(
       collection(db, HR_ACTORS_COLLECTION),
       where('companyId', '==', companyId),
       where('status', '==', status),
-      orderBy('createdAt', 'desc')
+      orderBy('createdAt', 'desc'),
+      limit(limitCount || defaultLimit)
     );
 
     const snapshot = await getDocs(q);

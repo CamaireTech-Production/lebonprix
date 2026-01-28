@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import Select from 'react-select';
 import { Modal, ModalFooter, Input, PriceInput, Badge, Button, Card, ImageWithSkeleton, SkeletonSalesList, SyncIndicator, DateRangePicker } from '@components/common';
-import { useProducts, useCustomers, useSales } from '@hooks/data/useFirestore';
+import { useProducts, useCustomers } from '@hooks/data/useFirestore';
 import { useCustomerSources } from '@hooks/business/useCustomerSources';
 import { useInfiniteSales } from '@hooks/data/useInfiniteSales';
 import { useInfiniteScroll } from '@hooks/data/useInfiniteScroll';
@@ -35,7 +35,7 @@ import { buildProductStockMap, getEffectiveProductStock } from '@utils/inventory
 import { normalizePhoneForComparison } from '@utils/core/phoneUtils';
 import { logError } from '@utils/core/logger';
 import { useTranslation } from 'react-i18next';
-import { softDeleteSale, updateSaleStatus, cancelCreditSale, refundCreditSale } from '@services/firestore/sales/saleService';
+import { softDeleteSale, updateSaleStatus, cancelCreditSale, refundCreditSale, updateSaleDocument } from '@services/firestore/sales/saleService';
 import { formatCreatorName } from '@utils/business/employeeUtils';
 import { createPortal } from 'react-dom';
 import AddSaleModal from '../../components/sales/AddSaleModal';
@@ -80,7 +80,9 @@ const Sales: React.FC = () => {
   const { customers } = useCustomers();
   const { activeSources } = useCustomerSources();
   const { user, company } = useAuth();
-  const { updateSale } = useSales();
+  // OPTIMIZATION: Removed useSales() hook to avoid duplicate subscription
+  // useInfiniteSales() already provides real-time updates via subscription
+  // We'll use updateSaleDocument directly from service instead
   const { canEdit, canDelete } = usePermissionCheck(RESOURCES.SALES);
   const { batches: allBatches } = useAllStockBatches();
 
@@ -485,7 +487,9 @@ const Sales: React.FC = () => {
       if (formData.customerSourceId) updateData.customerSourceId = formData.customerSourceId;
       if (formData.deliveryFee !== undefined && formData.deliveryFee !== '')
         updateData.deliveryFee = parseFloat(formData.deliveryFee);
-      await updateSale(currentSale.id, updateData);
+      // OPTIMIZATION: Use updateSaleDocument directly instead of useSales() hook
+      // This avoids duplicate subscription (useInfiniteSales already provides real-time updates)
+      await updateSaleDocument(currentSale.id, updateData, company?.id || '');
       
       // Update the sale in the local list immediately
       // Merge current sale data with updates to ensure all fields are preserved

@@ -490,10 +490,14 @@ export const softDeleteProduct = async (id: string, userId: string): Promise<voi
 // ============================================================================
 
 export const getLowStockProducts = async (companyId: string, threshold?: number): Promise<Product[]> => {
+  // OPTIMIZATION: Added limit to reduce Firebase reads
+  // Note: This function checks stock for all products, so we limit to active products
+  const defaultLimit = 200; // OPTIMIZATION: Default limit to reduce Firebase reads
   const q = query(
     collection(db, 'products'),
     where('companyId', '==', companyId),
-    where('isAvailable', '==', true)
+    where('isAvailable', '==', true),
+    limit(defaultLimit)
   );
 
   const snapshot = await getDocs(q);
@@ -521,10 +525,15 @@ export const getProductPerformance = async (companyId: string, productId: string
   totalProfit: number;
   averagePrice: number;
 }> => {
+  // OPTIMIZATION: Added limit to reduce Firebase reads
+  // Note: This function analyzes sales for a specific product, so we limit to recent sales
+  const defaultLimit = 500; // OPTIMIZATION: Limit to 500 most recent sales for performance analysis
   const q = query(
     collection(db, 'sales'),
     where('companyId', '==', companyId),
-    where('isAvailable', '!=', false)
+    where('isAvailable', '!=', false),
+    orderBy('createdAt', 'desc'),
+    limit(defaultLimit)
   );
 
   const snapshot = await getDocs(q);

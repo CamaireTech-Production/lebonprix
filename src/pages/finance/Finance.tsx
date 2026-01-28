@@ -52,9 +52,9 @@ const Finance: React.FC = () => {
   
   // 🚀 REVERTED: Back to direct calculations without localStorage
 
-  useCustomers(); // Only call the hook for side effects if needed, but don't destructure unused values
+  // OPTIMIZATION: Removed unused hooks (useCustomers, useObjectives) to reduce Firebase reads
+  // These hooks were creating subscriptions but their data was never used
   const { user, company } = useAuth();
-  useObjectives();
   const { canEdit, canDelete } = usePermissionCheck(RESOURCES.FINANCE);
   
   // Add Entry Form (for deposits, loans, refunds, etc.)

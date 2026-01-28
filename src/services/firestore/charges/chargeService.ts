@@ -510,13 +510,17 @@ export const getCustomCharges = async (
  * Get all charges for a company (both fixed and custom)
  */
 export const getAllCharges = async (
-  companyId: string
+  companyId: string,
+  limitCount?: number
 ): Promise<Charge[]> => {
   try {
+    // OPTIMIZATION: Added limit to reduce Firebase reads
+    const defaultLimit = 100; // OPTIMIZATION: Default limit to reduce Firebase reads
     const q = query(
       collection(db, COLLECTION_NAME),
       where('companyId', '==', companyId),
-      orderBy('createdAt', 'desc')
+      orderBy('createdAt', 'desc'),
+      limit(limitCount || defaultLimit)
     );
 
     const snapshot = await getDocs(q);
