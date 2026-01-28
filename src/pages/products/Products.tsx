@@ -2062,7 +2062,7 @@ const Products = () => {
                       disabled={isUploadingImages}
                     />
                     {isUploadingImages ? (
-                      <span className="animate-spin text-emerald-500"><Upload size={28} /></span>
+                      <span className="animate-pulse text-emerald-500"><Upload size={28} /></span>
                     ) : (
                       <Upload size={28} className="text-gray-400" />
                     )}
@@ -2438,7 +2438,7 @@ const Products = () => {
                 {/* Image Upload Progress */}
                 {isUploadingImages && (
                   <div className="flex items-center space-x-2 text-sm text-gray-600">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-emerald-500"></div>
+                    <div className="animate-pulse bg-gray-200 w-4 h-4 rounded-full"></div>
                     <span>{t('products.actions.uploadingImages')}</span>
                   </div>
                 )}

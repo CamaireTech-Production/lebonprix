@@ -1,7 +1,7 @@
 // Production Categories page
 import React, { useState } from 'react';
 import { Plus, Edit2, Trash2, Loader2, Power, PowerOff, Upload, X } from 'lucide-react';
-import { SkeletonTable, Button, Modal, ModalFooter, ImageWithSkeleton, Badge } from "@components/common";
+import { SkeletonCategories, Button, Modal, ModalFooter, ImageWithSkeleton, Badge, SkeletonLoader } from "@components/common";
 import { useAuth } from '@contexts/AuthContext';
 import { useProductionCategories } from '@hooks/data/useFirestore';
 import { FirebaseStorageService } from '@services/core/firebaseStorage';
@@ -201,7 +201,7 @@ const Categories: React.FC = () => {
   };
 
   if (loading) {
-    return <SkeletonTable rows={5} />;
+    return <SkeletonCategories viewMode="grid" />;
   }
 
   return (
@@ -417,7 +417,14 @@ const Categories: React.FC = () => {
               <label className="flex items-center justify-center w-full px-4 py-2 border-2 border-dashed border-gray-300 rounded-md cursor-pointer hover:border-blue-500 transition-colors">
                 <Upload className="w-5 h-5 mr-2 text-gray-400" />
                 <span className="text-sm text-gray-600">
-                  {isUploadingImage ? 'Traitement...' : 'Ajouter une image'}
+                  {isUploadingImage ? (
+                    <span className="flex items-center">
+                      <div className="animate-pulse bg-gray-200 w-4 h-4 rounded-full mr-2"></div>
+                      Traitement...
+                    </span>
+                  ) : (
+                    'Ajouter une image'
+                  )}
                 </span>
                 <input
                   type="file"

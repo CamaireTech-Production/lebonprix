@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Plus, Search, Edit2, Trash2, Package, Grid3X3, FileText } from 'lucide-react';
-import { Card, Button, Input, Badge, Modal, ModalFooter, ImageWithSkeleton } from '@components/common';
+import { Card, Button, Input, Badge, Modal, ModalFooter, ImageWithSkeleton, SkeletonMatieres } from '@components/common';
 import { useMatieres } from '@hooks/business/useMatieres';
 import { useMatiereStocks } from '@hooks/business/useMatiereStocks';
 import { useCategories } from '@hooks/data/useFirestore';
@@ -106,11 +106,7 @@ const Matieres = () => {
   };
 
   if (loading && matieres.length === 0) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
-      </div>
-    );
+    return <SkeletonMatieres viewMode={viewMode} />;
   }
 
   if (error) {

@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Edit2, Loader2, CheckCircle2, Plus, Trash2, Package, Download, BarChart3, X, XCircle, Check, AlertTriangle } from 'lucide-react';
-import { SkeletonTable, ImageWithSkeleton, Button, Badge, Modal, ModalFooter } from "@components/common";
+import { SkeletonProductionDetail, ImageWithSkeleton, Button, Badge, Modal, ModalFooter } from "@components/common";
 import { useProductions, useProductionFlows, useProductionFlowSteps, useProductionCategories, useFixedCharges } from '@hooks/data/useFirestore';
 import { useAuth } from '@contexts/AuthContext';
 import { useMatiereStocks } from '@hooks/business/useMatiereStocks';
@@ -241,7 +241,7 @@ const ProductionDetail: React.FC = () => {
   };
 
   if (productionsLoading) {
-    return <SkeletonTable rows={5} />;
+    return <SkeletonProductionDetail />;
   }
 
   if (!production) {

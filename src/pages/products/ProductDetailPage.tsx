@@ -8,7 +8,7 @@ import { formatPrice } from '@utils/formatting/formatPrice';
 import type { Company, Product } from '../../types/models';
 import type { SellerSettings } from '../../types/order';
 import { ArrowLeft, Share2, Plus, Minus, ShoppingCart, Camera, QrCode, MessageCircle } from 'lucide-react';
-import { FloatingCartButton, ImageWithSkeleton, Button } from '@components/common';
+import { FloatingCartButton, ImageWithSkeleton, Button, SkeletonProductDetail } from '@components/common';
 import BarcodeGenerator from '../../components/products/BarcodeGenerator';
 import BarcodeScanner from '../../components/products/BarcodeScanner';
 import { showSuccessToast } from '@utils/core/toast';
@@ -213,14 +213,7 @@ Veuillez confirmer la disponibilité et fournir les détails de livraison.`;
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div 
-          className="animate-spin rounded-full h-12 w-12 border-b-2"
-          style={{ borderColor: colors.primary }}
-        />
-      </div>
-    );
+    return <SkeletonProductDetail />;
   }
 
   if (error || !product || !company) {

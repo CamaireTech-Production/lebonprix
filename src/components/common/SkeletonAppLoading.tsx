@@ -37,7 +37,7 @@ const SkeletonAppLoading: React.FC = () => {
           </div>
         </div>
 
-        {/* Content Skeleton */}
+        {/* Content Skeleton (neutral — should NOT look like Dashboard) */}
         <div className="flex-1 overflow-auto p-6">
           <div className="max-w-7xl mx-auto space-y-6">
             {/* Header */}
@@ -46,17 +46,7 @@ const SkeletonAppLoading: React.FC = () => {
               <SkeletonLoader width="w-32" height="h-10" rounded />
             </div>
 
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              {[...Array(4)].map((_, i) => (
-                <div key={i} className="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
-                  <SkeletonLoader width="w-20" height="h-4" className="mb-2" />
-                  <SkeletonLoader width="w-24" height="h-8" />
-                </div>
-              ))}
-            </div>
-
-            {/* Main Content */}
+            {/* Main Content (generic list/table placeholder) */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-100">
               <div className="p-6">
                 <SkeletonLoader width="w-40" height="h-6" className="mb-4" />
