@@ -9,7 +9,7 @@ import { subscribeToShops } from '@services/firestore/shops/shopService';
 import { getAvailableStockBatches } from '@services/firestore/stock/stockService';
 import type { Company, Product, Category, Shop } from '../../types/models';
 import { Search, Package, AlertCircle, MapPin, Plus, Heart, Phone } from 'lucide-react';
-import { Button, FloatingCartButton, ProductDetailModal, ImageWithSkeleton, LanguageSwitcher } from '@components/common';
+import { Button, FloatingCartButton, ProductDetailModal, ImageWithSkeleton, LanguageSwitcher, SkeletonCatalogue } from '@components/common';
 
 const placeholderImg = '/placeholder.png';
 
@@ -381,11 +381,7 @@ const Catalogue = () => {
   }, [products, searchQuery, selectedCategories, selectedShopId, productStockMap, categoryParam, categoriesParam]);
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2" style={{borderColor: getCompanyColors().primary}}></div>
-      </div>
-    );
+    return <SkeletonCatalogue />;
   }
 
   if (error && !loading) {

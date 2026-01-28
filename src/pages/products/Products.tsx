@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Grid, List, Plus, Search, Edit2, Upload, Trash2, CheckSquare, Square, Info, Eye, EyeOff, QrCode, ExternalLink, FileText } from 'lucide-react';
+import { Grid, List, Plus, Search, Edit2, Upload, Trash2, CheckSquare, Square, Info, Eye, EyeOff, QrCode, ExternalLink, FileText, ChevronDown, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { Card, Button, Badge, Modal, ModalFooter, Input, ImageWithSkeleton, SkeletonProductsGrid, SyncIndicator, PriceInput } from '@components/common';
@@ -64,13 +64,6 @@ const Products = () => {
   const { user, company, currentEmployee, isOwner } = useAuth();
   const { canEdit, canDelete } = usePermissionCheck(RESOURCES.PRODUCTS);
 
-  // Set up infinite scroll
-  useInfiniteScroll({
-    hasMore,
-    loading: loadingMore,
-    onLoadMore: loadMore,
-    threshold: 300 // Load more when 300px from bottom
-  });
 
   // Refresh products list when other parts of the app (e.g., sales) update stock
   useEffect(() => {
@@ -1968,31 +1961,22 @@ const Products = () => {
         </Card>
       )}
 
-      {/* Infinite Scroll Loading Indicator */}
-      {loadingMore && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 py-8">
-          {[...Array(4)].map((_, index) => (
-            <div key={index} className="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
-              <div className="animate-pulse bg-gray-100 w-full h-48 rounded mb-3"></div>
-              <div className="animate-pulse bg-gray-100 w-3/4 h-5 rounded mb-2"></div>
-              <div className="animate-pulse bg-gray-100 w-1/2 h-4 rounded mb-3"></div>
-              <div className="flex justify-between items-center mb-3">
-                <div className="animate-pulse bg-gray-100 w-24 h-6 rounded"></div>
-                <div className="animate-pulse bg-gray-100 w-16 h-5 rounded"></div>
-              </div>
-              <div className="flex gap-2">
-                <div className="animate-pulse bg-gray-100 w-full h-9 rounded"></div>
-                <div className="animate-pulse bg-gray-100 w-9 h-9 rounded"></div>
-              </div>
-            </div>
-          ))}
+      {/* Load More Button */}
+      {hasMore && (
+        <div className="flex justify-center py-6">
+          <Button
+            onClick={loadMore}
+            disabled={loadingMore}
+            variant="outline"
+            icon={loadingMore ? <Loader2 className="animate-spin" size={16} /> : <ChevronDown size={16} />}
+          >
+            {loadingMore ? t('common.loading') : t('common.loadMore')}
+          </Button>
         </div>
       )}
-
-      {/* End of products indicator */}
       {!hasMore && infiniteProducts.length > 0 && (
         <div className="text-center py-6 text-gray-500">
-          <p>✅ All products loaded ({infiniteProducts.length} total)</p>
+          <p>✅ {t('products.messages.allLoaded', { count: infiniteProducts.length }) || `All products loaded (${infiniteProducts.length} total)`}</p>
         </div>
       )}
 

@@ -22,7 +22,6 @@ import { Modal, ModalFooter, Input, PriceInput, Badge, Button, Card, ImageWithSk
 import { useProducts, useCustomers } from '@hooks/data/useFirestore';
 import { useCustomerSources } from '@hooks/business/useCustomerSources';
 import { useInfiniteSales } from '@hooks/data/useInfiniteSales';
-import { useInfiniteScroll } from '@hooks/data/useInfiniteScroll';
 import { formatPrice } from '@utils/formatting/formatPrice';
 import type { Product, OrderStatus, Sale, SaleProduct, Customer } from '../../types/models';
 import { showSuccessToast, showErrorToast, showWarningToast } from '@utils/core/toast';
@@ -91,13 +90,6 @@ const Sales: React.FC = () => {
     [allBatches]
   );
 
-  // Infinite scroll for sales
-  useInfiniteScroll({
-    hasMore: salesHasMore,
-    loading: salesLoadingMore,
-    onLoadMore: loadMoreSales,
-    threshold: 300 // Load more when 300px from bottom
-  });
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -860,6 +852,7 @@ const Sales: React.FC = () => {
     [products, stockMap]
   );
 
+  // Show skeleton only when actually loading (not when empty after load)
   if (salesLoading || productsLoading) {
     return <SkeletonSalesList rows={15} />;
   }
@@ -1136,27 +1129,22 @@ const Sales: React.FC = () => {
           </div>
         </div>
 
-        {/* Infinite Scroll Loading Indicator */}
-        {salesLoadingMore && (
-          <div className="py-8">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
-              <div className="flex items-center space-x-4">
-                <div className="animate-pulse bg-gray-100 w-16 h-4 rounded"></div>
-                <div className="animate-pulse bg-gray-100 w-24 h-4 rounded"></div>
-                <div className="animate-pulse bg-gray-100 w-20 h-5 rounded"></div>
-                <div className="animate-pulse bg-gray-100 w-20 h-5 rounded"></div>
-                <div className="animate-pulse bg-gray-100 w-24 h-4 rounded"></div>
-                <div className="animate-pulse bg-gray-100 w-20 h-5 rounded"></div>
-                <div className="flex gap-2 ml-auto">
-                  <div className="animate-pulse bg-gray-100 w-8 h-8 rounded-full"></div>
-                </div>
-              </div>
-            </div>
+        {/* Load More Button */}
+        {salesHasMore && (
+          <div className="flex justify-center py-6">
+            <Button
+              onClick={loadMoreSales}
+              disabled={salesLoadingMore}
+              variant="outline"
+              icon={salesLoadingMore ? <Loader2 className="animate-spin" size={16} /> : <ChevronDown size={16} />}
+            >
+              {salesLoadingMore ? t('common.loading') : t('common.loadMore')}
+            </Button>
           </div>
         )}
         {!salesHasMore && sales.length > 0 && (
           <div className="text-center py-6 text-gray-500">
-            <p>✅ All sales loaded ({sales.length} total)</p>
+            <p>✅ {t('sales.messages.allLoaded', { count: sales.length }) || `All sales loaded (${sales.length} total)`}</p>
           </div>
         )}
       </Card>

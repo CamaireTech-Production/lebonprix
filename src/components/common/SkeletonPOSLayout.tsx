@@ -20,7 +20,22 @@ const SkeletonPOSLayout: React.FC = () => {
 
       {/* Main POS Layout */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Products Section - Left */}
+        {/* Left Sidebar - Recent Transactions */}
+        <div className="w-48 bg-white border-r border-gray-200 flex flex-col">
+          <div className="p-4 border-b border-gray-200">
+            <SkeletonLoader width="w-32" height="h-6" />
+          </div>
+          <div className="flex-1 overflow-auto p-2 space-y-2">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="bg-gray-50 rounded p-2">
+                <SkeletonLoader width="w-full" height="h-4" className="mb-1" />
+                <SkeletonLoader width="w-2/3" height="h-3" />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Products Section - Center */}
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Search and Filters */}
           <div className="p-4 bg-white border-b border-gray-200">

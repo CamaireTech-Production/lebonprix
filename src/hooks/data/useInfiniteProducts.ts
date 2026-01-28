@@ -18,7 +18,7 @@ interface UseInfiniteProductsReturn {
   refresh: () => void;
 }
 
-const PRODUCTS_PER_PAGE = 20;
+const PRODUCTS_PER_PAGE = 50; // Increased from 20 to 50 for better initial load
 
 export const useInfiniteProducts = (): UseInfiniteProductsReturn => {
   const { user, company } = useAuth();

@@ -2,7 +2,7 @@
 import { useState, useMemo } from 'react';
 import { Plus, FileText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Card, Button, SyncIndicator, SkeletonExpensesList } from '@components/common';
+import { Card, Button, SyncIndicator, SkeletonExpensesList, SkeletonLoader } from '@components/common';
 import { useInfiniteExpenses } from '@hooks/data/useInfiniteExpenses';
 import { useInfiniteScroll } from '@hooks/data/useInfiniteScroll';
 import { useExpenseStats } from '@hooks/business/useExpenseStats';
@@ -205,9 +205,19 @@ const ExpensesList = () => {
         
         {/* Infinite Scroll Loading Indicator */}
         {expensesLoadingMore && (
-          <div className="flex justify-center items-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
-            <span className="ml-3 text-gray-600">Chargement de plus de dépenses...</span>
+          <div className="py-8">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
+              <div className="flex items-center space-x-4">
+                <SkeletonLoader width="w-24" height="h-4" />
+                <SkeletonLoader width="w-32" height="h-4" />
+                <SkeletonLoader width="w-20" height="h-5" rounded />
+                <SkeletonLoader width="w-24" height="h-4" />
+                <SkeletonLoader width="w-20" height="h-5" rounded />
+                <div className="flex gap-2 ml-auto">
+                  <SkeletonLoader width="w-8" height="h-8" rounded />
+                </div>
+              </div>
+            </div>
           </div>
         )}
         {!expensesHasMore && expenses.length > 0 && (

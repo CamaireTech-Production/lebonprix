@@ -23,6 +23,8 @@ export { default as SkeletonFinance } from './SkeletonFinance';
 export { default as SkeletonOrders } from './SkeletonOrders';
 export { default as SkeletonReports } from './SkeletonReports';
 export { default as SkeletonSettings } from './SkeletonSettings';
+export { default as SkeletonCatalogue } from './SkeletonCatalogue';
+export { default as SkeletonExpensesCategories } from './SkeletonExpensesCategories';
 export { default as ProgressBar } from './ProgressBar';
 export { default as UserAvatar } from './UserAvatar';
 export { default as LanguageSwitcher } from './LanguageSwitcher';
