@@ -1317,8 +1317,8 @@ const Products = () => {
     setImportProgress(0);
   };
 
-  // Show skeleton if loading OR if no products yet (initial load)
-  if (infiniteLoading || (infiniteProducts.length === 0 && !infiniteError)) {
+  // Show skeleton only while loading
+  if (infiniteLoading) {
     return <SkeletonProductsGrid rows={20} />;
   }
 

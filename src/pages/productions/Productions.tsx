@@ -504,8 +504,8 @@ const Productions: React.FC = () => {
     );
   };
 
-  // Show skeleton if loading OR if no productions yet (initial load)
-  if (loading || (productions.length === 0 && !error)) {
+  // Show skeleton only while loading
+  if (loading) {
     return <SkeletonProductions viewMode={viewMode} />;
   }
 

@@ -852,8 +852,8 @@ const Sales: React.FC = () => {
     [products, stockMap]
   );
 
-  // Show skeleton if loading OR if no data yet (initial load)
-  if (salesLoading || productsLoading || (sales.length === 0 && !salesError && !productsLoading)) {
+  // Show skeleton only while loading
+  if (salesLoading || productsLoading) {
     return <SkeletonSalesList rows={15} />;
   }
 

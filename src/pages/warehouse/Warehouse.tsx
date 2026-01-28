@@ -305,8 +305,8 @@ const Warehouse = () => {
     }
   };
 
-  // Show skeleton if loading OR if no warehouses yet (initial load)
-  if (loading || (warehouses.length === 0 && !error)) {
+  // Show skeleton only while loading
+  if (loading) {
     return <SkeletonWarehouse />;
   }
 
