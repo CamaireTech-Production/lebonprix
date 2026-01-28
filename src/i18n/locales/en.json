@@ -928,7 +928,25 @@
         "supplierRequired": "Please select a supplier",
         "paymentTypeRequired": "Please select payment type",
         "sellingPrice": "Selling Price",
-        "cataloguePrice": "Catalogue Price"
+        "cataloguePrice": "Catalogue Price",
+        "errors": {
+          "missingCostPriceForStock": "Please enter a valid cost price for the initial stock."
+        },
+        "shopsLoading": "Loading shops...",
+        "shopsError": "Error while loading shops",
+        "noShops": "No shops available. Stock will be assigned to the default shop if configured.",
+        "shopLabel": "Shop (optional)",
+        "shopPlaceholder": "Select a shop (optional)",
+        "warehousesLoading": "Loading warehouses...",
+        "warehousesError": "Error while loading warehouses",
+        "noWarehouses": "No warehouses available. Stock will be assigned to the default shop if configured.",
+        "warehouseLabel": "Warehouse (optional)",
+        "warehousePlaceholder": "Select a warehouse (optional)",
+        "locationSectionTitle": "Initial Stock Location",
+        "locationTypeLabel": "Source type (optional)",
+        "locationTypePlaceholder": "Use default shop / warehouse",
+        "shopOption": "Shop",
+        "warehouseOption": "Warehouse"
       }
     },
     "stockBatch": {
