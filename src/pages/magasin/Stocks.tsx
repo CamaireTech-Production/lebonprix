@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronRight, ChevronLeft, ChevronDown, Package, AlertCircle, Search, Trash2, Settings, AlertTriangle } from 'lucide-react';
-import { Button, Input, Modal, LoadingScreen } from '@components/common';
+import { SkeletonTable, Button, Input, Modal } from "@components/common";
 import { useMatieres } from '@hooks/business/useMatieres';
 import { useAllStockBatches } from '@hooks/business/useStockBatches';
 import { useStockChanges, useSuppliers } from '@hooks/data/useFirestore';
@@ -256,7 +256,7 @@ const Stocks = () => {
 
   // Show loading screen on initial load
   if (loading && matieres.length === 0) {
-    return <LoadingScreen />;
+    return <SkeletonTable rows={5} />;
   }
 
   // Show error state

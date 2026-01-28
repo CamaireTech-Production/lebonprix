@@ -15,7 +15,7 @@ const SkeletonLoader: React.FC<SkeletonLoaderProps> = ({
 }) => {
   return (
     <div 
-      className={`animate-pulse bg-gray-200 ${width} ${height} ${rounded ? 'rounded-full' : 'rounded'} ${className}`}
+      className={`animate-pulse bg-gray-100 ${width} ${height} ${rounded ? 'rounded-full' : 'rounded'} ${className}`}
     />
   );
 };

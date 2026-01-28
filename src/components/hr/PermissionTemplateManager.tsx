@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@contexts/AuthContext';
-import { Card, Button, LoadingScreen } from '@components/common';
+import { Card, Button, SkeletonLoader } from '@components/common';
 import { Plus, Edit, Trash2, Users } from 'lucide-react';
 import { 
   getCompanyTemplates, 
@@ -24,6 +24,7 @@ const PermissionTemplateManager = ({ onTemplateChange }: PermissionTemplateManag
   const [showForm, setShowForm] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<PermissionTemplate | null>(null);
   const [showDefaults, setShowDefaults] = useState(false);
+  const [usingDefaultTemplateName, setUsingDefaultTemplateName] = useState<string | null>(null);
 
   const loadTemplates = useCallback(async () => {
     if (!company?.id) return;
@@ -118,6 +119,7 @@ const PermissionTemplateManager = ({ onTemplateChange }: PermissionTemplateManag
     if (!company?.id || !user?.uid) return;
     
     try {
+      setUsingDefaultTemplateName(defaultTemplate.name);
       await createTemplate(company.id, user.uid, {
         name: defaultTemplate.name,
         description: defaultTemplate.description,
@@ -127,6 +129,8 @@ const PermissionTemplateManager = ({ onTemplateChange }: PermissionTemplateManag
       onTemplateChange?.();
     } catch (error) {
       console.error('Error using default template:', error);
+    } finally {
+      setUsingDefaultTemplateName(null);
     }
   };
 
@@ -141,7 +145,27 @@ const PermissionTemplateManager = ({ onTemplateChange }: PermissionTemplateManag
   };
 
   if (loading) {
-    return <LoadingScreen />;
+    return (
+      <div className="space-y-4 py-4">
+        {[...Array(5)].map((_, i) => (
+          <Card key={i} className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <SkeletonLoader width="w-10" height="h-10" rounded />
+                <div>
+                  <SkeletonLoader width="w-32" height="h-4" className="mb-1" />
+                  <SkeletonLoader width="w-24" height="h-3" />
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <SkeletonLoader width="w-8" height="h-8" rounded />
+                <SkeletonLoader width="w-8" height="h-8" rounded />
+              </div>
+            </div>
+          </Card>
+        ))}
+      </div>
+    );
   }
 
   if (showForm) {
@@ -197,6 +221,8 @@ const PermissionTemplateManager = ({ onTemplateChange }: PermissionTemplateManag
                   <div className="mt-3">
                     <Button
                       size="sm"
+                      isLoading={usingDefaultTemplateName === template.name}
+                      loadingText="Adding..."
                       onClick={() => handleUseDefaultTemplate(template)}
                     >
                       Use This Template

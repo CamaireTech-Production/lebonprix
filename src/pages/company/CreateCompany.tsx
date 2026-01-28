@@ -300,7 +300,7 @@ export default function CreateCompany() {
               <div className="mx-auto w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-4 relative">
                 {isUploadingLogo ? (
                   <div className="flex flex-col items-center">
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600"></div>
+                    <div className="animate-pulse bg-gray-200 w-6 h-6 rounded-full" />
                     <span className="text-xs text-gray-500 mt-1">Upload...</span>
                   </div>
                 ) : formData.logo ? (

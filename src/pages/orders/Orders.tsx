@@ -30,7 +30,7 @@ import {
   User,
   RefreshCw
 } from 'lucide-react';
-import { Button, Input, Modal, Badge, Card, SyncIndicator } from '@components/common';
+import { Button, Input, Modal, Badge, Card, SyncIndicator, SkeletonOrders } from '@components/common';
 import OrderActionsMenu from '@components/orders/OrderActionsMenu';
 import { toast } from 'react-hot-toast';
 import { logError } from '@utils/core/logger';
@@ -279,14 +279,7 @@ const Orders: React.FC = () => {
 
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4 text-primary" />
-          <p className="text-gray-600">{t('orders.loading')}</p>
-        </div>
-      </div>
-    );
+    return <SkeletonOrders />;
   }
 
   return (

@@ -6,6 +6,7 @@ import {
   query,
   where,
   orderBy,
+  limit,
   getDocs,
   getDoc,
   writeBatch,
@@ -327,13 +328,17 @@ export const getStockTransfers = async (
     warehouseId?: string;
     transferType?: StockTransfer['transferType'];
     status?: StockTransfer['status'];
-  }
+  },
+  limitCount?: number
 ): Promise<StockTransfer[]> => {
   // Use simple query with just companyId and createdAt to avoid complex index requirements
   // All filtering will be done client-side
+  // OPTIMIZATION: Added limit to reduce Firebase reads
+  const defaultLimit = 200; // OPTIMIZATION: Default limit to reduce Firebase reads
   const constraints: any[] = [
     where('companyId', '==', companyId),
-    orderBy('createdAt', 'desc')
+    orderBy('createdAt', 'desc'),
+    limit(limitCount || defaultLimit)
   ];
 
   const q = query(collection(db, 'stockTransfers'), ...constraints);
@@ -439,7 +444,8 @@ export const subscribeToStockTransfers = (
     warehouseId?: string;
     transferType?: StockTransfer['transferType'];
     status?: StockTransfer['status'];
-  }
+  },
+  limitCount?: number
 ): (() => void) => {
   // Use simple query with just companyId and createdAt to avoid complex index requirements
   // All filtering will be done client-side

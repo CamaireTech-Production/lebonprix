@@ -4,6 +4,7 @@ import {
   query,
   where,
   orderBy,
+  limit,
   getDocs,
   getDoc,
   addDoc,
@@ -183,7 +184,8 @@ export const getCustomerSourceById = async (
  */
 export const subscribeToCustomerSources = (
   companyId: string,
-  callback: (sources: CustomerSource[]) => void
+  callback: (sources: CustomerSource[]) => void,
+  limitCount?: number
 ): (() => void) => {
   if (!companyId) {
     callback([]);
@@ -191,10 +193,12 @@ export const subscribeToCustomerSources = (
   }
 
   try {
+    const defaultLimit = 50; // OPTIMIZATION: Default limit to reduce Firebase reads
     const q = query(
       collection(db, 'customerSources'),
       where('companyId', '==', companyId),
-      orderBy('createdAt', 'desc')
+      orderBy('createdAt', 'desc'),
+      limit(limitCount || defaultLimit)
     );
     
     let isActive = true;

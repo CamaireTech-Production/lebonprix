@@ -2,6 +2,7 @@
   "common": {
     "appName": "Geskap",
     "loading": "Loading...",
+    "loadMore": "Load More",
     "error": "Error",
     "success": "Success",
     "save": "Save",
@@ -873,7 +874,8 @@
       "clickToUpload": "Click to upload",
       "orDragAndDrop": "or drag and drop",
       "hideFromCatalogue": "Hide from Catalogue",
-      "showInCatalogue": "Show in Catalogue"
+      "showInCatalogue": "Show in Catalogue",
+      "removeImage": "Remove image"
     },
     "form": {
       "name": "Product Name",
@@ -926,7 +928,25 @@
         "supplierRequired": "Please select a supplier",
         "paymentTypeRequired": "Please select payment type",
         "sellingPrice": "Selling Price",
-        "cataloguePrice": "Catalogue Price"
+        "cataloguePrice": "Catalogue Price",
+        "errors": {
+          "missingCostPriceForStock": "Please enter a valid cost price for the initial stock."
+        },
+        "shopsLoading": "Loading shops...",
+        "shopsError": "Error while loading shops",
+        "noShops": "No shops available. Stock will be assigned to the default shop if configured.",
+        "shopLabel": "Shop (optional)",
+        "shopPlaceholder": "Select a shop (optional)",
+        "warehousesLoading": "Loading warehouses...",
+        "warehousesError": "Error while loading warehouses",
+        "noWarehouses": "No warehouses available. Stock will be assigned to the default shop if configured.",
+        "warehouseLabel": "Warehouse (optional)",
+        "warehousePlaceholder": "Select a warehouse (optional)",
+        "locationSectionTitle": "Initial Stock Location",
+        "locationTypeLabel": "Source type (optional)",
+        "locationTypePlaceholder": "Use default shop / warehouse",
+        "shopOption": "Shop",
+        "warehouseOption": "Warehouse"
       }
     },
     "stockBatch": {
@@ -985,6 +1005,7 @@
       "noStockHistory": "No stock history for this product.",
       "deleteConfirmation": "Are you sure you want to delete the product: {{name}} (Ref: {{reference}})?",
       "deleteWarning": "This action cannot be undone. All associated sales data will remain but the link to the product will be broken.",
+      "allLoaded": "All products loaded",
       "errors": {
         "addProduct": "Failed to add product",
         "updateProduct": "Failed to update product",
@@ -1678,6 +1699,7 @@
       "loan": "Loan",
       "expense": "Expense",
       "sale": "Sale",
+      "sale_refund": "Sale Refund",
       "refund": "Refund",
       "debt": "Debt",
       "supplier_debt": "Supplier Debt",

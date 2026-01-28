@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Edit2, Loader2, CheckCircle2, Plus, Trash2, Package, Download, BarChart3, X, XCircle, Check, AlertTriangle } from 'lucide-react';
-import { Button, LoadingScreen, Badge, Modal, ModalFooter } from '@components/common';
+import { SkeletonProductionDetail, ImageWithSkeleton, Button, Badge, Modal, ModalFooter } from "@components/common";
 import { useProductions, useProductionFlows, useProductionFlowSteps, useProductionCategories, useFixedCharges } from '@hooks/data/useFirestore';
 import { useAuth } from '@contexts/AuthContext';
 import { useMatiereStocks } from '@hooks/business/useMatiereStocks';
@@ -241,7 +241,7 @@ const ProductionDetail: React.FC = () => {
   };
 
   if (productionsLoading) {
-    return <LoadingScreen />;
+    return <SkeletonProductionDetail />;
   }
 
   if (!production) {
@@ -969,11 +969,12 @@ const ProductionDetail: React.FC = () => {
                 <h3 className="text-sm font-medium text-gray-500 mb-2">Images</h3>
                 <div className="grid grid-cols-4 gap-4">
                   {production.images.map((img: string, idx: number) => (
-                    <img
+                    <ImageWithSkeleton
                       key={idx}
                       src={img}
                       alt={`${production.name} ${idx + 1}`}
                       className="w-full h-32 object-cover rounded-md"
+                      loading="lazy"
                     />
                   ))}
                 </div>

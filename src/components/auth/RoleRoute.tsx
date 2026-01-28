@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useMemo } from 'react';
 import { Navigate, useParams } from 'react-router-dom';
 import { useAuth } from '@contexts/AuthContext';
 import { useRolePermissions } from '@hooks/business/useRolePermissions';
-import { LoadingScreen } from '@components/common';
+import { SkeletonAppLoading } from '@components/common';
 import { showErrorToast } from '@utils/core/toast';
 
 interface RoleRouteProps {
@@ -40,7 +40,7 @@ const RoleRoute = ({ children, allowedRoles, requiredResource, requiredAction = 
 
   // For initial loading (auth or company), show loading screen
   if (loading || companyLoading) {
-    return <LoadingScreen />;
+    return <SkeletonAppLoading />;
   }
 
   // For employees: Show loading overlay instead of unmounting children
@@ -63,14 +63,14 @@ const RoleRoute = ({ children, allowedRoles, requiredResource, requiredAction = 
             alignItems: 'center',
             justifyContent: 'center'
           }}>
-            <LoadingScreen message={templateLoading ? "Chargement des permissions..." : "Permissions en cours de chargement..."} />
+            <SkeletonAppLoading />
           </div>
           {children}
         </div>
       );
     }
     // First time loading, show full loading screen (only on initial mount)
-    return <LoadingScreen message="Chargement des permissions..." />;
+    return <SkeletonAppLoading />;
   }
 
   // Si l'utilisateur est propriétaire (isOwner) ou a le rôle 'owner', il a accès à tout

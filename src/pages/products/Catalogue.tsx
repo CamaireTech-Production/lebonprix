@@ -9,7 +9,7 @@ import { subscribeToShops } from '@services/firestore/shops/shopService';
 import { getAvailableStockBatches } from '@services/firestore/stock/stockService';
 import type { Company, Product, Category, Shop } from '../../types/models';
 import { Search, Package, AlertCircle, MapPin, Plus, Heart, Phone } from 'lucide-react';
-import { Button, FloatingCartButton, ProductDetailModal, ImageWithSkeleton, LanguageSwitcher } from '@components/common';
+import { Button, FloatingCartButton, ProductDetailModal, ImageWithSkeleton, LanguageSwitcher, SkeletonCatalogue } from '@components/common';
 
 const placeholderImg = '/placeholder.png';
 
@@ -174,6 +174,7 @@ const Catalogue = () => {
 
     // Always subscribe to real-time updates, even if we have cached data
     // Note: onSnapshot fires immediately with current data, so callback will be called right away
+    // OPTIMIZATION: Added limit to reduce Firebase reads
     const unsubscribe = subscribeToProducts(company.id, (productsData) => {
       const companyProducts = productsData.filter(
         p => {
@@ -193,7 +194,7 @@ const Catalogue = () => {
       productsCacheRef.current.set(company.id, productsData);
       setProducts(companyProducts);
       setLoading(false);
-    });
+    }, 200); // OPTIMIZATION: Limit to 200 products for public catalogue
 
     return () => unsubscribe();
   }, [company?.id]);
@@ -203,9 +204,10 @@ const Catalogue = () => {
     // Wait for company to be loaded before loading categories
     if (!company?.id) return;
 
+    // OPTIMIZATION: Added limit to reduce Firebase reads
     const unsubscribe = subscribeToCategories(company.id, (categoriesData) => {
       setCategories(categoriesData);
-    });
+    }, 50); // Limit to 50 categories
 
     return () => unsubscribe();
   }, [company?.id]);
@@ -214,6 +216,7 @@ const Catalogue = () => {
   useEffect(() => {
     if (!company?.id) return;
 
+    // OPTIMIZATION: Added limit to reduce Firebase reads
     const unsubscribe = subscribeToShops(company.id, (shopsData) => {
       setShops(shopsData);
       // Auto-select first active shop if none selected
@@ -223,7 +226,7 @@ const Catalogue = () => {
           setSelectedShopId(firstActiveShop.id);
         }
       }
-    });
+    }, 50); // Limit to 50 shops
 
     return () => unsubscribe();
   }, [company?.id, selectedShopId]);
@@ -378,11 +381,7 @@ const Catalogue = () => {
   }, [products, searchQuery, selectedCategories, selectedShopId, productStockMap, categoryParam, categoriesParam]);
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2" style={{borderColor: getCompanyColors().primary}}></div>
-      </div>
-    );
+    return <SkeletonCatalogue />;
   }
 
   if (error && !loading) {

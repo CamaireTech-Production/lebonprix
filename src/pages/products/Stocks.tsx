@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronRight, ChevronLeft, ChevronDown, RefreshCcw, Package, AlertCircle, Search, Trash2, Settings, AlertTriangle } from 'lucide-react';
-import { Button, Input, Modal, LoadingScreen } from '@components/common';
+import { SkeletonStocks, Button, Input, Modal } from "@components/common";
 import { useInfiniteProducts } from '@hooks/data/useInfiniteProducts';
 import { useAllStockBatches } from '@hooks/business/useStockBatches';
 import { useStockChanges, useSuppliers } from '@hooks/data/useFirestore';
@@ -240,7 +240,7 @@ const Stocks = () => {
 
   // Show loading screen on initial load
   if (loading && products.length === 0) {
-    return <LoadingScreen />;
+    return <SkeletonStocks />;
   }
 
   // Show error state

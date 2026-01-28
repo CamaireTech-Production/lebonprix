@@ -1,7 +1,7 @@
 // Add Article Modal - Add article to existing production
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { X, AlertCircle, CheckCircle2, AlertTriangle, Plus, Trash2 } from 'lucide-react';
-import { Modal, Button, LoadingScreen } from '@components/common';
+import { Modal, Button, SkeletonLoader } from '@components/common';
 import { useMatiereStocks } from '@hooks/business/useMatiereStocks';
 import { useMatieres } from '@hooks/business/useMatieres';
 import { showSuccessToast, showErrorToast, showWarningToast } from '@utils/core/toast';

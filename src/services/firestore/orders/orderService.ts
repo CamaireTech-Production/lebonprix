@@ -9,7 +9,8 @@ import {
   deleteDoc,
   query, 
   where, 
-  orderBy, 
+  orderBy,
+  limit,
   onSnapshot, 
   serverTimestamp,
   Timestamp,
@@ -259,8 +260,10 @@ export const getOrderById = async (orderId: string): Promise<Order | null> => {
 export const subscribeToOrders = (
   companyId: string, 
   callback: (orders: Order[]) => void,
-  filters?: OrderFilters
+  filters?: OrderFilters,
+  limitCount?: number
 ): Unsubscribe => {
+  const defaultLimit = 100; // OPTIMIZATION: Default limit to reduce Firebase reads
   let q = query(
     collection(db, COLLECTION_NAME),
     where('companyId', '==', companyId),
@@ -287,6 +290,9 @@ export const subscribeToOrders = (
   if (filters?.dateTo) {
     q = query(q, where('createdAt', '<=', Timestamp.fromDate(filters.dateTo)));
   }
+
+  // Add limit at the end (after all filters)
+  q = query(q, limit(limitCount || defaultLimit));
 
   return onSnapshot(q, (snapshot) => {
     const orders: Order[] = [];

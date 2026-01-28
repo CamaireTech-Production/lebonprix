@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@contexts/AuthContext';
 import { useRolePermissions } from '@hooks/business/useRolePermissions';
-import { Card, LoadingScreen, Button } from '@components/common';
+import { SkeletonTable, Card, Button } from "@components/common";
 import { Plus, Users, Search, Filter, UserPlus, Archive, Eye, Edit2, MoreVertical } from 'lucide-react';
 import { RESOURCES } from '@constants/resources';
 import { useHRActors } from '@hooks/data/useHRActors';
@@ -119,7 +119,7 @@ const HumanResources = () => {
   }
 
   if (loading) {
-    return <LoadingScreen />;
+    return <SkeletonTable rows={5} />;
   }
 
   // Show form if adding/editing

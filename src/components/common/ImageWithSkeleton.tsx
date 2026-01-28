@@ -11,6 +11,7 @@ interface ImageWithSkeletonProps {
   placeholder?: string;
   onError?: () => void;
   onLoad?: () => void;
+  loading?: 'lazy' | 'eager'; // OPTIMIZATION: Enable lazy loading by default to improve initial page load
 }
 
 const ImageWithSkeleton: React.FC<ImageWithSkeletonProps> = ({
@@ -19,7 +20,8 @@ const ImageWithSkeleton: React.FC<ImageWithSkeletonProps> = ({
   className = '',
   placeholder = '/placeholder.png',
   onError,
-  onLoad
+  onLoad,
+  loading = 'lazy' // Default to lazy loading for better performance
 }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
@@ -101,6 +103,7 @@ const ImageWithSkeleton: React.FC<ImageWithSkeletonProps> = ({
         src={placeholder}
         alt={alt}
         className={className}
+        loading={loading}
         onError={() => {}} // Prevent infinite error loop
       />
     );
@@ -113,6 +116,7 @@ const ImageWithSkeleton: React.FC<ImageWithSkeletonProps> = ({
         src={src && (src.startsWith('http') || src.startsWith('/') || src.startsWith('blob:')) ? src : placeholder}
         alt={alt}
         className={`${className} ${isLoading ? 'opacity-0' : 'opacity-100'} transition-opacity duration-200`}
+        loading={loading}
         onLoad={handleLoad}
         onError={handleError}
       />

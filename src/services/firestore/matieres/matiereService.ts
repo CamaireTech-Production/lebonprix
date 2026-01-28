@@ -5,6 +5,7 @@ import {
   query,
   where,
   orderBy,
+  limit,
   getDocs,
   getDoc,
   onSnapshot,
@@ -23,17 +24,19 @@ import { createStockChange } from '../stock/stockService';
 // MATIERE SUBSCRIPTIONS
 // ============================================================================
 
-export const subscribeToMatieres = (companyId: string, callback: (matieres: Matiere[]) => void): (() => void) => {
+export const subscribeToMatieres = (companyId: string, callback: (matieres: Matiere[]) => void, limitCount?: number): (() => void) => {
   if (!companyId) {
     callback([]);
     return () => {}; // Return empty cleanup function
   }
 
   try {
+    const defaultLimit = 100; // OPTIMIZATION: Default limit to reduce Firebase reads
     const q = query(
       collection(db, 'matieres'),
       where('companyId', '==', companyId),
-      orderBy('createdAt', 'desc')
+      orderBy('createdAt', 'desc'),
+      limit(limitCount || defaultLimit)
     );
     
     let isActive = true;

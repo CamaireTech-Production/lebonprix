@@ -1,7 +1,7 @@
 // Productions list page
 import React, { useState, useMemo, useEffect } from 'react';
 import { Plus, Eye, Loader2, Search, Filter, X, Trash2, Edit2, Package, List, Columns, Workflow } from 'lucide-react';
-import { Button, LoadingScreen, Input, Badge, Modal, ModalFooter } from '@components/common';
+import { SkeletonProductions, Button, Input, Modal, ModalFooter } from "@components/common";
 import { useProductions, useProductionFlows, useProductionCategories, useProductionFlowSteps } from '@hooks/data/useFirestore';
 import { canPublishProduction } from '@utils/productions/flowValidation';
 import { formatPrice } from '@utils/formatting/formatPrice';
@@ -35,7 +35,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 
 const Productions: React.FC = () => {
-  const { productions, loading, deleteProduction, changeState, changeStatus } = useProductions();
+  const { productions, loading, error, deleteProduction, changeState, changeStatus } = useProductions();
   const { flows } = useProductionFlows();
   const { categories } = useProductionCategories();
   const { flowSteps } = useProductionFlowSteps();
@@ -504,8 +504,9 @@ const Productions: React.FC = () => {
     );
   };
 
+  // Show skeleton only while loading
   if (loading) {
-    return <LoadingScreen />;
+    return <SkeletonProductions viewMode={viewMode} />;
   }
 
   return (

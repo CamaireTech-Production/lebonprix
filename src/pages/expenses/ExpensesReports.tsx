@@ -2,7 +2,7 @@
 import { useState, useMemo } from 'react';
 import { FileDown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Card, Button } from '@components/common';
+import { Card, Button, SkeletonExpensesReports } from '@components/common';
 import { useInfiniteExpenses } from '@hooks/data/useInfiniteExpenses';
 import { useExpenseCategories } from '@hooks/business/useExpenseCategories';
 import ExpenseFilters from './shared/ExpenseFilters';
@@ -95,11 +95,7 @@ const ExpensesReports = () => {
   };
 
   if (loading) {
-    return (
-      <div className="flex justify-center items-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
-      </div>
-    );
+    return <SkeletonExpensesReports />;
   }
 
   return (

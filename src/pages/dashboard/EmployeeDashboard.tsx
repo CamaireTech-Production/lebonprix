@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@contexts/AuthContext';
 import { Building2, Plus, Users, Crown, Shield, User, Settings, LogOut } from 'lucide-react';
-import { Button, Card, LoadingScreen } from '@components/common';
+import { SkeletonTable, Card, Button } from "@components/common";
 import { UserCompanyRef } from '../../types/models';
 import { showErrorToast } from '@utils/core/toast';
 import PendingInvitationsBanner from '@components/invitations/PendingInvitationsBanner';
@@ -267,7 +267,7 @@ const EmployeeDashboard: React.FC = () => {
   };
 
   if (isLoading && userCompanies.length === 1) {
-    return <LoadingScreen />;
+    return <SkeletonTable rows={5} />;
   }
 
   return (

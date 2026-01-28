@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Plus, Edit2, Trash2, MapPin, Store, Users, Badge as BadgeIcon, Search, UserCheck, Eye, Power, PowerOff } from 'lucide-react';
-import { Card, Button, Badge, Modal, ModalFooter, Input, Textarea, Table, LoadingScreen } from '@components/common';
+import { SkeletonShops, Input, Card, Badge, Button, Modal, ModalFooter, Textarea } from "@components/common";
 import { useShops, useProducts } from '@hooks/data/useFirestore';
 import { useAuth } from '@contexts/AuthContext';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
@@ -333,8 +333,9 @@ const Shops = () => {
     }
   };
 
+  // Show skeleton only while loading
   if (loading) {
-    return <LoadingScreen />;
+    return <SkeletonShops />;
   }
 
   return (

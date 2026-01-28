@@ -1329,6 +1329,7 @@ const Settings = () => {
                           src={formData.logo}
                           alt="Company logo"
                           className="h-16 w-16 object-cover rounded-lg"
+                          loading="lazy"
                         />
                       ) : (
                         <div className="h-16 w-16 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center">
@@ -2907,9 +2908,13 @@ const Settings = () => {
             {/* Loading State */}
             {(cinetpayLoading || campayLoading) ? (
               <Card>
-                <div className="flex items-center justify-center py-12">
-                  <div className="animate-spin rounded-full h-10 w-10 border-4 border-emerald-200 border-t-emerald-600"></div>
-                  <span className="ml-3 text-gray-600 font-medium">{t('settings.paymentGateways.loading')}</span>
+                <div className="p-6 space-y-4">
+                  <div className="animate-pulse bg-gray-100 w-48 h-6 rounded mb-4"></div>
+                  <div className="space-y-3">
+                    <div className="animate-pulse bg-gray-100 w-full h-10 rounded"></div>
+                    <div className="animate-pulse bg-gray-100 w-3/4 h-10 rounded"></div>
+                    <div className="animate-pulse bg-gray-100 w-1/2 h-10 rounded"></div>
+                  </div>
                 </div>
               </Card>
             ) : (

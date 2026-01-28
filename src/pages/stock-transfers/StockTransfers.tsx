@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Plus, ArrowRight, Package, Search, Filter, X } from 'lucide-react';
-import { Card, Button, Badge, Modal, ModalFooter, Input, LoadingScreen } from '@components/common';
+import { SkeletonStockTransfers, Badge, Modal, ModalFooter, Card, Input } from "@components/common";
 import { useStockTransfers, useProducts, useShops, useWarehouses } from '@hooks/data/useFirestore';
 import { useAuth } from '@contexts/AuthContext';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
@@ -159,7 +159,7 @@ const StockTransfers = () => {
   };
 
   if (loading) {
-    return <LoadingScreen />;
+    return <SkeletonStockTransfers />;
   }
 
   return (
@@ -328,9 +328,16 @@ const StockTransfers = () => {
 
       {/* Transfers List */}
       {loading ? (
-        <Card className="p-8 text-center">
-          <div className="text-gray-500">Chargement des transferts...</div>
-        </Card>
+        <div className="space-y-4">
+          {[...Array(3)].map((_, i) => (
+            <Card key={i} className="p-4">
+              <div className="animate-pulse space-y-3">
+                <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+              </div>
+            </Card>
+          ))}
+        </div>
       ) : filteredTransfers.length === 0 ? (
         <Card className="p-8 text-center">
           <Package className="mx-auto h-12 w-12 text-gray-400 mb-4" />

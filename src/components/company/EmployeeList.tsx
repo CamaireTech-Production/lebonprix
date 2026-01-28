@@ -119,8 +119,23 @@ export default function EmployeeList({ companyId, companyName }: EmployeeListPro
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
-        <span className="ml-3 text-gray-600">Chargement des employés...</span>
+        <div className="space-y-3 w-full max-w-md px-4">
+          <div className="animate-pulse bg-gray-100 w-48 h-5 rounded" />
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="bg-white rounded-lg border border-gray-100 p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="animate-pulse bg-gray-100 w-10 h-10 rounded-full" />
+                  <div>
+                    <div className="animate-pulse bg-gray-100 w-32 h-4 rounded mb-2" />
+                    <div className="animate-pulse bg-gray-100 w-24 h-3 rounded" />
+                  </div>
+                </div>
+                <div className="animate-pulse bg-gray-100 w-20 h-6 rounded-full" />
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     );
   }

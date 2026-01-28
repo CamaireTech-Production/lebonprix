@@ -242,10 +242,13 @@ export const getWarehouseById = async (warehouseId: string): Promise<Warehouse |
  */
 export const getWarehousesByCompany = async (companyId: string): Promise<Warehouse[]> => {
   try {
+    // OPTIMIZATION: Added limit to reduce Firebase reads
+    const defaultLimit = 50; // OPTIMIZATION: Default limit to reduce Firebase reads
     const q = query(
       collection(db, 'warehouses'),
       where('companyId', '==', companyId),
-      orderBy('createdAt', 'asc')
+      orderBy('createdAt', 'asc'),
+      limit(defaultLimit)
     );
 
     const snapshot = await getDocs(q);
@@ -298,12 +301,15 @@ export const getDefaultWarehouse = async (companyId: string): Promise<Warehouse 
 export const subscribeToWarehouses = (
   companyId: string,
   callback: (warehouses: Warehouse[]) => void,
-  onError?: (error: Error) => void
+  onError?: (error: Error) => void,
+  limitCount?: number
 ): (() => void) => {
+  const defaultLimit = 50; // OPTIMIZATION: Default limit to reduce Firebase reads
   const q = query(
     collection(db, 'warehouses'),
     where('companyId', '==', companyId),
-    orderBy('createdAt', 'asc')
+    orderBy('createdAt', 'asc'),
+    limit(limitCount || defaultLimit)
   );
 
   return onSnapshot(

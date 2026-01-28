@@ -5,6 +5,7 @@ import {
   query,
   where,
   orderBy,
+  limit,
   getDocs,
   getDoc,
   onSnapshot,
@@ -14,6 +15,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../../core/firebase';
 import { logError } from '@utils/core/logger';
+import { trackRead } from '@utils/firestore/readTracker';
 import type { Product, Sale } from '../../../types/models';
 import { createAuditLog } from '../shared';
 import { updateCategoryProductCount } from '../categories/categoryService';
@@ -47,12 +49,18 @@ const createStockChange = (batch: WriteBatch, productId: string, change: number,
 // PRODUCT SUBSCRIPTIONS
 // ============================================================================
 
-export const subscribeToProducts = (companyId: string, callback: (products: Product[]) => void): (() => void) => {
+export const subscribeToProducts = (companyId: string, callback: (products: Product[]) => void, limitCount?: number): (() => void) => {
+  const defaultLimit = 100; // OPTIMIZATION: Default limit to reduce Firebase reads
+  const appliedLimit = limitCount || defaultLimit;
   const q = query(
     collection(db, 'products'),
     where('companyId', '==', companyId),
-    orderBy('createdAt', 'desc')
+    orderBy('createdAt', 'desc'),
+    limit(appliedLimit)
   );
+
+  // Track the subscription
+  trackRead('products', 'onSnapshot', undefined, appliedLimit);
 
   return onSnapshot(q, (snapshot) => {
     const products = snapshot.docs.map(doc => ({
@@ -487,10 +495,14 @@ export const softDeleteProduct = async (id: string, userId: string): Promise<voi
 // ============================================================================
 
 export const getLowStockProducts = async (companyId: string, threshold?: number): Promise<Product[]> => {
+  // OPTIMIZATION: Added limit to reduce Firebase reads
+  // Note: This function checks stock for all products, so we limit to active products
+  const defaultLimit = 200; // OPTIMIZATION: Default limit to reduce Firebase reads
   const q = query(
     collection(db, 'products'),
     where('companyId', '==', companyId),
-    where('isAvailable', '==', true)
+    where('isAvailable', '==', true),
+    limit(defaultLimit)
   );
 
   const snapshot = await getDocs(q);
@@ -518,10 +530,15 @@ export const getProductPerformance = async (companyId: string, productId: string
   totalProfit: number;
   averagePrice: number;
 }> => {
+  // OPTIMIZATION: Added limit to reduce Firebase reads
+  // Note: This function analyzes sales for a specific product, so we limit to recent sales
+  const defaultLimit = 500; // OPTIMIZATION: Limit to 500 most recent sales for performance analysis
   const q = query(
     collection(db, 'sales'),
     where('companyId', '==', companyId),
-    where('isAvailable', '!=', false)
+    where('isAvailable', '!=', false),
+    orderBy('createdAt', 'desc'),
+    limit(defaultLimit)
   );
 
   const snapshot = await getDocs(q);

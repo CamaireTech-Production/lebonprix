@@ -1,6 +1,6 @@
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '@contexts/AuthContext';
-import { LoadingScreen } from '@components/common';
+import { SkeletonAppLoading } from '@components/common';
 import { getUserSession, hasActiveSession } from '@utils/storage/userSession';
 import { useEffect, useState } from 'react';
 
@@ -37,7 +37,7 @@ const ProtectedRoute = () => {
 
   // Show loading while checking auth state or validating session
   if (loading || checkingSession) {
-    return <LoadingScreen />;
+    return <SkeletonAppLoading />;
   }
 
   // If no Firebase user but session exists, still allow access (Firebase will restore)
