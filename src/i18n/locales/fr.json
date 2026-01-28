@@ -958,7 +958,8 @@
       "clickToUpload": "Cliquez pour télécharger",
       "orDragAndDrop": "ou glisser-déposer",
       "hideFromCatalogue": "Masquer du catalogue",
-      "showInCatalogue": "Afficher dans le catalogue"
+      "showInCatalogue": "Afficher dans le catalogue",
+      "removeImage": "Supprimer l'image"
     },
     "stockBatch": {
       "title": "Gestion des Lots de Stock",
@@ -1237,6 +1238,7 @@
       "productAdded": "Produit ajouté avec succès",
       "productUpdated": "Produit mis à jour avec succès",
       "productDeleted": "Produit supprimé avec succès",
+      "allLoaded": "Tous les produits sont chargés",
       "importSuccess": "{{count}} sur {{total}} produits importés avec succès ({{errors}} erreurs).",
       "deleteConfirmation": "Êtes-vous sûr de vouloir supprimer le produit : {{name}} (Réf: {{reference}}) ?",
       "deleteWarning": "Cette action est irréversible. Toutes les données de ventes associées resteront mais le lien avec le produit sera rompu.",

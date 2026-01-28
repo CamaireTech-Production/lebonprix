@@ -874,7 +874,8 @@
       "clickToUpload": "Click to upload",
       "orDragAndDrop": "or drag and drop",
       "hideFromCatalogue": "Hide from Catalogue",
-      "showInCatalogue": "Show in Catalogue"
+      "showInCatalogue": "Show in Catalogue",
+      "removeImage": "Remove image"
     },
     "form": {
       "name": "Product Name",
@@ -986,6 +987,7 @@
       "noStockHistory": "No stock history for this product.",
       "deleteConfirmation": "Are you sure you want to delete the product: {{name}} (Ref: {{reference}})?",
       "deleteWarning": "This action cannot be undone. All associated sales data will remain but the link to the product will be broken.",
+      "allLoaded": "All products loaded",
       "errors": {
         "addProduct": "Failed to add product",
         "updateProduct": "Failed to update product",
