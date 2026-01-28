@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Modal, Button, Badge, Table, LoadingScreen } from '@components/common';
+import { Modal, Button, Badge, Table, SkeletonLoader } from '@components/common';
 import { useStockTransfers, useProducts } from '@hooks/data/useFirestore';
 import { Plus, ArrowRight, Package } from 'lucide-react';
 import StockTransferModal from './StockTransferModal';
@@ -105,7 +105,16 @@ const LocationTransfersModal: React.FC<LocationTransfersModalProps> = ({
   if (loading) {
     return (
       <Modal isOpen={isOpen} onClose={onClose} title={`Transferts - ${locationName}`}>
-        <LoadingScreen />
+        <div className="space-y-4 py-4">
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="flex items-center space-x-4">
+              <SkeletonLoader width="w-16" height="h-4" />
+              <SkeletonLoader width="w-24" height="h-4" />
+              <SkeletonLoader width="w-20" height="h-5" rounded />
+              <SkeletonLoader width="w-24" height="h-4" />
+            </div>
+          ))}
+        </div>
       </Modal>
     );
   }

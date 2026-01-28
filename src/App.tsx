@@ -4,7 +4,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import { CartProvider } from './contexts/CartContext';
 import { PWAProvider } from './contexts/PWAContext';
 import { StockMonitoringProvider } from './components/notifications/StockMonitoringProvider';
-import LoadingScreen from './components/common/LoadingScreen';
+import SkeletonAppLoading from './components/common/SkeletonAppLoading';
 import { Toaster } from 'react-hot-toast';
 import { PWAErrorHandler, PWAUpdateNotification, ErrorBoundary } from './components/pwa';
 import { AppRoutes } from './router';
@@ -32,7 +32,7 @@ function AppWithFAB({ isAddSaleModalOpen, setIsAddSaleModalOpen }: { isAddSaleMo
   return (
     <ErrorBoundary>
       <PWAErrorHandler>
-        <Suspense fallback={<LoadingScreen />}>
+        <Suspense fallback={<SkeletonAppLoading />}>
           <Toaster 
             containerStyle={{
               zIndex: 10000, // Higher than modals (z-[9999]) to ensure toasts appear above everything

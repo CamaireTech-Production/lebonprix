@@ -1138,9 +1138,20 @@ const Sales: React.FC = () => {
 
         {/* Infinite Scroll Loading Indicator */}
         {salesLoadingMore && (
-          <div className="flex justify-center items-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
-            <span className="ml-3 text-gray-600">Loading more sales...</span>
+          <div className="py-8">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
+              <div className="flex items-center space-x-4">
+                <div className="animate-pulse bg-gray-100 w-16 h-4 rounded"></div>
+                <div className="animate-pulse bg-gray-100 w-24 h-4 rounded"></div>
+                <div className="animate-pulse bg-gray-100 w-20 h-5 rounded"></div>
+                <div className="animate-pulse bg-gray-100 w-20 h-5 rounded"></div>
+                <div className="animate-pulse bg-gray-100 w-24 h-4 rounded"></div>
+                <div className="animate-pulse bg-gray-100 w-20 h-5 rounded"></div>
+                <div className="flex gap-2 ml-auto">
+                  <div className="animate-pulse bg-gray-100 w-8 h-8 rounded-full"></div>
+                </div>
+              </div>
+            </div>
           </div>
         )}
         {!salesHasMore && sales.length > 0 && (

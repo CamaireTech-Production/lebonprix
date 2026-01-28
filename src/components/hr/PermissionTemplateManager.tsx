@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@contexts/AuthContext';
-import { Card, Button, LoadingScreen } from '@components/common';
+import { Card, Button, SkeletonLoader } from '@components/common';
 import { Plus, Edit, Trash2, Users } from 'lucide-react';
 import { 
   getCompanyTemplates, 
@@ -141,7 +141,27 @@ const PermissionTemplateManager = ({ onTemplateChange }: PermissionTemplateManag
   };
 
   if (loading) {
-    return <LoadingScreen />;
+    return (
+      <div className="space-y-4 py-4">
+        {[...Array(5)].map((_, i) => (
+          <Card key={i} className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <SkeletonLoader width="w-10" height="h-10" rounded />
+                <div>
+                  <SkeletonLoader width="w-32" height="h-4" className="mb-1" />
+                  <SkeletonLoader width="w-24" height="h-3" />
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <SkeletonLoader width="w-8" height="h-8" rounded />
+                <SkeletonLoader width="w-8" height="h-8" rounded />
+              </div>
+            </div>
+          </Card>
+        ))}
+      </div>
+    );
   }
 
   if (showForm) {

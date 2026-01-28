@@ -1970,9 +1970,22 @@ const Products = () => {
 
       {/* Infinite Scroll Loading Indicator */}
       {loadingMore && (
-        <div className="flex justify-center items-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
-          <span className="ml-3 text-gray-600">Loading more products...</span>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 py-8">
+          {[...Array(4)].map((_, index) => (
+            <div key={index} className="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
+              <div className="animate-pulse bg-gray-100 w-full h-48 rounded mb-3"></div>
+              <div className="animate-pulse bg-gray-100 w-3/4 h-5 rounded mb-2"></div>
+              <div className="animate-pulse bg-gray-100 w-1/2 h-4 rounded mb-3"></div>
+              <div className="flex justify-between items-center mb-3">
+                <div className="animate-pulse bg-gray-100 w-24 h-6 rounded"></div>
+                <div className="animate-pulse bg-gray-100 w-16 h-5 rounded"></div>
+              </div>
+              <div className="flex gap-2">
+                <div className="animate-pulse bg-gray-100 w-full h-9 rounded"></div>
+                <div className="animate-pulse bg-gray-100 w-9 h-9 rounded"></div>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 

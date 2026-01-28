@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { SkeletonTable, Button, DateRangePicker, Modal, ModalFooter, CreatableSelect, PriceInput } from "@components/common";
+import { SkeletonFinance, Button, DateRangePicker, Modal, ModalFooter, CreatableSelect, PriceInput } from "@components/common";
 import { useFinanceEntries, useProducts, useSales, useExpenses, useCustomers, useStockChanges, useSuppliers } from '@hooks/data/useFirestore';
 import { useAllStockBatches } from '@hooks/business/useStockBatches';
 // Removed useFinancialData import - back to direct calculations
@@ -308,7 +308,7 @@ const Finance: React.FC = () => {
 
   // 🚀 HYBRID APPROACH: Only show loading screen if essential data is loading
   if (loading || productsLoading || salesLoading || expensesLoading) {
-    return <SkeletonTable rows={5} />;
+    return <SkeletonFinance />;
   }
 
   // Stat cards with direct calculations

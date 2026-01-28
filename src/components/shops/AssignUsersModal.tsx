@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Modal, ModalFooter, Button, LoadingScreen, Badge } from '@components/common';
+import { Modal, ModalFooter, Button, SkeletonLoader, Badge } from '@components/common';
 import { useAuth } from '@contexts/AuthContext';
 import { getCompanyEmployees } from '@services/firestore/employees/employeeRefService';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
@@ -141,7 +141,20 @@ const AssignUsersModal: React.FC<AssignUsersModalProps> = ({
   if (loading) {
     return (
       <Modal isOpen={isOpen} onClose={onClose} title="Chargement...">
-        <LoadingScreen />
+        <div className="space-y-3 py-4">
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <SkeletonLoader width="w-10" height="h-10" rounded />
+                <div>
+                  <SkeletonLoader width="w-32" height="h-4" className="mb-1" />
+                  <SkeletonLoader width="w-24" height="h-3" />
+                </div>
+              </div>
+              <SkeletonLoader width="w-20" height="h-8" rounded />
+            </div>
+          ))}
+        </div>
       </Modal>
     );
   }
