@@ -153,7 +153,7 @@ import type {
 } from '../types/models';
 import { Timestamp } from 'firebase/firestore';
 import { useAuth } from '../../contexts/AuthContext';
-import { doc, getDoc, deleteDoc, collection, query, where, orderBy, getDocs, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, deleteDoc, collection, query, where, orderBy, limit, getDocs, onSnapshot } from 'firebase/firestore';
 import { db } from '@services/core/firebase';
 
 // Utility to deeply remove undefined fields from an object
@@ -843,10 +843,13 @@ export const useFinanceEntries = () => {
     // Real-time listener for finance entries
     // FIXED: Simplified query to avoid composite index issues
     // Query by companyId only, filter isDeleted in client-side for better real-time performance
+    // OPTIMIZATION: Added limit to reduce Firebase reads
+    const defaultLimit = 200; // OPTIMIZATION: Default limit to reduce Firebase reads
     const q = query(
       collection(db, 'finances'),
       where('companyId', '==', company.id),
-      orderBy('createdAt', 'desc')
+      orderBy('createdAt', 'desc'),
+      limit(defaultLimit)
     );
 
     // Set up real-time listener with proper error handling

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { onSnapshot, query, where, orderBy, collection } from 'firebase/firestore';
+import { onSnapshot, query, where, orderBy, limit, collection } from 'firebase/firestore';
 import { db } from '@services/core/firebase';
 import { useAuth } from '@contexts/AuthContext';
 import { useMatieres } from '@hooks/business/useMatieres';
@@ -37,10 +37,12 @@ export const useMatiereStocks = () => {
     setError(null);
 
     // Query only matiere batches using type filter
+    // OPTIMIZATION: Added limit to reduce Firebase reads
     const q = query(
       collection(db, 'stockBatches'),
       where('companyId', '==', company.id),
-      where('type', '==', 'matiere')
+      where('type', '==', 'matiere'),
+      limit(200) // Limit to 200 matiere batches
     );
 
     const unsubscribe = onSnapshot(
@@ -79,10 +81,12 @@ export const useMatiereStocks = () => {
     }
 
     // Query only matiere stock changes using type filter
+    // OPTIMIZATION: Added limit to reduce Firebase reads
     const q = query(
       collection(db, 'stockChanges'),
       where('companyId', '==', company.id),
-      where('type', '==', 'matiere')
+      where('type', '==', 'matiere'),
+      limit(200) // Limit to 200 matiere stock changes
     );
 
     const unsubscribe = onSnapshot(

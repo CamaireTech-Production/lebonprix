@@ -5,6 +5,7 @@ import {
   query,
   where,
   orderBy,
+  limit,
   getDocs,
   getDoc,
   onSnapshot,
@@ -22,11 +23,13 @@ import type { Customer } from '../../../types/models';
 // CUSTOMER SUBSCRIPTIONS
 // ============================================================================
 
-export const subscribeToCustomers = (companyId: string, callback: (customers: Customer[]) => void) => {
+export const subscribeToCustomers = (companyId: string, callback: (customers: Customer[]) => void, limitCount?: number) => {
+  const defaultLimit = 100; // OPTIMIZATION: Default limit to reduce Firebase reads
   const q = query(
     collection(db, 'customers'),
     where('companyId', '==', companyId),
-    orderBy('createdAt', 'desc')
+    orderBy('createdAt', 'desc'),
+    limit(limitCount || defaultLimit)
   );
   return onSnapshot(q, (snapshot) => {
     const customers = snapshot.docs.map(doc => {

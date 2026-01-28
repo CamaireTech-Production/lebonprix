@@ -6,6 +6,7 @@ import {
   query,
   where,
   orderBy,
+  limit,
   getDocs,
   getDoc,
   onSnapshot,
@@ -31,12 +32,15 @@ const COLLECTION_NAME = 'charges';
  */
 export const subscribeToCharges = (
   companyId: string,
-  callback: (charges: Charge[]) => void
+  callback: (charges: Charge[]) => void,
+  limitCount?: number
 ): (() => void) => {
+  const defaultLimit = 100; // OPTIMIZATION: Default limit to reduce Firebase reads
   const q = query(
     collection(db, COLLECTION_NAME),
     where('companyId', '==', companyId),
-    orderBy('createdAt', 'desc')
+    orderBy('createdAt', 'desc'),
+    limit(limitCount || defaultLimit)
   );
 
   return onSnapshot(
@@ -60,14 +64,17 @@ export const subscribeToCharges = (
  */
 export const subscribeToFixedCharges = (
   companyId: string,
-  callback: (charges: Charge[]) => void
+  callback: (charges: Charge[]) => void,
+  limitCount?: number
 ): (() => void) => {
+  const defaultLimit = 50; // OPTIMIZATION: Default limit to reduce Firebase reads
   const q = query(
     collection(db, COLLECTION_NAME),
     where('companyId', '==', companyId),
     where('type', '==', 'fixed'),
     where('isActive', '==', true),
-    orderBy('createdAt', 'desc')
+    orderBy('createdAt', 'desc'),
+    limit(limitCount || defaultLimit)
   );
 
   return onSnapshot(
@@ -91,13 +98,16 @@ export const subscribeToFixedCharges = (
  */
 export const subscribeToCustomCharges = (
   companyId: string,
-  callback: (charges: Charge[]) => void
+  callback: (charges: Charge[]) => void,
+  limitCount?: number
 ): (() => void) => {
+  const defaultLimit = 50; // OPTIMIZATION: Default limit to reduce Firebase reads
   const q = query(
     collection(db, COLLECTION_NAME),
     where('companyId', '==', companyId),
     where('type', '==', 'custom'),
-    orderBy('createdAt', 'desc')
+    orderBy('createdAt', 'desc'),
+    limit(limitCount || defaultLimit)
   );
 
   return onSnapshot(

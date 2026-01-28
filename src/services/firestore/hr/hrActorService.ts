@@ -9,6 +9,7 @@ import {
   query,
   where,
   orderBy,
+  limit,
   onSnapshot,
   serverTimestamp,
   Unsubscribe,
@@ -242,12 +243,15 @@ export async function deleteHRActor(actorId: string): Promise<void> {
  */
 export function subscribeToHRActors(
   companyId: string,
-  callback: (actors: HRActor[]) => void
+  callback: (actors: HRActor[]) => void,
+  limitCount?: number
 ): Unsubscribe {
+  const defaultLimit = 100; // OPTIMIZATION: Default limit to reduce Firebase reads
   const q = query(
     collection(db, HR_ACTORS_COLLECTION),
     where('companyId', '==', companyId),
-    orderBy('createdAt', 'desc')
+    orderBy('createdAt', 'desc'),
+    limit(limitCount || defaultLimit)
   );
 
   return onSnapshot(

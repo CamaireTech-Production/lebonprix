@@ -298,12 +298,15 @@ export const getDefaultWarehouse = async (companyId: string): Promise<Warehouse 
 export const subscribeToWarehouses = (
   companyId: string,
   callback: (warehouses: Warehouse[]) => void,
-  onError?: (error: Error) => void
+  onError?: (error: Error) => void,
+  limitCount?: number
 ): (() => void) => {
+  const defaultLimit = 50; // OPTIMIZATION: Default limit to reduce Firebase reads
   const q = query(
     collection(db, 'warehouses'),
     where('companyId', '==', companyId),
-    orderBy('createdAt', 'asc')
+    orderBy('createdAt', 'asc'),
+    limit(limitCount || defaultLimit)
   );
 
   return onSnapshot(

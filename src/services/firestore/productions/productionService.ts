@@ -6,6 +6,7 @@ import {
   query,
   where,
   orderBy,
+  limit,
   getDoc,
   getDocs,
   onSnapshot,
@@ -13,8 +14,7 @@ import {
   writeBatch,
   arrayUnion,
   Timestamp,
-  runTransaction,
-  limit
+  runTransaction
 } from 'firebase/firestore';
 import { db } from '../../core/firebase';
 import { logError } from '@utils/core/logger';
@@ -46,7 +46,8 @@ const getCurrentUserId = async (): Promise<string> => {
 
 export const subscribeToProductions = (
   companyId: string,
-  callback: (productions: Production[]) => void
+  callback: (productions: Production[]) => void,
+  limitCount?: number
 ): (() => void) => {
   if (!companyId) {
     callback([]);
@@ -54,10 +55,12 @@ export const subscribeToProductions = (
   }
 
   try {
+    const defaultLimit = 100; // OPTIMIZATION: Default limit to reduce Firebase reads
     const q = query(
       collection(db, COLLECTION_NAME),
       where('companyId', '==', companyId),
-      orderBy('createdAt', 'desc')
+      orderBy('createdAt', 'desc'),
+      limit(limitCount || defaultLimit)
     );
 
     let isActive = true;

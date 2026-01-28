@@ -5,6 +5,7 @@ import {
   query,
   where,
   orderBy,
+  limit,
   getDocs,
   getDoc,
   onSnapshot,
@@ -47,11 +48,13 @@ const createStockChange = (batch: WriteBatch, productId: string, change: number,
 // PRODUCT SUBSCRIPTIONS
 // ============================================================================
 
-export const subscribeToProducts = (companyId: string, callback: (products: Product[]) => void): (() => void) => {
+export const subscribeToProducts = (companyId: string, callback: (products: Product[]) => void, limitCount?: number): (() => void) => {
+  const defaultLimit = 100; // OPTIMIZATION: Default limit to reduce Firebase reads
   const q = query(
     collection(db, 'products'),
     where('companyId', '==', companyId),
-    orderBy('createdAt', 'desc')
+    orderBy('createdAt', 'desc'),
+    limit(limitCount || defaultLimit)
   );
 
   return onSnapshot(q, (snapshot) => {

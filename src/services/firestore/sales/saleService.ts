@@ -88,18 +88,13 @@ const syncFinanceEntryWithSale = async (sale: Sale) => {
 // ============================================================================
 
 export const subscribeToSales = (companyId: string, callback: (sales: Sale[]) => void, limitCount?: number): (() => void) => {
-  const q = limitCount 
-    ? query(
-        collection(db, 'sales'),
-        where('companyId', '==', companyId),
-        orderBy('createdAt', 'desc'),
-        limit(limitCount)
-      )
-    : query(
-        collection(db, 'sales'),
-        where('companyId', '==', companyId),
-        orderBy('createdAt', 'desc')
-      );
+  const defaultLimit = 100; // OPTIMIZATION: Default limit to reduce Firebase reads
+  const q = query(
+    collection(db, 'sales'),
+    where('companyId', '==', companyId),
+    orderBy('createdAt', 'desc'),
+    limit(limitCount || defaultLimit)
+  );
   
   return onSnapshot(q, (snapshot) => {
     const sales = snapshot.docs.map(doc => ({
