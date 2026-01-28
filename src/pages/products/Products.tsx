@@ -21,6 +21,8 @@ import type { Product, ProductTag, StockChange } from '../../types/models';
 import type { ParseResult } from 'papaparse';
 import { getLatestCostPrice } from '@utils/business/productUtils';
 import { getProductBatchesForAdjustment } from '@services/firestore/stock/stockService';
+import { getDefaultShop } from '@services/firestore/shops/shopService';
+import { getDefaultWarehouse } from '@services/firestore/warehouse/warehouseService';
 import type { StockBatch } from '../../types/models';
 import CostPriceCarousel from '../../components/products/CostPriceCarousel';
 import ProductTagsManager from '../../components/products/ProductTagsManager';
@@ -393,11 +395,25 @@ const Products = () => {
       isValid = false;
     }
 
-    if (!step2Data.stockCostPrice || step2Data.stockCostPrice.trim() === '') {
-      step2Errs.stockCostPrice = t('products.form.step2.stockCostPrice') + ' ' + t('common.required');
-      isValid = false;
-    } else if (parseFloat(step2Data.stockCostPrice) < 0) {
-      step2Errs.stockCostPrice = t('products.form.step2.stockCostPrice') + ' ' + (t('common.mustBeGreaterThanOrEqualToZero') || 'must be greater than or equal to zero');
+    const parsedStock = step2Data.stock ? parseInt(step2Data.stock) : 0;
+    const parsedCostPrice = step2Data.stockCostPrice ? parseFloat(step2Data.stockCostPrice) : NaN;
+
+    if (parsedStock > 0) {
+      if (!step2Data.stockCostPrice || step2Data.stockCostPrice.trim() === '' || isNaN(parsedCostPrice)) {
+        step2Errs.stockCostPrice =
+          t('products.form.step2.errors.missingCostPriceForStock') ||
+          t('products.form.step2.stockCostPrice') + ' ' + t('common.required');
+        isValid = false;
+      } else if (parsedCostPrice < 0) {
+        step2Errs.stockCostPrice =
+          t('products.form.step2.stockCostPrice') + ' ' +
+          (t('common.mustBeGreaterThanOrEqualToZero') || 'must be greater than or equal to zero');
+        isValid = false;
+      }
+    } else if (step2Data.stockCostPrice && !isNaN(parsedCostPrice) && parsedCostPrice < 0) {
+      step2Errs.stockCostPrice =
+        t('products.form.step2.stockCostPrice') + ' ' +
+        (t('common.mustBeGreaterThanOrEqualToZero') || 'must be greater than or equal to zero');
       isValid = false;
     }
 
@@ -530,16 +546,18 @@ const Products = () => {
       }
 
       // Create supplier info for the product creation
-      const supplierInfo = step2Data.supplyType === 'fromSupplier' ? {
-        supplierId: step2Data.supplierId,
-        isOwnPurchase: false,
-        isCredit: step2Data.paymentType === 'credit',
-        costPrice: stockCostPrice
-      } : {
-        isOwnPurchase: true,
-        isCredit: false,
-        costPrice: stockCostPrice
-      };
+      const supplierInfo = step2Data.supplyType === 'fromSupplier'
+        ? {
+            supplierId: step2Data.supplierId,
+            isOwnPurchase: false,
+            isCredit: step2Data.paymentType === 'credit',
+            costPrice: stockCostPrice
+          }
+        : {
+            isOwnPurchase: true,
+            isCredit: false,
+            costPrice: stockCostPrice
+          };
 
       // Get createdBy employee reference
       let createdBy: ReturnType<typeof getCurrentEmployeeRef> | null = null;
@@ -556,10 +574,48 @@ const Products = () => {
         createdBy = getCurrentEmployeeRef(currentEmployee, user, isOwner, userData);
       }
 
-      // Create the product with supplier information and image URLs included
+      // Resolve default location for initial stock (shop preferred, then warehouse)
+      let locationInfo: {
+        locationType?: 'warehouse' | 'shop' | 'production' | 'global';
+        warehouseId?: string;
+        shopId?: string;
+        productionId?: string;
+      } | undefined;
+
+      if (company && stockQuantity > 0) {
+        try {
+          const defaultShop = await getDefaultShop(company.id);
+          if (defaultShop) {
+            locationInfo = {
+              locationType: 'shop',
+              shopId: defaultShop.id
+            };
+          } else {
+            const defaultWarehouse = await getDefaultWarehouse(company.id);
+            if (defaultWarehouse) {
+              locationInfo = {
+                locationType: 'warehouse',
+                warehouseId: defaultWarehouse.id
+              };
+            }
+          }
+        } catch (error) {
+          console.error('Error resolving default location before product creation:', error);
+        }
+
+        if (!locationInfo) {
+          showErrorToast(
+            t('products.messages.errors.noDefaultLocation') ||
+            'Aucun magasin ou entrepôt par défaut trouvé pour affecter le stock initial.'
+          );
+          return;
+        }
+      }
+
+      // Create the product with supplier information, image URLs and location included
       let createdProduct;
       try {
-        createdProduct = await addProduct(productData, supplierInfo, createdBy);
+        createdProduct = await addProduct(productData, supplierInfo, createdBy, locationInfo);
         console.log('Created product result:', createdProduct);
 
         if (!createdProduct) {

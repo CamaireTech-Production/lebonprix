@@ -106,13 +106,15 @@ import {
   subscribeToShops,
   createShop,
   updateShop,
-  deleteShop
+  deleteShop,
+  getDefaultShop
 } from '@services/firestore/shops/shopService';
 import {
   subscribeToWarehouses,
   createWarehouse,
   updateWarehouse,
-  deleteWarehouse
+  deleteWarehouse,
+  getDefaultWarehouse
 } from '@services/firestore/warehouse/warehouseService';
 import {
   subscribeToStockTransfers,
@@ -209,15 +211,55 @@ export const useProducts = () => {
       isCredit?: boolean;
       costPrice?: number;
     },
-    createdBy?: import('../types/models').EmployeeRef | null
+    createdBy?: import('../types/models').EmployeeRef | null,
+    locationInfo?: {
+      locationType?: 'warehouse' | 'shop' | 'production' | 'global';
+      warehouseId?: string;
+      shopId?: string;
+      productionId?: string;
+    }
   ) => {
     if (!user || !company) throw new Error('User not authenticated');
     try {
+      // Resolve effective location for initial stock if not explicitly provided
+      let effectiveLocationInfo = locationInfo;
+
+      const initialStock = (productData as any).stock ?? 0;
+
+      if (!effectiveLocationInfo && initialStock > 0) {
+        try {
+          // Prefer default shop, fallback to default warehouse
+          const defaultShop = await getDefaultShop(company.id);
+          if (defaultShop) {
+            effectiveLocationInfo = {
+              locationType: 'shop',
+              shopId: defaultShop.id
+            };
+          } else {
+            const defaultWarehouse = await getDefaultWarehouse(company.id);
+            if (defaultWarehouse) {
+              effectiveLocationInfo = {
+                locationType: 'warehouse',
+                warehouseId: defaultWarehouse.id
+              };
+            }
+          }
+        } catch (error) {
+          console.error('Error resolving default location for product creation:', error);
+        }
+
+        // If we still don't have a location and there is initial stock, prevent silent creation
+        if (!effectiveLocationInfo) {
+          throw new Error('No default shop or warehouse found to assign initial stock.');
+        }
+      }
+
       const createdProduct = await createProduct(
         { ...productData, userId: user.uid, companyId: company.id },
         company.id,
+        supplierInfo,
         createdBy,
-        supplierInfo
+        effectiveLocationInfo
       );
       
       // Invalidate products cache
