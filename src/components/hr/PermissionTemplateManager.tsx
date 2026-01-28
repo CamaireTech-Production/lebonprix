@@ -24,6 +24,7 @@ const PermissionTemplateManager = ({ onTemplateChange }: PermissionTemplateManag
   const [showForm, setShowForm] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<PermissionTemplate | null>(null);
   const [showDefaults, setShowDefaults] = useState(false);
+  const [usingDefaultTemplateName, setUsingDefaultTemplateName] = useState<string | null>(null);
 
   const loadTemplates = useCallback(async () => {
     if (!company?.id) return;
@@ -118,6 +119,7 @@ const PermissionTemplateManager = ({ onTemplateChange }: PermissionTemplateManag
     if (!company?.id || !user?.uid) return;
     
     try {
+      setUsingDefaultTemplateName(defaultTemplate.name);
       await createTemplate(company.id, user.uid, {
         name: defaultTemplate.name,
         description: defaultTemplate.description,
@@ -127,6 +129,8 @@ const PermissionTemplateManager = ({ onTemplateChange }: PermissionTemplateManag
       onTemplateChange?.();
     } catch (error) {
       console.error('Error using default template:', error);
+    } finally {
+      setUsingDefaultTemplateName(null);
     }
   };
 
@@ -217,6 +221,8 @@ const PermissionTemplateManager = ({ onTemplateChange }: PermissionTemplateManag
                   <div className="mt-3">
                     <Button
                       size="sm"
+                      isLoading={usingDefaultTemplateName === template.name}
+                      loadingText="Adding..."
                       onClick={() => handleUseDefaultTemplate(template)}
                     >
                       Use This Template
