@@ -37,6 +37,7 @@ export { default as SkeletonShops } from './SkeletonShops';
 export { default as SkeletonStockTransfers } from './SkeletonStockTransfers';
 export { default as SkeletonPermissions } from './SkeletonPermissions';
 export { default as SkeletonProfile } from './SkeletonProfile';
+export { default as SkeletonPageLoading } from './SkeletonPageLoading';
 export { default as SkeletonExpensesReports } from './SkeletonExpensesReports';
 export { default as SkeletonExpensesAnalytics } from './SkeletonExpensesAnalytics';
 export { default as ProgressBar } from './ProgressBar';

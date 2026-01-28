@@ -35,7 +35,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 
 const Productions: React.FC = () => {
-  const { productions, loading, deleteProduction, changeState, changeStatus } = useProductions();
+  const { productions, loading, error, deleteProduction, changeState, changeStatus } = useProductions();
   const { flows } = useProductionFlows();
   const { categories } = useProductionCategories();
   const { flowSteps } = useProductionFlowSteps();
@@ -504,7 +504,8 @@ const Productions: React.FC = () => {
     );
   };
 
-  if (loading) {
+  // Show skeleton if loading OR if no productions yet (initial load)
+  if (loading || (productions.length === 0 && !error)) {
     return <SkeletonProductions viewMode={viewMode} />;
   }
 

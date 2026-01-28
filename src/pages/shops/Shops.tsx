@@ -333,7 +333,8 @@ const Shops = () => {
     }
   };
 
-  if (loading) {
+  // Show skeleton if loading OR if no shops yet (initial load)
+  if (loading || (shops.length === 0 && !error)) {
     return <SkeletonShops />;
   }
 

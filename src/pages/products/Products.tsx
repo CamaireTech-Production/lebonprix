@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Grid, List, Plus, Search, Edit2, Upload, Trash2, CheckSquare, Square, Info, Eye, EyeOff, QrCode, ExternalLink, FileText, ChevronDown, Loader2 } from 'lucide-react';
+import { Grid, List, Plus, Search, Edit2, Upload, Trash2, CheckSquare, Square, Info, Eye, EyeOff, QrCode, ExternalLink, FileText, ChevronDown, Loader2, Package } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { Card, Button, Badge, Modal, ModalFooter, Input, ImageWithSkeleton, SkeletonProductsGrid, SyncIndicator, PriceInput } from '@components/common';
@@ -1317,7 +1317,8 @@ const Products = () => {
     setImportProgress(0);
   };
 
-  if (infiniteLoading) {
+  // Show skeleton if loading OR if no products yet (initial load)
+  if (infiniteLoading || (infiniteProducts.length === 0 && !infiniteError)) {
     return <SkeletonProductsGrid rows={20} />;
   }
 
@@ -1959,6 +1960,45 @@ const Products = () => {
             </table>
           </div>
         </Card>
+      )}
+
+      {/* Empty State */}
+      {!infiniteLoading && filteredProducts.length === 0 && (
+        <div className="px-4 py-12 text-center">
+          {searchQuery.trim() || (selectedCategory && selectedCategory !== t('products.filters.allCategories')) ? (
+            <div className="flex flex-col items-center">
+              <Search className="h-12 w-12 text-gray-400 mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                {t('products.stocksPage.messages.noProductsFound')}
+              </h3>
+              <p className="text-sm text-gray-600 mb-4 max-w-md">
+                {searchQuery.trim() 
+                  ? t('products.stocksPage.messages.noProductsMatchSearch', { search: searchQuery })
+                  : t('products.stocksPage.messages.noProductsMatchSearch', { search: selectedCategory })
+                }
+              </p>
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setSearchQuery('');
+                  setSelectedCategory(t('products.filters.allCategories'));
+                }}
+              >
+                {t('products.stocksPage.messages.clearSearch')}
+              </Button>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center">
+              <Package className="h-12 w-12 text-gray-400 mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                {t('products.stocksPage.messages.noProductsYet')}
+              </h3>
+              <p className="text-sm text-gray-600 mb-4 max-w-md">
+                {t('products.stocksPage.messages.startByAdding')}
+              </p>
+            </div>
+          )}
+        </div>
       )}
 
       {/* Load More Button */}
