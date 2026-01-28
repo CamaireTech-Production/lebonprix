@@ -2,6 +2,7 @@
   "common": {
     "appName": "Geskap",
     "loading": "Loading...",
+    "loadMore": "Load More",
     "error": "Error",
     "success": "Success",
     "save": "Save",
