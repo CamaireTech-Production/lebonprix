@@ -16,6 +16,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../../core/firebase';
 import { logError } from '@utils/core/logger';
+import { trackRead } from '@utils/firestore/readTracker';
 import type { Sale, SaleDetails, Product, StockBatch, OrderStatus, PaymentStatus } from '../../../types/models';
 import type { InventoryMethod } from '@utils/inventory/inventoryManagement';
 import type { InventoryResult } from '@utils/inventory/inventoryManagement';
@@ -89,12 +90,16 @@ const syncFinanceEntryWithSale = async (sale: Sale) => {
 
 export const subscribeToSales = (companyId: string, callback: (sales: Sale[]) => void, limitCount?: number): (() => void) => {
   const defaultLimit = 100; // OPTIMIZATION: Default limit to reduce Firebase reads
+  const appliedLimit = limitCount || defaultLimit;
   const q = query(
     collection(db, 'sales'),
     where('companyId', '==', companyId),
     orderBy('createdAt', 'desc'),
-    limit(limitCount || defaultLimit)
+    limit(appliedLimit)
   );
+  
+  // Track the subscription
+  trackRead('sales', 'onSnapshot', undefined, appliedLimit);
   
   return onSnapshot(q, (snapshot) => {
     const sales = snapshot.docs.map(doc => ({

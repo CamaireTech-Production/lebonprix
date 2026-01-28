@@ -8,6 +8,7 @@ import LoadingScreen from './components/common/LoadingScreen';
 import { Toaster } from 'react-hot-toast';
 import { PWAErrorHandler, PWAUpdateNotification, ErrorBoundary } from './components/pwa';
 import { AppRoutes } from './router';
+import FirebaseReadMonitor from './components/monitoring/FirebaseReadMonitor';
 
 function App() {
   const [isAddSaleModalOpen, setIsAddSaleModalOpen] = useState(false);
@@ -48,6 +49,7 @@ function AppWithFAB({ isAddSaleModalOpen, setIsAddSaleModalOpen }: { isAddSaleMo
             isAddSaleModalOpen={isAddSaleModalOpen} 
             setIsAddSaleModalOpen={setIsAddSaleModalOpen} 
           />
+          <FirebaseReadMonitor />
         </Suspense>
       </PWAErrorHandler>
     </ErrorBoundary>
