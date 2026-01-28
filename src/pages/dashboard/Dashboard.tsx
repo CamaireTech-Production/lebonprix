@@ -16,12 +16,12 @@ import ObjectivesModal from '../../components/objectives/ObjectivesModal';
 import ProfitPeriodModal from '../../components/dashboard/ProfitPeriodModal';
 import DashboardHeader from '../../components/dashboard/DashboardHeader';
 import StatsSection from '../../components/dashboard/StatsSection';
-import DonutChartsSection from '../../components/dashboard/DonutChartsSection';
+import LazyDonutChartsSection from '../../components/dashboard/LazyDonutChartsSection';
 // OPTIMIZATION: Removed DataLoadingStatus import - no longer needed since we don't load all sales
 import CalculationsModal from '../../components/dashboard/CalculationsModal';
-import TopSales from '../../components/dashboard/TopSales';
-import BestClients from '../../components/dashboard/BestClients';
-import BestProductsList from '../../components/dashboard/BestProductsList';
+import LazyTopSales from '../../components/dashboard/LazyTopSales';
+import LazyBestClients from '../../components/dashboard/LazyBestClients';
+import LazyBestProductsList from '../../components/dashboard/LazyBestProductsList';
 import LatestOrdersTable from '../../components/dashboard/LatestOrdersTable';
 import { useFilteredDashboardData } from '@hooks/business/useFilteredDashboardData';
 import { useDashboardCharts } from '@hooks/business/useDashboardCharts';
@@ -111,20 +111,27 @@ const Dashboard = () => {
     };
   }, [totalProductsSold, totalDeliveryFee, totalOrders]);
 
-  // Use dashboard charts hook
-  const {
-    salesByCategoryData,
-    expensesByCategoryData,
-    salesBySourceData,
-    salesByPaymentStatusData
-  } = useDashboardCharts({
-    filteredSales,
-    filteredExpenses,
-    products,
-    sources
-  });
+  // 🚀 PROGRESSIVE LOADING: Calculate stats immediately, defer charts
+  const [shouldCalculateCharts, setShouldCalculateCharts] = useState(false);
 
-  // Use dashboard stats hook
+  // Defer chart calculations until after initial render (non-blocking)
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if ('requestIdleCallback' in window) {
+        requestIdleCallback(() => {
+          setShouldCalculateCharts(true);
+        });
+      } else {
+        setTimeout(() => {
+          setShouldCalculateCharts(true);
+        }, 200);
+      }
+    }, 100);
+
+    return () => clearTimeout(timeoutId);
+  }, []);
+
+  // Use dashboard stats hook (immediate - needed for UI)
   const { statCards } = useDashboardStats({
     filteredSales,
     filteredExpenses,
@@ -137,6 +144,19 @@ const Dashboard = () => {
     salesLoading,
     expensesLoading,
     stockChangesLoading
+  });
+
+  // Use dashboard charts hook (deferred - heavy calculations)
+  const {
+    salesByCategoryData,
+    expensesByCategoryData,
+    salesBySourceData,
+    salesByPaymentStatusData
+  } = useDashboardCharts({
+    filteredSales: shouldCalculateCharts ? filteredSales : [],
+    filteredExpenses: shouldCalculateCharts ? filteredExpenses : [],
+    products: shouldCalculateCharts ? products : undefined,
+    sources: shouldCalculateCharts ? sources : []
   });
 
   // Calculate custom date for profit period modal
@@ -334,17 +354,17 @@ const Dashboard = () => {
           
           {/* Data Loading Status - Removed since we no longer load all sales (optimization) */}
 
-          {/* Donut Charts - visible if user has charts permission */}
+          {/* Donut Charts - visible if user has charts permission - LAZY LOADED */}
           {canViewCharts && (
-            <DonutChartsSection
+            <LazyDonutChartsSection
               salesByCategoryData={salesByCategoryData}
               expensesByCategoryData={canViewExpenses ? expensesByCategoryData : []}
               salesBySourceData={salesBySourceData}
               salesByPaymentStatusData={salesByPaymentStatusData}
               loading={{
-                sales: salesLoading,
-                products: productsLoading,
-                expenses: expensesLoading
+                sales: salesLoading || !shouldCalculateCharts,
+                products: productsLoading || !shouldCalculateCharts,
+                expenses: expensesLoading || !shouldCalculateCharts
               }}
             />
           )}
@@ -352,25 +372,25 @@ const Dashboard = () => {
 
         {/* Right Column - 30% (3 columns) - All Tables */}
         <div className="lg:col-span-3 space-y-6">
-          {/* Top Sales - visible if user has permission */}
+          {/* Top Sales - visible if user has permission - LAZY LOADED */}
           {canViewTopSales && (
-            <TopSales
+            <LazyTopSales
               sales={topSalesData}
               onViewMore={() => navigate(`/company/${companyId}/sales`)}
             />
           )}
 
-          {/* Best Clients - visible if user has permission */}
+          {/* Best Clients - visible if user has permission - LAZY LOADED */}
           {canViewBestClients && (
-            <BestClients
+            <LazyBestClients
               clients={bestClientsData}
               onViewMore={() => navigate(`/company/${companyId}/contacts`)}
             />
           )}
 
-          {/* Best Products - visible if user has permission */}
+          {/* Best Products - visible if user has permission - LAZY LOADED */}
           {canViewBestProducts && (
-            <BestProductsList
+            <LazyBestProductsList
               products={bestProductsListData}
               allProducts={products || []}
               onViewAll={() => navigate(`/company/${companyId}/products`)}

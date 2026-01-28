@@ -1,7 +1,7 @@
 // src/pages/expenses/ExpensesAnalytics.tsx
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Bar, Pie, Line } from 'react-chartjs-2';
+import LazyChart from '../../components/expenses/LazyChart';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -21,7 +21,7 @@ import { useExpenseStats, ExpenseFilterOptions } from '@hooks/business/useExpens
 import { useExpenseCategories } from '@hooks/business/useExpenseCategories';
 import type { Expense, ExpenseType } from '../../types/models';
 import ExpenseFiltersComponent from './shared/ExpenseFilters';
-import { SkeletonExpensesAnalytics } from "@components/common";
+import { SkeletonExpensesAnalytics, SkeletonChart } from "@components/common";
 
 // Register Chart.js components
 ChartJS.register(
@@ -59,8 +59,29 @@ const ExpensesAnalytics = () => {
 
   const stats = useExpenseStats(visibleExpenses, filters);
 
-  // Prepare chart data
+  // 🚀 PROGRESSIVE LOADING: Defer heavy chart calculations
+  const [shouldCalculateCharts, setShouldCalculateCharts] = useState(false);
+
+  useEffect(() => {
+    // Defer chart calculations until after initial render
+    const timeoutId = setTimeout(() => {
+      if ('requestIdleCallback' in window) {
+        requestIdleCallback(() => {
+          setShouldCalculateCharts(true);
+        });
+      } else {
+        setTimeout(() => {
+          setShouldCalculateCharts(true);
+        }, 200);
+      }
+    }, 100);
+
+    return () => clearTimeout(timeoutId);
+  }, []);
+
+  // Prepare chart data (only when ready)
   const barChartData = useMemo(() => {
+    if (!shouldCalculateCharts) return { labels: [], datasets: [] };
     const sortedCategories = [...stats.categoryBreakdown].sort((a, b) => b.totalAmount - a.totalAmount);
     return {
       labels: sortedCategories.map((item: { category: string; totalAmount: number }) => {
@@ -90,9 +111,10 @@ const ExpensesAnalytics = () => {
         borderWidth: 1
       }]
     };
-  }, [stats.categoryBreakdown, t]);
+  }, [stats.categoryBreakdown, t, shouldCalculateCharts]);
 
   const pieChartData = useMemo(() => {
+    if (!shouldCalculateCharts) return { labels: [], datasets: [] };
     return {
       labels: stats.categoryBreakdown.map((item: { category: string; totalAmount: number }) => {
         const defaultCategories = ['transportation', 'purchase', 'other'];
@@ -120,10 +142,11 @@ const ExpensesAnalytics = () => {
         borderWidth: 2
       }]
     };
-  }, [stats.categoryBreakdown, t]);
+  }, [stats.categoryBreakdown, t, shouldCalculateCharts]);
 
-  // Time series data (group by month)
+  // Time series data (group by month) - only when ready
   const lineChartData = useMemo(() => {
+    if (!shouldCalculateCharts) return { labels: [], datasets: [] };
     const monthlyData: Record<string, number> = {};
     
     visibleExpenses.forEach((expense: Expense) => {
@@ -155,7 +178,7 @@ const ExpensesAnalytics = () => {
         fill: true
       }]
     };
-  }, [visibleExpenses]);
+  }, [visibleExpenses, shouldCalculateCharts]);
 
   const chartOptions: ChartOptions<'bar'> = {
     responsive: true,
@@ -278,37 +301,43 @@ const ExpensesAnalytics = () => {
         </Card>
       </div>
 
-      {/* Charts */}
+      {/* Charts - LAZY LOADED */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <Card>
           {barChartData.labels.length > 0 ? (
-            <Bar data={barChartData} options={chartOptions} />
-          ) : (
+            <LazyChart type="bar" data={barChartData} options={chartOptions} />
+          ) : shouldCalculateCharts ? (
             <div className="p-8 text-center text-gray-500">
               Aucune donnée à afficher
             </div>
+          ) : (
+            <SkeletonChart />
           )}
         </Card>
 
         <Card>
           {pieChartData.labels.length > 0 ? (
-            <Pie data={pieChartData} options={pieChartOptions} />
-          ) : (
+            <LazyChart type="pie" data={pieChartData} options={pieChartOptions} />
+          ) : shouldCalculateCharts ? (
             <div className="p-8 text-center text-gray-500">
               Aucune donnée à afficher
             </div>
+          ) : (
+            <SkeletonChart />
           )}
         </Card>
       </div>
 
-      {/* Line Chart */}
+      {/* Line Chart - LAZY LOADED */}
       <Card className="mb-6">
         {lineChartData.labels.length > 0 ? (
-          <Line data={lineChartData} options={lineChartOptions} />
-        ) : (
+          <LazyChart type="line" data={lineChartData} options={lineChartOptions} />
+        ) : shouldCalculateCharts ? (
           <div className="p-8 text-center text-gray-500">
             Aucune donnée à afficher
           </div>
+        ) : (
+          <SkeletonChart />
         )}
       </Card>
 
