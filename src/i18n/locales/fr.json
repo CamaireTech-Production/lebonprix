@@ -2061,7 +2061,11 @@
       "credit": "Crédit",
       "completed": "Terminée",
       "pending": "En Attente",
-      "cancelled": "Annulée"
+      "cancelled": "Annulée",
+      "paid": "Payé",
+      "commande": "Commande",
+      "underDelivery": "En Livraison",
+      "draft": "Brouillon"
     },
     "summary": {
       "totalSales": "Ventes Totales",
