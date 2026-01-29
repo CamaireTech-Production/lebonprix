@@ -1,7 +1,8 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '@contexts/AuthContext';
 import { Modal, ModalFooter } from '@components/common';
-import { deleteStockBatch } from '@services/firestore/stock/stockAdjustments';
+import { deleteStockBatch, canDeleteBatch } from '@services/firestore/stock/stockAdjustments';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
 import { logError } from '@utils/core/logger';
 import type { StockBatch } from '../../types/models';
@@ -15,6 +16,7 @@ interface BatchDeleteModalProps {
 }
 
 const BatchDeleteModal = ({ isOpen, batch, itemName, onClose, onSuccess }: BatchDeleteModalProps) => {
+  const { t } = useTranslation();
   const { user, company } = useAuth();
   const [deleteLoading, setDeleteLoading] = useState(false);
 
@@ -26,30 +28,39 @@ const BatchDeleteModal = ({ isOpen, batch, itemName, onClose, onSuccess }: Batch
     setDeleteLoading(true);
     try {
       await deleteStockBatch(batch.id, company.id, user.uid);
-      showSuccessToast('Stock batch deleted successfully');
+      showSuccessToast(t('products.stocksPage.batchDeleteModal.messages.success'));
       onSuccess();
       onClose();
     } catch (error) {
       logError('Failed to delete stock batch', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      showErrorToast(`Failed to delete batch: ${errorMessage}`);
+      showErrorToast(t('products.stocksPage.batchDeleteModal.messages.error', { error: errorMessage }));
     } finally {
       setDeleteLoading(false);
     }
   };
 
-  const canDelete = batch?.remainingQuantity === 0;
+  // Use the new validation function
+  const canDelete = batch ? canDeleteBatch(batch) : false;
+  
+  // Determine deletion reason for better messaging
+  const isUnused = batch ? batch.remainingQuantity === batch.quantity : false;
+  const isConsumedButConsolidated = batch ? 
+    batch.remainingQuantity < batch.quantity && 
+    batch.remainingQuantity === 0 && 
+    (batch.status === 'corrected' || batch.status === 'depleted') : false;
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Delete Stock Batch"
+      title={t('products.stocksPage.batchDeleteModal.title')}
       footer={
         <ModalFooter
           onCancel={onClose}
           onConfirm={handleDelete}
-          confirmText="Delete Batch"
+          confirmText={t('products.stocksPage.batchDeleteModal.actions.delete')}
+          cancelText={t('products.stocksPage.batchDeleteModal.actions.cancel')}
           isDanger
           isLoading={deleteLoading}
           disabled={!canDelete}
@@ -59,22 +70,22 @@ const BatchDeleteModal = ({ isOpen, batch, itemName, onClose, onSuccess }: Batch
       <div className="text-center space-y-4">
         {batch && (
           <div className="bg-gray-50 p-4 rounded-lg text-left">
-            <h4 className="font-medium text-gray-900 mb-2">Batch Details</h4>
+            <h4 className="font-medium text-gray-900 mb-2">{t('products.stocksPage.batchDeleteModal.batchDetails.title')}</h4>
             <div className="space-y-1 text-sm">
               <div>
-                <span className="font-medium text-gray-700">Item:</span>
+                <span className="font-medium text-gray-700">{t('products.stocksPage.batchDeleteModal.batchDetails.item')}</span>
                 <span className="ml-2 text-gray-900">{itemName}</span>
               </div>
               <div>
-                <span className="font-medium text-gray-700">Batch ID:</span>
+                <span className="font-medium text-gray-700">{t('products.stocksPage.batchDeleteModal.batchDetails.batchId')}</span>
                 <span className="ml-2 font-mono text-xs text-gray-900">{batch.id}</span>
               </div>
               <div>
-                <span className="font-medium text-gray-700">Remaining Stock:</span>
+                <span className="font-medium text-gray-700">{t('products.stocksPage.batchDeleteModal.batchDetails.remainingStock')}</span>
                 <span className="ml-2 text-gray-900">{batch.remainingQuantity} / {batch.quantity}</span>
               </div>
               <div>
-                <span className="font-medium text-gray-700">Status:</span>
+                <span className="font-medium text-gray-700">{t('products.stocksPage.batchDeleteModal.batchDetails.status')}</span>
                 <span className="ml-2 text-gray-900 capitalize">{batch.status}</span>
               </div>
             </div>
@@ -84,31 +95,70 @@ const BatchDeleteModal = ({ isOpen, batch, itemName, onClose, onSuccess }: Batch
         {canDelete ? (
           <>
             <p className="text-gray-600">
-              Are you sure you want to delete this stock batch?
+              {t('products.stocksPage.batchDeleteModal.confirmQuestion')}
             </p>
+            {isUnused ? (
+              <p className="text-sm text-blue-600 bg-blue-50 p-3 rounded-lg">
+                {t('products.stocksPage.batchDeleteModal.notes.unused', { 
+                  remaining: batch?.remainingQuantity || 0, 
+                  total: batch?.quantity || 0 
+                })}
+              </p>
+            ) : isConsumedButConsolidated ? (
+              <p className="text-sm text-orange-600 bg-orange-50 p-3 rounded-lg">
+                {batch?.status === 'corrected' 
+                  ? t('products.stocksPage.batchDeleteModal.notes.consolidated')
+                  : t('products.stocksPage.batchDeleteModal.notes.destocked')
+                }
+              </p>
+            ) : null}
             <p className="text-sm text-orange-600">
-              <strong>Warning:</strong> This action will soft delete the batch and preserve all historical records. 
-              The batch will no longer appear in active inventory but will remain in audit logs.
+              {t('products.stocksPage.batchDeleteModal.warning')}
             </p>
           </>
         ) : (
           <div className="bg-red-50 p-4 rounded-lg">
             <p className="text-red-800 font-medium mb-2">
-              Cannot Delete Batch
+              {t('products.stocksPage.batchDeleteModal.cannotDelete.title')}
             </p>
-            <p className="text-sm text-red-600">
-              This batch has {batch?.remainingQuantity || 0} units remaining. 
-              You can only delete batches with zero remaining stock.
-            </p>
-            <p className="text-xs text-red-500 mt-2">
-              Please adjust the stock to 0 first, then try deleting again.
-            </p>
+            {batch && batch.remainingQuantity > 0 && batch.remainingQuantity < batch.quantity ? (
+              <>
+                <p className="text-sm text-red-600">
+                  {t('products.stocksPage.batchDeleteModal.cannotDelete.partiallyConsumed', {
+                    remaining: batch.remainingQuantity,
+                    total: batch.quantity
+                  })}
+                </p>
+                <p className="text-xs text-red-500 mt-2">
+                  {t('products.stocksPage.batchDeleteModal.cannotDelete.instructions')}
+                  <ul className="list-disc list-inside mt-1">
+                    <li>{t('products.stocksPage.batchDeleteModal.cannotDelete.destockOption')}</li>
+                    <li>{t('products.stocksPage.batchDeleteModal.cannotDelete.consolidateOption')}</li>
+                  </ul>
+                </p>
+              </>
+            ) : batch && batch.remainingQuantity > 0 ? (
+              <>
+                <p className="text-sm text-red-600">
+                  {t('products.stocksPage.batchDeleteModal.cannotDelete.hasRemaining', {
+                    remaining: batch.remainingQuantity
+                  })}
+                </p>
+                <p className="text-xs text-red-500 mt-2">
+                  {t('products.stocksPage.batchDeleteModal.cannotDelete.adjustFirst')}
+                </p>
+              </>
+            ) : (
+              <p className="text-sm text-red-600">
+                {t('products.stocksPage.batchDeleteModal.cannotDelete.generic')}
+              </p>
+            )}
           </div>
         )}
         
-        {batch?.supplierId && batch.isCredit && !batch.isOwnPurchase && (
-          <p className="text-xs text-blue-600 bg-blue-50 p-2 rounded">
-            <strong>Note:</strong> This batch was purchased on credit. Any outstanding supplier debt will remain as a financial obligation.
+        {batch?.supplierId && batch.isCredit && !batch.isOwnPurchase && canDelete && (
+          <p className="text-xs text-green-600 bg-green-50 p-2 rounded">
+            <strong>{t('products.stocksPage.batchDeleteModal.supplierDebtNote')}</strong>
           </p>
         )}
       </div>

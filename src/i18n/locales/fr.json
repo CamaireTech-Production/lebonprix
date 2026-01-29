@@ -1179,6 +1179,42 @@
           "costPrice": "Prix d'achat"
         },
         "noHistoryFound": "Aucun historique de stock trouvé pour ce produit."
+      },
+      "batchDeleteModal": {
+        "title": "Supprimer un Lot de Stock",
+        "batchDetails": {
+          "title": "Détails du Lot",
+          "item": "Article :",
+          "batchId": "ID du Lot :",
+          "remainingStock": "Stock Restant :",
+          "status": "Statut :"
+        },
+        "confirmQuestion": "Êtes-vous sûr de vouloir supprimer ce lot de stock ?",
+        "notes": {
+          "unused": "Note : Ce lot n'a jamais été consommé ({{remaining}} / {{total}} unités). Il peut être supprimé en toute sécurité.",
+          "consolidated": "Note : Ce lot a été consommé mais est consolidé. Il peut être supprimé.",
+          "destocked": "Note : Ce lot a été consommé mais est déstocké. Il peut être supprimé."
+        },
+        "warning": "Avertissement : Cette action supprimera le lot de manière logicielle et préservera tous les enregistrements historiques. Le lot n'apparaîtra plus dans l'inventaire actif mais restera dans les journaux d'audit.",
+        "supplierDebtNote": "Note : Ce lot a été acheté à crédit. La dette fournisseur associée sera automatiquement supprimée lors de la suppression de ce lot.",
+        "cannotDelete": {
+          "title": "Impossible de Supprimer le Lot",
+          "partiallyConsumed": "Ce lot a été partiellement consommé ({{remaining}} / {{total}} unités restantes).",
+          "instructions": "Pour supprimer ce lot, vous devez soit :",
+          "destockOption": "Ajuster le stock restant à 0 (le déstocker), ou",
+          "consolidateOption": "Consolider le lot (le marquer comme corrigé)",
+          "hasRemaining": "Ce lot a {{remaining}} unités restantes. Vous ne pouvez supprimer que les lots avec un stock restant de zéro.",
+          "adjustFirst": "Veuillez d'abord ajuster le stock à 0, puis réessayez de supprimer.",
+          "generic": "Ce lot ne peut pas être supprimé. Il a peut-être été consommé et n'a pas encore été consolidé ou déstocké."
+        },
+        "actions": {
+          "cancel": "Annuler",
+          "delete": "Supprimer le Lot"
+        },
+        "messages": {
+          "success": "Lot de stock supprimé avec succès",
+          "error": "Échec de la suppression du lot : {{error}}"
+        }
       }
     },
     "restockModal": {

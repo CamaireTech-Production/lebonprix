@@ -11,6 +11,7 @@ import BatchDeleteModal from '../../components/common/BatchDeleteModal';
 import { usePermissionCheck } from '@components/permissions';
 import { RESOURCES } from '@constants/resources';
 import { getUserById } from '@services/utilities/userService';
+import { canDeleteBatch } from '@services/firestore/stock/stockAdjustments';
 import type { Product, StockBatch, StockChange } from '../../types/models';
 
 const PAGE_SIZES = [10, 20, 50];
@@ -489,8 +490,8 @@ const Stocks = () => {
                                               variant="outline"
                                               className="px-3 py-1.5 text-sm text-red-600 border-red-300 hover:bg-red-50"
                                               onClick={() => handleDelete(product, batch)}
-                                              disabled={batch.remainingQuantity > 0}
-                                              title={batch.remainingQuantity > 0 ? "Can only delete batches with zero remaining stock" : "Delete batch"}
+                                              disabled={!canDeleteBatch(batch)}
+                                              title={!canDeleteBatch(batch) ? "Cannot delete this batch. It must be unused or consolidated/destocked." : "Delete batch"}
                                             >
                                               <Trash2 size={14} />
                                             </Button>
@@ -507,7 +508,8 @@ const Stocks = () => {
                                               variant="outline"
                                               className="px-3 py-1.5 text-sm text-red-600 border-red-300 hover:bg-red-50"
                                               onClick={() => handleDelete(product, batch)}
-                                              title="Delete batch"
+                                              disabled={!canDeleteBatch(batch)}
+                                              title={!canDeleteBatch(batch) ? "Cannot delete this batch. It must be unused or consolidated/destocked." : "Delete batch"}
                                             >
                                               <Trash2 size={14} />
                                             </Button>
