@@ -109,7 +109,7 @@ export const DEFAULT_CHECKOUT_SETTINGS: Omit<CheckoutSettings, 'id' | 'userId' |
   // Delivery fields - Standard structure: name, phone, address lines, quarter, city
   showDeliveryName: true,           // Enabled - Nom pour livraison (prérempli, modifiable)
   showDeliveryPhone: true,          // Enabled - Téléphone pour livraison (prérempli, modifiable)
-  showDeliveryAddressLine1: true,  // Enabled - Adresse ligne 1 (requis)
+  showDeliveryAddressLine1: false, // Disabled by default - Adresse ligne 1 (requis)
   showDeliveryAddressLine2: false, // Disabled by default - Adresse ligne 2 (optionnel)
   showDeliveryQuarter: true,        // Enabled - Quartier/Zone de livraison (requis)
   showDeliveryCity: false,         // Disabled by default - Ville de livraison (optionnel)

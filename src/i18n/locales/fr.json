@@ -2292,6 +2292,19 @@
       "awaiting_payment": "En Attente de Paiement",
       "cancelled": "Annulée"
     },
+    "table": {
+      "columns": {
+        "orderNumber": "Numéro de Commande",
+        "phone": "Téléphone",
+        "products": "Produits",
+        "amount": "Montant",
+        "date": "Date",
+        "status": "Statut",
+        "paymentStatus": "Statut de Paiement",
+        "createdBy": "Créé par",
+        "actions": "Actions"
+      }
+    },
     "orderDetails": {
       "title": "Détails de la Commande",
       "createdOn": "Créée le",
@@ -2331,7 +2344,8 @@
       "deleteConfirm": "Êtes-vous sûr de vouloir supprimer la commande",
       "deleteWarning": "Cette action ne peut pas être annulée. La commande sera définitivement supprimée.",
       "deleting": "Suppression...",
-      "deleteButton": "Supprimer la Commande"
+      "deleteButton": "Supprimer la Commande",
+      "convertToSale": "Convertir en vente"
     },
     "quickActions": {
       "menu": "Actions",
@@ -2341,7 +2355,9 @@
       "editStatus": "Modifier le statut",
       "addNote": "Ajouter une note",
       "delete": "Supprimer",
-      "viewDetails": "Voir les détails"
+      "viewDetails": "Voir les détails",
+      "convertToSale": "Convertir en vente",
+      "generatePurchaseOrder": "Générer bon de commande"
     },
     "confirmations": {
       "markAsDelivered": {
@@ -2375,7 +2391,31 @@
       "orderMarkedAsPaid": "Commande marquée comme payée avec succès. Montant ajouté à la caisse.",
       "orderMarkedAsCancelled": "Commande annulée avec succès",
       "deliveredAtUpdated": "Date de livraison mise à jour",
-      "paymentStatusUpdateFailed": "Échec de la mise à jour du statut de paiement"
+      "paymentStatusUpdateFailed": "Échec de la mise à jour du statut de paiement",
+      "purchaseOrderGenerationFailed": "Échec de la génération du bon de commande"
+    },
+    "convert": {
+      "orderPreview": "Aperçu de la commande",
+      "saleStatus": "Statut de la vente",
+      "status": {
+        "paid": "Payé",
+        "credit": "Crédit",
+        "commande": "Commande",
+        "under_delivery": "En livraison"
+      },
+      "statusHelp": {
+        "paid": "La vente est payée et le stock sera débité immédiatement",
+        "credit": "La vente est en crédit, le stock sera débité mais le paiement est différé",
+        "commande": "La vente est en commande, le stock ne sera pas débité",
+        "under_delivery": "La vente est en cours de livraison, le stock sera débité"
+      },
+      "paymentMethod": "Méthode de paiement",
+      "paymentMethods": {
+        "cash": "Espèces",
+        "mobile_money": "Mobile Money",
+        "card": "Carte bancaire"
+      },
+      "convert": "Convertir"
     }
   },
   "invitations": {

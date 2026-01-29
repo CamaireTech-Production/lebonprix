@@ -2142,6 +2142,19 @@
       "awaiting_payment": "Awaiting Payment",
       "cancelled": "Cancelled"
     },
+    "table": {
+      "columns": {
+        "orderNumber": "Order Number",
+        "phone": "Phone",
+        "products": "Products",
+        "amount": "Amount",
+        "date": "Date",
+        "status": "Status",
+        "paymentStatus": "Payment Status",
+        "createdBy": "Created By",
+        "actions": "Actions"
+      }
+    },
     "orderDetails": {
       "title": "Order Details",
       "createdOn": "Created on",
@@ -2181,7 +2194,8 @@
       "deleteConfirm": "Are you sure you want to delete order",
       "deleteWarning": "This action cannot be undone. The order will be permanently deleted.",
       "deleting": "Deleting...",
-      "deleteButton": "Delete Order"
+      "deleteButton": "Delete Order",
+      "convertToSale": "Convert to Sale"
     },
     "quickActions": {
       "menu": "Actions",
@@ -2191,7 +2205,9 @@
       "editStatus": "Edit Status",
       "addNote": "Add Note",
       "delete": "Delete",
-      "viewDetails": "View Details"
+      "viewDetails": "View Details",
+      "convertToSale": "Convert to Sale",
+      "generatePurchaseOrder": "Generate Purchase Order"
     },
     "confirmations": {
       "markAsDelivered": {
@@ -2225,7 +2241,31 @@
       "orderMarkedAsPaid": "Order marked as paid successfully. Amount added to cash register.",
       "orderMarkedAsCancelled": "Order cancelled successfully",
       "deliveredAtUpdated": "Delivery date updated",
-      "paymentStatusUpdateFailed": "Failed to update payment status"
+      "paymentStatusUpdateFailed": "Failed to update payment status",
+      "purchaseOrderGenerationFailed": "Failed to generate purchase order"
+    },
+    "convert": {
+      "orderPreview": "Order Preview",
+      "saleStatus": "Sale Status",
+      "status": {
+        "paid": "Paid",
+        "credit": "Credit",
+        "commande": "Order",
+        "under_delivery": "Under Delivery"
+      },
+      "statusHelp": {
+        "paid": "The sale is paid and stock will be debited immediately",
+        "credit": "The sale is on credit, stock will be debited but payment is deferred",
+        "commande": "The sale is an order, stock will not be debited",
+        "under_delivery": "The sale is under delivery, stock will be debited"
+      },
+      "paymentMethod": "Payment Method",
+      "paymentMethods": {
+        "cash": "Cash",
+        "mobile_money": "Mobile Money",
+        "card": "Card"
+      },
+      "convert": "Convert"
     }
   },
   "invitations": {

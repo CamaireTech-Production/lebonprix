@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { MoreVertical, CheckCircle, XCircle, Edit, MessageSquare, Trash2, Eye, DollarSign, ShoppingCart } from 'lucide-react';
+import { MoreVertical, CheckCircle, XCircle, Edit, MessageSquare, Trash2, Eye, DollarSign, ShoppingCart, FileText } from 'lucide-react';
 import { Order } from '../../types/order';
 
 interface OrderActionsMenuProps {
@@ -136,7 +136,7 @@ const OrderActionsMenu: React.FC<OrderActionsMenuProps> = ({
             role="menuitem"
           >
             <FileText className="w-4 h-4 mr-3 text-gray-600" />
-            {t('orders.quickActions.generatePurchaseOrder') || 'Générer bon de commande'}
+            {t('orders.quickActions.generatePurchaseOrder')}
           </button>
         )}
 

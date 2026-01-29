@@ -367,7 +367,7 @@ export const migrateCheckoutSettingsToNewDefaults = async (
       // Delivery fields - new structure
       showDeliveryName: DEFAULT_CHECKOUT_SETTINGS.showDeliveryName, // true
       showDeliveryPhone: DEFAULT_CHECKOUT_SETTINGS.showDeliveryPhone, // true
-      showDeliveryAddressLine1: DEFAULT_CHECKOUT_SETTINGS.showDeliveryAddressLine1, // true
+      showDeliveryAddressLine1: DEFAULT_CHECKOUT_SETTINGS.showDeliveryAddressLine1, // false (désactivé par défaut)
       showDeliveryAddressLine2: DEFAULT_CHECKOUT_SETTINGS.showDeliveryAddressLine2, // false (désactivé par défaut)
       showDeliveryQuarter: DEFAULT_CHECKOUT_SETTINGS.showDeliveryQuarter, // true
       showDeliveryCity: DEFAULT_CHECKOUT_SETTINGS.showDeliveryCity, // false (désactivé par défaut)
