@@ -54,7 +54,10 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
     autoSaveCustomer,
     setAutoSaveCustomer,
     showCustomerDropdown,
+    setShowCustomerDropdown,
     customerSearch,
+    activeSearchField,
+    setActiveSearchField,
 
     phoneInputRef,
     products,
@@ -578,6 +581,10 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                   name="customerPhone"
                   value={formData.customerPhone}
                   onChange={handlePhoneChange}
+                  onFocus={() => {
+                    // Set active field to phone when focusing on phone input
+                    setActiveSearchField('phone');
+                  }}
                   onBlur={handlePhoneBlur}
                     placeholder="Phone"
                   className="flex-1"
@@ -586,8 +593,8 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                 />
               </div>
               
-              {/* Customer Dropdown - Phone based recommendations */}
-{showCustomerDropdown && customerSearch && customerSearch.length >= 2 && /\d/.test(customerSearch) && (() => {
+              {/* Customer Dropdown - Phone based recommendations - Only show when typing in phone field */}
+{activeSearchField === 'phone' && showCustomerDropdown && customerSearch && customerSearch.length >= 2 && /\d/.test(customerSearch) && (() => {
   const normalizedSearch = customerSearch.replace(/\D/g, '');
   
   // Don't show if normalized search is too short
@@ -659,11 +666,24 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                   name="customerName"
                   value={formData.customerName}
                   onChange={handleInputChange}
+                  onFocus={() => {
+                    // Set active field to name when focusing on name input
+                    setActiveSearchField('name');
+                  }}
+                  onBlur={() => {
+                    // Delay hiding the dropdown to allow for clicks on dropdown items
+                    setTimeout(() => {
+                      if (activeSearchField === 'name') {
+                        setActiveSearchField(null);
+                        setShowCustomerDropdown(false);
+                      }
+                    }, 300);
+                  }}
                   className={formData.status === 'credit' && !formData.customerName ? 'border-red-300' : ''}
                 />
                 
-                {/* Improved Customer Dropdown - Unified search by name AND phone */}
-{showCustomerDropdown && customerSearch && customerSearch.length >= 1 && (() => {
+                {/* Improved Customer Dropdown - Unified search by name AND phone - Only show when typing in name field */}
+{activeSearchField === 'name' && showCustomerDropdown && customerSearch && customerSearch.length >= 1 && (() => {
   const searchTerm = customerSearch.toLowerCase().trim();
   const normalizedSearch = normalizePhoneForComparison(customerSearch);
   

@@ -69,6 +69,7 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
   const [isSavingCustomer, setIsSavingCustomer] = useState(false);
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const [customerSearch, setCustomerSearch] = useState('');
+  const [activeSearchField, setActiveSearchField] = useState<'phone' | 'name' | null>(null);
 
   const phoneInputRef = useRef<HTMLInputElement>(null);
 
@@ -142,6 +143,9 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
     
     // Improved unified search: search by both name AND phone simultaneously
     if (name === 'customerName') {
+      // Mark that we're searching in the name field
+      setActiveSearchField('name');
+      
       const searchTerm = value.toLowerCase().trim();
       const normalizedSearch = normalizePhone(value);
       
@@ -163,11 +167,17 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
       // Show dropdown if there are results AND user has typed at least 1 character
       setCustomerSearch(value);
       setShowCustomerDropdown(searchTerm.length >= 1 && matchingCustomers.length > 0);
+    } else {
+      // If typing in other fields, clear the active search field
+      setActiveSearchField(null);
     }
   };
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
+    
+    // Mark that we're searching in the phone field
+    setActiveSearchField('phone');
     
     // Ne pas normaliser la valeur dans le champ (garder les caractères pour l'affichage)
     setFormData(prev => ({ ...prev, customerPhone: value }));
@@ -201,6 +211,10 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
     // Delay hiding the dropdown to allow for clicks on dropdown items
     setTimeout(() => {
       setShowCustomerDropdown(false);
+      // Clear active search field if it was phone
+      if (activeSearchField === 'phone') {
+        setActiveSearchField(null);
+      }
     }, 300);
   };
 
@@ -568,6 +582,7 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
     // Update search state and hide dropdown
     setCustomerSearch(customer.phone);
     setShowCustomerDropdown(false);
+    setActiveSearchField(null); // Clear active search field
     setFoundCustomer(customer);
   };
 
@@ -583,6 +598,8 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
     showCustomerDropdown,
     setShowCustomerDropdown,
     customerSearch,
+    activeSearchField,
+    setActiveSearchField,
 
     phoneInputRef,
     products,
