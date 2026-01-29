@@ -6,6 +6,7 @@ import { getCompanyEmployees } from '@services/firestore/employees/employeeRefSe
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
 import { UserCheck, Eye, X } from 'lucide-react';
 import type { EmployeeRef } from '../../types/models';
+import { getRoleLabel } from '@utils/business/roleUtils';
 
 interface AssignUsersModalProps {
   isOpen: boolean;
@@ -140,7 +141,7 @@ const AssignUsersModal: React.FC<AssignUsersModalProps> = ({
 
   if (loading) {
     return (
-      <Modal isOpen={isOpen} onClose={onClose} title="Chargement...">
+      <Modal isOpen={isOpen} onClose={onClose} title="Chargement..." size="xl">
         <div className="space-y-3 py-4">
           {[...Array(5)].map((_, i) => (
             <div key={i} className="flex items-center justify-between">
@@ -164,6 +165,7 @@ const AssignUsersModal: React.FC<AssignUsersModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       title={`Assigner des utilisateurs - ${locationName}`}
+      size="xl"
       footer={
         <ModalFooter
           onCancel={onClose}
@@ -209,9 +211,10 @@ const AssignUsersModal: React.FC<AssignUsersModalProps> = ({
                       ) : (
                         <Eye className="h-5 w-5 text-blue-600" />
                       )}
-                      <span className="font-medium">
-                        {emp.firstname} {emp.lastname}
-                      </span>
+                      <div className="flex flex-col">
+                        <span className="font-medium">{emp.email}</span>
+                        <span className="text-xs text-gray-500">{getRoleLabel(emp.role)}</span>
+                      </div>
                     </div>
                     <Badge variant={emp.accessType === 'full' ? 'success' : 'info'} className="text-xs">
                       {emp.accessType === 'full' ? 'Accès complet' : 'Lecture seule'}
@@ -259,12 +262,10 @@ const AssignUsersModal: React.FC<AssignUsersModalProps> = ({
                   key={emp.id}
                   className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200 hover:bg-gray-50"
                 >
-                  <span className="font-medium">
-                    {emp.firstname} {emp.lastname}
-                    {emp.role && (
-                      <span className="text-xs text-gray-500 ml-2">({emp.role})</span>
-                    )}
-                  </span>
+                  <div className="flex flex-col">
+                    <span className="font-medium">{emp.email}</span>
+                    <span className="text-xs text-gray-500">{getRoleLabel(emp.role)}</span>
+                  </div>
                   <div className="flex items-center gap-2">
                     <Button
                       variant="outline"

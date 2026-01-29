@@ -511,7 +511,7 @@ const Shops = () => {
                     <span>{shop.location}</span>
                   </div>
                 )}
-                {shop.address && (
+                {shop.address && shop.address !== shop.location && (
                   <div className="flex items-center gap-2">
                     <MapPin size={14} />
                     <span>{shop.address}</span>
