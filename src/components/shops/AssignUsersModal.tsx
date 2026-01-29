@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Modal, ModalFooter, Button, LoadingScreen, Badge } from '@components/common';
+import { Modal, ModalFooter, Button, SkeletonLoader, Badge } from '@components/common';
 import { useAuth } from '@contexts/AuthContext';
 import { getCompanyEmployees } from '@services/firestore/employees/employeeRefService';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
 import { UserCheck, Eye, X } from 'lucide-react';
 import type { EmployeeRef } from '../../types/models';
+import { getRoleLabel } from '@utils/business/roleUtils';
 
 interface AssignUsersModalProps {
   isOpen: boolean;
@@ -140,8 +141,21 @@ const AssignUsersModal: React.FC<AssignUsersModalProps> = ({
 
   if (loading) {
     return (
-      <Modal isOpen={isOpen} onClose={onClose} title="Chargement...">
-        <LoadingScreen />
+      <Modal isOpen={isOpen} onClose={onClose} title="Chargement..." size="xl">
+        <div className="space-y-3 py-4">
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <SkeletonLoader width="w-10" height="h-10" rounded />
+                <div>
+                  <SkeletonLoader width="w-32" height="h-4" className="mb-1" />
+                  <SkeletonLoader width="w-24" height="h-3" />
+                </div>
+              </div>
+              <SkeletonLoader width="w-20" height="h-8" rounded />
+            </div>
+          ))}
+        </div>
       </Modal>
     );
   }
@@ -151,6 +165,7 @@ const AssignUsersModal: React.FC<AssignUsersModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       title={`Assigner des utilisateurs - ${locationName}`}
+      size="xl"
       footer={
         <ModalFooter
           onCancel={onClose}
@@ -196,9 +211,10 @@ const AssignUsersModal: React.FC<AssignUsersModalProps> = ({
                       ) : (
                         <Eye className="h-5 w-5 text-blue-600" />
                       )}
-                      <span className="font-medium">
-                        {emp.firstname} {emp.lastname}
-                      </span>
+                      <div className="flex flex-col">
+                        <span className="font-medium">{emp.email}</span>
+                        <span className="text-xs text-gray-500">{getRoleLabel(emp.role)}</span>
+                      </div>
                     </div>
                     <Badge variant={emp.accessType === 'full' ? 'success' : 'info'} className="text-xs">
                       {emp.accessType === 'full' ? 'Accès complet' : 'Lecture seule'}
@@ -246,20 +262,18 @@ const AssignUsersModal: React.FC<AssignUsersModalProps> = ({
                   key={emp.id}
                   className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200 hover:bg-gray-50"
                 >
-                  <span className="font-medium">
-                    {emp.firstname} {emp.lastname}
-                    {emp.role && (
-                      <span className="text-xs text-gray-500 ml-2">({emp.role})</span>
-                    )}
-                  </span>
+                  <div className="flex flex-col">
+                    <span className="font-medium">{emp.email}</span>
+                    <span className="text-xs text-gray-500">{getRoleLabel(emp.role)}</span>
+                  </div>
                   <div className="flex items-center gap-2">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => handleToggleUser(emp.id, 'readonly')}
                       className="text-xs"
+                      icon={<Eye size={14} />}
                     >
-                      <Eye size={14} className="mr-1" />
                       Lecture seule
                     </Button>
                     <Button
@@ -267,8 +281,8 @@ const AssignUsersModal: React.FC<AssignUsersModalProps> = ({
                       size="sm"
                       onClick={() => handleToggleUser(emp.id, 'full')}
                       className="text-xs"
+                      icon={<UserCheck size={14} />}
                     >
-                      <UserCheck size={14} className="mr-1" />
                       Accès complet
                     </Button>
                   </div>

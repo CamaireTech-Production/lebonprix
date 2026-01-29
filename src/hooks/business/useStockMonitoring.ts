@@ -2,7 +2,7 @@
 // Monitors stock changes and triggers alerts when stock falls below threshold
 import { useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '@contexts/AuthContext';
-import { collection, query, where, onSnapshot, Timestamp } from 'firebase/firestore';
+import { collection, query, where, limit, onSnapshot, Timestamp } from 'firebase/firestore';
 import { db } from '@services/core/firebase';
 import { logError } from '@utils/core/logger';
 import { checkAndAlertProductStock, checkAndAlertMatiereStock } from '@services/notifications/stockAlertService';
@@ -127,10 +127,12 @@ export const useStockMonitoring = (options: StockMonitoringOptions = {}) => {
 
     const setupListener = () => {
       try {
+        // OPTIMIZATION: Added limit to reduce Firebase reads
         const q = query(
           collection(db, 'stockBatches'),
           where('companyId', '==', company.id),
-          where('status', '==', 'active')
+          where('status', '==', 'active'),
+          limit(200) // Limit to 200 active batches for monitoring
         );
 
         unsubscribeFn = onSnapshot(

@@ -1,5 +1,5 @@
 import { POSScreen } from '../../components/pos/POSScreen';
-import { LoadingScreen } from '@components/common';
+import { SkeletonPOSLayout } from '@components/common';
 import { useAuth } from '@contexts/AuthContext';
 import { useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -42,7 +42,7 @@ const POS = () => {
   }, [loading, company?.id, shopId, shops, companyId, navigate]);
 
   if (loading) {
-    return <LoadingScreen />;
+    return <SkeletonPOSLayout />;
   }
 
   if (!user || !company) {

@@ -2,6 +2,7 @@
   "common": {
     "appName": "Geskap",
     "loading": "Chargement...",
+    "loadMore": "Charger plus",
     "error": "Erreur",
     "success": "Succès",
     "save": "Enregistrer",
@@ -957,7 +958,8 @@
       "clickToUpload": "Cliquez pour télécharger",
       "orDragAndDrop": "ou glisser-déposer",
       "hideFromCatalogue": "Masquer du catalogue",
-      "showInCatalogue": "Afficher dans le catalogue"
+      "showInCatalogue": "Afficher dans le catalogue",
+      "removeImage": "Supprimer l'image"
     },
     "stockBatch": {
       "title": "Gestion des Lots de Stock",
@@ -1059,6 +1061,24 @@
         "quantity": "Quantité",
         "supplierRequired": "Veuillez sélectionner un fournisseur",
         "paymentTypeRequired": "Veuillez sélectionner le type de paiement",
+        "errors": {
+          "missingCostPriceForStock": "Veuillez saisir un prix d'achat valide pour le stock initial."
+        },
+        "shopsLoading": "Chargement des boutiques...",
+        "shopsError": "Erreur lors du chargement des boutiques",
+        "noShops": "Aucune boutique disponible. Le stock sera affecté au magasin par défaut si configuré.",
+        "shopLabel": "Boutique (optionnel)",
+        "shopPlaceholder": "Sélectionner une boutique (optionnel)",
+        "warehousesLoading": "Chargement des entrepôts...",
+        "warehousesError": "Erreur lors du chargement des entrepôts",
+        "noWarehouses": "Aucun entrepôt disponible. Le stock sera affecté au magasin par défaut si configuré.",
+        "warehouseLabel": "Entrepôt (optionnel)",
+        "warehousePlaceholder": "Sélectionner un entrepôt (optionnel)",
+        "locationSectionTitle": "Emplacement du stock initial",
+        "locationTypeLabel": "Type de source (optionnel)",
+        "locationTypePlaceholder": "Utiliser la boutique / l'entrepôt par défaut",
+        "shopOption": "Boutique",
+        "warehouseOption": "Entrepôt",
         "sellingPrice": "Prix de vente",
         "sellingPriceHelp": "Le prix auquel vous vendez le produit",
         "cataloguePrice": "Prix catalogue",
@@ -1236,6 +1256,7 @@
       "productAdded": "Produit ajouté avec succès",
       "productUpdated": "Produit mis à jour avec succès",
       "productDeleted": "Produit supprimé avec succès",
+      "allLoaded": "Tous les produits sont chargés",
       "importSuccess": "{{count}} sur {{total}} produits importés avec succès ({{errors}} erreurs).",
       "deleteConfirmation": "Êtes-vous sûr de vouloir supprimer le produit : {{name}} (Réf: {{reference}}) ?",
       "deleteWarning": "Cette action est irréversible. Toutes les données de ventes associées resteront mais le lien avec le produit sera rompu.",
@@ -1823,6 +1844,7 @@
       "loan": "Prêt",
       "expense": "Dépense",
       "sale": "Vente",
+      "sale_refund": "Remboursement de Vente",
       "refund": "Remboursement",
       "debt": "Dette",
       "supplier_debt": "Dette Fournisseur",
@@ -1979,15 +2001,32 @@
     "saveDraft": "Sauvegarder Brouillon",
     "fields": {
       "name": "Nom Complet",
+      "namePlaceholder": "Entrez votre nom complet",
       "firstName": "Prénom",
       "lastName": "Nom de Famille",
       "phone": "Numéro de Téléphone",
       "email": "Adresse Email",
+      "quarter": "Quartier/Résidence",
+      "quarterPlaceholder": "Votre quartier ou résidence",
       "address": "Adresse",
       "city": "Ville",
       "country": "Pays",
       "postalCode": "Code Postal",
-      "notes": "Notes de Livraison"
+      "notes": "Notes de Livraison",
+      "deliveryName": "Nom pour livraison",
+      "deliveryNamePlaceholder": "Nom pour la livraison",
+      "deliveryPhone": "Téléphone pour livraison",
+      "deliveryPhonePlaceholder": "Téléphone pour la livraison",
+      "deliveryAddressLine1": "Adresse (Rue + Numéro)",
+      "deliveryAddressLine1Placeholder": "Ex: 123 Rue de la Paix",
+      "deliveryAddressLine2": "Complément d'adresse",
+      "deliveryAddressLine2Placeholder": "Ex: Appartement 4B, Bâtiment C",
+      "deliveryQuarter": "Quartier/Zone de livraison",
+      "deliveryQuarterPlaceholder": "Ex: Mvog-Ada, Bastos",
+      "deliveryCity": "Ville de livraison",
+      "deliveryCityPlaceholder": "Ex: Yaoundé, Douala",
+      "deliveryInstructions": "Instructions de livraison",
+      "deliveryInstructionsPlaceholder": "Instructions spéciales pour la livraison..."
     },
     "paymentMethods": {
       "mtnMoney": "MTN Money",
@@ -2060,7 +2099,11 @@
       "credit": "Crédit",
       "completed": "Terminée",
       "pending": "En Attente",
-      "cancelled": "Annulée"
+      "cancelled": "Annulée",
+      "paid": "Payé",
+      "commande": "Commande",
+      "underDelivery": "En Livraison",
+      "draft": "Brouillon"
     },
     "summary": {
       "totalSales": "Ventes Totales",
@@ -2240,7 +2283,8 @@
       "cancelled": "Annulée",
       "commande": "Commande",
       "paid": "Payé",
-      "credit": "credit"
+      "credit": "credit",
+      "converted": "Convertie en vente"
     },
     "paymentStatus": {
       "pending": "En Attente",
@@ -2248,6 +2292,19 @@
       "failed": "Échouée",
       "awaiting_payment": "En Attente de Paiement",
       "cancelled": "Annulée"
+    },
+    "table": {
+      "columns": {
+        "orderNumber": "Numéro de Commande",
+        "phone": "Téléphone",
+        "products": "Produits",
+        "amount": "Montant",
+        "date": "Date",
+        "status": "Statut",
+        "paymentStatus": "Statut de Paiement",
+        "createdBy": "Créé par",
+        "actions": "Actions"
+      }
     },
     "orderDetails": {
       "title": "Détails de la Commande",
@@ -2261,6 +2318,7 @@
       "color": "Couleur",
       "size": "Taille",
       "qty": "Qté",
+      "quantity": "Quantité",
       "pricing": "Tarification",
       "subtotal": "Sous-total",
       "deliveryFee": "Frais de Livraison",
@@ -2288,7 +2346,8 @@
       "deleteConfirm": "Êtes-vous sûr de vouloir supprimer la commande",
       "deleteWarning": "Cette action ne peut pas être annulée. La commande sera définitivement supprimée.",
       "deleting": "Suppression...",
-      "deleteButton": "Supprimer la Commande"
+      "deleteButton": "Supprimer la Commande",
+      "convertToSale": "Convertir en vente"
     },
     "quickActions": {
       "menu": "Actions",
@@ -2298,7 +2357,9 @@
       "editStatus": "Modifier le statut",
       "addNote": "Ajouter une note",
       "delete": "Supprimer",
-      "viewDetails": "Voir les détails"
+      "viewDetails": "Voir les détails",
+      "convertToSale": "Convertir en vente",
+      "generatePurchaseOrder": "Générer bon de commande"
     },
     "confirmations": {
       "markAsDelivered": {
@@ -2332,7 +2393,34 @@
       "orderMarkedAsPaid": "Commande marquée comme payée avec succès. Montant ajouté à la caisse.",
       "orderMarkedAsCancelled": "Commande annulée avec succès",
       "deliveredAtUpdated": "Date de livraison mise à jour",
-      "paymentStatusUpdateFailed": "Échec de la mise à jour du statut de paiement"
+      "paymentStatusUpdateFailed": "Échec de la mise à jour du statut de paiement",
+      "purchaseOrderGenerated": "Bon de commande généré avec succès",
+      "purchaseOrderGenerationFailed": "Échec de la génération du bon de commande",
+      "convertedToSale": "Commande convertie en vente avec succès"
+    },
+    "convert": {
+      "orderPreview": "Aperçu de la commande",
+      "saleStatus": "Statut de la vente",
+      "status": {
+        "paid": "Payé",
+        "credit": "Crédit",
+        "commande": "Commande",
+        "under_delivery": "En livraison"
+      },
+      "statusHelp": {
+        "paid": "La vente est payée et le stock sera débité immédiatement",
+        "credit": "La vente est en crédit, le stock sera débité mais le paiement est différé",
+        "commande": "La vente est en commande, le stock ne sera pas débité",
+        "under_delivery": "La vente est en cours de livraison, le stock sera débité"
+      },
+      "paymentMethod": "Méthode de paiement",
+      "paymentMethods": {
+        "cash": "Espèces",
+        "mobile_money": "Mobile Money",
+        "card": "Carte bancaire"
+      },
+      "convert": "Convertir",
+      "converting": "Conversion en cours..."
     }
   },
   "invitations": {

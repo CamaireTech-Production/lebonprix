@@ -1,7 +1,7 @@
 // Charges management page
 import React, { useState, useMemo } from 'react';
 import { Plus, Edit2, Trash2, Loader2, Search, Filter, X } from 'lucide-react';
-import { Button, LoadingScreen, Input, Badge, Card } from '@components/common';
+import { SkeletonCharges, Button, Card, Input, Badge } from "@components/common";
 import { useCharges, useFixedCharges, useCustomCharges } from '@hooks/data/useFirestore';
 import { formatPrice } from '@utils/formatting/formatPrice';
 import { showSuccessToast, showErrorToast, showWarningToast } from '@utils/core/toast';
@@ -121,7 +121,7 @@ const Charges: React.FC = () => {
   };
 
   if (loading) {
-    return <LoadingScreen />;
+    return <SkeletonCharges />;
   }
 
   return (

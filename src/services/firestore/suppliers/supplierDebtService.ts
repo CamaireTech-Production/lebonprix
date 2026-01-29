@@ -4,6 +4,8 @@ import {
   doc,
   query,
   where,
+  orderBy,
+  limit,
   getDoc,
   getDocs,
   onSnapshot,
@@ -323,11 +325,16 @@ export const getSupplierDebt = async (
  * Get all supplier debts for a company
  */
 export const getSupplierDebts = async (
-  companyId: string
+  companyId: string,
+  limitCount?: number
 ): Promise<SupplierDebt[]> => {
+  // OPTIMIZATION: Added limit to reduce Firebase reads
+  const defaultLimit = 200; // OPTIMIZATION: Default limit to reduce Firebase reads
   const q = query(
     collection(db, 'supplier_debts'),
-    where('companyId', '==', companyId)
+    where('companyId', '==', companyId),
+    orderBy('createdAt', 'desc'),
+    limit(limitCount || defaultLimit)
   );
   
   const snapshot = await getDocs(q);

@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@contexts/AuthContext';
 import { getProductBatchesForAdjustment } from '@services/firestore/stock/stockService';
 import { adjustBatchUnified } from '@services/firestore/stock/stockAdjustments';
+import { useShops, useWarehouses } from '@hooks/data/useFirestore';
 import type { Product, StockBatch, BatchAdjustment } from '../../types/models';
 import { Modal, Button, Input, PriceInput, Select } from '@components/common';
 import { formatCostPrice } from '@utils/inventory/inventoryManagement';
@@ -26,7 +27,9 @@ const UnifiedBatchAdjustmentModal: React.FC<UnifiedBatchAdjustmentModalProps> = 
   selectedBatch: selectedBatchProp,
   onSuccess
 }) => {
-  const { company } = useAuth();
+  const { company, user } = useAuth();
+  const { shops } = useShops();
+  const { warehouses } = useWarehouses();
   
   const [batches, setBatches] = useState<StockBatch[]>([]);
   const [loading, setLoading] = useState(false);
@@ -36,6 +39,25 @@ const UnifiedBatchAdjustmentModal: React.FC<UnifiedBatchAdjustmentModalProps> = 
   
   const [adjustmentType, setAdjustmentType] = useState<AdjustmentType>('remaining_adjustment');
   const [adjustmentReason, setAdjustmentReason] = useState<AdjustmentReason>('error_correction');
+  
+  // Helper to get location display name
+  const getLocationDisplay = useMemo(() => {
+    return (batch: StockBatch | null): string => {
+      if (!batch) return '—';
+      if (batch.locationType === 'shop' && batch.shopId) {
+        const shop = shops?.find(s => s.id === batch.shopId);
+        return shop ? `Boutique: ${shop.name}` : `Boutique (ID: ${batch.shopId.slice(-8)})`;
+      } else if (batch.locationType === 'warehouse' && batch.warehouseId) {
+        const warehouse = warehouses?.find(w => w.id === batch.warehouseId);
+        return warehouse ? `Entrepôt: ${warehouse.name}` : `Entrepôt (ID: ${batch.warehouseId.slice(-8)})`;
+      } else if (batch.locationType === 'production' && batch.productionId) {
+        return `Production (ID: ${batch.productionId.slice(-8)})`;
+      } else if (batch.locationType === 'global') {
+        return 'Stock global';
+      }
+      return 'Emplacement non spécifié';
+    };
+  }, [shops, warehouses]);
   
   const [formData, setFormData] = useState({
     batchId: '',
@@ -423,10 +445,13 @@ const UnifiedBatchAdjustmentModal: React.FC<UnifiedBatchAdjustmentModalProps> = 
   };
 
   const impact = calculateImpact();
-  const batchOptions = batches.map(batch => ({
-    value: batch.id,
-    label: `Batch ${batch.id.slice(-8)} - ${batch.remainingQuantity}/${batch.quantity} @ ${formatCostPrice(batch.costPrice)}`
-  }));
+  const batchOptions = batches.map(batch => {
+    const locationInfo = getLocationDisplay(batch);
+    return {
+      value: batch.id,
+      label: `Batch ${batch.id.slice(-8)} - ${batch.remainingQuantity}/${batch.quantity} @ ${formatCostPrice(batch.costPrice)} (${locationInfo})`
+    };
+  });
 
   const adjustmentTypeOptions = [
     { value: 'quantity_correction', label: 'Corriger quantité totale' },
@@ -482,7 +507,7 @@ const UnifiedBatchAdjustmentModal: React.FC<UnifiedBatchAdjustmentModalProps> = 
             {/* Current Batch Info */}
             <div className="bg-gray-50 p-4 rounded-lg">
               <h3 className="text-sm font-medium text-gray-700 mb-2">Informations du lot actuel</h3>
-              <div className="grid grid-cols-3 gap-4 text-sm">
+              <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <span className="text-gray-600">Quantité totale:</span>
                   <p className="font-medium">{selectedBatch.quantity}</p>
@@ -494,6 +519,10 @@ const UnifiedBatchAdjustmentModal: React.FC<UnifiedBatchAdjustmentModalProps> = 
                 <div>
                   <span className="text-gray-600">Prix de revient:</span>
                   <p className="font-medium">{formatCostPrice(selectedBatch.costPrice)}</p>
+                </div>
+                <div>
+                  <span className="text-gray-600">Emplacement:</span>
+                  <p className="font-medium">{getLocationDisplay(selectedBatch)}</p>
                 </div>
               </div>
             </div>

@@ -5,6 +5,7 @@ import {
   query,
   where,
   orderBy,
+  limit,
   getDocs,
   getDoc,
   onSnapshot,
@@ -19,11 +20,13 @@ import { createAuditLog } from '../shared';
 // TAG SUBSCRIPTIONS
 // ============================================================================
 
-export const subscribeToUserTags = (userId: string, callback: (tags: ProductTag[]) => void): (() => void) => {
+export const subscribeToUserTags = (userId: string, callback: (tags: ProductTag[]) => void, limitCount?: number): (() => void) => {
+  const defaultLimit = 50; // OPTIMIZATION: Default limit to reduce Firebase reads
   const q = query(
     collection(db, 'userTags'),
     where('userId', '==', userId),
-    orderBy('createdAt', 'desc')
+    orderBy('createdAt', 'desc'),
+    limit(limitCount || defaultLimit)
   );
   
   return onSnapshot(q, (snapshot) => {

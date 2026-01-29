@@ -1,9 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@contexts/AuthContext';
 import { subscribeToSuppliers } from '@services/firestore/suppliers/supplierService';
 import { restockProduct } from '@services/firestore/stock/stockAdjustments';
 import { getProductStockBatches } from '@services/firestore/stock/stockService';
+import { getDefaultShop } from '@services/firestore/shops/shopService';
+import { getDefaultWarehouse } from '@services/firestore/warehouse/warehouseService';
+import { useShops, useWarehouses } from '@hooks/data/useFirestore';
 import type { Product, Supplier } from '../../types/models';
 import { Modal, Button, Input, PriceInput, Select } from '@components/common';
 import { formatCostPrice } from '@utils/inventory/inventoryManagement';
@@ -26,16 +29,22 @@ const ProductRestockModal: React.FC<RestockModalProps> = ({
 }) => {
   const { t } = useTranslation();
   const { user, company } = useAuth();
+  const { shops, loading: shopsLoading } = useShops();
+  const { warehouses, loading: warehousesLoading } = useWarehouses();
   
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingDefaultLocation, setLoadingDefaultLocation] = useState(false);
   const [formData, setFormData] = useState({
     quantity: '',
     costPrice: '',
     supplierId: '',
     isOwnPurchase: true, // Default to own purchase
     paymentType: 'paid' as 'paid' | 'credit', // Always require payment type
-    notes: ''
+    notes: '',
+    sourceType: '' as 'shop' | 'warehouse' | '',
+    shopId: '',
+    warehouseId: ''
   });
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const derivedRemaining = batchTotals?.remaining ?? 0;
@@ -49,14 +58,34 @@ const ProductRestockModal: React.FC<RestockModalProps> = ({
     }
   }, [isOpen, company]);
 
-  // Load latest cost price and reset form when modal opens
+  // Filter active shops/warehouses
+  const activeShops = useMemo(() => {
+    if (!shops) return [];
+    if (user?.isOwner || user?.role === 'admin') {
+      return shops; // Owner/admin can see all shops (including inactive)
+    }
+    return shops.filter(shop => shop.isActive !== false);
+  }, [shops, user]);
+
+  const activeWarehouses = useMemo(() => {
+    if (!warehouses) return [];
+    if (user?.isOwner || user?.role === 'admin') {
+      return warehouses; // Owner/admin can see all warehouses (including inactive)
+    }
+    return warehouses.filter(warehouse => warehouse.isActive !== false);
+  }, [warehouses, user]);
+
+  // Load latest cost price, default location and reset form when modal opens
   useEffect(() => {
-    if (isOpen && product) {
-      const loadLatestCostPrice = async () => {
+    if (isOpen && product && company) {
+      const loadDefaults = async () => {
         try {
           if (!company?.id) {
             throw new Error('Company ID not available');
           }
+          
+          setLoadingDefaultLocation(true);
+          
           // Get stock batches ordered by creation date (newest first)
           const batches = await getProductStockBatches(product.id, company.id);
           
@@ -68,16 +97,41 @@ const ProductRestockModal: React.FC<RestockModalProps> = ({
             latestCostPrice = product.costPrice.toString();
           }
 
+          // Try to get default shop first, then default warehouse
+          let defaultSourceType: 'shop' | 'warehouse' | '' = '';
+          let defaultShopId = '';
+          let defaultWarehouseId = '';
+          
+          try {
+            const defaultShop = await getDefaultShop(company.id);
+            if (defaultShop && defaultShop.isActive !== false) {
+              defaultSourceType = 'shop';
+              defaultShopId = defaultShop.id;
+            } else {
+              const defaultWarehouse = await getDefaultWarehouse(company.id);
+              if (defaultWarehouse && defaultWarehouse.isActive !== false) {
+                defaultSourceType = 'warehouse';
+                defaultWarehouseId = defaultWarehouse.id;
+              }
+            }
+          } catch (error) {
+            console.error('Error loading default location:', error);
+            // Continue without default location - user will need to select manually
+          }
+
           setFormData({
             quantity: '',
             costPrice: latestCostPrice,
             supplierId: '',
             isOwnPurchase: true, // Default to own purchase
             paymentType: 'paid',
-            notes: ''
+            notes: '',
+            sourceType: defaultSourceType,
+            shopId: defaultShopId,
+            warehouseId: defaultWarehouseId
           });
         } catch (error) {
-          console.error('Error loading latest cost price:', error);
+          console.error('Error loading defaults:', error);
           // Fallback to product's costPrice if batch fetch fails
           setFormData({
             quantity: '',
@@ -85,14 +139,19 @@ const ProductRestockModal: React.FC<RestockModalProps> = ({
             supplierId: '',
             isOwnPurchase: true, // Default to own purchase
             paymentType: 'paid',
-            notes: ''
+            notes: '',
+            sourceType: '',
+            shopId: '',
+            warehouseId: ''
           });
+        } finally {
+          setLoadingDefaultLocation(false);
         }
       };
 
-      loadLatestCostPrice();
+      loadDefaults();
     }
-  }, [isOpen, product]);
+  }, [isOpen, product, company]);
 
   const handleInputChange = (field: string, value: string | boolean) => {
     setFormData(prev => ({
@@ -119,6 +178,30 @@ const ProductRestockModal: React.FC<RestockModalProps> = ({
     const costPrice = parseFloat(formData.costPrice);
     if (isNaN(costPrice) || costPrice < 0) {
       errors.push(t('products.restockModal.validation.invalidCostPrice'));
+    }
+    
+    // Validate location selection if quantity > 0
+    if (quantity > 0) {
+      if (!formData.sourceType) {
+        errors.push('Veuillez choisir un type de source (Boutique ou Entrepôt) pour ce réapprovisionnement.');
+      } else if (formData.sourceType === 'shop' && !formData.shopId) {
+        errors.push('Veuillez sélectionner une boutique pour ce réapprovisionnement.');
+      } else if (formData.sourceType === 'warehouse' && !formData.warehouseId) {
+        errors.push('Veuillez sélectionner un entrepôt pour ce réapprovisionnement.');
+      }
+      
+      // Validate that selected shop/warehouse is active
+      if (formData.sourceType === 'shop' && formData.shopId) {
+        const selectedShop = activeShops.find(s => s.id === formData.shopId);
+        if (selectedShop && selectedShop.isActive === false) {
+          errors.push('La boutique sélectionnée est désactivée. Veuillez sélectionner une boutique active.');
+        }
+      } else if (formData.sourceType === 'warehouse' && formData.warehouseId) {
+        const selectedWarehouse = activeWarehouses.find(w => w.id === formData.warehouseId);
+        if (selectedWarehouse && selectedWarehouse.isActive === false) {
+          errors.push('L\'entrepôt sélectionné est désactivé. Veuillez sélectionner un entrepôt actif.');
+        }
+      }
     }
     
     // Validate supplier selection for non-own purchases
@@ -157,6 +240,19 @@ const ProductRestockModal: React.FC<RestockModalProps> = ({
 
     setLoading(true);
 
+    // Resolve location info
+    let locationType: 'shop' | 'warehouse' | undefined;
+    let shopId: string | undefined;
+    let warehouseId: string | undefined;
+
+    if (formData.sourceType === 'shop' && formData.shopId) {
+      locationType = 'shop';
+      shopId = formData.shopId;
+    } else if (formData.sourceType === 'warehouse' && formData.warehouseId) {
+      locationType = 'warehouse';
+      warehouseId = formData.warehouseId;
+    }
+
     try {
       await restockProduct(
         product.id,
@@ -166,7 +262,10 @@ const ProductRestockModal: React.FC<RestockModalProps> = ({
         formData.supplierId || undefined,
         formData.isOwnPurchase,
         isCredit,
-        formData.notes || undefined
+        formData.notes || undefined,
+        locationType,
+        shopId,
+        warehouseId
       );
 
       showSuccessToast(t('products.restockModal.messages.success'));
@@ -239,6 +338,118 @@ const ProductRestockModal: React.FC<RestockModalProps> = ({
               <p className="text-gray-900">{formatCostPrice(product.sellingPrice)}</p>
             </div>
           </div>
+        </div>
+
+        {/* Source Location Selection */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
+          <h3 className="text-sm font-semibold text-gray-900">Source du réapprovisionnement</h3>
+          <div className="space-y-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Type de source <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={formData.sourceType}
+                onChange={(e) => {
+                  const newSourceType = e.target.value as 'shop' | 'warehouse' | '';
+                  setFormData(prev => ({
+                    ...prev,
+                    sourceType: newSourceType,
+                    // Clear the opposite location when type changes
+                    shopId: newSourceType === 'shop' ? prev.shopId : '',
+                    warehouseId: newSourceType === 'warehouse' ? prev.warehouseId : ''
+                  }));
+                  // Clear validation errors when user changes selection
+                  if (validationErrors.length > 0) {
+                    setValidationErrors([]);
+                  }
+                }}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                disabled={loadingDefaultLocation}
+              >
+                <option value="">Sélectionner un type de source</option>
+                <option value="shop">Boutique</option>
+                <option value="warehouse">Entrepôt</option>
+              </select>
+            </div>
+            
+            {formData.sourceType === 'shop' && (
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Boutique <span className="text-red-500">*</span>
+                </label>
+                {shopsLoading ? (
+                  <div className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md bg-gray-50 text-gray-500">
+                    Chargement des boutiques...
+                  </div>
+                ) : activeShops.length === 0 ? (
+                  <div className="w-full px-3 py-2 text-sm border border-yellow-300 rounded-md bg-yellow-50 text-yellow-700">
+                    Aucune boutique disponible. Veuillez créer une boutique.
+                  </div>
+                ) : (
+                  <select
+                    value={formData.shopId}
+                    onChange={(e) => {
+                      setFormData(prev => ({ ...prev, shopId: e.target.value }));
+                      if (validationErrors.length > 0) {
+                        setValidationErrors([]);
+                      }
+                    }}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Sélectionner une boutique</option>
+                    {activeShops.map(shop => (
+                      <option key={shop.id} value={shop.id}>
+                        {shop.name} {shop.isDefault ? '(Par défaut)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            )}
+            
+            {formData.sourceType === 'warehouse' && (
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Entrepôt <span className="text-red-500">*</span>
+                </label>
+                {warehousesLoading ? (
+                  <div className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md bg-gray-50 text-gray-500">
+                    Chargement des entrepôts...
+                  </div>
+                ) : activeWarehouses.length === 0 ? (
+                  <div className="w-full px-3 py-2 text-sm border border-yellow-300 rounded-md bg-yellow-50 text-yellow-700">
+                    Aucun entrepôt disponible. Veuillez créer un entrepôt.
+                  </div>
+                ) : (
+                  <select
+                    value={formData.warehouseId}
+                    onChange={(e) => {
+                      setFormData(prev => ({ ...prev, warehouseId: e.target.value }));
+                      if (validationErrors.length > 0) {
+                        setValidationErrors([]);
+                      }
+                    }}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Sélectionner un entrepôt</option>
+                    {activeWarehouses.map(warehouse => (
+                      <option key={warehouse.id} value={warehouse.id}>
+                        {warehouse.name} {warehouse.isDefault ? '(Par défaut)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            )}
+          </div>
+          <p className="text-xs text-gray-500 mt-2">
+            {formData.sourceType === 'shop'
+              ? 'Le stock sera créé directement dans la boutique sélectionnée'
+              : formData.sourceType === 'warehouse'
+              ? 'Le stock sera créé directement dans l\'entrepôt sélectionné'
+              : 'Sélectionnez une boutique ou un entrepôt pour ce réapprovisionnement'}
+          </p>
         </div>
 
         {/* Restock Details */}

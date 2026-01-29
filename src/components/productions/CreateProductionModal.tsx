@@ -1,7 +1,7 @@
 // Create Production Modal - Multi-step wizard
 import React, { useState, useMemo, useCallback } from 'react';
 import { X, ChevronLeft, ChevronRight, Plus, Trash2, Loader2, CheckCircle2, AlertTriangle, XCircle } from 'lucide-react';
-import { Modal, Button, LoadingScreen, PriceInput } from '@components/common';
+import { Modal, Button, SkeletonLoader, PriceInput } from '@components/common';
 import ImageWithSkeleton from '@components/common/ImageWithSkeleton';
 import { useAuth } from '@contexts/AuthContext';
 import { useProductions, useProductionFlows, useProductionFlowSteps, useProductionCategories, useFixedCharges } from '@hooks/data/useFirestore';
@@ -809,7 +809,17 @@ const CreateProductionModal: React.FC<CreateProductionModalProps> = ({
             </div>
             
             {flowsLoading ? (
-              <LoadingScreen />
+              <div className="space-y-3 py-4">
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="flex items-center space-x-3">
+                    <SkeletonLoader width="w-10" height="h-10" rounded />
+                    <div className="flex-1">
+                      <SkeletonLoader width="w-3/4" height="h-4" className="mb-1" />
+                      <SkeletonLoader width="w-1/2" height="h-3" />
+                    </div>
+                  </div>
+                ))}
+              </div>
             ) : flows.length === 0 ? (
               <div className="text-center py-8">
                 <p className="text-gray-500 mb-4">Aucun flux disponible</p>

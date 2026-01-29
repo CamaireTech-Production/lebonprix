@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Grid, List, Plus, Search, Edit2, Upload, Trash2, CheckSquare, Square, Info, Eye, EyeOff, QrCode, ExternalLink, FileText } from 'lucide-react';
+import { Grid, List, Plus, Search, Edit2, Upload, Trash2, CheckSquare, Square, Info, Eye, EyeOff, QrCode, ExternalLink, FileText, ChevronDown, Loader2, Package } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
-import { Card, Button, Badge, Modal, ModalFooter, Input, ImageWithSkeleton, LoadingScreen, SyncIndicator, PriceInput } from '@components/common';
-import { useProducts, useStockChanges, useCategories, useSuppliers } from '@hooks/data/useFirestore';
+import { Card, Button, Badge, Modal, ModalFooter, Input, ImageWithSkeleton, SkeletonProductsGrid, SyncIndicator, PriceInput } from '@components/common';
+import { useProducts, useStockChanges, useCategories, useSuppliers, useShops, useWarehouses } from '@hooks/data/useFirestore';
 import { useInfiniteProducts } from '@hooks/data/useInfiniteProducts';
 import { useInfiniteScroll } from '@hooks/data/useInfiniteScroll';
 import { useAllStockBatches } from '@hooks/business/useStockBatches';
@@ -21,6 +21,8 @@ import type { Product, ProductTag, StockChange } from '../../types/models';
 import type { ParseResult } from 'papaparse';
 import { getLatestCostPrice } from '@utils/business/productUtils';
 import { getProductBatchesForAdjustment } from '@services/firestore/stock/stockService';
+import { getDefaultShop } from '@services/firestore/shops/shopService';
+import { getDefaultWarehouse } from '@services/firestore/warehouse/warehouseService';
 import type { StockBatch } from '../../types/models';
 import CostPriceCarousel from '../../components/products/CostPriceCarousel';
 import ProductTagsManager from '../../components/products/ProductTagsManager';
@@ -60,17 +62,12 @@ const Products = () => {
   const { stockChanges } = useStockChanges();
   const { categories: categoryList } = useCategories('product');
   const { suppliers } = useSuppliers();
+  const { shops, loading: shopsLoading, error: shopsError } = useShops();
+  const { warehouses, loading: warehousesLoading, error: warehousesError } = useWarehouses();
   const { batches: allStockBatches, loading: batchesLoading } = useAllStockBatches();
   const { user, company, currentEmployee, isOwner } = useAuth();
   const { canEdit, canDelete } = usePermissionCheck(RESOURCES.PRODUCTS);
 
-  // Set up infinite scroll
-  useInfiniteScroll({
-    hasMore,
-    loading: loadingMore,
-    onLoadMore: loadMore,
-    threshold: 300 // Load more when 300px from bottom
-  });
 
   // Refresh products list when other parts of the app (e.g., sales) update stock
   useEffect(() => {
@@ -134,6 +131,9 @@ const Products = () => {
     stockCostPrice: '',
     sellingPrice: '',
     cataloguePrice: '',
+    sourceType: '' as '' | 'shop' | 'warehouse',
+    shopId: '',
+    warehouseId: '',
   });
 
   // Field-level error states
@@ -400,11 +400,25 @@ const Products = () => {
       isValid = false;
     }
 
-    if (!step2Data.stockCostPrice || step2Data.stockCostPrice.trim() === '') {
-      step2Errs.stockCostPrice = t('products.form.step2.stockCostPrice') + ' ' + t('common.required');
-      isValid = false;
-    } else if (parseFloat(step2Data.stockCostPrice) < 0) {
-      step2Errs.stockCostPrice = t('products.form.step2.stockCostPrice') + ' ' + (t('common.mustBeGreaterThanOrEqualToZero') || 'must be greater than or equal to zero');
+    const parsedStock = step2Data.stock ? parseInt(step2Data.stock) : 0;
+    const parsedCostPrice = step2Data.stockCostPrice ? parseFloat(step2Data.stockCostPrice) : NaN;
+
+    if (parsedStock > 0) {
+      if (!step2Data.stockCostPrice || step2Data.stockCostPrice.trim() === '' || isNaN(parsedCostPrice)) {
+        step2Errs.stockCostPrice =
+          t('products.form.step2.errors.missingCostPriceForStock') ||
+          t('products.form.step2.stockCostPrice') + ' ' + t('common.required');
+        isValid = false;
+      } else if (parsedCostPrice < 0) {
+        step2Errs.stockCostPrice =
+          t('products.form.step2.stockCostPrice') + ' ' +
+          (t('common.mustBeGreaterThanOrEqualToZero') || 'must be greater than or equal to zero');
+        isValid = false;
+      }
+    } else if (step2Data.stockCostPrice && !isNaN(parsedCostPrice) && parsedCostPrice < 0) {
+      step2Errs.stockCostPrice =
+        t('products.form.step2.stockCostPrice') + ' ' +
+        (t('common.mustBeGreaterThanOrEqualToZero') || 'must be greater than or equal to zero');
       isValid = false;
     }
 
@@ -537,16 +551,18 @@ const Products = () => {
       }
 
       // Create supplier info for the product creation
-      const supplierInfo = step2Data.supplyType === 'fromSupplier' ? {
-        supplierId: step2Data.supplierId,
-        isOwnPurchase: false,
-        isCredit: step2Data.paymentType === 'credit',
-        costPrice: stockCostPrice
-      } : {
-        isOwnPurchase: true,
-        isCredit: false,
-        costPrice: stockCostPrice
-      };
+      const supplierInfo = step2Data.supplyType === 'fromSupplier'
+        ? {
+            supplierId: step2Data.supplierId,
+            isOwnPurchase: false,
+            isCredit: step2Data.paymentType === 'credit',
+            costPrice: stockCostPrice
+          }
+        : {
+            isOwnPurchase: true,
+            isCredit: false,
+            costPrice: stockCostPrice
+          };
 
       // Get createdBy employee reference
       let createdBy: ReturnType<typeof getCurrentEmployeeRef> | null = null;
@@ -563,10 +579,64 @@ const Products = () => {
         createdBy = getCurrentEmployeeRef(currentEmployee, user, isOwner, userData);
       }
 
-      // Create the product with supplier information and image URLs included
+      // Resolve location for initial stock:
+      // 1) If user selected a specific shop/warehouse in the form, use that
+      // 2) Otherwise, fall back to default shop, then default warehouse
+      let locationInfo: {
+        locationType?: 'warehouse' | 'shop' | 'production' | 'global';
+        warehouseId?: string;
+        shopId?: string;
+        productionId?: string;
+      } | undefined;
+
+      if (company && stockQuantity > 0) {
+        // If user explicitly chose a source type and location, honor that choice
+        if (step2Data.sourceType === 'shop' && step2Data.shopId) {
+          locationInfo = {
+            locationType: 'shop',
+            shopId: step2Data.shopId
+          };
+        } else if (step2Data.sourceType === 'warehouse' && step2Data.warehouseId) {
+          locationInfo = {
+            locationType: 'warehouse',
+            warehouseId: step2Data.warehouseId
+          };
+        } else {
+          // No explicit selection: fall back to default shop / warehouse
+          try {
+            const defaultShop = await getDefaultShop(company.id);
+            if (defaultShop) {
+              locationInfo = {
+                locationType: 'shop',
+                shopId: defaultShop.id
+              };
+            } else {
+              const defaultWarehouse = await getDefaultWarehouse(company.id);
+              if (defaultWarehouse) {
+                locationInfo = {
+                  locationType: 'warehouse',
+                  warehouseId: defaultWarehouse.id
+                };
+              }
+            }
+          } catch (error) {
+            console.error('Error resolving default location before product creation:', error);
+          }
+
+          if (!locationInfo) {
+            showErrorToast(
+              t('products.messages.errors.noDefaultLocation') ||
+              'Aucun magasin ou entrepôt par défaut trouvé pour affecter le stock initial.'
+            );
+            return;
+          }
+        }
+      }
+
+      // Create the product with supplier information, image URLs and location included
       let createdProduct;
       try {
-        createdProduct = await addProduct(productData, supplierInfo, createdBy);
+        createdProduct = await addProduct(productData, supplierInfo, createdBy, locationInfo);
         console.log('Created product result:', createdProduct);
 
         if (!createdProduct) {
@@ -1324,8 +1394,12 @@ const Products = () => {
     setImportProgress(0);
   };
 
-  if (infiniteLoading) {
-    return <LoadingScreen />;
+  // Show skeleton only while loading
+  // Show full-page skeleton ONLY on very first load (no products yet)
+  const isFirstLoad = infiniteLoading && infiniteProducts.length === 0;
+
+  if (isFirstLoad) {
+    return <SkeletonProductsGrid rows={20} />;
   }
 
   if (infiniteError) {
@@ -1968,18 +2042,61 @@ const Products = () => {
         </Card>
       )}
 
-      {/* Infinite Scroll Loading Indicator */}
-      {loadingMore && (
-        <div className="flex justify-center items-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
-          <span className="ml-3 text-gray-600">Loading more products...</span>
+      {/* Empty State */}
+      {!infiniteLoading && filteredProducts.length === 0 && (
+        <div className="px-4 py-12 text-center">
+          {searchQuery.trim() || (selectedCategory && selectedCategory !== t('products.filters.allCategories')) ? (
+            <div className="flex flex-col items-center">
+              <Search className="h-12 w-12 text-gray-400 mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                {t('products.stocksPage.messages.noProductsFound')}
+              </h3>
+              <p className="text-sm text-gray-600 mb-4 max-w-md">
+                {searchQuery.trim() 
+                  ? t('products.stocksPage.messages.noProductsMatchSearch', { search: searchQuery })
+                  : t('products.stocksPage.messages.noProductsMatchSearch', { search: selectedCategory })
+                }
+              </p>
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setSearchQuery('');
+                  setSelectedCategory(t('products.filters.allCategories'));
+                }}
+              >
+                {t('products.stocksPage.messages.clearSearch')}
+              </Button>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center">
+              <Package className="h-12 w-12 text-gray-400 mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                {t('products.stocksPage.messages.noProductsYet')}
+              </h3>
+              <p className="text-sm text-gray-600 mb-4 max-w-md">
+                {t('products.stocksPage.messages.startByAdding')}
+              </p>
+            </div>
+          )}
         </div>
       )}
 
-      {/* End of products indicator */}
+      {/* Load More Button */}
+      {hasMore && (
+        <div className="flex justify-center py-6">
+          <Button
+            onClick={loadMore}
+            disabled={loadingMore}
+            variant="outline"
+            icon={loadingMore ? <Loader2 className="animate-spin" size={16} /> : <ChevronDown size={16} />}
+          >
+            {loadingMore ? t('common.loading') : t('common.loadMore')}
+          </Button>
+        </div>
+      )}
       {!hasMore && infiniteProducts.length > 0 && (
         <div className="text-center py-6 text-gray-500">
-          <p>✅ All products loaded ({infiniteProducts.length} total)</p>
+          <p>✅ {t('products.messages.allLoaded', { count: infiniteProducts.length }) || `All products loaded (${infiniteProducts.length} total)`}</p>
         </div>
       )}
 
@@ -2065,7 +2182,7 @@ const Products = () => {
                       disabled={isUploadingImages}
                     />
                     {isUploadingImages ? (
-                      <span className="animate-spin text-emerald-500"><Upload size={28} /></span>
+                      <span className="animate-pulse text-emerald-500"><Upload size={28} /></span>
                     ) : (
                       <Upload size={28} className="text-gray-400" />
                     )}
@@ -2243,6 +2360,123 @@ const Products = () => {
               )}
 
               {/* These price fields are ALWAYS visible */}
+              {/* Location selection (optional). If left empty, default shop/warehouse will be used. */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
+                <h3 className="text-sm font-semibold text-gray-900">
+                  {t('products.form.step2.locationSectionTitle') || 'Emplacement du stock initial'}
+                </h3>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      {t('products.form.step2.locationTypeLabel') || 'Type de source (optionnel)'}
+                    </label>
+                    <select
+                      name="sourceType"
+                      value={step2Data.sourceType}
+                      onChange={(e) =>
+                        setStep2Data(prev => ({
+                          ...prev,
+                          sourceType: e.target.value as '' | 'shop' | 'warehouse',
+                          shopId: e.target.value === 'shop' ? prev.shopId : '',
+                          warehouseId: e.target.value === 'warehouse' ? prev.warehouseId : '',
+                        }))
+                      }
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    >
+                      <option value="">
+                        {t('products.form.step2.locationTypePlaceholder') || 'Utiliser le magasin / entrepôt par défaut'}
+                      </option>
+                      <option value="shop">{t('products.form.step2.shopOption') || 'Boutique'}</option>
+                      <option value="warehouse">{t('products.form.step2.warehouseOption') || 'Entrepôt'}</option>
+                    </select>
+                  </div>
+
+                  {step2Data.sourceType === 'shop' && (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        {t('products.form.step2.shopLabel') || 'Boutique (optionnel)'}
+                      </label>
+                      {shopsLoading ? (
+                        <div className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md bg-gray-50">
+                          {t('products.form.step2.shopsLoading') || 'Chargement des boutiques...'}
+                        </div>
+                      ) : shopsError ? (
+                        <div className="w-full px-3 py-2 text-sm border border-red-300 rounded-md bg-red-50 text-red-700">
+                          {t('products.form.step2.shopsError') || 'Erreur lors du chargement des boutiques'}
+                        </div>
+                      ) : shops && shops.length === 0 ? (
+                        <div className="w-full px-3 py-2 text-sm border border-yellow-300 rounded-md bg-yellow-50 text-yellow-700">
+                          {t('products.form.step2.noShops') || 'Aucune boutique disponible. Le stock sera affecté au magasin par défaut si configuré.'}
+                        </div>
+                      ) : (
+                        <select
+                          name="shopId"
+                          value={step2Data.shopId}
+                          onChange={(e) =>
+                            setStep2Data(prev => ({
+                              ...prev,
+                              shopId: e.target.value,
+                            }))
+                          }
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        >
+                          <option value="">
+                            {t('products.form.step2.shopPlaceholder') || 'Sélectionner une boutique (optionnel)'}
+                          </option>
+                          {shops?.map(shop => (
+                            <option key={shop.id} value={shop.id}>
+                              {shop.name} {shop.isDefault && '(Par défaut)'}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+                  )}
+
+                  {step2Data.sourceType === 'warehouse' && (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        {t('products.form.step2.warehouseLabel') || 'Entrepôt (optionnel)'}
+                      </label>
+                      {warehousesLoading ? (
+                        <div className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md bg-gray-50">
+                          {t('products.form.step2.warehousesLoading') || 'Chargement des entrepôts...'}
+                        </div>
+                      ) : warehousesError ? (
+                        <div className="w-full px-3 py-2 text-sm border border-red-300 rounded-md bg-red-50 text-red-700">
+                          {t('products.form.step2.warehousesError') || 'Erreur lors du chargement des entrepôts'}
+                        </div>
+                      ) : warehouses && warehouses.length === 0 ? (
+                        <div className="w-full px-3 py-2 text-sm border border-yellow-300 rounded-md bg-yellow-50 text-yellow-700">
+                          {t('products.form.step2.noWarehouses') || 'Aucun entrepôt disponible. Le stock sera affecté au magasin par défaut si configuré.'}
+                        </div>
+                      ) : (
+                        <select
+                          name="warehouseId"
+                          value={step2Data.warehouseId}
+                          onChange={(e) =>
+                            setStep2Data(prev => ({
+                              ...prev,
+                              warehouseId: e.target.value,
+                            }))
+                          }
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        >
+                          <option value="">
+                            {t('products.form.step2.warehousePlaceholder') || 'Sélectionner un entrepôt (optionnel)'}
+                          </option>
+                          {warehouses?.map(warehouse => (
+                            <option key={warehouse.id} value={warehouse.id}>
+                              {warehouse.name} {warehouse.isDefault && '(Par défaut)'}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
               <PriceInput
                 label={t('products.form.step2.stockCostPrice')}
                 name="stockCostPrice"
@@ -2441,7 +2675,7 @@ const Products = () => {
                 {/* Image Upload Progress */}
                 {isUploadingImages && (
                   <div className="flex items-center space-x-2 text-sm text-gray-600">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-emerald-500"></div>
+                    <div className="animate-pulse bg-gray-200 w-4 h-4 rounded-full"></div>
                     <span>{t('products.actions.uploadingImages')}</span>
                   </div>
                 )}

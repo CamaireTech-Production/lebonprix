@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useCustomerSources } from '@hooks/business/useCustomerSources';
 import { useCustomers, useSales } from '@hooks/data/useFirestore';
-import { Card, Button, Table, LoadingScreen, Badge } from '@components/common';
+import { Card, Button, Table, SkeletonLoader, Badge } from '@components/common';
 import { Plus, Edit2, Trash2, Power, PowerOff } from 'lucide-react';
 import { showSuccessToast, showErrorToast, showWarningToast } from '@utils/core/toast';
 import CustomerSourceForm from './CustomerSourceForm';
@@ -92,7 +92,38 @@ const CustomerSourceManager = () => {
   };
 
   if (loading) {
-    return <LoadingScreen />;
+    return (
+      <div className="space-y-4">
+        <div className="flex justify-between items-center mb-4">
+          <SkeletonLoader width="w-48" height="h-8" />
+          <SkeletonLoader width="w-32" height="h-10" rounded />
+        </div>
+        <div className="bg-white rounded-lg shadow-sm border border-gray-100">
+          <div className="p-4 border-b border-gray-100">
+            <div className="grid grid-cols-4 gap-4">
+              {[...Array(4)].map((_, i) => (
+                <SkeletonLoader key={i} width="w-20" height="h-4" />
+              ))}
+            </div>
+          </div>
+          <div className="divide-y divide-gray-200">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="p-4">
+                <div className="grid grid-cols-4 gap-4 items-center">
+                  <SkeletonLoader width="w-24" height="h-4" />
+                  <SkeletonLoader width="w-20" height="h-5" rounded />
+                  <SkeletonLoader width="w-16" height="h-4" />
+                  <div className="flex gap-2">
+                    <SkeletonLoader width="w-8" height="h-8" rounded />
+                    <SkeletonLoader width="w-8" height="h-8" rounded />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
   }
 
   const tableData = sourcesWithStats.map(source => ({

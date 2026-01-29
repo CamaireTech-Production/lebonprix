@@ -1,14 +1,8 @@
-import { Loader2 } from 'lucide-react';
+import SkeletonAppLoading from './SkeletonAppLoading';
 
 const PageLoader = () => {
-  return (
-    <div className="flex items-center justify-center py-12">
-      <div className="flex flex-col items-center">
-        <Loader2 className="h-8 w-8 text-emerald-500 animate-spin" />
-        <p className="mt-2 text-gray-600 text-sm">Loading page...</p>
-      </div>
-    </div>
-  );
+  // NOTE: Kept for backward compatibility, but we no longer use spinners for page loading.
+  return <SkeletonAppLoading />;
 };
 
 export default PageLoader;

@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { getCompanyByUserId } from '@services/firestore/firestore';
 import { getSaleDetails, subscribeToSaleUpdates } from '@services/firestore/sales/saleService';
 import type { SaleDetails, Company } from '../../types/models';
-import { LoadingScreen, Card, Badge } from '@components/common';
+import { SkeletonTable, Card, Badge } from "@components/common";
 import { useProducts } from '@hooks/data/useFirestore';
 import { CheckCircle, Circle } from 'lucide-react';
 
@@ -66,7 +66,7 @@ const TimelinePage = () => {
   }, [id]);
 
   if (loading) {
-    return <LoadingScreen />;
+    return <SkeletonTable rows={5} />;
   }
 
   if (!saleDetails) {

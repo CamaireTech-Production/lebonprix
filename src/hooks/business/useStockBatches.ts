@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { onSnapshot, query, where, orderBy, collection } from 'firebase/firestore';
+import { onSnapshot, query, where, orderBy, limit, collection } from 'firebase/firestore';
 import { db } from '@services/core/firebase';
 import type { StockBatch } from '../../types/models';
 import { 
@@ -27,12 +27,14 @@ export const useStockBatches = (productId?: string) => {
     setLoading(true);
     setError(null);
 
+    // OPTIMIZATION: Added limit to reduce Firebase reads
     const q = query(
       collection(db, 'stockBatches'),
       where('type', '==', 'product'),
       where('productId', '==', productId),
       where('companyId', '==', company.id),
-      orderBy('createdAt', 'asc')
+      orderBy('createdAt', 'asc'),
+      limit(100) // Limit to 100 batches per product
     );
 
     const unsubscribe = onSnapshot(
@@ -185,6 +187,7 @@ export const useAllStockBatches = (type?: 'product' | 'matiere') => {
     }
 
     constraints.push(orderBy('createdAt', 'desc'));
+    constraints.push(limit(200)); // OPTIMIZATION: Added limit to reduce Firebase reads
 
     const q = query(collection(db, 'stockBatches'), ...constraints);
 

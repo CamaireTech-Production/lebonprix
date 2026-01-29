@@ -2,8 +2,8 @@ import { useMemo, useState, useEffect, useCallback } from 'react';
 import { FileDown, ArrowLeftToLine, ArrowLeft, ArrowRight, ArrowRightToLine } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
-import { Card, Button, DateRangePicker } from '@components/common';
-import { Line, Pie } from 'react-chartjs-2';
+import { Card, Button, DateRangePicker, SkeletonChart } from '@components/common';
+import LazyChart from '../../components/expenses/LazyChart';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -23,7 +23,7 @@ import { useAllStockBatches } from '@hooks/business/useStockBatches';
 import type { Timestamp, Product, Sale, Expense } from '../../types/models';
 import ComparisonIndicator from '../../components/reports/ComparisonIndicator';
 import KPICard from '../../components/reports/KPICard';
-import AllProductsSold from '../../components/reports/AllProductsSold';
+import LazyAllProductsSold from '../../components/reports/LazyAllProductsSold';
 import ConsolidatedReportModal from '../../components/reports/ConsolidatedReportModal';
 import { useAuth } from '@contexts/AuthContext';
 import { logWarning } from '@utils/core/logger';
@@ -72,18 +72,43 @@ const Reports = () => {
   const [profitabilityPage, setProfitabilityPage] = useState(1);
   const [profitabilityRowsPerPage, setProfitabilityRowsPerPage] = useState(10);
   
-  const { sales } = useSales();
-  const { expenses } = useExpenses();
-  const { products } = useProducts();
-  const { categories } = useCategories();
-  const { suppliers } = useSuppliers();
+  // 🚀 PROGRESSIVE LOADING: Tier 1 - Essential data (immediate)
+  const { sales, loading: salesLoading } = useSales();
+  const { products, loading: productsLoading } = useProducts();
+  const { company } = useAuth();
+  
+  // 🚀 PROGRESSIVE LOADING: Tier 2 - Secondary data (background)
+  const { expenses, loading: expensesLoading } = useExpenses();
+  const { categories, loading: categoriesLoading } = useCategories();
+  const { suppliers, loading: suppliersLoading } = useSuppliers();
+  const { sources, loading: sourcesLoading } = useCustomerSources();
+  
+  // 🚀 PROGRESSIVE LOADING: Tier 3 - Heavy data (always load, but defer usage)
   const { matieres } = useMatieres();
   const { batches: allStockBatches } = useAllStockBatches();
   const { batches: matiereStockBatches } = useAllStockBatches('matiere');
-  const { sources } = useCustomerSources();
-  const { company } = useAuth();
 
   const [showConsolidatedModal, setShowConsolidatedModal] = useState(false);
+  
+  // 🚀 PROGRESSIVE LOADING: Defer heavy calculations
+  const [shouldCalculateHeavy, setShouldCalculateHeavy] = useState(false);
+
+  useEffect(() => {
+    // Defer heavy calculations until after initial render
+    const timeoutId = setTimeout(() => {
+      if ('requestIdleCallback' in window) {
+        requestIdleCallback(() => {
+          setShouldCalculateHeavy(true);
+        });
+      } else {
+        setTimeout(() => {
+          setShouldCalculateHeavy(true);
+        }, 200);
+      }
+    }, 100);
+
+    return () => clearTimeout(timeoutId);
+  }, []);
 
   const toDate = (ts?: Timestamp) => (ts?.seconds ? new Date(ts.seconds * 1000) : null);
 
@@ -273,6 +298,10 @@ const Reports = () => {
   }, [start, end, formatKey, nextBucket, normalizeToBucketStart]);
 
   const series = useMemo(() => {
+    if (!shouldCalculateHeavy) {
+      return { salesData: [], expensesData: [], costOfGoodsSoldData: [], profitData: [] };
+    }
+    
     const salesByDay: Record<string, number> = Object.fromEntries(dateKeys.map(k => [k, 0]));
     const expensesByDay: Record<string, number> = Object.fromEntries(dateKeys.map(k => [k, 0]));
     const costOfGoodsSoldByDay: Record<string, number> = Object.fromEntries(dateKeys.map(k => [k, 0]));
@@ -308,7 +337,7 @@ const Reports = () => {
     const costOfGoodsSoldData = dateKeys.map(k => costOfGoodsSoldByDay[k]);
     const profitData = dateKeys.map((_, i) => salesData[i] - costOfGoodsSoldData[i] - expensesData[i]);
     return { salesData, expensesData, costOfGoodsSoldData, profitData };
-  }, [dateKeys, filteredSalesForProfit, filteredExpenses, products, formatKey, normalizeToBucketStart]);
+  }, [dateKeys, filteredSalesForProfit, filteredExpenses, products, formatKey, normalizeToBucketStart, shouldCalculateHeavy]);
 
   // Calculate moving average for trend line
   const calculateMovingAverage = useCallback((data: number[], window: number): number[] => {
@@ -741,8 +770,10 @@ const Reports = () => {
     });
   }, [filteredSales, products, selectedProduct]);
 
-  // Product profitability analysis
+  // Product profitability analysis - DEFERRED (heavy calculation)
   const productProfitability = useMemo(() => {
+    if (!shouldCalculateHeavy) return [];
+    
     const profitabilityMap = new Map<string, {
       name: string;
       quantitySold: number;
@@ -795,7 +826,7 @@ const Reports = () => {
 
     // Sort by profit margin descending
     return results.sort((a, b) => b.profitMargin - a.profitMargin);
-  }, [filteredSalesForProfit, products]);
+  }, [filteredSalesForProfit, products, shouldCalculateHeavy]);
 
   // Paginated product profitability data
   const paginatedProductProfitability = useMemo(() => {
@@ -1309,7 +1340,15 @@ const Reports = () => {
           </button>
         </div>
         <div className="h-80">
-          <Line data={chartData} options={chartOptions} />
+          {shouldCalculateHeavy && chartData.labels.length > 0 ? (
+            <LazyChart type="line" data={chartData} options={chartOptions} />
+          ) : shouldCalculateHeavy ? (
+            <div className="p-8 text-center text-gray-500">
+              Aucune donnée à afficher
+            </div>
+          ) : (
+            <SkeletonChart />
+          )}
         </div>
       </Card>
       
@@ -1404,8 +1443,8 @@ const Reports = () => {
         </Card>
       </div>
 
-      {/* All Products Sold - Comprehensive View with Pagination */}
-      <AllProductsSold productsData={allProductsSold} />
+      {/* All Products Sold - Comprehensive View with Pagination - LAZY LOADED */}
+      <LazyAllProductsSold productsData={allProductsSold} />
 
       {/* Expenses List */}
       <Card title={t('reports.tables.expenses.title')} className="mb-6">
@@ -1574,40 +1613,58 @@ const Reports = () => {
           ) : (
             <>
               <div className="h-64 mb-4">
-                <Pie
-                  data={{
-                    labels: expenseCategoryAnalysis.map(e => e.category),
-                    datasets: [{
-                      data: expenseCategoryAnalysis.map(e => e.amount),
-                      backgroundColor: [
-                        '#EF4444', '#F59E0B', '#10B981', '#3B82F6', '#8B5CF6',
-                        '#EC4899', '#14B8A6', '#F97316', '#6366F1', '#A855F7'
+                {shouldCalculateHeavy ? (
+                  <LazyChart
+                    type="pie"
+                    data={{
+                      labels: expenseCategoryAnalysis.map(e => e.category),
+                      datasets: [
+                        {
+                          data: expenseCategoryAnalysis.map(e => e.amount),
+                          backgroundColor: [
+                            '#EF4444',
+                            '#F59E0B',
+                            '#10B981',
+                            '#3B82F6',
+                            '#8B5CF6',
+                            '#EC4899',
+                            '#14B8A6',
+                            '#F97316',
+                            '#6366F1',
+                            '#A855F7',
+                          ],
+                          borderWidth: 2,
+                          borderColor: '#fff',
+                        },
                       ],
-                      borderWidth: 2,
-                      borderColor: '#fff'
-                    }]
-                  }}
-                  options={{
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                      legend: {
-                        position: 'bottom'
+                    }}
+                    options={{
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      plugins: {
+                        legend: {
+                          position: 'bottom',
+                        },
+                        tooltip: {
+                          callbacks: {
+                            label: (context) => {
+                              const label = context.label || '';
+                              const value = context.parsed || 0;
+                              const total = (context.dataset.data as number[]).reduce(
+                                (a: number, b: number) => a + b,
+                                0
+                              );
+                              const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0';
+                              return `${label}: ${value} XAF (${percentage}%)`;
+                            },
+                          },
+                        },
                       },
-                      tooltip: {
-                        callbacks: {
-                          label: (context) => {
-                            const label = context.label || '';
-                            const value = context.parsed || 0;
-                            const total = context.dataset.data.reduce((a: number, b: number) => a + b, 0);
-                            const percentage = ((value / total) * 100).toFixed(1);
-                            return `${label}: ${value} XAF (${percentage}%)`;
-                          }
-                        }
-                      }
-                    }
-                  }}
-                />
+                    }}
+                  />
+                ) : (
+                  <SkeletonChart />
+                )}
               </div>
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">

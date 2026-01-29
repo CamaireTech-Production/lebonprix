@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LoadingScreen } from '@components/common';
+import { SkeletonTable } from '@components/common';
 
 /**
  * CompanySelection Component - Redirects to new Employee Dashboard
@@ -17,7 +17,7 @@ const CompanySelection: React.FC = () => {
   }, [navigate]);
 
   // Return loading screen while redirecting
-  return <LoadingScreen />;
+  return <SkeletonTable rows={3} />;
 };
 
 export default CompanySelection;

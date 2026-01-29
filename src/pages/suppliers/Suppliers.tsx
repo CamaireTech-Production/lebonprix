@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Plus, Edit2, Trash2, Eye, DollarSign } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Card, Button, Badge, Modal, ModalFooter, Input, PriceInput, Textarea, Table, LoadingScreen } from '@components/common';
+import { Card, Button, Badge, Modal, ModalFooter, Input, PriceInput, Textarea, Table, SkeletonSuppliersList } from '@components/common';
 import { useSuppliers, useSupplierDebts, useFinanceEntries } from '@hooks/data/useFirestore';
 import { addSupplierDebt } from '@services/firestore/suppliers/supplierDebtService';
 import { createSupplierRefund } from '@services/firestore/suppliers/supplierService';
@@ -297,7 +297,7 @@ const Suppliers = () => {
   };
 
   if (loading || debtsLoading) {
-    return <LoadingScreen />;
+    return <SkeletonSuppliersList rows={9} />;
   }
 
   if (error) {

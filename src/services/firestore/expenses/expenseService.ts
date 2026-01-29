@@ -272,8 +272,14 @@ const initializeCompanyExpenseTypes = async (companyId: string): Promise<void> =
 
 export const getExpenseTypes = async (companyId: string): Promise<ExpenseType[]> => {
   // Only fetch company-specific types (no global defaults)
+  // OPTIMIZATION: Added limit to reduce Firebase reads
+  const defaultLimit = 50; // OPTIMIZATION: Default limit to reduce Firebase reads
   const companySnap = await getDocs(
-    query(collection(db, 'expenseTypes'), where('companyId', '==', companyId))
+    query(
+      collection(db, 'expenseTypes'),
+      where('companyId', '==', companyId),
+      limit(defaultLimit)
+    )
   );
   
   // Deduplicate by name (case-insensitive) instead of document ID
@@ -345,10 +351,15 @@ export const deleteExpenseType = async (typeId: string, companyId: string): Prom
 };
 
 export const getExpenseCountByCategory = async (companyId: string): Promise<Record<string, number>> => {
+  // OPTIMIZATION: Added limit to reduce Firebase reads
+  // Note: This function counts expenses by category, so we limit to recent expenses
+  const defaultLimit = 500; // OPTIMIZATION: Limit to 500 most recent expenses for counting
   const expensesQuery = query(
     collection(db, 'expenses'),
     where('companyId', '==', companyId),
-    where('isAvailable', '!=', false)
+    where('isAvailable', '!=', false),
+    orderBy('createdAt', 'desc'),
+    limit(defaultLimit)
   );
   const expensesSnap = await getDocs(expensesQuery);
   

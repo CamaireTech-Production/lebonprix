@@ -6,6 +6,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { logError } from '@utils/core/logger';
 import { formatPrice } from '@utils/formatting/formatPrice';
+import { normalizePhoneForComparison } from '@utils/core/phoneUtils';
 import type { Sale, StockBatch } from '../../types/models';
 import SaleDetailsModal from './SaleDetailsModal';
 import { getProductStockBatches, getAvailableStockBatches, getStockBatchesByLocation } from '@services/firestore/stock/stockService';
@@ -53,7 +54,10 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
     autoSaveCustomer,
     setAutoSaveCustomer,
     showCustomerDropdown,
+    setShowCustomerDropdown,
     customerSearch,
+    activeSearchField,
+    setActiveSearchField,
 
     phoneInputRef,
     products,
@@ -577,6 +581,10 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                   name="customerPhone"
                   value={formData.customerPhone}
                   onChange={handlePhoneChange}
+                  onFocus={() => {
+                    // Set active field to phone when focusing on phone input
+                    setActiveSearchField('phone');
+                  }}
                   onBlur={handlePhoneBlur}
                     placeholder="Phone"
                   className="flex-1"
@@ -585,8 +593,8 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                 />
               </div>
               
-              {/* Customer Dropdown - Phone based recommendations */}
-{showCustomerDropdown && customerSearch && customerSearch.length >= 2 && /\d/.test(customerSearch) && (() => {
+              {/* Customer Dropdown - Phone based recommendations - Only show when typing in phone field */}
+{activeSearchField === 'phone' && showCustomerDropdown && customerSearch && customerSearch.length >= 2 && /\d/.test(customerSearch) && (() => {
   const normalizedSearch = customerSearch.replace(/\D/g, '');
   
   // Don't show if normalized search is too short
@@ -658,21 +666,43 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
                   name="customerName"
                   value={formData.customerName}
                   onChange={handleInputChange}
+                  onFocus={() => {
+                    // Set active field to name when focusing on name input
+                    setActiveSearchField('name');
+                  }}
+                  onBlur={() => {
+                    // Delay hiding the dropdown to allow for clicks on dropdown items
+                    setTimeout(() => {
+                      if (activeSearchField === 'name') {
+                        setActiveSearchField(null);
+                        setShowCustomerDropdown(false);
+                      }
+                    }, 300);
+                  }}
                   className={formData.status === 'credit' && !formData.customerName ? 'border-red-300' : ''}
                 />
                 
-                {/* Customer Dropdown - Name based recommendations */}
-{showCustomerDropdown && customerSearch && customerSearch.length >= 2 && !/\d/.test(customerSearch) && (() => {
+                {/* Improved Customer Dropdown - Unified search by name AND phone - Only show when typing in name field */}
+{activeSearchField === 'name' && showCustomerDropdown && customerSearch && customerSearch.length >= 1 && (() => {
   const searchTerm = customerSearch.toLowerCase().trim();
+  const normalizedSearch = normalizePhoneForComparison(customerSearch);
   
-  // Filter customers by name match
-  const filteredCustomers = customers.filter(c => {
-    if (!c.name) {
-      return false;
-    }
-    const customerName = (c.name || '').toLowerCase();
-    return customerName.includes(searchTerm);
-  });
+  // Filter customers by name OR phone match (unified search)
+  const filteredCustomers = customers
+    .filter(c => {
+      // Search by name (case-insensitive, partial match)
+      const nameMatch = c.name?.toLowerCase().includes(searchTerm) || false;
+      
+      // Search by phone (normalized comparison for partial match)
+      const phoneMatch = c.phone && normalizedSearch.length >= 1
+        ? normalizePhoneForComparison(c.phone).includes(normalizedSearch) || 
+          normalizedSearch.includes(normalizePhoneForComparison(c.phone))
+        : false;
+      
+      // Return true if EITHER name OR phone matches
+      return nameMatch || phoneMatch;
+    })
+    .slice(0, 10); // Show up to 10 results
   
   // Don't show dropdown if no results
   if (filteredCustomers.length === 0) {
@@ -682,30 +712,52 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, onSaleAdde
   return (
     <div 
       data-dropdown="customer"
-      className="absolute top-full left-0 right-0 z-50 bg-white border border-gray-200 rounded shadow-lg max-h-48 overflow-y-auto mt-1"
+      className="absolute top-full left-0 right-0 z-50 bg-white border border-gray-200 rounded shadow-lg max-h-60 overflow-y-auto mt-1"
       onClick={(e) => e.stopPropagation()}
     >
-      <div className="p-2 bg-gray-50 border-b">
-        <div className="text-xs font-medium text-gray-600">Sélectionner un client par nom:</div>
+      <div className="p-2 bg-gray-50 border-b sticky top-0">
+        <div className="text-xs font-medium text-gray-600">
+          {filteredCustomers.length} {filteredCustomers.length === 1 ? 'client trouvé' : 'clients trouvés'} (nom ou téléphone)
+        </div>
       </div>
       
-      {filteredCustomers.slice(0, 5).map(c => (
-        <button
-          key={c.id}
-          type="button"
-          className="w-full text-left p-3 hover:bg-emerald-50 border-b border-gray-100 last:border-b-0 transition-colors"
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            
-            // Use handleSelectCustomer from the hook
-            handleSelectCustomer(c);
-          }}
-        >
-          <div className="font-medium text-gray-900">{c.name || 'Divers'}</div>
-          <div className="text-sm text-gray-500">{c.phone}{c.quarter ? ` • ${c.quarter}` : ''}</div>
-        </button>
-      ))}
+      {filteredCustomers.map(c => {
+        const nameMatch = c.name?.toLowerCase().includes(searchTerm);
+        const phoneMatch = c.phone && normalizePhoneForComparison(c.phone).includes(normalizedSearch);
+        
+        return (
+          <button
+            key={c.id}
+            type="button"
+            className="w-full text-left p-3 hover:bg-emerald-50 border-b border-gray-100 last:border-b-0 transition-colors"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              handleSelectCustomer(c);
+            }}
+          >
+            <div className="flex items-start gap-2">
+              <div className="flex-1">
+                <div className="font-medium text-gray-900 flex items-center gap-2">
+                  {c.name || 'Client de passage'}
+                  {nameMatch && <span className="text-xs bg-yellow-100 text-yellow-800 px-1.5 py-0.5 rounded">Nom</span>}
+                  {phoneMatch && <span className="text-xs bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded">Tél</span>}
+                </div>
+                {c.phone && (
+                  <div className="text-sm text-gray-600 mt-1">
+                    📞 {c.phone}
+                  </div>
+                )}
+                {c.quarter && (
+                  <div className="text-xs text-gray-500 mt-1">
+                    📍 {c.quarter}
+                  </div>
+                )}
+              </div>
+            </div>
+          </button>
+        );
+      })}
     </div>
   );
 })()}

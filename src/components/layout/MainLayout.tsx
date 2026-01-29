@@ -5,6 +5,7 @@ import Navbar from './Navbar';
 import Sidebar from './Sidebar';
 import MobileNav from './MobileNav';
 import { FloatingActionButton } from '../common/Button';
+import { SkeletonAppLoading } from '../common';
 import AddSaleModal from '../sales/AddSaleModal';
 import LockedTabModal from '../modals/LockedTabModal';
 import { useAuth } from '../../contexts/AuthContext';
@@ -129,16 +130,9 @@ const MainLayout = ({ isAddSaleModalOpen, setIsAddSaleModalOpen }: MainLayoutPro
   };
   
   // ✅ MAINTENANT LES RETURNS CONDITIONNELS APRÈS TOUS LES HOOKS
-  // Afficher un loader pendant le chargement de la company
+  // Afficher un skeleton unifié pendant le chargement de la company
   if (isCompanyRoute && isLoadingCompany) {
-    return (
-      <div className="h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Chargement de l'entreprise...</p>
-        </div>
-      </div>
-    );
+    return <SkeletonAppLoading />;
   }
 
   // Afficher une erreur si la company n'a pas pu être chargée

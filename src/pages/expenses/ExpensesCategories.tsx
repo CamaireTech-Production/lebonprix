@@ -1,7 +1,7 @@
 // src/pages/expenses/ExpensesCategories.tsx
 import { useState } from 'react';
 import { Edit2, Trash2, Plus } from 'lucide-react';
-import { Card, Badge, Button, Modal, ModalFooter, Input } from '@components/common';
+import { Card, Badge, Button, Modal, ModalFooter, Input, SkeletonExpensesCategories } from '@components/common';
 import { useExpenseCategories } from '@hooks/business/useExpenseCategories';
 import { useAuth } from '@contexts/AuthContext';
 import { showSuccessToast, showErrorToast } from '@utils/core/toast';
@@ -122,11 +122,7 @@ const ExpensesCategories = () => {
   };
 
   if (loading) {
-    return (
-      <div className="flex justify-center items-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
-      </div>
-    );
+    return <SkeletonExpensesCategories />;
   }
 
   return (

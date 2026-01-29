@@ -457,8 +457,8 @@ export const CompaniesManagement: React.FC = () => {
               {selectedCompanyId === company.companyId && (
                 <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center rounded-lg">
                   <div className="flex flex-col items-center space-y-2">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
-                    <span className="text-sm text-gray-600 font-medium">Chargement...</span>
+                    <div className="animate-pulse bg-gray-100 w-32 h-4 rounded" />
+                    <div className="animate-pulse bg-gray-100 w-20 h-3 rounded" />
                   </div>
                 </div>
               )}

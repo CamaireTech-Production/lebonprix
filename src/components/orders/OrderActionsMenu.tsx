@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { MoreVertical, CheckCircle, XCircle, Edit, MessageSquare, Trash2, Eye, DollarSign } from 'lucide-react';
+import { MoreVertical, CheckCircle, XCircle, Edit, MessageSquare, Trash2, Eye, DollarSign, ShoppingCart, FileText } from 'lucide-react';
 import { Order } from '../../types/order';
 
 interface OrderActionsMenuProps {
@@ -13,6 +13,8 @@ interface OrderActionsMenuProps {
   onMarkAsDelivered: () => void;
   onMarkAsCancelled: () => void;
   onMarkAsPaid: () => void;
+  onConvertToSale?: () => void;
+  onGeneratePurchaseOrder?: () => void;
   disabled?: boolean;
   /** Whether the user can delete orders (owner-only) */
   canDelete?: boolean;
@@ -27,6 +29,8 @@ const OrderActionsMenu: React.FC<OrderActionsMenuProps> = ({
   onMarkAsDelivered,
   onMarkAsCancelled,
   onMarkAsPaid,
+  onConvertToSale,
+  onGeneratePurchaseOrder,
   disabled = false,
   canDelete = false
 }) => {
@@ -64,6 +68,7 @@ const OrderActionsMenu: React.FC<OrderActionsMenuProps> = ({
   const canMarkAsDelivered = order.status !== 'delivered' && order.status !== 'cancelled';
   const canMarkAsCancelled = order.status !== 'cancelled';
   const canMarkAsPaid = order.paymentStatus !== 'paid' && order.paymentStatus !== 'cancelled';
+  const canConvertToSale = order.status !== 'converted' && order.status !== 'cancelled' && !order.convertedToSaleId;
 
   const handleAction = (action: () => void) => {
     action();
@@ -110,6 +115,28 @@ const OrderActionsMenu: React.FC<OrderActionsMenuProps> = ({
           >
             <DollarSign className="w-4 h-4 mr-3 text-green-600" />
             {t('orders.quickActions.markAsPaid')}
+          </button>
+        )}
+
+        {canConvertToSale && onConvertToSale && (
+          <button
+            onClick={() => handleAction(onConvertToSale)}
+            className="flex items-center w-full px-4 py-2 text-sm text-blue-700 hover:bg-blue-50"
+            role="menuitem"
+          >
+            <ShoppingCart className="w-4 h-4 mr-3 text-blue-600" />
+            {t('orders.quickActions.convertToSale') || 'Convert to Sale'}
+          </button>
+        )}
+
+        {onGeneratePurchaseOrder && (
+          <button
+            onClick={() => handleAction(onGeneratePurchaseOrder)}
+            className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+            role="menuitem"
+          >
+            <FileText className="w-4 h-4 mr-3 text-gray-600" />
+            {t('orders.quickActions.generatePurchaseOrder')}
           </button>
         )}
 

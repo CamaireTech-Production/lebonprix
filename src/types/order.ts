@@ -1,17 +1,30 @@
 import { BaseModel } from './models';
 
-// Customer info structure (following documentation)
+// Customer info structure (standard e-commerce structure)
 export interface CustomerInfo {
-  name: string;
-  surname?: string;
-  phone: string;
-  location: string;
-  deliveryInstructions?: string;
-  email?: string;
-  address?: string;
-  city?: string;
-  country?: string;
-  zipCode?: string;
+  // === INFORMATIONS DE CONTACT (Identité du client) ===
+  name: string;              // Nom complet - REQUIS
+  phone: string;             // Téléphone - REQUIS
+  quarter?: string;          // Quartier/résidence du client (optionnel)
+  email?: string;            // Email (optionnel)
+  
+  // === INFORMATIONS DE LIVRAISON (Adresse de livraison) ===
+  deliveryName?: string;     // Nom pour livraison (si différent) - modifiable
+  deliveryPhone?: string;    // Téléphone pour livraison (si différent) - modifiable
+  deliveryAddressLine1: string;  // Adresse ligne 1 (Rue + Numéro) - REQUIS
+  deliveryAddressLine2?: string; // Adresse ligne 2 (Complément) - optionnel
+  deliveryQuarter: string;   // Quartier/Zone de livraison - REQUIS
+  deliveryCity?: string;     // Ville de livraison - optionnel
+  deliveryInstructions?: string; // Instructions spéciales - optionnel
+  deliveryCountry?: string;   // Pays (optionnel)
+  
+  // === CHAMPS LEGACY (pour compatibilité) ===
+  surname?: string;          // Legacy - utiliser name à la place
+  location?: string;         // Legacy - utiliser quarter pour contact, deliveryQuarter pour livraison
+  address?: string;         // Legacy - utiliser deliveryAddressLine1
+  city?: string;             // Legacy - utiliser deliveryCity
+  country?: string;         // Legacy - utiliser deliveryCountry
+  zipCode?: string;         // Legacy - non utilisé dans la nouvelle structure
 }
 
 // Order item interface for order line items
@@ -43,9 +56,10 @@ export interface OrderPricing {
 export interface DeliveryInfo {
   method: 'pickup' | 'delivery';
   address?: string;
-  scheduledDate?: Date;
-  deliveredAt?: Date;
+  scheduledDate?: Date; // Planned delivery date
+  deliveredAt?: Date; // Actual delivery date
   instructions?: string;
+  alertSent?: boolean; // Whether delivery alert has been sent
 }
 
 // Order event for timeline tracking
@@ -61,7 +75,14 @@ export interface OrderEvent {
 }
 
 // Order status types
-export type OrderStatus = 'pending' | 'confirmed' | 'preparing' | 'ready' | 'delivered' | 'cancelled';
+// 'commande': Order created from catalogue (stock NOT debited)
+// 'confirmed': Order confirmed by admin
+// 'preparing': Order being prepared
+// 'ready': Order ready for delivery
+// 'delivered': Order delivered to customer
+// 'converted': Order converted to sale
+// 'cancelled': Order cancelled
+export type OrderStatus = 'commande' | 'pending' | 'confirmed' | 'preparing' | 'ready' | 'delivered' | 'converted' | 'cancelled';
 
 // Payment status types
 export type PaymentStatus = 'pending' | 'paid' | 'failed' | 'awaiting_payment' | 'awaiting_cinetpay_payment' | 'cancelled';
@@ -127,6 +148,8 @@ export interface Order extends BaseModel {
   deliveryInfo: DeliveryInfo;
   timeline: OrderEvent[];            // Complete order history
   metadata: OrderMetadata;
+  convertedToSaleId?: string;        // ID of sale created when order is converted (if converted)
+  purchaseOrderNumber?: string;       // Purchase order number (BC-YYYY-NNNN) if purchase order generated
 }
 
 // Order filters for admin interface

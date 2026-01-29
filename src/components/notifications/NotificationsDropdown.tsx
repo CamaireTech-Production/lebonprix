@@ -16,7 +16,7 @@ import {
   Eye,
   Plus
 } from 'lucide-react';
-import { Button, Badge, LoadingScreen } from '@components/common';
+import { Button, Badge, SkeletonLoader } from '@components/common';
 import type { Notification } from '../../types/models';
 import { format } from 'date-fns';
 import { fr, enUS } from 'date-fns/locale';
@@ -199,8 +199,16 @@ const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({ onClose }
   if (loading) {
     return (
       <div className="absolute right-0 mt-2 w-80 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50 max-h-96 overflow-hidden">
-        <div className="p-4">
-          <LoadingScreen />
+        <div className="p-4 space-y-3">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="flex items-center space-x-3">
+              <SkeletonLoader width="w-10" height="h-10" rounded />
+              <div className="flex-1">
+                <SkeletonLoader width="w-3/4" height="h-4" className="mb-1" />
+                <SkeletonLoader width="w-1/2" height="h-3" />
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     );

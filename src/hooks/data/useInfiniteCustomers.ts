@@ -3,6 +3,8 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '@contexts/AuthContext';
 import { query, collection, where, orderBy, limit, startAfter, getDocs, DocumentSnapshot } from 'firebase/firestore';
 import { db } from '@services/core/firebase';
+import SalesManager from '@services/storage/SalesManager';
+import { useSales } from '@hooks/data/useFirestore';
 import type { Customer, Sale } from '@types/models';
 
 export interface CustomerWithPurchaseCount extends Customer {
@@ -34,27 +36,31 @@ export const useInfiniteCustomers = (): UseInfiniteCustomersReturn => {
   const [lastDoc, setLastDoc] = useState<DocumentSnapshot | null>(null);
   const [sortBy, setSortBy] = useState<'purchases' | 'name' | 'date'>('purchases');
 
-  // Load sales to count purchases per customer
-  const loadSales = useCallback(async () => {
+  // OPTIMIZATION: Use cached sales from SalesManager instead of querying Firestore
+  // This reduces Firebase reads from thousands to zero (uses localStorage cache)
+  // Also use useSales() hook to ensure cache stays fresh with real-time updates
+  const { sales: realtimeSales } = useSales();
+
+  // Load sales from cache (instant, no Firebase reads)
+  const loadSales = useCallback(() => {
     if (!company?.id) return;
 
-    try {
-      const salesQuery = query(
-        collection(db, 'sales'),
-        where('companyId', '==', company.id)
-      );
-      const salesSnapshot = await getDocs(salesQuery);
-      const salesData = salesSnapshot.docs
-        .map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }))
-        .filter(sale => !(sale as any).isDeleted) as Sale[];
-      setSales(salesData);
-    } catch (err) {
-      console.error('Error loading sales for customer count:', err);
+    // 1. Try to load from localStorage cache first (instant, no Firebase reads)
+    const cachedSales = SalesManager.load(company.id);
+    if (cachedSales && cachedSales.length > 0) {
+      // Filter out deleted sales
+      const validSales = cachedSales.filter(sale => !(sale as any).isDeleted && sale.isAvailable !== false);
+      setSales(validSales);
+      return;
     }
-  }, [company?.id]);
+
+    // 2. If no cache, use real-time sales from useSales() hook
+    // This will sync in background and update cache automatically
+    if (realtimeSales && realtimeSales.length > 0) {
+      const validSales = realtimeSales.filter(sale => !(sale as any).isDeleted && sale.isAvailable !== false);
+      setSales(validSales);
+    }
+  }, [company?.id, realtimeSales]);
 
   // Load initial customers
   const loadInitialCustomers = useCallback(async () => {
@@ -67,8 +73,7 @@ export const useInfiniteCustomers = (): UseInfiniteCustomersReturn => {
       setLoading(true);
       setError(null);
 
-      // Load sales first to count purchases
-      await loadSales();
+      // Sales are loaded from cache via useEffect (no await needed - instant from localStorage)
 
       const q = query(
         collection(db, 'customers'),
@@ -92,7 +97,7 @@ export const useInfiniteCustomers = (): UseInfiniteCustomersReturn => {
     } finally {
       setLoading(false);
     }
-  }, [user?.uid, company?.id, loadSales]);
+  }, [user?.uid, company?.id]);
 
   // Load more customers (infinite scroll)
   const loadMore = useCallback(async () => {
@@ -134,6 +139,11 @@ export const useInfiniteCustomers = (): UseInfiniteCustomersReturn => {
     setHasMore(true);
     await loadInitialCustomers();
   }, [loadInitialCustomers]);
+
+  // Load sales from cache when company changes
+  useEffect(() => {
+    loadSales();
+  }, [loadSales]);
 
   // Load on mount
   useEffect(() => {

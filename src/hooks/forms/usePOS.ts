@@ -11,6 +11,7 @@ import { validateSaleData, normalizeSaleData } from '@utils/calculations/saleUti
 import type { OrderStatus, Customer, Product } from '../../types/models';
 import { logError } from '@utils/core/logger';
 import { normalizePhoneForComparison } from '@utils/core/phoneUtils';
+import { ensureCustomerExists } from '@services/firestore/customers/customerService';
 import { saveDraft as saveDraftToStorage, getDrafts, deleteDraft, type POSDraft } from '@utils/pos/posDraftStorage';
 import { useAllStockBatches } from '@hooks/business/useStockBatches';
 import { buildProductStockMap, getEffectiveProductStock } from '@utils/inventory/stockHelpers';
@@ -458,31 +459,24 @@ export function usePOS(shopId?: string) {
       const newSale = await addSale(normalizedData, createdBy);
 
       // Auto-save customer if enabled (only when phone is provided)
-      if (autoSaveCustomer && customerInfo.phone && company?.id) {
+      if (autoSaveCustomer && customerInfo.phone && company?.id && user?.uid) {
         try {
-          // Only check for existing customer if phone is provided
-          const existing = customers.find(c => 
-            c.phone && normalizePhoneForComparison(c.phone) === normalizePhoneForComparison(customerInfo.phone)
-          );
-
-          if (!existing) {
-            await addCustomer({
+          // Use ensureCustomerExists to handle duplicate detection and creation/update
+          await ensureCustomerExists(
+            {
               phone: customerInfo.phone,
-              name: customerInfo.name || 'Divers',
-              quarter: customerInfo.quarter || paymentData?.customerQuarter || '',
-              address: customerInfo.address || paymentData?.customerAddress || '',
-              town: customerInfo.town || paymentData?.customerTown || '',
-              customerSourceId: paymentData?.customerSourceId || state.customer?.sourceId || '',
-              userId: user.uid,
-              companyId: company.id,
-              createdAt: {
-                seconds: Math.floor(Date.now() / 1000),
-                nanoseconds: (Date.now() % 1000) * 1000000
-              },
-            });
-          }
+              name: customerInfo.name,
+              quarter: customerInfo.quarter || paymentData?.customerQuarter,
+              address: customerInfo.address || paymentData?.customerAddress,
+              town: customerInfo.town || paymentData?.customerTown,
+              customerSourceId: paymentData?.customerSourceId || state.customer?.sourceId
+            },
+            company.id,
+            user.uid
+          );
         } catch (error: any) {
-          logError('Error adding customer during sale', error);
+          logError('Error ensuring customer exists during sale', error);
+          // Don't throw - sale was successful, customer save is secondary
         }
       }
 
