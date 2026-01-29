@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@contexts/AuthContext';
 import { Card, Button, SkeletonLoader } from '@components/common';
+import Modal, { ModalFooter } from '@components/common/Modal';
 import { Plus, Edit, Trash2, Users } from 'lucide-react';
 import { 
   getCompanyTemplates, 
@@ -25,6 +26,9 @@ const PermissionTemplateManager = ({ onTemplateChange }: PermissionTemplateManag
   const [editingTemplate, setEditingTemplate] = useState<PermissionTemplate | null>(null);
   const [showDefaults, setShowDefaults] = useState(false);
   const [usingDefaultTemplateName, setUsingDefaultTemplateName] = useState<string | null>(null);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [templateToDelete, setTemplateToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const loadTemplates = useCallback(async () => {
     if (!company?.id) return;
@@ -88,30 +92,41 @@ const PermissionTemplateManager = ({ onTemplateChange }: PermissionTemplateManag
     setShowForm(true);
   };
 
-  const handleDeleteTemplate = async (templateId: string) => {
-    if (!company?.id) return;
+  const handleDeleteClick = (template: PermissionTemplate) => {
+    setTemplateToDelete({ id: template.id, name: template.name });
+    setDeleteModalOpen(true);
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteModalOpen(false);
+    setTemplateToDelete(null);
+  };
+
+  const handleDeleteTemplate = async () => {
+    if (!company?.id || !templateToDelete) return;
     
-    if (!confirm('Are you sure you want to delete this template? This action cannot be undone.')) {
-      return;
-    }
-    
+    setIsDeleting(true);
     try {
-      await deleteTemplate(company.id, templateId);
+      await deleteTemplate(company.id, templateToDelete.id);
       
       // Clear all permission caches when template is deleted
       clearAllPermissionCaches();
       
       // Broadcast event to notify active users
-      if (typeof window !== 'undefined') {
+      if (typeof window !== 'undefined' && company.id && templateToDelete.id) {
         window.dispatchEvent(new CustomEvent('permission-template-updated', {
-          detail: { companyId: company.id, templateId }
+          detail: { companyId: company.id, templateId: templateToDelete.id }
         }));
       }
       
       await loadTemplates();
       onTemplateChange?.();
+      setDeleteModalOpen(false);
+      setTemplateToDelete(null);
     } catch (error) {
       console.error('Error deleting template:', error);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -267,7 +282,7 @@ const PermissionTemplateManager = ({ onTemplateChange }: PermissionTemplateManag
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => handleDeleteTemplate(template.id)}
+                        onClick={() => handleDeleteClick(template)}
                         icon={<Trash2 size={14} />}
                         className="text-red-600 hover:text-red-700"
                       >
@@ -290,6 +305,32 @@ const PermissionTemplateManager = ({ onTemplateChange }: PermissionTemplateManag
           )}
         </div>
       </Card>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={deleteModalOpen}
+        onClose={handleDeleteCancel}
+        title="Delete Permission Template"
+        footer={
+          <ModalFooter
+            onCancel={handleDeleteCancel}
+            onConfirm={handleDeleteTemplate}
+            confirmText="Delete"
+            cancelText="Cancel"
+            isLoading={isDeleting}
+            isDanger
+          />
+        }
+      >
+        <div className="text-center">
+          <p className="text-gray-600 mb-4">
+            Are you sure you want to delete the template <strong>"{templateToDelete?.name}"</strong>?
+          </p>
+          <p className="text-sm text-red-600">
+            This action cannot be undone.
+          </p>
+        </div>
+      </Modal>
     </div>
   );
 };

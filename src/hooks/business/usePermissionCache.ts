@@ -106,11 +106,16 @@ export const clearAllPermissionCaches = (): void => {
     const keysToRemove: string[] = [];
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
-      if (key?.startsWith(CACHE_KEY_PREFIX)) {
+      // Ensure key exists and is a string before checking startsWith
+      if (key && typeof key === 'string' && key.startsWith(CACHE_KEY_PREFIX)) {
         keysToRemove.push(key);
       }
     }
-    keysToRemove.forEach((key) => localStorage.removeItem(key));
+    keysToRemove.forEach((key) => {
+      if (key) {
+        localStorage.removeItem(key);
+      }
+    });
   } catch (error) {
     logError('Error clearing all permission caches', error);
   }
@@ -367,12 +372,17 @@ export function usePermissionCache(
     if (!userId || !companyId || isOwner) return;
 
     const handleTemplateUpdate = (event: CustomEvent) => {
-      const { companyId: updatedCompanyId, templateId } = event.detail;
+      const { companyId: updatedCompanyId, templateId } = event.detail || {};
+      
+      // Validate that we have the required data
+      if (!updatedCompanyId || !companyId) return;
       
       // Only refresh if this is for our company
       if (updatedCompanyId === companyId) {
         // Check if this user is using the updated template
         const currentTemplateId = templateIdFromUserCompanies;
+        // If templateId is undefined/null, refresh anyway (template was deleted)
+        // If templateId matches current, refresh (template was updated)
         if (!templateId || currentTemplateId === templateId) {
           // Clear cache and refresh
           clearFromCache(userId, companyId);
