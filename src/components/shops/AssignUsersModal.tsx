@@ -272,8 +272,8 @@ const AssignUsersModal: React.FC<AssignUsersModalProps> = ({
                       size="sm"
                       onClick={() => handleToggleUser(emp.id, 'readonly')}
                       className="text-xs"
+                      icon={<Eye size={14} />}
                     >
-                      <Eye size={14} className="mr-1" />
                       Lecture seule
                     </Button>
                     <Button
@@ -281,8 +281,8 @@ const AssignUsersModal: React.FC<AssignUsersModalProps> = ({
                       size="sm"
                       onClick={() => handleToggleUser(emp.id, 'full')}
                       className="text-xs"
+                      icon={<UserCheck size={14} />}
                     >
-                      <UserCheck size={14} className="mr-1" />
                       Accès complet
                     </Button>
                   </div>
