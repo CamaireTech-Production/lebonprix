@@ -2393,6 +2393,7 @@
       "orderMarkedAsCancelled": "Commande annulée avec succès",
       "deliveredAtUpdated": "Date de livraison mise à jour",
       "paymentStatusUpdateFailed": "Échec de la mise à jour du statut de paiement",
+      "purchaseOrderGenerated": "Bon de commande généré avec succès",
       "purchaseOrderGenerationFailed": "Échec de la génération du bon de commande"
     },
     "convert": {

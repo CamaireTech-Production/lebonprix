@@ -2243,6 +2243,7 @@
       "orderMarkedAsCancelled": "Order cancelled successfully",
       "deliveredAtUpdated": "Delivery date updated",
       "paymentStatusUpdateFailed": "Failed to update payment status",
+      "purchaseOrderGenerated": "Purchase order generated successfully",
       "purchaseOrderGenerationFailed": "Failed to generate purchase order"
     },
     "convert": {
