@@ -2133,7 +2133,8 @@
       "ready": "Ready",
       "delivered": "Delivered",
       "cancelled": "Cancelled",
-      "commande": "Order"
+      "commande": "Order",
+      "converted": "Converted to Sale"
     },
     "paymentStatus": {
       "pending": "Pending",
@@ -2244,7 +2245,8 @@
       "deliveredAtUpdated": "Delivery date updated",
       "paymentStatusUpdateFailed": "Failed to update payment status",
       "purchaseOrderGenerated": "Purchase order generated successfully",
-      "purchaseOrderGenerationFailed": "Failed to generate purchase order"
+      "purchaseOrderGenerationFailed": "Failed to generate purchase order",
+      "convertedToSale": "Order converted to sale successfully"
     },
     "convert": {
       "orderPreview": "Order Preview",
@@ -2267,7 +2269,8 @@
         "mobile_money": "Mobile Money",
         "card": "Card"
       },
-      "convert": "Convert"
+      "convert": "Convert",
+      "converting": "Converting..."
     }
   },
   "invitations": {

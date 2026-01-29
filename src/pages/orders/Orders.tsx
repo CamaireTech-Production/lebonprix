@@ -35,7 +35,8 @@ import {
   ChevronDown,
   ChevronRight,
   Eye,
-  MoreVertical
+  MoreVertical,
+  ShoppingCart
 } from 'lucide-react';
 import { Button, Input, Modal, Badge, Card, SyncIndicator, SkeletonOrders } from '@components/common';
 import OrderActionsMenu from '@components/orders/OrderActionsMenu';
@@ -412,6 +413,19 @@ const Orders: React.FC = () => {
               >
                 <Eye size={16} />
               </button>
+              {order.status !== 'converted' && order.status !== 'cancelled' && !order.convertedToSaleId && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedOrder(order);
+                    setShowConvertModal(true);
+                  }}
+                  className="text-green-600 hover:text-green-900"
+                  title={t('orders.quickActions.convertToSale')}
+                >
+                  <ShoppingCart size={16} />
+                </button>
+              )}
               <div onClick={(e) => e.stopPropagation()}>
                 <OrderActionsMenu
                   order={order}

@@ -6,6 +6,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { logError } from '@utils/core/logger';
 import { formatPrice } from '@utils/formatting/formatPrice';
+import { normalizePhoneForComparison } from '@utils/core/phoneUtils';
 import type { Sale, StockBatch } from '../../types/models';
 import SaleDetailsModal from './SaleDetailsModal';
 import { getProductStockBatches, getAvailableStockBatches, getStockBatchesByLocation } from '@services/firestore/stock/stockService';

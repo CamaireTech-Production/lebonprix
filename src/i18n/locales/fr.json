@@ -2283,7 +2283,8 @@
       "cancelled": "Annulée",
       "commande": "Commande",
       "paid": "Payé",
-      "credit": "credit"
+      "credit": "credit",
+      "converted": "Convertie en vente"
     },
     "paymentStatus": {
       "pending": "En Attente",
@@ -2394,7 +2395,8 @@
       "deliveredAtUpdated": "Date de livraison mise à jour",
       "paymentStatusUpdateFailed": "Échec de la mise à jour du statut de paiement",
       "purchaseOrderGenerated": "Bon de commande généré avec succès",
-      "purchaseOrderGenerationFailed": "Échec de la génération du bon de commande"
+      "purchaseOrderGenerationFailed": "Échec de la génération du bon de commande",
+      "convertedToSale": "Commande convertie en vente avec succès"
     },
     "convert": {
       "orderPreview": "Aperçu de la commande",
@@ -2417,7 +2419,8 @@
         "mobile_money": "Mobile Money",
         "card": "Carte bancaire"
       },
-      "convert": "Convertir"
+      "convert": "Convertir",
+      "converting": "Conversion en cours..."
     }
   },
   "invitations": {
