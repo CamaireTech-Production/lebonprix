@@ -1196,8 +1196,8 @@ const SingleCheckout: React.FC = () => {
 
                   {/* Delivery Phone (pre-filled from contact, modifiable) */}
                   {checkoutSettings.showDeliveryPhone && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
                         {t('checkout.fields.deliveryPhone') || 'Téléphone pour livraison'} *
                       </label>
                       <PhoneInput
@@ -1214,28 +1214,28 @@ const SingleCheckout: React.FC = () => {
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         {t('checkout.fields.deliveryAddressLine1') || 'Adresse (Rue + Numéro)'} *
-                      </label>
-                      <input
-                        type="text"
+                          </label>
+                          <input
+                            type="text"
                         value={customerInfo.deliveryAddressLine1 || ''}
                         onChange={(e) => handleInputChange('deliveryAddressLine1', e.target.value)}
-                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
+                            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
                           errors.deliveryAddressLine1 ? 'border-red-500' : 'border-gray-300'
-                        }`}
+                            }`}
                         placeholder={t('checkout.fields.deliveryAddressLine1Placeholder') || 'Ex: 123 Rue de la Paix'}
-                      />
+                          />
                       {errors.deliveryAddressLine1 && <p className="text-red-500 text-xs mt-1">{errors.deliveryAddressLine1}</p>}
-                    </div>
-                  )}
+                        </div>
+                      )}
 
                   {/* Delivery Address Line 2 (Complement) */}
                   {checkoutSettings.showDeliveryAddressLine2 && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
                         {t('checkout.fields.deliveryAddressLine2') || 'Complément d\'adresse'}
-                      </label>
-                      <input
-                        type="text"
+                          </label>
+                          <input
+                            type="text"
                         value={customerInfo.deliveryAddressLine2 || ''}
                         onChange={(e) => handleInputChange('deliveryAddressLine2', e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"

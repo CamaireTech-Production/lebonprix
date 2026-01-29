@@ -2317,6 +2317,7 @@
       "color": "Couleur",
       "size": "Taille",
       "qty": "Qté",
+      "quantity": "Quantité",
       "pricing": "Tarification",
       "subtotal": "Sous-total",
       "deliveryFee": "Frais de Livraison",

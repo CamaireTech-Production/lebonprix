@@ -4,39 +4,92 @@ import type { Order } from '../../types/order';
 import type { Product } from '../../types/models';
 
 // Helper to load image as base64 and get dimensions, with compression
+// Returns dimensions in mm for jsPDF
 const getImageBase64AndSize = (
   url: string,
-  maxDim = 24, // max dimension in px
-  quality = 0.7 // JPEG quality (0-1)
+  maxDimPx = 120, // max dimension in pixels for resizing
+  quality = 0.7, // JPEG quality (0-1)
+  maxDimMm = 30 // max dimension in mm for PDF
 ): Promise<{ base64?: string; width?: number; height?: number }> => {
   return new Promise((resolve) => {
-    if (!url) return resolve({});
+    if (!url) {
+      console.warn('No logo URL provided');
+      return resolve({});
+    }
+    
     const img = new window.Image();
+    
+    // Set timeout to prevent hanging
+    const timeout = setTimeout(() => {
+      console.warn('Logo image loading timeout');
+      resolve({});
+    }, 10000); // 10 seconds timeout
+    
     img.crossOrigin = 'Anonymous';
+    
     img.onload = function () {
-      let { width, height } = img;
-      // Resize if needed
-      if (width > height && width > maxDim) {
-        height = (height / width) * maxDim;
-        width = maxDim;
-      } else if (height > width && height > maxDim) {
-        width = (width / height) * maxDim;
-        height = maxDim;
+      clearTimeout(timeout);
+      try {
+        let { width: imgWidth, height: imgHeight } = img;
+        
+        // Resize image to maxDimPx for compression (maintain aspect ratio)
+        let resizeWidth = imgWidth;
+        let resizeHeight = imgHeight;
+        if (imgWidth > imgHeight && imgWidth > maxDimPx) {
+          resizeHeight = (imgHeight / imgWidth) * maxDimPx;
+          resizeWidth = maxDimPx;
+        } else if (imgHeight > imgWidth && imgHeight > maxDimPx) {
+          resizeWidth = (imgWidth / imgHeight) * maxDimPx;
+          resizeHeight = maxDimPx;
+        }
+        
+        // Create canvas and draw resized image
+        const canvas = document.createElement('canvas');
+        canvas.width = resizeWidth;
+        canvas.height = resizeHeight;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          console.warn('Could not get canvas context');
+          return resolve({});
+        }
+        ctx.drawImage(img, 0, 0, resizeWidth, resizeHeight);
+        
+        // Convert to base64
+        const base64 = canvas.toDataURL('image/jpeg', quality);
+        
+        // Convert pixels to mm for jsPDF (1 inch = 25.4mm, assuming 96 DPI)
+        // More accurate: 1px = 0.264583mm at 96 DPI
+        const pxToMm = 0.264583;
+        let widthMm = resizeWidth * pxToMm;
+        let heightMm = resizeHeight * pxToMm;
+        
+        // Scale down if exceeds maxDimMm (maintain aspect ratio)
+        if (widthMm > heightMm && widthMm > maxDimMm) {
+          heightMm = (heightMm / widthMm) * maxDimMm;
+          widthMm = maxDimMm;
+        } else if (heightMm > widthMm && heightMm > maxDimMm) {
+          widthMm = (widthMm / heightMm) * maxDimMm;
+          heightMm = maxDimMm;
+        }
+        
+        resolve({
+          base64,
+          width: widthMm,
+          height: heightMm,
+        });
+      } catch (error) {
+        console.error('Error processing logo image:', error);
+        resolve({});
       }
-      const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return resolve({});
-      ctx.drawImage(img, 0, 0, width, height);
-      // Use JPEG for better compression
-      resolve({
-        base64: canvas.toDataURL('image/jpeg', quality),
-        width,
-        height,
-      });
     };
-    img.onerror = () => resolve({});
+    
+    img.onerror = (error) => {
+      clearTimeout(timeout);
+      console.error('Error loading logo image:', error, 'URL:', url);
+      resolve({});
+    };
+    
+    // Try to load the image
     img.src = url;
   });
 };
@@ -90,25 +143,17 @@ export const generatePurchaseOrderPDF = async (
     let logoHeight = 0;
     let logoWidth = 0;
     if (company.logo) {
-      const { base64: logoBase64, width, height } = await getImageBase64AndSize(company.logo, 120, 0.6);
-      if (logoBase64 && width && height) {
-        const maxDim = 24;
-        let drawWidth = width;
-        let drawHeight = height;
-        if (width > height) {
-          if (width > maxDim) {
-            drawWidth = maxDim;
-            drawHeight = (height / width) * maxDim;
-          }
+      try {
+        const { base64: logoBase64, width, height } = await getImageBase64AndSize(company.logo, 120, 0.6, 30);
+        if (logoBase64 && width && height) {
+          doc.addImage(logoBase64, 'JPEG', margin, y, width, height);
+          logoHeight = height;
+          logoWidth = width;
         } else {
-          if (height > maxDim) {
-            drawHeight = maxDim;
-            drawWidth = (width / height) * maxDim;
-          }
+          console.warn('Logo image could not be loaded or converted');
         }
-        doc.addImage(logoBase64, 'JPEG', margin, y, drawWidth, drawHeight);
-        logoHeight = drawHeight;
-        logoWidth = drawWidth;
+      } catch (error) {
+        console.error('Error processing logo:', error);
       }
     }
 
@@ -371,25 +416,17 @@ export const generatePurchaseOrderPDFBlob = async (
     let logoHeight = 0;
     let logoWidth = 0;
     if (company.logo) {
-      const { base64: logoBase64, width, height } = await getImageBase64AndSize(company.logo, 120, 0.6);
-      if (logoBase64 && width && height) {
-        const maxDim = 24;
-        let drawWidth = width;
-        let drawHeight = height;
-        if (width > height) {
-          if (width > maxDim) {
-            drawWidth = maxDim;
-            drawHeight = (height / width) * maxDim;
-          }
+      try {
+        const { base64: logoBase64, width, height } = await getImageBase64AndSize(company.logo, 120, 0.6, 30);
+        if (logoBase64 && width && height) {
+          doc.addImage(logoBase64, 'JPEG', margin, y, width, height);
+          logoHeight = height;
+          logoWidth = width;
         } else {
-          if (height > maxDim) {
-            drawHeight = maxDim;
-            drawWidth = (width / height) * maxDim;
-          }
+          console.warn('Logo image could not be loaded or converted');
         }
-        doc.addImage(logoBase64, 'JPEG', margin, y, drawWidth, drawHeight);
-        logoHeight = drawHeight;
-        logoWidth = drawWidth;
+      } catch (error) {
+        console.error('Error processing logo:', error);
       }
     }
 
