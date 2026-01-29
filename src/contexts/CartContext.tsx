@@ -85,7 +85,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const newItem: CartItem = {
           productId: product.id,
           name: product.name,
-          price: product.cataloguePrice ?? 0,
+          price: (product.cataloguePrice && product.cataloguePrice > 0) ? product.cataloguePrice : (product.sellingPrice ?? 0),
           quantity,
           image: product.images?.[0],
           category: product.category,

@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useCart } from '@contexts/CartContext';
 import { useAuth } from '@contexts/AuthContext';
 import { createOrder } from '@services/firestore/orders/orderService';
+// NOTE: ensureCustomerExists is NOT imported here - customers are created only when order is converted to sale
 import { getCompanyById } from '@services/firestore/companies/companyPublic';
 import { getSellerSettings } from '@services/firestore/firestore';
 import { getCurrentEmployeeRef } from '@utils/business/employeeUtils';
@@ -18,6 +19,7 @@ import { processCinetPayPayment, validatePaymentData, formatPhoneForCinetPay } f
 import { useCampay } from '@hooks/useCampay';
 import { getCampayConfig } from '@services/payment/campayService';
 import { formatPhoneForWhatsApp } from '@utils/core/phoneUtils';
+import { logError } from '@utils/core/logger';
 import type { CinetPayConfig } from '../../types/cinetpay';
 import type { Company } from '../../types/models';
 // import { generateWhatsAppMessage } from '@utils/whatsapp';
@@ -125,11 +127,20 @@ const SingleCheckout: React.FC = () => {
   
   // State management
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo>({
+    // Contact info
     name: '',
     phone: '',
-    location: '',
+    quarter: '',
+    email: '',
+    // Delivery info
+    deliveryName: '',
+    deliveryPhone: '',
+    deliveryAddressLine1: '',
+    deliveryAddressLine2: '',
+    deliveryQuarter: '',
+    deliveryCity: '',
     deliveryInstructions: '',
-    country: 'Cameroon'
+    deliveryCountry: 'Cameroon'
   });
   const [email, setEmail] = useState('');
   const [emailNewsletter, setEmailNewsletter] = useState(true);
@@ -337,7 +348,7 @@ const SingleCheckout: React.FC = () => {
     // Only validate fields that are enabled in checkout settings
     if (checkoutSettings?.showContactSection) {
       // Validate name field only if it's enabled
-      if (checkoutSettings.showFirstName && !customerInfo.name.trim()) {
+      if (checkoutSettings.showName && !customerInfo.name.trim()) {
         newErrors.name = 'Le nom est requis';
       }
 
@@ -355,24 +366,24 @@ const SingleCheckout: React.FC = () => {
 
     // Validate delivery fields only if delivery section is enabled
     if (checkoutSettings?.showDeliverySection) {
-      // Validate address field only if it's enabled
-      if (checkoutSettings.showAddress && !customerInfo.location.trim()) {
-        newErrors.location = 'L\'adresse est requise';
+      // Validate delivery name field only if it's enabled
+      if (checkoutSettings.showDeliveryName && !(customerInfo.deliveryName || customerInfo.name)?.trim()) {
+        newErrors.deliveryName = 'Le nom pour livraison est requis';
       }
       
-      // Validate first name field only if it's enabled
-      if (checkoutSettings.showFirstName && !customerInfo.name.trim()) {
-        newErrors.name = 'Le prénom est requis';
+      // Validate delivery phone field only if it's enabled
+      if (checkoutSettings.showDeliveryPhone && !(customerInfo.deliveryPhone || customerInfo.phone)?.trim()) {
+        newErrors.deliveryPhone = 'Le téléphone pour livraison est requis';
       }
       
-      // Validate last name field only if it's enabled
-      if (checkoutSettings.showLastName && !customerInfo.surname?.trim()) {
-        newErrors.surname = 'Le nom de famille est requis';
+      // Validate delivery address line 1 field only if it's enabled
+      if (checkoutSettings.showDeliveryAddressLine1 && !customerInfo.deliveryAddressLine1?.trim()) {
+        newErrors.deliveryAddressLine1 = 'L\'adresse de livraison est requise';
       }
       
-      // Validate city field only if it's enabled
-      if (checkoutSettings.showCity && !customerInfo.location.trim()) {
-        newErrors.location = 'La ville est requise';
+      // Validate delivery quarter field only if it's enabled
+      if (checkoutSettings.showDeliveryQuarter && !customerInfo.deliveryQuarter?.trim()) {
+        newErrors.deliveryQuarter = 'Le quartier/zone de livraison est requis';
       }
     }
 
@@ -406,7 +417,25 @@ const SingleCheckout: React.FC = () => {
 
   // Handle form input changes
   const handleInputChange = (field: keyof CustomerInfo, value: string) => {
-    setCustomerInfo(prev => ({ ...prev, [field]: value }));
+    setCustomerInfo(prev => {
+      const updated = { ...prev, [field]: value };
+      
+      // Auto-fill delivery fields from contact fields
+      if (field === 'name') {
+        // If deliveryName is empty or same as previous name, update it
+        if (!updated.deliveryName || updated.deliveryName === prev.name) {
+          updated.deliveryName = value;
+        }
+      }
+      if (field === 'phone') {
+        // If deliveryPhone is empty or same as previous phone, update it
+        if (!updated.deliveryPhone || updated.deliveryPhone === prev.phone) {
+          updated.deliveryPhone = value;
+        }
+      }
+      
+      return updated;
+    });
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: undefined }));
     }
@@ -522,12 +551,21 @@ const SingleCheckout: React.FC = () => {
     setSubmitting(true);
     try {
       // Ensure all fields have proper default values to avoid undefined errors
-      const sanitizedCustomerInfo = {
+      const sanitizedCustomerInfo: CustomerInfo = {
+        // Contact info
         name: customerInfo.name || '',
         phone: customerInfo.phone || '',
+        quarter: customerInfo.quarter || '',
         email: customerInfo.email || '',
-        location: customerInfo.location || '',
-        deliveryInstructions: customerInfo.deliveryInstructions || ''
+        // Delivery info
+        deliveryName: customerInfo.deliveryName || customerInfo.name || '',
+        deliveryPhone: customerInfo.deliveryPhone || customerInfo.phone || '',
+        deliveryAddressLine1: customerInfo.deliveryAddressLine1 || '',
+        deliveryAddressLine2: customerInfo.deliveryAddressLine2 || '',
+        deliveryQuarter: customerInfo.deliveryQuarter || '',
+        deliveryCity: customerInfo.deliveryCity || '',
+        deliveryInstructions: customerInfo.deliveryInstructions || '',
+        deliveryCountry: customerInfo.deliveryCountry || 'CM'
       };
 
       const sanitizedPaymentFormData = {
@@ -553,10 +591,17 @@ const SingleCheckout: React.FC = () => {
             name: sanitizedCustomerInfo.name,
             phone: formatPhoneForCinetPay(sanitizedCustomerInfo.phone),
             email: sanitizedCustomerInfo.email || email,
-            address: sanitizedCustomerInfo.location,
-            city: sanitizedCustomerInfo.location.split(',')[0] || 'Douala',
-            country: 'CM',
-            zipCode: ''
+            // Use new delivery fields
+            deliveryAddressLine1: sanitizedCustomerInfo.deliveryAddressLine1,
+            deliveryAddressLine2: sanitizedCustomerInfo.deliveryAddressLine2,
+            deliveryQuarter: sanitizedCustomerInfo.deliveryQuarter,
+            deliveryCity: sanitizedCustomerInfo.deliveryCity,
+            deliveryCountry: sanitizedCustomerInfo.deliveryCountry || 'CM',
+            // Legacy fields for backward compatibility
+            location: sanitizedCustomerInfo.deliveryQuarter || sanitizedCustomerInfo.quarter || '',
+            address: sanitizedCustomerInfo.deliveryAddressLine1 || '',
+            city: sanitizedCustomerInfo.deliveryCity || '',
+            country: sanitizedCustomerInfo.deliveryCountry || 'CM'
           },
           returnUrl: `${window.location.origin}/catalogue/${company?.name?.toLowerCase().replace(/\s+/g, '-')}/${companyId}`,
           notifyUrl: `${window.location.origin}/api/cinetpay/webhook`
@@ -618,6 +663,9 @@ const SingleCheckout: React.FC = () => {
             }
             createdBy = getCurrentEmployeeRef(currentEmployee, user, isOwner, userData);
           }
+          
+          // NOTE: Customer is NOT created here - it will be created only when order is converted to sale
+          // This ensures we don't create duplicate customers for orders that may never be converted
           
           // Create order with CinetPay payment details
           const order = await createOrder(
@@ -762,7 +810,7 @@ const SingleCheckout: React.FC = () => {
                 paymentFormData: sanitizedPaymentFormData,
                 deliveryInfo: {
                   method: 'delivery',
-                  address: sanitizedCustomerInfo.location,
+                  address: sanitizedCustomerInfo.deliveryAddressLine1 + (sanitizedCustomerInfo.deliveryAddressLine2 ? ', ' + sanitizedCustomerInfo.deliveryAddressLine2 : ''),
                   instructions: sanitizedCustomerInfo.deliveryInstructions
                 },
                 metadata: {
@@ -851,6 +899,9 @@ const SingleCheckout: React.FC = () => {
           createdBy = getCurrentEmployeeRef(currentEmployee, user, isOwner, userData);
         }
         
+        // NOTE: Customer is NOT created here - it will be created only when order is converted to sale
+        // This ensures we don't create duplicate customers for orders that may never be converted
+        
         // Handle regular payment methods (existing logic)
         const order = await createOrder(
           company.id,
@@ -867,7 +918,7 @@ const SingleCheckout: React.FC = () => {
             paymentFormData: sanitizedPaymentFormData,
             deliveryInfo: {
               method: 'delivery',
-              address: sanitizedCustomerInfo.location,
+              address: sanitizedCustomerInfo.deliveryAddressLine1 + (sanitizedCustomerInfo.deliveryAddressLine2 ? ', ' + sanitizedCustomerInfo.deliveryAddressLine2 : ''),
               instructions: sanitizedCustomerInfo.deliveryInstructions
             },
             metadata: {
@@ -1035,6 +1086,53 @@ const SingleCheckout: React.FC = () => {
                 <h2 className="text-xl font-bold mb-4" style={{color: getCompanyColors().primary}}>{t('checkout.contact')}</h2>
                 
                 <div className="space-y-4">
+                  {checkoutSettings.showName && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        {t('checkout.fields.name')} *
+                      </label>
+                      <input
+                        type="text"
+                        value={customerInfo.name}
+                        onChange={(e) => handleInputChange('name', e.target.value)}
+                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
+                          errors.name ? 'border-red-500' : 'border-gray-300'
+                        }`}
+                        placeholder={t('checkout.fields.namePlaceholder') || 'Nom complet'}
+                      />
+                      {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name}</p>}
+                    </div>
+                  )}
+
+                  {checkoutSettings.showPhone && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        {t('checkout.fields.phone')} *
+                      </label>
+                      <PhoneInput
+                        value={customerInfo.phone}
+                        onChange={(value) => handleInputChange('phone', value)}
+                        error={errors.phone}
+                        placeholder={t('checkout.fields.phone')}
+                      />
+                    </div>
+                  )}
+
+                  {checkoutSettings.showQuarter && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        {t('checkout.fields.quarter') || 'Quartier/Résidence'}
+                      </label>
+                      <input
+                        type="text"
+                        value={customerInfo.quarter || ''}
+                        onChange={(e) => handleInputChange('quarter', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                        placeholder={t('checkout.fields.quarterPlaceholder') || 'Votre quartier ou résidence'}
+                      />
+                    </div>
+                  )}
+
                   {checkoutSettings.showEmail && (
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1042,24 +1140,13 @@ const SingleCheckout: React.FC = () => {
                       </label>
                       <input
                         type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
+                        value={customerInfo.email || email}
+                        onChange={(e) => {
+                          setEmail(e.target.value);
+                          handleInputChange('email', e.target.value);
+                        }}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                         placeholder={t('checkout.fields.email')}
-                      />
-                    </div>
-                  )}
-
-                  {checkoutSettings.showPhone && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        {t('checkout.fields.phone')}
-                      </label>
-                      <PhoneInput
-                        value={customerInfo.phone}
-                        onChange={(value) => handleInputChange('phone', value)}
-                        error={errors.phone}
-                        placeholder={t('checkout.fields.phone')}
                       />
                     </div>
                   )}
@@ -1088,112 +1175,123 @@ const SingleCheckout: React.FC = () => {
                 <h2 className="text-xl font-bold mb-4" style={{color: getCompanyColors().primary}}>{t('checkout.delivery')}</h2>
                 
                 <div className="space-y-4">
+                  {/* Delivery Name (pre-filled from contact, modifiable) */}
+                  {checkoutSettings.showDeliveryName && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        {t('checkout.fields.deliveryName') || 'Nom pour livraison'} *
+                      </label>
+                      <input
+                        type="text"
+                        value={customerInfo.deliveryName || customerInfo.name || ''}
+                        onChange={(e) => handleInputChange('deliveryName', e.target.value)}
+                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
+                          errors.deliveryName ? 'border-red-500' : 'border-gray-300'
+                        }`}
+                        placeholder={t('checkout.fields.deliveryNamePlaceholder') || 'Nom pour la livraison'}
+                      />
+                      {errors.deliveryName && <p className="text-red-500 text-xs mt-1">{errors.deliveryName}</p>}
+                    </div>
+                  )}
+
+                  {/* Delivery Phone (pre-filled from contact, modifiable) */}
+                  {checkoutSettings.showDeliveryPhone && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        {t('checkout.fields.deliveryPhone') || 'Téléphone pour livraison'} *
+                      </label>
+                      <PhoneInput
+                        value={customerInfo.deliveryPhone || customerInfo.phone || ''}
+                        onChange={(value) => handleInputChange('deliveryPhone', value)}
+                        error={errors.deliveryPhone}
+                        placeholder={t('checkout.fields.deliveryPhonePlaceholder') || 'Téléphone pour la livraison'}
+                      />
+                    </div>
+                  )}
+
+                  {/* Delivery Address Line 1 (Street + Number) */}
+                  {checkoutSettings.showDeliveryAddressLine1 && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        {t('checkout.fields.deliveryAddressLine1') || 'Adresse (Rue + Numéro)'} *
+                      </label>
+                      <input
+                        type="text"
+                        value={customerInfo.deliveryAddressLine1 || ''}
+                        onChange={(e) => handleInputChange('deliveryAddressLine1', e.target.value)}
+                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
+                          errors.deliveryAddressLine1 ? 'border-red-500' : 'border-gray-300'
+                        }`}
+                        placeholder={t('checkout.fields.deliveryAddressLine1Placeholder') || 'Ex: 123 Rue de la Paix'}
+                      />
+                      {errors.deliveryAddressLine1 && <p className="text-red-500 text-xs mt-1">{errors.deliveryAddressLine1}</p>}
+                    </div>
+                  )}
+
+                  {/* Delivery Address Line 2 (Complement) */}
+                  {checkoutSettings.showDeliveryAddressLine2 && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        {t('checkout.fields.deliveryAddressLine2') || 'Complément d\'adresse'}
+                      </label>
+                      <input
+                        type="text"
+                        value={customerInfo.deliveryAddressLine2 || ''}
+                        onChange={(e) => handleInputChange('deliveryAddressLine2', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                        placeholder={t('checkout.fields.deliveryAddressLine2Placeholder') || 'Ex: Appartement 4B, Bâtiment C'}
+                      />
+                    </div>
+                  )}
+
+                  {/* Delivery Quarter (Zone) */}
+                  {checkoutSettings.showDeliveryQuarter && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        {t('checkout.fields.deliveryQuarter') || 'Quartier/Zone de livraison'} *
+                      </label>
+                      <input
+                        type="text"
+                        value={customerInfo.deliveryQuarter || ''}
+                        onChange={(e) => handleInputChange('deliveryQuarter', e.target.value)}
+                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
+                          errors.deliveryQuarter ? 'border-red-500' : 'border-gray-300'
+                        }`}
+                        placeholder={t('checkout.fields.deliveryQuarterPlaceholder') || 'Ex: Mvog-Ada, Bastos'}
+                      />
+                      {errors.deliveryQuarter && <p className="text-red-500 text-xs mt-1">{errors.deliveryQuarter}</p>}
+                    </div>
+                  )}
+
+                  {/* Delivery City */}
+                  {checkoutSettings.showDeliveryCity && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        {t('checkout.fields.deliveryCity') || 'Ville'}
+                      </label>
+                      <input
+                        type="text"
+                        value={customerInfo.deliveryCity || ''}
+                        onChange={(e) => handleInputChange('deliveryCity', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                        placeholder={t('checkout.fields.deliveryCityPlaceholder') || 'Ex: Yaoundé, Douala'}
+                      />
+                    </div>
+                  )}
+
                   {/* Country/Region */}
                   {checkoutSettings.showCountry && (
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Country/Region
                       </label>
-                      <select className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
+                      <select 
+                        value={customerInfo.deliveryCountry || 'CM'}
+                        onChange={(e) => handleInputChange('deliveryCountry', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                      >
                         <option value="CM">Cameroon</option>
                       </select>
-                    </div>
-                  )}
-
-                  {/* Name Fields */}
-                  {(checkoutSettings.showFirstName || checkoutSettings.showLastName) && (
-                    <div className="grid grid-cols-2 gap-4">
-                      {checkoutSettings.showFirstName && (
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            First name *
-                          </label>
-                          <input
-                            type="text"
-                            value={customerInfo.name}
-                            onChange={(e) => {
-                              setCustomerInfo(prev => ({ 
-                                ...prev, 
-                                name: e.target.value 
-                              }));
-                            }}
-                            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
-                              errors.name ? 'border-red-500' : 'border-gray-300'
-                            }`}
-                            placeholder="First name"
-                          />
-                        </div>
-                      )}
-                      {checkoutSettings.showLastName && (
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Last name *
-                          </label>
-                          <input
-                            type="text"
-                            value={customerInfo.surname || ''}
-                            onChange={(e) => {
-                              setCustomerInfo(prev => ({ 
-                                ...prev, 
-                                surname: e.target.value 
-                              }));
-                            }}
-                            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
-                              errors.surname ? 'border-red-500' : 'border-gray-300'
-                            }`}
-                            placeholder="Last name"
-                          />
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Address */}
-                  {checkoutSettings.showAddress && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        {t('checkout.fields.address')} *
-                      </label>
-                      <input
-                        type="text"
-                        value={customerInfo.location}
-                        onChange={(e) => handleInputChange('location', e.target.value)}
-                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
-                          errors.location ? 'border-red-500' : 'border-gray-300'
-                        }`}
-                        placeholder="Enter your address"
-                      />
-                      {errors.location && <p className="text-red-500 text-xs mt-1">{errors.location}</p>}
-                    </div>
-                  )}
-
-                  {/* Apartment/Suite */}
-                  {checkoutSettings.showApartment && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Apartment, suite, etc. (optional)
-                      </label>
-                      <input
-                        type="text"
-                        value={customerInfo.deliveryInstructions}
-                        onChange={(e) => handleInputChange('deliveryInstructions', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                        placeholder="Apartment, suite, etc."
-                      />
-                    </div>
-                  )}
-
-                  {/* City */}
-                  {checkoutSettings.showCity && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        {t('checkout.fields.city')}
-                      </label>
-                      <input
-                        type="text"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                        placeholder="Enter your city"
-                      />
                     </div>
                   )}
 
@@ -1201,13 +1299,13 @@ const SingleCheckout: React.FC = () => {
                   {checkoutSettings.showDeliveryInstructions && (
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Instructions de livraison (facultatif)
+                        {t('checkout.fields.deliveryInstructions') || 'Instructions de livraison (facultatif)'}
                       </label>
                       <textarea
-                        value={customerInfo.deliveryInstructions}
+                        value={customerInfo.deliveryInstructions || ''}
                         onChange={(e) => handleInputChange('deliveryInstructions', e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                        placeholder="Instructions spéciales pour la livraison..."
+                        placeholder={t('checkout.fields.deliveryInstructionsPlaceholder') || 'Instructions spéciales pour la livraison...'}
                         rows={3}
                       />
                     </div>

@@ -9,7 +9,7 @@ import { subscribeToShops } from '@services/firestore/shops/shopService';
 import { getAvailableStockBatches } from '@services/firestore/stock/stockService';
 import type { Company, Product, Category, Shop } from '../../types/models';
 import { Search, Package, AlertCircle, MapPin, Plus, Heart, Phone } from 'lucide-react';
-import { Button, FloatingCartButton, ProductDetailModal, ImageWithSkeleton, LanguageSwitcher, SkeletonCatalogue } from '@components/common';
+import { Button, FloatingCartButton, ProductDetailModal, ImageWithSkeleton, LanguageSwitcher, SkeletonCatalogue, SkeletonLoader } from '@components/common';
 
 const placeholderImg = '/placeholder.png';
 
@@ -28,6 +28,8 @@ const Catalogue = () => {
   const [productStockMap, setProductStockMap] = useState<Map<string, number>>(new Map());
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [productsLoading, setProductsLoading] = useState(true);
+  const [hasReceivedProducts, setHasReceivedProducts] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
   // Cache for products to prevent re-fetching - use ref to avoid infinite loops
@@ -147,7 +149,13 @@ const Catalogue = () => {
   // Subscribe to products with caching and real-time updates
   useEffect(() => {
     // Wait for company to be loaded before loading products
-    if (!company?.id) return;
+    if (!company?.id) {
+      setHasReceivedProducts(false);
+      return;
+    }
+
+    // Reset the flag when company changes
+    setHasReceivedProducts(false);
 
     // If we have cached data, show it immediately while waiting for real-time updates
     if (productsCacheRef.current.has(company.id)) {
@@ -167,9 +175,13 @@ const Catalogue = () => {
       );
       setProducts(filteredProducts);
       setLoading(false);
+      // Mark as received since we have cached data
+      setHasReceivedProducts(true);
+      setProductsLoading(false);
     } else {
       // No cached data - set loading to true while we wait for subscription
       setLoading(true);
+      setProductsLoading(true);
     }
 
     // Always subscribe to real-time updates, even if we have cached data
@@ -194,6 +206,9 @@ const Catalogue = () => {
       productsCacheRef.current.set(company.id, productsData);
       setProducts(companyProducts);
       setLoading(false);
+      // Mark that we've received data from the subscription
+      setHasReceivedProducts(true);
+      setProductsLoading(false);
     }, 200); // OPTIMIZATION: Limit to 200 products for public catalogue
 
     return () => unsubscribe();
@@ -565,7 +580,28 @@ const Catalogue = () => {
         </div>
 
         {/* Products Grid */}
-      {filteredProducts.length === 0 ? (
+      {productsLoading || !hasReceivedProducts ? (
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-6">
+            {[...Array(20)].map((_, i) => (
+              <div key={i} className="bg-white rounded-lg sm:rounded-xl shadow-sm overflow-hidden">
+                {/* Product Image Skeleton */}
+                <div className="relative aspect-square">
+                  <SkeletonLoader width="w-full" height="h-full" className="rounded-none" />
+                </div>
+                
+                {/* Product Info Skeleton */}
+                <div className="p-3 sm:p-4">
+                  <SkeletonLoader width="w-3/4" height="h-4" className="mb-1 sm:mb-2 sm:h-5" />
+                  <SkeletonLoader width="w-1/2" height="h-3" className="mb-2 sm:mb-3 sm:h-4" />
+                  <div className="flex items-center justify-between">
+                    <SkeletonLoader width="w-20" height="h-4" className="sm:h-5" />
+                    <SkeletonLoader width="w-8" height="h-8" className="md:w-10 md:h-10" rounded />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : filteredProducts.length === 0 ? (
           <div className="text-center py-16">
             <Package className="mx-auto h-16 w-16 text-gray-400" />
             <h3 className="mt-4 text-lg font-medium text-gray-900">Aucun produit trouvé</h3>
@@ -608,7 +644,7 @@ const Catalogue = () => {
                     <p className="text-xs text-gray-500 mb-2 sm:mb-3">{product.category}</p>
                     <div className="flex items-center justify-between">
                       <span className="text-xs sm:text-sm md:text-base font-bold" style={{color: getCompanyColors().secondary}}>
-                        {(product.cataloguePrice ?? 0).toLocaleString('fr-FR', {
+                        {((product.cataloguePrice && product.cataloguePrice > 0) ? product.cataloguePrice : (product.sellingPrice ?? 0)).toLocaleString('fr-FR', {
                           style: 'currency',
                           currency: 'XAF'
                         })}

@@ -22,6 +22,7 @@ import type { InventoryMethod } from '@utils/inventory/inventoryManagement';
 import type { InventoryResult } from '@utils/inventory/inventoryManagement';
 import { createAuditLog } from '../shared';
 import { createFinanceEntry } from '../finance/financeService';
+import { shouldDebitStock, shouldCreateFinanceEntry } from '@utils/sales/saleStatusRules';
 
 // Import location-aware stock functions from stock service
 import { 
@@ -40,16 +41,15 @@ const syncFinanceEntryWithSale = async (sale: Sale) => {
     return;
   }
 
-  // Only create financial entries for paid sales
-  // Credit sales should not have financial entries until they are paid
-  if (sale.status !== 'paid') {
-    // If sale is not paid, check if there's an existing finance entry and mark it as deleted
-    // This handles cases where a sale might have been changed from paid to credit
+  // Use business rules to determine if finance entry should be created
+  if (!shouldCreateFinanceEntry(sale.status, sale.paymentStatus)) {
+    // If sale should not have finance entry, check if there's an existing finance entry and mark it as deleted
+    // This handles cases where a sale might have been changed from paid to credit/commande/etc.
     const q = query(collection(db, 'finances'), where('sourceType', '==', 'sale'), where('sourceId', '==', sale.id));
     const snap = await getDocs(q);
     
     if (!snap.empty) {
-      // Mark existing entry as deleted if sale is no longer paid
+      // Mark existing entry as deleted if sale no longer qualifies for finance entry
       const { updateFinanceEntry } = await import('../firestore');
       const docId = snap.docs[0].id;
       await updateFinanceEntry(docId, { isDeleted: true });
@@ -151,6 +151,10 @@ export const createSale = async (
     
     const userId = data.userId || companyId;
     
+    // Determine if stock should be debited based on sale status
+    const normalizedStatus = data.status || 'paid';
+    const shouldDebit = shouldDebitStock(normalizedStatus);
+    
     for (const product of data.products) {
       const productRef = doc(db, 'products', product.productId);
       const productSnap = await getDoc(productRef);
@@ -204,7 +208,7 @@ export const createSale = async (
       }
       // If no location specified, use global stock (backward compatible)
       
-      // Check stock from batches (source of truth) - location-aware
+      // Always check stock availability (even if not debiting)
       const availableBatches = await getAvailableStockBatches(
         product.productId,
         companyId,
@@ -222,84 +226,102 @@ export const createSale = async (
         throw new Error(`Insufficient stock for product ${productData.name} in ${locationInfo}. Available: ${availableStock}, Requested: ${product.quantity}`);
       }
       
-      const inventoryMethod: InventoryMethod = ((data as any).inventoryMethod?.toUpperCase() as InventoryMethod) || (productData as any).inventoryMethod || 'FIFO';
-      
-      // Consume stock from location-aware batches
-      const inventoryResult = await consumeStockFromBatches(
-        batch,
-        product.productId,
-        companyId,
-        product.quantity,
-        inventoryMethod,
-        'product',
-        queryShopId,
-        queryWarehouseId,
-        locationType
-      );
-      
-      let productProfit = 0;
-      let productCost = 0;
-      
-      const batchProfits = inventoryResult.consumedBatches.map(batch => {
-        const batchProfit = (product.basePrice - batch.costPrice) * batch.consumedQuantity;
-        productProfit += batchProfit;
-        productCost += batch.costPrice * batch.consumedQuantity;
+      // Only debit stock if shouldDebitStock returns true
+      if (shouldDebit) {
+        const inventoryMethod: InventoryMethod = ((data as any).inventoryMethod?.toUpperCase() as InventoryMethod) || (productData as any).inventoryMethod || 'FIFO';
         
-        return {
-          batchId: batch.batchId,
-          costPrice: batch.costPrice,
-          consumedQuantity: batch.consumedQuantity,
-          profit: batchProfit
+        // Consume stock from location-aware batches
+        const inventoryResult = await consumeStockFromBatches(
+          batch,
+          product.productId,
+          companyId,
+          product.quantity,
+          inventoryMethod,
+          'product',
+          queryShopId,
+          queryWarehouseId,
+          locationType
+        );
+        
+        let productProfit = 0;
+        let productCost = 0;
+        
+        const batchProfits = inventoryResult.consumedBatches.map(batch => {
+          const batchProfit = (product.basePrice - batch.costPrice) * batch.consumedQuantity;
+          productProfit += batchProfit;
+          productCost += batch.costPrice * batch.consumedQuantity;
+          
+          return {
+            batchId: batch.batchId,
+            costPrice: batch.costPrice,
+            consumedQuantity: batch.consumedQuantity,
+            profit: batchProfit
+          };
+        });
+        
+        const averageCostPrice = productCost / product.quantity;
+        const profitMargin = productCost > 0 ? (productProfit / (product.basePrice * product.quantity)) * 100 : 0;
+        
+        totalCost += productCost;
+        totalProfit += productProfit;
+        
+        const enhancedProduct = {
+          ...product,
+          costPrice: averageCostPrice,
+          batchId: inventoryResult.primaryBatchId,
+          profit: productProfit,
+          profitMargin,
+          consumedBatches: batchProfits,
+          batchLevelProfits: batchProfits
         };
-      });
-      
-      const averageCostPrice = productCost / product.quantity;
-      const profitMargin = productCost > 0 ? (productProfit / (product.basePrice * product.quantity)) * 100 : 0;
-      
-      totalCost += productCost;
-      totalProfit += productProfit;
-      
-      const enhancedProduct = {
-        ...product,
-        costPrice: averageCostPrice,
-        batchId: inventoryResult.primaryBatchId,
-        profit: productProfit,
-        profitMargin,
-        consumedBatches: batchProfits,
-        batchLevelProfits: batchProfits
-      };
-      enhancedProducts.push(enhancedProduct);
-      
-      // Don't update product.stock - batches are the source of truth (already updated via consumeStockFromBatches)
-      batch.update(productRef, {
-        updatedAt: serverTimestamp()
-      });
-      
-      // Create stock change with location information
-      createStockChangeService(
-        batch, 
-        product.productId, 
-        -product.quantity, 
-        'sale', 
-        userId,
-        companyId,
-        'product',
-        undefined,
-        undefined,
-        undefined,
-        inventoryResult.averageCostPrice,
-        inventoryResult.primaryBatchId,
-        saleRef.id,
-        inventoryResult.consumedBatches,
-        locationType,
-        queryShopId,
-        queryWarehouseId
-      );
+        enhancedProducts.push(enhancedProduct);
+        
+        // Don't update product.stock - batches are the source of truth (already updated via consumeStockFromBatches)
+        batch.update(productRef, {
+          updatedAt: serverTimestamp()
+        });
+        
+        // Create stock change with location information
+        createStockChangeService(
+          batch, 
+          product.productId, 
+          -product.quantity, 
+          'sale', 
+          userId,
+          companyId,
+          'product',
+          undefined,
+          undefined,
+          undefined,
+          inventoryResult.averageCostPrice,
+          inventoryResult.primaryBatchId,
+          saleRef.id,
+          inventoryResult.consumedBatches,
+          locationType,
+          queryShopId,
+          queryWarehouseId
+        );
+      } else {
+        // Stock not debited - use zero cost/profit for these products
+        const enhancedProduct = {
+          ...product,
+          costPrice: 0,
+          batchId: '',
+          profit: 0,
+          profitMargin: 0,
+          consumedBatches: [],
+          batchLevelProfits: []
+        };
+        enhancedProducts.push(enhancedProduct);
+        
+        // Still update product timestamp
+        batch.update(productRef, {
+          updatedAt: serverTimestamp()
+        });
+      }
     }
     
     const averageProfitMargin = totalCost > 0 ? (totalProfit / totalCost) * 100 : 0;
-    
-    const normalizedStatus = data.status || 'paid';
     
     // Validate credit sales: require customer name only (phone and quarter are optional)
     if (normalizedStatus === 'credit') {

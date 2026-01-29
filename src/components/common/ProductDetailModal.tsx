@@ -146,14 +146,15 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
       .map(([key, value]) => `${key}: ${value}`)
       .join(', ');
     
-    const totalPrice = (product.cataloguePrice || product.sellingPrice) * quantity;
+    const unitPrice = (product.cataloguePrice && product.cataloguePrice > 0) ? product.cataloguePrice : (product.sellingPrice ?? 0);
+    const totalPrice = unitPrice * quantity;
     
     const message = `Bonjour! Je voudrais commander:
 
 *${product.name}*
 ${variations ? `Options: ${variations}` : ''}
 Quantité: ${quantity}
-Prix unitaire: ${formatPrice(product.cataloguePrice || product.sellingPrice)} XAF
+Prix unitaire: ${formatPrice(unitPrice)} XAF
 Total: ${formatPrice(totalPrice)} XAF
 
 Veuillez confirmer la disponibilité et fournir les détails de livraison.`;
@@ -346,7 +347,7 @@ Veuillez confirmer la disponibilité et fournir les détails de livraison.`;
                 <h1 className="text-xl font-bold text-gray-900 mb-2">{product.name}</h1>
                 <div className="flex items-center space-x-3">
                   <span className="text-lg font-bold text-gray-900">
-                    {formatPrice(product.cataloguePrice ?? 0)} XAF
+                    {formatPrice((product.cataloguePrice && product.cataloguePrice > 0) ? product.cataloguePrice : (product.sellingPrice ?? 0))} XAF
                   </span>
                   <div className="flex items-center space-x-1">
                     <Star className="h-4 w-4 text-yellow-400 fill-current" />
@@ -412,7 +413,7 @@ Veuillez confirmer la disponibilité et fournir les détails de livraison.`;
           onMouseEnter={(e) => (e.target as HTMLButtonElement).style.backgroundColor = '#0f2418'} 
           onMouseLeave={(e) => (e.target as HTMLButtonElement).style.backgroundColor = '#183524'}
         >
-          Ajouter au panier - {formatPrice((product.cataloguePrice ?? 0) * quantity)} XAF
+          Ajouter au panier - {formatPrice(((product.cataloguePrice && product.cataloguePrice > 0) ? product.cataloguePrice : (product.sellingPrice ?? 0)) * quantity)} XAF
         </button>
         
         <button

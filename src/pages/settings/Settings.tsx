@@ -6,7 +6,7 @@ import { showSuccessToast, showErrorToast, showWarningToast } from '@utils/core/
 import { useTranslation } from 'react-i18next';
 import { useSales, useExpenses, useAuditLogs, useProducts } from '@hooks/data/useFirestore';
 import { getSellerSettings, updateSellerSettings } from '@services/firestore/firestore';
-import { getCheckoutSettingsWithDefaults, saveCheckoutSettings, resetCheckoutSettings, subscribeToCheckoutSettings } from '@services/utilities/checkoutSettingsService';
+import { getCheckoutSettingsWithDefaults, saveCheckoutSettings, resetCheckoutSettings, subscribeToCheckoutSettings, migrateCheckoutSettingsToNewDefaults } from '@services/utilities/checkoutSettingsService';
 import { saveCinetPayConfig, subscribeToCinetPayConfig, validateCinetPayCredentials, initializeCinetPayConfig } from '@services/payment/cinetpayService';
 import { saveCampayConfig, subscribeToCampayConfig, validateCampayCredentials, initializeCampayConfig } from '@services/payment/campayService';
 import { linkEmailPasswordToAccount } from '@services/auth/authService';
@@ -135,10 +135,26 @@ const Settings = () => {
   useEffect(() => {
     if (!company?.id) return;
 
-    const unsubscribe = subscribeToCheckoutSettings(company.id, (settings) => {
+    const unsubscribe = subscribeToCheckoutSettings(company.id, async (settings) => {
       if (settings) {
-        setCheckoutSettings(settings);
-        setCheckoutLoading(false);
+        // Check if settings need migration to new defaults
+        // If email or newsletter is enabled, migrate to new defaults
+        if (settings.showEmail === true || settings.showNewsletter === true) {
+          try {
+            await migrateCheckoutSettingsToNewDefaults(company.id, user?.uid);
+            // Reload settings after migration
+            const updatedSettings = await getCheckoutSettingsWithDefaults(company.id, user?.uid);
+            setCheckoutSettings(updatedSettings);
+            setCheckoutLoading(false);
+          } catch (error) {
+            console.error('Error migrating checkout settings:', error);
+            setCheckoutSettings(settings);
+            setCheckoutLoading(false);
+          }
+        } else {
+          setCheckoutSettings(settings);
+          setCheckoutLoading(false);
+        }
       } else {
         // If no settings exist, get defaults
         getCheckoutSettingsWithDefaults(company.id, user?.uid).then(settings => {
@@ -1958,14 +1974,14 @@ const Settings = () => {
                             <div className="space-y-3">
                               <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
                                 <div>
-                                  <label className="text-sm font-medium text-gray-700">{t('settings.checkout.emailField')}</label>
-                                  <p className="text-xs text-gray-500">{t('settings.checkout.emailFieldDescription')}</p>
+                                  <label className="text-sm font-medium text-gray-700">Nom complet</label>
+                                  <p className="text-xs text-gray-500">Afficher le champ de saisie du nom complet</p>
                                 </div>
                                 <label className="relative inline-flex items-center cursor-pointer">
                                   <input
                                     type="checkbox"
-                                    checked={checkoutSettings.showEmail}
-                                    onChange={(e) => handleCheckoutSettingsUpdate({ showEmail: e.target.checked })}
+                                    checked={checkoutSettings.showName ?? true}
+                                    onChange={(e) => handleCheckoutSettingsUpdate({ showName: e.target.checked })}
                                     className="sr-only peer"
                                   />
                                   <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
@@ -1982,6 +1998,38 @@ const Settings = () => {
                                     type="checkbox"
                                     checked={checkoutSettings.showPhone}
                                     onChange={(e) => handleCheckoutSettingsUpdate({ showPhone: e.target.checked })}
+                                    className="sr-only peer"
+                                  />
+                                  <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                                </label>
+                              </div>
+
+                              <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                                <div>
+                                  <label className="text-sm font-medium text-gray-700">Quartier/Résidence</label>
+                                  <p className="text-xs text-gray-500">Afficher le champ de saisie du quartier ou résidence</p>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={checkoutSettings.showQuarter ?? true}
+                                    onChange={(e) => handleCheckoutSettingsUpdate({ showQuarter: e.target.checked })}
+                                    className="sr-only peer"
+                                  />
+                                  <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                                </label>
+                              </div>
+
+                              <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                                <div>
+                                  <label className="text-sm font-medium text-gray-700">{t('settings.checkout.emailField')}</label>
+                                  <p className="text-xs text-gray-500">{t('settings.checkout.emailFieldDescription')}</p>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={checkoutSettings.showEmail}
+                                    onChange={(e) => handleCheckoutSettingsUpdate({ showEmail: e.target.checked })}
                                     className="sr-only peer"
                                   />
                                   <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
@@ -2018,6 +2066,118 @@ const Settings = () => {
                             <div className="space-y-3">
                               <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
                                 <div>
+                                  <label className="text-sm font-medium text-gray-700">Nom pour livraison</label>
+                                  <p className="text-xs text-gray-500">Afficher le champ de nom pour la livraison (prérempli depuis Contact)</p>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={checkoutSettings.showDeliveryName ?? true}
+                                    onChange={(e) => handleCheckoutSettingsUpdate({ showDeliveryName: e.target.checked })}
+                                    className="sr-only peer"
+                                  />
+                                  <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
+                                </label>
+                              </div>
+
+                              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                                <div>
+                                  <label className="text-sm font-medium text-gray-700">Téléphone pour livraison</label>
+                                  <p className="text-xs text-gray-500">Afficher le champ de téléphone pour la livraison (prérempli depuis Contact)</p>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={checkoutSettings.showDeliveryPhone ?? true}
+                                    onChange={(e) => handleCheckoutSettingsUpdate({ showDeliveryPhone: e.target.checked })}
+                                    className="sr-only peer"
+                                  />
+                                  <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
+                                </label>
+                              </div>
+
+                              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                                <div>
+                                  <label className="text-sm font-medium text-gray-700">Adresse ligne 1 (Rue + Numéro)</label>
+                                  <p className="text-xs text-gray-500">Afficher le champ d'adresse principale (requis)</p>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={checkoutSettings.showDeliveryAddressLine1 ?? true}
+                                    onChange={(e) => handleCheckoutSettingsUpdate({ showDeliveryAddressLine1: e.target.checked })}
+                                    className="sr-only peer"
+                                  />
+                                  <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
+                                </label>
+                              </div>
+
+                              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                                <div>
+                                  <label className="text-sm font-medium text-gray-700">Adresse ligne 2 (Complément)</label>
+                                  <p className="text-xs text-gray-500">Afficher le champ de complément d'adresse (optionnel)</p>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={checkoutSettings.showDeliveryAddressLine2 ?? true}
+                                    onChange={(e) => handleCheckoutSettingsUpdate({ showDeliveryAddressLine2: e.target.checked })}
+                                    className="sr-only peer"
+                                  />
+                                  <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
+                                </label>
+                              </div>
+
+                              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                                <div>
+                                  <label className="text-sm font-medium text-gray-700">Quartier/Zone de livraison</label>
+                                  <p className="text-xs text-gray-500">Afficher le champ de quartier/zone de livraison (requis)</p>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={checkoutSettings.showDeliveryQuarter ?? true}
+                                    onChange={(e) => handleCheckoutSettingsUpdate({ showDeliveryQuarter: e.target.checked })}
+                                    className="sr-only peer"
+                                  />
+                                  <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
+                                </label>
+                              </div>
+
+                              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                                <div>
+                                  <label className="text-sm font-medium text-gray-700">Ville de livraison</label>
+                                  <p className="text-xs text-gray-500">Afficher le champ de ville de livraison (optionnel)</p>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={checkoutSettings.showDeliveryCity ?? true}
+                                    onChange={(e) => handleCheckoutSettingsUpdate({ showDeliveryCity: e.target.checked })}
+                                    className="sr-only peer"
+                                  />
+                                  <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
+                                </label>
+                              </div>
+
+                              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                                <div>
+                                  <label className="text-sm font-medium text-gray-700">{t('settings.checkout.deliveryInstructions') || 'Instructions de livraison'}</label>
+                                  <p className="text-xs text-gray-500">{t('settings.checkout.deliveryInstructionsDescription') || 'Afficher le champ d\'instructions de livraison'}</p>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={checkoutSettings.showDeliveryInstructions}
+                                    onChange={(e) => handleCheckoutSettingsUpdate({ showDeliveryInstructions: e.target.checked })}
+                                    className="sr-only peer"
+                                  />
+                                  <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
+                                </label>
+                              </div>
+
+                              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                                <div>
                                   <label className="text-sm font-medium text-gray-700">{t('settings.checkout.country')}</label>
                                   <p className="text-xs text-gray-500">{t('settings.checkout.countryDescription')}</p>
                                 </div>
@@ -2026,86 +2186,6 @@ const Settings = () => {
                                     type="checkbox"
                                     checked={checkoutSettings.showCountry}
                                     onChange={(e) => handleCheckoutSettingsUpdate({ showCountry: e.target.checked })}
-                                    className="sr-only peer"
-                                  />
-                                  <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
-                                </label>
-                              </div>
-
-                              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                                <div>
-                                  <label className="text-sm font-medium text-gray-700">{t('settings.checkout.firstName')}</label>
-                                  <p className="text-xs text-gray-500">{t('settings.checkout.firstNameDescription')}</p>
-                                </div>
-                                <label className="relative inline-flex items-center cursor-pointer">
-                                  <input
-                                    type="checkbox"
-                                    checked={checkoutSettings.showFirstName}
-                                    onChange={(e) => handleCheckoutSettingsUpdate({ showFirstName: e.target.checked })}
-                                    className="sr-only peer"
-                                  />
-                                  <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
-                                </label>
-                              </div>
-
-                              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                                <div>
-                                  <label className="text-sm font-medium text-gray-700">{t('settings.checkout.lastName')}</label>
-                                  <p className="text-xs text-gray-500">{t('settings.checkout.lastNameDescription')}</p>
-                                </div>
-                                <label className="relative inline-flex items-center cursor-pointer">
-                                  <input
-                                    type="checkbox"
-                                    checked={checkoutSettings.showLastName}
-                                    onChange={(e) => handleCheckoutSettingsUpdate({ showLastName: e.target.checked })}
-                                    className="sr-only peer"
-                                  />
-                                  <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
-                                </label>
-                              </div>
-
-                              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                                <div>
-                                  <label className="text-sm font-medium text-gray-700">{t('settings.checkout.address')}</label>
-                                  <p className="text-xs text-gray-500">{t('settings.checkout.addressDescription')}</p>
-                                </div>
-                                <label className="relative inline-flex items-center cursor-pointer">
-                                  <input
-                                    type="checkbox"
-                                    checked={checkoutSettings.showAddress}
-                                    onChange={(e) => handleCheckoutSettingsUpdate({ showAddress: e.target.checked })}
-                                    className="sr-only peer"
-                                  />
-                                  <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
-                                </label>
-                              </div>
-
-                              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                                <div>
-                                  <label className="text-sm font-medium text-gray-700">{t('settings.checkout.apartment')}</label>
-                                  <p className="text-xs text-gray-500">{t('settings.checkout.apartmentDescription')}</p>
-                                </div>
-                                <label className="relative inline-flex items-center cursor-pointer">
-                                  <input
-                                    type="checkbox"
-                                    checked={checkoutSettings.showApartment}
-                                    onChange={(e) => handleCheckoutSettingsUpdate({ showApartment: e.target.checked })}
-                                    className="sr-only peer"
-                                  />
-                                  <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
-                                </label>
-                              </div>
-
-                              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                                <div>
-                                  <label className="text-sm font-medium text-gray-700">{t('settings.checkout.city')}</label>
-                                  <p className="text-xs text-gray-500">{t('settings.checkout.cityDescription')}</p>
-                                </div>
-                                <label className="relative inline-flex items-center cursor-pointer">
-                                  <input
-                                    type="checkbox"
-                                    checked={checkoutSettings.showCity}
-                                    onChange={(e) => handleCheckoutSettingsUpdate({ showCity: e.target.checked })}
                                     className="sr-only peer"
                                   />
                                   <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
@@ -2422,15 +2502,27 @@ const Settings = () => {
                               <div className="text-gray-600 mb-2">{t('settings.checkout.contactFieldsLabel')}</div>
                               <div className="space-y-1">
                                 <div className="flex items-center justify-between">
-                                  <span className="text-xs text-gray-500">{t('settings.checkout.emailField')}</span>
+                                  <span className="text-xs text-gray-500">Nom complet</span>
                                   <span className={`w-2 h-2 rounded-full ${
-                                    checkoutSettings.showEmail ? 'bg-emerald-500' : 'bg-gray-300'
+                                    (checkoutSettings.showName ?? true) ? 'bg-emerald-500' : 'bg-gray-300'
                                   }`}></span>
                                 </div>
                                 <div className="flex items-center justify-between">
                                   <span className="text-xs text-gray-500">{t('settings.checkout.phoneField')}</span>
                                   <span className={`w-2 h-2 rounded-full ${
                                     checkoutSettings.showPhone ? 'bg-emerald-500' : 'bg-gray-300'
+                                  }`}></span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs text-gray-500">Quartier/Résidence</span>
+                                  <span className={`w-2 h-2 rounded-full ${
+                                    (checkoutSettings.showQuarter ?? true) ? 'bg-emerald-500' : 'bg-gray-300'
+                                  }`}></span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs text-gray-500">{t('settings.checkout.emailField')}</span>
+                                  <span className={`w-2 h-2 rounded-full ${
+                                    checkoutSettings.showEmail ? 'bg-emerald-500' : 'bg-gray-300'
                                   }`}></span>
                                 </div>
                                 <div className="flex items-center justify-between">
@@ -2448,45 +2540,51 @@ const Settings = () => {
                               <div className="text-gray-600 mb-2">{t('settings.checkout.deliveryFieldsLabel')}</div>
                               <div className="space-y-1">
                                 <div className="flex items-center justify-between">
-                                  <span className="text-xs text-gray-500">{t('settings.checkout.country')}</span>
+                                  <span className="text-xs text-gray-500">Nom pour livraison</span>
                                   <span className={`w-2 h-2 rounded-full ${
-                                    checkoutSettings.showCountry ? 'bg-emerald-500' : 'bg-gray-300'
+                                    (checkoutSettings.showDeliveryName ?? true) ? 'bg-emerald-500' : 'bg-gray-300'
                                   }`}></span>
                                 </div>
                                 <div className="flex items-center justify-between">
-                                  <span className="text-xs text-gray-500">{t('settings.checkout.firstName')}</span>
+                                  <span className="text-xs text-gray-500">Téléphone pour livraison</span>
                                   <span className={`w-2 h-2 rounded-full ${
-                                    checkoutSettings.showFirstName ? 'bg-emerald-500' : 'bg-gray-300'
+                                    (checkoutSettings.showDeliveryPhone ?? true) ? 'bg-emerald-500' : 'bg-gray-300'
                                   }`}></span>
                                 </div>
                                 <div className="flex items-center justify-between">
-                                  <span className="text-xs text-gray-500">{t('settings.checkout.lastName')}</span>
+                                  <span className="text-xs text-gray-500">Adresse ligne 1</span>
                                   <span className={`w-2 h-2 rounded-full ${
-                                    checkoutSettings.showLastName ? 'bg-emerald-500' : 'bg-gray-300'
+                                    (checkoutSettings.showDeliveryAddressLine1 ?? true) ? 'bg-emerald-500' : 'bg-gray-300'
                                   }`}></span>
                                 </div>
                                 <div className="flex items-center justify-between">
-                                  <span className="text-xs text-gray-500">{t('settings.checkout.address')}</span>
+                                  <span className="text-xs text-gray-500">Adresse ligne 2</span>
                                   <span className={`w-2 h-2 rounded-full ${
-                                    checkoutSettings.showAddress ? 'bg-emerald-500' : 'bg-gray-300'
+                                    (checkoutSettings.showDeliveryAddressLine2 ?? true) ? 'bg-emerald-500' : 'bg-gray-300'
                                   }`}></span>
                                 </div>
                                 <div className="flex items-center justify-between">
-                                  <span className="text-xs text-gray-500">{t('settings.checkout.apartment')}</span>
+                                  <span className="text-xs text-gray-500">Quartier/Zone de livraison</span>
                                   <span className={`w-2 h-2 rounded-full ${
-                                    checkoutSettings.showApartment ? 'bg-emerald-500' : 'bg-gray-300'
+                                    (checkoutSettings.showDeliveryQuarter ?? true) ? 'bg-emerald-500' : 'bg-gray-300'
                                   }`}></span>
                                 </div>
                                 <div className="flex items-center justify-between">
-                                  <span className="text-xs text-gray-500">{t('settings.checkout.city')}</span>
+                                  <span className="text-xs text-gray-500">Ville de livraison</span>
                                   <span className={`w-2 h-2 rounded-full ${
-                                    checkoutSettings.showCity ? 'bg-emerald-500' : 'bg-gray-300'
+                                    (checkoutSettings.showDeliveryCity ?? true) ? 'bg-emerald-500' : 'bg-gray-300'
                                   }`}></span>
                                 </div>
                                 <div className="flex items-center justify-between">
                                   <span className="text-xs text-gray-500">{t('settings.checkout.deliveryInstructions')}</span>
                                   <span className={`w-2 h-2 rounded-full ${
                                     checkoutSettings.showDeliveryInstructions ? 'bg-emerald-500' : 'bg-gray-300'
+                                  }`}></span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs text-gray-500">{t('settings.checkout.country')}</span>
+                                  <span className={`w-2 h-2 rounded-full ${
+                                    checkoutSettings.showCountry ? 'bg-emerald-500' : 'bg-gray-300'
                                   }`}></span>
                                 </div>
                               </div>

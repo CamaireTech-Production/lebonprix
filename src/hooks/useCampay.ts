@@ -48,19 +48,29 @@ export const useCampay = (companyId: string | null): UseCampayReturn => {
           ensureHiddenButton();
         } else {
           setIsInitialized(false);
+          // Campay is not configured - this is normal, no error needed
         }
       } catch (error) {
-        console.error('Campay initialization error:', error);
-        setIsInitialized(false);
         const errorMessage = error instanceof Error ? error.message : 'Failed to initialize Campay payment system';
         
-        // Provide specific error messages (matching RestoFlow)
-        if (errorMessage.includes('network') || errorMessage.includes('connection')) {
-          toast.error('Network error: Unable to load payment system. Please check your internet connection.');
-        } else if (errorMessage.includes('timeout')) {
-          toast.error('Payment system loading timeout. Please refresh the page and try again.');
+        // Only log and show errors if Campay was configured but failed to initialize
+        // If config was not found, that's normal and should be handled silently
+        if (errorMessage.includes('configuration not found')) {
+          // Campay is not configured - this is normal, handle silently
+          setIsInitialized(false);
         } else {
-          toast.error('Failed to initialize Campay payment system. Please contact support if the issue persists.');
+          // Actual error occurred - log and show notification
+          console.error('Campay initialization error:', error);
+          setIsInitialized(false);
+          
+          // Provide specific error messages (matching RestoFlow)
+          if (errorMessage.includes('network') || errorMessage.includes('connection')) {
+            toast.error('Network error: Unable to load payment system. Please check your internet connection.');
+          } else if (errorMessage.includes('timeout')) {
+            toast.error('Payment system loading timeout. Please refresh the page and try again.');
+          } else {
+            toast.error('Failed to initialize Campay payment system. Please contact support if the issue persists.');
+          }
         }
       } finally {
         setIsScriptLoading(false);
