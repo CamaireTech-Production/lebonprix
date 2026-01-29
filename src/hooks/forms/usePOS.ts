@@ -10,7 +10,7 @@ import { getUserById } from '@services/utilities/userService';
 import { validateSaleData, normalizeSaleData } from '@utils/calculations/saleUtils';
 import type { OrderStatus, Customer, Product } from '../../types/models';
 import { logError } from '@utils/core/logger';
-import { normalizePhoneForComparison } from '@utils/core/phoneUtils';
+import { normalizePhoneForComparison, normalizePhoneNumber } from '@utils/core/phoneUtils';
 import { ensureCustomerExists } from '@services/firestore/customers/customerService';
 import { saveDraft as saveDraftToStorage, getDrafts, deleteDraft, type POSDraft } from '@utils/pos/posDraftStorage';
 import { useAllStockBatches } from '@hooks/business/useStockBatches';
@@ -408,7 +408,7 @@ export function usePOS(shopId?: string) {
             : 'pending' as const),
         customerInfo: {
           name: customerInfo.name || 'Client de passage',
-          phone: customerInfo.phone || '',
+          phone: customerInfo.phone ? normalizePhoneNumber(customerInfo.phone) : '',
           quarter: customerInfo.quarter || '',
         },
         deliveryFee: paymentData?.deliveryFee ?? state.deliveryFee ?? 0,

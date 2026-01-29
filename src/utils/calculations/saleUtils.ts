@@ -1,4 +1,5 @@
 import { showErrorToast } from '@utils/core/toast';
+import { normalizePhoneNumber } from '@utils/core/phoneUtils';
 import type { OrderStatus, PaymentStatus, SaleProduct } from '../../types/models';
 
 type TranslationFunction = (key: string) => string;
@@ -167,7 +168,7 @@ export const normalizeSaleData = (
     paymentStatus: (data.paymentStatus || 'paid') as PaymentStatus,
     customerInfo: {
       name: (data.customerInfo?.name || 'Client de passage') as string,
-      phone: (data.customerInfo?.phone || '') as string,
+      phone: data.customerInfo?.phone ? normalizePhoneNumber(data.customerInfo.phone) : '',
       quarter: data.customerInfo?.quarter,
     },
     deliveryFee: data.deliveryFee ?? 0,

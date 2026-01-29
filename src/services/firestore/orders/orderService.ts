@@ -37,6 +37,7 @@ import { createFinanceEntry, updateFinanceEntry } from '../finance/financeServic
 import { getAvailableStockBatches } from '../stock/stockService';
 import { createSale } from '../sales/saleService';
 import { ensureCustomerExists } from '../customers/customerService';
+import { normalizePhoneNumber } from '@utils/core/phoneUtils';
 import type { Product } from '../../../types/models';
 import type { Sale } from '../../../types/models';
 
@@ -917,7 +918,7 @@ export const convertOrderToSale = async (
       paymentStatus,
       customerInfo: {
         name: order.customerInfo.name || 'Client de passage',
-        phone: order.customerInfo.phone || '',
+        phone: order.customerInfo.phone ? normalizePhoneNumber(order.customerInfo.phone) : '',
         quarter: order.customerInfo.quarter || order.customerInfo.location || ''
       },
       deliveryFee: order.pricing.deliveryFee || 0,

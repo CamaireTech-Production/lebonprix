@@ -6,10 +6,11 @@
 
 import { subscribeToProducts } from './products/productService';
 import { subscribeToSales } from './sales/saleService';
+import { subscribeToCustomers } from './customers/customerService';
 import ProductsManager from '@services/storage/ProductsManager';
 import SalesManager from '@services/storage/SalesManager';
 import BackgroundSyncService from '@services/utilities/backgroundSync';
-import type { Product, Sale } from '../../types/models';
+import type { Product, Sale, Customer } from '../../types/models';
 
 interface SubscriptionState<T> {
   data: T[];
@@ -31,6 +32,15 @@ class SharedSubscriptionsManager {
   };
 
   private salesState: SubscriptionState<Sale> = {
+    data: [],
+    loading: false,
+    syncing: false,
+    error: null,
+    unsubscribe: null,
+    listeners: new Set()
+  };
+
+  private customersState: SubscriptionState<Customer> = {
     data: [],
     loading: false,
     syncing: false,
@@ -138,6 +148,37 @@ class SharedSubscriptionsManager {
   }
 
   /**
+   * Initialize customers subscription for a company
+   */
+  initializeCustomers(companyId: string): void {
+    if (this.companyId === companyId && this.customersState.unsubscribe) {
+      // Already initialized for this company
+      return;
+    }
+
+    // Cleanup previous subscription if company changed
+    if (this.customersState.unsubscribe && this.companyId !== companyId) {
+      this.customersState.unsubscribe();
+      this.customersState.unsubscribe = null;
+    }
+
+    this.companyId = companyId;
+
+    // Set loading state
+    this.customersState.loading = true;
+
+    // Create single subscription
+    const unsubscribe = subscribeToCustomers(companyId, (data) => {
+      this.customersState.data = data;
+      this.customersState.loading = false;
+      this.customersState.syncing = false;
+      this.notifyCustomersListeners(data);
+    }, 100); // Limit to 100 for performance
+
+    this.customersState.unsubscribe = unsubscribe;
+  }
+
+  /**
    * Subscribe to products updates
    */
   subscribeToProducts(listener: (data: Product[]) => void): () => void {
@@ -172,6 +213,23 @@ class SharedSubscriptionsManager {
   }
 
   /**
+   * Subscribe to customers updates
+   */
+  subscribeToCustomers(listener: (data: Customer[]) => void): () => void {
+    this.customersState.listeners.add(listener);
+    
+    // Immediately notify with current data if available
+    if (this.customersState.data.length > 0) {
+      listener(this.customersState.data);
+    }
+
+    // Return unsubscribe function
+    return () => {
+      this.customersState.listeners.delete(listener);
+    };
+  }
+
+  /**
    * Get current products state
    */
   getProductsState(): SubscriptionState<Product> {
@@ -194,6 +252,20 @@ class SharedSubscriptionsManager {
       loading: this.salesState.loading,
       syncing: this.salesState.syncing,
       error: this.salesState.error,
+      unsubscribe: null, // Don't expose unsubscribe
+      listeners: new Set() // Don't expose listeners
+    };
+  }
+
+  /**
+   * Get current customers state
+   */
+  getCustomersState(): SubscriptionState<Customer> {
+    return {
+      data: [...this.customersState.data],
+      loading: this.customersState.loading,
+      syncing: this.customersState.syncing,
+      error: this.customersState.error,
       unsubscribe: null, // Don't expose unsubscribe
       listeners: new Set() // Don't expose listeners
     };
@@ -226,6 +298,19 @@ class SharedSubscriptionsManager {
   }
 
   /**
+   * Notify all customers listeners
+   */
+  private notifyCustomersListeners(data: Customer[]): void {
+    this.customersState.listeners.forEach(listener => {
+      try {
+        listener(data);
+      } catch (error) {
+        console.error('Error in customers listener:', error);
+      }
+    });
+  }
+
+  /**
    * Cleanup all subscriptions
    */
   cleanup(): void {
@@ -237,8 +322,13 @@ class SharedSubscriptionsManager {
       this.salesState.unsubscribe();
       this.salesState.unsubscribe = null;
     }
+    if (this.customersState.unsubscribe) {
+      this.customersState.unsubscribe();
+      this.customersState.unsubscribe = null;
+    }
     this.productsState.listeners.clear();
     this.salesState.listeners.clear();
+    this.customersState.listeners.clear();
     this.companyId = null;
   }
 }

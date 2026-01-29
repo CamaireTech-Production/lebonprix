@@ -10,7 +10,7 @@ import { getUserById } from '@services/utilities/userService';
 import { validateSaleData, normalizeSaleData } from '@utils/calculations/saleUtils';
 import type { OrderStatus, SaleProduct, Customer, Product, Sale } from '../../types/models';
 import { logError } from '@utils/core/logger';
-import { normalizePhoneForComparison } from '@utils/core/phoneUtils';
+import { normalizePhoneForComparison, normalizePhoneNumber } from '@utils/core/phoneUtils';
 import { ensureCustomerExists } from '@services/firestore/customers/customerService';
 import { useAllStockBatches } from '@hooks/business/useStockBatches';
 import { buildProductStockMap, getEffectiveProductStock } from '@utils/inventory/stockHelpers';
@@ -388,7 +388,9 @@ export function useAddSaleForm(_onSaleAdded?: (sale: Sale) => void) {
       const customerQuarter = formData.customerQuarter || '';
       // Use "Client de passage" for name only if phone exists but name doesn't
       const finalCustomerName = customerName || (customerPhone ? 'Client de passage' : '');
-      const customerInfo = { name: finalCustomerName, phone: customerPhone, ...(customerQuarter && { quarter: customerQuarter }) };
+      // Normalize phone number to ensure consistent format (+237XXXXXXXXX)
+      const normalizedPhone = customerPhone ? normalizePhoneNumber(customerPhone) : '';
+      const customerInfo = { name: finalCustomerName, phone: normalizedPhone, ...(customerQuarter && { quarter: customerQuarter }) };
       
       // Determine payment status based on sale status
       const saleStatus = formData.status;
