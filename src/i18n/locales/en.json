@@ -2421,6 +2421,7 @@
       "close": "Close",
       "paymentMethod": "Payment Method",
       "paymentError": "Payment failed",
+      "paymentSuccess": "Payment successful!",
       "errors": {
         "selectMethod": "Please select a payment method",
         "insufficientAmount": "Amount received is insufficient",

@@ -2587,6 +2587,7 @@
       "close": "Fermer",
       "paymentMethod": "Méthode de Paiement",
       "paymentError": "Échec du paiement",
+      "paymentSuccess": "Paiement réussi !",
       "errors": {
         "selectMethod": "Veuillez sélectionner un mode de paiement",
         "insufficientAmount": "Le montant reçu est insuffisant",
