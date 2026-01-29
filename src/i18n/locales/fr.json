@@ -1352,6 +1352,8 @@
       "reportMailHelp": "Adresse email vers laquelle les rapports de vente seront envoyés",
       "reportTime": "Heure de réception des rapports",
       "reportTimeHelp": "Heure à laquelle les rapports seront envoyés (0-23h)",
+      "emailReportsEnabled": "Activer l'envoi automatique des rapports par email",
+      "emailReportsEnabledHelp": "Si désactivé, les rapports ne seront pas générés ni envoyés par email",
       "changePassword": "Changer le mot de passe",
       "currentPassword": "Mot de passe actuel",
       "currentPasswordHelp": "Requis seulement si vous changez le mot de passe",

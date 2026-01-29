@@ -77,6 +77,7 @@ const Settings = () => {
     email: '',
     report_mail: '',
     report_time: '',
+    emailReportsEnabled: true,
     logo: '',
     website: '',
     // Catalogue colors
@@ -110,6 +111,7 @@ const Settings = () => {
         email: company.email || '',
         report_mail: company.report_mail || '',
         report_time: formatReportTime(company.report_time) || '08:00',
+        emailReportsEnabled: company.emailReportsEnabled !== false, // Default true
         logo: company.logo || '',
         website: company.website || '',
         // Catalogue colors
@@ -465,6 +467,7 @@ const Settings = () => {
         email: formData.email,
         report_mail: formData.report_mail || undefined,
         report_time: reportTime,
+        emailReportsEnabled: formData.emailReportsEnabled,
         website: normalizedWebsite,
         // New color schemes
         catalogueColors: {
@@ -1436,6 +1439,28 @@ const Settings = () => {
                         placeholder="rapports@entreprise.com"
                         helpText={t('settings.account.reportMailHelp')}
                       />
+                    )}
+                    {(isOwner || effectiveRole !== 'vendeur') && (
+                      <div>
+                        <div className="flex items-center space-x-3">
+                          <input
+                            type="checkbox"
+                            id="emailReportsEnabled"
+                            name="emailReportsEnabled"
+                            checked={formData.emailReportsEnabled}
+                            onChange={(e) => setFormData(prev => ({ ...prev, emailReportsEnabled: e.target.checked }))}
+                            className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded"
+                          />
+                          <div className="flex-1">
+                            <label htmlFor="emailReportsEnabled" className="block text-sm font-medium text-gray-700 cursor-pointer">
+                              {t('settings.account.emailReportsEnabled')}
+                            </label>
+                            <p className="mt-1 text-sm text-gray-500">
+                              {t('settings.account.emailReportsEnabledHelp')}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
                     )}
                     {(isOwner || effectiveRole !== 'vendeur') && (
                       <div>

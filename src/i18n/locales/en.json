@@ -1350,6 +1350,8 @@
       "reportMailHelp": "Email address where sales reports will be sent",
       "reportTime": "Report reception time",
       "reportTimeHelp": "Hour when reports will be sent (0-23h)",
+      "emailReportsEnabled": "Enable automatic email report sending",
+      "emailReportsEnabledHelp": "If disabled, reports will not be generated or sent by email",
       "changePassword": "Change Password",
       "currentPassword": "Current Password",
       "currentPasswordHelp": "Required only if changing password",
